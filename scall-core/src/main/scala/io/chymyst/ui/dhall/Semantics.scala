@@ -7,6 +7,8 @@ import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
 
+import java.util.regex.Pattern
+
 object Semantics {
 
   final case class GammaTypeContext(defs: Seq[(VarName, Expression)])
@@ -92,6 +94,16 @@ object Semantics {
     case other => other.map(alphaNormalize)
   }
 
+  private def textShow(string: String): String = string
+    .replace("\\", "\\\\")
+    .replace("\t", "\\t")
+    .replace("\r", "\\r")
+    .replace("\n", "\\n")
+    .replace("\f", "\\f")
+    .replace("\b", "\\b")
+    .replace("$", "\\u0024")
+    .replace("\"", "\\\"")
+
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = { // TODO: make betaNormalize a lazy val inside Expression.
     lazy val normalized: ExpressionScheme[Expression] = expr.map(betaNormalize)
@@ -113,8 +125,8 @@ object Semantics {
 
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
-      case EmptyList(tipe) => ???
-      case NonEmptyList(head, tail) => ???
+      case EmptyList(tipe) => normalized
+      case NonEmptyList(exprs) => normalized
       case Annotation(data, tipe) => ???
 
       case ExprOperator(lop, op, rop) =>
@@ -198,7 +210,25 @@ object Semantics {
               case _ if equivalent(argN, a) => NaturalLiteral(0)
               case _ => Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), aN)), argN)
             }
+          case ExprBuiltin(Builtin.TextShow) => matchOrNormalize(argN) { case TextLiteral(List(), string) => TextLiteral.ofString(textShow(string)) }
+          case Application(Expression(Application(Expression(ExprBuiltin(Builtin.TextReplace)), needle)), replacement) =>
+            (needle.scheme, replacement.scheme, argN.scheme) match {
+              case (TextLiteral(List(), ""), _, _) | (_, _, TextLiteral(List(), "")) => argN // One more case of beta-normalization: empty haystack needs no replacement even if needle is not a TextLiteral.
+              case (TextLiteral(List(), needleString), _, TextLiteral(List(), haystack)) =>
+                val chunks = haystack.split(Pattern.quote(needleString), -1).toList
 
+                def loop(chunks: List[String]): TextLiteral[Expression] = chunks match {
+                  case Nil => TextLiteral.empty
+                  case List(s) => TextLiteral.ofString(s)
+                  case head :: tail =>
+                    val tl = loop(tail)
+                    TextLiteral((head, replacement) +: tl.interpolations, tl.trailing)
+                }
+
+                betaNormalize(loop(chunks))
+
+              case _ => normalized
+            }
 
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
           case _ => normalized
@@ -210,7 +240,22 @@ object Semantics {
       case Completion(base, target) => ???
       case Assert(assertion) => ???
       case With(data, pathComponents, body) => ???
-      case TextLiteral(interpolations, trailing) => ???
+
+      case TextLiteral(_, _) =>
+        val TextLiteral(interpolationsN, trailing) = normalized
+
+        // TODO: replace this with foldRight
+        def loop(t: TextLiteral[Expression]): TextLiteral[Expression] = t.interpolations match {
+          case (head, Expression(tl@TextLiteral(_, _))) :: next => TextLiteral.ofString[Expression](head) ++ tl ++ loop(TextLiteral(next, t.trailing))
+          case (head, headExpr) :: next => TextLiteral(List((head, headExpr)), "") ++ loop(TextLiteral(next, t.trailing))
+          case Nil => t
+        }
+
+        loop(TextLiteral(interpolationsN, trailing)) match {
+          case TextLiteral(List(("", chunkN)), "") => chunkN
+          case t => t
+        }
+
       case RecordType(defs) => ???
       case RecordLiteral(defs) => ???
       case UnionType(defs) => ???

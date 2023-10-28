@@ -275,7 +275,7 @@ object Syntax {
         case Merge(record, update, tipe) => Merge(record, update, tipe)
         case ToMap(data, tipe) => ToMap(data, tipe)
         case EmptyList(tipe) => EmptyList(tipe)
-        case NonEmptyList(head, tail) => NonEmptyList(head, tail)
+        case NonEmptyList(exprs) => NonEmptyList(exprs)
         case Annotation(data, tipe) => Annotation(data, tipe)
         case ExprOperator(lop, op, rop) => ExprOperator(lop, op, rop)
         case Application(func, arg) => Application(func, arg)
@@ -318,7 +318,7 @@ object Syntax {
 
     final case class EmptyList[E](tipe: E) extends ExpressionScheme[E]
 
-    final case class NonEmptyList[E](head: E, tail: Seq[E]) extends ExpressionScheme[E]
+    final case class NonEmptyList[E](exprs: Seq[E]) extends ExpressionScheme[E]
 
     final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
 

@@ -75,7 +75,7 @@ class CBORtest extends FunSuite {
   }
 
   test("CBOR roundtrips 4") {
-    cborRoundtrip(NonEmptyList[Expression](NaturalLiteral(1), Seq(2, 3, 4, 5).map(x => NaturalLiteral(x))))
+    cborRoundtrip(NonEmptyList[Expression](Seq(1, 2, 3, 4, 5).map(x => NaturalLiteral(x))))
   }
 
   test("CBOR roundtrips 5") {

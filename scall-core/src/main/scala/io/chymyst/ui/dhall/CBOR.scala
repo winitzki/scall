@@ -122,7 +122,7 @@ sealed trait CBORmodel {
 
         case CIntTag(4) :: tipe :: Nil if tipe != CNull => ExpressionScheme.EmptyList[Expression](ExpressionScheme.Application[Expression](ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.List), tipe.toScheme))
 
-        case CIntTag(4) :: CNull :: head :: tail => ExpressionScheme.NonEmptyList(head.toScheme, tail.map(_.toScheme))
+        case CIntTag(4) :: CNull :: exprs => ExpressionScheme.NonEmptyList(exprs.map(_.toScheme))
 
         case CIntTag(5) :: CNull :: body :: Nil => ExpressionScheme.KeywordSome(body.toScheme)
 
@@ -447,7 +447,7 @@ object CBOR {
 
     case ExpressionScheme.EmptyList(tipe) => array(28, tipe)
 
-    case ExpressionScheme.NonEmptyList(head, tail) => array(4 +: null +: head +: tail: _*)
+    case ExpressionScheme.NonEmptyList(exprs) => array(4 +: null +: exprs: _*)
 
     case ExpressionScheme.Annotation(data, tipe) => array(26, data, tipe)
 

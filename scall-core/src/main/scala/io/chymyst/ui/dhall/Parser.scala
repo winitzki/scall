@@ -1181,7 +1181,7 @@ object Grammar {
 
   def non_empty_list_literal[$: P]: P[Expression] = P(
     "[" ~/ whsp ~ ("," ~ whsp).? ~ expression ~ whsp ~ ("," ~ whsp ~ /* No cut here, or else [, ,] cannot be parsed. */ expression ~ whsp).rep ~ ("," ~/ whsp).? ~ "]"
-  ).map { case (head, tail) => Expression(NonEmptyList(head, tail)) }
+  ).map { case (head, tail) => Expression(NonEmptyList(head +: tail)) }
 
   def shebang[$: P] = P(
     "#!" ~/ not_end_of_line.rep.! ~ end_of_line

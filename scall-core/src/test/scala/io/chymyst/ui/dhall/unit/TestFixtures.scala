@@ -86,7 +86,7 @@ object TestFixtures {
     "( -12345  )" -> IntegerLiteral(BigInt(-12345)),
     "a-b/c" -> v("a-b/c"),
     "_xyz       @   \t\t\t\n\n           123451234512345123451234512345" -> Variable(VarName("_xyz"), BigInt("123451234512345123451234512345")),
-    "[1,2,3]" -> NonEmptyList[Expression](NaturalLiteral(BigInt(1)), Seq(NaturalLiteral(BigInt(2)), NaturalLiteral(BigInt(3)))),
+    "[1,2,3]" -> NonEmptyList[Expression](Seq(1, 2, 3).map(x => NaturalLiteral(x))),
     "Kind" -> ExprBuiltin(SyntaxConstants.Builtin.Kind),
     "Natural/show" -> ExprBuiltin(SyntaxConstants.Builtin.NaturalShow),
     "Natural" -> ExprBuiltin(SyntaxConstants.Builtin.Natural),

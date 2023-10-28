@@ -28,14 +28,14 @@ Beta-normalization.
 
 ## Roadmap
 
-1. Parse from Dhall text into Dhall expression structures.
-2. Serialize Dhall expressions into CBOR and deserialize back into Dhall.
+1. Parse from Dhall text into Dhall expression structures. (Done.)
+2. Serialize Dhall expressions into CBOR and deserialize back into Dhall. (Done.)
 3. Evaluate and normalize Dhall values according to Dhall semantics.
-4. Import Dhall values from the network according to the Dhall security model.
+4. Import Dhall values from files or from the Internet according to the Dhall security model.
 5. Convert between Dhall values and Scala values (as much as possible given the Scala type system).
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
-7. Compile Dhall values into a library JAR. Publish the standard and taking JAR dependencies.
-8. Extend Dhall on the Scala side (no changes to the Dhall standard) so that certain Dhall types or values are interpreted via custom Scala code.
+7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
+8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or values may be interpreted via custom Scala code.
 
 ### Parsing with `fastparse`
 
@@ -43,7 +43,9 @@ The ABNF grammar of Dhall is translated into rules of `fastparse`.
 
 The "cut" is used sparingly as the `~/` operator, usually after a keyword or after a required whitespace.
 
-However, in some cases adding this "cut" operator made the parsing results incorrect.
+However, in some cases adding this "cut" operator made the parsing results incorrect and had to be removed.
+
+Another feature is that some parses need to fail for others to succeed. For example, `missingfoo` should be parsed as an identifier. However, `missing` is a keyword and is matched first. To ensure correct parsing, negative lookahead is used for keywords. 
 
 #### Limitations
 
