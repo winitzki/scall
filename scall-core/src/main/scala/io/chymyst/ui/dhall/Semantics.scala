@@ -8,6 +8,7 @@ import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
 
 import java.util.regex.Pattern
+import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
 
@@ -103,17 +104,20 @@ object Semantics {
     .replace("\b", "\\b")
     .replace("$", "\\u0024")
     .replace("\"", "\\\"")
+    .pipe(s => "\"" + s + "\"") // TODO: report an issue to dhall-lang that this step is not shown in beta-normalization.md
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = { // TODO: make betaNormalize a lazy val inside Expression.
     lazy val normalized: ExpressionScheme[Expression] = expr.map(betaNormalize)
     expr.scheme match {
+      // These expression types are already in beta-normal form.
       case Variable(_, _) | ExprBuiltin(_) | ExprConstant(_) | NaturalLiteral(_) | IntegerLiteral(_) | DoubleLiteral(_) |
            BytesLiteral(_) | DateLiteral(_, _, _) | TimeLiteral(_) | TimeZoneLiteral(_) =>
         expr
 
-      case Lambda(name, tipe, body) => ???
-      case Forall(name, tipe, body) => ???
+      // These expression types only need to normalize their arguments.
+      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalized
+
       case Let(name, tipe, subst, body) => ???
 
       case If(cond, ifTrue, ifFalse) =>
@@ -125,9 +129,8 @@ object Semantics {
 
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
-      case EmptyList(tipe) => normalized
-      case NonEmptyList(exprs) => normalized
-      case Annotation(data, tipe) => ???
+
+      case Annotation(data, tipe) => betaNormalize(data)
 
       case ExprOperator(lop, op, rop) =>
         val ExprOperator(lopN, _, ropN) = normalized
@@ -178,8 +181,8 @@ object Semantics {
             else if (equivalent(lop, rop)) ExprBuiltin(Builtin.False)
             else normalized
 
-          case Operator.Equivalent => ???
-          case Operator.Alternative => ???
+          case Operator.Equivalent => normalized
+          case Operator.Alternative => throw new Exception(s"Unresolved import alternative $this cannot be beta-normalized")
         }
 
       case Application(_, _) =>
@@ -238,7 +241,7 @@ object Semantics {
       case ProjectByLabels(base, labels) => ???
       case ProjectByType(base, by) => ???
       case Completion(base, target) => ???
-      case Assert(assertion) => ???
+
       case With(data, pathComponents, body) => ???
 
       case TextLiteral(_, _) =>
@@ -260,8 +263,8 @@ object Semantics {
       case RecordLiteral(defs) => ???
       case UnionType(defs) => ???
       case ShowConstructor(data) => ???
-      case Import(importType, importMode, digest) => ???
-      case KeywordSome(data) => ???
+
+      case Import(_, _, _) => throw new Exception(s"Unresolved import $this cannot be beta-normalized")
     }
   }
 
