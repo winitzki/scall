@@ -1,10 +1,12 @@
 package io.chymyst.ui.dhall.unit
 
 import fastparse.Parsed
-import io.chymyst.ui.dhall.{CBOR, Parser, Syntax}
+import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
 import munit.FunSuite
 import TestUtils._
 import com.eed3si9n.expecty.Expecty.expect
+import com.upokecenter.cbor.CBORObject
+import io.chymyst.ui.dhall.CBORmodel.fromCbor
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 
 import java.io.{File, FileInputStream}
@@ -154,29 +156,31 @@ class DhallParserSuite extends FunSuite {
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhallb", "B.dhall"))
         val cborBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath))
-        Try {
+        val result = Try {
           val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
           val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
           val ourExpr = CBOR.bytesToExpr(cborBytes)
+          val cborModelFromFileA: CBORmodel = fromCbor(CBORObject.DecodeFromBytes(cborBytes))
           val Parsed.Success(dhallValue, _) = Parser.parseDhall(new FileInputStream(validationFile))
           val validationExpr = dhallValue.value
           // We have read the CBOR file correctly.
-          expect("'" + validationExpr.toCBORmodel.toString + "'" == "'" + diagnosticString + "'")
+          expect(cborModelFromFileA.toString == diagnosticString)
           expect((ourExpr.toCBORmodel equals validationExpr.toCBORmodel) && (ourExpr equals validationExpr))
           file.getName
         }
-
+        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-    results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
+    //results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
     expect(results.count(_.isFailure) == 0)
   }
 
   test("validate binary decoding/failure") {
-//    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/failure", Some("A.dhallb"))
-//      .flatMap { file =>
-//        val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
-//        val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
-//      }
+    //    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/failure", Some("A.dhallb"))
+    //      .flatMap { file =>
+    //        val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
+    //        val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
+    //      }
   }
 }
