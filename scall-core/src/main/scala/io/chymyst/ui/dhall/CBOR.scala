@@ -90,7 +90,14 @@ sealed trait CBORmodel {
     }
   }
 
-  final def toScheme: ExpressionScheme[Expression] = this match {
+  def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
+    case CArray(data) => CArray(data.map(removeVacuousTag))
+    case CMap(data) => CMap(data.map { case (k, v) => (k, removeVacuousTag(v)) })
+    case CTagged(55799, data) => removeVacuousTag(data)
+    case _ => model
+  }
+
+  final def toScheme: ExpressionScheme[Expression] = removeVacuousTag(this) match {
     case CNull => ().die(s"Invalid top-level CBOR null value")
     case CTrue => ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.True)
     case CFalse => ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.False)
@@ -233,7 +240,6 @@ sealed trait CBORmodel {
         case _ => ().die(s"Invalid top-level array $this while parsing CBOR")
       }
 
-    case CTagged(55799, data) => data.toScheme
     case CTagged(tag, data) => ().die(s"Unexpected tagged top-level CBOR object: tag $tag with data $data")
     case CBytes(_) | CMap(_) => ().die(s"Unexpected top-level CBOR object: $this")
   }
@@ -358,7 +364,7 @@ object CBORmodel {
 
     override def toString: String = "[" + data.map(_.toString).mkString(", ") + "]"
 
-    override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall{case (x, y) => x equals y})
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall { case (x, y) => x equals y })
   }
 
   object CBytes {
@@ -381,7 +387,8 @@ object CBORmodel {
     }
 
     override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": $v" }.mkString(", ") + "}"
-    override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall{case (x, y) => x equals y})
+
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
   }
 
   final case class CTagged(tag: Int, data: CBORmodel) extends CBORmodel {
@@ -424,7 +431,7 @@ object CBOR {
       CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // TODO: Does this work correctly? Do we need to set littleEndian = true?
 
   def toCborModel(e: Expression): CBORmodel = e.scheme match {
-    case  Variable(name, index) => if (name == underscore) CInt(index) else array(name.name, index)
+    case Variable(name, index) => if (name == underscore) CInt(index) else array(name.name, index)
 
     case ExpressionScheme.Lambda(name, tipe, body) => if (name == underscore) array(1, tipe, body) else array(1, name.name, tipe, body)
 
