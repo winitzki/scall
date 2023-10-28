@@ -357,6 +357,8 @@ object CBORmodel {
     override def toCBOR: CBORObject = CBORObject.FromObject(data.map(_.toCBOR))
 
     override def toString: String = "[" + data.map(_.toString).mkString(", ") + "]"
+
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall{case (x, y) => x equals y})
   }
 
   object CBytes {
@@ -367,6 +369,8 @@ object CBORmodel {
     override def toCBOR: CBORObject = CBORObject.FromObject(data)
 
     override def toString: String = "h'" + byteArrayToHexString(data) + "'"
+
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[CBytes] && (obj.asInstanceOf[CBytes].data sameElements data)
   }
 
   final case class CMap(data: Map[String, CBORmodel]) extends CBORmodel {
@@ -377,6 +381,7 @@ object CBORmodel {
     }
 
     override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": $v" }.mkString(", ") + "}"
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall{case (x, y) => x equals y})
   }
 
   final case class CTagged(tag: Int, data: CBORmodel) extends CBORmodel {

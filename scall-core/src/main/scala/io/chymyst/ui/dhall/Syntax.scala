@@ -349,7 +349,7 @@ object Syntax {
     final case class NaturalLiteral(value: Natural) extends ExpressionScheme[Nothing] {
       override def equals(other: Any): Boolean = other.isInstanceOf[NaturalLiteral] && {
         val otherValue = other.asInstanceOf[NaturalLiteral].value
-        value == otherValue
+        value equals otherValue
       }
     }
 
@@ -363,7 +363,7 @@ object Syntax {
     final case class IntegerLiteral(value: Integer) extends ExpressionScheme[Nothing] {
       override def equals(other: Any): Boolean = other.isInstanceOf[IntegerLiteral] && {
         val otherValue = other.asInstanceOf[IntegerLiteral].value
-        value == otherValue
+        value equals otherValue
       }
     }
 
