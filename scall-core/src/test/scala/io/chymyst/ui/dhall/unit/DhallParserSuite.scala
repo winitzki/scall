@@ -148,4 +148,35 @@ class DhallParserSuite extends FunSuite {
     results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
     expect(results.count(_.isFailure) == 0)
   }
+
+  test("validate binary decoding/success") {
+    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/success", Some("A.dhallb"))
+      .map { file =>
+        val validationFile = new File(file.getAbsolutePath.replace("A.dhallb", "B.dhall"))
+        val cborBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath))
+        Try {
+          val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
+          val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
+          val ourExpr = CBOR.bytesToExpr(cborBytes)
+          val Parsed.Success(dhallValue, _) = Parser.parseDhall(new FileInputStream(validationFile))
+          val validationExpr = dhallValue.value
+          // We have read the CBOR file correctly.
+          expect(validationExpr.toCBORmodel.toString == diagnosticString)
+          expect(ourExpr.toCBORmodel == validationExpr.toCBORmodel && ourExpr == validationExpr)
+          file.getName
+        }
+
+      }
+    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
+    results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
+    expect(results.count(_.isFailure) == 0)
+  }
+
+  test("validate binary decoding/failure") {
+//    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/failure", Some("A.dhallb"))
+//      .flatMap { file =>
+//        val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
+//        val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
+//      }
+  }
 }
