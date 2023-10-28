@@ -14,16 +14,26 @@ import scala.util.chaining.scalaUtilChainingOps
 
 class DhallParserSuite extends FunSuite {
 
+  // Recursively enumerate all files (not directories) with names matching a given suffix.
   def enumerateResourceFiles(directory: String, filterBySuffix: Option[String] = None): Seq[File] =
-    getClass.getClassLoader.getResource(directory)
+    enumerateFilesRecursively(getClass.getClassLoader.getResource(directory)
       .getPath
-      .pipe(new File(_)).listFiles.toSeq
-      .filter(f => filterBySuffix.forall(suffix => f.getName.endsWith(suffix)))
-      .sortBy(_.getName)
+      .pipe(new File(_)), filterBySuffix)
 
-  def testFilesForSuccess = enumerateResourceFiles("parser-succeed", Some(".dhall"))
+  def enumerateFilesRecursively(directory: File, filterBySuffix: Option[String] = None): Seq[File] =
+    Option(directory.listFiles).map(_.toSeq) match {
+      case Some(files) =>
+        (files.filter(_.isFile) ++
+          files.filter(_.isDirectory).flatMap(d => enumerateFilesRecursively(d, filterBySuffix))
+          ).filter(f => filterBySuffix.forall(suffix => f.getName.endsWith(suffix)))
+          .sortBy(_.getName)
 
-  def testFilesForFailure = enumerateResourceFiles("parser-fail", Some(".dhall"))
+      case None => throw new Exception(s"File $directory is not a directory, cannot list.")
+    }
+
+  def testFilesForSuccess = enumerateResourceFiles("tests/parser/success", Some(".dhall"))
+
+  def testFilesForFailure = enumerateResourceFiles("tests/parser/failure", Some(".dhall"))
 
   test("parse standard examples for successful parsing") {
     val results = testFilesForSuccess.map { file =>

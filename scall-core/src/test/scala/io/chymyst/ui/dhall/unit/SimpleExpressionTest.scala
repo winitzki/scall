@@ -85,7 +85,7 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("parse a sample file") {
-    val testFile = getClass.getClassLoader.getResourceAsStream("parser-succeed/whitespaceBuffetA.dhall")
+    val testFile = getClass.getClassLoader.getResourceAsStream("tests/parser/success/whitespaceBuffetA.dhall")
     val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall(testFile)
   }
 
@@ -300,9 +300,9 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("records have sorted fields in CBOR") {
-    val testFileA = getClass.getClassLoader.getResourceAsStream("parser-succeed/leadingSeparatorsA.dhall")
+    val testFileA = getClass.getClassLoader.getResourceAsStream("tests/parser/success/leadingSeparatorsA.dhall")
     val expr = Parser.parseDhall(testFileA).get.value.value.scheme
-    val testFileB = getClass.getClassLoader.getResourceAsStream("parser-succeed/leadingSeparatorsB.dhallb")
+    val testFileB = getClass.getClassLoader.getResourceAsStream("tests/parser/success/leadingSeparatorsB.dhallb")
     val cborModelFromExampleFile = CBORmodel.fromCbor(CBORObject.Read(testFileB))
     val cborModelAfterRoundtrip = CBORmodel.fromCbor(CBORObject.DecodeFromBytes(CBOR.exprToBytes(expr)))
     expect(cborModelFromExampleFile.toString == cborModelAfterRoundtrip.toString)
