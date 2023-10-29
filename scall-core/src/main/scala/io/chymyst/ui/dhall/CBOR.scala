@@ -414,11 +414,12 @@ object CBORmodel {
       case _ => s"$tag(${data.dhallDiagnostics})"
     }
 
-    def toBigIntIfPossible: Try[BigInt] = (// Note: data such as 2(h'0x123123123'), i.e., Tagged(2, CBytes(...)), must be decoded into a big integer. But we want to keep the CBORmodel unmodified.
+    def toBigIntIfPossible: Try[BigInt] = // Note: data such as 2(h'0x123123123'), i.e., Tagged(2, CBytes(...)), must be decoded into a big integer. But we want to keep the CBORmodel unmodified.
       (tag, data) match {
         case (2, CBytes(bytes)) => Success(BigInt(1, bytes))
         case (3, CBytes(bytes)) => Success(BigInt(-1, bytes) - 1)
-      }).or(s"Invalid integer literal $this: tag $tag must be 2 or 3, data is $data must be CBytes")
+        case _ => Failure(new Exception(s"Invalid integer literal $this: tag $tag must be 2 or 3, data is $data must be CBytes"))
+      }
   }
 
   def toCBORmodel: Any => CBORmodel = {
