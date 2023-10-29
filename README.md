@@ -18,9 +18,9 @@ All the parser tests pass.
 
 A serializer and deserializer for CBOR format, using [CBOR-Java](https://github.com/peteroupc/CBOR-Java).
 
-Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed upstream but the fix is not yet published.
+Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed upstream but the fix is not yet published to Sonatype / Maven.org.
 
-Some CBOR decoding tests still fail.
+All CBOR decoding tests pass.
 
 Alpha-normalization according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
 
