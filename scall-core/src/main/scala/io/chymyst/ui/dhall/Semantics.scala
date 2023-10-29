@@ -16,9 +16,10 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/shift.md
   def shift(positive: Boolean, x: VarName, minIndex: Natural, expr: Expression): Expression = {
-    val d = if (positive) 1 else -1
     expr.scheme match {
-      case Variable(name, index) => if (name != x || index < minIndex) expr else Variable(name, index + d)
+      case Variable(name, index) =>
+        val d = if (positive) 1 else -1
+        if (name != x || index < minIndex) expr else Variable(name, index + d)
 
       case Lambda(name, tipe, body) =>
         val newMinIndex = if (name != x) minIndex else minIndex + 1

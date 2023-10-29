@@ -568,7 +568,7 @@ object Syntax {
 
     // Print to Dhall syntax.
     def toDhall: String = scheme match {
-      case Variable(name, index) => s"${name.escape} @ ${index.toString(10)}"
+      case Variable(name, index) => s"${name.escape}@${index.toString(10)}"
       case Lambda(name, tipe, body) => s"\\(${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
       case Forall(name, tipe, body) => s"forall (${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
       case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => " : " + t.toDhall).getOrElse("")} = ${subst.toDhall} in ${body.toDhall}"
@@ -616,8 +616,9 @@ object Syntax {
     def |(other: Expression): Expression = Annotation(this, other)
 
     // Lambda is a -> b where a must be (Variable :: T)
-    def ->(other: Expression): Expression = other.scheme match {
+    def ->(other: Expression): Expression = this.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
+      case _ => throw new Exception(s"Invalid lambda: base must be an Annotation but is ${this.toDhall}: $this")
     }
   }
 
