@@ -90,7 +90,7 @@ sealed trait CBORmodel {
     }
   }
 
-  def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
+  private def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
     case CArray(data) => CArray(data.map(removeVacuousTag))
     case CMap(data) => CMap(data.map { case (k, v) => (k, removeVacuousTag(v)) })
     case CTagged(55799, data) => removeVacuousTag(data)
@@ -172,7 +172,9 @@ sealed trait CBORmodel {
             ExpressionScheme.TextLiteral(data.drop(1).init.grouped(2).toList.map { array => (array(0).asInstanceOf[CString].data, array(1).toScheme) }, trailing)
           }
 
-        case CString(name) :: CInt(index) :: Nil => ExpressionScheme.Variable(VarName(name), index)
+        case CString(name) :: CInt(index) :: Nil =>
+          assert(name != "_").or(s"Invalid array $this: variables named '_' must be encoded as integers")
+          ExpressionScheme.Variable(VarName(name), index)
 
         case CIntTag(33) :: CBytes(bytes) :: Nil => ExpressionScheme.BytesLiteral(CBytes.byteArrayToHexString(bytes))
 
@@ -227,7 +229,6 @@ sealed trait CBORmodel {
           val nanos: Int = (totalSeconds % power) * math.pow(10, precision + 9).toInt
 
           ExpressionScheme.TimeLiteral(LocalTime.of(hours, minutes, seconds, nanos))
-
 
         case CIntTag(32) :: (CTrue | CFalse) :: CIntTag(hours) :: CIntTag(minutes) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 =>
           val sign = data(1) match {
