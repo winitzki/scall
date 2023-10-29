@@ -38,6 +38,7 @@ object Semantics {
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/substitution.md
+  // Report issue: The notation in the Haskell reference code is quite confusing. The names x, x', y need to be chosen more consistently.
   def substitute(expr: Expression, substVar: VarName, substIndex: Natural, substTarget: Expression): Expression = expr.scheme match {
     case Variable(name, index) => if (name == substVar && index == substIndex) substTarget else expr
 
