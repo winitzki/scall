@@ -596,7 +596,7 @@ object Grammar {
   ).map { case (name, index) => Variable(name, index.map(_.value).getOrElse(BigInt(0))) }
 
   def path_character[$: P] = P( // Note: character 002D is the hyphen and needs to be escaped when used under CharIn().
-    CharIn("\u0021\u0024-\u0027\u002A-\u002B\\-\u002E\u0030\u003B\u0040-\u005A\u005E-\u007A\u007C\u007E")
+    CharIn("\u0021\u0024-\u0027\u002A-\u002B\\-\u002E\u0030-\u003B\u0040-\u005A\u005E-\u007A\u007C\u007E")
   )
 
   def quoted_path_character[$: P] = P(
@@ -822,9 +822,10 @@ object Grammar {
     //      | %x5D_7E
   )
 
-  def import_type[$: P]: P[ImportType[Expression]] = P( // Prevent parsing `missingfoo` as `missing` followed by a parse failure.
+  def import_type[$: P]: P[ImportType[Expression]] = P(
+    // Prevent parsing `missingfoo` as `missing` followed by a parse failure.
     (requireKeyword("missing") ~ !simple_label_next_char).map(_ => ImportType.Missing)
-      | local
+      | NoCut(local)
       | http
       | env
   )

@@ -188,7 +188,7 @@ class SimpleExpressionTest extends FunSuite {
     check(Grammar.complete_expression(_), "{ }", Expression(RecordType(Seq())))
     check(Grammar.complete_expression(_), "{=}", Expression(RecordLiteral(Seq())))
     check(Grammar.complete_expression(_), "{,}", Expression(RecordType(Seq())))
-    check(Grammar.complete_expression(_), "{}",  Expression(RecordType(Seq())))
+    check(Grammar.complete_expression(_), "{}", Expression(RecordType(Seq())))
   }
 
   test("variables or missing import ambiguity 1") {
@@ -212,8 +212,8 @@ class SimpleExpressionTest extends FunSuite {
     check(Grammar.identifier(_), "missingas", v("missingas"))
 
     check(Seq(
-      "missing as Text" -> Expression(Import (Missing, RawText, None)),
-      "missingas text" -> Expression(Application (v("missingas"), v("text"))),
+      "missing as Text" -> Expression(Import(Missing, RawText, None)),
+      "missingas text" -> Expression(Application(v("missingas"), v("text"))),
       "missing//foo" -> v("missing//foo"),
     ) ++ Seq("missingas", "Natural/blah", "lets").map { m =>
       s"let $m = \\(x: Natural) -> x in let text = 2 in $m text" -> Expression(Let(VarName(m), None, Lambda[Expression](VarName("x"), ExprBuiltin(Natural), v("x")), Let[Expression](VarName("text"), None, NaturalLiteral(2), Application(v(m), v("text")))))
@@ -313,5 +313,10 @@ class SimpleExpressionTest extends FunSuite {
   test("application to an import") {
     val expected = Expression(Application(ExprBuiltin(SyntaxConstants.Builtin.List), Import(Path(Here, File(List("file"))), Code, None)))
     check(Grammar.application_expression(_), "List ./file", expected)
+  }
+
+  test("import with a long file path") {
+    val input = "./path0/path1/path2/file"
+    check(Grammar.import_expression(_), input, Expression(Import(Path(Here, File(List("path0", "path1", "path2", "file"))), Code, None)))
   }
 }
