@@ -157,10 +157,7 @@ sealed trait CBORmodel {
           else ().die(s"Invalid natural literal: value must be non-negative but is ${bigInt.toString(10)}")
 
         case CIntTag(16) :: CInt(n) :: Nil => ExpressionScheme.IntegerLiteral(n)
-
-        case CIntTag(16) :: (t@CTagged(_, CBytes(_))) :: Nil =>
-          val CInt(bigInt) = t.toBigIntIfPossible
-          ExpressionScheme.IntegerLiteral(bigInt)
+        case CIntTag(16) :: (t@CTagged(_, CBytes(_))) :: Nil => ExpressionScheme.IntegerLiteral(t.toBigIntIfPossible.get)
 
         case CIntTag(18) :: CString(head) :: tail
           if tail.zipWithIndex.forall {
@@ -412,15 +409,15 @@ object CBORmodel {
 
     override def toString: String = s"$tag($data)"
 
-    override lazy val dhallDiagnostics: String = Try(toBigIntIfPossible) match {
-      case Success(value) => value.dhallDiagnostics
+    override lazy val dhallDiagnostics: String = toBigIntIfPossible match {
+      case Success(value) => CInt(value).dhallDiagnostics
       case _ => s"$tag(${data.dhallDiagnostics})"
     }
 
-    def toBigIntIfPossible: CInt = (
+    def toBigIntIfPossible: Try[BigInt] = (// Note: data such as 2(h'0x123123123'), i.e., Tagged(2, CBytes(...)), must be decoded into a big integer. But we want to keep the CBORmodel unmodified.
       (tag, data) match {
-        case (2, CBytes(bytes)) => CInt(BigInt(1, bytes))
-        case (3, CBytes(bytes)) => CInt(BigInt(-1, bytes) - 1)
+        case (2, CBytes(bytes)) => Success(BigInt(1, bytes))
+        case (3, CBytes(bytes)) => Success(BigInt(-1, bytes) - 1)
       }).or(s"Invalid integer literal $this: tag $tag must be 2 or 3, data is $data must be CBytes")
   }
 
