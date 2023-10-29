@@ -13,7 +13,10 @@ import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
 object SyntaxConstants {
-  final case class VarName(name: String) extends AnyVal
+  final case class VarName(name: String) extends AnyVal {
+    def escape: String = if ((Grammar.simpleKeywordsSet contains name) || (Grammar.builtinSymbolNamesSet contains name) || (SyntaxConstants.Constant.namesToValuesMap.keySet contains name) || (name matches ".*[^-/_A-Za-z0-9].*")) s"`$name`"
+    else name
+  }
 
   final case class FieldName(name: String) extends AnyVal
 
@@ -28,7 +31,7 @@ object SyntaxConstants {
     lazy val cborCodeDict: Map[B, A] = values.map { op => (op.cborCode, op) }.toMap
   }
 
-  sealed abstract class Operator(val op: String, val cborCode: Int) extends EnumEntry with HasCborCode[Operator, Int]
+  sealed abstract class Operator(val name: String, val cborCode: Int) extends EnumEntry with HasCborCode[Operator, Int]
 
   object Operator extends Enum[Operator] with HasCborCodeDict[Int, Operator] {
     val values = findValues
@@ -562,6 +565,45 @@ object Syntax {
     //    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this) // TODO: reuse this in Semantics.alphaNormalize as appropriate
     //    lazy val betaNormalized: Expression = Semantics.betaNormalize(this) // TODO: reuse this in Semantics.betaNormalize as appropriate
     //    lazy val betaNormalizedScheme: ExpressionScheme[Expression] = scheme.map(Semantics.betaNormalize)
+
+    // Print to Dhall syntax.
+    def toDhall: String = scheme match {
+      case Variable(name, index) => s"${name.escape} @ ${index.toString(10)}"
+      case Lambda(name, tipe, body) => s"\\(${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
+      case Forall(name, tipe, body) => s"forall (${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
+      case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => " : " + t.toDhall).getOrElse("")} = ${subst.toDhall} in ${body.toDhall}"
+      case If(cond, ifTrue, ifFalse) =>  s"if ${cond.toDhall} then ${ifTrue.toDhall} else ${ifFalse.toDhall}"
+      case Merge(record, update, tipe) => ???
+      case ToMap(data, tipe) => ???
+      case EmptyList(tipe) =>  s"[] : ${tipe.toDhall}"
+      case NonEmptyList(exprs) =>  exprs.map(_.toDhall).mkString("[", ", ", "]")
+      case Annotation(data, tipe) =>  s"${data.toDhall} : ${tipe.toDhall}"
+      case ExprOperator(lop, op, rop) =>  s"${lop.toDhall} ${op.name} ${rop.toDhall}"
+      case Application(func, arg) =>  s"${func.toDhall} ${arg.toDhall}"
+      case Field(base, name) => ???
+      case ProjectByLabels(base, labels) => ???
+      case ProjectByType(base, by) => ???
+      case Completion(base, target) => ???
+      case Assert(assertion) =>  s"assert : ${assertion.toDhall}"
+      case With(data, pathComponents, body) => ???
+      case DoubleLiteral(value) =>  value.toString
+      case NaturalLiteral(value) => value.toString(10)
+      case IntegerLiteral(value) => value.toString(10)
+      case TextLiteral(interpolations, trailing) => ???
+      case BytesLiteral(hex) => ???
+      case DateLiteral(year, month, day) => ???
+      case TimeLiteral(time) => ???
+      case TimeZoneLiteral(totalMinutes) => ???
+      case RecordType(defs) => ???
+      case RecordLiteral(defs) => ???
+      case UnionType(defs) => ???
+      case ShowConstructor(data) => ???
+      case Import(importType, importMode, digest) => ???
+      case KeywordSome(data) =>  s"Some ${data.toDhall}"
+      case ExprBuiltin(builtin) => builtin.entryName
+      case ExprConstant(constant) => constant.entryName
+    }
+
     // Construct Dhall terms more easily.
 
     // Natural numbers.

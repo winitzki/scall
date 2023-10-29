@@ -21,7 +21,10 @@ class DhallSemanticsSuite extends FunSuite {
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhall(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhall(new FileInputStream(validationFile))
-          expect(alphaNormalize(ourResult) == alphaNormalize(validationResult))
+          val x = alphaNormalize(ourResult)
+          val y = alphaNormalize(validationResult)
+          println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.toDhall}, after alpha-normalization ${x.toDhall}")
+          expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")

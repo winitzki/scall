@@ -407,6 +407,7 @@ object Grammar {
   def keyword[$: P]: P[String] = concatKeywords(simpleKeywords)
 
   val builtinSymbolNames = SyntaxConstants.Builtin.namesToValuesMap.keys.toSeq
+  val builtinSymbolNamesSet = SyntaxConstants.Builtin.namesToValuesMap.keySet
 
   def builtin[$: P]: P[Expression] =
     concatKeywords(builtinSymbolNames)
