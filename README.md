@@ -24,6 +24,8 @@ Some CBOR decoding tests still fail.
 
 Alpha-normalization according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
 
+All alpha-normalization tests pass.
+
 ### In progress
 
 Beta-normalization.
