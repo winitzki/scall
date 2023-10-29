@@ -157,7 +157,18 @@ sealed trait CBORmodel {
         case CIntTag(14) :: cond :: ifTrue :: ifFalse :: Nil => ExpressionScheme.If(cond.toScheme, ifTrue.toScheme, ifFalse.toScheme)
 
         case CIntTag(15) :: CInt(n) :: Nil if n >= 0 => ExpressionScheme.NaturalLiteral(n)
+        case CIntTag(15) :: CTagged(2, CBytes(bytes)) :: Nil =>
+          val bigInt = BigInt(bytes)
+          if (bigInt >= 0) ExpressionScheme.NaturalLiteral(bigInt)
+          else ().die(s"Invalid natural literal: value must be non-negative but is ${bigInt.toString(10)}")
+
         case CIntTag(16) :: CInt(n) :: Nil => ExpressionScheme.IntegerLiteral(n)
+
+        case CIntTag(16) :: CTagged(tag, CBytes(bytes)) :: Nil =>
+          val bigInt = BigInt(bytes)
+          if (tag == 2) ExpressionScheme.IntegerLiteral(bigInt)
+          else if (tag == 3) ExpressionScheme.IntegerLiteral(BigInt(-1) - bigInt)
+          else ().die(s"Invalid integer literal: tag must be 2 or 3 but is $tag, integer value is ${bigInt.toString(10)}")
 
         case CIntTag(18) :: CString(head) :: tail
           if tail.zipWithIndex.forall {
