@@ -43,24 +43,24 @@ object Semantics {
 
     case Lambda(name, tipe, body) =>
       val newIndex = if (name != substVar) substIndex else substIndex + 1
-      val newType = substitute(tipe, name, substIndex, substTarget)
+      val newType = substitute(tipe, substVar, substIndex, substTarget)
       val newTarget = shift(true, name, 0, substTarget)
-      val newBody = substitute(body, name, newIndex, newTarget)
+      val newBody = substitute(body, substVar, newIndex, newTarget)
       Lambda(name, newType, newBody)
 
     case Forall(name, tipe, body) =>
       val newIndex = if (name != substVar) substIndex else substIndex + 1
-      val newType = substitute(tipe, name, substIndex, substTarget)
+      val newType = substitute(tipe, substVar, substIndex, substTarget)
       val newTarget = shift(true, name, 0, substTarget)
-      val newBody = substitute(body, name, newIndex, newTarget)
+      val newBody = substitute(body, substVar, newIndex, newTarget)
       Forall(name, newType, newBody)
 
     case Let(name, tipe, subst, body) =>
       val newIndex = if (name != substVar) substIndex else substIndex + 1
-      val newType = tipe.map(substitute(_, name, substIndex, substTarget))
-      val newSubst = substitute(subst, name, substIndex, substTarget)
+      val newType = tipe.map(substitute(_, substVar, substIndex, substTarget))
+      val newSubst = substitute(subst, substVar, substIndex, substTarget)
       val newTarget = shift(true, name, 0, substTarget)
-      val newBody = substitute(body, name, newIndex, newTarget)
+      val newBody = substitute(body, substVar, newIndex, newTarget)
       Let(name, newType, newSubst, newBody)
 
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
