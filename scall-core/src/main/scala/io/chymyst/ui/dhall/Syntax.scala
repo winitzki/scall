@@ -302,7 +302,12 @@ object Syntax {
 
     implicit def toExpression(s: ExpressionScheme[Expression]): Expression = Expression(s)
 
-    final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing]
+    final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] {
+      override def equals(other: Any): Boolean = other.isInstanceOf[Variable] && {
+        val otherVar = other.asInstanceOf[Variable]
+        (otherVar.name equals name) && (otherVar.index equals index)
+      }
+    }
 
     final case class Lambda[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E]
 
@@ -554,9 +559,9 @@ object Syntax {
   final case class Expression(scheme: ExpressionScheme[Expression]) {
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
-//    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this) // TODO: reuse this in Semantics.alphaNormalize as appropriate
-//    lazy val betaNormalized: Expression = Semantics.betaNormalize(this) // TODO: reuse this in Semantics.betaNormalize as appropriate
-//    lazy val betaNormalizedScheme: ExpressionScheme[Expression] = scheme.map(Semantics.betaNormalize)
+    //    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this) // TODO: reuse this in Semantics.alphaNormalize as appropriate
+    //    lazy val betaNormalized: Expression = Semantics.betaNormalize(this) // TODO: reuse this in Semantics.betaNormalize as appropriate
+    //    lazy val betaNormalizedScheme: ExpressionScheme[Expression] = scheme.map(Semantics.betaNormalize)
     // Construct Dhall terms more easily.
 
     // Natural numbers.
