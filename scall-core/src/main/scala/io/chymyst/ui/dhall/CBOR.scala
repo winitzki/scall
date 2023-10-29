@@ -13,6 +13,7 @@ import java.time.LocalTime
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters.MapHasAsScala
+import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 object CBORfix {
@@ -81,14 +82,7 @@ sealed trait CBORmodel {
 
   def toCBOR: CBORObject
 
-  private implicit class OrError[A](expr: => A) {
-    def die(message: String, t: Throwable = null): Nothing = throw new Exception(message, t)
-
-    def or(message: String): A = Try(expr) match {
-      case Failure(t) => die(message, t)
-      case Success(value) => value
-    }
-  }
+  lazy val dhallDiagnostics: String = this.toString
 
   private def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
     case CArray(data) => CArray(data.map(removeVacuousTag))
@@ -164,11 +158,9 @@ sealed trait CBORmodel {
 
         case CIntTag(16) :: CInt(n) :: Nil => ExpressionScheme.IntegerLiteral(n)
 
-        case CIntTag(16) :: CTagged(tag, CBytes(bytes)) :: Nil =>
-          val bigInt = BigInt(bytes)
-          if (tag == 2) ExpressionScheme.IntegerLiteral(bigInt)
-          else if (tag == 3) ExpressionScheme.IntegerLiteral(BigInt(-1) - bigInt)
-          else ().die(s"Invalid integer literal: tag must be 2 or 3 but is $tag, integer value is ${bigInt.toString(10)}")
+        case CIntTag(16) :: (t@CTagged(_, CBytes(_))) :: Nil =>
+          val CInt(bigInt) = t.toBigIntIfPossible
+          ExpressionScheme.IntegerLiteral(bigInt)
 
         case CIntTag(18) :: CString(head) :: tail
           if tail.zipWithIndex.forall {
@@ -260,6 +252,14 @@ sealed trait CBORmodel {
 }
 
 object CBORmodel {
+  implicit class OrError[A](expr: => A) {
+    def die(message: String, t: Throwable = null): Nothing = throw new Exception(message, t)
+
+    def or(message: String): A = Try(expr) match {
+      case Failure(t) => die(message, t)
+      case Success(value) => value
+    }
+  }
 
   def fromCbor(obj: CBORObject): CBORmodel = if (obj == null) CNull else {
     val decoded: CBORmodel = obj.getType match {
@@ -376,6 +376,8 @@ object CBORmodel {
 
     override def toString: String = "[" + data.map(_.toString).mkString(", ") + "]"
 
+    override lazy val dhallDiagnostics: String = "[" + data.map(_.dhallDiagnostics).mkString(", ") + "]"
+
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall { case (x, y) => x equals y })
   }
 
@@ -400,6 +402,8 @@ object CBORmodel {
 
     override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": $v" }.mkString(", ") + "}"
 
+    override lazy val dhallDiagnostics: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": ${v.dhallDiagnostics}" }.mkString(", ") + "}"
+
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
   }
 
@@ -407,6 +411,17 @@ object CBORmodel {
     override def toCBOR: CBORObject = CBORObject.FromObjectAndTag(data.toCBOR, tag)
 
     override def toString: String = s"$tag($data)"
+
+    override lazy val dhallDiagnostics: String = Try(toBigIntIfPossible) match {
+      case Success(value) => value.dhallDiagnostics
+      case _ => s"$tag(${data.dhallDiagnostics})"
+    }
+
+    def toBigIntIfPossible: CInt = (
+      (tag, data) match {
+        case (2, CBytes(bytes)) => CInt(BigInt(1, bytes))
+        case (3, CBytes(bytes)) => CInt(BigInt(-1, bytes) - 1)
+      }).or(s"Invalid integer literal $this: tag $tag must be 2 or 3, data is $data must be CBytes")
   }
 
   def toCBORmodel: Any => CBORmodel = {

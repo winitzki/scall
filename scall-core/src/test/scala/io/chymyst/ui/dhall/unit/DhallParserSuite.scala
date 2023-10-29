@@ -148,7 +148,7 @@ class DhallParserSuite extends FunSuite {
           val validationExpr = dhallValue.value
           // We have read the CBOR file correctly.
           expect((ourExpr.toCBORmodel equals validationExpr.toCBORmodel) && (ourExpr equals validationExpr))
-          expect(cborModelFromFileA.toString == diagnosticString)
+          expect(cborModelFromFileA.dhallDiagnostics == diagnosticString)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
