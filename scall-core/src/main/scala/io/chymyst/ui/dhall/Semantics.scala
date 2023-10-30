@@ -3,7 +3,7 @@ package io.chymyst.ui.dhall
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
-import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold, NaturalSubtract}
+import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
@@ -247,6 +247,15 @@ object Semantics {
             val newType = shift(true, VarName(freshName), 0, tipe)
             // g (List A₀) (λ(a : A₀) → λ(as : List A₁) → [ a ] # as) ([] : List A₀) ⇥ b
             argN((~Builtin.List)(tipe))((a | tipe) -> (v("as") | (~Builtin.List)(newType)) -> Expression(NonEmptyList(Seq(a))).op(ListAppend)(v("as")))(Expression(EmptyList(tipe))).betaNormalized
+
+          case Application(Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)), g) =>
+            expressions match {
+              case Expression(NonEmptyList(exprs)) => // Guaranteed a non-empty list.
+                val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
+                // g a (List/fold A₀ [ as… ] B g b₀) ⇥ b₁
+                g(exprs.head)((~ListFold)(typeA0)(rest)(g)(argN)).betaNormalized
+              case Expression(EmptyList(_)) => b.betaNormalized
+            }
 
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
           case _ => normalizeArgs
