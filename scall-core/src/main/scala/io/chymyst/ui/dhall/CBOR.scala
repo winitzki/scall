@@ -1,6 +1,8 @@
 package io.chymyst.ui.dhall
 
 
+import co.nstant.in.cbor.model.{Array => Cbor1Array, Map => Cbor1Map, _}
+import co.nstant.in.cbor.{CborBuilder, CborDecoder, CborEncoder}
 import com.upokecenter.cbor.{CBORObject, CBORType}
 import com.upokecenter.numbers.EInteger
 import io.chymyst.ui.dhall.CBORmodel.CBytes.byteArrayToHexString
@@ -9,78 +11,20 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.time.LocalTime
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
-import scala.jdk.CollectionConverters.MapHasAsScala
+import scala.collection.mutable
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
-object CBORfix {
-  //  def write(obj: CBORObject, writer: CBORWriter, )???
-  /*
-  public CborWriter WriteUsingCborWriter(CBORObject obj, CborWriter writer, int depth) {
-
-    foreach(var tag in obj.GetAllTags()){
-      writer.WriteTag((CborTag)(ulong)tag);
-    }
-    obj=obj.Untag();
-    switch(obj.Type) {
-       case CBORType.Integer:
-          if(obj.CanValueFitInInt64())
-             writer.WriteInt64(obj.AsInt64Value());
-          else {
-             var ei=obj.AsEIntegerValue();
-             if(ei<0) {
-               ei=ei.Abs()-1;
-               writer.WriteCborNegativeIntegerRepresentation((ulong)ei);
-             } else {
-               writer.WriteUInt64((ulong)ei);
-             }
-          }
-          break;
-       case CBORType.FloatingPoint:
-          writer.WriteDouble(obj.AsDouble());
-          break;
-       case CBORType.Boolean:
-          if(obj.IsTrue)writer.WriteSimpleValue(CborSimpleValue.True);
-          else writer.WriteSimpleValue(CborSimpleValue.False);
-          break;
-       case CBORType.SimpleValue:
-          writer.WriteSimpleValue((CborSimpleValue)obj.SimpleValue);
-          break;
-       case CBORType.ByteString:
-          writer.WriteByteString(obj.GetByteString());
-          break;
-       case CBORType.TextString:
-          writer.WriteTextString(obj.AsString());
-          break;
-       case CBORType.Array:
-          writer.WriteStartArray(obj.Count);
-          foreach(var o in obj.Values){
-             WriteUsingCborWriter(o, writer, depth+1);
-          }
-          writer.WriteEndArray();
-          break;
-       case CBORType.Map:
-          writer.WriteStartMap(obj.Count);
-          foreach(var o in obj.Keys){
-             WriteUsingCborWriter(o, writer, depth+1);
-             WriteUsingCborWriter(obj[o], writer, depth+1);
-          }
-          writer.WriteEndMap();
-          break;
-    }
-    return writer;
-  }
-
-
-   */
-}
-
 sealed trait CBORmodel {
 
-  def toCBOR: CBORObject
+  def toCbor2: CBORObject
+
+  def toCbor1: DataItem
 
   lazy val dhallDiagnostics: String = this.toString
 
@@ -258,7 +202,40 @@ object CBORmodel {
     }
   }
 
-  def fromCbor(obj: CBORObject): CBORmodel = if (obj == null) CNull else {
+  def encodeCbor1(model: CBORmodel): Array[Byte] = {
+    val baos = new ByteArrayOutputStream
+    val dataItem = model.toCbor1
+    new CborEncoder(baos).encode(new CborBuilder().add(dataItem).build)
+    baos.toByteArray
+  }
+
+  def decodeCbor1(bytes: Array[Byte]): CBORmodel = {
+    val bais = new ByteArrayInputStream(bytes)
+    new CborDecoder(bais).decode.asScala.toList match {
+      case head :: Nil => fromCbor1(head)
+      case head :: tail => ().die(s"Invalid sequence of CBOR objects, $tail, after the first CBOR1 object")
+      case Nil => ().die(s"Invalid null byte stream for decoding CBOR1")
+    }
+  }
+
+  def fromCbor1(dataItem: DataItem): CBORmodel = dataItem.getMajorType match {
+    case MajorType.UNSIGNED_INTEGER => CInt(dataItem.asInstanceOf[UnsignedInteger].getValue)
+    case MajorType.INVALID => ???
+    case MajorType.NEGATIVE_INTEGER => CInt(dataItem.asInstanceOf[NegativeInteger].getValue)
+    case MajorType.BYTE_STRING => CBytes(dataItem.asInstanceOf[ByteString].getBytes)
+    case MajorType.UNICODE_STRING => CString(dataItem.asInstanceOf[UnicodeString].getString)
+    case MajorType.ARRAY => CArray(dataItem.asInstanceOf[Cbor1Array].getDataItems.asScala.toArray.map(fromCbor1))
+    case MajorType.MAP => CMap(
+      dataItem.asInstanceOf[Cbor1Map].getKeys.asScala
+        .zip(dataItem.asInstanceOf[Cbor1Map].getValues.asScala)
+        .map { case (k, v) => (fromCbor1(k).asInstanceOf[CString].data, fromCbor1(v)) }
+        .toMap
+    )
+    case MajorType.TAG => ???
+    case MajorType.SPECIAL => ???
+  }
+
+  def fromCbor2(obj: CBORObject): CBORmodel = if (obj == null) CNull else {
     val decoded: CBORmodel = obj.getType match {
       case CBORType.Number => throw new Exception(s"Unexpected CBOR type Number in object $obj")
 
@@ -280,10 +257,10 @@ object CBORmodel {
       case CBORType.TextString => CString(obj.AsString)
       case CBORType.Array =>
         val objs: Array[CBORObject] = obj.ToObject(classOf[Array[CBORObject]])
-        CArray(objs.map(fromCbor))
+        CArray(objs.map(fromCbor2))
       case CBORType.Map =>
         val objs: java.util.Map[CBORObject, CBORObject] = obj.ToObject(classOf[java.util.Map[CBORObject, CBORObject]])
-        CMap(objs.asScala.map { case (k, v) => (fromCbor(k).asString, fromCbor(v)) }.toMap)
+        CMap(objs.asScala.map { case (k, v) => (fromCbor2(k).asString, fromCbor2(v)) }.toMap)
       case CBORType.Integer =>
         if (obj.CanValueFitInInt64()) CInt(BigInt(obj.AsInt64Value)) else CInt(eIntegerToBigInt(obj.AsEIntegerValue))
       case CBORType.FloatingPoint => CDouble(obj.AsDoubleValue)
@@ -303,21 +280,27 @@ object CBORmodel {
     data.toSeq.map { case (name, expr) => (FieldName(name), expr.toScheme) }
 
   final case object CNull extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.Null
+    override def toCbor2: CBORObject = CBORObject.Null
 
     override def toString: String = "null"
+
+    override def toCbor1: DataItem = SimpleValue.NULL
   }
 
   final case object CTrue extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.True
+    override def toCbor2: CBORObject = CBORObject.True
 
     override def toString: String = "true"
+
+    override def toCbor1: DataItem = SimpleValue.TRUE
   }
 
   final case object CFalse extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.False
+    override def toCbor2: CBORObject = CBORObject.False
 
     override def toString: String = "false"
+
+    override def toCbor1: DataItem = SimpleValue.FALSE
   }
 
   // Pattern-match CInt with an integer value. (Note: BigInt does not have `unapply`.)
@@ -328,13 +311,15 @@ object CBORmodel {
 
   // Either a 64-bit int or a bigint.
   final case class CInt(data: BigInt) extends CBORmodel {
-    override def toCBOR: CBORObject = CBOR.naturalToCbor2(data)
+    override def toCbor2: CBORObject = CBOR.naturalToCbor2(data)
 
     override def toString: String = data.toString
+
+    override def toCbor1: DataItem = if (data < 0) new NegativeInteger(data.bigInteger) else new UnsignedInteger(data.bigInteger)
   }
 
   final case class CDouble(data: Double) extends CBORmodel {
-    override def toCBOR: CBORObject = {
+    override def toCbor2: CBORObject = {
       val result = data match {
         // Important: match -0.0 before 0.0 or else it cannot match.
         case -0.0 => CBORObject.FromObject(java.lang.Double.valueOf(data)) //CBORObject.FromFloatingPointBits(0x8000L, 2)
@@ -348,10 +333,12 @@ object CBORmodel {
     }
 
     override def toString: String = f"$data%.1f"
+
+    override def toCbor1: DataItem = new DoublePrecisionFloat(data)
   }
 
   final case class CString(data: String) extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.FromObject(data)
+    override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
     override def toString: String = s"\"$data\"" //s"\"$escaped\""
 
@@ -366,16 +353,20 @@ object CBORmodel {
       case c if c.toInt > 255 || c.toInt < 20 => s"\\u${c.toHexString.toUpperCase}"
       case c => c.toString
     }
+
+    override def toCbor1: DataItem = new UnicodeString(data)
   }
 
   final case class CArray(data: Array[CBORmodel]) extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.FromObject(data.map(_.toCBOR))
+    override def toCbor2: CBORObject = CBORObject.FromObject(data.map(_.toCbor2))
 
     override def toString: String = "[" + data.map(_.toString).mkString(", ") + "]"
 
     override lazy val dhallDiagnostics: String = "[" + data.map(_.dhallDiagnostics).mkString(", ") + "]"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall { case (x, y) => x equals y })
+
+    override def toCbor1: DataItem = data.foldLeft(new Cbor1Array(data.length))((prev, m) => prev.add(m.toCbor1))
   }
 
   object CBytes {
@@ -383,17 +374,19 @@ object CBORmodel {
   }
 
   final case class CBytes(data: Array[Byte]) extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.FromObject(data)
+    override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
     override def toString: String = "h'" + byteArrayToHexString(data) + "'"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CBytes] && (obj.asInstanceOf[CBytes].data sameElements data)
+
+    override def toCbor1: DataItem = new ByteString(data)
   }
 
   final case class CMap(data: Map[String, CBORmodel]) extends CBORmodel {
-    override def toCBOR: CBORObject = {
+    override def toCbor2: CBORObject = {
       val dict = CBORObject.NewOrderedMap
-      data.toSeq.sortBy(_._1).foreach { case (k, v) => dict.Add(k, v.toCBOR) } // Dhall requires sorting by the dictionary's keys.
+      data.toSeq.sortBy(_._1).foreach { case (k, v) => dict.Add(k, v.toCbor2) } // Dhall requires sorting by the dictionary's keys.
       CBORObject.FromObject(dict)
     }
 
@@ -402,10 +395,12 @@ object CBORmodel {
     override lazy val dhallDiagnostics: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": ${v.dhallDiagnostics}" }.mkString(", ") + "}"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
+
+    override def toCbor1: DataItem = data.foldLeft(new Cbor1Map(data.size)) { case (prev, (k, v)) => prev.put(new UnicodeString(k), v.toCbor1) }
   }
 
   final case class CTagged(tag: Int, data: CBORmodel) extends CBORmodel {
-    override def toCBOR: CBORObject = CBORObject.FromObjectAndTag(data.toCBOR, tag)
+    override def toCbor2: CBORObject = CBORObject.FromObjectAndTag(data.toCbor2, tag)
 
     override def toString: String = s"$tag($data)"
 
@@ -420,6 +415,12 @@ object CBORmodel {
         case (3, CBytes(bytes)) => Success(BigInt(-1, bytes) - 1)
         case _ => Failure(new Exception(s"Invalid integer literal $this: tag $tag must be 2 or 3, data is $data must be CBytes"))
       }
+
+    override def toCbor1: DataItem = {
+      val cbor1 = data.toCbor1
+      cbor1.setTag(tag.toLong)
+      cbor1
+    }
   }
 
   def toCBORmodel: Any => CBORmodel = {
@@ -445,9 +446,9 @@ object CBORmodel {
 // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/binary.md
 object CBOR {
 
-  def exprToBytes(e: Expression): Array[Byte] = toCborModel(e).toCBOR.EncodeToBytes()
+  def exprToBytes(e: Expression): Array[Byte] = toCborModel(e).toCbor2.EncodeToBytes()
 
-  def bytesToExpr(bytes: Array[Byte]): Expression = fromCbor(CBORObject.DecodeFromBytes(bytes)).toScheme
+  def bytesToExpr(bytes: Array[Byte]): Expression = fromCbor2(CBORObject.DecodeFromBytes(bytes)).toScheme
 
   def naturalToCbor2(index: Natural): CBORObject =
     if (index < BigInt(1).<<(64))

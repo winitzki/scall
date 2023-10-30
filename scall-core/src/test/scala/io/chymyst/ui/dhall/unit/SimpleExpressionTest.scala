@@ -303,8 +303,8 @@ class SimpleExpressionTest extends FunSuite {
     val testFileA = getClass.getClassLoader.getResourceAsStream("tests/parser/success/leadingSeparatorsA.dhall")
     val expr = Parser.parseDhall(testFileA).get.value.value.scheme
     val testFileB = getClass.getClassLoader.getResourceAsStream("tests/parser/success/leadingSeparatorsB.dhallb")
-    val cborModelFromExampleFile = CBORmodel.fromCbor(CBORObject.Read(testFileB))
-    val cborModelAfterRoundtrip = CBORmodel.fromCbor(CBORObject.DecodeFromBytes(CBOR.exprToBytes(expr)))
+    val cborModelFromExampleFile = CBORmodel.fromCbor2(CBORObject.Read(testFileB))
+    val cborModelAfterRoundtrip = CBORmodel.fromCbor2(CBORObject.DecodeFromBytes(CBOR.exprToBytes(expr)))
     expect(cborModelFromExampleFile.toString == cborModelAfterRoundtrip.toString)
     val exprFromExampleFile = cborModelFromExampleFile.toScheme
     expect(exprFromExampleFile == expr)

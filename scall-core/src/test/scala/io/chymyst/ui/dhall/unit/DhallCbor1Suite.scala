@@ -1,59 +1,22 @@
 package io.chymyst.ui.dhall.unit
 
-import fastparse.Parsed
-import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
-import munit.FunSuite
-import TestUtils._
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
+import fastparse.Parsed
 import io.chymyst.ui.dhall.CBORmodel.fromCbor2
+import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
+import munit.FunSuite
 
 import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
-import scala.util.chaining.scalaUtilChainingOps
 
-class DhallParserSuite extends FunSuite {
-
+class DhallCbor1Suite extends FunSuite {
   def testFilesForSuccess = enumerateResourceFiles("tests/parser/success", Some(".dhall"))
 
   def testFilesForFailure = enumerateResourceFiles("tests/parser/failure", Some(".dhall"))
-
-  test("parse standard examples for successful parsing") {
-    val results = testFilesForSuccess.map { file =>
-      val result = for {
-        result1 <- Try(Parser.parseDhall(new FileInputStream(file)))
-          .recoverWith { case exception => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: parser crashed with: ${printFailure(exception)}")) }
-        result2 <- result1 match {
-          case Parsed.Success(value, index) => Success(value)
-          case Parsed.Failure(a, b, c) => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: $result1, diagnostics: ${c.stack}"))
-        }
-      } yield result2
-      result match {
-        case Failure(exception) => println(exception.getMessage)
-        case Success(value) => ()
-      }
-      result
-    }
-    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-    expect(results.count(_.isFailure) == 0)
-  }
-
-  test("parse standard examples for failed parsing") {
-    val results = testFilesForFailure.map { file =>
-      val result = Try {
-        val Parsed.Success(result, _) = Parser.parseDhall(new FileInputStream(file))
-        result
-      }
-
-      if (result.isSuccess) println(s"Parsing file ${file.getName} expecting failure. Result: unexpected success:\n\t\t\t${result.get}\n")
-      result
-    }
-    val failures = results.count(_.isSuccess) // We expect that all examples fail to parse here.
-    println(s"Success count: ${results.count(_.isFailure)}\nFailure count: $failures")
-    expect(failures == 0)
-  }
 
   test("convert standard examples for successful parsing into CBOR") {
     val results = testFilesForSuccess.flatMap { file =>
@@ -61,8 +24,8 @@ class DhallParserSuite extends FunSuite {
         case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
         case _ => None
       }
-      val result = r.map { expr => Try(CBOR.exprToBytes(expr)) }
-      if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
+      val result = r.map { expr => Try(CBORmodel.encodeCbor1(expr.toCBORmodel)) }
+      if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR1: ${result.get.failed.get.getMessage}")
       result
     }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
@@ -75,15 +38,15 @@ class DhallParserSuite extends FunSuite {
     val results = testFilesForSuccess.flatMap { file =>
       val validationFile = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
-      val cborValidationModel = CBORtest.bytesToCBORmodel(cborValidationBytes).toString
       val diagnosticFile = file.getAbsolutePath.replace("A.dhall", "B.diag")
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
+        cborValidationModel <- Try(CBORmodel.decodeCbor1(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
-        model <- Try(CBOR.toCborModel(dhallValue.value))
-        bytesGeneratedByUs <- Try(model.toCbor2.EncodeToBytes())
-      } yield (model, bytesGeneratedByUs, dhallValue.value)
-      val result = result1.toOption.map { case (model, bytesGeneratedByUs, expression) =>
+        model <- Try(dhallValue.value.toCBORmodel)
+        bytesGeneratedByUs: Array[Byte] <- Try(CBORmodel.encodeCbor1(model))
+      } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
+      val result = result1.toOption.map { case (model, bytesGeneratedByUs, expression, cborValidationModel) =>
         Files.write(Paths.get(outDir + "/" + file.getName.replace("A.dhall", "A.dhallb")), bytesGeneratedByUs)
         if (bytesGeneratedByUs sameElements cborValidationBytes) Success(bytesGeneratedByUs)
         else if (model.toString == diagnosticString) {
@@ -104,15 +67,15 @@ class DhallParserSuite extends FunSuite {
     val results = testFilesForSuccess.flatMap { file =>
       val validationFile = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
-      val cborValidationModel = CBORtest.bytesToCBORmodel(cborValidationBytes).toString
       val diagnosticFile = file.getAbsolutePath.replace("A.dhall", "B.diag")
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
+        cborValidationModel <- Try(CBORmodel.decodeCbor1(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
-        model <- Try(CBOR.toCborModel(dhallValue.value))
-        bytesGeneratedByUs <- Try(model.toCbor2.EncodeToBytes())
-      } yield (model, bytesGeneratedByUs, dhallValue.value)
-      val result2 = result1.toOption.map { case (model, bytesGeneratedByUs, expression) =>
+        model <- Try(dhallValue.value.toCBORmodel)
+        bytesGeneratedByUs: Array[Byte] <- Try(CBORmodel.encodeCbor1(model))
+      } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
+      val result2 = result1.toOption.map { case (model, bytesGeneratedByUs, expression, cborValidationModel) =>
         if (bytesGeneratedByUs sameElements cborValidationBytes) Success((model, expression))
         else if (model.toString == diagnosticString) {
           val extraMessage = if (model.toString != cborValidationModel) s"\nwhile our reading of the validation file also differs:\n\t\t$cborValidationModel" else ""
@@ -142,8 +105,8 @@ class DhallParserSuite extends FunSuite {
         val result = Try {
           val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
           val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
-          val ourExpr = CBOR.bytesToExpr(cborBytes)
-          val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
+          val ourExpr: Expression = CBORmodel.decodeCbor1(cborBytes).toScheme
+          val cborModelFromFileA: CBORmodel = CBORmodel.decodeCbor1(cborBytes)
           val Parsed.Success(dhallValue, _) = Parser.parseDhall(new FileInputStream(validationFile))
           val validationExpr = dhallValue.value
           // We have read the CBOR file correctly.
@@ -165,10 +128,10 @@ class DhallParserSuite extends FunSuite {
         val cborBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath))
         val result = Try {
           val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
-          val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
+          val cborModelFromFileA: CBORmodel = CBORmodel.decodeCbor1(cborBytes)
           // We have read the CBOR file correctly.
           expect(cborModelFromFileA.toString == diagnosticString)
-          expect(Try(CBOR.bytesToExpr(cborBytes)).isFailure)
+          expect(Try(cborModelFromFileA.toScheme).isFailure)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")

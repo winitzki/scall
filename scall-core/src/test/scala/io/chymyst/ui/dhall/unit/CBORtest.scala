@@ -13,12 +13,12 @@ import munit.FunSuite
 import java.time.LocalTime
 
 object CBORtest {
-  def bytesToCBORmodel(bytes: Array[Byte]): CBORmodel = CBORmodel.fromCbor(CBORObject.DecodeFromBytes(bytes))
+  def bytesToCBORmodel(bytes: Array[Byte]): CBORmodel = CBORmodel.fromCbor2(CBORObject.DecodeFromBytes(bytes))
 
   def cborRoundtrip(expr: Expression) = {
     val aModel = CBOR.toCborModel(expr)
 
-    val aBytes: Array[Byte] = aModel.toCBOR.EncodeToBytes
+    val aBytes: Array[Byte] = aModel.toCbor2.EncodeToBytes
     val bModel: CBORmodel = bytesToCBORmodel(aBytes)
 
     val aModelString = aModel.toString
@@ -88,21 +88,21 @@ class CBORtest extends FunSuite {
 
   test("CBOR for dictionaries") {
     val dict = CMap(Map("a" -> CString("b")))
-    val bytes = dict.toCBOR.EncodeToBytes
+    val bytes = dict.toCbor2.EncodeToBytes
     val dictAfterBytes = bytesToCBORmodel(bytes)
     expect(dict == dictAfterBytes)
   }
 
   test("CBOR for tagged array") {
     val taggedDict = CTagged(4, CMap(Map("a" -> CString("b"))))
-    val bytes = taggedDict.toCBOR.EncodeToBytes
+    val bytes = taggedDict.toCbor2.EncodeToBytes
     val dictAfterBytes = bytesToCBORmodel(bytes)
     expect(taggedDict == dictAfterBytes)
   }
 
   test("CBOR for strings containing newlines") {
     val s = CString("\n")
-    val bytes = s.toCBOR.EncodeToBytes
+    val bytes = s.toCbor2.EncodeToBytes
     val sAfterBytes = bytesToCBORmodel(bytes)
     expect(s == sAfterBytes)
   }
