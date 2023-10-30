@@ -44,7 +44,7 @@ class DhallSemanticsSuite extends FunSuite {
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhall(new FileInputStream(validationFile))
           val x = ourResult.betaNormalized
           val y = validationResult
-          println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.toDhall}, after beta-normalization ${x.toDhall}")
+          if (!(x.toDhall == y.toDhall && x == y)) println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.toDhall}, after beta-normalization ${x.toDhall}")
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }

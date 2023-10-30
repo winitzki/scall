@@ -128,10 +128,8 @@ object Semantics {
       // These expressions only need to normalize their arguments.
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
 
-      case Let(name, tipe, subst, body) => ???
-
       case If(cond, ifTrue, ifFalse) =>
-        val If(condN, ifTrueN, ifFalseN) = normalizeArgs
+        lazy val If(condN, ifTrueN, ifFalseN) = normalizeArgs
         if (condN.scheme == ExprBuiltin(Builtin.True)) ifTrueN
         else if (condN.scheme == ExprBuiltin(Builtin.False)) ifFalseN
         else if (equivalent(ifTrue, ifFalse)) ifTrueN

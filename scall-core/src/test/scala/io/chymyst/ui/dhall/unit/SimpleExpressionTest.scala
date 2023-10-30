@@ -315,7 +315,7 @@ class SimpleExpressionTest extends FunSuite {
     check(Grammar.application_expression(_), "List ./file", expected)
   }
 
-  test("import with a long file path") {
+  test("import with a long file path") { // TODO report issue: parser tests should exercise various characters that are allowed or disallowed in import paths
     val input = "./path0/path1/path2/file"
     check(Grammar.import_expression(_), input, Expression(Import(Path(Here, File(List("path0", "path1", "path2", "file"))), Code, None)))
   }
