@@ -492,11 +492,11 @@ object Syntax {
     final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing]
 
     final case class RecordType[E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
-      def sorted = RecordType(defs.sortBy(_._1.name))
+      lazy val sorted = RecordType(defs.sortBy(_._1.name))
     }
 
     final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
-      def sorted = RecordLiteral(defs.sortBy(_._1.name))
+      lazy val sorted = RecordLiteral(defs.sortBy(_._1.name))
     }
 
     object RecordLiteral {
@@ -545,7 +545,7 @@ object Syntax {
     }
 
     final case class UnionType[E](defs: Seq[(ConstructorName, Option[E])]) extends ExpressionScheme[E] {
-      def sorted = UnionType(defs.sortBy(_._1.name))
+      lazy val sorted = UnionType(defs.sortBy(_._1.name))
     }
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
@@ -560,11 +560,11 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
-    def op(operator: Operator)(arg: Expression) = Expression(Operator(scheme, op, arg))
+    def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
-    lazy val betaNormalizedScheme: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
+    lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
     lazy val betaNormalized: Expression = Semantics.betaNormalize(this)
 

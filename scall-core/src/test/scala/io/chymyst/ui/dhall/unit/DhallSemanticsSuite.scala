@@ -33,4 +33,25 @@ class DhallSemanticsSuite extends FunSuite {
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
     expect(results.count(_.isFailure) == 0)
   }
+
+  test("beta normalization success") {
+    val results: Seq[Try[String]] = enumerateResourceFiles("tests/normalization/success", Some("A.dhall"))
+      .map { file =>
+        val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
+
+        val result = Try {
+          val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhall(new FileInputStream(file))
+          val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhall(new FileInputStream(validationFile))
+          val x = ourResult.betaNormalized
+          val y = validationResult
+          println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.toDhall}, after beta-normalization ${x.toDhall}")
+          expect(x.toDhall == y.toDhall && x == y)
+          file.getName
+        }
+        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        result
+      }
+    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
+    expect(results.count(_.isFailure) == 0)
+  }
 }

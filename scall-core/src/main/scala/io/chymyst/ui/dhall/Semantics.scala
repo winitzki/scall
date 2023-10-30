@@ -6,7 +6,7 @@ import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, FieldName, File, Operator, VarName}
 
 import java.util.regex.Pattern
 import scala.util.chaining.scalaUtilChainingOps
@@ -113,7 +113,11 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
-    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.betaNormalizedScheme
+    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
+
+    def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
+      if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
+
     expr.scheme match {
       // These expression types are already in beta-normal form.
       case Variable(_, _) | ExprBuiltin(_) | ExprConstant(_) | NaturalLiteral(_) | IntegerLiteral(_) | DoubleLiteral(_) |
@@ -200,10 +204,6 @@ object Semantics {
 
       case Application(_, _) =>
         val Application(funcN, argN) = normalizeArgs
-
-        def matchOrNormalize(expr: Expression, default: Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
-          if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
-
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         funcN.scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
@@ -281,6 +281,22 @@ object Semantics {
             }
           }
 
+          case Application(Expression(ExprBuiltin(Builtin.ListLast)), tipe) => matchOrNormalize(argN) {
+            case EmptyList(_) => (~Builtin.None)(tipe)
+            case NonEmptyList(exprs) => KeywordSome(exprs.last)
+          }
+
+          case Application(Expression(ExprBuiltin(Builtin.ListIndexed)), tipe) => matchOrNormalize(argN) {
+            case EmptyList(_) => EmptyList((~Builtin.List)(Expression(RecordType(Seq((FieldName("index"), ~Builtin.Natural), (FieldName("value"), tipe))))))
+            case NonEmptyList(exprs) => NonEmptyList(exprs.zipWithIndex.map { case (e, index) =>
+              Expression(RecordLiteral(Seq((FieldName("index"), NaturalLiteral(index)), (FieldName("value"), e))))
+            })
+          }
+
+          case Application(Expression(ExprBuiltin(Builtin.ListReverse)), _) => matchOrNormalize(argN) {
+            case EmptyList(t) => EmptyList(t)
+            case NonEmptyList(exprs) => NonEmptyList(exprs.reverse)
+          }
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
           case _ => normalizeArgs
         }
@@ -295,7 +311,7 @@ object Semantics {
       case TextLiteral(_, _) =>
         val TextLiteral(interpolationsN, trailing) = normalizeArgs
 
-        // TODO: replace this with foldRight
+        // TODO: replace this code by foldRight somehow?
         def loop(t: TextLiteral[Expression]): TextLiteral[Expression] = t.interpolations match {
           case (head, Expression(tl@TextLiteral(_, _))) :: next => TextLiteral.ofString[Expression](head) ++ tl ++ loop(TextLiteral(next, t.trailing))
           case (head, headExpr) :: next => TextLiteral(List((head, headExpr)), "") ++ loop(TextLiteral(next, t.trailing))
@@ -307,10 +323,17 @@ object Semantics {
           case t => t
         }
 
-      case RecordType(defs) => ???
+      case RecordType(defs) => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
       case RecordLiteral(defs) => ???
-      case UnionType(defs) => ???
-      case ShowConstructor(data) => ???
+      case UnionType(defs) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
+      case ShowConstructor(data) =>
+        matchOrNormalize(data) {
+          case Application(Expression(Field(Expression(UnionType(_)), FieldName(name))), _) => TextLiteral.ofString(name)
+          case Field(Expression(UnionType(_)), FieldName(name)) => TextLiteral.ofString(name)
+          // Builtin union type: Optional
+          case Application(Expression(ExprBuiltin(Builtin.None)), _) => TextLiteral.ofString(Builtin.None.entryName)
+          case KeywordSome(_) => TextLiteral.ofString("Some")
+        }
 
       case Import(_, _, _) => throw new Exception(s"Unresolved import $this cannot be beta-normalized")
     }
