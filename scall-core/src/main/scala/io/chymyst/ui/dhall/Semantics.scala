@@ -68,33 +68,33 @@ object Semantics {
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
-  def alphaNormalize(expr: Expression): Expression = expr.scheme match { // TODO: make alphaNormalize a lazy val inside Expression.
+  def alphaNormalize(expr: Expression): Expression = expr.scheme match {
     case Variable(_, _) => expr
 
-    case Lambda(name, tipe, body) => if (name == underscore) expr.map(alphaNormalize) else {
+    case Lambda(name, tipe, body) => if (name == underscore) expr.map(_.alphaNormalized) else {
       val body1 = shift(true, underscore, 0, body)
       val body2 = substitute(body1, name, 0, Variable(underscore, 0))
       val body3 = shift(false, name, 0, body2)
-      Lambda(underscore, alphaNormalize(tipe), alphaNormalize(body3))
+      Lambda(underscore, tipe.alphaNormalized, body3.alphaNormalized)
     }
 
     case Forall(name, tipe, body) => if (name == underscore) expr.map(alphaNormalize) else {
       val body1 = shift(true, underscore, 0, body)
       val body2 = substitute(body1, name, 0, Variable(underscore, 0))
       val body3 = shift(false, name, 0, body2)
-      Forall(underscore, alphaNormalize(tipe), alphaNormalize(body3))
+      Forall(underscore, tipe.alphaNormalized, body3.alphaNormalized)
     }
 
     case Let(name, tipe, subst, body) => if (name == underscore) expr.map(alphaNormalize) else {
       val body1 = shift(true, underscore, 0, body)
       val body2 = substitute(body1, name, 0, Variable(underscore, 0))
       val body3 = shift(false, name, 0, body2)
-      Let(underscore, tipe.map(alphaNormalize), alphaNormalize(subst), alphaNormalize(body3))
+      Let(underscore, tipe.map(_.alphaNormalized), subst.alphaNormalized, body3.alphaNormalized)
     }
 
     case Import(_, _, _) => throw new Exception(s"alphaNormalize($expr): Unresolved imports cannot be α-normalized")
 
-    case other => other.map(alphaNormalize)
+    case other => other.map(_.alphaNormalized)
   }
 
   private def textShow(string: String): String = string
@@ -108,16 +108,18 @@ object Semantics {
     .replace("\"", "\\\"")
     .pipe(s => "\"" + s + "\"") // TODO: report an issue to dhall-lang that this step is not shown in beta-normalization.md
 
+  // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
+
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
-  def betaNormalize(expr: Expression): Expression = { // TODO: make betaNormalize a lazy val inside Expression.
-    lazy val normalized: ExpressionScheme[Expression] = expr.map(betaNormalize)
+  def betaNormalize(expr: Expression): Expression = {
+    lazy val normalized: ExpressionScheme[Expression] = expr.betaNormalizedScheme
     expr.scheme match {
       // These expression types are already in beta-normal form.
       case Variable(_, _) | ExprBuiltin(_) | ExprConstant(_) | NaturalLiteral(_) | IntegerLiteral(_) | DoubleLiteral(_) |
            BytesLiteral(_) | DateLiteral(_, _, _) | TimeLiteral(_) | TimeZoneLiteral(_) =>
         expr
 
-      // These expression types only need to normalize their arguments.
+      // These expressions only need to normalize their arguments.
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalized
 
       case Let(name, tipe, subst, body) => ???
@@ -132,7 +134,9 @@ object Semantics {
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
 
-      case Annotation(data, tipe) => betaNormalize(data)
+      case Annotation(data, tipe) =>
+        val Annotation(data, _) = normalized
+        data
 
       case ExprOperator(lop, op, rop) =>
         val ExprOperator(lopN, _, ropN) = normalized
@@ -150,7 +154,7 @@ object Semantics {
             case _ => normalized
           }
 
-          case Operator.TextAppend => betaNormalize(Expression(TextLiteral(List(("", lopN), ("", ropN)), "")))
+          case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).betaNormalized
 
           case Operator.ListAppend => ???
 
@@ -193,19 +197,20 @@ object Semantics {
         def matchOrNormalize(expr: Expression, default: Expression = normalized)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
           if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
 
+        // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         funcN.scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
-            betaNormalize(argN(~Natural)(v("x") | ~Natural -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)))
+            argN(~Natural)(v("x") | ~Natural -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)).betaNormalized
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
             // g (Natural/fold n b g argN)
-            if (m == 0) argN else betaNormalize(g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)))
+            if (m == 0) argN else g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
           case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(argN) { case NaturalLiteral(a) => TextLiteral.ofString(a.toString(10)) } // Convert a Natural number to a decimal string representation.
           case ExprBuiltin(Builtin.NaturalToInteger) => matchOrNormalize(argN) { case NaturalLiteral(a) => IntegerLiteral(a) }
           case Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), a) =>
-            val aN = betaNormalize(a)
+            val aN = a.betaNormalized
             (argN.scheme, aN.scheme) match { // subtract y x = x - y. If the result is negative, return 0.
               case (NaturalLiteral(x), _) if x == 0 => NaturalLiteral(0)
               case (_, NaturalLiteral(y)) if y == 0 => argN
@@ -230,7 +235,7 @@ object Semantics {
                     TextLiteral((head, replacement) +: tl.interpolations, tl.trailing)
                 }
 
-                betaNormalize(loop(chunks))
+                loop(chunks).betaNormalized
 
               case _ => normalized
             }
@@ -272,7 +277,7 @@ object Semantics {
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   def equivalent(x: Expression, y: Expression): Boolean =
-    CBOR.exprToBytes(betaNormalize(alphaNormalize(x))) sameElements CBOR.exprToBytes(betaNormalize(alphaNormalize(y)))
+    CBOR.exprToBytes(x.alphaNormalized.betaNormalized) sameElements CBOR.exprToBytes(y.alphaNormalized.betaNormalized)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   def inferType(gamma: GammaTypeContext, expr: Expression): Expression = ???
