@@ -3,7 +3,7 @@ package io.chymyst.ui.dhall
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
-import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, Natural, NaturalFold, NaturalSubtract}
+import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
@@ -157,7 +157,13 @@ object Semantics {
 
           case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).betaNormalized
 
-          case Operator.ListAppend => ???
+          case Operator.ListAppend =>
+            (lopN.scheme, ropN.scheme) match {
+              case (EmptyList(_), _) => ropN
+              case (_, EmptyList(_)) => lopN
+              case (NonEmptyList(exprs1), NonEmptyList(exprs2)) => NonEmptyList(exprs1 ++ exprs2).betaNormalized
+              case _ => normalizeArgs
+            }
 
           case Operator.And =>
             if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) lopN
@@ -256,6 +262,24 @@ object Semantics {
                 g(exprs.head)((~ListFold)(typeA0)(rest)(g)(argN)).betaNormalized
               case Expression(EmptyList(_)) => b.betaNormalized
             }
+
+          case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) => matchOrNormalize(argN) {
+            case EmptyList(_) => NaturalLiteral(0)
+            case NonEmptyList(exprs) => NaturalLiteral(exprs.length)
+            case ExprOperator(lop, Operator.ListAppend, rop) => (~ListLength)(lop.betaNormalized).betaNormalized.op(Operator.Plus)((~ListLength)(rop.betaNormalized).betaNormalized).betaNormalized // TODO: report issue to add this reduction rule to the standard?
+          }
+
+          case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) => matchOrNormalize(argN) {
+            case EmptyList(_) => (~Builtin.None)(tipe)
+            case NonEmptyList(exprs) => KeywordSome(exprs.head)
+
+            // TODO: report issue to add this reduction rule to the standard?
+            // Simplify a ListAppend when (List/head lop) evaluates to something concrete.
+            case ExprOperator(lop, Operator.ListAppend, rop) => matchOrNormalize((~Builtin.ListHead)(lop.betaNormalized)) {
+              case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(rop.betaNormalized).betaNormalized
+              case KeywordSome(r) => r.betaNormalized
+            }
+          }
 
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
           case _ => normalizeArgs
