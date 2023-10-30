@@ -112,7 +112,7 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
-    lazy val normalized: ExpressionScheme[Expression] = expr.betaNormalizedScheme
+    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.betaNormalizedScheme
     expr.scheme match {
       // These expression types are already in beta-normal form.
       case Variable(_, _) | ExprBuiltin(_) | ExprConstant(_) | NaturalLiteral(_) | IntegerLiteral(_) | DoubleLiteral(_) |
@@ -120,38 +120,38 @@ object Semantics {
         expr
 
       // These expressions only need to normalize their arguments.
-      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalized
+      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
 
       case Let(name, tipe, subst, body) => ???
 
       case If(cond, ifTrue, ifFalse) =>
-        val If(condN, ifTrueN, ifFalseN) = normalized
+        val If(condN, ifTrueN, ifFalseN) = normalizeArgs
         if (condN.scheme == ExprBuiltin(Builtin.True)) ifTrueN
         else if (condN.scheme == ExprBuiltin(Builtin.False)) ifFalseN
         else if (equivalent(ifTrue, ifFalse)) ifTrueN
-        else normalized
+        else normalizeArgs
 
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
 
       case Annotation(data, tipe) =>
-        val Annotation(data, _) = normalized
+        val Annotation(data, _) = normalizeArgs
         data
 
       case ExprOperator(lop, op, rop) =>
-        val ExprOperator(lopN, _, ropN) = normalized
+        val ExprOperator(lopN, _, ropN) = normalizeArgs
         op match {
           case Operator.Or =>
             if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) ropN
             else if (lopN.scheme == ExprBuiltin(Builtin.True) || ropN.scheme == ExprBuiltin(Builtin.False)) lopN
             else if (equivalent(lop, rop)) lopN
-            else normalized
+            else normalizeArgs
 
           case Operator.Plus => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
             case (NaturalLiteral(a), _) if a == 0 => ropN
             case (_, NaturalLiteral(b)) if b == 0 => lopN
             case (NaturalLiteral(a), NaturalLiteral(b)) => NaturalLiteral(a + b)
-            case _ => normalized
+            case _ => normalizeArgs
           }
 
           case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).betaNormalized
@@ -162,7 +162,7 @@ object Semantics {
             if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) lopN
             else if (lopN.scheme == ExprBuiltin(Builtin.True) || ropN.scheme == ExprBuiltin(Builtin.False)) ropN
             else if (equivalent(lop, rop)) lopN
-            else normalized
+            else normalizeArgs
 
           case Operator.CombineRecordTerms => ???
           case Operator.Prefer => ???
@@ -173,28 +173,28 @@ object Semantics {
             case (NaturalLiteral(a), _) if a == 1 => ropN
             case (_, NaturalLiteral(b)) if b == 1 => lopN
             case (NaturalLiteral(a), NaturalLiteral(b)) => NaturalLiteral(a * b)
-            case _ => normalized
+            case _ => normalizeArgs
           }
           case Operator.Equal =>
             if (lopN.scheme == ExprBuiltin(Builtin.True)) ropN
             else if (ropN.scheme == ExprBuiltin(Builtin.True)) lopN
             else if (equivalent(lop, rop)) ExprBuiltin(Builtin.True)
-            else normalized
+            else normalizeArgs
 
           case Operator.NotEqual =>
             if (lopN.scheme == ExprBuiltin(Builtin.False)) ropN
             else if (ropN.scheme == ExprBuiltin(Builtin.False)) lopN
             else if (equivalent(lop, rop)) ExprBuiltin(Builtin.False)
-            else normalized
+            else normalizeArgs
 
-          case Operator.Equivalent => normalized
+          case Operator.Equivalent => normalizeArgs
           case Operator.Alternative => throw new Exception(s"Unresolved import alternative $this cannot be beta-normalized")
         }
 
       case Application(_, _) =>
-        val Application(funcN, argN) = normalized
+        val Application(funcN, argN) = normalizeArgs
 
-        def matchOrNormalize(expr: Expression, default: Expression = normalized)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
+        def matchOrNormalize(expr: Expression, default: Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
           if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
 
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
@@ -237,11 +237,11 @@ object Semantics {
 
                 loop(chunks).betaNormalized
 
-              case _ => normalized
+              case _ => normalizeArgs
             }
 
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
-          case _ => normalized
+          case _ => normalizeArgs
         }
 
       case Field(base, name) => ???
@@ -252,7 +252,7 @@ object Semantics {
       case With(data, pathComponents, body) => ???
 
       case TextLiteral(_, _) =>
-        val TextLiteral(interpolationsN, trailing) = normalized
+        val TextLiteral(interpolationsN, trailing) = normalizeArgs
 
         // TODO: replace this with foldRight
         def loop(t: TextLiteral[Expression]): TextLiteral[Expression] = t.interpolations match {
