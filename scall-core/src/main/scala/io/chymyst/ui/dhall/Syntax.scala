@@ -6,7 +6,7 @@ import io.chymyst.ui.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
-import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, Operator, VarName}
 
 import java.time.LocalTime
 import scala.language.implicitConversions
@@ -560,6 +560,8 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
+    def op(operator: Operator)(arg: Expression) = Expression(Operator(scheme, op, arg))
+
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
     lazy val betaNormalizedScheme: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)

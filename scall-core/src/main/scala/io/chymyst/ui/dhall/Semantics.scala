@@ -3,8 +3,9 @@ package io.chymyst.ui.dhall
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
-import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold}
+import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
+import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, File, Operator, VarName}
 
 import java.util.regex.Pattern
@@ -218,7 +219,7 @@ object Semantics {
                 val difference = x - y
                 if (difference < 0) NaturalLiteral(0) else NaturalLiteral(difference)
               case _ if equivalent(argN, a) => NaturalLiteral(0)
-              case _ => Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), aN)), argN)
+              case _ => (~NaturalSubtract)(aN)(argN)
             }
           case ExprBuiltin(Builtin.TextShow) => matchOrNormalize(argN) { case TextLiteral(List(), string) => TextLiteral.ofString(textShow(string)) }
           case Application(Expression(Application(Expression(ExprBuiltin(Builtin.TextReplace)), needle)), replacement) =>
@@ -239,6 +240,13 @@ object Semantics {
 
               case _ => normalizeArgs
             }
+
+          case Application(Expression(ExprBuiltin(Builtin.ListBuild)), tipe) =>
+            val freshName = "a"
+            val a = v(freshName)
+            val newType = shift(true, VarName(freshName), 0, tipe)
+            // g (List A₀) (λ(a : A₀) → λ(as : List A₁) → [ a ] # as) ([] : List A₀) ⇥ b
+            argN((~Builtin.List)(tipe))((a | tipe) -> (v("as") | (~Builtin.List)(newType)) -> Expression(NonEmptyList(Seq(a))).op(ListAppend)(v("as")))(Expression(EmptyList(tipe))).betaNormalized
 
           // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
           case _ => normalizeArgs
