@@ -110,6 +110,7 @@ object Semantics {
     .pipe(s => "\"" + s + "\"") // TODO: report an issue to dhall-lang that this step is not shown in beta-normalization.md
 
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
+  // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
@@ -202,10 +203,10 @@ object Semantics {
           case Operator.Alternative => throw new Exception(s"Unresolved import alternative $this cannot be beta-normalized")
         }
 
-      case Application(_, _) =>
-        val Application(funcN, argN) = normalizeArgs
+      case Application(func, arg) =>
+        lazy val argN = arg.betaNormalized
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
-        funcN.scheme match {
+        func.betaNormalized.scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)(v("x") | ~Natural -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)).betaNormalized
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
@@ -227,7 +228,9 @@ object Semantics {
               case _ if equivalent(argN, a) => NaturalLiteral(0)
               case _ => (~NaturalSubtract)(aN)(argN)
             }
+
           case ExprBuiltin(Builtin.TextShow) => matchOrNormalize(argN) { case TextLiteral(List(), string) => TextLiteral.ofString(textShow(string)) }
+
           case Application(Expression(Application(Expression(ExprBuiltin(Builtin.TextReplace)), needle)), replacement) =>
             (needle.scheme, replacement.scheme, argN.scheme) match {
               case (TextLiteral(List(), ""), _, _) | (_, _, TextLiteral(List(), "")) => argN // One more case of beta-normalization: empty haystack needs no replacement even if needle is not a TextLiteral.
@@ -297,7 +300,17 @@ object Semantics {
             case EmptyList(t) => EmptyList(t)
             case NonEmptyList(exprs) => NonEmptyList(exprs.reverse)
           }
-          // TODO: any other cases where Application(_, _) can be simplified? Certainly if funcN is a Lambda?
+
+          case Lambda(name, _, body) =>
+            val a1 = shift(true, name, 0, arg)
+            val b1 = substitute(body, name, 0, a1)
+            val b2 = shift(false, name, 0, b1)
+            b2.betaNormalized
+
+          // let name : A = subst in body is equivalent to (λ(name : A) → body) subst
+          case Let(VarName(name), _, subst, body) => (((v(name) | ~Natural) -> body)(subst)).betaNormalized
+
+          // TODO: all other cases where Application(_, _) can be simplified
           case _ => normalizeArgs
         }
 
