@@ -5,21 +5,18 @@ import com.upokecenter.cbor.CBORObject
 import io.chymyst.ui.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.ui.dhall.SyntaxConstants.VarName
-import io.chymyst.ui.dhall.unit.CBORtest.{bytesToCBORmodel, cborRoundtrip}
+import io.chymyst.ui.dhall.unit.CBORtest.cborRoundtrip
 import io.chymyst.ui.dhall.{CBOR, CBORmodel, Grammar, SyntaxConstants}
 import munit.FunSuite
 
 import java.time.LocalTime
 
 object CBORtest {
-  def bytesToCBORmodel(bytes: Array[Byte]): CBORmodel = CBORmodel.fromCbor2(CBORObject.DecodeFromBytes(bytes))
-
   def cborRoundtrip(expr: Expression) = {
     val aModel = CBOR.toCborModel(expr)
 
     val aBytes: Array[Byte] = aModel.toCbor2.EncodeToBytes
-    val bModel: CBORmodel = bytesToCBORmodel(aBytes)
+    val bModel: CBORmodel = CBORmodel.decodeCbor2(aBytes)
 
     val aModelString = aModel.toString
     val bModelString = bModel.toString
@@ -67,7 +64,7 @@ class CBORtest extends FunSuite {
     //    expect(obj.AsDoubleValue == -1.0)
     val bytes = obj.EncodeToBytes
     expect(bytes.length == 3)
-    expect(bytesToCBORmodel(bytes).asInstanceOf[CDouble].data == -1.52587890625E-5)
+    expect(CBORmodel.decodeCbor2(bytes).asInstanceOf[CDouble].data == -1.52587890625E-5)
   }
 
   test("CBOR roundtrips 3") {
@@ -89,28 +86,29 @@ class CBORtest extends FunSuite {
   test("CBOR for dictionaries") {
     val dict = CMap(Map("a" -> CString("b")))
     val bytes = dict.toCbor2.EncodeToBytes
-    val dictAfterBytes = bytesToCBORmodel(bytes)
+    val dictAfterBytes = CBORmodel.decodeCbor2(bytes)
     expect(dict == dictAfterBytes)
   }
 
   test("CBOR for tagged array") {
     val taggedDict = CTagged(4, CMap(Map("a" -> CString("b"))))
     val bytes = taggedDict.toCbor2.EncodeToBytes
-    val dictAfterBytes = bytesToCBORmodel(bytes)
+    val dictAfterBytes = CBORmodel.decodeCbor2(bytes)
     expect(taggedDict == dictAfterBytes)
   }
 
   test("CBOR for strings containing newlines") {
     val s = CString("\n")
-    val bytes = s.toCbor2.EncodeToBytes
-    val sAfterBytes = bytesToCBORmodel(bytes)
+    val bytes = s.encodeCbor2
+    val sAfterBytes = CBORmodel.decodeCbor2(bytes)
     expect(s == sAfterBytes)
   }
 
   test("CBOR1 for strings containing newlines") {
     val s = CString("\n")
-    val bytes = CBORmodel.encodeCbor1(s)
+    val bytes = s.encodeCbor1
     val sAfterBytes = CBORmodel.decodeCbor1(bytes)
     expect(s == sAfterBytes)
+    expect(s.toString ==  "\"\\n\"")
   }
 }

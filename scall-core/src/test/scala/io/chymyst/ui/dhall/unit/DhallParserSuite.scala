@@ -75,24 +75,25 @@ class DhallParserSuite extends FunSuite {
     val results = testFilesForSuccess.flatMap { file =>
       val validationFile = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
-      val cborValidationModel = CBORtest.bytesToCBORmodel(cborValidationBytes).toString
       val diagnosticFile = file.getAbsolutePath.replace("A.dhall", "B.diag")
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
+        cborValidationModel <- Try(CBORmodel.decodeCbor2(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
-        model <- Try(CBOR.toCborModel(dhallValue.value))
-        bytesGeneratedByUs <- Try(model.toCbor2.EncodeToBytes())
-      } yield (model, bytesGeneratedByUs, dhallValue.value)
-      val result = result1.toOption.map { case (model, bytesGeneratedByUs, expression) =>
+        model <- Try(dhallValue.value.toCBORmodel)
+        bytesGeneratedByUs <- Try(model.encodeCbor2)
+      } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
+      val result2 = result1.toOption.map { case (model, bytesGeneratedByUs, expression, cborValidationModel) =>
         Files.write(Paths.get(outDir + "/" + file.getName.replace("A.dhall", "A.dhallb")), bytesGeneratedByUs)
-        if (bytesGeneratedByUs sameElements cborValidationBytes) Success(bytesGeneratedByUs)
-        else if (model.toString == diagnosticString) {
-          val extraMessage = if (model.toString != cborValidationModel) s"\nwhile our reading of the validation file also differs:\n\t\t$cborValidationModel" else ""
-          Failure(new Exception(s"CBOR encoding differs, our expression is '$expression', but the generated CBOR model agrees with expected:\n\t\t$model$extraMessage\n"))
-        } else Failure(new Exception(s"CBOR model differs: our CBOR model is:\n$model\nbut the expected CBOR model is:\n$diagnosticString\n"))
+        val modelString = model.toString
+        if (bytesGeneratedByUs sameElements cborValidationBytes) Success(file.getName)
+        else if (modelString == diagnosticString) {
+          val extraMessage = if (modelString != cborValidationModel) s"\nwhile our reading of the validation file also differs:\n\t\t$cborValidationModel" else ""
+          Failure(new Exception(s"CBOR encoding differs, our expression is '$expression', but the generated CBOR model agrees with expected:\n\t\t$modelString$extraMessage\n"))
+        } else Failure(new Exception(s"CBOR model differs: our CBOR model is:\n$modelString\nbut the expected CBOR model is:\n$diagnosticString\n"))
       }
-      if (result.exists(_.isFailure)) println(s"CBOR validation failed for file ${file.getName}: ${result.get.failed.get.getMessage}")
-      result
+      if (result2.exists(_.isFailure)) println(s"CBOR validation failed for file ${file.getName}: ${result2.get.failed.get.getMessage}")
+      result2
     }
     val failures = results.count(_.isFailure)
     val modelFailures = results.filter(_.isFailure).count(_.failed.get.getMessage.contains("model differs"))
@@ -104,15 +105,15 @@ class DhallParserSuite extends FunSuite {
     val results = testFilesForSuccess.flatMap { file =>
       val validationFile = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
-      val cborValidationModel = CBORtest.bytesToCBORmodel(cborValidationBytes).toString
       val diagnosticFile = file.getAbsolutePath.replace("A.dhall", "B.diag")
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
+        cborValidationModel <- Try(CBORmodel.decodeCbor2(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
         model <- Try(CBOR.toCborModel(dhallValue.value))
-        bytesGeneratedByUs <- Try(model.toCbor2.EncodeToBytes())
-      } yield (model, bytesGeneratedByUs, dhallValue.value)
-      val result2 = result1.toOption.map { case (model, bytesGeneratedByUs, expression) =>
+        bytesGeneratedByUs <- Try(model.encodeCbor2)
+      } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
+      val result2 = result1.toOption.map { case (model, bytesGeneratedByUs, expression, cborValidationModel) =>
         if (bytesGeneratedByUs sameElements cborValidationBytes) Success((model, expression))
         else if (model.toString == diagnosticString) {
           val extraMessage = if (model.toString != cborValidationModel) s"\nwhile our reading of the validation file also differs:\n\t\t$cborValidationModel" else ""

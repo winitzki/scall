@@ -12,17 +12,19 @@ This project is a Scala implementation of the [Dhall language](https://dhall-lan
 
 ### Completed
 
-A parser from Dhall to Scala case classes, using [fastparse](https://github.com/com-lihaoyi/fastparse).
+A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).
 
 All the parser tests pass.
 
-A serializer and deserializer for CBOR format, using [CBOR-Java](https://github.com/peteroupc/CBOR-Java).
+A serializer and deserializer for CBOR format is implemented using one of the two libraries: [cbor-java](https://github.com/c-rack/cbor-java) and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). 
 
-Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed upstream but the fix is not yet published to Sonatype / Maven.org.
+Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in this PR](https://github.com/peteroupc/CBOR-Java/pull/25) but the fix is not yet published to Sonatype / Maven.org.
 
-All CBOR decoding tests pass.
+There are no CBOR failures with the library `cbor-java`.
 
-Alpha-normalization according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
+All CBOR encoding and decoding tests pass.
+
+Alpha-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
 
 All alpha-normalization tests pass.
 
@@ -55,16 +57,4 @@ Another feature is that some parses need to fail for others to succeed. For exam
 
 So far, there are some issues with the Unicode characters:
 
-- If the input contains non-UTF8 sequences, the `fastparse` library appears to skip some of the input and create a valid UTF-8 string. However, the Dhall standard specifies that non-UTF8 input should be rejected by the parser.
-- If the input contains Unicode characters greater than 65535 the `fastparse` library seems to truncate those characters.
-
-There is also a failing test with `missing//blah` or `missingas text` and such. The keyword `missing` somehow conflicts with parsing.
-
-### CBOR encoding
-
-The CBOR encoding is implemented using the "CBOR-Java" library (`"com.upokecenter" % "cbor" % "4.5.2"`) because it is easy to use and supports big integers and ordered dictionaries out of the box.
-
-#### Limitations
-
-The "CBOR-Java" library version 4.5.2 has a bug where it fails to detect the low precision of special `Double` values `0.0` and `-0.0` (positive and negative zero). The library converts those values to 32-bit `Float` precision whereas the expected behavior is to convert them to 16-bit (half-precision). This fails two of the Dhall acceptance tests. The bug has been fixed in [this PR](https://github.com/peteroupc/CBOR-Java/pull/25).
-
+- If the input contains non-UTF8 sequences, the `fastparse` library will replace those sequences by the "replacement" character (Unicode decimal `65533`). However, the Dhall standard specifies that non-UTF8 input should be rejected by the parser. As a workaround, at the moment, Unicode character `65533` is not allowed in Dhall files and will be rejected at parsing time.

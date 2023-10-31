@@ -27,6 +27,16 @@ sealed trait CBORmodel {
 
   def toCbor1: DataItem
 
+  final def encodeCbor1: Array[Byte] = {
+    val baos = new ByteArrayOutputStream
+    val dataItem = this.toCbor1
+    // Need to use non-canonical encoding because Dhall's map key sorting is not canonical but by string order. For instance, shorter strings are not always before longer strings.
+    new CborEncoder(baos).nonCanonical.encode(new CborBuilder().add(dataItem).build)
+    baos.toByteArray
+  }
+
+  final def encodeCbor2: Array[Byte] = this.toCbor2.EncodeToBytes()
+
   lazy val dhallDiagnostics: String = this.toString
 
   private def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
@@ -212,12 +222,7 @@ object CBORmodel {
     }
   }
 
-  def encodeCbor1(model: CBORmodel): Array[Byte] = {
-    val baos = new ByteArrayOutputStream
-    val dataItem = model.toCbor1
-    new CborEncoder(baos).encode(new CborBuilder().add(dataItem).build)
-    baos.toByteArray
-  }
+  def decodeCbor2(bytes: Array[Byte]): CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(bytes))
 
   def decodeCbor1(bytes: Array[Byte]): CBORmodel = {
     val bais = new ByteArrayInputStream(bytes)
@@ -373,7 +378,7 @@ object CBORmodel {
   final case class CString(data: String) extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
-    override def toString: String = s"\"$data\"" //s"\"$escaped\""
+    override def toString: String = s"\"$escaped\"" //s"\"$escaped\""
 
     lazy val escaped: String = data.flatMap {
       case '\b' => "\\b"
@@ -429,7 +434,7 @@ object CBORmodel {
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
 
-    override def toCbor1: DataItem = data.foldLeft(new Cbor1Map(data.size)) { case (prev, (k, v)) => prev.put(new UnicodeString(k), v.toCbor1) }
+    override def toCbor1: DataItem = data.toSeq.sortBy(_._1).foldLeft(new Cbor1Map(data.size)) { case (prev, (k, v)) => prev.put(new UnicodeString(k), v.toCbor1) }
   }
 
   final case class CTagged(tag: Int, data: CBORmodel) extends CBORmodel {
