@@ -203,7 +203,8 @@ object Semantics {
           case Operator.CombineRecordTerms => (lopN.scheme, ropN.scheme) match {
             case (RecordLiteral(Seq()), _) => ropN
             case (_, RecordLiteral(Seq())) => lopN
-            case (RecordLiteral(defs1), RecordLiteral(defs2)) => RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)) // Do not need to beta-normalize this.
+            case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
+              RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this
             case _ => normalizeArgs
           }
 
@@ -216,14 +217,15 @@ object Semantics {
                 (defs1.toMap ++ defs2.toMap) // The operation ++ on Map prefers the second map's value when keys are the same.
                   .toSeq
                   .sortBy(_._1.name)
-              RecordLiteral(mergedFields)
+              RecordLiteral(mergedFields).betaNormalized
             case _ => normalizeArgs
           }
 
           case Operator.CombineRecordTypes => (lopN.scheme, ropN.scheme) match {
             case (RecordType(Seq()), _) => ropN
             case (_, RecordType(Seq())) => lopN
-            case (RecordType(defs1), RecordType(defs2)) => RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)) // Do not need to beta-normalize this.
+            case (RecordType(defs1), RecordType(defs2)) =>
+              RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this
             case _ => normalizeArgs
           }
 
@@ -310,12 +312,12 @@ object Semantics {
               ))(Expression(EmptyList(tipe))).betaNormalized
 
           case Application(Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)), g) =>
-            expressions match {
-              case Expression(NonEmptyList(exprs)) => // Guaranteed a non-empty list.
+            matchOrNormalize(expressions) {
+              case NonEmptyList(exprs) => // Guaranteed a non-empty list.
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
                 // g a (List/fold A₀ [ as… ] B g b₀) ⇥ b₁
                 g(exprs.head)((~ListFold)(typeA0)(rest)(g)(argN)).betaNormalized
-              case Expression(EmptyList(_)) => b.betaNormalized
+              case EmptyList(_) => b.betaNormalized
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) => matchOrNormalize(arg) {
