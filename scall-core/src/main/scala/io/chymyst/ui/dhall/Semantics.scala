@@ -114,6 +114,7 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
+//    println(s"DEBUG: betaNormalize(${expr.toDhall})")
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
     def dummy = throw new Exception(s"Not implemented: betaNormalize($expr)")
@@ -188,7 +189,20 @@ object Semantics {
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
-          case Operator.CombineRecordTerms => dummy
+          case Operator.CombineRecordTerms => (lopN.scheme, ropN.scheme) match {
+            case (RecordLiteral(Seq()), _) => ropN
+            case (_, RecordLiteral(Seq())) => lopN
+            case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
+              // TODO report issue - beta-normalization.md does not say to normalize RecordLiteral (Map.toAscList m)
+              val mergedFields =
+                (defs1.toSeq ++ defs2.toSeq)
+                  .groupMapReduce(_._1)(_._2)((l, r) => l.op(Operator.CombineRecordTerms)(r))
+                  .toSeq
+                  .sortBy(_._1.name)
+              RecordLiteral(mergedFields).betaNormalized
+            case _ => normalizeArgs
+          }
+
           case Operator.Prefer => dummy
           case Operator.CombineRecordTypes => dummy
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
@@ -327,36 +341,35 @@ object Semantics {
           case _ => normalizeArgs
         }
 
-      case Field(base, name) =>
-        matchOrNormalize(base) {
-          case r@RecordLiteral(defs) =>
-           val x = r.lookup(name)
-              x.getOrElse(throw new Exception(s"Error in typechecker: record access in $expr has invalid field name $name not occurring among record fields ${r.defs.map(_._1).mkString(", ")}"))
+      case Field(base, name) => matchOrNormalize(base) {
+        case r@RecordLiteral(_) =>
+          val x = r.lookup(name)
+          x.getOrElse(throw new Exception(s"Error in typechecker: record access in $expr has invalid field name $name not occurring among record fields ${r.defs.map(_._1).mkString(", ")}"))
 
-          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
+        case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
 
-          case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
-            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
-            case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
-            case None => Field(target, name).betaNormalized
-          }
-          case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
-            case Some(v) => v.betaNormalized
-            case None => Field(target, name).betaNormalized
-          }
-          case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
-            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
-            case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name).betaNormalized
-            case None => Field(target, name).betaNormalized
-          }
-          case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
-            case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name).betaNormalized
-            case None => Field(target, name).betaNormalized
-          }
-
+        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
+          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
+          case None => Field(target, name).betaNormalized
         }
+        case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
+          case Some(v) => v.betaNormalized
+          case None => Field(target, name).betaNormalized
+        }
+        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
+          // Do not normalize this again because it won't be possible.
+          case Some(v) => ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)
+          case None => Field(target, name).betaNormalized
+        }
+        case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+          // Do not normalize this again because it won't be possible.
+          case Some(v) => ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))
+          case None => Field(target, name).betaNormalized
+        }
+
+      }
 
       case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
       case p@ProjectByLabels(base, labels) => matchOrNormalize(base) {

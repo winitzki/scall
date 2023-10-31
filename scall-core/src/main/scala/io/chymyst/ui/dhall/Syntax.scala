@@ -572,10 +572,11 @@ object Syntax {
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 
     // Produce a new Expression that has been beta-normalized and whose .betaNormalized method is precomputed.
-    lazy val betaNormalized: Expression =  if (betaN != null) betaN else this.synchronized {
+    lazy val betaNormalized: Expression = if (betaN != null) betaN else this.synchronized {
       val normalized = Semantics.betaNormalize(this)
       this.betaN = normalized
       normalized.betaN = normalized
+//      println(s"DEBUG: lazy val betaNormalized for $toDhall computed as ${normalized.toDhall}")
       normalized
     }
 
