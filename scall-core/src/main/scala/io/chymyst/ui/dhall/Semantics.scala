@@ -112,6 +112,20 @@ object Semantics {
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
   // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.
 
+  def combineAndSortRecordTerms(lopN: Expression, operator: Operator, ropN: Expression, normalizeArgs: Expression): Expression =
+    (lopN.scheme, ropN.scheme) match {
+      case (RecordLiteral(Seq()), _) => ropN
+      case (_, RecordLiteral(Seq())) => lopN
+      case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
+        val mergedFields =
+          (defs1.toSeq ++ defs2.toSeq)
+            .groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r))
+            .toSeq
+            .sortBy(_._1.name)
+        RecordLiteral(mergedFields) // Do not need to beta-normalize this.
+      case _ => normalizeArgs
+    }
+
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
     //    println(s"DEBUG: betaNormalize(${expr.toDhall})")
@@ -189,19 +203,7 @@ object Semantics {
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
-          case Operator.CombineRecordTerms => (lopN.scheme, ropN.scheme) match {
-            case (RecordLiteral(Seq()), _) => ropN
-            case (_, RecordLiteral(Seq())) => lopN
-            case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
-              // TODO report issue - beta-normalization.md does not say to normalize RecordLiteral (Map.toAscList m)
-              val mergedFields =
-                (defs1.toSeq ++ defs2.toSeq)
-                  .groupMapReduce(_._1)(_._2)((l, r) => l.op(Operator.CombineRecordTerms)(r))
-                  .toSeq
-                  .sortBy(_._1.name)
-              RecordLiteral(mergedFields).betaNormalized
-            case _ => normalizeArgs
-          }
+          case Operator.CombineRecordTerms => combineAndSortRecordTerms(lopN, Operator.CombineRecordTerms, ropN, normalizeArgs)
 
           case Operator.Prefer => (lopN.scheme, ropN.scheme) match {
             case (RecordLiteral(Seq()), _) => ropN
@@ -209,14 +211,15 @@ object Semantics {
             case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
               // Do not need to beta-normalize the resulting RecordLiteral.
               val mergedFields =
-                (defs1.toMap ++ defs2.toMap)
+                (defs1.toMap ++ defs2.toMap) // The operation ++ on Map prefers the second map's value when keys are the same.
                   .toSeq
                   .sortBy(_._1.name)
               RecordLiteral(mergedFields)
             case _ => normalizeArgs
           }
 
-          case Operator.CombineRecordTypes => dummy
+          case Operator.CombineRecordTypes => combineAndSortRecordTerms(lopN, Operator.CombineRecordTypes, ropN, normalizeArgs)
+
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
             case (NaturalLiteral(a), _) if a == 0 => NaturalLiteral(0)
             case (_, NaturalLiteral(b)) if b == 0 => NaturalLiteral(0)
@@ -366,7 +369,7 @@ object Semantics {
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v` or Field? Or is it not necessary in this case?
           case Some(v) => v.betaNormalized
           case None => Field(target, name).betaNormalized
         }
