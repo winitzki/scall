@@ -48,10 +48,11 @@ class DhallSemanticsSuite extends FunSuite {
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }
-        if (result.isFailure) println(s"${file.getName}: ${printFailure(result.failed.get)}")
+        if (result.isFailure) println(s"${file.getName}: ${result.failed.get}${printFailure(result.failed.get).split("\n", -1).filter(_ contains "Semantics.scala").mkString("\n")}")
         result
       }
-    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-    expect(results.count(_.isFailure) == 0)
+    val failures = results.count(_.isFailure)
+    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures")
+    expect(failures == 0)
   }
 }

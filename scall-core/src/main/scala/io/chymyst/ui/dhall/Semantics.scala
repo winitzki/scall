@@ -116,6 +116,8 @@ object Semantics {
   def betaNormalize(expr: Expression): Expression = {
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
+    def dummy = throw new Exception(s"Not implemented: betaNormalize($expr)")
+
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
       if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
 
@@ -129,14 +131,14 @@ object Semantics {
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
 
       case If(cond, ifTrue, ifFalse) =>
-        lazy val If(condN, ifTrueN, ifFalseN) = normalizeArgs
-        if (condN.scheme == ExprBuiltin(Builtin.True)) ifTrueN
-        else if (condN.scheme == ExprBuiltin(Builtin.False)) ifFalseN
-        else if (equivalent(ifTrue, ifFalse)) ifTrueN
+        if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.True)) ifTrue.betaNormalized
+        else if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.False)) ifFalse.betaNormalized
+        else if (ifFalse.betaNormalized.scheme == ExprBuiltin(Builtin.False) && ifTrue.betaNormalized.scheme == ExprBuiltin(Builtin.True)) cond.betaNormalized
+        else if (equivalent(ifTrue, ifFalse)) ifTrue.betaNormalized
         else normalizeArgs
 
-      case Merge(record, update, tipe) => ???
-      case ToMap(data, tipe) => ???
+      case Merge(record, update, tipe) => dummy
+      case ToMap(data, tipe) => dummy
 
       case Annotation(data, _) => data.betaNormalized
 
@@ -172,9 +174,9 @@ object Semantics {
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
-          case Operator.CombineRecordTerms => ???
-          case Operator.Prefer => ???
-          case Operator.CombineRecordTypes => ???
+          case Operator.CombineRecordTerms => dummy
+          case Operator.Prefer => dummy
+          case Operator.CombineRecordTypes => dummy
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
             case (NaturalLiteral(a), _) if a == 0 => NaturalLiteral(0)
             case (_, NaturalLiteral(b)) if b == 0 => NaturalLiteral(0)
@@ -315,12 +317,12 @@ object Semantics {
           case _ => normalizeArgs
         }
 
-      case Field(base, name) => ???
-      case ProjectByLabels(base, labels) => ???
-      case ProjectByType(base, by) => ???
-      case Completion(base, target) => ???
+      case Field(base, name) => dummy
+      case ProjectByLabels(base, labels) => dummy
+      case ProjectByType(base, by) => dummy
+      case Completion(base, target) => dummy
 
-      case With(data, pathComponents, body) => ???
+      case With(data, pathComponents, body) => dummy
 
       case TextLiteral(_, _) =>
         lazy val TextLiteral(interpolationsN, trailing) = normalizeArgs
