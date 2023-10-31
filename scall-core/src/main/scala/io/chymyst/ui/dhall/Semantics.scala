@@ -156,7 +156,14 @@ object Semantics {
         else if (equivalent(ifTrue, ifFalse)) ifTrue.betaNormalized
         else normalizeArgs
 
-      case Merge(record, update, tipe) => notImplemented
+      case Merge(record, update, _) => matchOrNormalize(record) {
+        case r@RecordLiteral(_) => matchOrNormalize(update) {
+          case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).betaNormalized
+          case Field(Expression(UnionType(_)), x) => r.lookup(x).get
+          case KeywordSome(a) => (r.lookup(FieldName("Some")).get)(a).betaNormalized
+          case Application(Expression(ExprBuiltin(Builtin.None)), _) => r.lookup(FieldName("None")).get
+        }
+      }
 
       // TODO report issue: Does betaNormalize(toMap {=} T) give [] : T' where T' = betaNormalize T? Or does it not normalize T? beta-normalization.md specifies "EmptyList _T₀", which implies no normalization in that case.
       case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
