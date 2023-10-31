@@ -5,7 +5,7 @@ import fastparse.Parsed
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Semantics.alphaNormalize
 import io.chymyst.ui.dhall.Syntax.DhallFile
-import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
+import io.chymyst.ui.dhall.unit.TestUtils.{enumerateResourceFiles, printFailure}
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}
@@ -48,7 +48,7 @@ class DhallSemanticsSuite extends FunSuite {
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }
-        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        if (result.isFailure) println(s"${file.getName}: ${printFailure(result.failed.get)}")
         result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")

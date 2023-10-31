@@ -138,12 +138,10 @@ object Semantics {
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
 
-      case Annotation(data, tipe) =>
-        val Annotation(data, _) = normalizeArgs
-        data
+      case Annotation(data, _) => data.betaNormalized
 
       case ExprOperator(lop, op, rop) =>
-        val ExprOperator(lopN, _, ropN) = normalizeArgs
+        lazy val ExprOperator(lopN, _, ropN) = normalizeArgs
         op match {
           case Operator.Or =>
             if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) ropN
@@ -206,7 +204,7 @@ object Semantics {
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         func.betaNormalized.scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
-            argN(~Natural)(v("x") | ~Natural -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)).betaNormalized
+            argN(~Natural)((v("x") | ~Natural) -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)).betaNormalized
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
             // g (Natural/fold n b g argN)
             if (m == 0) argN else g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
@@ -299,16 +297,17 @@ object Semantics {
             case NonEmptyList(exprs) => NonEmptyList(exprs.reverse)
           }
 
-          case Lambda(name, _, body) =>
+          case Lambda(name, _, body) => // betaNormalize of Lambda() ignores the type annotation.
             val a1 = shift(true, name, 0, arg)
             val b1 = substitute(body, name, 0, a1)
             val b2 = shift(false, name, 0, b1)
             b2.betaNormalized
 
           // let name : A = subst in body is equivalent to (λ(name : A) → body) subst
+          // We use Natural as the type here, because betaNormalize of Lambda() ignores the type annotation.
           case Let(VarName(name), _, subst, body) => (((v(name) | ~Natural) -> body)(subst)).betaNormalized
 
-          // TODO: all other cases where Application(_, _) can be simplified
+          // TODO: write here all other cases where Application(_, _) can be simplified
           case _ => normalizeArgs
         }
 
@@ -320,7 +319,7 @@ object Semantics {
       case With(data, pathComponents, body) => ???
 
       case TextLiteral(_, _) =>
-        val TextLiteral(interpolationsN, trailing) = normalizeArgs
+        lazy val TextLiteral(interpolationsN, trailing) = normalizeArgs
 
         // TODO: replace this code by foldRight somehow?
         def loop(t: TextLiteral[Expression]): TextLiteral[Expression] = t.interpolations match {
@@ -334,9 +333,9 @@ object Semantics {
           case t => t
         }
 
-      case RecordType(defs) => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
-      case RecordLiteral(defs) => ???
-      case UnionType(defs) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
+      case RecordType(_) => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
+      case RecordLiteral(_) => normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
+      case UnionType(_) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
       case ShowConstructor(data) =>
         matchOrNormalize(data) {
           case Application(Expression(Field(Expression(UnionType(_)), FieldName(name))), _) => TextLiteral.ofString(name)
