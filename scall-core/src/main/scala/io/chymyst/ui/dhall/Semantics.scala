@@ -130,6 +130,10 @@ object Semantics {
       // These expressions only need to normalize their arguments.
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
 
+      // let name : A = subst in body is equivalent to (λ(name : A) → body) subst
+      // We use Natural as the type here, because betaNormalize of Lambda() ignores the type annotation.
+      case Let(VarName(name), _, subst, body) => (((v(name) | ~Natural) -> body)(subst)).betaNormalized
+
       case If(cond, ifTrue, ifFalse) =>
         if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.True)) ifTrue.betaNormalized
         else if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.False)) ifFalse.betaNormalized
@@ -308,10 +312,6 @@ object Semantics {
             val b1 = substitute(body, name, 0, a1)
             val b2 = shift(false, name, 0, b1)
             b2.betaNormalized
-
-          // let name : A = subst in body is equivalent to (λ(name : A) → body) subst
-          // We use Natural as the type here, because betaNormalize of Lambda() ignores the type annotation.
-          case Let(VarName(name), _, subst, body) => (((v(name) | ~Natural) -> body)(subst)).betaNormalized
 
           // TODO: write here all other cases where Application(_, _) can be simplified
           case _ => normalizeArgs
