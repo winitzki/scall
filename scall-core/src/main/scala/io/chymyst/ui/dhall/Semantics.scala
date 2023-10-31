@@ -305,7 +305,7 @@ object Semantics {
             val a = v(freshName)
             val newType = shift(true, VarName(freshName), 0, tipe)
             // g (List A₀) (λ(a : A₀) → λ(as : List A₁) → [ a ] # as) ([] : List A₀) ⇥ b
-            val aseq = v("aseq")
+            val aseq = v("as")
             argN((~Builtin.List)(tipe))((a | tipe) -> (
               (aseq | (~Builtin.List)(newType)) ->
                 Expression(NonEmptyList(Seq(a))).op(ListAppend)(aseq)
@@ -315,9 +315,11 @@ object Semantics {
             matchOrNormalize(expressions) {
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
-                // g a (List/fold A₀ [ as… ] B g b₀) ⇥ b₁
-                g(exprs.head)((~ListFold)(typeA0)(rest)(g)(argN)).betaNormalized
-              case EmptyList(_) => b.betaNormalized
+                // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
+                g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN)).betaNormalized
+
+              // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
+              case EmptyList(_) => argN
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) => matchOrNormalize(arg) {
