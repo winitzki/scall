@@ -648,12 +648,16 @@ object Syntax {
     def v(name: String): Expression = Expression(Variable(VarName(name), 0))
   }
 
-  sealed trait PathComponent
+  sealed trait PathComponent {
+    def isOptionalLabel: Boolean = false
+  }
 
   object PathComponent {
     final case class Label(fieldName: FieldName) extends PathComponent
 
-    final case object DescendOptional extends PathComponent
+    final case object DescendOptional extends PathComponent {
+      override def isOptionalLabel: Boolean = true
+    }
   }
 
   // Raw record syntax: { x.y.z = 1 } that needs to be processed further. This is a part of a RecordLiteral but not an Expression.

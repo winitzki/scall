@@ -2,13 +2,14 @@ package io.chymyst.ui.dhall
 
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
-import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
+import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.{ListAppend, Prefer}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, FieldName, File, Operator, VarName}
 
 import java.util.regex.Pattern
+import scala.collection.immutable.{AbstractSeq, LinearSeq}
 import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
@@ -425,7 +426,28 @@ object Semantics {
       // T::r is syntactic sugar for (T.default // r) : T.Type
       case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
 
-      case With(data, pathComponents, body) => ???
+      case With(data, pathComponents, body) => matchOrNormalize(data) {
+        case r@RecordLiteral(defs) => pathComponents match { // This is a non-empty list.
+          case Seq(PathComponent.Label(single)) =>
+            RecordLiteral((defs.toMap ++ Map(single -> body.betaNormalized)).toSeq)
+          case _ if pathComponents.length > 1 =>
+            val PathComponent.Label(head) = pathComponents.head
+            val tail = pathComponents.tail
+            r.lookup(head) match {
+              case Some(e1) =>
+                val e2 = With(e1, tail, body).betaNormalized
+                RecordLiteral((defs.toMap ++ Map(head -> e2)).toSeq)
+              case None =>
+                val e1 = With(Expression(RecordLiteral(Seq())), tail, body).betaNormalized
+                RecordLiteral((defs.toMap ++ Map(head -> e1)).toSeq)
+            }
+          case _ => normalizeArgs
+        }
+        case none@Application(Expression(ExprBuiltin(Builtin.None)), _) if pathComponents.head.isOptionalLabel => none
+        case KeywordSome(_) if pathComponents.length == 1 && pathComponents.head.isOptionalLabel => KeywordSome(body.betaNormalized)
+        case KeywordSome(data) if pathComponents.length > 1 && pathComponents.head.isOptionalLabel => KeywordSome(With(data, pathComponents.tail, body).betaNormalized)
+      }
+
 
       case TextLiteral(_, _) =>
         lazy val TextLiteral(interpolationsN, trailing) = normalizeArgs
