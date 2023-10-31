@@ -119,7 +119,7 @@ object Semantics {
     def dummy = throw new Exception(s"Not implemented: betaNormalize($expr)")
 
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
-      if (matcher.isDefinedAt(expr.scheme)) matcher(expr.scheme) else default
+      matcher.applyOrElse(expr.betaNormalized.scheme, { _: ExpressionScheme[Expression] => default })
 
     expr.scheme match {
       // These expression types are already in beta-normal form.
@@ -145,7 +145,7 @@ object Semantics {
 
       // TODO report issue: Does betaNormalize(toMap {=} T) give [] : T' where T' = betaNormalize T? Or does it not normalize T? beta-normalization.md specifies "EmptyList _T₀", which implies no normalization in that case.
       case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
-      case ToMap(data, tipe) => matchOrNormalize(data.betaNormalized) {
+      case ToMap(data, _) => matchOrNormalize(data) {
         case RecordLiteral(defs) =>
           NonEmptyList(defs.map { case (name, expr) => Expression(RecordLiteral(Seq(
             (FieldName("mapKey"), TextLiteral.ofString(name.name)),
@@ -212,7 +212,7 @@ object Semantics {
             else normalizeArgs
 
           case Operator.Equivalent => normalizeArgs
-          case Operator.Alternative => throw new Exception(s"Unresolved import alternative $this cannot be beta-normalized")
+          case Operator.Alternative => throw new Exception(s"Unresolved import alternative in $expr cannot be beta-normalized")
         }
 
       case Application(func, arg) =>
@@ -224,11 +224,11 @@ object Semantics {
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
             // g (Natural/fold n b g argN)
             if (m == 0) argN else g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
-          case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
-          case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
-          case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(argN) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
-          case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(argN) { case NaturalLiteral(a) => TextLiteral.ofString(a.toString(10)) } // Convert a Natural number to a decimal string representation.
-          case ExprBuiltin(Builtin.NaturalToInteger) => matchOrNormalize(argN) { case NaturalLiteral(a) => IntegerLiteral(a) }
+          case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
+          case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
+          case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
+          case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(arg) { case NaturalLiteral(a) => TextLiteral.ofString(a.toString(10)) } // Convert a Natural number to a decimal string representation.
+          case ExprBuiltin(Builtin.NaturalToInteger) => matchOrNormalize(arg) { case NaturalLiteral(a) => IntegerLiteral(a) }
           case Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), a) =>
             val aN = a.betaNormalized
             (argN.scheme, aN.scheme) match { // subtract y x = x - y. If the result is negative, return 0.
@@ -241,7 +241,7 @@ object Semantics {
               case _ => (~NaturalSubtract)(aN)(argN)
             }
 
-          case ExprBuiltin(Builtin.TextShow) => matchOrNormalize(argN) { case TextLiteral(List(), string) => TextLiteral.ofString(textShow(string)) }
+          case ExprBuiltin(Builtin.TextShow) => matchOrNormalize(arg) { case TextLiteral(List(), string) => TextLiteral.ofString(textShow(string)) }
 
           case Application(Expression(Application(Expression(ExprBuiltin(Builtin.TextReplace)), needle)), replacement) =>
             (needle.scheme, replacement.scheme, argN.scheme) match {
@@ -282,13 +282,13 @@ object Semantics {
               case Expression(EmptyList(_)) => b.betaNormalized
             }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) => matchOrNormalize(argN) {
+          case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) => matchOrNormalize(arg) {
             case EmptyList(_) => NaturalLiteral(0)
             case NonEmptyList(exprs) => NaturalLiteral(exprs.length)
             case ExprOperator(lop, Operator.ListAppend, rop) => (~ListLength)(lop.betaNormalized).betaNormalized.op(Operator.Plus)((~ListLength)(rop.betaNormalized).betaNormalized).betaNormalized // TODO: report issue to add this reduction rule to the standard?
           }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) => matchOrNormalize(argN) {
+          case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) => matchOrNormalize(arg) {
             case EmptyList(_) => (~Builtin.None)(tipe)
             case NonEmptyList(exprs) => KeywordSome(exprs.head)
 
@@ -300,19 +300,19 @@ object Semantics {
             }
           }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListLast)), tipe) => matchOrNormalize(argN) {
+          case Application(Expression(ExprBuiltin(Builtin.ListLast)), tipe) => matchOrNormalize(arg) {
             case EmptyList(_) => (~Builtin.None)(tipe)
             case NonEmptyList(exprs) => KeywordSome(exprs.last)
           }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListIndexed)), tipe) => matchOrNormalize(argN) {
+          case Application(Expression(ExprBuiltin(Builtin.ListIndexed)), tipe) => matchOrNormalize(arg) {
             case EmptyList(_) => EmptyList((~Builtin.List)(Expression(RecordType(Seq((FieldName("index"), ~Builtin.Natural), (FieldName("value"), tipe))))))
             case NonEmptyList(exprs) => NonEmptyList(exprs.zipWithIndex.map { case (e, index) =>
               Expression(RecordLiteral(Seq((FieldName("index"), NaturalLiteral(index)), (FieldName("value"), e))))
             })
           }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListReverse)), _) => matchOrNormalize(argN) {
+          case Application(Expression(ExprBuiltin(Builtin.ListReverse)), _) => matchOrNormalize(arg) {
             case EmptyList(t) => EmptyList(t)
             case NonEmptyList(exprs) => NonEmptyList(exprs.reverse)
           }
@@ -327,34 +327,52 @@ object Semantics {
           case _ => normalizeArgs
         }
 
-      case Field(base, name) => matchOrNormalize(base.betaNormalized) {
-        case r@RecordLiteral(_) => r.lookup(name).get
-        case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
-        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize after simplifying to `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
-          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
-          case None => Field(target, name).betaNormalized
-        }
-        case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
-          case Some(v) => v.betaNormalized
-          case None => Field(target, name).betaNormalized
-        }
-        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize after simplifying to `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
-          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name).betaNormalized
-          case None => Field(target, name).betaNormalized
-        }
-        case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
-          case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name).betaNormalized
-          case None => Field(target, name).betaNormalized
+      case Field(base, name) =>
+        matchOrNormalize(base) {
+          case r@RecordLiteral(defs) =>
+           val x = r.lookup(name)
+              x.getOrElse(throw new Exception(s"Error in typechecker: record access in $expr has invalid field name $name not occurring among record fields ${r.defs.map(_._1).mkString(", ")}"))
+
+          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
+
+          case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
+            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
+            case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
+            case None => Field(target, name).betaNormalized
+          }
+          case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
+            case Some(v) => v.betaNormalized
+            case None => Field(target, name).betaNormalized
+          }
+          case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
+            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
+            case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name).betaNormalized
+            case None => Field(target, name).betaNormalized
+          }
+          case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+            // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
+            case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name).betaNormalized
+            case None => Field(target, name).betaNormalized
+          }
+
         }
 
+      case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+      case p@ProjectByLabels(base, labels) => matchOrNormalize(base) {
+        case RecordLiteral(defs) => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
+        case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
+        case ExprOperator(left, Operator.Prefer, right@Expression(RecordLiteral(defs))) =>
+          // TODO report issue: betaNormalize ProjectByLabels (RecordLiteral rs) (filter predicate xs₀)
+          val newL: Expression = ProjectByLabels(left, labels.diff(defs.map(_._1)))
+          val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
+          ExprOperator(newL, Operator.Prefer, newR).betaNormalized
+        case _ => p.sorted.schemeWithBetaNormalizedArguments
       }
 
-      case ProjectByLabels(base, labels) => dummy
-      case ProjectByType(base, by) => dummy
+      case ProjectByType(base, labels) => matchOrNormalize(labels) {
+        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1))
+      }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type
       case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
@@ -388,7 +406,7 @@ object Semantics {
           case KeywordSome(_) => TextLiteral.ofString("Some")
         }
 
-      case Import(_, _, _) => throw new Exception(s"Unresolved import $this cannot be beta-normalized")
+      case Import(_, _, _) => throw new Exception(s"Unresolved import in $expr cannot be beta-normalized")
     }
   }
 

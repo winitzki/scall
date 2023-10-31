@@ -336,7 +336,9 @@ object Syntax {
 
     final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E]
 
-    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E]
+    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E] {
+      def sorted: ProjectByLabels[E] = ProjectByLabels(base, labels.sortBy(_.name))
+    }
 
     final case class ProjectByType[E](base: E, by: E) extends ExpressionScheme[E]
 
@@ -498,7 +500,7 @@ object Syntax {
     final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
       lazy val sorted = RecordLiteral(defs.sortBy(_._1.name))
 
-      def lookup(field: FieldName): Option[E] = defs.find(_._1 == field).map(_._2)
+      def lookup(field: FieldName): Option[E] = defs.find(_._1 == field).map(_._2) // TODO: do we need a faster lookup here?
     }
 
     object RecordLiteral {
@@ -561,14 +563,24 @@ object Syntax {
     final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing]
   }
 
-  final case class Expression(scheme: ExpressionScheme[Expression]) {
+  final case class Expression(private var schemeInternal: ExpressionScheme[Expression]) {
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
+
+    def scheme = schemeInternal
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression = Semantics.betaNormalize(this)
+
+    lazy val betaNormalized: Expression = {
+      val normalized = Semantics.betaNormalize(this)
+      this.betaN = normalized
+      this.schemeInternal = normalized.scheme
+      this
+    }
+
+    @volatile private var betaN: Expression = this
 
     // Print to Dhall syntax.
     def toDhall: String = scheme match {
@@ -598,9 +610,9 @@ object Syntax {
       case DateLiteral(year, month, day) => ???
       case TimeLiteral(time) => ???
       case TimeZoneLiteral(totalMinutes) => ???
-      case RecordType(defs) => "{ " + defs.map { case (name, expr) => "name: " + expr.toDhall }.mkString(", ") + " }"
-      case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => "name = " + expr.toDhall }.mkString(", ") + " }"
-      case UnionType(defs) => "< " + defs.map { case (name, expr) => "name" + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
+      case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.toDhall }.mkString(", ") + " }"
+      case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.toDhall }.mkString(", ") + " }"
+      case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
       case ShowConstructor(data) => "showConstructor " + data.toDhall
       case Import(importType, importMode, digest) => ???
       case KeywordSome(data) => s"Some ${data.toDhall}"

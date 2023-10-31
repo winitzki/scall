@@ -1,7 +1,7 @@
 package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.ui.dhall.Semantics
+import io.chymyst.ui.dhall.{Parser, Semantics}
 import io.chymyst.ui.dhall.Syntax.Expression._
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.Natural
@@ -26,5 +26,12 @@ class SimpleSemanticsTest extends FunSuite {
     val nested = (v("x") | ~Natural) -> ((v("y") | ~Natural) -> v("x"))
     expect(nested.toDhall == "\\(x : Natural) -> \\(y : Natural) -> x@0")
     expect(nested.alphaNormalized.toDhall == "\\(_ : Natural) -> \\(_ : Natural) -> _@1")
+  }
+
+  test ("alpha-normalize record access") {
+    val dhall = "{ x = \"foo\" }.x"
+    val expr = Parser.parseDhall(dhall).get.value.value
+    val exprN = expr.betaNormalized
+    expect(exprN.toDhall == "\"foo\"")
   }
 }
