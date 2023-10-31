@@ -131,7 +131,7 @@ object Semantics {
     //    println(s"DEBUG: betaNormalize(${expr.toDhall})")
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
-    def dummy = throw new Exception(s"Not implemented: betaNormalize($expr)")
+    def notImplemented = throw new Exception(s"Not implemented: betaNormalize($expr)")
 
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
       matcher.applyOrElse(expr.betaNormalized.scheme, { _: ExpressionScheme[Expression] => default })
@@ -156,7 +156,7 @@ object Semantics {
         else if (equivalent(ifTrue, ifFalse)) ifTrue.betaNormalized
         else normalizeArgs
 
-      case Merge(record, update, tipe) => dummy
+      case Merge(record, update, tipe) => notImplemented
 
       // TODO report issue: Does betaNormalize(toMap {=} T) give [] : T' where T' = betaNormalize T? Or does it not normalize T? beta-normalization.md specifies "EmptyList _T₀", which implies no normalization in that case.
       case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
@@ -405,7 +405,7 @@ object Semantics {
       // T::r is syntactic sugar for (T.default // r) : T.Type
       case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
 
-      case With(data, pathComponents, body) => dummy
+      case With(data, pathComponents, body) => notImplemented
 
       case TextLiteral(_, _) =>
         lazy val TextLiteral(interpolationsN, trailing) = normalizeArgs
@@ -423,8 +423,11 @@ object Semantics {
         }
 
       case RecordType(_) => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
+
       case RecordLiteral(_) => normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
+
       case UnionType(_) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
+
       case ShowConstructor(data) =>
         matchOrNormalize(data) {
           case Application(Expression(Field(Expression(UnionType(_)), FieldName(name))), _) => TextLiteral.ofString(name)
