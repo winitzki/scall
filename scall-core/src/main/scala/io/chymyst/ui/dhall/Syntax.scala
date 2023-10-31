@@ -563,24 +563,23 @@ object Syntax {
     final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing]
   }
 
-  final case class Expression(private var schemeInternal: ExpressionScheme[Expression]) {
+  final case class Expression(scheme: ExpressionScheme[Expression]) {
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
-
-    def scheme = schemeInternal
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 
-    lazy val betaNormalized: Expression = {
+    // Produce a new Expression that has been beta-normalized and whose .betaNormalized method is precomputed.
+    lazy val betaNormalized: Expression =  if (betaN != null) betaN else this.synchronized {
       val normalized = Semantics.betaNormalize(this)
       this.betaN = normalized
-      this.schemeInternal = normalized.scheme
-      this
+      normalized.betaN = normalized
+      normalized
     }
 
-    @volatile private var betaN: Expression = this
+    @volatile private var betaN: Expression = null
 
     // Print to Dhall syntax.
     def toDhall: String = scheme match {
