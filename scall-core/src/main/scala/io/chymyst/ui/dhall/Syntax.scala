@@ -497,6 +497,8 @@ object Syntax {
 
     final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
       lazy val sorted = RecordLiteral(defs.sortBy(_._1.name))
+
+      def lookup(field: FieldName): Option[E] = defs.find(_._1 == field).map(_._2)
     }
 
     object RecordLiteral {
@@ -598,47 +600,47 @@ object Syntax {
       case TimeZoneLiteral(totalMinutes) => ???
       case RecordType(defs) => "{ " + defs.map { case (name, expr) => "name: " + expr.toDhall }.mkString(", ") + " }"
       case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => "name = " + expr.toDhall }.mkString(", ") + " }"
-      case UnionType(defs) => "< " + defs.map { case (name, expr) => "name" + expr.map(_.toDhall).map(": " + _).getOrElse("")  }.mkString(" | ") + " > "
-      case ShowConstructor(data) =>  "showConstructor " + data.toDhall
+      case UnionType(defs) => "< " + defs.map { case (name, expr) => "name" + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
+      case ShowConstructor(data) => "showConstructor " + data.toDhall
       case Import(importType, importMode, digest) => ???
       case KeywordSome(data) => s"Some ${data.toDhall}"
       case ExprBuiltin(builtin) => builtin.entryName
       case ExprConstant(constant) => constant.entryName
-      }
-
-        // Construct Dhall terms more easily.
-
-        // Natural numbers.
-        def +(other: Expression): Expression = ExprOperator(this, Plus, other)
-
-        // Application is a(b)
-        def apply(arg: Expression): Expression = Application(this, arg)
-
-        // Type annotation is a :: b
-        def |(other: Expression): Expression = Annotation(this, other)
-
-        // Lambda is a -> b where a must be (Variable :: T)
-        def ->(other: Expression): Expression = this.scheme match {
-          case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
-          case _ => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation but is ${this.toDhall}: $this")
-        }
     }
 
-    object Expression {
-      implicit def toExpressionScheme(expression: Expression): ExpressionScheme[Expression] = expression.scheme
+    // Construct Dhall terms more easily.
 
-      def v(name: String): Expression = Expression(Variable(VarName(name), 0))
+    // Natural numbers.
+    def +(other: Expression): Expression = ExprOperator(this, Plus, other)
+
+    // Application is a(b)
+    def apply(arg: Expression): Expression = Application(this, arg)
+
+    // Type annotation is a :: b
+    def |(other: Expression): Expression = Annotation(this, other)
+
+    // Lambda is a -> b where a must be (Variable :: T)
+    def ->(other: Expression): Expression = this.scheme match {
+      case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
+      case _ => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation but is ${this.toDhall}: $this")
     }
-
-    sealed trait PathComponent
-
-    object PathComponent {
-      final case class Label(fieldName: FieldName) extends PathComponent
-
-      final case object DescendOptional extends PathComponent
-    }
-
-    // Raw record syntax: { x.y.z = 1 } that needs to be processed further. This is a part of a RecordLiteral but not an Expression.
-    final case class RawRecordLiteral(base: FieldName, defs: Option[(Seq[FieldName], Expression)])
-
   }
+
+  object Expression {
+    implicit def toExpressionScheme(expression: Expression): ExpressionScheme[Expression] = expression.scheme
+
+    def v(name: String): Expression = Expression(Variable(VarName(name), 0))
+  }
+
+  sealed trait PathComponent
+
+  object PathComponent {
+    final case class Label(fieldName: FieldName) extends PathComponent
+
+    final case object DescendOptional extends PathComponent
+  }
+
+  // Raw record syntax: { x.y.z = 1 } that needs to be processed further. This is a part of a RecordLiteral but not an Expression.
+  final case class RawRecordLiteral(base: FieldName, defs: Option[(Seq[FieldName], Expression)])
+
+}

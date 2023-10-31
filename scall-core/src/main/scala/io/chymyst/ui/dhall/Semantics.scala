@@ -327,7 +327,32 @@ object Semantics {
           case _ => normalizeArgs
         }
 
-      case Field(base, name) => dummy
+      case Field(base, name) => matchOrNormalize(base.betaNormalized) {
+        case r@RecordLiteral(_) => r.lookup(name).get
+        case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
+        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize after simplifying to `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
+          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
+          case None => Field(target, name).betaNormalized
+        }
+        case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v`
+          case Some(v) => v.betaNormalized
+          case None => Field(target, name).betaNormalized
+        }
+        case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize after simplifying to `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
+          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name).betaNormalized
+          case None => Field(target, name).betaNormalized
+        }
+        case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
+          case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name).betaNormalized
+          case None => Field(target, name).betaNormalized
+        }
+
+      }
+
       case ProjectByLabels(base, labels) => dummy
       case ProjectByType(base, by) => dummy
 
