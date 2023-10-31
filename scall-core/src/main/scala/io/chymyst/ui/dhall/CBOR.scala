@@ -193,8 +193,10 @@ sealed trait CBORmodel {
   def asString: String = (this.asInstanceOf[CString].data).or(s"This CBORmodel is $this and not a CString")
 }
 
+// In the library "cbor1" there is no constructor for double values with automatic downgrading of precision. This provides that function.
 object CBOR1fix extends AbstractBuilder[CborBuilder](new CborBuilder()) {
-  def createDataItemForDouble(data: Double): DataItem =
+  // We need to inherit from AbstractBuilder only to use the "convert" functions, which are `protected`.
+  def createDataItemForDoubleAtMinimumPrecision(data: Double): DataItem =
     if (data.isFinite)
       if (data.toFloat.toDouble == data) convert(data.toFloat) else convert(data)
     else new HalfPrecisionFloat(data.toFloat)
@@ -365,7 +367,7 @@ object CBORmodel {
 
     override def toString: String = f"$data%.1f"
 
-    override def toCbor1: DataItem = CBOR1fix.createDataItemForDouble(data)
+    override def toCbor1: DataItem = CBOR1fix.createDataItemForDoubleAtMinimumPrecision(data)
   }
 
   final case class CString(data: String) extends CBORmodel {

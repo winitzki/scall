@@ -106,4 +106,11 @@ class CBORtest extends FunSuite {
     val sAfterBytes = bytesToCBORmodel(bytes)
     expect(s == sAfterBytes)
   }
+
+  test("CBOR1 for strings containing newlines") {
+    val s = CString("\n")
+    val bytes = CBORmodel.encodeCbor1(s)
+    val sAfterBytes = CBORmodel.decodeCbor1(bytes)
+    expect(s == sAfterBytes)
+  }
 }
