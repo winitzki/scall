@@ -114,7 +114,7 @@ class DhallCbor1Suite extends FunSuite {
           expect(cborModelFromFileA.dhallDiagnostics == diagnosticString)
           file.getName
         }
-        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        if (result.isFailure) println(s"${file.getName}: failure is: ${result.failed.get}")
         result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")

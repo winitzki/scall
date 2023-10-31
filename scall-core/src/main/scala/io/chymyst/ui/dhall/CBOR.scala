@@ -218,21 +218,48 @@ object CBORmodel {
     }
   }
 
-  def fromCbor1(dataItem: DataItem): CBORmodel = dataItem.getMajorType match {
-    case MajorType.UNSIGNED_INTEGER => CInt(dataItem.asInstanceOf[UnsignedInteger].getValue)
-    case MajorType.INVALID => ???
-    case MajorType.NEGATIVE_INTEGER => CInt(dataItem.asInstanceOf[NegativeInteger].getValue)
-    case MajorType.BYTE_STRING => CBytes(dataItem.asInstanceOf[ByteString].getBytes)
-    case MajorType.UNICODE_STRING => CString(dataItem.asInstanceOf[UnicodeString].getString)
-    case MajorType.ARRAY => CArray(dataItem.asInstanceOf[Cbor1Array].getDataItems.asScala.toArray.map(fromCbor1))
-    case MajorType.MAP => CMap(
-      dataItem.asInstanceOf[Cbor1Map].getKeys.asScala
-        .zip(dataItem.asInstanceOf[Cbor1Map].getValues.asScala)
-        .map { case (k, v) => (fromCbor1(k).asInstanceOf[CString].data, fromCbor1(v)) }
-        .toMap
-    )
-    case MajorType.TAG => ???
-    case MajorType.SPECIAL => ???
+  def fromCbor1(dataItem: DataItem): CBORmodel = {
+    val model = dataItem.getMajorType match {
+      case MajorType.UNSIGNED_INTEGER => CInt(dataItem.asInstanceOf[UnsignedInteger].getValue)
+      case MajorType.INVALID => ???
+      case MajorType.NEGATIVE_INTEGER => CInt(dataItem.asInstanceOf[NegativeInteger].getValue)
+      case MajorType.BYTE_STRING => CBytes(dataItem.asInstanceOf[ByteString].getBytes)
+      case MajorType.UNICODE_STRING => CString(dataItem.asInstanceOf[UnicodeString].getString)
+      case MajorType.ARRAY => CArray(dataItem.asInstanceOf[Cbor1Array].getDataItems.asScala.toArray.map(fromCbor1))
+      case MajorType.MAP => CMap(
+        dataItem.asInstanceOf[Cbor1Map].getKeys.asScala
+          .zip(dataItem.asInstanceOf[Cbor1Map].getValues.asScala)
+          .map { case (k, v) => (fromCbor1(k).asInstanceOf[CString].data, fromCbor1(v)) }
+          .toMap
+      )
+      case MajorType.TAG => ???
+      case MajorType.SPECIAL =>
+        dataItem match {
+          case number: Number => number match {
+            case integer: NegativeInteger => CInt(integer.getValue)
+            case integer: UnsignedInteger => CInt(integer.getValue)
+            case _ => ???
+          }
+          case special: Special => special match {
+            case float: DoublePrecisionFloat => CDouble(float.getValue)
+            case simpleValue: SimpleValue => simpleValue.getSimpleValueType match {
+              case SimpleValueType.FALSE => CFalse
+              case SimpleValueType.TRUE => CTrue
+              case SimpleValueType.NULL => CNull
+              case _ => throw new Exception(s"Unsupported CBOR1 simple value: $simpleValue")
+            }
+            case float: SinglePrecisionFloat => CDouble(float.getValue)
+            case float: HalfPrecisionFloat => CDouble(float.getValue)
+          }
+          case tag: Tag => ???
+          case _ => ???
+        }
+
+    }
+    if (dataItem.hasTag) {
+      val tag = dataItem.getTag.getValue.toInt
+      CTagged(tag, model)
+    } else model
   }
 
   def fromCbor2(obj: CBORObject): CBORmodel = if (obj == null) CNull else {
