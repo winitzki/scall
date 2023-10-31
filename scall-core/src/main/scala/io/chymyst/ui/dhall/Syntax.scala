@@ -576,7 +576,7 @@ object Syntax {
       val normalized = Semantics.betaNormalize(this)
       this.betaN = normalized
       normalized.betaN = normalized
-//      println(s"DEBUG: lazy val betaNormalized for $toDhall computed as ${normalized.toDhall}")
+      println(s"DEBUG: lazy val computed as ($toDhall).betaNormalized = ${normalized.toDhall}")
       normalized
     }
 

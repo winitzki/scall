@@ -114,7 +114,7 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
-//    println(s"DEBUG: betaNormalize(${expr.toDhall})")
+    //    println(s"DEBUG: betaNormalize(${expr.toDhall})")
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
     def dummy = throw new Exception(s"Not implemented: betaNormalize($expr)")
@@ -203,7 +203,19 @@ object Semantics {
             case _ => normalizeArgs
           }
 
-          case Operator.Prefer => dummy
+          case Operator.Prefer => (lopN.scheme, ropN.scheme) match {
+            case (RecordLiteral(Seq()), _) => ropN
+            case (_, RecordLiteral(Seq())) => lopN
+            case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
+              // Do not need to beta-normalize the resulting RecordLiteral.
+              val mergedFields =
+                (defs1.toMap ++ defs2.toMap)
+                  .toSeq
+                  .sortBy(_._1.name)
+              RecordLiteral(mergedFields)
+            case _ => normalizeArgs
+          }
+
           case Operator.CombineRecordTypes => dummy
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
             case (NaturalLiteral(a), _) if a == 0 => NaturalLiteral(0)
@@ -349,8 +361,8 @@ object Semantics {
         case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
 
         case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `Field (Operator (RecordLiteral [(x, v)]) Prefer t₁) x`
-          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name).betaNormalized
+          // Should ot beta-normalize this Field() because it is pointless and may result in an infinite loop.
+          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name)
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
