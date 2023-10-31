@@ -491,7 +491,11 @@ object Syntax {
 
     final case class TimeLiteral(time: LocalTime) extends ExpressionScheme[Nothing]
 
-    final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing]
+    final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] {
+      val hours: Int = math.abs(totalMinutes) / 60
+      val minutes: Int = math.abs(totalMinutes) % 60
+      val isPositive: Boolean = totalMinutes >= 0
+    }
 
     final case class RecordType[E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
       lazy val sorted = RecordType(defs.sortBy(_._1.name))
@@ -599,7 +603,7 @@ object Syntax {
       case Field(base, name) => base.toDhall + "." + name.name
       case ProjectByLabels(base, labels) => ???
       case ProjectByType(base, by) => ???
-      case Completion(base, target) => ???
+      case Completion(base, target) =>  base.toDhall + " :: " + target.toDhall
       case Assert(assertion) => s"assert : ${assertion.toDhall}"
       case With(data, pathComponents, body) => ???
       case DoubleLiteral(value) => value.toString
@@ -607,9 +611,9 @@ object Syntax {
       case IntegerLiteral(value) => value.toString(10)
       case TextLiteral(interpolations, trailing) => "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.toDhall + "}" }.mkString + trailing + "\""
       case BytesLiteral(hex) => s"0x\"$hex\""
-      case DateLiteral(year, month, day) => ???
-      case TimeLiteral(time) => ???
-      case TimeZoneLiteral(totalMinutes) => ???
+      case DateLiteral(year, month, day) =>  s"$year-$month-$day"
+      case TimeLiteral(time) =>  s"$time"
+      case t@TimeZoneLiteral(_) =>  s"${if (t.isPositive) "+" else "-"}${t.hours}:${t.minutes}"
       case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.toDhall }.mkString(", ") + " }"
       case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.toDhall }.mkString(", ") + " }"
       case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "

@@ -578,12 +578,9 @@ object CBOR {
       val totalSeconds: Long = (time.getSecond * math.pow(10, precision).toLong + time.getNano) / math.pow(10, precision).toLong
       array(31, time.getHour, time.getMinute, CTagged(4, array(precision, totalSeconds)))
 
-    case ExpressionScheme.TimeZoneLiteral(totalMinutes) =>
-      val hours: Int = math.abs(totalMinutes) / 60
-      val minutes: Int = math.abs(totalMinutes) % 60
-      val isPositive: Boolean = totalMinutes >= 0
-      val cborSign: CBORmodel = if (isPositive) CTrue else CFalse
-      array(32, cborSign, hours, minutes)
+    case t@ExpressionScheme.TimeZoneLiteral(_) =>
+      val cborSign: CBORmodel = if (t.isPositive) CTrue else CFalse
+      array(32, cborSign, t.hours, t.minutes)
 
     case ExpressionScheme.RecordType(defs) =>
       val dict = defs

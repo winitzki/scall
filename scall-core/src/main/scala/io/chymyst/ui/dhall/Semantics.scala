@@ -261,7 +261,7 @@ object Semantics {
           case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
-          case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(arg) { case NaturalLiteral(a) => TextLiteral.ofString(a.toString(10)) } // Convert a Natural number to a decimal string representation.
+          // NaturalShow defined later.
           case ExprBuiltin(Builtin.NaturalToInteger) => matchOrNormalize(arg) { case NaturalLiteral(a) => IntegerLiteral(a) }
           case Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), a) =>
             val aN = a.betaNormalized
@@ -357,6 +357,12 @@ object Semantics {
             val b2 = shift(false, name, 0, b1)
             b2.betaNormalized
 
+          case ExprBuiltin(Builtin.DateShow) => matchOrNormalize(arg) { case d@DateLiteral(_, _, _) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.TimeShow) => matchOrNormalize(arg) { case d@TimeLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.TimeZoneShow) => matchOrNormalize(arg) { case d@TimeZoneLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.DoubleShow) => matchOrNormalize(arg) { case d@DoubleLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.IntegerShow) => matchOrNormalize(arg) { case d@IntegerLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(arg) { case d@NaturalLiteral(_) => TextLiteral.ofString(d.toDhall) }
           // TODO: write here all other cases where Application(_, _) can be simplified
           case _ => normalizeArgs
         }
@@ -410,7 +416,7 @@ object Semantics {
       // T::r is syntactic sugar for (T.default // r) : T.Type
       case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
 
-      case With(data, pathComponents, body) => notImplemented
+      case With(data, pathComponents, body) => ???
 
       case TextLiteral(_, _) =>
         lazy val TextLiteral(interpolationsN, trailing) = normalizeArgs
