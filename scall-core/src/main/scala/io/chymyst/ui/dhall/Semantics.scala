@@ -5,7 +5,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
-import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
+import io.chymyst.ui.dhall.SyntaxConstants.Operator.{ListAppend, Prefer}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, FieldName, File, Operator, VarName}
 
 import java.util.regex.Pattern
@@ -130,9 +130,9 @@ object Semantics {
       // These expressions only need to normalize their arguments.
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
 
-      // let name : A = subst in body is equivalent to (λ(name : A) → body) subst
-      // We use Natural as the type here, because betaNormalize of Lambda() ignores the type annotation.
-      case Let(VarName(name), _, subst, body) => (((v(name) | ~Natural) -> body)(subst)).betaNormalized
+      // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
+      // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
+      case Let(VarName(name), _, subst, body) => ((v(name) | ~Natural) -> body)(subst).betaNormalized
 
       case If(cond, ifTrue, ifFalse) =>
         if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.True)) ifTrue.betaNormalized
@@ -142,7 +142,17 @@ object Semantics {
         else normalizeArgs
 
       case Merge(record, update, tipe) => dummy
-      case ToMap(data, tipe) => dummy
+
+      // TODO report issue: Does betaNormalize(toMap {=} T) give [] : T' where T' = betaNormalize T? Or does it not normalize T? beta-normalization.md specifies "EmptyList _T₀", which implies no normalization in that case.
+      case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
+      case ToMap(data, tipe) => matchOrNormalize(data.betaNormalized) {
+        case RecordLiteral(defs) =>
+          NonEmptyList(defs.map { case (name, expr) => Expression(RecordLiteral(Seq(
+            (FieldName("mapKey"), TextLiteral.ofString(name.name)),
+            (FieldName("mapValue"), expr.betaNormalized),
+          )))
+          })
+      }
 
       case Annotation(data, _) => data.betaNormalized
 
@@ -320,7 +330,9 @@ object Semantics {
       case Field(base, name) => dummy
       case ProjectByLabels(base, labels) => dummy
       case ProjectByType(base, by) => dummy
-      case Completion(base, target) => dummy
+
+      // T::r is syntactic sugar for (T.default // r) : T.Type
+      case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
 
       case With(data, pathComponents, body) => dummy
 
