@@ -580,7 +580,7 @@ object Syntax {
       val normalized = Semantics.betaNormalize(this)
       this.betaN = normalized
       normalized.betaN = normalized
-//      println(s"DEBUG: lazy val computed as ($toDhall).betaNormalized = ${normalized.toDhall}")
+      //      println(s"DEBUG: lazy val computed as ($toDhall).betaNormalized = ${normalized.toDhall}")
       normalized
     }
 
@@ -603,17 +603,17 @@ object Syntax {
       case Field(base, name) => base.toDhall + "." + name.name
       case ProjectByLabels(base, labels) => ???
       case ProjectByType(base, by) => ???
-      case Completion(base, target) =>  base.toDhall + " :: " + target.toDhall
+      case Completion(base, target) => base.toDhall + " :: " + target.toDhall
       case Assert(assertion) => s"assert : ${assertion.toDhall}"
       case With(data, pathComponents, body) => ???
       case DoubleLiteral(value) => value.toString
       case NaturalLiteral(value) => value.toString(10)
-      case IntegerLiteral(value) => value.toString(10)
+      case IntegerLiteral(value) => (if (value >= 0) "+" else "") + value.toString(10)
       case TextLiteral(interpolations, trailing) => "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.toDhall + "}" }.mkString + trailing + "\""
       case BytesLiteral(hex) => s"0x\"$hex\""
-      case DateLiteral(year, month, day) =>  s"$year-$month-$day"
-      case TimeLiteral(time) =>  s"$time"
-      case t@TimeZoneLiteral(_) =>  s"${if (t.isPositive) "+" else "-"}${t.hours}:${t.minutes}"
+      case DateLiteral(year, month, day) => s"$year-$month-$day"
+      case TimeLiteral(time) => s"$time"
+      case t@TimeZoneLiteral(_) => s"${if (t.isPositive) "+" else "-"}${t.hours}:${t.minutes}"
       case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.toDhall }.mkString(", ") + " }"
       case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.toDhall }.mkString(", ") + " }"
       case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "

@@ -363,6 +363,9 @@ object Semantics {
           case ExprBuiltin(Builtin.DoubleShow) => matchOrNormalize(arg) { case d@DoubleLiteral(_) => TextLiteral.ofString(d.toDhall) }
           case ExprBuiltin(Builtin.IntegerShow) => matchOrNormalize(arg) { case d@IntegerLiteral(_) => TextLiteral.ofString(d.toDhall) }
           case ExprBuiltin(Builtin.NaturalShow) => matchOrNormalize(arg) { case d@NaturalLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.IntegerClamp) => matchOrNormalize(arg) { case IntegerLiteral(a) => NaturalLiteral(a.max(0)) }
+          case ExprBuiltin(Builtin.IntegerNegate) => matchOrNormalize(arg) { case IntegerLiteral(a) => IntegerLiteral(-a) }
+          case ExprBuiltin(Builtin.IntegerToDouble) => matchOrNormalize(arg) { case IntegerLiteral(a) => DoubleLiteral(a.toDouble) }
           // TODO: write here all other cases where Application(_, _) can be simplified
           case _ => normalizeArgs
         }
