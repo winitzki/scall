@@ -131,8 +131,6 @@ object Semantics {
     //    println(s"DEBUG: betaNormalize(${expr.toDhall})")
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
-    def notImplemented = throw new Exception(s"Not implemented: betaNormalize($expr)")
-
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
       matcher.applyOrElse(expr.betaNormalized.scheme, { _: ExpressionScheme[Expression] => default })
 
