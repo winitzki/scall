@@ -6,7 +6,7 @@ import io.chymyst.ui.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
-import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, VarName}
 
 import java.time.LocalTime
 import scala.language.implicitConversions
@@ -200,18 +200,18 @@ object SyntaxConstants {
     case object HTTPS extends Scheme(1)
   }
 
-  sealed abstract class FilePrefix(val cborCode: Int) extends EnumEntry with HasCborCode[FilePrefix, Int]
+  sealed abstract class FilePrefix(val cborCode: Int, val prefix: String) extends EnumEntry with HasCborCode[FilePrefix, Int]
 
   object FilePrefix extends Enum[FilePrefix] with HasCborCodeDict[Int, FilePrefix] {
     val values = findValues
 
-    case object Absolute extends FilePrefix(2)
+    case object Absolute extends FilePrefix(2, "/")
 
-    case object Here extends FilePrefix(3) // ./something relative to the current working directory
+    case object Here extends FilePrefix(3, "./") // ./something relative to the current working directory
 
-    case object Parent extends FilePrefix(4) // ./something relative to the parent working directory
+    case object Parent extends FilePrefix(4, "../") // ./something relative to the parent working directory
 
-    case object Home extends FilePrefix(5) // ~/something relative to the user's home directory
+    case object Home extends FilePrefix(5, "~/") // ~/something relative to the user's home directory
   }
 
   sealed abstract class ImportType[+E] {
@@ -233,10 +233,17 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String])
+  final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String]) {
+    override def toString: String = scheme.entryName.toLowerCase + "://" + authority + "/" + path.toString + (query match {
+      case Some(value) => "?" + value
+      case None => ""
+    })
+  }
 
   final case class File(segments: Seq[String]) {
     require(segments.nonEmpty)
+
+    override def toString: String = segments.mkString("/")
   }
 
   object File {
@@ -326,7 +333,9 @@ object Syntax {
 
     final case class EmptyList[E](tipe: E) extends ExpressionScheme[E]
 
-    final case class NonEmptyList[E](exprs: Seq[E]) extends ExpressionScheme[E]
+    final case class NonEmptyList[E](exprs: Seq[E]) extends ExpressionScheme[E] {
+      require(exprs.nonEmpty)
+    }
 
     final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
 
@@ -337,6 +346,8 @@ object Syntax {
     final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E]
 
     final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E] {
+      require(labels.nonEmpty)
+
       def sorted: ProjectByLabels[E] = ProjectByLabels(base, labels.sortBy(_.name))
     }
 
@@ -347,7 +358,9 @@ object Syntax {
 
     final case class Assert[E](assertion: E) extends ExpressionScheme[E]
 
-    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E]
+    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E] {
+      require(pathComponents.nonEmpty)
+    }
 
     final case class DoubleLiteral(value: Double) extends ExpressionScheme[Nothing] {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
@@ -587,25 +600,35 @@ object Syntax {
     @volatile private var betaN: Expression = null
 
     // Print to Dhall syntax.
+    // TODO: implement operator precedence and parentheses
     def toDhall: String = scheme match {
       case Variable(name, index) => s"${name.escape}@${index.toString(10)}"
       case Lambda(name, tipe, body) => s"\\(${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
       case Forall(name, tipe, body) => s"forall (${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
       case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => " : " + t.toDhall).getOrElse("")} = ${subst.toDhall} in ${body.toDhall}"
       case If(cond, ifTrue, ifFalse) => s"if ${cond.toDhall} then ${ifTrue.toDhall} else ${ifFalse.toDhall}"
-      case Merge(record, update, tipe) => ???
-      case ToMap(data, tipe) => ???
+      case Merge(record, update, tipe) => "merge " + record.toDhall + " " + update.toDhall + (tipe match {
+        case Some(value) => ": " + value.toDhall
+        case None => ""
+      })
+      case ToMap(data, tipe) => "toMap " + data.toDhall + (tipe match {
+        case Some(value) => ": " + value.toDhall
+        case None => ""
+      })
       case EmptyList(tipe) => s"[] : ${tipe.toDhall}"
       case NonEmptyList(exprs) => exprs.map(_.toDhall).mkString("[", ", ", "]")
       case Annotation(data, tipe) => s"${data.toDhall} : ${tipe.toDhall}"
       case ExprOperator(lop, op, rop) => s"${lop.toDhall} ${op.name} ${rop.toDhall}"
       case Application(func, arg) => s"${func.toDhall} ${arg.toDhall}"
       case Field(base, name) => base.toDhall + "." + name.name
-      case ProjectByLabels(base, labels) => ???
-      case ProjectByType(base, by) => ???
+      case ProjectByLabels(base, labels) => base.toDhall + "." + "{" + labels.map(_.name).mkString(", ") + "}"
+      case ProjectByType(base, by) => base.toDhall + "." + "(" + by.toDhall + ")"
       case Completion(base, target) => base.toDhall + " :: " + target.toDhall
       case Assert(assertion) => s"assert : ${assertion.toDhall}"
-      case With(data, pathComponents, body) => ???
+      case With(data, pathComponents, body) => data.toDhall + " with " + pathComponents.map {
+        case PathComponent.Label(name) => name.name
+        case PathComponent.DescendOptional => "?"
+      }.mkString(".") + " = " + body.toDhall
       case DoubleLiteral(value) => value.toString
       case NaturalLiteral(value) => value.toString(10)
       case IntegerLiteral(value) => (if (value >= 0) "+" else "") + value.toString(10)
@@ -618,7 +641,24 @@ object Syntax {
       case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.toDhall }.mkString(", ") + " }"
       case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
       case ShowConstructor(data) => "showConstructor " + data.toDhall
-      case Import(importType, importMode, digest) => ???
+      case Import(importType, importMode, digest) =>
+        val digestString = digest.map(b => " sha256:" + b.hex).getOrElse("")
+        val importModeString = importMode match {
+          case ImportMode.Code => ""
+          case ImportMode.RawBytes => " as Bytes"
+          case ImportMode.RawText => " as Text"
+          case ImportMode.Location => " as Location"
+        }
+        val importTypeString = importType match {
+          case ImportType.Missing => "missing"
+          case ImportType.Remote(url, headers) => url.toString + (headers match {
+            case Some(value) => "using " + value.toDhall
+            case None => ""
+          })
+          case ImportType.Path(filePrefix, file) => filePrefix.prefix + file.toString
+          case ImportType.Env(envVarName) => "env:" + envVarName
+        }
+        importTypeString + digestString + importModeString
       case KeywordSome(data) => s"Some ${data.toDhall}"
       case ExprBuiltin(builtin) => builtin.entryName
       case ExprConstant(constant) => constant.entryName

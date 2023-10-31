@@ -113,7 +113,7 @@ object Semantics {
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
   // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.
 
-  def mergeRecordPartsPreferringSecond(defs1: Seq[(FieldName, Expression)], operator: Operator, defs2: Seq[(FieldName, Expression)]): Seq[(FieldName, Expression)] =
+  private def mergeRecordPartsPreferringSecond(defs1: Seq[(FieldName, Expression)], operator: Operator, defs2: Seq[(FieldName, Expression)]): Seq[(FieldName, Expression)] =
     (defs1.toSeq ++ defs2.toSeq)
       .groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r))
       .toSeq
