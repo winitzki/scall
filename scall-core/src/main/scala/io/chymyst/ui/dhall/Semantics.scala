@@ -112,19 +112,11 @@ object Semantics {
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
   // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.
 
-  def combineAndSortRecordTerms(lopN: Expression, operator: Operator, ropN: Expression, normalizeArgs: Expression): Expression =
-    (lopN.scheme, ropN.scheme) match {
-      case (RecordLiteral(Seq()), _) => ropN
-      case (_, RecordLiteral(Seq())) => lopN
-      case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
-        val mergedFields =
-          (defs1.toSeq ++ defs2.toSeq)
-            .groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r))
-            .toSeq
-            .sortBy(_._1.name)
-        RecordLiteral(mergedFields) // Do not need to beta-normalize this.
-      case _ => normalizeArgs
-    }
+  def mergeRecordPartsPreferringSecond(defs1: Seq[(FieldName, Expression)], operator: Operator, defs2: Seq[(FieldName, Expression)]): Seq[(FieldName, Expression)] =
+    (defs1.toSeq ++ defs2.toSeq)
+      .groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r))
+      .toSeq
+      .sortBy(_._1.name)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
@@ -208,7 +200,12 @@ object Semantics {
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
-          case Operator.CombineRecordTerms => combineAndSortRecordTerms(lopN, Operator.CombineRecordTerms, ropN, normalizeArgs)
+          case Operator.CombineRecordTerms => (lopN.scheme, ropN.scheme) match {
+            case (RecordLiteral(Seq()), _) => ropN
+            case (_, RecordLiteral(Seq())) => lopN
+            case (RecordLiteral(defs1), RecordLiteral(defs2)) => RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)) // Do not need to beta-normalize this.
+            case _ => normalizeArgs
+          }
 
           case Operator.Prefer => (lopN.scheme, ropN.scheme) match {
             case (RecordLiteral(Seq()), _) => ropN
@@ -223,7 +220,12 @@ object Semantics {
             case _ => normalizeArgs
           }
 
-          case Operator.CombineRecordTypes => combineAndSortRecordTerms(lopN, Operator.CombineRecordTypes, ropN, normalizeArgs)
+          case Operator.CombineRecordTypes => (lopN.scheme, ropN.scheme) match {
+            case (RecordType(Seq()), _) => ropN
+            case (_, RecordType(Seq())) => lopN
+            case (RecordType(defs1), RecordType(defs2)) => RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)) // Do not need to beta-normalize this.
+            case _ => normalizeArgs
+          }
 
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
             case (NaturalLiteral(a), _) if a == 0 => NaturalLiteral(0)
