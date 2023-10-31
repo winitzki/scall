@@ -33,7 +33,7 @@ class DhallCbor1Suite extends FunSuite {
   }
 
   test("validate CBOR writing for standard examples") {
-    val outDir = "./testdhallb"
+    val outDir = "./testdhallb-cbor1"
     Try(Files.createDirectory(Paths.get(outDir)))
     val results = testFilesForSuccess.flatMap { file =>
       val validationFile = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
@@ -60,7 +60,7 @@ class DhallCbor1Suite extends FunSuite {
     val failures = results.count(_.isFailure)
     val modelFailures = results.filter(_.isFailure).count(_.failed.get.getMessage.contains("model differs"))
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures\nCBOR model mismatch count: $modelFailures")
-    expect(failures <= 2 && modelFailures == 0) // Two failures are due to a bug in CBOR-Java. PR was already merged to fix that bug.
+    expect(failures == 0 && modelFailures == 0)
   }
 
   test("validate CBOR reading for standard examples") {
