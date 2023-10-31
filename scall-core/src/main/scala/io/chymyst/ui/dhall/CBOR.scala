@@ -1,6 +1,7 @@
 package io.chymyst.ui.dhall
 
 
+import co.nstant.in.cbor.builder.AbstractBuilder
 import co.nstant.in.cbor.model.{Array => Cbor1Array, Map => Cbor1Map, _}
 import co.nstant.in.cbor.{CborBuilder, CborDecoder, CborEncoder}
 import com.upokecenter.cbor.{CBORObject, CBORType}
@@ -192,6 +193,13 @@ sealed trait CBORmodel {
   def asString: String = (this.asInstanceOf[CString].data).or(s"This CBORmodel is $this and not a CString")
 }
 
+object CBOR1fix extends AbstractBuilder[CborBuilder](new CborBuilder()) {
+  def createDataItemForDouble(data: Double): DataItem =
+    if (data.isFinite)
+      if (data.toFloat.toDouble == data) convert(data.toFloat) else convert(data)
+    else new HalfPrecisionFloat(data.toFloat)
+}
+
 object CBORmodel {
   implicit class OrError[A](expr: => A) {
     def die(message: String, t: Throwable = null): Nothing = throw new Exception(message, t)
@@ -233,33 +241,29 @@ object CBORmodel {
           .toMap
       )
       case MajorType.TAG => ???
-      case MajorType.SPECIAL =>
-        dataItem match {
-          case number: Number => number match {
-            case integer: NegativeInteger => CInt(integer.getValue)
-            case integer: UnsignedInteger => CInt(integer.getValue)
-            case _ => ???
-          }
-          case special: Special => special match {
-            case float: DoublePrecisionFloat => CDouble(float.getValue)
-            case simpleValue: SimpleValue => simpleValue.getSimpleValueType match {
-              case SimpleValueType.FALSE => CFalse
-              case SimpleValueType.TRUE => CTrue
-              case SimpleValueType.NULL => CNull
-              case _ => throw new Exception(s"Unsupported CBOR1 simple value: $simpleValue")
-            }
-            case float: SinglePrecisionFloat => CDouble(float.getValue)
-            case float: HalfPrecisionFloat => CDouble(float.getValue)
-          }
-          case tag: Tag => ???
+      case MajorType.SPECIAL => dataItem match {
+        case number: Number => number match {
+          case integer: NegativeInteger => CInt(integer.getValue)
+          case integer: UnsignedInteger => CInt(integer.getValue)
           case _ => ???
         }
-
+        case special: Special => special match {
+          case float: DoublePrecisionFloat => CDouble(float.getValue)
+          case simpleValue: SimpleValue => simpleValue.getSimpleValueType match {
+            case SimpleValueType.FALSE => CFalse
+            case SimpleValueType.TRUE => CTrue
+            case SimpleValueType.NULL => CNull
+            case _ => throw new Exception(s"Unsupported CBOR1 simple value: $simpleValue")
+          }
+          case float: SinglePrecisionFloat => CDouble(float.getValue)
+          case float: HalfPrecisionFloat => CDouble(float.getValue)
+          case _ => ???
+        }
+        case tag: Tag => ???
+        case _ => ???
+      }
     }
-    if (dataItem.hasTag) {
-      val tag = dataItem.getTag.getValue.toInt
-      CTagged(tag, model)
-    } else model
+    if (dataItem.hasTag) CTagged(dataItem.getTag.getValue.toInt, model) else model
   }
 
   def fromCbor2(obj: CBORObject): CBORmodel = if (obj == null) CNull else {
@@ -361,7 +365,7 @@ object CBORmodel {
 
     override def toString: String = f"$data%.1f"
 
-    override def toCbor1: DataItem = new DoublePrecisionFloat(data)
+    override def toCbor1: DataItem = CBOR1fix.createDataItemForDouble(data)
   }
 
   final case class CString(data: String) extends CBORmodel {
