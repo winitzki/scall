@@ -251,7 +251,11 @@ object Semantics {
             val a = v(freshName)
             val newType = shift(true, VarName(freshName), 0, tipe)
             // g (List A₀) (λ(a : A₀) → λ(as : List A₁) → [ a ] # as) ([] : List A₀) ⇥ b
-            argN((~Builtin.List)(tipe))((a | tipe) -> (v("as") | (~Builtin.List)(newType)) -> Expression(NonEmptyList(Seq(a))).op(ListAppend)(v("as")))(Expression(EmptyList(tipe))).betaNormalized
+            val aseq = v("aseq")
+            argN((~Builtin.List)(tipe))((a | tipe) -> (
+              (aseq | (~Builtin.List)(newType)) ->
+                Expression(NonEmptyList(Seq(a))).op(ListAppend)(aseq)
+              ))(Expression(EmptyList(tipe))).betaNormalized
 
           case Application(Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)), g) =>
             expressions match {
