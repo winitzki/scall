@@ -642,7 +642,7 @@ object Syntax {
       case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.toDhall).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
       case ShowConstructor(data) => "showConstructor " + data.toDhall
       case Import(importType, importMode, digest) =>
-        val digestString = digest.map(b => " sha256:" + b.hex).getOrElse("")
+        val digestString = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
         val importModeString = importMode match {
           case ImportMode.Code => ""
           case ImportMode.RawBytes => " as Bytes"

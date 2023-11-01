@@ -1,18 +1,24 @@
 package io.chymyst.ui.dhall
 
+import io.chymyst.ui.dhall.CBORmodel.CBytes
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
 import io.chymyst.ui.dhall.SyntaxConstants.Constant.{False, True}
-import io.chymyst.ui.dhall.SyntaxConstants.Operator.{ListAppend, Prefer}
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, FieldName, File, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
+import io.chymyst.ui.dhall.SyntaxConstants._
 
+import java.security.MessageDigest
 import java.util.regex.Pattern
-import scala.collection.immutable.{AbstractSeq, LinearSeq}
 import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
+
+  def semanticHash(expr: Expression): String = {
+    val bytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+    CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
+  }
 
   final case class GammaTypeContext(defs: Seq[(VarName, Expression)])
 
