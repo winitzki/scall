@@ -29,7 +29,7 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 ## Roadmap for future developments
 
 1. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values.)
-5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system).
+5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system). Support both Scala 2 and Scala 3.
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
 8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or values may be interpreted via custom Scala code.
