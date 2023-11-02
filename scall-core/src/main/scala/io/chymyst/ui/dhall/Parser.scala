@@ -10,6 +10,7 @@ import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportTy
 import jdk.jfr.Experimental
 
 import java.io.InputStream
+import java.nio.file.Paths
 import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
@@ -1218,9 +1219,9 @@ object Parser {
   //    res
   //  }
 
-  def parseDhall(source: String): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhall(source: String, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhall(source: InputStream): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhall(source: InputStream, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
   private def localDateTimeZone(dateOption: Option[DateLiteral], timeOption: Option[TimeLiteral], zoneOption: Option[Int]): Expression = {
     val dateR = dateOption.map { date => (FieldName("date"), Expression(date)) }
