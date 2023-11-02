@@ -147,9 +147,9 @@ object Semantics {
       case Let(VarName(name), _, subst, body) => ((v(name) | ~Natural) -> body)(subst).betaNormalized
 
       case If(cond, ifTrue, ifFalse) =>
-        if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.True)) ifTrue.betaNormalized
-        else if (cond.betaNormalized.scheme == ExprBuiltin(Builtin.False)) ifFalse.betaNormalized
-        else if (ifFalse.betaNormalized.scheme == ExprBuiltin(Builtin.False) && ifTrue.betaNormalized.scheme == ExprBuiltin(Builtin.True)) cond.betaNormalized
+        if (cond.betaNormalized.scheme == ExprConstant(Constant.True)) ifTrue.betaNormalized
+        else if (cond.betaNormalized.scheme == ExprConstant(Constant.False)) ifFalse.betaNormalized
+        else if (ifFalse.betaNormalized.scheme == ExprConstant(Constant.False) && ifTrue.betaNormalized.scheme == ExprConstant(Constant.True)) cond.betaNormalized
         else if (equivalent(ifTrue, ifFalse)) ifTrue.betaNormalized
         else normalizeArgs
 
@@ -179,8 +179,8 @@ object Semantics {
         lazy val ExprOperator(lopN, _, ropN) = normalizeArgs
         op match {
           case Operator.Or =>
-            if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) ropN
-            else if (lopN.scheme == ExprBuiltin(Builtin.True) || ropN.scheme == ExprBuiltin(Builtin.False)) lopN
+            if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) ropN
+            else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) lopN
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
@@ -202,8 +202,8 @@ object Semantics {
             }
 
           case Operator.And =>
-            if (lopN.scheme == ExprBuiltin(Builtin.False) || ropN.scheme == ExprBuiltin(Builtin.True)) lopN
-            else if (lopN.scheme == ExprBuiltin(Builtin.True) || ropN.scheme == ExprBuiltin(Builtin.False)) ropN
+            if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) lopN
+            else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) ropN
             else if (equivalent(lop, rop)) lopN
             else normalizeArgs
 
@@ -246,15 +246,15 @@ object Semantics {
             case _ => normalizeArgs
           }
           case Operator.Equal =>
-            if (lopN.scheme == ExprBuiltin(Builtin.True)) ropN
-            else if (ropN.scheme == ExprBuiltin(Builtin.True)) lopN
-            else if (equivalent(lop, rop)) ExprBuiltin(Builtin.True)
+            if (lopN.scheme == ExprConstant(Constant.True)) ropN
+            else if (ropN.scheme == ExprConstant(Constant.True)) lopN
+            else if (equivalent(lop, rop)) ExprConstant(Constant.True)
             else normalizeArgs
 
           case Operator.NotEqual =>
-            if (lopN.scheme == ExprBuiltin(Builtin.False)) ropN
-            else if (ropN.scheme == ExprBuiltin(Builtin.False)) lopN
-            else if (equivalent(lop, rop)) ExprBuiltin(Builtin.False)
+            if (lopN.scheme == ExprConstant(Constant.False)) ropN
+            else if (ropN.scheme == ExprConstant(Constant.False)) lopN
+            else if (equivalent(lop, rop)) ExprConstant(Constant.False)
             else normalizeArgs
 
           case Operator.Equivalent => normalizeArgs

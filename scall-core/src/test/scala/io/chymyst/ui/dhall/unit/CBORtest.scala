@@ -5,6 +5,7 @@ import com.upokecenter.cbor.CBORObject
 import io.chymyst.ui.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.ui.dhall.unit.CBORtest.cborRoundtrip
 import io.chymyst.ui.dhall.{CBOR, CBORmodel, Grammar, SyntaxConstants}
 import munit.FunSuite
@@ -28,8 +29,8 @@ class CBORtest extends FunSuite {
 
 
   test("CBOR roundtrips 1") {
-    cborRoundtrip(ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.True))
-    cborRoundtrip(ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.List))
+    cborRoundtrip(ExpressionScheme.ExprConstant(Constant.True))
+    cborRoundtrip(ExpressionScheme.ExprBuiltin(Builtin.List))
   }
 
   test("CBOR roundtrips 2") {

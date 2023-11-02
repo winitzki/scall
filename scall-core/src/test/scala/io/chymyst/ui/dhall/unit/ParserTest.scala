@@ -169,9 +169,17 @@ class ParserTest extends FunSuite {
 
   test("builtin names") {
     val names = SyntaxConstants.Builtin.namesToValuesMap
-    expect(names.keySet.size == 42)
+    expect(names.keySet.size == 37)
     names.foreach { case (name, c) =>
       check(Grammar.builtin(_), name, Expression(ExprBuiltin(c)), name.length)
+    }
+  }
+
+  test("constant names") {
+    val names = SyntaxConstants.Constant.namesToValuesMap
+    expect(names.keySet.size == 5)
+    names.foreach { case (name, c) =>
+      check(Grammar.builtin(_), name, Expression(ExprConstant(c)), name.length)
     }
   }
 

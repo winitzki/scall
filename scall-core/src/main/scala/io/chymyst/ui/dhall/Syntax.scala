@@ -81,8 +81,6 @@ object SyntaxConstants {
 
     case object DoubleShow extends Builtin("Double/show")
 
-    case object False extends Builtin("False")
-
     case object Integer extends Builtin("Integer")
 
     case object IntegerClamp extends Builtin("Integer/clamp")
@@ -92,8 +90,6 @@ object SyntaxConstants {
     case object IntegerShow extends Builtin("Integer/show")
 
     case object IntegerToDouble extends Builtin("Integer/toDouble")
-
-    case object Kind extends Builtin("Kind")
 
     case object List extends Builtin("List")
 
@@ -133,8 +129,6 @@ object SyntaxConstants {
 
     case object Optional extends Builtin("Optional")
 
-    case object Sort extends Builtin("Sort")
-
     case object Text extends Builtin("Text")
 
     case object TextReplace extends Builtin("Text/replace")
@@ -149,15 +143,9 @@ object SyntaxConstants {
 
     case object TimeZoneShow extends Builtin("TimeZone/show")
 
-    // TODO: remove Constant values from Builtin definitions, make sure parser still works.
-    case object True extends Builtin("True")
-
-    case object Type extends Builtin("Type")
-
     override def values = findValues
   }
 
-  // TODO: implement parsing into this type when appropriate, instead of parsing into Builtin. Also True, False.
   sealed trait Constant extends EnumEntry {
     def unary_~ : Expression = Expression(ExprConstant(this))
   }
@@ -354,13 +342,13 @@ object Syntax {
     implicit def toExpression(s: ExpressionScheme[Expression]): Expression = Expression(s)
 
     trait TermPrecedence {
-      def prec: Int = TermPrecedence.lowest // Default is the lowest precedence.
+      def prec: Int = TermPrecedence.low // Default is the low precedence.
     }
 
     object TermPrecedence {
-      def offsetForOperators = 10
-
-      def lowest = 1000
+      val offsetForOperators = 10
+      val low = 100
+      val lowest = 1000
     }
 
     trait VarPrecedence extends TermPrecedence {
@@ -372,7 +360,7 @@ object Syntax {
     }
 
     trait LowPrecedence extends TermPrecedence {
-      override def prec: Int = 100
+      override def prec: Int = TermPrecedence.low
     }
 
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {

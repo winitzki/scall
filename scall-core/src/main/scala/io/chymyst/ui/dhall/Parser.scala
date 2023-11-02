@@ -409,9 +409,13 @@ object Grammar {
   val builtinSymbolNames = SyntaxConstants.Builtin.namesToValuesMap.keys.toSeq
   val builtinSymbolNamesSet = SyntaxConstants.Builtin.namesToValuesMap.keySet
 
-  def builtin[$: P]: P[Expression] =
-    concatKeywords(builtinSymbolNames)
-      .map(SyntaxConstants.Builtin.withName).map(ExprBuiltin).map(Expression.apply)
+  val constantSymbolNames = SyntaxConstants.Constant.namesToValuesMap.keys.toSeq
+  val constantSymbolNamesSet = SyntaxConstants.Constant.namesToValuesMap.keySet
+
+  def builtin[$: P]: P[Expression] = // TODO report issue: possible confusion between Builtin and Constant symbols. Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant.
+    (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)
+      | concatKeywords(constantSymbolNames).map(SyntaxConstants.Constant.withName).map(ExprConstant)
+      ).map(Expression.apply)
 
   def combine[$: P] = P(
     "\u2227" | "/\\"
@@ -600,7 +604,7 @@ object Grammar {
   )
 
   def quoted_path_character[$: P] = P(
-    CharIn("\u0020\u0021", "\u0023-\u002E", "\u0030-\u007F")  // \u002F is the slash character '/'
+    CharIn("\u0020\u0021", "\u0023-\u002E", "\u0030-\u007F") // \u002F is the slash character '/'
       | valid_non_ascii
   )
 

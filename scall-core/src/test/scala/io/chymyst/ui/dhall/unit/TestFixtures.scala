@@ -62,7 +62,7 @@ object TestFixtures {
     "abc" -> v("abc"),
     "a-b/c" -> v("a-b/c"),
     "_xyz       @   \t\t\t\n\n           123451234512345123451234512345" -> Variable(VarName("_xyz"), BigInt("123451234512345123451234512345")),
-    "Kind" -> ExprBuiltin(SyntaxConstants.Builtin.Kind),
+    "Kind" -> ExprConstant(SyntaxConstants.Constant.Kind),
     "Natural/show" -> ExprBuiltin(SyntaxConstants.Builtin.NaturalShow),
     "Natural" -> ExprBuiltin(SyntaxConstants.Builtin.Natural),
   ) map convertSeq
@@ -87,11 +87,11 @@ object TestFixtures {
     "a-b/c" -> v("a-b/c"),
     "_xyz       @   \t\t\t\n\n           123451234512345123451234512345" -> Variable(VarName("_xyz"), BigInt("123451234512345123451234512345")),
     "[1,2,3]" -> NonEmptyList[Expression](Seq(1, 2, 3).map(x => NaturalLiteral(x))),
-    "Kind" -> ExprBuiltin(SyntaxConstants.Builtin.Kind),
+    "Kind" -> ExprConstant(SyntaxConstants.Constant.Kind),
     "Natural/show" -> ExprBuiltin(SyntaxConstants.Builtin.NaturalShow),
     "Natural" -> ExprBuiltin(SyntaxConstants.Builtin.Natural),
     "{foo: Natural, bar: Type}" -> RecordType[Expression](Seq(
-      (FieldName("bar"), ExprBuiltin(SyntaxConstants.Builtin.Type)),
+      (FieldName("bar"), ExprConstant(SyntaxConstants.Constant.Type)),
       (FieldName("foo"), ExprBuiltin(SyntaxConstants.Builtin.Natural)),
     )),
     "{ foo = 1, bar = 2 }" -> RecordLiteral[Expression](Seq(

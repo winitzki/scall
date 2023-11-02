@@ -48,12 +48,16 @@ sealed trait CBORmodel {
 
   final def toScheme: ExpressionScheme[Expression] = removeVacuousTag(this) match {
     case CNull => ().die(s"Invalid top-level CBOR null value")
-    case CTrue => ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.True)
-    case CFalse => ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.False)
+    case CTrue => ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True)
+    case CFalse => ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False)
     case CInt(data) => ExpressionScheme.Variable(underscore, data)
     case CDouble(data) => ExpressionScheme.DoubleLiteral(data)
 
-    case CString(data) => ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.withName(data)).or(s"String '$data' must be a Builtin name (one of ${SyntaxConstants.Builtin.values.mkString(", ")})")
+    case CString(data) => {
+      if (Grammar.builtinSymbolNamesSet contains data) ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.withName(data))
+      else if (Grammar.constantSymbolNamesSet contains data) ExpressionScheme.ExprConstant(SyntaxConstants.Constant.withName(data))
+      else ().die(s"String '$data' must be a Builtin or a constant name (one of ${(Grammar.builtinSymbolNamesSet ++ Grammar.constantSymbolNamesSet).toSeq.sorted.mkString(", ")})")
+    }
 
     case CArray(data) =>
       data.toList match {
@@ -614,9 +618,9 @@ object CBOR {
 
     case ExpressionScheme.KeywordSome(data) => array(5, null, data)
 
-    case ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) => CTrue
+    case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) => CTrue
 
-    case ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.False) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) => CFalse
+    case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) => CFalse
 
     case ExpressionScheme.ExprBuiltin(builtin) => CString(builtin.entryName)
 
