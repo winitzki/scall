@@ -10,7 +10,7 @@ This project is a Scala implementation of the [Dhall language](https://dhall-lan
 
 ## Current status
 
-### Completed
+### What is completed:
 
 A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).
 
@@ -28,16 +28,17 @@ Alpha-normalization is implemented according to [the Dhall specification](https:
 
 All alpha-normalization tests pass.
 
-### In progress
+### What is in progress:
 
-Beta-normalization.
+Beta-normalization is implemented but import resolution is not yet implemented. Two of the beta-normalization tests fail because of import resolution.
 
 ## Roadmap
 
 1. Parse from Dhall text into Dhall expression structures. (Done.)
 2. Serialize Dhall expressions into CBOR and deserialize back into Dhall. (Done.)
-3. Evaluate and normalize Dhall values according to Dhall semantics.
+3. Evaluate and normalize Dhall values according to Dhall semantics. (Done.)
 4. Import Dhall values from files or from the Internet according to the Dhall security model.
+5. Type-check Dhall values and reject ill-typed code. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values.)
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system).
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
