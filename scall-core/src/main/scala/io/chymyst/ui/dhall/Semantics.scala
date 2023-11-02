@@ -403,12 +403,14 @@ object Semantics {
         }
         case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
           // Do not normalize this again because it won't be possible.
-          case Some(v) => ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)
+          // TODO report issue: forgot to apply Field to `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
+          case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name)
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
           // Do not normalize this again because it won't be possible.
-          case Some(v) => ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))
+          // TODO report issue: forgot to apply Field to `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
+          case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name)
           case None => Field(target, name).betaNormalized
         }
 

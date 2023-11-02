@@ -346,17 +346,17 @@ object Syntax {
     }
 
     object TermPrecedence {
-      val offsetForOperators = 10
+      val offsetForOperators = 30
       val low = 100
       val lowest = 1000
     }
 
     trait VarPrecedence extends TermPrecedence {
-      override def prec: Int = 8
+      override def prec: Int = TermPrecedence.offsetForOperators / 3
     }
 
     trait HighPrecedence extends TermPrecedence {
-      override def prec: Int = 5
+      override def prec: Int = TermPrecedence.offsetForOperators / 2
     }
 
     trait LowerPrecedence extends TermPrecedence {
@@ -396,7 +396,7 @@ object Syntax {
 
     final case class Application[E](func: E, arg: E) extends ExpressionScheme[E]
 
-    final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E]
+    final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E] with HighPrecedence
 
     // Note: `labels` may be an empty list.
     final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E] {
