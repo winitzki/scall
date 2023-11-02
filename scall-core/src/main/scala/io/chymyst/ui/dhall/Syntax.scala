@@ -371,6 +371,10 @@ object Syntax {
       override def prec: Int = 5
     }
 
+    trait LowPrecedence extends TermPrecedence {
+      override def prec: Int = 100
+    }
+
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[Variable] && {
         val otherVar = other.asInstanceOf[Variable]

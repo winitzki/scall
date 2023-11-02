@@ -225,6 +225,7 @@ object Semantics {
                   .toSeq
                   .sortBy(_._1.name)
               RecordLiteral(mergedFields).betaNormalized
+            case _ if equivalent(lopN, ropN) => lopN // TODO report issue: beta-normalization.md does not include this rule in Haskell code after `betaNormalize (Operator ls₀ Prefer rs₀)`
             case _ => normalizeArgs
           }
 
@@ -414,19 +415,20 @@ object Semantics {
       }
 
       case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+
       case p@ProjectByLabels(base, labels) => matchOrNormalize(base) {
         case RecordLiteral(defs) => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
         case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
         case ExprOperator(left, Operator.Prefer, right@Expression(RecordLiteral(defs))) =>
-          // TODO report issue: betaNormalize ProjectByLabels (RecordLiteral rs) (filter predicate xs₀)
-          val newL: Expression = ProjectByLabels(left, labels.diff(defs.map(_._1)))
+          // TODO report issue: betaNormalize ProjectByLabels (RecordLiteral rs) (filter predicate xs₀) -- what is the issue?
+          val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
           val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
           ExprOperator(newL, Operator.Prefer, newR).betaNormalized
         case _ => p.sorted.schemeWithBetaNormalizedArguments
       }
 
       case ProjectByType(base, labels) => matchOrNormalize(labels) {
-        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1))
+        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1)).betaNormalized
       }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type
