@@ -20,8 +20,6 @@ object Semantics {
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
   }
 
-  final case class GammaTypeContext(defs: Seq[(VarName, Expression)])
-
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/shift.md
   def shift(positive: Boolean, x: VarName, minIndex: Natural, expr: Expression): Expression = {
     expr.scheme match {
@@ -499,9 +497,5 @@ object Semantics {
   def equivalent(x: Expression, y: Expression): Boolean =
     x.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1 sameElements y.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
 
-  // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
-  def inferType(gamma: GammaTypeContext, expr: Expression): Expression = ???
-
-  // TODO: implement other functions for import handling
 
 }

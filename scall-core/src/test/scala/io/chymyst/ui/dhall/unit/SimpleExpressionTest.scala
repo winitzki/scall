@@ -297,6 +297,7 @@ class SimpleExpressionTest extends FunSuite {
     check(Grammar.primitive_expression(_), "< Foo : Natural >", expected)
     check(Grammar.primitive_expression(_), "<  Foo : Natural  | >", expected)
     check(Grammar.primitive_expression(_), "< | Foo : Natural >", expected)
+    check(Grammar.primitive_expression(_), "< | Foo : Natural | >", expected)
   }
 
   test("records have sorted fields in CBOR") {

@@ -194,13 +194,13 @@ object SyntaxConstants {
   object FilePrefix extends Enum[FilePrefix] with HasCborCodeDict[Int, FilePrefix] {
     val values = findValues
 
-    case object Absolute extends FilePrefix(2, "/")
+    case object Absolute extends FilePrefix(2, "")
 
-    case object Here extends FilePrefix(3, "./") // ./something relative to the current working directory
+    case object Here extends FilePrefix(3, ".") // ./something relative to the current working directory
 
-    case object Parent extends FilePrefix(4, "../") // ./something relative to the parent working directory
+    case object Parent extends FilePrefix(4, "..") // ./something relative to the parent working directory
 
-    case object Home extends FilePrefix(5, "~/") // ~/something relative to the user's home directory
+    case object Home extends FilePrefix(5, "~") // ~/something relative to the user's home directory
   }
 
   sealed abstract class ImportType[+E] {
@@ -212,7 +212,8 @@ object SyntaxConstants {
     protected def safetyLevelRequired: Int
 
     // This import may depend on another import only if this import's safety level does not require greater safety than another import's.
-    def allowedToImportAnother[H](anotherImportType: ImportType[H]): Boolean = this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
+    def allowedToImportAnother(anotherImportType: ImportType[_]): Boolean =
+      this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
   }
 
   object ImportType {
@@ -243,7 +244,7 @@ object SyntaxConstants {
   }
 
   final case class File(segments: Seq[String]) {
-    require(segments.nonEmpty)
+    require(segments.nonEmpty) // The last segment is the file name (may be a empty string), all previous segments are path components (may be none)
 
     override def toString: String = segments.mkString("/")
 
@@ -256,6 +257,10 @@ object SyntaxConstants {
       }).reverse
       File(newSegments)
     }
+
+    def chain(child: File): File = if (segments.isEmpty) child else File(segments.init ++ child.segments)
+
+    def chainToParent(child: File): File = chain(File(".." +: child.segments))
   }
 
   object File {
@@ -715,7 +720,7 @@ object Syntax {
               case Some(value) => "using " + value.atPrecedence(p)
               case None => ""
             })
-            case ImportType.Path(filePrefix, file) => filePrefix.prefix + file.toString
+            case ImportType.Path(filePrefix, file) => filePrefix.prefix + "/" + file.toString
             case ImportType.Env(envVarName) => "env:" + envVarName
           }
           importTypeString + digestString + importModeString
