@@ -316,7 +316,7 @@ object Semantics {
             argN((~Builtin.List)(tipe))((a | tipe) -> (
               (aseq | (~Builtin.List)(newType)) ->
                 Expression(NonEmptyList(Seq(a))).op(ListAppend)(aseq)
-              ))(Expression(EmptyList(tipe))).betaNormalized
+              ))(Expression(EmptyList((~Builtin.List)(tipe)))).betaNormalized
 
           case Application(Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)), g) =>
             matchOrNormalize(expressions) {
