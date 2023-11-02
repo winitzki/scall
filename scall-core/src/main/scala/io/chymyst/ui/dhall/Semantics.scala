@@ -114,7 +114,9 @@ object Semantics {
     .replace("\b", "\\b")
     .replace("$", "\\u0024")
     .replace("\"", "\\\"")
+    .flatMap { c => if (c.toInt < 32) String.format("\\u00%02x", c.toInt) else String.valueOf(c) }
     .pipe(s => "\"" + s + "\"") // TODO: report an issue to dhall-lang that this step is not shown in beta-normalization.md
+  // TODO report issue that characters like \u0007 and \u0010 are to be escaped according to the test `TextShowAllEscapesA.dhall` but it is not shown in beta-normalization.md
 
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
   // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.

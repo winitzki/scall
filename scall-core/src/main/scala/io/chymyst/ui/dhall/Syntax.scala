@@ -654,7 +654,6 @@ object Syntax {
     @volatile private var betaN: Expression = null
 
     // Print to Dhall syntax.
-    // TODO: implement operator precedence and parentheses
 
     def toDhall: String = atPrecedence(TermPrecedence.lowest)
 
