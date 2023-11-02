@@ -265,7 +265,7 @@ object Semantics {
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         func.betaNormalized.scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
-            argN(~Natural)((v("x") | ~Natural) -> v("x") + NaturalLiteral(1))(NaturalLiteral(0)).betaNormalized
+            argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).betaNormalized
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
             // g (Natural/fold n b g argN)
             if (m == 0) argN else g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
