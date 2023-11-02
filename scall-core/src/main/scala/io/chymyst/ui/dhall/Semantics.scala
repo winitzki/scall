@@ -491,13 +491,11 @@ object Semantics {
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   def equivalent(x: Expression, y: Expression): Boolean =
-    CBOR.exprToBytes(x.alphaNormalized.betaNormalized) sameElements CBOR.exprToBytes(y.alphaNormalized.betaNormalized)
+    x.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1 sameElements y.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   def inferType(gamma: GammaTypeContext, expr: Expression): Expression = ???
 
-  // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
-  def canonicalize(x: File): File = ???
   // TODO: implement other functions for import handling
 
 }

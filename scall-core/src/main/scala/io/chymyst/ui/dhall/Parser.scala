@@ -600,7 +600,7 @@ object Grammar {
   )
 
   def quoted_path_character[$: P] = P(
-    CharIn("\u0020\u0021", "\u0023-\u002E", "\u0030-\u007F")
+    CharIn("\u0020\u0021", "\u0023-\u002E", "\u0030-\u007F")  // \u002F is the slash character '/'
       | valid_non_ascii
   )
 

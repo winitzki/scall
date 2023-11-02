@@ -219,16 +219,29 @@ object SyntaxConstants {
       case ImportType.Remote(url, headers) => ImportType.Remote(url, headers map f)
       case _ => this.asInstanceOf[ImportType[H]]
     }
+
+    protected def safetyLevelRequired: Int
+
+    // This import may depend on another import only if this import's safety level does not require greater safety than another import's.
+    def allowedToImportAnother[H](anotherImportType: ImportType[H]): Boolean = this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
   }
 
   object ImportType {
-    final case object Missing extends ImportType[Nothing]
+    final case object Missing extends ImportType[Nothing] {
+      override def safetyLevelRequired: Int = 1 // This cannot import anything.
+    }
 
-    final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E]
+    final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
+      override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
+    }
 
-    final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing]
+    final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing] {
+      override def safetyLevelRequired: Int = -1 // This can import anything else.
+    }
 
-    final case class Env(envVarName: String) extends ImportType[Nothing]
+    final case class Env(envVarName: String) extends ImportType[Nothing] {
+      override def safetyLevelRequired: Int = -1 // This can import anything else.
+    }
   }
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
@@ -244,10 +257,37 @@ object SyntaxConstants {
     require(segments.nonEmpty)
 
     override def toString: String = segments.mkString("/")
+
+    // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
+    def canonicalize: File = {
+      val newSegments: Seq[String] = segments.foldLeft(List[String]())((prev, segment) => segment match {
+        case "." => prev
+        case ".." if prev.tail.nonEmpty => prev.tail
+        case s => s :: prev
+      }).reverse
+      File(newSegments)
+    }
   }
 
   object File {
-    def of(segments: Seq[String]) = if (segments.isEmpty) File(Seq("")) else File(segments)
+    def of(segments: Seq[String]): File = if (segments.isEmpty) File(Seq("")) else File(segments)
+
+    def unescapePathSegment(segment: String): String = Seq(
+      ("\\a","\u0007"),
+      ("\\b","\n"),
+      ("\\f","\f"),
+      ("\\n","\n"),
+      ("\\r","\r"),
+      ("\\t","\t"),
+      ("\\v","\u000B"),
+      ("\\/","/"),
+      ("\\\"","\""),
+      ("\\\\","\\"),
+    ).foldLeft(segment) { case (prev, (s, replacement)) => prev.replace(s, replacement) }
+
+    def urlEscapePathSegment(segment: String): String = Seq(
+      ":", ",", "?", "#", "[", "]", "@", "!", "$", "&", "'", "(", ")", "*", "+", ",", ";", "=",
+    ).foldLeft(segment) { (prev, s) => prev.replace(s, String.format("%%%2H", s)) }
   }
 }
 

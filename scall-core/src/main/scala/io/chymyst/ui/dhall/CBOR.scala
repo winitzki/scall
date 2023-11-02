@@ -483,11 +483,6 @@ object CBORmodel {
 
 // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/binary.md
 object CBOR {
-
-  def exprToBytes(e: Expression): Array[Byte] = toCborModel(e).toCbor2.EncodeToBytes()
-
-  def bytesToExpr(bytes: Array[Byte]): Expression = fromCbor2(CBORObject.DecodeFromBytes(bytes)).toScheme
-
   def naturalToCbor2(index: Natural): CBORObject =
     if (index < BigInt(1).<<(64))
       CBORObject.FromObject(index.bigInteger)

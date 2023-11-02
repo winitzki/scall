@@ -61,7 +61,7 @@ class DhallParserSuite extends FunSuite {
         case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
         case _ => None
       }
-      val result = r.map { expr => Try(CBOR.exprToBytes(expr)) }
+      val result = r.map { expr => Try(expr.toCBORmodel.encodeCbor2) }
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
       result
     }
@@ -143,7 +143,7 @@ class DhallParserSuite extends FunSuite {
         val result = Try {
           val diagnosticFile = file.getAbsolutePath.replace("A.dhallb", "A.diag")
           val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
-          val ourExpr = CBOR.bytesToExpr(cborBytes)
+          val ourExpr: Expression = CBORmodel.decodeCbor2(cborBytes).toScheme
           val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
           val Parsed.Success(dhallValue, _) = Parser.parseDhall(new FileInputStream(validationFile))
           val validationExpr = dhallValue.value
@@ -169,7 +169,7 @@ class DhallParserSuite extends FunSuite {
           val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
           // We have read the CBOR file correctly.
           expect(cborModelFromFileA.toString == diagnosticString)
-          expect(Try(CBOR.bytesToExpr(cborBytes)).isFailure)
+          expect(Try(CBORmodel.decodeCbor2(cborBytes).toScheme).isFailure)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")

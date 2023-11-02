@@ -264,7 +264,7 @@ class SimpleExpressionTest extends FunSuite {
       "http://example.com/",
     ).foreach { urlString =>
       val expr1a = Parser.parseDhall(urlString).get.value.value.scheme.asInstanceOf[Import[Expression]]
-      val expr1b = CBOR.bytesToExpr(CBOR.exprToBytes(expr1a)).scheme.asInstanceOf[Import[Expression]]
+      val expr1b = CBORmodel.decodeCbor2(expr1a.toCBORmodel.encodeCbor2).toScheme.asInstanceOf[Import[Expression]]
       expect(expr1a == expr1b)
     }
   }
@@ -304,7 +304,7 @@ class SimpleExpressionTest extends FunSuite {
     val expr = Parser.parseDhall(testFileA).get.value.value.scheme
     val testFileB = getClass.getClassLoader.getResourceAsStream("tests/parser/success/leadingSeparatorsB.dhallb")
     val cborModelFromExampleFile = CBORmodel.fromCbor2(CBORObject.Read(testFileB))
-    val cborModelAfterRoundtrip = CBORmodel.fromCbor2(CBORObject.DecodeFromBytes(CBOR.exprToBytes(expr)))
+    val cborModelAfterRoundtrip = CBORmodel.fromCbor2(CBORObject.DecodeFromBytes(expr.toCBORmodel.encodeCbor2))
     expect(cborModelFromExampleFile.toString == cborModelAfterRoundtrip.toString)
     val exprFromExampleFile = cborModelFromExampleFile.toScheme
     expect(exprFromExampleFile == expr)
