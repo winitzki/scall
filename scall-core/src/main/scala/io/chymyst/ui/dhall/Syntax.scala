@@ -642,10 +642,10 @@ object Syntax {
     // Print to Dhall syntax.
     // TODO: implement operator precedence and parentheses
     def toDhall: String = scheme match {
-      case Variable(name, index) => s"${name.escape}@${index.toString(10)}"
-      case Lambda(name, tipe, body) => s"\\(${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
-      case Forall(name, tipe, body) => s"forall (${name.escape} : ${tipe.toDhall}) -> ${body.toDhall}"
-      case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => " : " + t.toDhall).getOrElse("")} = ${subst.toDhall} in ${body.toDhall}"
+      case Variable(name, index) => s"${name.escape}${if (index>0) "@" + index.toString(10) else ""}"
+      case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.toDhall}) -> ${body.toDhall}"
+      case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.toDhall}) -> ${body.toDhall}"
+      case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.toDhall).getOrElse("")} = ${subst.toDhall} in ${body.toDhall}"
       case If(cond, ifTrue, ifFalse) => s"if ${cond.toDhall} then ${ifTrue.toDhall} else ${ifFalse.toDhall}"
       case Merge(record, update, tipe) => "merge " + record.toDhall + " " + update.toDhall + (tipe match {
         case Some(value) => ": " + value.toDhall
@@ -655,9 +655,9 @@ object Syntax {
         case Some(value) => ": " + value.toDhall
         case None => ""
       })
-      case EmptyList(tipe) => s"[] : ${tipe.toDhall}"
+      case EmptyList(tipe) => s"[]: ${tipe.toDhall}"
       case NonEmptyList(exprs) => exprs.map(_.toDhall).mkString("[", ", ", "]")
-      case Annotation(data, tipe) => s"${data.toDhall} : ${tipe.toDhall}"
+      case Annotation(data, tipe) => s"${data.toDhall}: ${tipe.toDhall}"
       case ExprOperator(lop, op, rop) => s"${lop.toDhall} ${op.name} ${rop.toDhall}"
       case Application(func, arg) => s"${func.toDhall} ${arg.toDhall}"
       case Field(base, name) => base.toDhall + "." + name.name

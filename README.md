@@ -38,10 +38,14 @@ Beta-normalization.
 2. Serialize Dhall expressions into CBOR and deserialize back into Dhall. (Done.)
 3. Evaluate and normalize Dhall values according to Dhall semantics.
 4. Import Dhall values from files or from the Internet according to the Dhall security model.
-5. Convert between Dhall values and Scala values (as much as possible given the Scala type system).
+5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system).
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
 8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or values may be interpreted via custom Scala code.
+9. Detect Dhall functions that always give literal values for literal arguments, and implement those functions in efficient JVM code.
+10. Detect Dhall functions that will ignore some (curried) arguments when given certain values of literal arguments, and implement laziness to make code more efficient.
+11. Implement some elementary functions for Natural more efficiently (probably no need to change Dhall language), such as gcd or sqrt.
+12. Implement numerical functions for rational numbers (instead of floating-point).
 
 ### Parsing with `fastparse`
 
