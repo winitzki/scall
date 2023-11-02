@@ -420,7 +420,7 @@ object Semantics {
         case RecordLiteral(defs) => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
         case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
         case ExprOperator(left, Operator.Prefer, right@Expression(RecordLiteral(defs))) =>
-          // TODO report issue: betaNormalize ProjectByLabels (RecordLiteral rs) (filter predicate xs₀) -- what is the issue?
+          // TODO report issue: need to betaNormalize t1 given after `ProjectByLabels (RecordLiteral rs) (filter predicate xs₀)`
           val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
           val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
           ExprOperator(newL, Operator.Prefer, newR).betaNormalized
@@ -428,7 +428,7 @@ object Semantics {
       }
 
       case ProjectByType(base, labels) => matchOrNormalize(labels) {
-        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1)).betaNormalized
+        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1)).betaNormalized // TODO report issue: does beta-normalization.md say that ProjectByLabels(...) must be beta-normalized? If not, tests fail.
       }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type

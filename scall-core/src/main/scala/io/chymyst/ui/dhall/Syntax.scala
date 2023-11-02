@@ -359,8 +359,8 @@ object Syntax {
       override def prec: Int = 5
     }
 
-    trait LowPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.low
+    trait LowerPrecedence extends TermPrecedence {
+      override def prec: Int = TermPrecedence.low + 100
     }
 
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
@@ -398,9 +398,8 @@ object Syntax {
 
     final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E]
 
+    // Note: `labels` may be an empty list.
     final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E] {
-      require(labels.nonEmpty)
-
       def sorted: ProjectByLabels[E] = ProjectByLabels(base, labels.sortBy(_.name))
     }
 
@@ -417,14 +416,14 @@ object Syntax {
       require(pathComponents.nonEmpty)
     }
 
-    final case class DoubleLiteral(value: Double) extends ExpressionScheme[Nothing] {
+    final case class DoubleLiteral(value: Double) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
         val otherValue = other.asInstanceOf[DoubleLiteral].value
         (value == otherValue) || (value.isNaN && otherValue.isNaN)
       }
     }
 
-    final case class NaturalLiteral(value: Natural) extends ExpressionScheme[Nothing] {
+    final case class NaturalLiteral(value: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[NaturalLiteral] && {
         val otherValue = other.asInstanceOf[NaturalLiteral].value
         value equals otherValue
@@ -438,7 +437,7 @@ object Syntax {
       }
     }
 
-    final case class IntegerLiteral(value: Integer) extends ExpressionScheme[Nothing] {
+    final case class IntegerLiteral(value: Integer) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[IntegerLiteral] && {
         val otherValue = other.asInstanceOf[IntegerLiteral].value
         value equals otherValue
@@ -461,7 +460,7 @@ object Syntax {
       def ofExpression[E](expr: E) = TextLiteral(interpolations = List(("", expr)), trailing = "")
     }
 
-    final case class TextLiteral[+E](interpolations: List[(String, E)], trailing: String) extends ExpressionScheme[E] {
+    final case class TextLiteral[+E](interpolations: List[(String, E)], trailing: String) extends ExpressionScheme[E] with VarPrecedence {
 
       def ++[G >: E, H <: G](other: TextLiteral[H]): TextLiteral[G] = other.interpolations match {
         case List() =>
@@ -545,7 +544,7 @@ object Syntax {
     }
 
     // The hex string must be lowercase.
-    final case class BytesLiteral private(hex: String) extends ExpressionScheme[Nothing] {
+    final case class BytesLiteral private(hex: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       val bytes: Array[Byte] = hexStringToByteArray(hex)
     }
 
@@ -555,21 +554,21 @@ object Syntax {
       def of(bytes: Array[Byte]) = BytesLiteral(CBytes.byteArrayToHexString(bytes))
     }
 
-    final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing]
+    final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class TimeLiteral(time: LocalTime) extends ExpressionScheme[Nothing]
+    final case class TimeLiteral(time: LocalTime) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] {
+    final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
       val hours: Int = math.abs(totalMinutes) / 60
       val minutes: Int = math.abs(totalMinutes) % 60
       val isPositive: Boolean = totalMinutes >= 0
     }
 
-    final case class RecordType[E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
+    final case class RecordType[E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] with HighPrecedence {
       lazy val sorted = RecordType(defs.sortBy(_._1.name))
     }
 
-    final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] {
+    final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] with HighPrecedence {
       lazy val sorted = RecordLiteral(defs.sortBy(_._1.name))
 
       def lookup(field: FieldName): Option[E] = defs.find(_._1 == field).map(_._2) // TODO: do we need a faster lookup here?
@@ -620,7 +619,7 @@ object Syntax {
       }
     }
 
-    final case class UnionType[E](defs: Seq[(ConstructorName, Option[E])]) extends ExpressionScheme[E] {
+    final case class UnionType[E](defs: Seq[(ConstructorName, Option[E])]) extends ExpressionScheme[E] with HighPrecedence {
       lazy val sorted = UnionType(defs.sortBy(_._1.name))
     }
 
@@ -630,9 +629,9 @@ object Syntax {
 
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
 
-    final case class ExprBuiltin(builtin: SyntaxConstants.Builtin) extends ExpressionScheme[Nothing]
+    final case class ExprBuiltin(builtin: SyntaxConstants.Builtin) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing]
+    final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing] with VarPrecedence
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
