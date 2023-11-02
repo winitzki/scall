@@ -4,41 +4,31 @@ This project is a Scala implementation of the [Dhall language](https://dhall-lan
 
 ## Goals of the project
 
-1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. It should be possible to read arbitrary Dhall code and implement standard functions such as normalization, hashing, and JSON / YAML export.
-2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall types (both at run time and at compile time if possible). We would like to support Scala function types, Scala type constructors, higher-kinded types, and other Scala features as much as possible.
-3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a transparent replacement of Dhall imports.
+1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. It should be possible in Scala to read arbitrary Dhall code and implement standard functions such as normalization, serialization, and JSON / YAML export.
+2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall types (both at run time and at compile time if possible). Most Dhall integrations only support a small subset of Dhall, but Scala has a rich type system. We would like to support Scala function types, Scala type constructors, higher-kinded types, and other Scala features as much as possible.
+3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a transparent replacement of the standard Dhall imports, as far as Scala is concerned.
 
 ## Current status
 
-### What is completed:
+- [x] A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).  All the parser tests pass.
 
-A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).
-
-All the parser tests pass.
-
-A serializer and deserializer for CBOR format is implemented using one of the two libraries: [cbor-java](https://github.com/c-rack/cbor-java) and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). 
+- [x] A serializer and deserializer for CBOR format is implemented using one of the two libraries: [cbor-java](https://github.com/c-rack/cbor-java) and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). 
 
 Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in this PR](https://github.com/peteroupc/CBOR-Java/pull/25) but the fix is not yet published to Sonatype / Maven.org.
 
-There are no CBOR failures with the library `cbor-java`.
+- [x] There are no CBOR failures with the library `cbor-java`. All CBOR encoding and decoding tests pass.
 
-All CBOR encoding and decoding tests pass.
+- [x] Alpha-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md). All alpha-normalization tests pass.
 
-Alpha-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
+- [x] Beta-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md). Two out of 285 beta-normalization tests fail because import resolution is not yet implemented. All other tests pass.
 
-All alpha-normalization tests pass.
+- [ ] Import resolution code is in progress.
 
-### What is in progress:
+- [ ] Typechecking.
 
-Beta-normalization is implemented but import resolution is not yet implemented. Two of the beta-normalization tests fail because of import resolution.
+## Roadmap for future developments
 
-## Roadmap
-
-1. Parse from Dhall text into Dhall expression structures. (Done.)
-2. Serialize Dhall expressions into CBOR and deserialize back into Dhall. (Done.)
-3. Evaluate and normalize Dhall values according to Dhall semantics. (Done.)
-4. Import Dhall values from files or from the Internet according to the Dhall security model.
-5. Type-check Dhall values and reject ill-typed code. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values.)
+1. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values.)
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system).
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
