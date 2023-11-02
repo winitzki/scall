@@ -1211,17 +1211,10 @@ object Grammar {
 }
 
 object Parser {
-  // Fail with a message.  See https://github.com/com-lihaoyi/fastparse/issues/213
-  // The message shows up as "Expected ..."; phrase it appropriately.
-  //  private def Fail[T](expected: String)(implicit ctx: P[_]): P[T] = {
-  //    val res = ctx.freshFailure()
-  //    if (ctx.verboseFailures) ctx.setMsg(ctx.index, () => expected)
-  //    res
-  //  }
 
   def parseDhall(source: String, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhall(source: InputStream, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallStream(source: InputStream, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
   private def localDateTimeZone(dateOption: Option[DateLiteral], timeOption: Option[TimeLiteral], zoneOption: Option[Int]): Expression = {
     val dateR = dateOption.map { date => (FieldName("date"), Expression(date)) }

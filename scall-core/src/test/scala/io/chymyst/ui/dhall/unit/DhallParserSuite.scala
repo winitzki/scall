@@ -23,7 +23,7 @@ class DhallParserSuite extends FunSuite {
   test("parse standard examples for successful parsing") {
     val results = testFilesForSuccess.map { file =>
       val result = for {
-        result1 <- Try(Parser.parseDhall(new FileInputStream(file)))
+        result1 <- Try(Parser.parseDhallStream(new FileInputStream(file)))
           .recoverWith { case exception => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: parser crashed with: ${printFailure(exception)}")) }
         result2 <- result1 match {
           case Parsed.Success(value, index) => Success(value)
@@ -43,7 +43,7 @@ class DhallParserSuite extends FunSuite {
   test("parse standard examples for failed parsing") {
     val results = testFilesForFailure.map { file =>
       val result = Try {
-        val Parsed.Success(result, _) = Parser.parseDhall(new FileInputStream(file))
+        val Parsed.Success(result, _) = Parser.parseDhallStream(new FileInputStream(file))
         result
       }
 
@@ -57,7 +57,7 @@ class DhallParserSuite extends FunSuite {
 
   test("convert standard examples for successful parsing into CBOR") {
     val results = testFilesForSuccess.flatMap { file =>
-      val r: Option[Syntax.Expression] = Try(Parser.parseDhall(new FileInputStream(file))).toOption.flatMap {
+      val r: Option[Syntax.Expression] = Try(Parser.parseDhallStream(new FileInputStream(file))).toOption.flatMap {
         case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
         case _ => None
       }
@@ -79,7 +79,7 @@ class DhallParserSuite extends FunSuite {
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
         cborValidationModel <- Try(CBORmodel.decodeCbor2(cborValidationBytes).toString)
-        Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
+        Parsed.Success(dhallValue, _) <- Try(Parser.parseDhallStream(new FileInputStream(file)))
         model <- Try(dhallValue.value.toCBORmodel)
         bytesGeneratedByUs <- Try(model.encodeCbor2)
       } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
@@ -109,7 +109,7 @@ class DhallParserSuite extends FunSuite {
       val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
       val result1 = for {
         cborValidationModel <- Try(CBORmodel.decodeCbor2(cborValidationBytes).toString)
-        Parsed.Success(dhallValue, _) <- Try(Parser.parseDhall(new FileInputStream(file)))
+        Parsed.Success(dhallValue, _) <- Try(Parser.parseDhallStream(new FileInputStream(file)))
         model <- Try(CBOR.toCborModel(dhallValue.value))
         bytesGeneratedByUs <- Try(model.encodeCbor2)
       } yield (model, bytesGeneratedByUs, dhallValue.value, cborValidationModel)
@@ -145,7 +145,7 @@ class DhallParserSuite extends FunSuite {
           val diagnosticString = Files.readString(Paths.get(diagnosticFile)).trim
           val ourExpr: Expression = CBORmodel.decodeCbor2(cborBytes).toScheme
           val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
-          val Parsed.Success(dhallValue, _) = Parser.parseDhall(new FileInputStream(validationFile))
+          val Parsed.Success(dhallValue, _) = Parser.parseDhallStream(new FileInputStream(validationFile))
           val validationExpr = dhallValue.value
           // We have read the CBOR file correctly.
           expect((ourExpr.toCBORmodel equals validationExpr.toCBORmodel) && (ourExpr equals validationExpr))

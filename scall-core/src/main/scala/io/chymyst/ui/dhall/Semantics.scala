@@ -115,7 +115,7 @@ object Semantics {
     .replace("$", "\\u0024")
     .replace("\"", "\\\"")
     .flatMap { c => if (c.toInt < 32) String.format("\\u00%02x", c.toInt) else String.valueOf(c) }
-    .pipe(s => "\"" + s + "\"") // TODO: report an issue to dhall-lang that this step is not shown in beta-normalization.md
+    .pipe(s => "\"" + s + "\"") // TODO: report issue to dhall-lang that this step is not shown in beta-normalization.md
   // TODO report issue that characters like \u0007 and \u0010 are to be escaped according to the test `TextShowAllEscapesA.dhall` but it is not shown in beta-normalization.md
 
   // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
@@ -213,7 +213,7 @@ object Semantics {
             case (RecordLiteral(Seq()), _) => ropN
             case (_, RecordLiteral(Seq())) => lopN
             case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
-              RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this
+              RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this - ???
             case _ => normalizeArgs
           }
 
@@ -235,7 +235,7 @@ object Semantics {
             case (RecordType(Seq()), _) => ropN
             case (_, RecordType(Seq())) => lopN
             case (RecordType(defs1), RecordType(defs2)) =>
-              RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this
+              RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this -- ???
             case _ => normalizeArgs
           }
 
@@ -394,13 +394,13 @@ object Semantics {
         case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
 
         case ExprOperator(Expression(r@RecordLiteral(_)), Operator.Prefer, target) => r.lookup(name) match {
-          // Should ot beta-normalize this Field() because it is pointless and may result in an infinite loop.
+          // Should not beta-normalize this Field() because it is pointless and may result in an infinite loop.
           case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name)
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize `v` or Field? Or is it not necessary in this case?
-          case Some(v) => v.betaNormalized
+          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize Field, it is necesary.
+          case Some(v) => v
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
