@@ -36,7 +36,6 @@ object Imports {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
-  // TODO report issue: in imports.md probably `Γ(headersPath) = userHeadersExpr` should be rewritten as `userHeadersExpr = Γ(headersPath)`
   def resolveImports(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext, expr: Expression): (Expression, ImportContext) = {
     ???
   }

@@ -11,7 +11,7 @@ import munit.FunSuite
 class SimpleSemanticsTest extends FunSuite {
 
   test("substitute in a variable") {
-    val variable =  v("x")
+    val variable = v("x")
     val result = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
     expect(result.toDhall == "_")
   }
@@ -28,10 +28,16 @@ class SimpleSemanticsTest extends FunSuite {
     expect(nested.alphaNormalized.toDhall == "λ(_: Natural) -> λ(_: Natural) -> _@1")
   }
 
-  test ("alpha-normalize record access") {
+  test("alpha-normalize record access") {
     val dhall = "{ x = \"foo\" }.x"
     val expr = Parser.parseDhall(dhall).get.value.value
     val exprN = expr.betaNormalized
     expect(exprN.toDhall == "\"foo\"")
+  }
+
+  test("correct precedence for imports with fallback") {
+    val dhall = "./import1 ? ./import2"
+    val expr = Parser.parseDhall(dhall).get.value.value
+    expect(expr.toDhall == "./import1 ? ./import2")
   }
 }

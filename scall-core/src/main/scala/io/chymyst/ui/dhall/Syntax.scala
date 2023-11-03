@@ -351,6 +351,8 @@ object Syntax {
     }
 
     object TermPrecedence {
+      def ofOperator(op: Operator): Int = offsetForOperators + op.cborCode * 2
+
       val offsetForOperators = 30
       val low = 100
       val lowest = 1000
@@ -396,7 +398,7 @@ object Syntax {
     final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
 
     final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.offsetForOperators + op.cborCode
+      override def prec: Int = TermPrecedence.ofOperator(op)
     }
 
     final case class Application[E](func: E, arg: E) extends ExpressionScheme[E]
@@ -630,7 +632,9 @@ object Syntax {
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
 
-    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral]) extends ExpressionScheme[E]
+    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral]) extends ExpressionScheme[E] {
+      override def prec: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
+    }
 
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
 
