@@ -36,7 +36,9 @@ object Imports {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
-  def resolveImports(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext, expr: Expression): (Expression, ImportContext) = {
+  def resolveImports: ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case ImportResolutionState(visited, gamma) =>
     ???
   }
+
+
 }
