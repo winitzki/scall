@@ -17,7 +17,7 @@ object Imports {
     case _ => child
   }
 
-  def corsHeader = "Access-Control-Allow-Origin"
+  val corsHeader = "Access-Control-Allow-Origin"
 
   // If `None` there is no error.
   def corsComplianceError(parent: ImportType[Expression], child: ImportType[Expression], responseHeaders: Map[String, Seq[String]]): Option[String] = (parent, child) match {
@@ -36,7 +36,7 @@ object Imports {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
-  def resolveImports: ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case ImportResolutionState(visited, gamma) =>
+  lazy val resolveImports: ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case ImportResolutionState(visited, gamma) =>
     ???
   }
 
