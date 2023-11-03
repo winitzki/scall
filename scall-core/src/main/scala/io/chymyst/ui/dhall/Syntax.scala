@@ -1,6 +1,7 @@
 package io.chymyst.ui.dhall
 
 import enumeratum._
+import io.chymyst.ui.dhall.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.ui.dhall.CBORmodel.CBytes
 import io.chymyst.ui.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.ui.dhall.Syntax.Expression
@@ -209,6 +210,11 @@ object SyntaxConstants {
       case _ => this.asInstanceOf[ImportType[H]]
     }
 
+    def traverse[F[_] : Applicative, H](f: E => F[H]): F[ImportType[H]] = this match {
+      case ImportType.Remote(url, headers) => seqOption(headers.map(f)).map(headers => ImportType.Remote(url, headers))
+      case _ => Applicative[F].pure(this.asInstanceOf[ImportType[H]])
+    }
+
     protected def safetyLevelRequired: Int
 
     // This import may depend on another import only if this import's safety level does not require greater safety than another import's.
@@ -218,7 +224,7 @@ object SyntaxConstants {
 
   object ImportType {
     final case object Missing extends ImportType[Nothing] {
-      override def safetyLevelRequired: Int = 1 // This cannot import anything.
+      override def safetyLevelRequired: Int = 1 // The `Missing` import is always a failure and cannot import anything else.
     }
 
     final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
@@ -337,6 +343,37 @@ object Syntax {
         case Import(importType, importMode, digest) => Import(importType, importMode, digest)
         case KeywordSome(data) => KeywordSome(data)
         case _ => this.asInstanceOf[ExpressionScheme[H]]
+      }
+    }
+
+    def traverse[H, F[_]](f: E => F[H])(implicit ev: Applicative[F]): F[ExpressionScheme[H]] = {
+
+      this match {
+        case Lambda(name, tipe, body) => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Lambda(name, tipe, body) }
+        case Forall(name, tipe, body) => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Forall(name, tipe, body) }
+        case Let(name, tipe, subst, body) => seqTuple3(seqOption(tipe.map(f)), f(subst), f(body)).map { case (tipe, subst, body) => Let(name, tipe, subst, body) }
+        case If(cond, ifTrue, ifFalse) => seqSeq(Seq(cond, ifTrue, ifFalse).map(f)).map { case Seq(cond, ifTrue, ifFalse) => If(cond, ifTrue, ifFalse) }
+        case Merge(record, update, tipe) => seqTuple3((f(record), f(update), seqOption(tipe.map(f)))).map { case (record, update, tipe) => Merge(record, update, tipe) }
+        case ToMap(data, tipe) => seqTuple2((f(data), seqOption(tipe map f))).map { case (data, tipe) => ToMap(data, tipe) }
+        case EmptyList(tipe) => f(tipe).map(EmptyList(_))
+        case NonEmptyList(exprs) => seqSeq(exprs.map(f)).map(NonEmptyList(_))
+        case Annotation(data, tipe) => seqTuple2(f(data), f(tipe)).map { case (data, tipe) => Annotation(data, tipe) }
+        case ExprOperator(lop, op, rop) => seqTuple2(f(lop), f(rop)).map { case (lop, rop) => ExprOperator(lop, op, rop) }
+        case Application(func, arg) => seqTuple2(f(func), f(arg)).map { case (func, arg) => Application(func, arg) }
+        case Field(base, name) => f(base).map(Field(_, name))
+        case ProjectByLabels(base, labels) => f(base).map(ProjectByLabels(_, labels))
+        case ProjectByType(base, target) => seqTuple2(f(base), f(target)).map { case (base, target) => ProjectByType(base, target) }
+        case Completion(base, target) => seqTuple2(f(base), f(target)).map { case (base, target) => Completion(base, target) }
+        case Assert(assertion) => f(assertion).map(Assert(_))
+        case With(data, pathComponents, body) => seqSeq(Seq(data, body).map(f)).map { case Seq(data, body) => With(data, pathComponents, body) }
+        case TextLiteral(interpolations, trailing) => seqSeq(interpolations.map { case (prefix, expr) => f(expr).map((prefix, _)) }).map(_.toList).map(TextLiteral(_, trailing))
+        case RecordType(defs) => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordType(_))
+        case RecordLiteral(defs) => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordLiteral(_))
+        case UnionType(defs) => seqSeq(defs.map { case (field, expr) => seqOption(expr.map(f)).map((field, _)) }).map(UnionType(_))
+        case ShowConstructor(data) => f(data).map(ShowConstructor(_))
+        case Import(importType, importMode, digest) => importType.traverse(f).map(importType => Import(importType, importMode, digest))
+        case KeywordSome(data) => f(data).map(KeywordSome(_))
+        case _ => Applicative[F].pure(this.asInstanceOf[ExpressionScheme[H]])
       }
     }
   }
