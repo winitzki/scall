@@ -1,14 +1,11 @@
 package io.chymyst.ui.dhall
 
 import io.chymyst.ui.dhall.ImportResolution.ImportContext
-
 import io.chymyst.ui.dhall.ImportResolutionResult._
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
-import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
-
-import scala.util.chaining.scalaUtilChainingOps
+import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
 
 object ImportResolution {
 
@@ -60,7 +57,9 @@ object ImportResolution {
 
         }
 
-      case _ => expr.scheme.traverse(resolveImports).run(state0).pipe { case (scheme, state) => (scheme.map(Expression.apply), state) }
+      case _ => expr.scheme.traverse(resolveImports).run(state0) match {
+        case (scheme, state) => (scheme.map(Expression.apply), state)
+      }
     }
   }
 
@@ -92,9 +91,9 @@ object ImportResolutionMonad {
   implicit val ApplicativeIRMonad: Applicative[ImportResolutionMonad] = new Applicative[ImportResolutionMonad] {
     override def zip[A, B](fa: ImportResolutionMonad[A], fb: ImportResolutionMonad[B]): ImportResolutionMonad[(A, B)] =
       ImportResolutionMonad[(A, B)] { s0 =>
-        fa.run(s0).pipe {
+        fa.run(s0) match {
           case (Resolved(a), s1) =>
-            fb.run(s1).pipe {
+            fb.run(s1) match {
               case (Resolved(b), s2) => (Resolved((a, b)), s2)
               case (failure: ImportResolutionResult[Nothing], s2) => (failure, s2)
             }
@@ -103,7 +102,9 @@ object ImportResolutionMonad {
       }
 
     override def map[A, B](f: A => B)(fa: ImportResolutionMonad[A]): ImportResolutionMonad[B] =
-      ImportResolutionMonad[B](s => fa.run(s).pipe { case (a, s) => (a.map(f), s) })
+      ImportResolutionMonad[B](s => fa.run(s) match {
+        case (a, s) => (a.map(f), s)
+      })
 
     override def pure[A](a: A): ImportResolutionMonad[A] =
       ImportResolutionMonad[A](s => (Resolved(a), s))
