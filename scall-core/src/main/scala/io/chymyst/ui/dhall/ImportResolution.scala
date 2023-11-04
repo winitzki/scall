@@ -1,6 +1,7 @@
 package io.chymyst.ui.dhall
 
 import io.chymyst.ui.dhall.ImportResolution.ImportContext
+import io.chymyst.ui.dhall.ImportResolutionMonad.Errors
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
@@ -40,11 +41,21 @@ object ImportResolution {
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
   // Recursively resolve imports. Use .traverse with this Kleisli function.
-  def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case initState@ImportResolutionState(visited, gamma) =>
+  def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case state0@ImportResolutionState(visited, gamma) =>
     expr.scheme match {
       case Import(importType, importMode, digest) => ???
-      case ExprOperator(import1, Operator.Alternative, import2) => ???
-      case _ => expr.scheme.traverse(resolveImports).run(initState).map { case (scheme, state) => (scheme.map(Expression.apply), state) }
+
+      case ExprOperator(lop, Operator.Alternative, rop) => // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
+        resolveImports(lop).run(state0).flatMap {
+          case (Left(failure1), state1) => resolveImports(rop).run(state1) match {
+            case Left(failure2) => Left(failure1 ++ failure2)
+            case resolved@Right((Right(_), _)) => resolved
+            case Right((Left(failure2), state2)) => Right((Left(failure1 ++ failure2), state2))
+          }
+          case resolved@(Right(_), _) => Right(resolved)
+        }
+
+      case _ => expr.scheme.traverse(resolveImports).run(state0).map { case (scheme, state) => (scheme.map(Expression.apply), state) }
     }
   }
 
@@ -53,9 +64,11 @@ object ImportResolution {
 final case class ImportResolutionState(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext)
 
 // Import resolution may fail in a recoverable way (with `?`) or in a way that disallows further attempts via `?`.
-final case class ImportResolutionMonad[E](run: ImportResolutionState => Either[String, (Either[String, E], ImportResolutionState)])
+final case class ImportResolutionMonad[E](run: ImportResolutionState => Either[Errors, (Either[Errors, E], ImportResolutionState)])
 
 object ImportResolutionMonad {
+  type Errors = List[String]
+
   implicit val ApplicativeIRMonad: Applicative[ImportResolutionMonad] = new Applicative[ImportResolutionMonad] {
     override def zip[A, B](fa: ImportResolutionMonad[A], fb: ImportResolutionMonad[B]): ImportResolutionMonad[(A, B)] =
       ImportResolutionMonad[(A, B)] { s0 =>
