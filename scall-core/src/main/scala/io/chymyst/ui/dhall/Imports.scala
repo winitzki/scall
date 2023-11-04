@@ -5,6 +5,8 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, URL}
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
 
+import scala.util.chaining.scalaUtilChainingOps
+
 object Imports {
 
   def chainWith(parent: ImportType[Expression], child: ImportType[Expression]): ImportType[Expression] = (parent, child) match {
@@ -36,8 +38,12 @@ object Imports {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
-  lazy val resolveImports: ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case ImportResolutionState(visited, gamma) =>
-    ???
+  // Recursively resolve imports. Use .traverse with this Kleisli function.
+  def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case initState@ImportResolutionState(visited, gamma) =>
+    expr.scheme match {
+      case Import(importType, importMode, digest) => ???
+      case _ => expr.scheme.traverse(resolveImports).run(initState).pipe { case (scheme, state) => (Expression(scheme), state) }
+    }
   }
 
 
