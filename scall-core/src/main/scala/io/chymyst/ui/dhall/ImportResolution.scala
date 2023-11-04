@@ -1,7 +1,8 @@
 package io.chymyst.ui.dhall
 
 import io.chymyst.ui.dhall.ImportResolution.ImportContext
-import io.chymyst.ui.dhall.ImportResolutionMonad.Errors
+
+import io.chymyst.ui.dhall.ImportResolutionResult._
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
@@ -46,16 +47,20 @@ object ImportResolution {
       case Import(importType, importMode, digest) => ???
 
       case ExprOperator(lop, Operator.Alternative, rop) => // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
-        resolveImports(lop).run(state0).flatMap {
-          case (Left(failure1), state1) => resolveImports(rop).run(state1) match {
-            case Left(failure2) => Left(failure1 ++ failure2)
-            case resolved@Right((Right(_), _)) => resolved
-            case Right((Left(failure2), state2)) => Right((Left(failure1 ++ failure2), state2))
+        resolveImports(lop).run(state0) match {
+          case resolved@(Resolved(_), _) => resolved
+
+          case failed@(PermanentFailure(_), _) => failed
+
+          case (TransientFailure(messages1), state1) => resolveImports(rop).run(state1) match {
+            case resolved@(Resolved(_), _) => resolved
+            case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
+            case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
           }
-          case resolved@(Right(_), _) => Right(resolved)
+
         }
 
-      case _ => expr.scheme.traverse(resolveImports).run(state0).map { case (scheme, state) => (scheme.map(Expression.apply), state) }
+      case _ => expr.scheme.traverse(resolveImports).run(state0).pipe { case (scheme, state) => (scheme.map(Expression.apply), state) }
     }
   }
 
@@ -63,25 +68,45 @@ object ImportResolution {
 
 final case class ImportResolutionState(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext)
 
+sealed trait ImportResolutionResult[+E] {
+  def map[H](f: E => H): ImportResolutionResult[H] = this match {
+    case Resolved(expr) => Resolved(f(expr))
+    case failure: ImportResolutionResult[Nothing] => failure
+  }
+}
+
+object ImportResolutionResult {
+  type ResolutionErrors = List[String]
+
+  final case class TransientFailure(messages: ResolutionErrors) extends ImportResolutionResult[Nothing]
+
+  final case class PermanentFailure(messages: ResolutionErrors) extends ImportResolutionResult[Nothing]
+
+  final case class Resolved[E](expr: E) extends ImportResolutionResult[E]
+}
+
 // Import resolution may fail in a recoverable way (with `?`) or in a way that disallows further attempts via `?`.
-final case class ImportResolutionMonad[E](run: ImportResolutionState => Either[Errors, (Either[Errors, E], ImportResolutionState)])
+final case class ImportResolutionMonad[+E](run: ImportResolutionState => (ImportResolutionResult[E], ImportResolutionState))
 
 object ImportResolutionMonad {
-  type Errors = List[String]
-
   implicit val ApplicativeIRMonad: Applicative[ImportResolutionMonad] = new Applicative[ImportResolutionMonad] {
     override def zip[A, B](fa: ImportResolutionMonad[A], fb: ImportResolutionMonad[B]): ImportResolutionMonad[(A, B)] =
       ImportResolutionMonad[(A, B)] { s0 =>
-        fa.run(s0).flatMap { case (a, s1) =>
-          fb.run(s1).map { case (b, s2) => (a.flatMap { x => b.map((x, _)) }, s2) }
+        fa.run(s0).pipe {
+          case (Resolved(a), s1) =>
+            fb.run(s1).pipe {
+              case (Resolved(b), s2) => (Resolved((a, b)), s2)
+              case (failure: ImportResolutionResult[Nothing], s2) => (failure, s2)
+            }
+          case (failure: ImportResolutionResult[Nothing], s1) => (failure, s1)
         }
       }
 
     override def map[A, B](f: A => B)(fa: ImportResolutionMonad[A]): ImportResolutionMonad[B] =
-      ImportResolutionMonad[B](s => fa.run(s).map { case (a, s) => (a.map(f), s) })
+      ImportResolutionMonad[B](s => fa.run(s).pipe { case (a, s) => (a.map(f), s) })
 
     override def pure[A](a: A): ImportResolutionMonad[A] =
-      ImportResolutionMonad[A](s => Right((Right(a), s)))
+      ImportResolutionMonad[A](s => (Resolved(a), s))
   }
 
 }
