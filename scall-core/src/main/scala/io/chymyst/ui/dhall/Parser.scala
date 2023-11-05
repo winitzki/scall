@@ -1212,6 +1212,8 @@ object Grammar {
 
 object Parser {
 
+  def parseDhallBytes(source: Array[Byte], currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+
   def parseDhall(source: String, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
   def parseDhallStream(source: InputStream, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))

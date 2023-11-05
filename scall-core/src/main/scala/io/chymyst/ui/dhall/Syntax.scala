@@ -233,6 +233,8 @@ object SyntaxConstants {
 
     final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
+
+      override def toString: String = filePrefix.prefix + "/" + file.toString
     }
 
     final case class Env(envVarName: String) extends ImportType[Nothing] {
@@ -250,7 +252,7 @@ object SyntaxConstants {
   }
 
   final case class File(segments: Seq[String]) {
-    require(segments.nonEmpty) // The last segment is the file name (may be a empty string), all previous segments are path components (may be none)
+    require(segments.nonEmpty) // The last segment is a file name (but may be a empty string), all previous segments are path components (may be none).
 
     override def toString: String = segments.mkString("/")
 
@@ -671,6 +673,15 @@ object Syntax {
 
     final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral]) extends ExpressionScheme[E] {
       override def prec: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
+
+      def chainWith(child: Import[E]): Import[E] =
+        child.copy(importType = ImportResolution.chainWith(importType, child.importType))
+
+      def canonicalize: Import[E] = importType match {
+        case i@ImportType.Remote(url, headers) => copy(importType = i.copy(url = i.url.copy(path = i.url.path.canonicalize)))
+        case i@ImportType.Path(filePrefix, file) => copy(importType = i.copy(file = i.file.canonicalize))
+        case _ => this
+      }
     }
 
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
@@ -761,7 +772,7 @@ object Syntax {
               case Some(value) => "using " + value.atPrecedence(p)
               case None => ""
             })
-            case ImportType.Path(filePrefix, file) => filePrefix.prefix + "/" + file.toString
+            case p@ImportType.Path(filePrefix, file) => p.toString
             case ImportType.Env(envVarName) => "env:" + envVarName
           }
           importTypeString + digestString + importModeString

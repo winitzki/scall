@@ -1,6 +1,8 @@
 package io.chymyst.ui.dhall
 
-import io.chymyst.ui.dhall.ImportResolution.ImportContext
+import geny.Generator.from
+import io.chymyst.ui.dhall.CBORmodel.CBytes
+import io.chymyst.ui.dhall.ImportResolution.{ImportContext, dhallCacheRoots}
 import io.chymyst.ui.dhall.ImportResolutionResult._
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
@@ -12,7 +14,7 @@ import scala.util.{Success, Try}
 
 object ImportResolution {
 
-  def chainWith(parent: ImportType[Expression], child: ImportType[Expression]): ImportType[Expression] = (parent, child) match {
+  def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Here, path2)) => Remote(URL(scheme1, authority1, path1 chain path2, query1), headers1)
     case (Path(filePrefix, path1), Path(FilePrefix.Here, path2)) => Path(filePrefix, path1 chain path2)
 
@@ -64,35 +66,47 @@ object ImportResolution {
     (FieldName("mapValue"), typeOfGenericHeadersForHost),
   ))))
 
-  def readCached(digest: BytesLiteral): Option[Expression] = (for {
-    cacheRoot <- dhallCacheRoot
+  def readCached(cacheRoot: java.nio.file.Path, digest: BytesLiteral): Try[Expression] = for {
     bytes <- Try(Files.readAllBytes(cacheRoot.resolve("1220" + digest.hex.toLowerCase)))
-    model <- Try(CBORmodel.decodeCbor1(bytes))
-    expr <- Try(toExpression(model.toScheme))
-  } yield expr).toOption
+    ourHash <- Try(CBytes.byteArrayToHexString(bytes))
+    if ourHash.toLowerCase == digest.hex.toLowerCase // TODO: alert user if this fails
+    expr <- Try(CBORmodel.decodeCbor1(bytes).toScheme: Expression)
+  } yield expr
 
-  def cacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
+  def readFirstCached(digest: BytesLiteral): Option[Expression] =
+    dhallCacheRoots.map(readCached(_, digest))
+      .filter(_.isSuccess)
+      .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
+
+  def validateAndCacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
     case None => Resolved(expr)
+
     case Some(BytesLiteral(hex)) =>
       val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
-      val ourHash = Semantics.computeHash(ourBytes)
+      val ourHash = Semantics.computeHash(ourBytes).toLowerCase
       if (hex.toLowerCase == ourHash) {
-        dhallCacheRoot.foreach { cachePath =>
-          Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
-        }
+        dhallCacheRoots.map { cachePath =>
+            Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
+            // TODO: log errors while writing the cache file
+          }.filter(_.isSuccess)
+          .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
         Resolved(expr)
       } else PermanentFailure(Seq(s"sha-256 mismatch: found $ourHash from expression ${expr.alphaNormalized.betaNormalized.toDhall} instead of specified $hex"))
   }
 
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
 
-  private def dhallCacheRoot: Try[java.nio.file.Path] = Try {
-    val cacheHome = Paths.get(scala.sys.env("XDG_CACHE_HOME") + "/dhall")
-    if (Files.isReadable(cacheHome) && Files.isWritable(cacheHome)) cacheHome else throw new Exception(s"Path $cacheHome is not readable or not writable")
-  } orElse Try {
-    val cacheHome = Paths.get(if (isWindowsOS) scala.sys.env("LOCALAPPDATA") + "/dhall" else System.getenv("user.home" + ".cache/dhall"))
-    if (Files.isReadable(cacheHome) && Files.isWritable(cacheHome)) cacheHome else throw new Exception(s"Path $cacheHome is not readable or not writable")
+  private def createAndCheckReadableWritable(path: java.nio.file.Path): Try[java.nio.file.Path] = Try {
+    Files.createDirectories(path)
+    if (Files.isReadable(path) && Files.isWritable(path)) path else throw new Exception(s"Path $path is not readable or not writable")
   }
+
+  private def dhallCacheRoots: Iterator[java.nio.file.Path] = Seq(
+    Try(Paths.get(scala.sys.env("XDG_CACHE_HOME")).resolve("dhall")),
+    Try(if (isWindowsOS) Paths.get(scala.sys.env("LOCALAPPDATA")).resolve("dhall")
+    else Paths.get(System.getProperty("user.home")).resolve(".cache").resolve("dhall")),
+  ).iterator.map(_.flatMap(createAndCheckReadableWritable))
+    .collect { case Success(path) => path }
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
@@ -102,7 +116,23 @@ object ImportResolution {
   def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case state0@ImportResolutionState(visited, gamma) =>
     expr.scheme match {
       case i@Import(importType, importMode, digest) => importMode match {
-        case ImportMode.Location => ???
+        case ImportMode.Location =>
+          val canonical = (visited.last chainWith i).canonicalize
+          // Need to process this first, because `missing as Location` is not a failure while `missing as` anything else must be a failure.
+          val (field: FieldName, arg: Option[String]) = canonical.importType match {
+            case ImportType.Missing => (FieldName("Missing"), None)
+            case Remote(url, _) => (FieldName("Remote"), Some(url.toString))
+            case p@Path(_, _) => (FieldName("Local"), Some(p.toString))
+            case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
+          }
+          val withField: Expression = Field(typeOfImportAsLocation, field)
+          val expr: Expression = arg match {
+            case Some(text) => withField.apply(TextLiteral.ofString(text))
+            case None => withField
+          }
+
+          (validateAndCacheResolved(expr, digest), state0)
+
         case ImportMode.Code => ???
         case ImportMode.RawBytes => ???
         case ImportMode.RawText => ???

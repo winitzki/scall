@@ -4,6 +4,7 @@ import io.chymyst.ui.dhall.ImportResolution.ImportContext
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme.Import
 
+import scala.util.{Success, Try}
 import scala.util.chaining.scalaUtilChainingOps
 
 trait Applicative[F[_]] {
@@ -36,4 +37,12 @@ object Applicative {
     fas.foldLeft(Applicative[F].pure(Seq[A]())) { (prev, fa) => (prev zip fa).map { case (prevSeq, a) => prevSeq :+ a } }
 
   def apply[F[_] : Applicative]: Applicative[F] = implicitly[Applicative[F]]
+
+  implicit val ApplicativeTry: Applicative[Try] = new Applicative[Try] {
+    override def zip[A, B](fa: Try[A], fb: Try[B]): Try[(A, B)] = fa.flatMap { a => fb.map((a, _)) }
+
+    override def map[A, B](f: A => B)(fa: Try[A]): Try[B] = fa.map(f)
+
+    override def pure[A](a: A): Try[A] = Success(a)
+  }
 }
