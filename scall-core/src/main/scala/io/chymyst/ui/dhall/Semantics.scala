@@ -15,10 +15,11 @@ import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
 
-  def semanticHash(expr: Expression): String = {
-    val bytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+  def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
-  }
+
+  def semanticHash(expr: Expression): String =
+    computeHash(expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/shift.md
   def shift(positive: Boolean, x: VarName, minIndex: Natural, expr: Expression): Expression = {

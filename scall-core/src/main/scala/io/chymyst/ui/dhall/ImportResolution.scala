@@ -5,10 +5,10 @@ import io.chymyst.ui.dhall.ImportResolutionResult._
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
-import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, URL}
 
 import java.nio.file.{Files, Paths}
-import scala.util.Try
+import scala.util.{Success, Try}
 
 object ImportResolution {
 
@@ -39,9 +39,54 @@ object ImportResolution {
     case _ => None
   }
 
+  val TextType = Expression(ExprBuiltin(Builtin.Text))
+  val ListType = Expression(ExprBuiltin(Builtin.List))
+
+  lazy val typeOfImportAsLocation: Expression = UnionType(Seq(
+    (ConstructorName("Local"), Some(TextType)),
+    (ConstructorName("Remote"), Some(TextType)),
+    (ConstructorName("Environment"), Some(TextType)),
+    (ConstructorName("Missing"), None),
+  ))
+
+  lazy val typeOfGenericHeadersForHost: Expression = Application(ListType, Expression(RecordType(Seq(
+    (FieldName("mapKey"), TextType),
+    (FieldName("mapValue"), TextType),
+  ))))
+
+  lazy val typeOfUserDefinedAlternativeHeadersForHost: Expression = Application(ListType, Expression(RecordType(Seq(
+    (FieldName("header"), TextType),
+    (FieldName("value"), TextType),
+  ))))
+
+  lazy val typeOfGenericHeadersForAllHosts: Expression = Application(ListType, Expression(RecordType(Seq(
+    (FieldName("mapKey"), TextType),
+    (FieldName("mapValue"), typeOfGenericHeadersForHost),
+  ))))
+
+  def readCached(digest: BytesLiteral): Option[Expression] = (for {
+    cacheRoot <- dhallCacheRoot
+    bytes <- Try(Files.readAllBytes(cacheRoot.resolve("1220" + digest.hex.toLowerCase)))
+    model <- Try(CBORmodel.decodeCbor1(bytes))
+    expr <- Try(toExpression(model.toScheme))
+  } yield expr).toOption
+
+  def cacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
+    case None => Resolved(expr)
+    case Some(BytesLiteral(hex)) =>
+      val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+      val ourHash = Semantics.computeHash(ourBytes)
+      if (hex.toLowerCase == ourHash) {
+        dhallCacheRoot.foreach { cachePath =>
+          Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
+        }
+        Resolved(expr)
+      } else PermanentFailure(Seq(s"sha-256 mismatch: found $ourHash from expression ${expr.alphaNormalized.betaNormalized.toDhall} instead of specified $hex"))
+  }
+
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
 
-  private val dhallCacheRoot: Try[java.nio.file.Path] = Try {
+  private def dhallCacheRoot: Try[java.nio.file.Path] = Try {
     val cacheHome = Paths.get(scala.sys.env("XDG_CACHE_HOME") + "/dhall")
     if (Files.isReadable(cacheHome) && Files.isWritable(cacheHome)) cacheHome else throw new Exception(s"Path $cacheHome is not readable or not writable")
   } orElse Try {
@@ -53,10 +98,21 @@ object ImportResolution {
 
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
-  // TODO: report issue to mention in imports.md that the resolution context must be threaded through, while resolving subexpressions.
+  // TODO: report issue to mention in imports.md (at the end) that the resolution context must be threaded through, while resolving subexpressions.
   def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case state0@ImportResolutionState(visited, gamma) =>
     expr.scheme match {
-      case Import(importType, importMode, digest) => ???
+      case i@Import(importType, importMode, digest) => importMode match {
+        case ImportMode.Location => ???
+        case ImportMode.Code => ???
+        case ImportMode.RawBytes => ???
+        case ImportMode.RawText => ???
+      }
+        importType match {
+          case ImportType.Missing => (TransientFailure(Seq("import designated as `missing`")), state0)
+          case Remote(url, headers) => ???
+          case Path(filePrefix, file) => ???
+          case ImportType.Env(envVarName) => ???
+        }
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>
@@ -92,7 +148,7 @@ sealed trait ImportResolutionResult[+E] {
 }
 
 object ImportResolutionResult {
-  type ResolutionErrors = List[String]
+  type ResolutionErrors = Seq[String]
 
   final case class TransientFailure(messages: ResolutionErrors) extends ImportResolutionResult[Nothing]
 
