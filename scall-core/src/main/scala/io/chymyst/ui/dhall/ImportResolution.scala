@@ -38,12 +38,15 @@ object ImportResolution {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
-  // Recursively resolve imports. Use .traverse with this Kleisli function.
+  // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
+  // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
+  // TODO: report issue to mention in imports.md that the resolution context must be threaded through, while resolving subexpressions.
   def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case state0@ImportResolutionState(visited, gamma) =>
     expr.scheme match {
       case Import(importType, importMode, digest) => ???
 
-      case ExprOperator(lop, Operator.Alternative, rop) => // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
+      // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
+      case ExprOperator(lop, Operator.Alternative, rop) =>
         resolveImports(lop).run(state0) match {
           case resolved@(Resolved(_), _) => resolved
 
@@ -67,6 +70,7 @@ object ImportResolution {
 
 final case class ImportResolutionState(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext)
 
+// Import resolution may fail either in a way that may be recovered via `?`, or in a way that disallows further attempts via `?`.
 sealed trait ImportResolutionResult[+E] {
   def map[H](f: E => H): ImportResolutionResult[H] = this match {
     case Resolved(expr) => Resolved(f(expr))
@@ -84,7 +88,6 @@ object ImportResolutionResult {
   final case class Resolved[E](expr: E) extends ImportResolutionResult[E]
 }
 
-// Import resolution may fail in a recoverable way (with `?`) or in a way that disallows further attempts via `?`.
 final case class ImportResolutionMonad[+E](run: ImportResolutionState => (ImportResolutionResult[E], ImportResolutionState))
 
 object ImportResolutionMonad {
