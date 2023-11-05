@@ -7,6 +7,9 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
 import io.chymyst.ui.dhall.SyntaxConstants.{FilePrefix, ImportType, Operator, URL}
 
+import java.nio.file.{Files, Paths}
+import scala.util.Try
+
 object ImportResolution {
 
   def chainWith(parent: ImportType[Expression], child: ImportType[Expression]): ImportType[Expression] = (parent, child) match {
@@ -34,6 +37,16 @@ object ImportResolution {
       }
     case (Remote(URL(_, _, _, _), _), _) => Some(s"Remote parent $parent may not import a non-remote $child")
     case _ => None
+  }
+
+  lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
+
+  private val dhallCacheRoot: Try[java.nio.file.Path] = Try {
+    val cacheHome = Paths.get(scala.sys.env("XDG_CACHE_HOME") + "/dhall")
+    if (Files.isReadable(cacheHome) && Files.isWritable(cacheHome)) cacheHome else throw new Exception(s"Path $cacheHome is not readable or not writable")
+  } orElse Try {
+    val cacheHome = Paths.get(if (isWindowsOS) scala.sys.env("LOCALAPPDATA") + "/dhall" else System.getenv("user.home" + ".cache/dhall"))
+    if (Files.isReadable(cacheHome) && Files.isWritable(cacheHome)) cacheHome else throw new Exception(s"Path $cacheHome is not readable or not writable")
   }
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
