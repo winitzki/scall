@@ -366,7 +366,7 @@ object TypeCheck {
         case Builtin.IntegerToDouble => ~Builtin.Integer ->: ~Builtin.Double
         case Builtin.List => _Type ->: _Type
         case buildOrFold@(Builtin.ListBuild | Builtin.ListFold) =>
-          val buildFunctionType: Expression = (~"list" | _Type) ->: (~"cons" | (~"a" ->: ~"list" ->: ~"list") ->: (~"nil" | ~"list") ->: ~"list")
+          val buildFunctionType: Expression = (~"list" | _Type) ->: (~"cons" | (~"a" ->: ~"list" ->: ~"list")) ->: (~"nil" | ~"list") ->: ~"list"
 
           buildOrFold match {
             case Builtin.ListBuild => (~"a" | _Type) ->: buildFunctionType ->: (~Builtin.List)(~"a")
