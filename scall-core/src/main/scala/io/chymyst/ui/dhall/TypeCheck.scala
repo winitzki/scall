@@ -256,14 +256,40 @@ object TypeCheck {
               val labelSet = labels.toSet
               val missingLabels = labelSet diff defs.map(_._1).toSet
               if (missingLabels.nonEmpty)
-                typeError(s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing")
+                typeError(s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record")
               else Expression(RecordType(defs.filter(d => labelSet contains d._1)))
-            case other => typeError(s"Record projection is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+            case other => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType")
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)
 
-      case ProjectByType(base, by) => ???
+      case ProjectByType(base, by) =>
+        val baseType = base.inferTypeWith(gamma).flatMap {
+          case Expression(RecordType(defs)) => Valid(defs)
+          case other => typeError(s"ProjectByType is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+        }
+        val projectIsByRecordType = by.inferTypeWith(gamma).flatMap { _ =>
+          by.betaNormalized.scheme match {
+            case RecordType(defs) => Valid(defs)
+            case other => typeError(s"ProjectByType is invalid because the projection expression is ${other.toDhall} instead of RecordType")
+          }
+        }
+        baseType zip projectIsByRecordType flatMap { case (defsBase, defsProjectBy) =>
+          val baseLabels = defsBase.toMap
+          val projectLabels = defsProjectBy.toMap
+          val missingLabels = projectLabels.keySet diff baseLabels.keySet
+          val missingLabelsCheck = if (missingLabels.isEmpty)
+            Valid(())
+          else
+            typeError(s"ProjectByType is invalid because labels are missing: {${missingLabels.map(_.name).mkString(", ")}}")
+          val commonLabels = projectLabels.keySet intersect baseLabels.keySet
+          val mismatchedTypes = commonLabels.filterNot { field => equivalent(baseLabels(field), projectLabels(field)) }
+          val mismatchedTypesCheck =
+            if (mismatchedTypes.isEmpty) Valid(Expression(RecordType(defsBase.filter(d => projectLabels contains d._1))))
+            else
+              typeError(s"ProjectByType is invalid because types for labels {${mismatchedTypes.map(_.name).mkString(", ")}} are mismatched")
+          missingLabelsCheck zip mismatchedTypesCheck map (_._2)
+        }
 
       case Completion(base, target) => ???
 
@@ -297,7 +323,13 @@ object TypeCheck {
       case DateLiteral(_, _, _) => Builtin.Date
       case TimeLiteral(_) => Builtin.Time
       case TimeZoneLiteral(_) => Builtin.TimeZone
-      case RecordType(defs) => upperBoundUniverse(defs.map(_._2).map(Some.apply))
+
+      // TODO report issue - `type-inference.md` does not say that typechecking a RecordType must reject duplicate fields. (It says that for RecordLiteral only.) However, `RecordTypeDuplicateFields.dhall` is one of the failure tests.
+      case RecordType(defs) =>
+        val duplicates = defs.map(_._1) diff defs.map(_._1).distinct
+        if (duplicates.isEmpty)
+          upperBoundUniverse(defs.map(_._2).map(Some.apply))
+        else typeError(s"RecordType may not have duplicate fields: {${duplicates.map(_.name).mkString(", ")}}")
 
       case RecordLiteral(defs) =>
         val typesOfFields = seqSeq(defs.map(_._2.inferAndValidateTypeWith(gamma)))
