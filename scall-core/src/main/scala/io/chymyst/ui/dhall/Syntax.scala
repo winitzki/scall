@@ -706,6 +706,11 @@ object Syntax {
 
     def inferTypeWith(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
+    def inferAndValidateTypeWith(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = for {
+      t <- TypeCheck.inferType(gamma, this)
+      _ <- TypeCheck.inferType(gamma, t)
+    } yield t
+
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 

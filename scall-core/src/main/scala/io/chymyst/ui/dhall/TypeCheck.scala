@@ -96,6 +96,25 @@ object TypeCheck {
     val _Type: Expression = ExprConstant(Constant.Type)
     val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
+    def upperBoundUniverse(defs: Seq[Option[Expression]]): TypeCheckResult[Expression] = {
+      // Compute the upper bound of all universes.
+      val result: TypeCheckResult[Seq[Constant]] = for {
+        // Verify that all expressions are typed as Type, Kind, or Sort.
+        exprTypes <- seqSeq(defs.flatMap(_.map(_.inferTypeWith(gamma))))
+        unexpectedTypes = exprTypes.filterNot(_.scheme match {
+          case ExprConstant(Constant.Type) | ExprConstant(Constant.Kind) | ExprConstant(Constant.Sort) => true
+          case _ => false
+        })
+        _ <- required(unexpectedTypes.isEmpty)(s"Unexpected types (must be one of Type, Kind, Sort): ${unexpectedTypes.map(_.toDhall).mkString("; ")}")
+      } yield exprTypes.map(_.scheme).collect {
+        case ExprConstant(Constant.Type) => Constant.Type
+        case ExprConstant(Constant.Kind) => Constant.Kind
+        case ExprConstant(Constant.Sort) => Constant.Sort
+      }
+
+      result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
+    }
+
     val result: TypeCheckResult[Expression] = expr.scheme match {
       case v@Variable(_, _) =>
         // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
@@ -111,14 +130,8 @@ object TypeCheck {
       case Let(name, tipe, subst, body) => ???
 
       case If(cond, ifTrue, ifFalse) =>
-        val lopType = for {
-          typeOfLop <- ifTrue.inferTypeWith(gamma)
-          _ <- typeOfLop.inferTypeWith(gamma)
-        } yield typeOfLop
-        val ropType = for {
-          typeOfRop <- ifFalse.inferTypeWith(gamma)
-          _ <- typeOfRop.inferTypeWith(gamma)
-        } yield typeOfRop
+        val lopType = ifTrue.inferAndValidateTypeWith(gamma)
+        val ropType = ifFalse.inferAndValidateTypeWith(gamma)
         val equivalenceCheck = for {
           pair <- lopType zip ropType
           _ <- required(Semantics.equivalent(pair._1, pair._2))(s"Types of two If() clauses are not equivalent: ${pair._1.toDhall} and ${pair._2.toDhall}")
@@ -151,11 +164,11 @@ object TypeCheck {
         case Operator.Equivalent =>
           val lopType = for {
             tLop <- lop.inferTypeWith(gamma)
-            _ <- validate(gamma, tLop, _Type) // TODO: see if we can relax this restriction. What if we allow this to be Kind or Sort as well?
+            _ <- validate(gamma, tLop, _Type) // TODO: see if we can relax this restriction. What if we allow this to be a Kind or a Sortl?
           } yield tLop
           val ropType = for {
             tRop <- rop.inferTypeWith(gamma)
-            _ <- validate(gamma, tRop, _Type) // TODO: see if we can relax this restriction. What if we allow this to be Kind or Sort as well?
+            _ <- validate(gamma, tRop, _Type) // TODO: see if we can relax this restriction. What if we allow this to be a Kind or a Sortl?
           } yield tRop
           val equivalenceCheck = for {
             pair <- lopType zip ropType
@@ -200,29 +213,17 @@ object TypeCheck {
       case DateLiteral(_, _, _) => Builtin.Date
       case TimeLiteral(_) => Builtin.Time
       case TimeZoneLiteral(_) => Builtin.TimeZone
-      case RecordType(defs) => ???
-      case RecordLiteral(defs) => ???
+      case RecordType(defs) => upperBoundUniverse(defs.map(_._2).map(Some.apply))
+
+      case RecordLiteral(defs) =>
+        val typesOfFields = seqSeq(defs.map(_._2.inferAndValidateTypeWith(gamma)))
+        typesOfFields.map(exprs => RecordType(exprs.zip(defs).map { case (tipe, (field, _)) => (field, tipe) }))
 
       case UnionType(defs) =>
         val constructorNames = defs.map(_._1)
-        // Compute the upper bound of all universes.
-        val result = for {
-          // Verify that all constructor names are distinct.
-          _ <- required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${expr.toDhall}")
-          // Verify that all expressions are typed as Type, Kind, or Sort.
-          exprTypes <- seqSeq(defs.flatMap(_._2.map(_.inferTypeWith(gamma))))
-          unexpectedTypes = exprTypes.filterNot(_.scheme match {
-            case ExprConstant(Constant.Type) | ExprConstant(Constant.Kind) | ExprConstant(Constant.Sort) => true
-            case _ => false
-          })
-          _ <- required(unexpectedTypes.isEmpty)(s"Unexpected types in UnionType: ${unexpectedTypes.map(_.toDhall).mkString("; ")}")
-        } yield exprTypes.map(_.scheme).collect {
-          case ExprConstant(Constant.Type) => Constant.Type
-          case ExprConstant(Constant.Kind) => Constant.Kind
-          case ExprConstant(Constant.Sort) => Constant.Sort
-        }
-
-        result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
+        // Verify that all constructor names are distinct.
+        val constructorNamesDistinct = required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${expr.toDhall}")
+        upperBoundUniverse(defs.map(_._2)) zip constructorNamesDistinct map (_._1)
 
       case ShowConstructor(data) => data.inferTypeWith(gamma) flatMap {
         case Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), _)) |
@@ -231,7 +232,9 @@ object TypeCheck {
       }
 
       case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
+
       case KeywordSome(data) => ???
+
       case ExprBuiltin(builtin) => builtin match {
         case Builtin.Bool => _Type
         case Builtin.Bytes => _Type

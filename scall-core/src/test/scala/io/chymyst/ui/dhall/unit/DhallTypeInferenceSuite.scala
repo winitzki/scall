@@ -42,9 +42,7 @@ class DhallTypeInferenceSuite extends FunSuite {
       .map { file =>
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-          val x = ourResult.inferType match {
-            case Invalid(a) =>
-          }
+          expect(!ourResult.inferType.isValid)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")

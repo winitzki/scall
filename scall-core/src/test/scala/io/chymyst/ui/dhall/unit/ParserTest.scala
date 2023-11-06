@@ -183,6 +183,10 @@ class ParserTest extends FunSuite {
     }
   }
 
+  test("parse Location as a field name") {
+    check(Grammar.complete_expression(_), "{ Location : Natural }", ())
+  }
+
   test("numeric_double_literal") {
     Map(
       "1.0" -> 1.0,
