@@ -191,7 +191,7 @@ object TypeCheck {
             Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.scheme)
           } yield t
           (lopType zip ropType).flatMap { case (l, r) =>
-            if (equivalent(l, r)) Valid(l)
+            if (equivalent(l, r)) Valid((~Builtin.List)(l))
             else typeError(s"List types must be equal for ListAppend but found ${l.toDhall}, ${r.toDhall}")
           }
 
