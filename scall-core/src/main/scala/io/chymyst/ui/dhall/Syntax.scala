@@ -7,7 +7,7 @@ import io.chymyst.ui.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
-import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, VarName}
 
 import java.time.LocalTime
 import scala.language.implicitConversions
@@ -149,6 +149,12 @@ object SyntaxConstants {
 
   sealed trait Constant extends EnumEntry {
     def unary_~ : Expression = Expression(ExprConstant(this))
+
+    def union(other: Constant): Constant = (this, other) match {
+      case (Constant.Sort, _) | (_, Constant.Sort) => Constant.Sort
+      case (Constant.Kind, _) | (_, Constant.Kind) => Constant.Kind
+      case _ => Constant.Type
+    }
   }
 
   object Constant extends Enum[Constant] {
@@ -696,6 +702,10 @@ object Syntax {
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
+    def inferType: TypeCheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
+
+    def inferTypeWith(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = TypeCheck.inferType(gamma, this)
+
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 
@@ -796,8 +806,12 @@ object Syntax {
     // Lambda is a -> b where a must be (Variable :: T)
     def ->(other: Expression): Expression = this.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
-      case _ => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation but is ${this.toDhall}: $this")
+      case _ => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.toDhall}: $this")
     }
+
+    // Forall type expressions.
+    def ->:(tipe: Expression): Expression = Forall(underscore, tipe, this)
+
   }
 
   object Expression {

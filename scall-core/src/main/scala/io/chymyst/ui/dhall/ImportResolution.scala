@@ -133,16 +133,17 @@ object ImportResolution {
 
           (validateAndCacheResolved(expr, digest), state0)
 
-        case ImportMode.Code => ???
-        case ImportMode.RawBytes => ???
-        case ImportMode.RawText => ???
+        case ImportMode.Code
+             | ImportMode.RawBytes
+             | ImportMode.RawText =>
+
+          importType match {
+            case ImportType.Missing => (TransientFailure(Seq("import designated as `missing`")), state0)
+            case Remote(url, headers) => ???
+            case Path(filePrefix, file) => ???
+            case ImportType.Env(envVarName) => ???
+          }
       }
-        importType match {
-          case ImportType.Missing => (TransientFailure(Seq("import designated as `missing`")), state0)
-          case Remote(url, headers) => ???
-          case Path(filePrefix, file) => ???
-          case ImportType.Env(envVarName) => ???
-        }
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>
