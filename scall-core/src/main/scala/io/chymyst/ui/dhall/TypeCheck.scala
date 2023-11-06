@@ -290,4 +290,9 @@ object TypeCheck {
     }
     result.map(_.betaNormalized)
   }
+
+  def functionCheck(arg: Constant, body: Constant): Constant = (arg, body) match {
+    case (_, Constant.Type) => Constant.Type
+    case _ => arg union body
+  }
 }
