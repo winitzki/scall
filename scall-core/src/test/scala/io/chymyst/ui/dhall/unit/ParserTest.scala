@@ -4,6 +4,7 @@ import com.eed3si9n.expecty.Expecty.expect
 import fastparse._
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, FieldName, VarName}
 import io.chymyst.ui.dhall.unit.TestFixtures._
 import io.chymyst.ui.dhall.unit.TestUtils._
 import io.chymyst.ui.dhall.{Grammar, SyntaxConstants}
@@ -184,7 +185,16 @@ class ParserTest extends FunSuite {
   }
 
   test("parse Location as a field name") {
-    check(Grammar.complete_expression(_), "{ Location : Natural }", ())
+    val input = "Location : Natural"
+    val expected = Expression(Annotation(Expression(Variable(VarName("Location"), BigInt(0))), Expression(ExprBuiltin(Builtin.Natural))))
+    check(Grammar.import_expression(_), input, Expression(Variable(VarName("Location"), BigInt(0))))
+    check(Grammar.annotated_expression(_), input, expected)
+    check(Grammar.complete_expression(_), input, expected)
+    check(Grammar.complete_expression(_), "{ Bytes : Natural, Text: Natural, Location: Natural }", Expression(RecordType(List(
+      (FieldName("Bytes"),Expression(ExprBuiltin(Builtin.Natural))),
+      (FieldName("Location"),Expression(ExprBuiltin(Builtin.Natural))),
+      (FieldName("Text"),Expression(ExprBuiltin(Builtin.Natural))),
+    ))))
   }
 
   test("numeric_double_literal") {

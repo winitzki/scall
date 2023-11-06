@@ -360,9 +360,9 @@ object Grammar {
     "with",
     "forall",
     "showConstructor",
-    "Text",
-    "Location",
-    "Bytes",
+//    "Text",
+//    "Location",
+//    "Bytes",
   )
 
   val simpleKeywordsSet = simpleKeywords.toSet
@@ -403,7 +403,7 @@ object Grammar {
       }(implicitly[P[$]]).!
   }
 
-  def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
+  //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
   def keyword[$: P]: P[String] = concatKeywords(simpleKeywords)
 
