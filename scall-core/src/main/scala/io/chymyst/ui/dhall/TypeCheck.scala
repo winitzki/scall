@@ -4,8 +4,9 @@ import io.chymyst.ui.dhall.Applicative.seqSeq
 import io.chymyst.ui.dhall.Semantics.equivalent
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, FieldName, Operator, VarName}
 import io.chymyst.ui.dhall.TypeCheckResult._
+
 import scala.language.postfixOps
 
 sealed trait TypeCheckResult[+A] {
@@ -142,8 +143,8 @@ object TypeCheck {
         val equivalenceCheck = for {
           pair <- lopType zip ropType
           _ <- required(Semantics.equivalent(pair._1, pair._2))(s"Types of two If() clauses are not equivalent: ${pair._1.toDhall} and ${pair._2.toDhall}")
-        } yield ()
-        validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._1)
+        } yield pair._1
+        validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
@@ -160,7 +161,7 @@ object TypeCheck {
             val differentType: Option[(Expression, Int)] = types.zipWithIndex.tail.find(tipe => !equivalent(types.head, tipe._1))
             differentType match {
               case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value._1.toDhall}, ...]")
-              case None => Valid(types.head)
+              case None => (~Builtin.List)(types.head)
             }
           }
 
@@ -294,7 +295,10 @@ object TypeCheck {
           }
 
         case Builtin.ListHead | Builtin.ListLast => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.Optional)(~"a")
-        case Builtin.ListIndexed => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.List)(~"a")
+        case Builtin.ListIndexed => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.List)(Expression(RecordType(Seq(
+          (FieldName("index"), ~Builtin.Natural),
+          (FieldName("value"), ~"a"),
+        ))))
         case Builtin.ListLength => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: ~Builtin.Natural
         case Builtin.ListReverse => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.List)(~"a")
         case Builtin.Natural => _Type
