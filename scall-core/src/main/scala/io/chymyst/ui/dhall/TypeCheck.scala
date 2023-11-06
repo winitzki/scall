@@ -104,8 +104,13 @@ object TypeCheck {
     val _Type: Expression = ExprConstant(Constant.Type)
     val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
+    def typeOfToMap(t: Expression): Expression = (~Builtin.List)(Expression(RecordType(Seq(
+      (FieldName("mapKey"), ~Builtin.Text),
+      (FieldName("mapValue"), t)
+    ))))
+
+    // Compute the upper bound of all universes in the given list.
     def upperBoundUniverse(defs: Seq[Option[Expression]]): TypeCheckResult[Expression] = {
-      // Compute the upper bound of all universes.
       val result: TypeCheckResult[Seq[Constant]] = for {
         // Verify that all expressions are typed as Type, Kind, or Sort.
         exprTypes <- seqSeq(defs.flatMap(_.map(_.inferTypeWith(gamma))))
@@ -133,8 +138,11 @@ object TypeCheck {
           }
           case None => typeError(s"Variable ${expr.toDhall} is not in type inference context $gamma")
         }
+
       case Lambda(name, tipe, body) => ???
+
       case Forall(name, tipe, body) => ???
+
       case Let(name, tipe, subst, body) => ???
 
       case If(cond, ifTrue, ifFalse) =>
@@ -147,7 +155,39 @@ object TypeCheck {
         validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
       case Merge(record, update, tipe) => ???
-      case ToMap(data, tipe) => ???
+
+      case ToMap(e, tipe) => e.inferTypeWith(gamma) flatMap {
+        case Expression(RecordType(Seq())) => tipe match {
+          case Some(t) =>
+            validate(gamma, t, _Type).flatMap {
+              _.betaNormalized match {
+                case newT@Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(RecordType(Seq(
+                (FieldName("mapKey"), Expression(ExprBuiltin(Builtin.Text))),
+                (FieldName("mapValue"), t),
+                ))))) => newT
+                case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T")
+              }
+            }
+          case None => typeError(s"toMap of empty record, ${expr.toDhall}, must have a type annotation")
+        }
+        case Expression(RecordType(defs)) => tipe match {
+          case Some(t1) => ToMap(e, None).inferTypeWith(gamma).flatMap { t0 =>
+            if (equivalent(t0, t1)) Valid(t0)
+            else typeError(s"toMap with type annotation ${t1.toDhall} has a different inferred type ${t0.toDhall}")
+          }
+          case None =>
+            // All types in `defs` must be equivalent and must have type Type. Also, `defs` is now a non-empty list.
+            val allTypesEqual = defs.tail.find(tipe => !equivalent(defs.head._2, tipe._2)) match {
+              case Some((field, expr)) => typeError(s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.toDhall}, ..., ${field.name} : ${expr.toDhall}}")
+              case None => validate(gamma, defs.head._2, _Type)
+            }
+            allTypesEqual.map(typeOfToMap)
+
+
+        }
+        case other => typeError(s"toMap's argument must have a record type but instead has type ${other.toDhall}")
+      }
+
       case EmptyList(tipe) => for {
         _ <- tipe.inferTypeWith(gamma)
         Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.betaNormalized.scheme)
@@ -158,9 +198,9 @@ object TypeCheck {
         seqSeq(exprs.map(_.inferTypeWith(gamma).flatMap { expr => validate(gamma, expr, _Type).map(_ => expr) }))
           // Require all types to be the same.
           .flatMap { types =>
-            val differentType: Option[(Expression, Int)] = types.zipWithIndex.tail.find(tipe => !equivalent(types.head, tipe._1))
+            val differentType: Option[Expression] = types.tail.find(tipe => !equivalent(types.head, tipe))
             differentType match {
-              case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value._1.toDhall}, ...]")
+              case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value.toDhall}, ...]")
               case None => (~Builtin.List)(types.head)
             }
           }
@@ -306,6 +346,7 @@ object TypeCheck {
         }
 
       case With(data, pathComponents, body) => ???
+
       case DoubleLiteral(_) => Builtin.Double
       case NaturalLiteral(_) => Builtin.Natural
       case IntegerLiteral(_) => Builtin.Integer
@@ -405,6 +446,7 @@ object TypeCheck {
         case Builtin.TimeZone => _Type
         case Builtin.TimeZoneShow => ~Builtin.TimeZone ->: ~Builtin.Text
       }
+
       case ExprConstant(constant) => constant match {
         case Constant.Type => Valid(ExprConstant(Constant.Kind))
         case Constant.Kind => Valid(ExprConstant(Constant.Sort))
