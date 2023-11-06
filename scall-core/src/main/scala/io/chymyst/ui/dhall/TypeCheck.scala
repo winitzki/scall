@@ -4,7 +4,7 @@ import io.chymyst.ui.dhall.Applicative.seqSeq
 import io.chymyst.ui.dhall.Semantics.equivalent
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, FieldName, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator, VarName}
 import io.chymyst.ui.dhall.TypeCheckResult._
 
 import scala.language.postfixOps
@@ -215,11 +215,58 @@ object TypeCheck {
 
         case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
       }
+
       case Application(func, arg) => ???
-      case Field(base, name) => ???
-      case ProjectByLabels(base, labels) => ???
+
+      // Field selection is possible only in two cases: from a record value and from a union type.
+      case Field(base, name) => base.inferTypeWith(gamma).flatMap {
+        case Expression(r@RecordType(defs)) => r.lookup(name) match {
+          case Some(tipe) => tipe
+          case None => typeError(s"RecordType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+        }
+        /*
+
+        If a union alternative is non-empty, then the corresponding constructor is a function that wraps a value of the appropriate type:
+        Γ ⊢ u:c   u⇥<x:T|ts...>  ↑(1,x,0,<x:T|ts...>)=U
+         ─────────────────────────────────────────────────────────────────
+          Γ ⊢ u.x:∀(x:T)→U
+        If a union alternative is empty, then the corresponding constructor's type is the same as the original union type:
+        Γ⊢u:c   u⇥<x|ts...>
+         ───────────────────────────
+          Γ ⊢ u.x:<x|ts...>
+         */
+        case Expression(ExprConstant(Constant.Type)) | Expression(ExprConstant(Constant.Kind)) | Expression(ExprConstant(Constant.Sort)) =>
+          base.betaNormalized.scheme match {
+            case r@UnionType(defs) => r.lookup(ConstructorName(name.name)) match {
+              case Some(Some(tipe)) =>
+                val shifted = Semantics.shift(true, VarName(name.name), 0, r)
+                (~(name.name) | tipe) ->: shifted
+              case Some(None) => Expression(r)
+              case None => typeError(s"UnionType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+            }
+            case other => typeError(s"Field selection is possible only from union type but found ${other.toDhall}")
+          }
+      }
+
+      case ProjectByLabels(base, labels) =>
+        val distinctLabelsCheck = if (labels.size != labels.distinct.size) typeError(s"Duplicate projection labels in {${labels.mkString(", ")}}") else Valid(())
+        val baseTypeIsARecordHavingAllLabels = base.inferTypeWith(gamma).flatMap { tipe =>
+          tipe.scheme match {
+            case RecordType(defs) =>
+              val labelSet = labels.toSet
+              val missingLabels = labelSet diff defs.map(_._1).toSet
+              if (missingLabels.nonEmpty)
+                typeError(s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing")
+              else Expression(RecordType(defs.filter(d => labelSet contains d._1)))
+            case other => typeError(s"Record projection is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+          }
+        }
+        distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)
+
       case ProjectByType(base, by) => ???
+
       case Completion(base, target) => ???
+
       case Assert(assertion) =>
         validate(gamma, assertion, _Type) match {
           case Valid(_) =>

@@ -622,6 +622,8 @@ object Syntax {
 
     final case class RecordType[E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] with HighPrecedence {
       lazy val sorted = RecordType(defs.sortBy(_._1.name))
+
+      def lookup(field: FieldName): Option[E] = defs.find(_._1 == field).map(_._2) // TODO: do we need a faster lookup here?
     }
 
     final case class RecordLiteral[+E](defs: Seq[(FieldName, E)]) extends ExpressionScheme[E] with HighPrecedence {
@@ -677,6 +679,8 @@ object Syntax {
 
     final case class UnionType[E](defs: Seq[(ConstructorName, Option[E])]) extends ExpressionScheme[E] with HighPrecedence {
       lazy val sorted = UnionType(defs.sortBy(_._1.name))
+
+      def lookup(field: ConstructorName): Option[Option[E]] = defs.find(_._1 == field).map(_._2) // TODO: do we need a faster lookup here?
     }
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
