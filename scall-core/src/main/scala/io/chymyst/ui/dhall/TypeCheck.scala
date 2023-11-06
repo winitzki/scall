@@ -6,6 +6,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, Operator, VarName}
 import io.chymyst.ui.dhall.TypeCheckResult._
+import scala.language.postfixOps
 
 sealed trait TypeCheckResult[+A] {
   def isValid: Boolean
@@ -15,6 +16,8 @@ sealed trait TypeCheckResult[+A] {
   def flatMap[B](f: A => TypeCheckResult[B]): TypeCheckResult[B]
 
   def zip[B](other: TypeCheckResult[B]): TypeCheckResult[(A, B)]
+
+  def withFilter(p: A => Boolean): TypeCheckResult[A]
 }
 
 object TypeCheckResult {
@@ -29,6 +32,8 @@ object TypeCheckResult {
       case Valid(expr2) => Valid(expr, expr2)
       case Invalid(errors) => Invalid(errors)
     }
+
+    override def withFilter(p: A => Boolean): TypeCheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypeCheckResult[Nothing] {
@@ -42,6 +47,8 @@ object TypeCheckResult {
       case Valid(_) => Invalid(errors)
       case Invalid(otherErrors) => Invalid(errors ++ otherErrors)
     }
+
+    override def withFilter(p: Nothing => Boolean): TypeCheckResult[Nothing] = this
   }
 
   def typeError(message: String): TypeCheckResult[Nothing] = Invalid(Seq(message))
@@ -140,8 +147,23 @@ object TypeCheck {
 
       case Merge(record, update, tipe) => ???
       case ToMap(data, tipe) => ???
-      case EmptyList(tipe) => ???
-      case NonEmptyList(exprs) => ???
+      case EmptyList(tipe) => for {
+        _ <- tipe.inferTypeWith(gamma)
+        Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.betaNormalized.scheme)
+        _ <- validate(gamma, t, _Type) // TODO: see if we can allow List elements that are of type Kind or Sort.
+      } yield tipe.betaNormalized
+
+      case NonEmptyList(exprs) =>
+        seqSeq(exprs.map(_.inferTypeWith(gamma).flatMap { expr => validate(gamma, expr, _Type).map(_ => expr) }))
+          // Require all types to be the same.
+          .flatMap { types =>
+            val differentType: Option[(Expression, Int)] = types.zipWithIndex.tail.find(tipe => !equivalent(types.head, tipe._1))
+            differentType match {
+              case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value._1.toDhall}, ...]")
+              case None => Valid(types.head)
+            }
+          }
+
       case Annotation(data, tipe) =>
         if (tipe == Expression(~Constant.Sort)) validate(gamma, data, tipe).map(_ => tipe)
         else {
@@ -150,6 +172,7 @@ object TypeCheck {
             _ <- required(Semantics.equivalent(pair._1, tipe))(s"Inferred type ${pair._1.toDhall} is not equal to the type ${tipe.toDhall} given in the annotation")
           } yield pair._1 // Return the inferred type because it is assured to be in a normalized form.
         }
+
       case ExprOperator(lop, op, rop) => op match {
         case Operator.Or | Operator.And | Operator.Equal | Operator.NotEqual =>
           validate(gamma, lop, ~Builtin.Bool) zip validate(gamma, rop, ~Builtin.Bool) map (_ => ~Builtin.Bool)
@@ -157,7 +180,20 @@ object TypeCheck {
           validate(gamma, lop, ~Builtin.Natural) zip validate(gamma, rop, ~Builtin.Natural) map (_ => ~Builtin.Natural)
         case Operator.TextAppend =>
           validate(gamma, lop, ~Builtin.Text) zip validate(gamma, rop, ~Builtin.Text) map (_ => ~Builtin.Text)
-        case Operator.ListAppend => ???
+        case Operator.ListAppend =>
+          val lopType = for {
+            tipe <- lop.inferTypeWith(gamma)
+            Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.scheme)
+          } yield t
+          val ropType = for {
+            tipe <- rop.inferTypeWith(gamma)
+            Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.scheme)
+          } yield t
+          (lopType zip ropType).flatMap { case (l, r) =>
+            if (equivalent(l, r)) Valid(l)
+            else typeError(s"List types must be equal for ListAppend but found ${l.toDhall}, ${r.toDhall}")
+          }
+
         case Operator.CombineRecordTerms => ???
         case Operator.Prefer => ???
         case Operator.CombineRecordTypes => ???
@@ -233,7 +269,8 @@ object TypeCheck {
 
       case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
 
-      case KeywordSome(data) => ???
+      case KeywordSome(data) => // The argument of Some can be only a Type. No universe-level polymorphism!
+        data.inferTypeWith(gamma).flatMap { tipe => validate(gamma, tipe, _Type).map(_ => (~Builtin.Optional)(tipe)) }
 
       case ExprBuiltin(builtin) => builtin match {
         case Builtin.Bool => _Type
@@ -248,18 +285,22 @@ object TypeCheck {
         case Builtin.IntegerShow => ~Builtin.Integer ->: ~Builtin.Text
         case Builtin.IntegerToDouble => ~Builtin.Integer ->: ~Builtin.Double
         case Builtin.List => _Type ->: _Type
-        case Builtin.ListBuild => ???
-        case Builtin.ListFold => ???
-        case Builtin.ListHead => ???
-        case Builtin.ListIndexed => ???
-        case Builtin.ListLast => ???
-        case Builtin.ListLength => ???
-        case Builtin.ListReverse => ???
+        case buildOrFold@(Builtin.ListBuild | Builtin.ListFold) =>
+          val buildFunctionType: Expression = (~"list" | _Type) ->: (~"cons" | (~"a" ->: ~"list" ->: ~"list") ->: (~"nil" | ~"list") ->: ~"list")
+
+          buildOrFold match {
+            case Builtin.ListBuild => (~"a" | _Type) ->: buildFunctionType ->: (~Builtin.List)(~"a")
+            case Builtin.ListFold => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: buildFunctionType
+          }
+
+        case Builtin.ListHead | Builtin.ListLast => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.Optional)(~"a")
+        case Builtin.ListIndexed => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.List)(~"a")
+        case Builtin.ListLength => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: ~Builtin.Natural
+        case Builtin.ListReverse => (~"a" | _Type) ->: (~Builtin.List)(~"a") ->: (~Builtin.List)(~"a")
         case Builtin.Natural => _Type
         case buildOrFold@(Builtin.NaturalBuild | Builtin.NaturalFold) =>
-          val nat = VarName("natural")
-          val natE = Expression(Variable(nat, BigInt(0)))
-          val buildFunctionType: Expression = Forall(nat, _Type, (natE ->: natE) ->: natE ->: natE)
+          val nat = ~"natural"
+          val buildFunctionType: Expression = (nat | _Type) ->: (~"succ" | (nat ->: nat)) ->: (~"zero" | nat) ->: nat
           buildOrFold match {
             case Builtin.NaturalBuild => buildFunctionType ->: ~Builtin.Natural
             case Builtin.NaturalFold => ~Builtin.Natural ->: buildFunctionType
@@ -270,10 +311,11 @@ object TypeCheck {
         case Builtin.NaturalShow => ~Builtin.Natural ->: ~Builtin.Text
         case Builtin.NaturalSubtract => ~Builtin.Natural ->: ~Builtin.Natural ->: ~Builtin.Natural
         case Builtin.NaturalToInteger => ~Builtin.Natural ->: ~Builtin.Integer
-        case Builtin.None => _Type ->: (~Builtin.Optional)(underscore)
+
+        case Builtin.None => (~"A" | _Type) ->: (~Builtin.Optional)(~"A")
         case Builtin.Optional => _Type ->: _Type
         case Builtin.Text => _Type
-        case Builtin.TextReplace => ~Builtin.Text ->: ~Builtin.Text ->: ~Builtin.Text ->: ~Builtin.Text
+        case Builtin.TextReplace => (~"needle" | ~Builtin.Text) ->: (~"replacement" | ~Builtin.Text) ->: (~"haystack" | ~Builtin.Text) ->: ~Builtin.Text
         case Builtin.TextShow => ~Builtin.Text ->: ~Builtin.Text
         case Builtin.Time => _Type
         case Builtin.TimeShow => ~Builtin.Time ->: ~Builtin.Text

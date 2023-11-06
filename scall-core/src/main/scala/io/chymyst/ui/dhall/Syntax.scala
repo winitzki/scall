@@ -391,6 +391,10 @@ object Syntax {
 
     implicit def toExpression(s: ExpressionScheme[Expression]): Expression = Expression(s)
 
+    implicit class ExprOpsString(name: String) {
+      def unary_~ : Expression = Expression(Variable(VarName(name), BigInt(0)))
+    }
+
     trait TermPrecedence {
       def prec: Int = TermPrecedence.low // Default is the low precedence.
     }
@@ -815,7 +819,10 @@ object Syntax {
     }
 
     // Forall type expressions.
-    def ->:(tipe: Expression): Expression = Forall(underscore, tipe, this)
+    def ->:(tipe: Expression): Expression = tipe.scheme match {
+      case Annotation(Expression(Variable(name, index)), t) if index == 0 => Forall(name, t, this)
+      case _ => Forall(underscore, tipe, this)
+    }
 
   }
 
