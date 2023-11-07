@@ -360,9 +360,9 @@ object Grammar {
     "with",
     "forall",
     "showConstructor",
-//    "Text",
-//    "Location",
-//    "Bytes",
+    //    "Text",
+    //    "Location",
+    //    "Bytes",
   )
 
   val simpleKeywordsSet = simpleKeywords.toSet
@@ -844,7 +844,7 @@ object Grammar {
   )
 
   def import_only[$: P]: P[Expression] = P(
-    import_hashed ~ (whsp1 ~ requireKeyword("as") ~ whsp1 ~/ (requireKeyword("Text") | requireKeyword("Location") | requireKeyword("Bytes")).!).?
+    import_hashed ~ (whsp1 ~ requireKeyword("as") ~ whsp1 ~/ ("Text" | "Location" | "Bytes").!).?
   ).map { case (importType, digest, mode) =>
     val importMode = mode match {
       case Some("Bytes") => SyntaxConstants.ImportMode.RawBytes

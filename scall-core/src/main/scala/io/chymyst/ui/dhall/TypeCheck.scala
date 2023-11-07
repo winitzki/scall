@@ -73,10 +73,10 @@ object TypeCheck {
       if (variable.index.isValidInt) exprs.lift(variable.index.intValue) else None
     }
 
-    def append(varName: VarName, expr: Expression) = defs.updatedWith(varName) {
+    def append(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
       case Some(exprs) => Some(exprs :+ expr)
       case None => Some(IndexedSeq(expr))
-    }
+    })
 
     def mapExpr(f: Expression => Expression): Gamma = Gamma(defs.map { case (name, exprs) => (name, exprs.map(f)) })
   }
@@ -193,6 +193,13 @@ object TypeCheck {
               }
             }
           } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.toDhall} and ${target.toDhall}")
+
+        case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
+          val updatedContext = gamma.append(VarName("x"), Expression(UnionType(Seq(
+            (ConstructorName("None"),None),
+            (ConstructorName("Some"),Some(optType))
+          )))).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
+          Expression(Merge(record, ~"x", None)).inferTypeWith(updatedContext)
 
         case (other1, other2) => typeError(s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.toDhall} and ${other2.toDhall}")
       }
