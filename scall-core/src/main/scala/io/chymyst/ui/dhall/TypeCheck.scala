@@ -64,11 +64,11 @@ object TypeCheckResult {
 }
 
 object TypeCheck {
-  val emptyContext: GammaTypeContext = GammaTypeContext(Map())
+  val emptyContext: Gamma = Gamma(Map())
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
-  final case class GammaTypeContext(defs: Map[VarName, IndexedSeq[Expression]]) {
+  final case class Gamma(defs: Map[VarName, IndexedSeq[Expression]]) {
     def lookup(variable: Variable): Option[Expression] = defs.get(variable.name).flatMap { exprs =>
       if (variable.index.isValidInt) exprs.lift(variable.index.intValue) else None
     }
@@ -77,11 +77,13 @@ object TypeCheck {
       case Some(exprs) => Some(exprs :+ expr)
       case None => Some(IndexedSeq(expr))
     }
+
+    def mapExpr(f: Expression => Expression): Gamma = Gamma(defs.map { case (name, exprs) => (name, exprs.map(f)) })
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   // Check that a given expression has the given type, that is, gamma |- expr : tipe. If this holds, no errors are output.
-  def validate(gamma: GammaTypeContext, expr: Expression, tipe: Expression): TypeCheckResult[Expression] = {
+  def validate(gamma: Gamma, expr: Expression, tipe: Expression): TypeCheckResult[Expression] = {
     inferType(gamma, expr) match {
       case Valid(inferredType) =>
         if (Semantics.equivalent(tipe, inferredType))
@@ -96,7 +98,7 @@ object TypeCheck {
   def required(cond: Boolean)(error: String): TypeCheckResult[Unit] = if (cond) Valid(()) else typeError(error)
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: GammaTypeContext, expr: Expression): TypeCheckResult[Expression] = {
+  def inferType(gamma: Gamma, expr: Expression): TypeCheckResult[Expression] = {
     implicit def toExpr(expr: Expression): TypeCheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypeCheckResult[Expression] = Valid(~builtin)
