@@ -3,10 +3,11 @@ package io.chymyst.ui.dhall
 import io.chymyst.ui.dhall.Applicative.seqSeq
 import io.chymyst.ui.dhall.Semantics.equivalent
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
-import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
+import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
 import io.chymyst.ui.dhall.TypeCheckResult._
 
+import scala.collection.immutable.{AbstractSeq, LinearSeq}
 import scala.language.postfixOps
 
 sealed trait TypeCheckResult[+A] {
@@ -130,16 +131,15 @@ object TypeCheck {
       result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
     }
 
+    // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
     val result: TypeCheckResult[Expression] = expr.scheme match {
-      case v@Variable(_, _) =>
-        // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
-        gamma.lookup(v) match {
-          case Some(tipe) => tipe.inferTypeWith(gamma) match {
-            case Valid(_) => tipe
-            case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
-          }
-          case None => typeError(s"Variable ${expr.toDhall} is not in type inference context $gamma")
+      case v@Variable(_, _) => gamma.lookup(v) match {
+        case Some(tipe) => tipe.inferTypeWith(gamma) match {
+          case Valid(_) => tipe
+          case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
         }
+        case None => typeError(s"Variable ${expr.toDhall} is not in type inference context $gamma")
+      }
 
       case Lambda(name, tipe, body) => ???
 
@@ -420,7 +420,28 @@ object TypeCheck {
           case errors => errors
         }
 
-      case With(data, pathComponents, body) => ???
+      case With(data, pathComponents, body) => data.inferTypeWith(gamma).flatMap {
+        case t@Expression(r@RecordType(defs)) => pathComponents.head match { // pathComponents.head must exist since the list is not empty.
+          case PathComponent.Label(first) =>
+            pathComponents.tail match {
+              case Seq() => Valid(RecordType(defs.filterNot(_._1 == first) :+ (first, body)).sorted)
+              case moreFields =>
+                val newBase: Expression = r.lookup(first) match {
+                  case Some(_) => Expression(Field(data, first))
+                  case None => Expression(RecordLiteral(Seq()))
+                }
+                Expression(With(newBase, moreFields, body)).inferTypeWith(gamma).map { t1 => RecordType(defs :+ (first, t1)).sorted }
+            }
+          case PathComponent.DescendOptional => typeError(s"The label `?` can be used in `with` expressions only with the `Optional` type, but here it is used with ${t.toDhall}")
+        }
+
+        case tt@Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), t)) =>
+          if (pathComponents.head.isOptionalLabel) {
+            validate(gamma, body, t).map(_ => tt)
+          } else typeError(s"An Optional value must be updated with `?` but instead found ${pathComponents.head}")
+
+        case other => typeError(s"A `with` expression's arg must have record type, but instead found ${other.toDhall}")
+      }
 
       case DoubleLiteral(_) => Builtin.Double
       case NaturalLiteral(_) => Builtin.Natural
