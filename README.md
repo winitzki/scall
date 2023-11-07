@@ -24,7 +24,7 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [ ] Import resolution code is in progress.
 
-- [ ] Typechecking.
+- [ ] Typechecking code is in progress.
 
 ## Roadmap for future developments
 

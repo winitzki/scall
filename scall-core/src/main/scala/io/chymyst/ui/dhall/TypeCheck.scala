@@ -236,8 +236,18 @@ object TypeCheck {
           }
 
         case Operator.CombineRecordTerms => ???
-        case Operator.Prefer => ???
+
+        case Operator.Prefer => (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap {
+          case  (Expression(RecordType(leftDefs)), Expression(RecordType(rightDefs))) =>
+            // Keep all labels from the left, add all new labels from the right, replace existing labels by those from the right.
+          Expression(RecordType(leftDefs.toMap ++ rightDefs.toMap toSeq))
+
+          case (other1, other2) => typeError(s"Arguments of Operator.Prefer (//)¬ must both have record types, instead found ${other1.toDhall} and ${other2.toDhall}")
+        }
+
+
         case Operator.CombineRecordTypes => ???
+
         case Operator.Equivalent =>
           val lopType = for {
             tLop <- lop.inferTypeWith(gamma)
