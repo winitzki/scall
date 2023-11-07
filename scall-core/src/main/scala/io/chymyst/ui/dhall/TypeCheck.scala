@@ -347,7 +347,7 @@ object TypeCheck {
       case Application(func, arg) => func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
         case (Expression(Forall(varName, varType, bodyType)), argType) =>
           if (equivalent(varType, argType)) {
-            val a1 = Semantics.shift(true, varName, 0, bodyType)
+            val a1 = Semantics.shift(true, varName, 0, arg)
             val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
             val b2 = Semantics.shift(false, varName, 0, b1)
             Valid(b2.betaNormalized)
