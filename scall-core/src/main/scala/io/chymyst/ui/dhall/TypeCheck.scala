@@ -158,7 +158,22 @@ object TypeCheck {
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
         }
 
-      case Let(name, tipe, subst, body) => ???
+      case Let(name, tipe, subst, body) => for {
+        typeOfSubst <- subst.inferTypeWith(gamma)
+        _ <- tipe match {
+          case Some(annot) =>
+            for {
+              _ <- annot.inferTypeWith(gamma)
+              _ <- required(equivalent(annot, typeOfSubst))(s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}")
+            } yield ()
+          case None => Valid(())
+        }
+        a1 = subst.betaNormalized
+        a2 = Semantics.shift(true, name, 0, a1)
+        b1 = Semantics.substitute(body, name, BigInt(0), a2)
+        b2 = Semantics.shift(false, name, 0, b1)
+        typeOfLet <- b2.inferTypeWith(gamma)
+      } yield typeOfLet
 
       case If(cond, ifTrue, ifFalse) =>
         val lopType = ifTrue.inferAndValidateTypeWith(gamma)
