@@ -74,7 +74,9 @@ object TypeCheck {
       if (variable.index.isValidInt) exprs.lift(variable.index.intValue) else None
     }
 
-    def append(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
+    // Important: the expressions must be prepended to the list even though the math notation is `(Γ0, x : A1)`.
+    // This is because a de Bruijn index increases to the left in the list.
+    def prepend(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
       case Some(exprs) => Some(expr +: exprs)
       case None => Some(IndexedSeq(expr))
     })
@@ -144,14 +146,14 @@ object TypeCheck {
 
       case Lambda(name, tipe, body) => for {
         varType <- tipe.wellTypedBetaNormalize(gamma)
-        updatedContext = gamma.append(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
+        updatedContext = gamma.prepend(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
         bodyType <- body.inferTypeWith(updatedContext)
         typeOfLambda = (Expression(Variable(name, BigInt(0))) | varType) ->: bodyType
         _ <- typeOfLambda.inferTypeWith(gamma)
       } yield typeOfLambda
 
       case Forall(name, tipe, body) =>
-        val updatedContext = gamma.append(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        val updatedContext = gamma.prepend(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
@@ -207,7 +209,7 @@ object TypeCheck {
           } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.toDhall} and ${target.toDhall}")
 
         case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
-          val updatedContext = gamma.append(VarName("x"), Expression(UnionType(Seq(
+          val updatedContext = gamma.prepend(VarName("x"), Expression(UnionType(Seq(
             (ConstructorName("None"), None),
             (ConstructorName("Some"), Some(optType))
           )))).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
