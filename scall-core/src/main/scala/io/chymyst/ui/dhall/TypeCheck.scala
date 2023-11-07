@@ -7,7 +7,6 @@ import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
 import io.chymyst.ui.dhall.TypeCheckResult._
 
-import scala.collection.immutable.{AbstractSeq, LinearSeq}
 import scala.language.postfixOps
 
 sealed trait TypeCheckResult[+A] {
@@ -345,7 +344,7 @@ object TypeCheck {
         case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
       }
 
-      case Application(func, arg) =>  func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
+      case Application(func, arg) => func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
         case (Expression(Forall(varName, varType, bodyType)), argType) =>
           if (equivalent(varType, argType)) {
             val a1 = Semantics.shift(true, varName, 0, bodyType)

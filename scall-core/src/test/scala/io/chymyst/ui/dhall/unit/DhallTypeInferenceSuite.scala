@@ -4,7 +4,7 @@ import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
-import io.chymyst.ui.dhall.TypeCheckResult.{Invalid, Valid}
+import io.chymyst.ui.dhall.TypeCheckResult.Valid
 import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
 import munit.FunSuite
 
@@ -22,7 +22,7 @@ class DhallTypeInferenceSuite extends FunSuite {
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-          println(s"DEBUG: ${file.getName} starting type inference")
+          // println(s"DEBUG: ${file.getName} starting type inference")
           val x = ourResult.inferType match {
             case Valid(a) => a
           }

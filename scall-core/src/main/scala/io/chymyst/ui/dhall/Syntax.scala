@@ -60,7 +60,7 @@ object SyntaxConstants {
 
     case object NotEqual extends Operator("!=", 3)
 
-    case object Equivalent extends Operator("===", 12)
+    case object Equivalent extends Operator("≡", 12)
 
     case object Alternative extends Operator("?", 11)
   }
