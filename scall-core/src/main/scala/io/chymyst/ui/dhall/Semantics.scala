@@ -435,7 +435,7 @@ object Semantics {
       }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type
-      case Completion(base, target) => Expression(Annotation(Expression(ExprOperator(Field(base, FieldName("default")), Operator.Prefer, target)), Field(base, FieldName("Type")))).betaNormalized
+      case c@Completion(_, _) => desugar(c).betaNormalized
 
       case With(data, pathComponents, body) => matchOrNormalize(data) {
         case r@RecordLiteral(defs) => pathComponents match { // This is a non-empty list.
@@ -498,5 +498,6 @@ object Semantics {
   def equivalent(x: Expression, y: Expression): Boolean =
     x.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1 sameElements y.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
 
-
+  def desugar(c: Completion[Expression]): Expression =
+    Expression(ExprOperator(Field(c.base, FieldName("default")), Operator.Prefer, c.target)) | Field(c.base, FieldName("Type"))
 }

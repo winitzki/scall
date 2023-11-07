@@ -714,6 +714,8 @@ object Syntax {
 
     def inferTypeWith(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
+    def wellTypedBetaNormalize(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+
     def inferAndValidateTypeWith(gamma: TypeCheck.GammaTypeContext): TypeCheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)

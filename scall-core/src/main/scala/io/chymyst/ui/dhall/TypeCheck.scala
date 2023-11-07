@@ -165,7 +165,7 @@ object TypeCheck {
                 (FieldName("mapKey"), Expression(ExprBuiltin(Builtin.Text))),
                 (FieldName("mapValue"), t),
                 ))))) => newT
-                case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T")
+                case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T but has ${other.toDhall}")
               }
             }
           case None => typeError(s"toMap of empty record, ${expr.toDhall}, must have a type annotation")
@@ -235,18 +235,35 @@ object TypeCheck {
             else typeError(s"List types must be equal for ListAppend but found ${l.toDhall}, ${r.toDhall}")
           }
 
-        case Operator.CombineRecordTerms => ???
+        case Operator.CombineRecordTerms =>
+          (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap { case (lopType, ropType) =>
+            Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).wellTypedBetaNormalize(gamma)
+          }
 
         case Operator.Prefer => (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap {
-          case  (Expression(RecordType(leftDefs)), Expression(RecordType(rightDefs))) =>
+          case (Expression(RecordType(leftDefs)), Expression(RecordType(rightDefs))) =>
             // Keep all labels from the left, add all new labels from the right, replace existing labels by those from the right.
-          Expression(RecordType(leftDefs.toMap ++ rightDefs.toMap toSeq))
+            Expression(RecordType((leftDefs.toMap ++ rightDefs.toMap).toSeq.sortBy(_._1.name)))
 
-          case (other1, other2) => typeError(s"Arguments of Operator.Prefer (//)¬ must both have record types, instead found ${other1.toDhall} and ${other2.toDhall}")
+          case (other1, other2) => typeError(s"Arguments of Operator.Prefer (${Operator.Prefer.name}) must both have record types, instead found ${other1.toDhall} and ${other2.toDhall}")
         }
 
+        case Operator.CombineRecordTypes => // Recursive merge.
+          (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap { case (lopType, ropType) =>
+            (lop.betaNormalized.scheme, rop.betaNormalized.scheme, lopType.scheme, ropType.scheme) match {
+              case (RecordType(leftDefs), RecordType(rightDefs), ExprConstant(leftC), ExprConstant(rightC)) =>
+                // The result is always the universe-level union. We just need to verify that all common labels have types that also can be combined.
+                val result = Expression(ExprConstant(leftC union rightC))
+                val leftDefsMap = leftDefs.toMap
+                val rightDefsMap = rightDefs.toMap
+                val commonLabels = leftDefsMap.keySet intersect rightDefsMap.keySet
+                val commonLabelsCanBeCombined = seqSeq(commonLabels.toSeq.map(l => Expression(ExprOperator(leftDefsMap(l), Operator.CombineRecordTypes, rightDefsMap(l))).inferTypeWith(gamma)))
 
-        case Operator.CombineRecordTypes => ???
+                commonLabelsCanBeCombined.map(_ => result)
+
+              case (other1, other2, t1, t2) => typeError(s"Arguments of Operator.CombineRecordTypes (${Operator.CombineRecordTypes.name}) must both have record types, instead found ${other1.toDhall} : ${t1.toDhall} and ${other2.toDhall} : ${t2.toDhall}")
+            }
+          }
 
         case Operator.Equivalent =>
           val lopType = for {
@@ -341,7 +358,7 @@ object TypeCheck {
           missingLabelsCheck zip mismatchedTypesCheck map (_._2)
         }
 
-      case Completion(base, target) => ???
+      case c@Completion(_, _) => Semantics.desugar(c).inferTypeWith(gamma)
 
       case Assert(assertion) =>
         validate(gamma, assertion, _Type) match {
