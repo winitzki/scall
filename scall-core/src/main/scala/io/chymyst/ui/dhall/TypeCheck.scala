@@ -345,7 +345,16 @@ object TypeCheck {
         case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
       }
 
-      case Application(func, arg) => ???
+      case Application(func, arg) =>  func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
+        case (Expression(Forall(varName, varType, bodyType)), argType) =>
+          if (equivalent(varType, argType)) {
+            val a1 = Semantics.shift(true, varName, 0, bodyType)
+            val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
+            val b2 = Semantics.shift(false, varName, 0, b1)
+            Valid(b2.betaNormalized)
+          } else typeError(s"Function application must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}")
+        case (other, _) => typeError(s"Function application must use a function type, but instead found ${other.toDhall}")
+      }
 
       // Field selection is possible only in two cases: from a record value and from a union type.
       case Field(base, name) => base.inferTypeWith(gamma).flatMap {
