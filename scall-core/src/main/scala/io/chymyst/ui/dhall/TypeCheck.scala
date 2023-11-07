@@ -423,16 +423,17 @@ object TypeCheck {
       case With(data, pathComponents, body) => data.inferTypeWith(gamma).flatMap {
         case t@Expression(r@RecordType(defs)) => pathComponents.head match { // pathComponents.head must exist since the list is not empty.
           case PathComponent.Label(first) =>
-            pathComponents.tail match {
-              case Seq() =>
-                body.inferTypeWith(gamma).map { t => RecordType(defs.filterNot(_._1 == first) :+ (first, t)).sorted }
+            val newData: Expression = pathComponents.tail match {
+              case Seq() => body
               case moreFields =>
                 val newBase: Expression = r.lookup(first) match {
                   case Some(_) => Field(data, first)
                   case None => RecordLiteral(Seq())
                 }
-                Expression(With(newBase, moreFields, body)).inferTypeWith(gamma).map { t1 => RecordType(defs.filterNot(_._1 == first) :+ (first, t1)).sorted }
+                With(newBase, moreFields, body)
             }
+            newData.inferTypeWith(gamma).map { t => RecordType(defs.filterNot(_._1 == first) :+ (first, t)).sorted }
+
           case PathComponent.DescendOptional => typeError(s"The label `?` can be used in `with` expressions only with the `Optional` type, but here it is used with ${t.toDhall}")
         }
 
