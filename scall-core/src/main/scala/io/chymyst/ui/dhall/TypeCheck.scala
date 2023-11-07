@@ -156,7 +156,20 @@ object TypeCheck {
         } yield pair._1
         validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
-      case Merge(record, update, tipe) => ???
+      // What is merge {=} (Some x) : Natural ? It is not well-typed because there is not a 1-to-1 correspondence between fields.
+      case Merge(record, update, tipe) => record.inferTypeWith(gamma) zip update.inferTypeWith(gamma) flatMap {
+        case (Expression(RecordType(Seq())), u@Expression(UnionType(defs))) =>
+          if (defs.isEmpty) tipe match {
+            case Some(value) => Valid(value)
+            case None => typeError(s"merge expression with empty arguments must have a type annotation, but found ${expr.toDhall}")
+          }
+          else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
+
+        case (Expression(RecordType(defsMatcher)), Expression(UnionType(defsTarget))) => // Now `defs` is nonempty.
+        ???
+
+        case other => typeError(s"merge's first argument must have RecordType but found ${other._1.toDhall}")
+      }
 
       case ToMap(e, tipe) => e.inferTypeWith(gamma) flatMap {
         case Expression(RecordType(Seq())) => tipe match {
