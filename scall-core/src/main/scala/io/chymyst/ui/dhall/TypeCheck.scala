@@ -4,7 +4,7 @@ import io.chymyst.ui.dhall.Applicative.seqSeq
 import io.chymyst.ui.dhall.Semantics.equivalent
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants._
 import io.chymyst.ui.dhall.TypeCheckResult._
 
 import scala.language.postfixOps

@@ -1,11 +1,11 @@
 package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.ui.dhall.{Parser, Semantics}
 import io.chymyst.ui.dhall.Syntax.Expression._
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.Natural
 import io.chymyst.ui.dhall.SyntaxConstants.VarName
+import io.chymyst.ui.dhall.{Parser, Semantics}
 import munit.FunSuite
 
 class SimpleSemanticsTest extends FunSuite {

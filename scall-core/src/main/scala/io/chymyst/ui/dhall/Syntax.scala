@@ -7,7 +7,7 @@ import io.chymyst.ui.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, VarName}
+import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.time.LocalTime
 import scala.language.implicitConversions
