@@ -159,16 +159,42 @@ object TypeCheck {
       // What is merge {=} (Some x) : Natural ? It is not well-typed because there is not a 1-to-1 correspondence between fields.
       case Merge(record, update, tipe) => record.inferTypeWith(gamma) zip update.inferTypeWith(gamma) flatMap {
         case (Expression(RecordType(Seq())), u@Expression(UnionType(defs))) =>
-          if (defs.isEmpty) tipe match {
-            case Some(value) => Valid(value)
-            case None => typeError(s"merge expression with empty arguments must have a type annotation, but found ${expr.toDhall}")
-          }
-          else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
+          if (defs.isEmpty) {
+            tipe match {
+              case Some(value) => Valid(value)
+              case None => typeError(s"merge expression with empty arguments must have a type annotation, but found ${expr.toDhall}")
+            }
+          } else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
 
-        case (Expression(RecordType(defsMatcher)), Expression(UnionType(defsTarget))) => // Now `defs` is nonempty.
-        ???
+        case _ if tipe.nonEmpty => Expression(Merge(record, update, None)).inferTypeWith(gamma).flatMap { inferred =>
+          if (equivalent(inferred, tipe.get)) inferred else typeError(s"merge expression has inferred type ${inferred.toDhall}, but type annotation ${tipe.get.toDhall}")
+        }
 
-        case other => typeError(s"merge's first argument must have RecordType but found ${other._1.toDhall}")
+        case (Expression(matcher@RecordType(defsMatcher)), Expression(target@UnionType(defsTarget))) => // Now the RecordType is nonempty but tipe is empty.
+          if (defsMatcher.sizeCompare(defsTarget) == 0) {
+            val typesInParts: TypeCheckResult[Seq[Expression]] = seqSeq(matcher.sorted.defs zip target.sorted.defs map {
+              case ((name1, expr1), (name2, expr2)) if name1.name == name2.name =>
+                expr2 match {
+                  case Some(partType) => expr1 match {
+                    case Expression(Forall(varName, varType, targetType)) =>
+                      if (equivalent(varType, partType))
+                        Valid(Semantics.shift(false, varName, 0, targetType))
+                      else typeError(s"merge expression must have matcher's argument types equal to field types, but found ${varType.toDhall} and ${partType.toDhall}")
+                    case other => typeError(s"merge expression must have a function matcher for field $name1, but has type ${other.toDhall}")
+                  }
+                  case None => Valid(expr1)
+                }
+              case ((name1, expr1), (name2, expr2)) => typeError(s"merge's matcher has field $name1 not equal to target type's $name2")
+            })
+            typesInParts.flatMap { exprs => // Non-empty list.
+              exprs.tail.find(expr => !equivalent(exprs.head, expr)) match {
+                case Some(value) => typeError(s"merge expression must have all matcher's output types the same, but found ${exprs.head.toDhall}, ..., ${value.toDhall}")
+                case None => Valid(exprs.head)
+              }
+            }
+          } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.toDhall} and ${target.toDhall}")
+
+        case (other1, other2) => typeError(s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.toDhall} and ${other2.toDhall}")
       }
 
       case ToMap(e, tipe) => e.inferTypeWith(gamma) flatMap {
