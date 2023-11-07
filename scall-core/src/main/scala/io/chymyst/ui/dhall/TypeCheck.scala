@@ -143,7 +143,12 @@ object TypeCheck {
 
       case Lambda(name, tipe, body) => ???
 
-      case Forall(name, tipe, body) => ???
+      case Forall(name, tipe, body) =>
+        val updatedContext = gamma.append(VarName("x"), tipe).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
+        tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
+          case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
+          case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
+        }
 
       case Let(name, tipe, subst, body) => ???
 
@@ -408,17 +413,16 @@ object TypeCheck {
 
       case c@Completion(_, _) => Semantics.desugar(c).inferTypeWith(gamma)
 
-      case Assert(assertion) =>
-        validate(gamma, assertion, _Type) match {
-          case Valid(_) =>
-            assertion.betaNormalized.scheme match {
-              case exprN@ExprOperator(lop, Operator.Equivalent, rop) =>
-                if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
-                else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.toDhall}")
-              case _ => typeError(s"An `assert` expression must have an equality type but has ${assertion.toDhall}")
-            }
-          case errors => errors
-        }
+      case Assert(assertion) => validate(gamma, assertion, _Type) match {
+        case Valid(_) =>
+          assertion.betaNormalized.scheme match {
+            case exprN@ExprOperator(lop, Operator.Equivalent, rop) =>
+              if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
+              else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.toDhall}")
+            case _ => typeError(s"An `assert` expression must have an equality type but has ${assertion.toDhall}")
+          }
+        case errors => errors
+      }
 
       case With(data, pathComponents, body) => data.inferTypeWith(gamma).flatMap {
         case t@Expression(r@RecordType(defs)) => pathComponents.head match { // pathComponents.head must exist since the list is not empty.
