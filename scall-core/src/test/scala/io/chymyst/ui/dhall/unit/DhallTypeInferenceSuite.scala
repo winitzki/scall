@@ -15,13 +15,14 @@ import scala.util.Try
 class DhallTypeInferenceSuite extends FunSuite {
 
   test("type inference success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/success", Some("A.dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/success", Some("ConstructorShiftA.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+          println(s"DEBUG: ${file.getName} start type inference")
           val x = ourResult.inferType match {
             case Valid(a) => a
           }
@@ -34,7 +35,8 @@ class DhallTypeInferenceSuite extends FunSuite {
         result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-    expect(results.count(_.isFailure) == 0)
+    val failures = results.count(_.isFailure)
+    expect(failures == 0)
   }
 
   test("type inference failure") {

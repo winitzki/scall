@@ -135,7 +135,7 @@ object TypeCheck {
     val result: TypeCheckResult[Expression] = expr.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
         case Some(tipe) =>
-          println(s"DEBUG 0 ${tipe.toDhall}")
+          println(s"DEBUG 0 ${tipe.toDhall} with context $gamma")
           tipe.inferTypeWith(gamma) match {
             case Valid(_) => tipe
             case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
@@ -145,15 +145,16 @@ object TypeCheck {
 
       case Lambda(name, tipe, body) => for {
         varType <- tipe.wellTypedBetaNormalize(gamma)
-        updatedContext = gamma.append(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        updatedContext = gamma.append(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
         bodyType <- body.inferTypeWith(updatedContext)
         typeOfLambda = (Expression(Variable(name, BigInt(0))) | varType) ->: bodyType
-        _ = println(s"DEBUG 3 ${typeOfLambda.toDhall}")
+        _ = println(s"DEBUG 1 typeOfLambda=${typeOfLambda.toDhall}, varType=${varType.toDhall}, updatedContext=${updatedContext.defs}")
         _ <- typeOfLambda.inferTypeWith(gamma)
       } yield typeOfLambda
 
       case Forall(name, tipe, body) =>
         val updatedContext = gamma.append(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        println(s"DEBUG 2 Forall($name, ${tipe.toDhall}, ${body.toDhall}), updatedContext=${updatedContext.defs}")
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
