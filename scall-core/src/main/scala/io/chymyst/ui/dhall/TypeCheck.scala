@@ -134,17 +134,26 @@ object TypeCheck {
     // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
     val result: TypeCheckResult[Expression] = expr.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
-        case Some(tipe) => tipe.inferTypeWith(gamma) match {
-          case Valid(_) => tipe
-          case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
-        }
+        case Some(tipe) =>
+          println(s"DEBUG 0 ${tipe.toDhall}")
+          tipe.inferTypeWith(gamma) match {
+            case Valid(_) => tipe
+            case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
+          }
         case None => typeError(s"Variable ${expr.toDhall} is not in type inference context $gamma")
       }
 
-      case Lambda(name, tipe, body) => ???
+      case Lambda(name, tipe, body) => for {
+        varType <- tipe.wellTypedBetaNormalize(gamma)
+        updatedContext = gamma.append(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        bodyType <- body.inferTypeWith(updatedContext)
+        typeOfLambda = (Expression(Variable(name, BigInt(0))) | varType) ->: bodyType
+        _ = println(s"DEBUG 3 ${typeOfLambda.toDhall}")
+        _ <- typeOfLambda.inferTypeWith(gamma)
+      } yield typeOfLambda
 
       case Forall(name, tipe, body) =>
-        val updatedContext = gamma.append(VarName("x"), tipe).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
+        val updatedContext = gamma.append(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
