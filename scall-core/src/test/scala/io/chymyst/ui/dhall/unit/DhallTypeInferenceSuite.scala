@@ -15,19 +15,18 @@ import scala.util.Try
 class DhallTypeInferenceSuite extends FunSuite {
 
   test("type inference success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/success", Some("ConstructorShiftA.dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/success", Some("A.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-          println(s"DEBUG: ${file.getName} start type inference")
+          println(s"DEBUG: ${file.getName} starting type inference")
           val x = ourResult.inferType match {
             case Valid(a) => a
           }
           val y = validationResult
-          //  println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.toDhall}, after alpha-normalization ${x.toDhall}")
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }

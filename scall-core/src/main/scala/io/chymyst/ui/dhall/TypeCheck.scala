@@ -75,7 +75,7 @@ object TypeCheck {
     }
 
     def append(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
-      case Some(exprs) => Some(exprs :+ expr)
+      case Some(exprs) => Some(expr +: exprs)
       case None => Some(IndexedSeq(expr))
     })
 
@@ -98,14 +98,14 @@ object TypeCheck {
 
   def required(cond: Boolean)(error: String): TypeCheckResult[Unit] = if (cond) Valid(()) else typeError(error)
 
+  val _Type: Expression = ExprConstant(Constant.Type)
+  val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
+
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
   def inferType(gamma: Gamma, expr: Expression): TypeCheckResult[Expression] = {
     implicit def toExpr(expr: Expression): TypeCheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypeCheckResult[Expression] = Valid(~builtin)
-
-    val _Type: Expression = ExprConstant(Constant.Type)
-    val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
     def typeOfToMap(t: Expression): Expression = (~Builtin.List)(Expression(RecordType(Seq(
       (FieldName("mapKey"), ~Builtin.Text),
