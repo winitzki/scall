@@ -196,8 +196,8 @@ object TypeCheck {
 
         case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
           val updatedContext = gamma.append(VarName("x"), Expression(UnionType(Seq(
-            (ConstructorName("None"),None),
-            (ConstructorName("Some"),Some(optType))
+            (ConstructorName("None"), None),
+            (ConstructorName("Some"), Some(optType))
           )))).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
           Expression(Merge(record, ~"x", None)).inferTypeWith(updatedContext)
 
@@ -460,7 +460,7 @@ object TypeCheck {
       case ShowConstructor(data) => data.inferTypeWith(gamma) flatMap {
         case Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), _)) |
              Expression(UnionType(_)) => ~Builtin.Text
-        case tipe => typeError(s"showConstructor used with data of type ${tipe.toDhall} but must be a union type or Optional")
+        case tipe => typeError(s"showConstructor's argument must have a union type or Optional type, but has type ${tipe.toDhall}")
       }
 
       case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
