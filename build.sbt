@@ -6,6 +6,7 @@ val munitTest = "org.scalameta" %% "munit" % "0.7.29" % Test
 def munitFramework = new TestFramework("munit.Framework")
 
 val fastparse = "com.lihaoyi" %% "fastparse" % "3.0.2"
+val httpRequest = "com.lihaoyi" %% "requests" % "0.8.0"
 val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty" % "0.16.0" % Test
 val enumeratum = "com.beachape" %% "enumeratum" % "1.7.3"
 val flatlaf = "com.formdev" % "flatlaf" % "3.2.2"
@@ -36,7 +37,8 @@ lazy val scall_core = (project in file("scall-core")).settings(
     enumeratum,
     cbor1,
     cbor2,
-    cbor3,
-    curryhoward,
+//    cbor3,
+//    curryhoward,
+    httpRequest,
   ),
 )

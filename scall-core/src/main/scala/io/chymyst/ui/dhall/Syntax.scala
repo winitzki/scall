@@ -9,6 +9,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.ui.dhall.SyntaxConstants._
 
+import java.nio.file.Paths
 import java.time.LocalTime
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
@@ -241,6 +242,15 @@ object SyntaxConstants {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
 
       override def toString: String = filePrefix.prefix + "/" + file.toString
+
+      def toJavaPath(currentDir: java.nio.file.Path): java.nio.file.Path = {
+        val initialPath = filePrefix match {
+          case FilePrefix.Home => Paths.get(System.getProperty("user.home"))
+          case _ => currentDir.resolve(filePrefix.prefix)
+        }
+        file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
+      }
+
     }
 
     final case class Env(envVarName: String) extends ImportType[Nothing] {
@@ -706,6 +716,8 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
+    def resolveImports(currentDir: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentDir)
+
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)

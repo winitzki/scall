@@ -1,16 +1,18 @@
 package io.chymyst.ui.dhall
 
+import fastparse.Parsed
 import geny.Generator.from
 import io.chymyst.ui.dhall.CBORmodel.CBytes
 import io.chymyst.ui.dhall.ImportResolution.{ImportContext, dhallCacheRoots}
 import io.chymyst.ui.dhall.ImportResolutionResult._
-import io.chymyst.ui.dhall.Syntax.Expression
+import io.chymyst.ui.dhall.Parser.InlineDhall
+import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, URL}
 
 import java.nio.file.{Files, Paths}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
 
@@ -26,7 +28,7 @@ object ImportResolution {
 
   val corsHeader = "Access-Control-Allow-Origin"
 
-  // If `None` there is no error.
+  // This function returns `None` if there is no error in CORS compliance.
   def corsComplianceError(parent: ImportType[Expression], child: ImportType[Expression], responseHeaders: Map[String, Seq[String]]): Option[String] = (parent, child) match {
     // TODO: report issue: what if parent = Remote but child = Path, does the cors judgment then always fail?
     case (Remote(URL(scheme1, authority1, path1, query1), headers1), Remote(URL(scheme2, authority2, path2, query2), headers2)) =>
@@ -78,7 +80,7 @@ object ImportResolution {
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
-  def validateAndCacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
+  def validateHashAndCacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
     case None => Resolved(expr)
 
     case Some(BytesLiteral(hex)) =>
@@ -110,49 +112,122 @@ object ImportResolution {
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression])
 
+  def httpHeaders(headers: Option[Expression]): Iterable[(String, String)] = headers match {
+    case Some(Expression(_)) => ???
+    case None => Seq()
+  }
+
+  def resolveAllImports(expr: Expression, currentDir: java.nio.file.Path): Expression = {
+    val initState = ImportResolutionState(Seq(Import[Expression](ImportType.Env("HOME"), ImportMode.RawText, None)), ImportContext(Map()))
+    resolveImportsStep(expr, currentDir).run(initState) match {
+      case (resolved, finalState) => resolved match {
+        case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: $messages")
+        case PermanentFailure(messages) => throw new Exception(s"Permanent failure resolving ${expr.toDhall}: $messages")
+        case Resolved(r) => r
+      }
+    }
+  }
+
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
-  // TODO: report issue to mention in imports.md (at the end) that the resolution context must be threaded through, while resolving subexpressions.
-  def resolveImports(expr: Expression): ImportResolutionMonad[Expression] = ImportResolutionMonad[Expression] { case state0@ImportResolutionState(visited, gamma) =>
+  // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
+  def resolveImportsStep(expr: Expression, currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportResolutionState(visited, gamma) =>
     expr.scheme match {
-      case i@Import(importType, importMode, digest) => importMode match {
-        case ImportMode.Location =>
-          val canonical = (visited.last chainWith i).canonicalize
-          // Need to process this first, because `missing as Location` is not a failure while `missing as` anything else must be a failure.
-          val (field: FieldName, arg: Option[String]) = canonical.importType match {
-            case ImportType.Missing => (FieldName("Missing"), None)
-            case Remote(url, _) => (FieldName("Remote"), Some(url.toString))
-            case p@Path(_, _) => (FieldName("Local"), Some(p.toString))
-            case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
-          }
-          val withField: Expression = Field(typeOfImportAsLocation, field)
-          val expr: Expression = arg match {
-            case Some(text) => withField.apply(TextLiteral.ofString(text))
-            case None => withField
+      case i@Import(_, _, _) =>
+        val parent = visited.last
+        val child = (parent chainWith i).canonicalize
+        val referentialCheck = if (parent.importType allowedToImportAnother child.importType) Right(()) else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
+        // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and whether Γ1 is being reused
+        val xdgOption = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
+        lazy val resolveDefaultHeaders = s"""env:DHALL_HEADERS $xdgOption ? ~/.config/dhall/headers.dhall ? []""".dhall
+
+        lazy val resolveIfLocation: Either[ImportResolutionResult[Expression], Array[Byte] => ImportResolutionResult[Expression]] = child.importMode match {
+          case ImportMode.Location =>
+            val canonical = child.canonicalize
+            // Need to process this first, because `missing as Location` is not a failure while `missing as` anything else must be a failure.
+            val (field: FieldName, arg: Option[String]) = canonical.importType match {
+              case ImportType.Missing => (FieldName("Missing"), None)
+              case Remote(url, _) => (FieldName("Remote"), Some(url.toString))
+              case p@Path(_, _) => (FieldName("Local"), Some(p.toString))
+              case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
+            }
+            val withField: Expression = Field(typeOfImportAsLocation, field)
+            val expr: Expression = arg match {
+              case Some(text) => withField.apply(TextLiteral.ofString(text))
+              case None => withField
+            }
+            Left(validateHashAndCacheResolved(expr, child.digest))
+
+          case ImportMode.Code => Right(bytes =>
+            Parser.parseDhallBytes(bytes, currentDir) match {
+              case Parsed.Success(DhallFile(_, expr), _) => Resolved(expr)
+              case failure: Parsed.Failure => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
+            }
+          )
+          case ImportMode.RawBytes => Right(bytes => Resolved(Expression(BytesLiteral(CBytes.byteArrayToHexString(bytes)))))
+          case ImportMode.RawText => Right(bytes => Resolved(Expression(TextLiteral.ofString(new String(bytes)))))
+        }
+        lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
+          case ImportType.Missing => Left(TransientFailure(Seq("import designated as `missing`")))
+
+          case Remote(url, headers) => // TODO: use headers and also receive headers
+            Try(requests.get(url.toString, headers = httpHeaders(headers)).bytes) match {
+              case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $url: $exception")))
+              case Success(bytes) => Right(bytes)
+            }
+
+          case path@Path(_, _) => (for {
+            javaPath <- Try(path.toJavaPath(currentDir))
+            bytes <- Try(Files.readAllBytes(javaPath))
+          } yield bytes) match {
+            case Failure(exception) => Left(TransientFailure(Seq(s"failed to read imported file: $exception")))
+            case Success(bytes) => Right(bytes)
           }
 
-          (validateAndCacheResolved(expr, digest), state0)
-
-        case ImportMode.Code
-             | ImportMode.RawBytes
-             | ImportMode.RawText =>
-
-          importType match {
-            case ImportType.Missing => (TransientFailure(Seq("import designated as `missing`")), state0)
-            case Remote(url, headers) => ???
-            case Path(filePrefix, file) => ???
-            case ImportType.Env(envVarName) => ???
+          case ImportType.Env(envVarName) => Option(System.getenv(envVarName)) match {
+            case Some(value) => Try(value.getBytes("UTF-8")) match {
+              case Failure(exception) => Left(PermanentFailure(Seq(s"Env variable '$envVarName' is not a valid UTF-8 string: $exception")))
+              case Success(utf8bytes) => Right(utf8bytes)
+            }
+            case None => Left(TransientFailure(Seq(s"Env variable '$envVarName' is undefined")))
           }
-      }
+        }
+        // Resolve imports in the expression we just parsed.
+        val result: Either[ImportResolutionResult[Expression], Expression] = for {
+          _ <- referentialCheck
+          readByImportMode <- resolveIfLocation
+          bytes <- missingOrData
+          expr <- Right(readByImportMode(bytes))
+          successfullyRead <- expr match {
+            case Resolved(x) => Right(x)
+            case _ => Left(expr)
+          }
+
+        } yield successfullyRead
+
+        val newState: (ImportResolutionResult[Expression], ImportResolutionState) = result match {
+          case Left(gotEarlyResult) => (gotEarlyResult, state0)
+          case Right(readExpression) =>
+            resolveImportsStep(readExpression, currentDir).run(ImportResolutionState(visited :+ child, gamma)) match {
+              case (newResult, state1) => newResult match {
+                case Resolved(r) => r.inferType match {
+                  case TypeCheckResult.Valid(_) => (newResult, state1)
+                  case i@TypeCheckResult.Invalid(_) => (PermanentFailure(Seq(s"Imported expression ${readExpression.toDhall} fails to typecheck: $i")), state1)
+                }
+                case _ => (newResult, state1)
+              }
+            }
+        }
+        newState
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>
-        resolveImports(lop).run(state0) match {
+        resolveImportsStep(lop, currentDir).run(state0) match {
           case resolved@(Resolved(_), _) => resolved
 
           case failed@(PermanentFailure(_), _) => failed
 
-          case (TransientFailure(messages1), state1) => resolveImports(rop).run(state1) match {
+          case (TransientFailure(messages1), state1) => resolveImportsStep(rop, currentDir).run(state1) match {
             case resolved@(Resolved(_), _) => resolved
             case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
             case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
@@ -160,7 +235,7 @@ object ImportResolution {
 
         }
 
-      case _ => expr.scheme.traverse(resolveImports).run(state0) match {
+      case _ => expr.scheme.traverse(resolveImportsStep(_, currentDir)).run(state0) match {
         case (scheme, state) => (scheme.map(Expression.apply), state)
       }
     }
@@ -188,12 +263,13 @@ object ImportResolutionResult {
   final case class Resolved[E](expr: E) extends ImportResolutionResult[E]
 }
 
-final case class ImportResolutionMonad[+E](run: ImportResolutionState => (ImportResolutionResult[E], ImportResolutionState))
+// A State monad used as an applicative functor to update the state during import resolution.
+final case class ImportResolutionStep[+E](run: ImportResolutionState => (ImportResolutionResult[E], ImportResolutionState))
 
-object ImportResolutionMonad {
-  implicit val ApplicativeIRMonad: Applicative[ImportResolutionMonad] = new Applicative[ImportResolutionMonad] {
-    override def zip[A, B](fa: ImportResolutionMonad[A], fb: ImportResolutionMonad[B]): ImportResolutionMonad[(A, B)] =
-      ImportResolutionMonad[(A, B)] { s0 =>
+object ImportResolutionStep {
+  implicit val ApplicativeImportResolutionStep: Applicative[ImportResolutionStep] = new Applicative[ImportResolutionStep] {
+    override def zip[A, B](fa: ImportResolutionStep[A], fb: ImportResolutionStep[B]): ImportResolutionStep[(A, B)] =
+      ImportResolutionStep[(A, B)] { s0 =>
         fa.run(s0) match {
           case (Resolved(a), s1) =>
             fb.run(s1) match {
@@ -204,13 +280,13 @@ object ImportResolutionMonad {
         }
       }
 
-    override def map[A, B](f: A => B)(fa: ImportResolutionMonad[A]): ImportResolutionMonad[B] =
-      ImportResolutionMonad[B](s => fa.run(s) match {
+    override def map[A, B](f: A => B)(fa: ImportResolutionStep[A]): ImportResolutionStep[B] =
+      ImportResolutionStep[B](s => fa.run(s) match {
         case (a, s) => (a.map(f), s)
       })
 
-    override def pure[A](a: A): ImportResolutionMonad[A] =
-      ImportResolutionMonad[A](s => (Resolved(a), s))
+    override def pure[A](a: A): ImportResolutionStep[A] =
+      ImportResolutionStep[A](s => (Resolved(a), s))
   }
 
 }
