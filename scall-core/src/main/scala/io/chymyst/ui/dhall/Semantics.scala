@@ -1,5 +1,6 @@
 package io.chymyst.ui.dhall
 
+import io.chymyst.ui.dhall.Applicative.ApplicativeOps
 import io.chymyst.ui.dhall.CBORmodel.CBytes
 import io.chymyst.ui.dhall.Syntax.Expression.v
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
@@ -14,6 +15,20 @@ import java.util.regex.Pattern
 import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
+  // TODO: make sure this algorithm is correct for variables with de Bruijn indices!
+  private def freeVarsForLambda(name: VarName, tipe: Option[Expression], body: Expression): FreeVars[Expression] = {
+    val freeVarsInType: Set[VarName] = tipe.map(t => freeVars(t).names).getOrElse(Set())
+    val freeVarsInBody: Set[VarName] = freeVars(shift(true, name, 0, body)).names
+    FreeVars(freeVarsInType union (freeVarsInBody -- Set(name)))
+  }
+
+  def freeVars(expr: Expression): FreeVars[Expression] = expr.scheme match {
+    case Variable(name, index) => FreeVars(Set(name).filter(_ => index == 0))
+    case Lambda(name, tipe, body) => freeVarsForLambda(name, Some(tipe), body)
+    case Forall(name, tipe, body) => freeVarsForLambda(name, Some(tipe), body)
+    case Let(name, tipe, subst, body) => FreeVars(freeVarsForLambda(name, tipe, body).names union freeVars(subst).names)
+    case other => other.traverse(expr => freeVars(expr)).map(Expression.apply)
+  }
 
   def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
@@ -500,4 +515,16 @@ object Semantics {
 
   def desugar(c: Completion[Expression]): Expression =
     Expression(ExprOperator(Field(c.base, FieldName("default")), Operator.Prefer, c.target)) | Field(c.base, FieldName("Type"))
+}
+
+final case class FreeVars[A](names: Set[VarName]) // Quick-and-dirty foldMap replacement.
+
+object FreeVars {
+  implicit val ApplicativeCollectFreeVar: Applicative[FreeVars] = new Applicative[FreeVars] {
+    override def zip[A, B](fa: FreeVars[A], fb: FreeVars[B]): FreeVars[(A, B)] = FreeVars(fa.names union fb.names)
+
+    override def map[A, B](f: A => B)(fa: FreeVars[A]): FreeVars[B] = FreeVars(fa.names)
+
+    override def pure[A](a: A): FreeVars[A] = FreeVars(Set())
+  }
 }

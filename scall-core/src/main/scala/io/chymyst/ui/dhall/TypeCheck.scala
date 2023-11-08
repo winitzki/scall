@@ -1,7 +1,6 @@
 package io.chymyst.ui.dhall
 
 import io.chymyst.ui.dhall.Applicative.seqSeq
-import io.chymyst.ui.dhall.Semantics.equivalent
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
@@ -164,7 +163,7 @@ object TypeCheck {
           case Some(annot) =>
             for {
               _ <- annot.inferTypeWith(gamma)
-              _ <- required(equivalent(annot, typeOfSubst))(s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}")
+              _ <- required(Semantics.equivalent(annot, typeOfSubst))(s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}")
             } yield ()
           case None => Valid(())
         }
@@ -184,7 +183,6 @@ object TypeCheck {
         } yield pair._1
         validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
-      // What is merge {=} (Some x) : Natural ? It is not well-typed because there is not a 1-to-1 correspondence between fields.
       case Merge(record, update, tipe) => record.inferTypeWith(gamma) zip update.inferTypeWith(gamma) flatMap {
         case (Expression(RecordType(Seq())), u@Expression(UnionType(defs))) =>
           if (defs.isEmpty) {
@@ -195,7 +193,7 @@ object TypeCheck {
           } else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
 
         case _ if tipe.nonEmpty => Expression(Merge(record, update, None)).inferTypeWith(gamma).flatMap { inferred =>
-          if (equivalent(inferred, tipe.get)) inferred else typeError(s"merge expression has inferred type ${inferred.toDhall}, but type annotation ${tipe.get.toDhall}")
+          if (Semantics.equivalent(inferred, tipe.get)) inferred else typeError(s"merge expression has inferred type ${inferred.toDhall}, but type annotation ${tipe.get.toDhall}")
         }
 
         case (Expression(matcher@RecordType(defsMatcher)), Expression(target@UnionType(defsTarget))) => // Now the RecordType is nonempty but tipe is empty.
@@ -204,18 +202,21 @@ object TypeCheck {
               case ((name1, expr1), (name2, expr2)) if name1.name == name2.name =>
                 expr2 match {
                   case Some(partType) => expr1 match {
-                    case Expression(Forall(varName, varType, targetType)) =>
-                      if (equivalent(varType, partType))
-                        Valid(Semantics.shift(false, varName, 0, targetType))
-                      else typeError(s"merge expression must have matcher's argument types equal to field types, but found ${varType.toDhall} and ${partType.toDhall}")
-                    case other => typeError(s"merge expression must have a function matcher for field $name1, but has type ${other.toDhall}")
+                    case Expression(handlerType@Forall(varName, varType, targetType)) => for {
+                      result <- Valid(Semantics.shift(false, varName, 0, targetType))
+                      _ <- required(Semantics.equivalent(varType, partType))(s"merge expression must have matcher's argument types equal to field types, but found ${varType.toDhall} and ${partType.toDhall}")
+                      // TODO report issue: type-inference.md says "`x` not free in `T" but does not explain why and what kind of error occurs if x were free in T0, or how to detect free variables.
+                      _ <- required(!Semantics.freeVars(targetType).names.contains(varName))(s"Disallowed handler type ${handlerType.toDhall}, cannot be a type constructor (a handler's body cannot have $varName as a free variable)")
+                    } yield result
+
+                    case other => typeError(s"merge expression must have a function matcher for field $name1, but instead it has type ${other.toDhall}")
                   }
                   case None => Valid(expr1)
                 }
               case ((name1, expr1), (name2, expr2)) => typeError(s"merge's matcher has field $name1 not equal to target type's $name2")
             })
             typesInParts.flatMap { exprs => // Non-empty list.
-              exprs.tail.find(expr => !equivalent(exprs.head, expr)) match {
+              exprs.tail.find(expr => !Semantics.equivalent(exprs.head, expr)) match {
                 case Some(value) => typeError(s"merge expression must have all matcher's output types the same, but found ${exprs.head.toDhall}, ..., ${value.toDhall}")
                 case None => Valid(exprs.head)
               }
@@ -248,12 +249,12 @@ object TypeCheck {
         }
         case Expression(RecordType(defs)) => tipe match {
           case Some(t1) => ToMap(e, None).inferTypeWith(gamma).flatMap { t0 =>
-            if (equivalent(t0, t1)) Valid(t0)
+            if (Semantics.equivalent(t0, t1)) Valid(t0)
             else typeError(s"toMap with type annotation ${t1.toDhall} has a different inferred type ${t0.toDhall}")
           }
           case None =>
             // All types in `defs` must be equivalent and must have type Type. Also, `defs` is now a non-empty list.
-            val allTypesEqual = defs.tail.find(tipe => !equivalent(defs.head._2, tipe._2)) match {
+            val allTypesEqual = defs.tail.find(tipe => !Semantics.equivalent(defs.head._2, tipe._2)) match {
               case Some((field, expr)) => typeError(s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.toDhall}, ..., ${field.name} : ${expr.toDhall}}")
               case None => validate(gamma, defs.head._2, _Type)
             }
@@ -274,7 +275,7 @@ object TypeCheck {
         seqSeq(exprs.map(_.inferTypeWith(gamma).flatMap { expr => validate(gamma, expr, _Type).map(_ => expr) }))
           // Require all types to be the same.
           .flatMap { types =>
-            val differentType: Option[Expression] = types.tail.find(tipe => !equivalent(types.head, tipe))
+            val differentType: Option[Expression] = types.tail.find(tipe => !Semantics.equivalent(types.head, tipe))
             differentType match {
               case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value.toDhall}, ...]")
               case None => (~Builtin.List)(types.head)
@@ -307,7 +308,7 @@ object TypeCheck {
             Application(Expression(ExprBuiltin(Builtin.List)), t) <- Valid(tipe.scheme)
           } yield t
           (lopType zip ropType).flatMap { case (l, r) =>
-            if (equivalent(l, r)) Valid((~Builtin.List)(l))
+            if (Semantics.equivalent(l, r)) Valid((~Builtin.List)(l))
             else typeError(s"List types must be equal for ListAppend but found ${l.toDhall}, ${r.toDhall}")
           }
 
@@ -361,7 +362,7 @@ object TypeCheck {
 
       case Application(func, arg) => func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
         case (Expression(Forall(varName, varType, bodyType)), argType) =>
-          if (equivalent(varType, argType)) {
+          if (Semantics.equivalent(varType, argType)) {
             val a1 = Semantics.shift(true, varName, 0, arg)
             val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
             val b2 = Semantics.shift(false, varName, 0, b1)
@@ -432,13 +433,11 @@ object TypeCheck {
           val checkNoMissingLabels = if (projectByLabelsMissingInBase.isEmpty) Valid(())
           else typeError(s"ProjectByType is invalid because labels are missing: {${projectByLabelsMissingInBase.map(_.name).mkString(", ")}}")
           val commonLabels = projectLabels.keySet intersect baseLabels.keySet
-          val mismatchedTypes = commonLabels.filterNot { field => equivalent(baseLabels(field), projectLabels(field)) }
-          val noMismatchedTypes = // bug: need to prefer types from the projectLabels
-            if (mismatchedTypes.isEmpty)
-            // Valid(Expression(RecordType(defsBase.filter(d => projectLabels contains d._1))))
-              Valid(Expression(RecordType(defsProjectBy)))
-            else
-              typeError(s"ProjectByType is invalid because types for labels {${mismatchedTypes.map(_.name).mkString(", ")}} are mismatched")
+          val mismatchedTypes = commonLabels.filterNot { field => Semantics.equivalent(baseLabels(field), projectLabels(field)) }
+          val noMismatchedTypes = if (mismatchedTypes.isEmpty)
+            Valid(Expression(RecordType(defsProjectBy))) // This will be the final result.
+          else typeError(s"ProjectByType is invalid because types for labels {${mismatchedTypes.map(_.name).mkString(", ")}} are mismatched")
+
           checkNoMissingLabels zip noMismatchedTypes map (_._2)
         }
 

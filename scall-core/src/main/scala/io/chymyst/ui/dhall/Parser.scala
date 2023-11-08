@@ -1211,6 +1211,11 @@ object Grammar {
 }
 
 object Parser {
+  implicit class InlineDhall(val input: String) extends AnyVal {
+    def dhall: Expression = Parser.dhall(input)
+  }
+
+  def dhall(input: String): Expression = parseDhall(input).get.value.value
 
   def parseDhallBytes(source: Array[Byte], currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
