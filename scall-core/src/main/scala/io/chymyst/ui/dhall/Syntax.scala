@@ -396,7 +396,7 @@ object Syntax {
     }
 
     trait TermPrecedence {
-      def prec: Int = TermPrecedence.low // Default is the low precedence.
+      def prec: Int = TermPrecedence.low // Default is this precedence.
     }
 
     object TermPrecedence {
@@ -426,9 +426,9 @@ object Syntax {
       }
     }
 
-    final case class Lambda[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E]
+    final case class Lambda[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E] with LowerPrecedence
 
-    final case class Forall[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E]
+    final case class Forall[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E] with LowerPrecedence
 
     final case class Let[E](name: VarName, tipe: Option[E], subst: E, body: E) extends ExpressionScheme[E]
 

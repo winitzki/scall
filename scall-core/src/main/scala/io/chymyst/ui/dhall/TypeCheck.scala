@@ -420,27 +420,26 @@ object TypeCheck {
           case Expression(RecordType(defs)) => Valid(defs)
           case other => typeError(s"ProjectByType is invalid because the base expression has type ${other.toDhall} instead of RecordType")
         }
-        val projectIsByRecordType = by.inferTypeWith(gamma).flatMap { _ =>
-          by.betaNormalized.scheme match {
-            case RecordType(defs) => Valid(defs)
+        val projectIsByRecordType =
+          by.wellTypedBetaNormalize(gamma).flatMap {
+            case Expression(RecordType(defs)) => Valid(defs)
             case other => typeError(s"ProjectByType is invalid because the projection expression is ${other.toDhall} instead of RecordType")
           }
-        }
         baseType zip projectIsByRecordType flatMap { case (defsBase, defsProjectBy) =>
           val baseLabels = defsBase.toMap
           val projectLabels = defsProjectBy.toMap
-          val missingLabels = projectLabels.keySet diff baseLabels.keySet
-          val missingLabelsCheck = if (missingLabels.isEmpty)
-            Valid(())
-          else
-            typeError(s"ProjectByType is invalid because labels are missing: {${missingLabels.map(_.name).mkString(", ")}}")
+          val projectByLabelsMissingInBase = projectLabels.keySet diff baseLabels.keySet
+          val checkNoMissingLabels = if (projectByLabelsMissingInBase.isEmpty) Valid(())
+          else typeError(s"ProjectByType is invalid because labels are missing: {${projectByLabelsMissingInBase.map(_.name).mkString(", ")}}")
           val commonLabels = projectLabels.keySet intersect baseLabels.keySet
           val mismatchedTypes = commonLabels.filterNot { field => equivalent(baseLabels(field), projectLabels(field)) }
-          val mismatchedTypesCheck =
-            if (mismatchedTypes.isEmpty) Valid(Expression(RecordType(defsBase.filter(d => projectLabels contains d._1))))
+          val noMismatchedTypes = // bug: need to prefer types from the projectLabels
+            if (mismatchedTypes.isEmpty)
+            // Valid(Expression(RecordType(defsBase.filter(d => projectLabels contains d._1))))
+              Valid(Expression(RecordType(defsProjectBy)))
             else
               typeError(s"ProjectByType is invalid because types for labels {${mismatchedTypes.map(_.name).mkString(", ")}} are mismatched")
-          missingLabelsCheck zip mismatchedTypesCheck map (_._2)
+          checkNoMissingLabels zip noMismatchedTypes map (_._2)
         }
 
       case c@Completion(_, _) => Semantics.desugar(c).inferTypeWith(gamma)
