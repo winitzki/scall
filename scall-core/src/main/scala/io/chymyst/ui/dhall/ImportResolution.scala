@@ -136,8 +136,13 @@ object ImportResolution {
       case i@Import(_, _, _) =>
         val parent = visited.last
         val child = (parent chainWith i).canonicalize
-        val referentialCheck = if (parent.importType allowedToImportAnother child.importType) Right(()) else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
-        // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and whether Γ1 is being reused
+        lazy val referentialCheck = if (parent.importType allowedToImportAnother child.importType) Right(()) else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
+        lazy val resolveIfAlreadyResolved = gamma.resolved.get(child) match {
+          case Some(r) => Left(ImportResolutionResult.Resolved(r))
+          case None => Right(())
+        }
+        // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and also whether Γ1 is being reused
+
         val xdgOption = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
         lazy val resolveDefaultHeaders = s"""env:DHALL_HEADERS $xdgOption ? ~/.config/dhall/headers.dhall ? []""".dhall
 
@@ -194,6 +199,7 @@ object ImportResolution {
         }
         // Resolve imports in the expression we just parsed.
         val result: Either[ImportResolutionResult[Expression], Expression] = for {
+          _ <- resolveIfAlreadyResolved
           _ <- referentialCheck
           readByImportMode <- resolveIfLocation
           bytes <- missingOrData
@@ -209,16 +215,22 @@ object ImportResolution {
           case Left(gotEarlyResult) => (gotEarlyResult, state0)
           case Right(readExpression) =>
             resolveImportsStep(readExpression, currentDir).run(ImportResolutionState(visited :+ child, gamma)) match {
-              case (newResult, state1) => newResult match {
+              case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
-                  case TypeCheckResult.Valid(_) => (newResult, state1)
+                  case TypeCheckResult.Valid(_) => (result1, state1)
                   case i@TypeCheckResult.Invalid(_) => (PermanentFailure(Seq(s"Imported expression ${readExpression.toDhall} fails to typecheck: $i")), state1)
                 }
-                case _ => (newResult, state1)
+                case _ => (result1, state1)
               }
             }
         }
-        newState
+        // Add the new resolved expression to the import context.
+        newState match {
+          case (result2, state2) => result2 match {
+            case Resolved(r) => (result2, state2.copy(gamma = ImportContext(state2.gamma.resolved.updated(child, r))))
+            case _ => newState
+          }
+        }
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>

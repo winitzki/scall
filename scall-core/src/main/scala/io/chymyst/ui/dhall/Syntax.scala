@@ -276,7 +276,7 @@ object SyntaxConstants {
     def canonicalize: File = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]())((prev, segment) => segment match {
         case "." => prev
-        case ".." if prev.tail.nonEmpty => prev.tail
+        case ".." if prev.nonEmpty => prev.tail
         case s => s :: prev
       }).reverse
       File(newSegments)
@@ -702,7 +702,10 @@ object Syntax {
         child.copy(importType = ImportResolution.chainWith(importType, child.importType))
 
       def canonicalize: Import[E] = importType match {
-        case i@ImportType.Remote(url, headers) => copy(importType = i.copy(url = i.url.copy(path = i.url.path.canonicalize)))
+        case i@ImportType.Remote(url, headers) =>
+          val canonicalPath = i.url.path.canonicalize
+          println(s"DEBUG: canonicalPath = $canonicalPath")
+          copy(importType = i.copy(url = i.url.copy(path = canonicalPath)))
         case i@ImportType.Path(filePrefix, file) => copy(importType = i.copy(file = i.file.canonicalize))
         case _ => this
       }

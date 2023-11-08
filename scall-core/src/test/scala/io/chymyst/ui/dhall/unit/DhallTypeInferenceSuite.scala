@@ -5,7 +5,7 @@ import fastparse.Parsed
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
 import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
+import io.chymyst.ui.dhall.unit.TestUtils.{enumerateResourceFiles, printFailure}
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}
@@ -23,14 +23,14 @@ class DhallTypeInferenceSuite extends FunSuite {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
           // println(s"DEBUG: ${file.getName} starting type inference")
-          val x = ourResult.resolveImports().inferType match {
+          val x = ourResult.resolveImports(file.toPath.getParent).inferType match {
             case Valid(a) => a
           }
           val y = validationResult
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }
-        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")//\n${printFailure(result.failed.get)}")
         result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
@@ -43,7 +43,7 @@ class DhallTypeInferenceSuite extends FunSuite {
       .map { file =>
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-          expect(!ourResult.resolveImports().inferType.isValid)
+          expect(!ourResult.resolveImports(file.toPath.getParent).inferType.isValid)
           file.getName
         }
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
