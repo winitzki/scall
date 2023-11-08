@@ -30,7 +30,7 @@ class DhallTypeInferenceSuite extends FunSuite {
           expect(x.toDhall == y.toDhall && x == y)
           file.getName
         }
-        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")//\n${printFailure(result.failed.get)}")
+        if (result.isFailure) println(s"${file.getPath}: ${result.failed.get.getMessage}")//\n${printFailure(result.failed.get)}")
         result
       }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")

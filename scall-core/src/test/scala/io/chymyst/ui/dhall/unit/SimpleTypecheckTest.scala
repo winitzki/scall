@@ -71,4 +71,13 @@ class SimpleTypecheckTest extends FunSuite {
       }
   }
 
+  test("import with correct relative directory when several imports are done from the same file") {
+    val source = "dhall-lang/tests/type-inference/success/preludeA.dhall"
+    enumerateResourceFiles("dhall-lang/tests/type-inference/success", Some("preludeA.dhall"))
+      .foreach { file =>
+        val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+        expect(ourResult.resolveImports(file.toPath.getParent) == ())
+      }
+  }
+
 }

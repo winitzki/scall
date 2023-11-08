@@ -789,9 +789,9 @@ object Syntax {
         case IntegerLiteral(value) => (if (value >= 0) "+" else "") + value.toString(10)
         case TextLiteral(interpolations, trailing) => "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.atPrecedence(p) + "}" }.mkString + trailing + "\""
         case BytesLiteral(hex) => s"0x\"$hex\""
-        case DateLiteral(year, month, day) => s"$year-$month-$day"
+        case DateLiteral(year, month, day) => f"$year%04d-$month%02d-$day%02d"
         case TimeLiteral(time) => s"$time"
-        case t@TimeZoneLiteral(_) => s"${if (t.isPositive) "+" else "-"}${t.hours}:${t.minutes}"
+        case t@TimeZoneLiteral(_) => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
         case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(p) }.mkString(", ") + " }"
         case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.atPrecedence(p)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "

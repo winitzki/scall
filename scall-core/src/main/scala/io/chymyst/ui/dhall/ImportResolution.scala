@@ -15,7 +15,7 @@ import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
-
+  // TODO: missing sha256:... should be resolved if cache is available.
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Here, path2)) => Remote(URL(scheme1, authority1, path1 chain path2, query1), headers1)
     case (Path(filePrefix, path1), Path(FilePrefix.Here, path2)) => Path(filePrefix, path1 chain path2)
@@ -110,16 +110,25 @@ object ImportResolution {
   ).iterator.map(_.flatMap(createAndCheckReadableWritable))
     .collect { case Success(path) => path }
 
-  final case class ImportContext(resolved: Map[Import[Expression], Expression])
+  final case class ImportContext(resolved: Map[Import[Expression], Expression]) {
+    override def toString: String = resolved.map { case (k, v) => k.toDhall + " -> " + v.toDhall }.mkString("Map(", ", ", ")")
+  }
 
   def httpHeaders(headers: Option[Expression]): Iterable[(String, String)] = headers match {
     case Some(Expression(_)) => ???
     case None => Seq()
   }
 
+  // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression, what is the initial "parent" import?
+  // TODO workaround: allow the "visited" list to be empty initially
   def resolveAllImports(expr: Expression, currentDir: java.nio.file.Path): Expression = {
-    val initState = ImportResolutionState(Seq(Import[Expression](ImportType.Env("HOME"), ImportMode.RawText, None)), ImportContext(Map()))
-    resolveImportsStep(expr, currentDir).run(initState) match {
+    val initialVisited = Import[Expression](
+      ImportType.Path(FilePrefix.Here, SyntaxConstants.File(Seq(""))),
+      ImportMode.Code,
+      None
+    )
+    val initState =   ImportContext(Map())
+    resolveImportsStep(expr, Seq(initialVisited), currentDir).run(initState) match {
       case (resolved, finalState) => resolved match {
         case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: $messages")
         case PermanentFailure(messages) => throw new Exception(s"Permanent failure resolving ${expr.toDhall}: $messages")
@@ -128,16 +137,27 @@ object ImportResolution {
     }
   }
 
+  def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.toDhall).mkString("[", ", ", "]")
+
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
-  def resolveImportsStep(expr: Expression, currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportResolutionState(visited, gamma) =>
+  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext( gamma) =>
+    println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentDir=${currentDir.toAbsolutePath.toString} with initial $state0")
     expr.scheme match {
       case i@Import(_, _, _) =>
-        val parent = visited.last
-        val child = (parent chainWith i).canonicalize
-        lazy val referentialCheck = if (parent.importType allowedToImportAnother child.importType) Right(()) else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
-        lazy val resolveIfAlreadyResolved = gamma.resolved.get(child) match {
+        val (parent, child, referentialCheck) = visited.lastOption match {
+          case Some(parent) =>
+            val child = (parent chainWith i).canonicalize
+            val referentialCheck = if (parent.importType allowedToImportAnother child.importType) Right(()) else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
+            (parent, child, referentialCheck)
+          case None =>
+            // Special case: we are resolving imports in a dhall source that is not a file. We do not have a `parent` import.
+            val child = i.canonicalize
+            (child, child, Right(()))
+        }
+        println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
+        lazy val resolveIfAlreadyResolved = gamma.get(child) match {
           case Some(r) => Left(ImportResolutionResult.Resolved(r))
           case None => Right(())
         }
@@ -211,10 +231,10 @@ object ImportResolution {
 
         } yield successfullyRead
 
-        val newState: (ImportResolutionResult[Expression], ImportResolutionState) = result match {
+        val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
           case Left(gotEarlyResult) => (gotEarlyResult, state0)
           case Right(readExpression) =>
-            resolveImportsStep(readExpression, currentDir).run(ImportResolutionState(visited :+ child, gamma)) match {
+            resolveImportsStep(readExpression, visited :+ child, currentDir).run(  state0) match {
               case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
                   case TypeCheckResult.Valid(_) => (result1, state1)
@@ -227,19 +247,19 @@ object ImportResolution {
         // Add the new resolved expression to the import context.
         newState match {
           case (result2, state2) => result2 match {
-            case Resolved(r) => (result2, state2.copy(gamma = ImportContext(state2.gamma.resolved.updated(child, r))))
+            case Resolved(r) => (result2, state2.copy(state2.resolved.updated(child, r)))
             case _ => newState
           }
         }
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>
-        resolveImportsStep(lop, currentDir).run(state0) match {
+        resolveImportsStep(lop, visited, currentDir).run(state0) match {
           case resolved@(Resolved(_), _) => resolved
 
           case failed@(PermanentFailure(_), _) => failed
 
-          case (TransientFailure(messages1), state1) => resolveImportsStep(rop, currentDir).run(state1) match {
+          case (TransientFailure(messages1), state1) => resolveImportsStep(rop, visited, currentDir).run(state1) match {
             case resolved@(Resolved(_), _) => resolved
             case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
             case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
@@ -247,15 +267,13 @@ object ImportResolution {
 
         }
 
-      case _ => expr.scheme.traverse(resolveImportsStep(_, currentDir)).run(state0) match {
+      case _ => expr.scheme.traverse(resolveImportsStep(_, visited, currentDir)).run(state0) match {
         case (scheme, state) => (scheme.map(Expression.apply), state)
       }
     }
   }
 
 }
-
-final case class ImportResolutionState(visited: Seq[Import[Expression]] /* non-empty */ , gamma: ImportContext)
 
 // Import resolution may fail either in a way that may be recovered via `?`, or in a way that disallows further attempts via `?`.
 sealed trait ImportResolutionResult[+E] {
@@ -276,7 +294,7 @@ object ImportResolutionResult {
 }
 
 // A State monad used as an applicative functor to update the state during import resolution.
-final case class ImportResolutionStep[+E](run: ImportResolutionState => (ImportResolutionResult[E], ImportResolutionState))
+final case class ImportResolutionStep[+E](run: ImportContext => (ImportResolutionResult[E], ImportContext))
 
 object ImportResolutionStep {
   implicit val ApplicativeImportResolutionStep: Applicative[ImportResolutionStep] = new Applicative[ImportResolutionStep] {
