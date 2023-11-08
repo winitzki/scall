@@ -24,7 +24,7 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [ ] Import resolution code is in progress.
 
-- [ ] Typechecking code is in progress.
+- [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md). Some typechecking tests fail because import resolution is not yet implemented. All other tests pass.
 
 ## Roadmap for future developments
 
