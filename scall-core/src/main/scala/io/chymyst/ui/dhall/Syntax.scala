@@ -276,7 +276,7 @@ object SyntaxConstants {
     def canonicalize: File = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]())((prev, segment) => segment match {
         case "." => prev
-        case ".." if prev.nonEmpty => prev.tail
+        case ".." if prev.headOption.exists (_ != "..") => prev.tail
         case s => s :: prev
       }).reverse
       File(newSegments)

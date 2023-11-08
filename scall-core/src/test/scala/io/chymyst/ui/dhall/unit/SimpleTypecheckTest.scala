@@ -61,7 +61,7 @@ class SimpleTypecheckTest extends FunSuite {
   }
 
   test("type inference failure with RecordSelectionNotRecord.dhall") {
-    enumerateResourceFiles("tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall"))
+    enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall"))
       .foreach { file =>
         val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
         println(s"Parsed expression: ${ourResult.toDhall}")

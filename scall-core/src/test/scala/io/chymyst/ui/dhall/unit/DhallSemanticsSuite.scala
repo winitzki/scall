@@ -14,7 +14,7 @@ import scala.util.Try
 class DhallSemanticsSuite extends FunSuite {
 
   test("alpha normalization success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/alpha-normalization/success", Some("A.dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/alpha-normalization/success", Some("A.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
@@ -35,7 +35,7 @@ class DhallSemanticsSuite extends FunSuite {
   }
 
   test("beta normalization success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/normalization/success", Some("A.dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/normalization/success", Some("A.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 

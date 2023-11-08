@@ -15,7 +15,7 @@ import scala.util.Try
 class DhallTypeInferenceSuite extends FunSuite {
 
   test("type inference success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/success", Some("A.dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/type-inference/success", Some("A.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
@@ -39,7 +39,7 @@ class DhallTypeInferenceSuite extends FunSuite {
   }
 
   test("type inference failure") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/type-inference/failure", Some(".dhall"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some(".dhall"))
       .map { file =>
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))

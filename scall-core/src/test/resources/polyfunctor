@@ -1,0 +1,6 @@
+  λ(j : Kind)
+→ λ(k : Kind)
+→ λ(c : j → j → Type)
+→ λ(d : k → k → Type)
+→ λ(f : j → k)
+→ { map : ∀(a : j) → ∀(b : j) → c a b → d (f a) (f b) }

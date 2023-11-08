@@ -14,9 +14,9 @@ import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
 
 class DhallCbor1Suite extends FunSuite {
-  def testFilesForSuccess = enumerateResourceFiles("tests/parser/success", Some(".dhall"))
+  def testFilesForSuccess = enumerateResourceFiles("dhall-lang/tests/parser/success", Some(".dhall"))
 
-  def testFilesForFailure = enumerateResourceFiles("tests/parser/failure", Some(".dhall"))
+  def testFilesForFailure = enumerateResourceFiles("dhall-lang/tests/parser/failure", Some(".dhall"))
 
   test("convert standard examples for successful parsing into CBOR") {
     val results = testFilesForSuccess.flatMap { file =>
@@ -99,7 +99,7 @@ class DhallCbor1Suite extends FunSuite {
   }
 
   test("validate binary decoding/success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/success", Some("A.dhallb"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/binary-decode/success", Some("A.dhallb"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhallb", "B.dhall"))
         val cborBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath))
@@ -123,7 +123,7 @@ class DhallCbor1Suite extends FunSuite {
   }
 
   test("validate binary decoding/failure") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("tests/binary-decode/failure", Some(".dhallb"))
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/binary-decode/failure", Some(".dhallb"))
       .map { file =>
         val diagnosticFile = file.getAbsolutePath.replace(".dhallb", ".diag")
         val cborBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath))
