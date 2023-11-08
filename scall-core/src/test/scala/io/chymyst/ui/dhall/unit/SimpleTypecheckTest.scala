@@ -1,13 +1,18 @@
 package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.ui.dhall.Parser
-import io.chymyst.ui.dhall.Syntax.Expression
+import fastparse.Parsed
+import io.chymyst.ui.dhall.{Parser, TypeCheckResult}
+import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator, VarName}
 import io.chymyst.ui.dhall.TypeCheck._Type
 import io.chymyst.ui.dhall.TypeCheckResult.Valid
+import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
 import munit.FunSuite
+
+import java.io.FileInputStream
+import scala.util.Try
 
 class SimpleTypecheckTest extends FunSuite {
   test("typecheck record of types") {
@@ -54,4 +59,16 @@ class SimpleTypecheckTest extends FunSuite {
     val input = "(λ(g : Natural → Bool) → assert : g 0 ≡ g 0) Natural/even"
     expect(Parser.parseDhall(input).get.value.value.inferType.map(_.toDhall) == Valid("True ≡ True")) // Valid((~Constant.True).op(Operator.Equivalent)(~Constant.True)))
   }
+
+  test("type inference failure with RecordSelectionNotRecord.dhall") {
+    enumerateResourceFiles("tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall"))
+      .foreach { file =>
+        val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+        println(s"Parsed expression: ${ourResult.toDhall}")
+        ourResult.inferType match {
+          case TypeCheckResult.Invalid(errors) => expect(errors contains "Field selection must be for a record or a union, but instead found type Bool")
+        }
+      }
+  }
+
 }

@@ -399,6 +399,8 @@ object TypeCheck {
             }
             case other => typeError(s"Field selection is possible only from union type but found ${other.toDhall}")
           }
+
+        case other => typeError(s"Field selection must be for a record or a union, but instead found type ${other.toDhall}")
       }
 
       case ProjectByLabels(base, labels) =>
