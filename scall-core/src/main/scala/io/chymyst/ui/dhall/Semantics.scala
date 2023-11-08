@@ -143,7 +143,6 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   def betaNormalize(expr: Expression): Expression = {
-    //    println(s"DEBUG: betaNormalize(${expr.toDhall})")
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =

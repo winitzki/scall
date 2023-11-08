@@ -704,7 +704,6 @@ object Syntax {
       def canonicalize: Import[E] = importType match {
         case i@ImportType.Remote(url, headers) =>
           val canonicalPath = i.url.path.canonicalize
-          println(s"DEBUG: canonicalPath = $canonicalPath")
           copy(importType = i.copy(url = i.url.copy(path = canonicalPath)))
         case i@ImportType.Path(filePrefix, file) => copy(importType = i.copy(file = i.file.canonicalize))
         case _ => this
@@ -744,7 +743,6 @@ object Syntax {
       val normalized = Semantics.betaNormalize(this)
       this.betaN = normalized
       normalized.betaN = normalized
-      //      println(s"DEBUG: lazy val computed as ($toDhall).betaNormalized = ${normalized.toDhall}")
       normalized
     }
 
