@@ -1,12 +1,10 @@
 package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.upokecenter.cbor.CBORObject
 import fastparse.Parsed
-import io.chymyst.ui.dhall.CBORmodel.fromCbor2
-import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
+import io.chymyst.ui.dhall.{CBORmodel, Parser, Syntax}
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}

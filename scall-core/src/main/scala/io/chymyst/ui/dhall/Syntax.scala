@@ -10,7 +10,7 @@ import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.nio.file.Paths
-import java.time.LocalTime
+import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -276,7 +276,7 @@ object SyntaxConstants {
     def canonicalize: File = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]())((prev, segment) => segment match {
         case "." => prev
-        case ".." if prev.headOption.exists (_ != "..") => prev.tail
+        case ".." if prev.headOption.exists(_ != "..") => prev.tail
         case s => s :: prev
       }).reverse
       File(newSegments)
@@ -734,6 +734,28 @@ object Syntax {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)
     } yield t
+
+    def toPrimitiveValue: Option[AnyRef] = scheme match {
+      case EmptyList(_) => Some(Nil)
+      case NonEmptyList(defs) =>
+        val decoded = defs.map(_.toPrimitiveValue)
+        if (decoded.forall(_.nonEmpty)) Some(decoded.flatten) else None
+      case DoubleLiteral(d) => Some(java.lang.Double.valueOf(d))
+      case NaturalLiteral(n) => Some(n)
+      case IntegerLiteral(n) => Some(n)
+      case TextLiteral(Nil, trailing) => Some(trailing)
+      case b@BytesLiteral(_) => Some(b.bytes)
+      case DateLiteral(y, m, d) => Some(LocalDate.of(y, m, d))
+      case TimeLiteral(t) => Some(t)
+      case TimeZoneLiteral(t) => Some(ZoneOffset.ofTotalSeconds(t * 60)))
+      case ExprConstant(Constant.True) => Some(java.lang.Boolean.valueOf(true))
+      case ExprConstant(Constant.False) => Some(java.lang.Boolean.valueOf(false))
+      case KeywordSome(data) => data.toPrimitiveValue.map(Some.apply)
+      case RecordLiteral(defs) =>
+        val decoded = defs.map { case (FieldName(name), e) => e.toPrimitiveValue.map(v => (name -> v)) }
+        if (decoded.forall(_.nonEmpty)) Some(decoded.flatten.toMap) else None
+      case _ => None
+    }
 
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)

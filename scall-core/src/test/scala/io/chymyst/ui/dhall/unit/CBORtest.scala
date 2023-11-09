@@ -7,7 +7,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.ui.dhall.unit.CBORtest.cborRoundtrip
-import io.chymyst.ui.dhall.{CBOR, CBORmodel, Grammar, SyntaxConstants}
+import io.chymyst.ui.dhall.{CBOR, CBORmodel, Grammar}
 import munit.FunSuite
 
 import java.time.LocalTime

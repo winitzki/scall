@@ -2,43 +2,16 @@ package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse._
+import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.ui.dhall.Syntax.Expression
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme.Variable
 import io.chymyst.ui.dhall.SyntaxConstants
 
-import java.io.{File, PrintWriter, StringWriter}
 import scala.util.Try
-import scala.util.chaining.scalaUtilChainingOps
 
 object TestUtils {
 
-  // Recursively enumerate all files (not directories) with names matching a given suffix.
-  def enumerateResourceFiles(directory: String, filterBySuffix: Option[String] = None): Seq[File] =
-    enumerateFilesRecursively(getClass.getClassLoader.getResource(directory)
-      .getPath
-      .pipe(new File(_)), filterBySuffix)
-
-  def enumerateFilesRecursively(directory: File, filterBySuffix: Option[String] = None): Seq[File] =
-    Option(directory.listFiles).map(_.toSeq) match {
-      case Some(files) =>
-        (files.filter(_.isFile) ++
-          files.filter(_.isDirectory).flatMap(d => enumerateFilesRecursively(d, filterBySuffix))
-          ).filter(f => filterBySuffix.forall(suffix => f.getName.endsWith(suffix)))
-          .sortBy(_.getName)
-
-      case None => throw new Exception(s"File $directory is not a directory, cannot list.")
-    }
-
   def v(name: String): Expression = Expression(Variable(SyntaxConstants.VarName(name), BigInt(0)))
-
-  def printFailure(t: Throwable): String = {
-    val stackTrace = new StringWriter
-    t.printStackTrace(new PrintWriter(stackTrace))
-    stackTrace.flush()
-    //        t.getMessage + "\n\n" + // No need to print the message because the stack trace already contains all that.
-    stackTrace.toString
-  }
-
 
   def checkMaybeLastPosition[A](parsed: Parsed[A], input: String, expectedResult: A, lastPosition: Option[Int] = None): Unit = {
     parsed match {
@@ -104,7 +77,7 @@ object TestUtils {
       println(s"All ${successExamples.size} examples passed.")
     else {
       println(s"Error: ${results.count(_.isFailure)} examples failed:")
-      val message = results.filter(_.isFailure).map(_.failed.get).map(printFailure).mkString("\n\n")
+      val message = results.filter(_.isFailure).map(_.failed.get).map(printThrowable).mkString("\n\n")
       throw new Exception(message)
     }
   }

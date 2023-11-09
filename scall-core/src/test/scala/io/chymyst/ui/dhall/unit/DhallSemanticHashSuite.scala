@@ -1,9 +1,7 @@
 package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.ui.dhall.Syntax.Expression
-import io.chymyst.ui.dhall.Syntax.ExpressionScheme.BytesLiteral
-import io.chymyst.ui.dhall.unit.TestUtils.printFailure
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.{Parser, Semantics}
 import munit.FunSuite
 
@@ -12,7 +10,7 @@ import scala.util.Try
 
 class DhallSemanticHashSuite extends FunSuite {
   test("dhall standard acceptance tests for semantic hash") {
-    val results:Seq[Try[String]] = TestUtils.enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
+    val results:Seq[Try[String]] =  enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
       val result = Try{
         val diagnosticString = Files.readString(Paths.get(file.getAbsolutePath.replace("A.dhall", "B.hash"))).trim
         val ourHash = "sha256:" + Semantics.semanticHash(Parser.parseDhall(Files.readString(Paths.get(file.getAbsolutePath))).get.value.value, file.toPath.getParent)

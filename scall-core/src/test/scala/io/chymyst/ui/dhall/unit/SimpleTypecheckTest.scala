@@ -2,12 +2,12 @@ package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, VarName}
 import io.chymyst.ui.dhall.TypeCheck._Type
 import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
 import io.chymyst.ui.dhall.{Parser, TypeCheckResult}
 import munit.FunSuite
 

@@ -1,18 +1,18 @@
 package io.chymyst.ui.dhall.unit
 
-import fastparse.Parsed
-import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
-import munit.FunSuite
-import TestUtils._
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
+import fastparse.Parsed
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.ui.dhall.CBORmodel.fromCbor2
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.ui.dhall.{CBOR, CBORmodel, Parser, Syntax}
+import munit.FunSuite
 
 import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
-import scala.util.chaining.scalaUtilChainingOps
 
 class DhallParserSuite extends FunSuite {
 
@@ -24,7 +24,7 @@ class DhallParserSuite extends FunSuite {
     val results = testFilesForSuccess.map { file =>
       val result = for {
         result1 <- Try(Parser.parseDhallStream(new FileInputStream(file)))
-          .recoverWith { case exception => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: parser crashed with: ${printFailure(exception)}")) }
+          .recoverWith { case exception => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: parser crashed with: ${printThrowable(exception)}")) }
         result2 <- result1 match {
           case Parsed.Success(value, index) => Success(value)
           case Parsed.Failure(a, b, c) => Failure(new Exception(s"Parsing file ${file.getName} expecting success. Result: $result1, diagnostics: ${c.stack}"))

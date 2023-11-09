@@ -7,6 +7,9 @@ import io.chymyst.ui.dhall.SyntaxConstants._
 import io.chymyst.ui.dhall.{Grammar, SyntaxConstants}
 import io.chymyst.ui.dhall.unit.TestUtils.v
 
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.Throwables.printThrowable
+
 object TestFixtures {
 
   val blockComments = Seq( // Examples should not contain trailing whitespace or leading whitespace.

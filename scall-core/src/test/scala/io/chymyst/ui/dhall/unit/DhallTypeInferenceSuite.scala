@@ -2,10 +2,10 @@ package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
 import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}

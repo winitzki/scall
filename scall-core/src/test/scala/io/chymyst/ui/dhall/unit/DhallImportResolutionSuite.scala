@@ -2,21 +2,45 @@ package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
 import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
+import io.chymyst.ui.dhall.Syntax.ExpressionScheme.NonEmptyList
 import munit.FunSuite
+import os.root
 
-import java.io.{File, FileInputStream}
+import java.io.{File, FileInputStream, ObjectInputFilter}
 import scala.util.Try
 
-class DhallSemanticsSuite extends FunSuite {
+class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with ResourceFiles {
 
-  test("alpha normalization success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/alpha-normalization/success", Some("A.dhall"))
+  def setupEnvironment[R](extraEnvVars: (String, String)*)(code: => R): R = {
+    val tempDir = os.temp.dir(root / "tmp", deleteOnExit = true)
+    try {
+      os.copy(from = os.Path(resourceAsFile("dhall-lang/tests/import/cache").get.getAbsolutePath), to = tempDir, replaceExisting = true)
+      val dhallHome = resourceAsFile("dhall-lang/tests/import/home").get.getAbsolutePath
+      System.setProperty("user.home", dhallHome)
+      val envVars = Seq(
+        "DHALL_TEST_VAR" -> "6 * 7",
+        "XDG_CACHE_HOME" -> tempDir.toNIO.toAbsolutePath.toString,
+        "HOME" -> dhallHome,
+      ) ++ extraEnvVars
+      runInFakeEnvironmentWith(envVars: _*)(code)
+    } finally os.remove(tempDir)
+  }
+
+  test("import resolution success") {
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
+        val envVarsFile = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
+        val extraEnvVars:Seq[(String, String)] = if (envVarsFile.exists) {
+          val Parsed.Success(DhallFile(_, envs), _)= Parser.parseDhallStream(new FileInputStream  (envVarsFile))
+          envs.scheme match {
+            case NonEmptyList(exprs)
+          }
+        } else Seq()
 
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
@@ -34,8 +58,8 @@ class DhallSemanticsSuite extends FunSuite {
     expect(results.count(_.isFailure) == 0)
   }
 
-  test("beta normalization success") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/normalization/success", Some("A.dhall"))
+  test("import resolution failure") {
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/imports/failure", Some(".dhall"))
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 

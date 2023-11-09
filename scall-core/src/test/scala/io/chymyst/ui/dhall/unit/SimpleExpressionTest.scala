@@ -3,7 +3,7 @@ package io.chymyst.ui.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
-import io.chymyst.ui.dhall.Syntax._
+import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.SyntaxConstants.Builtin.Natural
@@ -11,8 +11,8 @@ import io.chymyst.ui.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.ui.dhall.SyntaxConstants.ImportMode.{Code, RawText}
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
 import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, File, VarName}
-import io.chymyst.ui.dhall.unit.TestUtils.{check, printFailure, toFail, v}
 import io.chymyst.ui.dhall._
+import io.chymyst.ui.dhall.unit.TestUtils.{check, toFail, v}
 import munit.FunSuite
 
 import scala.util.Try
@@ -159,7 +159,7 @@ class SimpleExpressionTest extends FunSuite {
       Try(check(Grammar.plus_expression(_), input, v("x"))),
       Try(check(Grammar.or_expression(_), input, v("x"))),
       Try(check(Grammar.import_alt_expression(_), input, v("x"))),
-    ).filter(_.isFailure).map(_.failed.get).map(printFailure).mkString("\n\n")
+    ).filter(_.isFailure).map(_.failed.get).map(printThrowable).mkString("\n\n")
     if (failures.nonEmpty) println(s"ERROR failures = $failures")
 
     val Parsed.Success(result1, _) = parse(input, Grammar.equivalent_expression(_))
@@ -200,7 +200,8 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("variables or missing import ambiguity 3") {
-    import fastparse._, NoWhitespace._, Grammar._
+    import fastparse._
+    import NoWhitespace._
     def grammar[$: P] = P(("a" ~ !"b" | "ab") ~ End)
 
     check(grammar(_), "ab", ())
