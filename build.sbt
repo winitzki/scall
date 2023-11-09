@@ -23,6 +23,7 @@ lazy val root = (project in file(".")).settings(
   name := "scall-root",
 ).aggregate(
   scall_core,
+  scall_testutils,
 )
 
 lazy val scall_core = (project in file("scall-core")).settings(
@@ -37,8 +38,21 @@ lazy val scall_core = (project in file("scall-core")).settings(
     enumeratum,
     cbor1,
     cbor2,
-//    cbor3,
-//    curryhoward,
+    //    cbor3,
+    //    curryhoward,
     httpRequest,
+  ),
+).dependsOn(scall_testutils % "test->compile")
+
+lazy val scall_testutils = (project in file("scall-testutils")).settings(
+  scalaVersion := scalaV,
+  crossScalaVersions := Seq(scala2V, scala3V),
+  testFrameworks += munitFramework,
+  Test / parallelExecution := false,
+  Test / fork := true,
+  Test / javaOptions ++= Seq("--add-opens", "java.base/java.util=ALL-UNNAMED"),
+  libraryDependencies ++= Seq(
+    munitTest,
+    assertVerboseTest,
   ),
 )
