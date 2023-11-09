@@ -747,7 +747,7 @@ object Syntax {
       case b@BytesLiteral(_) => Some(b.bytes)
       case DateLiteral(y, m, d) => Some(LocalDate.of(y, m, d))
       case TimeLiteral(t) => Some(t)
-      case TimeZoneLiteral(t) => Some(ZoneOffset.ofTotalSeconds(t * 60)))
+      case TimeZoneLiteral(t) => Some(ZoneOffset.ofTotalSeconds(t * 60))
       case ExprConstant(Constant.True) => Some(java.lang.Boolean.valueOf(true))
       case ExprConstant(Constant.False) => Some(java.lang.Boolean.valueOf(false))
       case KeywordSome(data) => data.toPrimitiveValue.map(Some.apply)

@@ -35,13 +35,18 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
       .map { file =>
         val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
         val envVarsFile = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
-        val extraEnvVars:Seq[(String, String)] = if (envVarsFile.exists) {
-          val Parsed.Success(DhallFile(_, envs), _)= Parser.parseDhallStream(new FileInputStream  (envVarsFile))
-          envs.scheme match {
-            case NonEmptyList(exprs)
+        val extraEnvVars: Seq[(String, String)] = if (envVarsFile.exists) {
+          val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
+          envs.toPrimitiveValue match {
+            case Some(t: List[Map[String, AnyRef]]) => t.flatMap {
+              case x: Map[String, AnyRef] if x.keys.toList.sorted == List("mapKey", "mapValue") && x.values.forall(_.isInstanceOf[String]) =>
+                Some(x("mapKey").asInstanceOf[String] -> x("mapValue").asInstanceOf[String])
+              case _ => None
+            }
+            case None => Seq()
           }
         } else Seq()
-
+        ???
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
