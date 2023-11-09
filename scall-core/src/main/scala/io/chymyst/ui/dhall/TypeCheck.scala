@@ -309,7 +309,7 @@ object TypeCheck {
           } yield t
           (lopType zip ropType).flatMap { case (l, r) =>
             if (Semantics.equivalent(l, r)) Valid((~Builtin.List)(l))
-            else typeError(s"List types must be equal for ListAppend but found ${l.toDhall}, ${r.toDhall}")
+            else typeError(s"List types must be equal for ListAppend but found ${l.toDhall} and ${r.toDhall}")
           }
 
         case Operator.CombineRecordTerms =>

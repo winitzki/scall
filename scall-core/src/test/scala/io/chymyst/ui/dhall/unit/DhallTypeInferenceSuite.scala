@@ -5,7 +5,7 @@ import fastparse.Parsed
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
 import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.unit.TestUtils.{enumerateResourceFiles, printFailure}
+import io.chymyst.ui.dhall.unit.TestUtils.enumerateResourceFiles
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}

@@ -754,13 +754,13 @@ object Syntax {
 
     private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm
 
-    final private def dhallForm: String = {
+    private def dhallForm: String = {
       val p = scheme.prec
       scheme match {
         case Variable(name, index) => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
         case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p)).getOrElse("")} = ${subst.atPrecedence(p)} in ${body.atPrecedence(p)}"
+        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p)).getOrElse("")} = ${subst.atPrecedence(p)}\nin ${body.atPrecedence(p)}"
         case If(cond, ifTrue, ifFalse) => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
         case Merge(record, update, tipe) => "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
           case Some(value) => ": " + value.atPrecedence(p)

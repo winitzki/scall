@@ -3,13 +3,13 @@ package io.chymyst.ui.dhall
 import fastparse.Parsed
 import geny.Generator.from
 import io.chymyst.ui.dhall.CBORmodel.CBytes
-import io.chymyst.ui.dhall.ImportResolution.{ImportContext, dhallCacheRoots}
+import io.chymyst.ui.dhall.ImportResolution.ImportContext
 import io.chymyst.ui.dhall.ImportResolutionResult._
 import io.chymyst.ui.dhall.Parser.InlineDhall
-import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
+import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
-import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportMode, ImportType, Operator, URL}
+import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
@@ -127,7 +127,7 @@ object ImportResolution {
       ImportMode.Code,
       None
     )
-    val initState =   ImportContext(Map())
+    val initState = ImportContext(Map())
     resolveImportsStep(expr, Seq(initialVisited), currentDir).run(initState) match {
       case (resolved, finalState) => resolved match {
         case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: $messages")
@@ -142,8 +142,8 @@ object ImportResolution {
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
-  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext( gamma) =>
-    println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentDir=${currentDir.toAbsolutePath.toString} with initial $state0")
+  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
+    //println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentDir=${currentDir.toAbsolutePath.toString} with initial $state0")
     expr.scheme match {
       case i@Import(_, _, _) =>
         val (parent, child, referentialCheck) = visited.lastOption match {
@@ -156,7 +156,7 @@ object ImportResolution {
             val child = i.canonicalize
             (child, child, Right(()))
         }
-        println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
+        //println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
         lazy val resolveIfAlreadyResolved = gamma.get(child) match {
           case Some(r) => Left(ImportResolutionResult.Resolved(r))
           case None => Right(())
@@ -234,7 +234,7 @@ object ImportResolution {
         val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
           case Left(gotEarlyResult) => (gotEarlyResult, state0)
           case Right(readExpression) =>
-            resolveImportsStep(readExpression, visited :+ child, currentDir).run(  state0) match {
+            resolveImportsStep(readExpression, visited :+ child, currentDir).run(state0) match {
               case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
                   case TypeCheckResult.Valid(_) => (result1, state1)
