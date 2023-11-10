@@ -13,6 +13,20 @@ import os.root
 import java.io.{File, FileInputStream, ObjectInputFilter}
 import scala.util.Try
 
+object DhallImportResolutionSuite {
+  def readHeadersFromEnv(envVarsFile: File): Seq[(String, String)] = if (envVarsFile.exists) {
+    val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
+    envs.betaNormalized.toPrimitiveValue match {
+      case Some(t: List[Map[String, AnyRef]]) => t.flatMap {
+        case x: Map[String, AnyRef] if x.keys.toList.sorted == List("mapKey", "mapValue") && x.values.forall(_.isInstanceOf[String]) =>
+          Some(x("mapKey").asInstanceOf[String] -> x("mapValue").asInstanceOf[String])
+        case _ => None
+      }
+      case None => Seq()
+    }
+  } else Seq()
+}
+
 class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with ResourceFiles {
 
   def setupEnvironment[R](code: => R): R = {
@@ -36,18 +50,8 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         .map { file =>
           val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
           val envVarsFile = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
-          val extraEnvVars: Seq[(String, String)] = if (envVarsFile.exists) {
-            val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
-            envs.toPrimitiveValue match {
-              case Some(t: List[Map[String, AnyRef]]) => t.flatMap {
-                case x: Map[String, AnyRef] if x.keys.toList.sorted == List("mapKey", "mapValue") && x.values.forall(_.isInstanceOf[String]) =>
-                  Some(x("mapKey").asInstanceOf[String] -> x("mapValue").asInstanceOf[String])
-                case _ => None
-              }
-              case None => Seq()
-            }
-          } else Seq()
-          runInFakeEnvironmentWith(extraEnvVars:_*) {
+          val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
+          runInFakeEnvironmentWith(extraEnvVars: _*) {
             val result = Try {
               val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
               val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
