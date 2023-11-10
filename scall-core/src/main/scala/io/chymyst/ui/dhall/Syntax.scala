@@ -245,11 +245,11 @@ object SyntaxConstants {
 
       def toJavaPath: java.nio.file.Path = {
         val initialPath = filePrefix match {
-          case FilePrefix.Home =>  System.getProperty("user.home")
-          case _ =>  filePrefix.prefix
+          case FilePrefix.Home => System.getProperty("user.home")
+          case _ => filePrefix.prefix
         }
-        Paths.get(initialPath, file.canonicalize.segments :_*)
-       // file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
+        Paths.get(initialPath, file.canonicalize.segments: _*)
+        // file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
       }
 
     }
@@ -625,7 +625,19 @@ object Syntax {
 
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class TimeLiteral(time: LocalTime) extends ExpressionScheme[Nothing] with VarPrecedence
+    final case class TimeLiteral(hours: Int, minutes: Int, totalSeconds: Long, precision: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
+      require(totalSeconds >= 0 && precision <= 0 && precision >= -9)
+      val power = math.pow(10, -precision).toLong
+      val seconds = (totalSeconds / power).toInt
+      val nanos = ((totalSeconds % power) * math.pow(10, precision + 9)).toInt
+
+      override def toString: String = {
+        val nanosPrinted = f"$nanos%09d" // TODO: fix this
+        f"$hours%02d:$minutes%02d:$seconds%02d$nanosPrinted"
+      }
+
+      val localTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanos)
+    }
 
     final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
       val hours: Int = math.abs(totalMinutes) / 60
@@ -751,7 +763,7 @@ object Syntax {
       case TextLiteral(Nil, trailing) => Some(trailing)
       case b@BytesLiteral(_) => Some(b.bytes)
       case DateLiteral(y, m, d) => Some(LocalDate.of(y, m, d))
-      case TimeLiteral(t) => Some(t)
+      case t@TimeLiteral(_, _, _, _) => Some(t.localTime)
       case TimeZoneLiteral(t) => Some(ZoneOffset.ofTotalSeconds(t * 60))
       case ExprConstant(Constant.True) => Some(java.lang.Boolean.valueOf(true))
       case ExprConstant(Constant.False) => Some(java.lang.Boolean.valueOf(false))
@@ -817,7 +829,7 @@ object Syntax {
         case TextLiteral(interpolations, trailing) => "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.atPrecedence(p) + "}" }.mkString + trailing + "\""
         case BytesLiteral(hex) => s"0x\"$hex\""
         case DateLiteral(year, month, day) => f"$year%04d-$month%02d-$day%02d"
-        case TimeLiteral(time) => s"$time"
+        case t@TimeLiteral(_, _, _, _) => t.toString
         case t@TimeZoneLiteral(_) => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
         case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"

@@ -543,10 +543,11 @@ object Grammar {
     DIGIT.rep(exactly = 2) // 00_59 (**UNLIKE** RFC 3339, we don't support leap seconds)
   ).!.map(_.toInt)
 
-  def time_secfrac[$: P]: P[Int] = P( // Convert trailing fraction of a second, like .2345, into nanoseconds, like 234500000.
+  def time_secfrac[$: P]: P[(Int, String)] = P( // Convert trailing fraction of a second into nanoseconds, keeping precision.
+    // For example, time_secfrac(".2345") = (234500000, "2345").
     "." ~ (DIGIT.!
       .rep(1) // RFC 3339
-      .map(digits => (digits ++ Seq.fill(9)("0")).take(9).mkString("").toInt)
+      .map(digits => ((digits ++ Seq.fill(9)("0")).take(9).mkString("").toInt, digits.mkString))
       )
   )
 
@@ -566,9 +567,18 @@ object Grammar {
   def partial_time[$: P]: P[TimeLiteral] = P(
     time_hour ~ ":" ~ time_minute ~ ":" ~ time_second
       ~ time_secfrac.?
-  ).flatMap { case (h, m, s, nanos) =>
-    Try(TimeLiteral(LocalTime.of(h, m, s, nanos.getOrElse(0)))) match {
-      case Failure(exception) => Fail(s"Invalid local time literal $h:$m:$s:$nanos - $exception")
+  ).flatMap { case (h, m, s, secfrac) =>
+    val totalSeconds = s // TODO: fix this
+// secfrac may be None or Some(12340000, "01234")
+    //      @tailrec def getPrecision(nanos: Long, initPrecision: Int): Int =
+    //        if (nanos <= 0) 0
+    //        else if (nanos % 10 > 0) initPrecision
+    //        else getPrecision(nanos / 10, initPrecision - 1)
+    //
+    //      val precision = getPrecision(time.getNano, 9)
+    //      val totalSeconds: Long = (time.getSecond * math.pow(10, precision).toLong + time.getNano) / math.pow(10, precision).toLong
+    Try(TimeLiteral(h, m, s, 0)) match {
+      case Failure(exception) => Fail(s"Invalid local time literal $h:$m:$s${secfrac.map(_._2).getOrElse("")} - $exception")
       case Success(value) => Pass(value)
     }
   }

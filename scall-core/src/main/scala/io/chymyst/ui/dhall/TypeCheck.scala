@@ -4,6 +4,7 @@ import io.chymyst.ui.dhall.Applicative.seqSeq
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
+import io.chymyst.ui.dhall.TypeCheck.Gamma
 import io.chymyst.ui.dhall.TypeCheckResult._
 
 import scala.language.postfixOps
@@ -33,7 +34,7 @@ object TypeCheckResult {
       case Invalid(errors) => Invalid(errors)
     }
 
-    override def withFilter(p: A => Boolean): TypeCheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")
+    override def withFilter(p: A => Boolean): TypeCheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(Gamma(Map()))
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypeCheckResult[Nothing] {
@@ -51,7 +52,7 @@ object TypeCheckResult {
     override def withFilter(p: Nothing => Boolean): TypeCheckResult[Nothing] = this
   }
 
-  def typeError(message: String): TypeCheckResult[Nothing] = Invalid(Seq(message))
+  def typeError(message: String)(implicit gamma: Gamma): TypeCheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
 
   implicit val ApplicativeTypeCheckResult: Applicative[TypeCheckResult] = new Applicative[TypeCheckResult] {
     override def zip[A, B](fa: TypeCheckResult[A], fb: TypeCheckResult[B]): TypeCheckResult[(A, B)] = fa zip fb
@@ -80,6 +81,12 @@ object TypeCheck {
     })
 
     def mapExpr(f: Expression => Expression): Gamma = Gamma(defs.map { case (name, exprs) => (name, exprs.map(f)) })
+
+    override def toString: String = defs.flatMap { case (varName, exprs) =>
+      exprs.reverse.zipWithIndex.map { case (expr, index) =>
+        varName.name + (if (index > 0) s"@$index" else "") + " : " + expr.toDhall
+      }
+    }.mkString("{", ", ", "}")
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
@@ -90,22 +97,25 @@ object TypeCheck {
         if (Semantics.equivalent(tipe, inferredType))
           Valid(expr)
         else
-          typeError(s"Expression ${expr.toDhall} has inferred type ${inferredType.toDhall} and not the expected type ${tipe.toDhall}")
+          typeError(s"Expression ${expr.toDhall} has inferred type ${inferredType.toDhall} and not the expected type ${tipe.toDhall}")(gamma)
 
       case error@Invalid(_) => error
     }
   }
 
-  def required(cond: Boolean)(error: String): TypeCheckResult[Unit] = if (cond) Valid(()) else typeError(error)
+  def required(cond: Boolean)(error: String)(implicit gamma: Gamma): TypeCheckResult[Unit] =
+    if (cond) Valid(()) else typeError(error)
 
   val _Type: Expression = ExprConstant(Constant.Type)
   val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: Gamma, expr: Expression): TypeCheckResult[Expression] = {
+  def inferType(gamma: Gamma, exprToInferTypeOf: Expression): TypeCheckResult[Expression] = {
     implicit def toExpr(expr: Expression): TypeCheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypeCheckResult[Expression] = Valid(~builtin)
+
+    implicit val _gamma: Gamma = gamma
 
     def typeOfToMap(t: Expression): Expression = (~Builtin.List)(Expression(RecordType(Seq(
       (FieldName("mapKey"), ~Builtin.Text),
@@ -132,14 +142,14 @@ object TypeCheck {
     }
 
     // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
-    val result: TypeCheckResult[Expression] = expr.scheme match {
+    val result: TypeCheckResult[Expression] = exprToInferTypeOf.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
         case Some(tipe) =>
           tipe.inferTypeWith(gamma) match {
             case Valid(_) => tipe
-            case Invalid(errors) => Invalid(errors :+ s"Variable ${expr.toDhall} has type error(s)")
+            case Invalid(errors) => Invalid(errors :+ s"Variable ${exprToInferTypeOf.toDhall} has type error(s)")
           }
-        case None => typeError(s"Variable ${expr.toDhall} is not in type inference context $gamma")
+        case None => typeError(s"Variable ${exprToInferTypeOf.toDhall} is not in type inference context")
       }
 
       case Lambda(name, tipe, body) => for {
@@ -188,7 +198,7 @@ object TypeCheck {
           if (defs.isEmpty) {
             tipe match {
               case Some(value) => Valid(value)
-              case None => typeError(s"merge expression with empty arguments must have a type annotation, but found ${expr.toDhall}")
+              case None => typeError(s"merge expression with empty arguments must have a type annotation, but found ${exprToInferTypeOf.toDhall}")
             }
           } else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
 
@@ -245,7 +255,7 @@ object TypeCheck {
                 case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T but has ${other.toDhall}")
               }
             }
-          case None => typeError(s"toMap of empty record, ${expr.toDhall}, must have a type annotation")
+          case None => typeError(s"toMap of empty record, ${exprToInferTypeOf.toDhall}, must have a type annotation")
         }
         case Expression(RecordType(defs)) => tipe match {
           case Some(t1) => ToMap(e, None).inferTypeWith(gamma).flatMap { t0 =>
@@ -309,7 +319,7 @@ object TypeCheck {
           } yield t
           (lopType zip ropType).flatMap { case (l, r) =>
             if (Semantics.equivalent(l, r)) Valid((~Builtin.List)(l))
-            else typeError(s"List types must be equal for ListAppend but found ${l.toDhall} and ${r.toDhall}")
+            else typeError(s"List types in ${exprToInferTypeOf.toDhall} must be equal for ListAppend but found ${l.toDhall} and ${r.toDhall}")
           }
 
         case Operator.CombineRecordTerms =>
@@ -357,7 +367,7 @@ object TypeCheck {
           } yield ()
           equivalenceCheck.map(_ => _Type)
 
-        case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
+        case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.toDhall}")
       }
 
       case Application(func, arg) => func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
@@ -367,8 +377,8 @@ object TypeCheck {
             val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
             val b2 = Semantics.shift(false, varName, 0, b1)
             Valid(b2.betaNormalized)
-          } else typeError(s"Function application must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}")
-        case (other, _) => typeError(s"Function application must use a function type, but instead found ${other.toDhall}")
+          } else typeError(s"Function application in ${exprToInferTypeOf.toDhall} must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}")
+        case (other, _) => typeError(s"Function application in ${exprToInferTypeOf.toDhall} must use a function type, but instead found ${other.toDhall}")
       }
 
       // Field selection is possible only in two cases: from a record value and from a union type.
@@ -400,7 +410,7 @@ object TypeCheck {
             case other => typeError(s"Field selection is possible only from union type but found ${other.toDhall}")
           }
 
-        case other => typeError(s"Field selection must be for a record or a union, but instead found type ${other.toDhall}")
+        case other => typeError(s"Field selection in ${exprToInferTypeOf.toDhall} must be for a record or a union, but instead found type ${other.toDhall}")
       }
 
       case ProjectByLabels(base, labels) =>
@@ -496,7 +506,7 @@ object TypeCheck {
 
       case BytesLiteral(_) => Builtin.Bytes
       case DateLiteral(_, _, _) => Builtin.Date
-      case TimeLiteral(_) => Builtin.Time
+      case TimeLiteral(_, _, _, _) => Builtin.Time
       case TimeZoneLiteral(_) => Builtin.TimeZone
 
       // TODO report issue - `type-inference.md` does not say that typechecking a RecordType must reject duplicate fields. (It says that for RecordLiteral only.) However, `RecordTypeDuplicateFields.dhall` is one of the failure tests.
@@ -513,7 +523,7 @@ object TypeCheck {
       case UnionType(defs) =>
         val constructorNames = defs.map(_._1)
         // Verify that all constructor names are distinct.
-        val constructorNamesDistinct = required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${expr.toDhall}")
+        val constructorNamesDistinct = required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${exprToInferTypeOf.toDhall}")
         upperBoundUniverse(defs.map(_._2)) zip constructorNamesDistinct map (_._1)
 
       case ShowConstructor(data) => data.inferTypeWith(gamma) flatMap {
@@ -522,7 +532,7 @@ object TypeCheck {
         case tipe => typeError(s"showConstructor's argument must have a union type or Optional type, but has type ${tipe.toDhall}")
       }
 
-      case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${expr.toDhall}")
+      case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.toDhall}")
 
       case KeywordSome(data) => // The argument of Some can be only a Type. No universe-level polymorphism!
         data.inferTypeWith(gamma).flatMap { tipe => validate(gamma, tipe, _Type).map(_ => (~Builtin.Optional)(tipe)) }
@@ -584,7 +594,7 @@ object TypeCheck {
       case ExprConstant(constant) => constant match {
         case Constant.Type => Valid(ExprConstant(Constant.Kind))
         case Constant.Kind => Valid(ExprConstant(Constant.Sort))
-        case Constant.Sort => typeError(s"Expression $expr is not well-typed because it is the top universe")
+        case Constant.Sort => typeError(s"Expression $exprToInferTypeOf is not well-typed because it is the top universe")
         case Constant.True | Constant.False => Builtin.Bool
 
       }

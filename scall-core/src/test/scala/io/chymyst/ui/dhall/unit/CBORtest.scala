@@ -81,7 +81,7 @@ class CBORtest extends FunSuite {
   }
 
   test("CBOR roundtrips 6") {
-    cborRoundtrip(TimeLiteral(LocalTime.of(12, 0)))
+    cborRoundtrip(TimeLiteral(12, 0, 0, 0))
   }
 
   test("CBOR for dictionaries") {
@@ -110,6 +110,6 @@ class CBORtest extends FunSuite {
     val bytes = s.encodeCbor1
     val sAfterBytes = CBORmodel.decodeCbor1(bytes)
     expect(s == sAfterBytes)
-    expect(s.toString ==  "\"\\n\"")
+    expect(s.toString == "\"\\n\"")
   }
 }

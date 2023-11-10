@@ -181,13 +181,8 @@ sealed trait CBORmodel {
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
 
-        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CIntTag(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && precision >= -9 =>
-          val power = math.pow(10, -precision).toInt
-          assert(power > 0)
-          val seconds: Int = totalSeconds / power
-          val nanos: Int = (totalSeconds % power) * math.pow(10, precision + 9).toInt
-
-          ExpressionScheme.TimeLiteral(LocalTime.of(hours, minutes, seconds, nanos))
+        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CIntTag(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 && precision >= -9 =>
+          ExpressionScheme.TimeLiteral(hours, minutes, totalSeconds, precision)
 
         case CIntTag(32) :: (CTrue | CFalse) :: CIntTag(hours) :: CIntTag(minutes) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 =>
           val sign = data(1) match {
@@ -567,15 +562,8 @@ object CBOR {
 
     case ExpressionScheme.DateLiteral(y, m, d) => array(30, y, m, d)
 
-    case ExpressionScheme.TimeLiteral(time) =>
-      @tailrec def getPrecision(nanos: Long, initPrecision: Int): Int =
-        if (nanos <= 0) 0
-        else if (nanos % 10 > 0) initPrecision
-        else getPrecision(nanos / 10, initPrecision - 1)
-
-      val precision = getPrecision(time.getNano, 9)
-      val totalSeconds: Long = (time.getSecond * math.pow(10, precision).toLong + time.getNano) / math.pow(10, precision).toLong
-      array(31, time.getHour, time.getMinute, CTagged(4, array(precision, totalSeconds)))
+    case ExpressionScheme.TimeLiteral(hours, minutes, totalSeconds, precision) =>
+      array(31, hours, minutes, CTagged(4, array(precision, totalSeconds)))
 
     case t@ExpressionScheme.TimeZoneLiteral(_) =>
       val cborSign: CBORmodel = if (t.isPositive) CTrue else CFalse

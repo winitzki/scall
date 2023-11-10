@@ -132,8 +132,8 @@ object ImportResolution {
     val initState = ImportContext(Map())
     resolveImportsStep(expr, Seq(initialVisited), currentFile).run(initState) match {
       case (resolved, finalState) => resolved match {
-        case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: $messages")
-        case PermanentFailure(messages) => throw new Exception(s"Permanent failure resolving ${expr.toDhall}: $messages")
+        case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: ${ImportResolutionResult.printFailures(messages)}")
+        case PermanentFailure(messages) => throw new Exception(s"Permanent failure resolving ${expr.toDhall}: ${ImportResolutionResult.printFailures(messages)}")
         case Resolved(r) => r
       }
     }
@@ -195,7 +195,7 @@ object ImportResolution {
           case ImportMode.RawText => Right(bytes => Resolved(Expression(TextLiteral.ofString(new String(bytes)))))
         }
         lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
-          case ImportType.Missing => Left(TransientFailure(Seq("import designated as `missing`")))
+          case ImportType.Missing => Left(TransientFailure(Seq("import is `missing` (perhaps not an error)")))
 
           case Remote(url, headers) => // TODO: use headers and also receive headers for CORS check
             Try(requests.get(url.toString, headers = httpHeaders(headers)).bytes) match {
@@ -240,7 +240,7 @@ object ImportResolution {
               case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
                   case TypeCheckResult.Valid(_) => (result1, state1)
-                  case i@TypeCheckResult.Invalid(_) => (PermanentFailure(Seq(s"Imported expression ${readExpression.toDhall} fails to typecheck: $i")), state1)
+                  case TypeCheckResult.Invalid(messages) => (PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")), state1)
                 }
                 case _ => (result1, state1)
               }
@@ -286,6 +286,9 @@ sealed trait ImportResolutionResult[+E] {
 }
 
 object ImportResolutionResult {
+
+  def printFailures(messages: ResolutionErrors): String = messages.mkString("\n\t", "\n\t", "\n")
+
   type ResolutionErrors = Seq[String]
 
   final case class TransientFailure(messages: ResolutionErrors) extends ImportResolutionResult[Nothing]

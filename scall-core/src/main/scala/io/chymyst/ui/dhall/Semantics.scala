@@ -151,7 +151,7 @@ object Semantics {
     expr.scheme match {
       // These expression types are already in beta-normal form.
       case Variable(_, _) | ExprBuiltin(_) | ExprConstant(_) | NaturalLiteral(_) | IntegerLiteral(_) | DoubleLiteral(_) |
-           BytesLiteral(_) | DateLiteral(_, _, _) | TimeLiteral(_) | TimeZoneLiteral(_) =>
+           BytesLiteral(_) | DateLiteral(_, _, _) | TimeLiteral(_, _, _, _) | TimeZoneLiteral(_) =>
         expr
 
       // These expressions only need to normalize their arguments.
@@ -387,7 +387,7 @@ object Semantics {
             b2.betaNormalized
 
           case ExprBuiltin(Builtin.DateShow) => matchOrNormalize(arg) { case d@DateLiteral(_, _, _) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.TimeShow) => matchOrNormalize(arg) { case d@TimeLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.TimeShow) => matchOrNormalize(arg) { case d@TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.toDhall) }
           case ExprBuiltin(Builtin.TimeZoneShow) => matchOrNormalize(arg) { case d@TimeZoneLiteral(_) => TextLiteral.ofString(d.toDhall) }
           case ExprBuiltin(Builtin.DoubleShow) => matchOrNormalize(arg) { case d@DoubleLiteral(_) => TextLiteral.ofString(d.toDhall) }
           case ExprBuiltin(Builtin.IntegerShow) => matchOrNormalize(arg) { case d@IntegerLiteral(_) => TextLiteral.ofString(d.toDhall) }
