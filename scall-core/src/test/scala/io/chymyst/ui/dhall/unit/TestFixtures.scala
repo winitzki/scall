@@ -203,4 +203,19 @@ object TestFixtures {
   val singleQuotedExpressions: Seq[(String, TextLiteral[Expression])] = doubleQuotedExpressions.map { case (s, expr) => (s.replaceFirst("\"",
     "''\n").replace("\"", "''"), expr)
   }
+
+  val timeLiterals: Seq[String] = Seq(
+    "00:09:59",
+    "10:00:00.010",
+    "10:00:00.1111111",
+    "10:00:00.111111111",
+    "10:00:00.000001111111",
+    "10:00:01.000001111111",
+    "10:00:11.000001111111",
+    "10:00:11.0000011111110",
+    "00:19:59.0",
+    "00:59:00.000000000",
+    "00:59:00.00000000000000000000000000",
+    "00:59:00.0000000000000000000000000012345678900",
+  )
 }

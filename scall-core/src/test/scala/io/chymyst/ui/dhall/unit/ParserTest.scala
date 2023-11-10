@@ -48,7 +48,6 @@ class ParserTest extends FunSuite {
     "¡™£¢∞§¶•ªº≠œ∑´®†¥¨ˆøπ“‘«åß∂ƒ©˙∆˚¬…æ≥≤µ˜∫√ç≈Ω⁄€‹›ﬁ°·‚—±»’”∏Ø¨ÁÅÍÎÏÓÔÒÚÆ˘¯Â¸фывапролджэאבגדהוזחטיכךלמםנןסעפףצץקרששׂשׁתבּגּדּהּוּוֹזּטּיּכּךּךָךְלּמּנּסּפּףּצּקּשּׂשּׁתּ".foreach { c =>
       check(Grammar.valid_non_ascii(_), s"$c", (), 1)
     }
-
   }
 
   test("valid_non_ascii with large Unicode values from UTF-16 surrogates") {
