@@ -144,7 +144,7 @@ object ImportResolution {
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
-  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentDir: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
+  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
     //println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentDir=${currentDir.toAbsolutePath.toString} with initial $state0")
     expr.scheme match {
       case i@Import(_, _, _) =>
@@ -186,7 +186,7 @@ object ImportResolution {
             Left(validateHashAndCacheResolved(expr, child.digest))
 
           case ImportMode.Code => Right(bytes =>
-            Parser.parseDhallBytes(bytes, currentDir) match {
+            Parser.parseDhallBytes(bytes, currentFile) match {
               case Parsed.Success(DhallFile(_, expr), _) => Resolved(expr)
               case failure: Parsed.Failure => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
             }
@@ -197,17 +197,17 @@ object ImportResolution {
         lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
           case ImportType.Missing => Left(TransientFailure(Seq("import designated as `missing`")))
 
-          case Remote(url, headers) => // TODO: use headers and also receive headers
+          case Remote(url, headers) => // TODO: use headers and also receive headers for CORS check
             Try(requests.get(url.toString, headers = httpHeaders(headers)).bytes) match {
               case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $url: $exception")))
               case Success(bytes) => Right(bytes)
             }
 
           case path@Path(_, _) => (for {
-            javaPath <- Try(path.toJavaPath(currentDir))
+            javaPath <- Try(path.toJavaPath)
             bytes <- Try(Files.readAllBytes(javaPath))
           } yield bytes) match {
-            case Failure(exception) => Left(TransientFailure(Seq(s"failed to read imported file: $exception")))
+            case Failure(exception) => Left(TransientFailure(Seq(s"Failed to read imported file: $exception")))
             case Success(bytes) => Right(bytes)
           }
 
@@ -236,7 +236,7 @@ object ImportResolution {
         val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
           case Left(gotEarlyResult) => (gotEarlyResult, state0)
           case Right(readExpression) =>
-            resolveImportsStep(readExpression, visited :+ child, currentDir).run(state0) match {
+            resolveImportsStep(readExpression, visited :+ child, currentFile).run(state0) match {
               case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
                   case TypeCheckResult.Valid(_) => (result1, state1)
@@ -256,12 +256,12 @@ object ImportResolution {
 
       // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
       case ExprOperator(lop, Operator.Alternative, rop) =>
-        resolveImportsStep(lop, visited, currentDir).run(state0) match {
+        resolveImportsStep(lop, visited, currentFile).run(state0) match {
           case resolved@(Resolved(_), _) => resolved
 
           case failed@(PermanentFailure(_), _) => failed
 
-          case (TransientFailure(messages1), state1) => resolveImportsStep(rop, visited, currentDir).run(state1) match {
+          case (TransientFailure(messages1), state1) => resolveImportsStep(rop, visited, currentFile).run(state1) match {
             case resolved@(Resolved(_), _) => resolved
             case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
             case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
@@ -269,7 +269,7 @@ object ImportResolution {
 
         }
 
-      case _ => expr.scheme.traverse(resolveImportsStep(_, visited, currentDir)).run(state0) match {
+      case _ => expr.scheme.traverse(resolveImportsStep(_, visited, currentFile)).run(state0) match {
         case (scheme, state) => (scheme.map(Expression.apply), state)
       }
     }

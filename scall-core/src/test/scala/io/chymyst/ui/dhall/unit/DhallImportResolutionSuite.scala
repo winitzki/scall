@@ -41,7 +41,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         "HOME" -> dhallHome,
       )
       runInFakeEnvironmentWith(envVars: _*)(code)
-    } finally os.remove(tempDir)
+    } finally os.remove(tempDir, checkExists = true)
   }
 
   test("import resolution success") {

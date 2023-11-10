@@ -202,13 +202,13 @@ object SyntaxConstants {
   object FilePrefix extends Enum[FilePrefix] with HasCborCodeDict[Int, FilePrefix] {
     val values = findValues
 
-    case object Absolute extends FilePrefix(2, "")
+    case object Absolute extends FilePrefix(2, "/") // /absolute/path/to/file
 
-    case object Here extends FilePrefix(3, ".") // ./something relative to the current working directory
+    case object Here extends FilePrefix(3, "./") // ./something relative to the current working directory
 
-    case object Parent extends FilePrefix(4, "..") // ./something relative to the parent working directory
+    case object Parent extends FilePrefix(4, "../") // ./something relative to the parent working directory
 
-    case object Home extends FilePrefix(5, "~") // ~/something relative to the user's home directory
+    case object Home extends FilePrefix(5, "~/") // ~/something relative to the user's home directory
   }
 
   sealed abstract class ImportType[+E] {
@@ -241,12 +241,12 @@ object SyntaxConstants {
     final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
 
-      override def toString: String = filePrefix.prefix + "/" + file.toString
+      override def toString: String = filePrefix.prefix + file.toString
 
-      def toJavaPath(currentDir: java.nio.file.Path): java.nio.file.Path = {
+      def toJavaPath: java.nio.file.Path = {
         val initialPath = filePrefix match {
           case FilePrefix.Home => Paths.get(System.getProperty("user.home"))
-          case _ => currentDir.resolve(filePrefix.prefix)
+          case _ => Paths.get(filePrefix.prefix)
         }
         file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
       }
@@ -274,12 +274,14 @@ object SyntaxConstants {
 
     // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
     def canonicalize: File = {
-      val newSegments: Seq[String] = segments.foldLeft(List[String]())((prev, segment) => segment match {
-        case "." => prev
-        case ".." if prev.headOption.exists(_ != "..") => prev.tail
-        case s => s :: prev
-      }).reverse
-      File(newSegments)
+      val newSegments: Seq[String] = segments.foldLeft(List[String]()) { (prev, segment) =>
+        segment match {
+          case "." => prev
+          case ".." if prev.headOption.exists(_ != "..") => prev.tail
+          case s => s :: prev
+        }
+      }
+      File(newSegments.reverse)
     }
 
     def chain(child: File): File = if (segments.isEmpty) child else File(segments.init ++ child.segments)
@@ -702,10 +704,12 @@ object Syntax {
         child.copy(importType = ImportResolution.chainWith(importType, child.importType))
 
       def canonicalize: Import[E] = importType match {
-        case i@ImportType.Remote(url, headers) =>
+        case i@ImportType.Remote(_, _) =>
           val canonicalPath = i.url.path.canonicalize
           copy(importType = i.copy(url = i.url.copy(path = canonicalPath)))
-        case i@ImportType.Path(filePrefix, file) => copy(importType = i.copy(file = i.file.canonicalize))
+        case i@ImportType.Path(_, _) =>
+          val canonicalPath = i.file.canonicalize
+          copy(importType = i.copy(file = canonicalPath))
         case _ => this
       }
     }
