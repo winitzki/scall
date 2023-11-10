@@ -815,7 +815,7 @@ object Syntax {
         case TimeLiteral(time) => s"$time"
         case t@TimeZoneLiteral(_) => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
-        case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(p) }.mkString(", ") + " }"
+        case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
         case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.atPrecedence(p)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
         case ShowConstructor(data) => "showConstructor " + data.atPrecedence(p)
         case Import(importType, importMode, digest) =>

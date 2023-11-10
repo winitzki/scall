@@ -82,4 +82,10 @@ object TestUtils {
     }
   }
 
+  def requireSuccessAtLeast(n: Int, results: Seq[Try[_]]) = {
+    val failures = results.count(_.isFailure)
+    val successes = results.count(_.isSuccess)
+    println(s"Success count: $successes\nFailure count: $failures")
+    expect(failures == 0 && successes >= n)
+  }
 }

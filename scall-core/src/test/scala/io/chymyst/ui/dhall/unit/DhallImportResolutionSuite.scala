@@ -55,9 +55,9 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             val result = Try {
               val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
               val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-              // resolve from ./dhall-lang/tests/...dhall as parent
-              val x = ourResult.resolveImports(???)
-              val y = validationResult.resolveImports(???)
+              // TODO: resolve with ./dhall-lang/tests/...dhall as parent import
+              val x = ourResult.resolveImports(file.toPath)
+              val y = validationResult.resolveImports(validationFile.toPath)
               expect(x.toDhall == y.toDhall && x == y)
               file.getName
             }
@@ -65,8 +65,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             result
           }
         }
-      println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-      expect(results.count(_.isFailure) == 0)
+     TestUtils.requireSuccessAtLeast(1000, results)
     }
   }
 
@@ -92,8 +91,6 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get}${printThrowable(result.failed.get).split("\n", -1).filter(_ contains "Semantics.scala").mkString("\n")}")
         result
       }
-    val failures = results.count(_.isFailure)
-    println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures")
-    expect(failures <= 2) // 2 failures due to import resolution not yet implemented
+    TestUtils.requireSuccessAtLeast(1000, results)
   }
 }
