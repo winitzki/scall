@@ -625,6 +625,7 @@ object Syntax {
 
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
+    // TODO report issue - it should be documented that TimeLiteral supports arbitrary precision in nanoseconds and keeps all trailing zeros. For example, 10:59:59.1234567890123456789000000000 is printed via Time/show with no changes.
     final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: Option[String]) extends ExpressionScheme[Nothing] with VarPrecedence {
       //      val power = math.pow(10, -precision).toLong
       //      val seconds = (totalSeconds / power).toInt
