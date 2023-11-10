@@ -625,18 +625,34 @@ object Syntax {
 
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class TimeLiteral(hours: Int, minutes: Int, totalSeconds: Long, precision: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
-      require(totalSeconds >= 0 && precision <= 0 && precision >= -9)
-      val power = math.pow(10, -precision).toLong
-      val seconds = (totalSeconds / power).toInt
-      val nanos = ((totalSeconds % power) * math.pow(10, precision + 9)).toInt
+    final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: Option[String]) extends ExpressionScheme[Nothing] with VarPrecedence {
+      //      val power = math.pow(10, -precision).toLong
+      //      val seconds = (totalSeconds / power).toInt
+      val nanos: Int = ??? // ((totalSeconds % power) * math.pow(10, precision + 9)).toInt
+      // TODO: fix this
+      //      override def toString: String = {
+      //        val nanosPrinted = f"$nanos%09d" // TODO: fix this
+      //        f"$hours%02d:$minutes%02d:$seconds%02d$nanosPrinted"
+      //      }
 
-      override def toString: String = {
-        val nanosPrinted = f"$nanos%09d" // TODO: fix this
-        f"$hours%02d:$minutes%02d:$seconds%02d$nanosPrinted"
-      }
+      val localTime: LocalTime = ??? //LocalTime.of(hours, minutes, seconds, nanos)
+    }
 
-      val localTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanos)
+    object TimeLiteral {
+
+      // TODO: fix this
+
+      // secfrac may be None or Some(12340000, "01234")
+      //      @tailrec def getPrecision(nanos: Long, initPrecision: Int): Int =
+      //        if (nanos <= 0) 0
+      //        else if (nanos % 10 > 0) initPrecision
+      //        else getPrecision(nanos / 10, initPrecision - 1)
+      //
+      //      val precision = getPrecision(time.getNano, 9)
+      //      val totalSeconds: Long = (time.getSecond * math.pow(10, precision).toLong + time.getNano) / math.pow(10, precision).toLong
+      def of(h: Int, m: Int, s: Int, secFraction: Option[String]): TimeLiteral = ???
+
+      def of(hours: Int, minutes: Int, totalSeconds: Int, precision: Int): TimeLiteral = ???
     }
 
     final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] with VarPrecedence {

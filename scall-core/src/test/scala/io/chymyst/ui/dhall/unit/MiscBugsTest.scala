@@ -21,6 +21,9 @@ class MiscBugsTest extends FunSuite {
         val x = t.dhall
         println(s"TimeLiteral $t converted back to ${x.toDhall}")
         expect(x.toDhall == t)
+        cborRoundtrip(x)
+        expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).toDhall == x.toDhall)
+        expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme) == x)
       }
     }
     TestUtils.requireSuccessAtLeast(TestFixtures.timeLiterals.length, results)

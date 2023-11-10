@@ -181,8 +181,8 @@ sealed trait CBORmodel {
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
 
-        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CIntTag(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 && precision >= -9 =>
-          ExpressionScheme.TimeLiteral(hours, minutes, totalSeconds, precision)
+        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CIntTag(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 =>
+          ExpressionScheme.TimeLiteral.of(hours, minutes, totalSeconds, precision)
 
         case CIntTag(32) :: (CTrue | CFalse) :: CIntTag(hours) :: CIntTag(minutes) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 =>
           val sign = data(1) match {

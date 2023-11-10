@@ -81,7 +81,7 @@ class CBORtest extends FunSuite {
   }
 
   test("CBOR roundtrips 6") {
-    cborRoundtrip(TimeLiteral(12, 0, 0, 0))
+    cborRoundtrip(TimeLiteral(12, 0, 0, None))
   }
 
   test("CBOR for dictionaries") {
