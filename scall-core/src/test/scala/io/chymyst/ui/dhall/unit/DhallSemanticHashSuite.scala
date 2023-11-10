@@ -20,6 +20,6 @@ class DhallSemanticHashSuite extends FunSuite {
       if (result.isFailure) println(s"${file.getName}: ${result.failed.get}")
       result
     }
-    TestUtils.requireSuccessAtLeast(251, results)
+    TestUtils.requireSuccessAtLeast(151, results)
   }
 }

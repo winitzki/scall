@@ -9,7 +9,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.ui.dhall.SyntaxConstants._
 
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
@@ -245,10 +245,11 @@ object SyntaxConstants {
 
       def toJavaPath: java.nio.file.Path = {
         val initialPath = filePrefix match {
-          case FilePrefix.Home => Paths.get(System.getProperty("user.home"))
-          case _ => Paths.get(filePrefix.prefix)
+          case FilePrefix.Home =>  System.getProperty("user.home")
+          case _ =>  filePrefix.prefix
         }
-        file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
+        Paths.get(initialPath, file.canonicalize.segments :_*)
+       // file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
       }
 
     }
