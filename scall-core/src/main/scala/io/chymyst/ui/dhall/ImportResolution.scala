@@ -12,6 +12,7 @@ import io.chymyst.ui.dhall.SyntaxConstants.ImportType.{Path, Remote}
 import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.nio.file.{Files, Paths}
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
@@ -121,14 +122,15 @@ object ImportResolution {
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially
-  def resolveAllImports(expr: Expression, currentDir: java.nio.file.Path): Expression = {
+  def resolveAllImports(expr: Expression, currentFile: java.nio.file.Path): Expression = {
     val initialVisited = Import[Expression](
-      ImportType.Path(FilePrefix.Here, SyntaxConstants.File(Seq(""))),
+      // Workaround: use current file as import path, import as code without sha256.
+      ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(currentFile.iterator.asScala.toSeq.map(_.toString))),
       ImportMode.Code,
       None
     )
     val initState = ImportContext(Map())
-    resolveImportsStep(expr, Seq(initialVisited), currentDir).run(initState) match {
+    resolveImportsStep(expr, Seq(initialVisited), currentFile).run(initState) match {
       case (resolved, finalState) => resolved match {
         case TransientFailure(messages) => throw new Exception(s"Transient failure resolving ${expr.toDhall}: $messages")
         case PermanentFailure(messages) => throw new Exception(s"Permanent failure resolving ${expr.toDhall}: $messages")

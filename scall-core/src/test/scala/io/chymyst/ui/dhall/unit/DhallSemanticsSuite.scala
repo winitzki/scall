@@ -42,8 +42,8 @@ class DhallSemanticsSuite extends FunSuite {
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-          val x = ourResult.betaNormalized
-          val y = validationResult
+          val x = ourResult.resolveImports(file.toPath).betaNormalized
+          val y = validationResult.resolveImports(validationFile.toPath) // Should not normalize the validation result.
 
           if (x.toDhall != y.toDhall)
             println(s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n")
@@ -58,6 +58,6 @@ class DhallSemanticsSuite extends FunSuite {
       }
     val failures = results.count(_.isFailure)
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures")
-    expect(failures <= 2) // 2 failures due to import resolution not yet implemented
+    expect(failures == 0)
   }
 }

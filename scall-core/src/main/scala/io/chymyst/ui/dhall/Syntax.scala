@@ -718,7 +718,7 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
-    def resolveImports(currentDir: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentDir)
+    def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
 
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
 
@@ -782,7 +782,7 @@ object Syntax {
         case Variable(name, index) => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
         case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p)).getOrElse("")} = ${subst.atPrecedence(p)}\nin ${body.atPrecedence(p)}"
+        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p)).getOrElse("")} = ${subst.atPrecedence(TermPrecedence.lowest)}\nin ${body.atPrecedence(p)}"
         case If(cond, ifTrue, ifFalse) => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
         case Merge(record, update, tipe) => "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
           case Some(value) => ": " + value.atPrecedence(p)
@@ -796,7 +796,7 @@ object Syntax {
         case NonEmptyList(exprs) => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
         case Annotation(data, tipe) => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p)}"
         case ExprOperator(lop, op, rop) => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
-        case Application(func, arg) => s"${func.atPrecedence(p)} ${arg.atPrecedence(p)}"
+        case Application(func, arg) => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
         case Field(base, name) => base.atPrecedence(p) + "." + name.name
         case ProjectByLabels(base, labels) => base.atPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
         case ProjectByType(base, by) => base.atPrecedence(p) + "." + "(" + by.atPrecedence(p) + ")"

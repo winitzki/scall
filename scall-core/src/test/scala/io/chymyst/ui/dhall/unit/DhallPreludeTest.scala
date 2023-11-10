@@ -15,7 +15,7 @@ class DhallPreludeTest extends FunSuite {
     enumerateResourceFiles("dhall-lang/tests/type-inference/success", Some("preludeA.dhall"))
       .foreach { file =>
         val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-        expect(ourResult.resolveImports(file.toPath.getParent).isInstanceOf[Expression])
+        expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
       }
   }
 
@@ -26,7 +26,7 @@ class DhallPreludeTest extends FunSuite {
           //println(s"Parsing file ${file.getAbsolutePath}")
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           //println(s"Resolving imports in file ${file.getAbsolutePath}")
-          expect(ourResult.resolveImports(file.toPath.getParent).isInstanceOf[Expression])
+          expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
         }
         if (result.isFailure) println(s"Failure for file $file: ${result.failed.get}")
         result
