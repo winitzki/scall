@@ -76,14 +76,16 @@ object TypeCheck {
     // Important: the expressions must be prepended to the list even though the math notation is `(Γ0, x : A1)`.
     // This is because a de Bruijn index increases to the left in the list.
     def prepend(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
-      case Some(exprs) => Some(expr +: exprs)
+      case Some(exprs) =>
+        //println(s"DEBUG: prepending ${varName.name} : ${expr.toDhall} to ${exprs.map{_.toDhall}.mkString("[", ", ", "]")} in $this")
+        Some(expr +: exprs)
       case None => Some(IndexedSeq(expr))
     })
 
     def mapExpr(f: Expression => Expression): Gamma = Gamma(defs.map { case (name, exprs) => (name, exprs.map(f)) })
 
     override def toString: String = defs.flatMap { case (varName, exprs) =>
-      exprs.reverse.zipWithIndex.map { case (expr, index) =>
+      exprs.zipWithIndex.map { case (expr, index) =>
         varName.name + (if (index > 0) s"@$index" else "") + " : " + expr.toDhall
       }
     }.mkString("{", ", ", "}")
@@ -141,7 +143,6 @@ object TypeCheck {
       result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
     }
 
-    // TODO report issue: "If the natural number associated with the variable is greater than or equal to the number of type annotations in the context matching the variable then that is a type error." This seems to be incorrect: the type error occurs if the index is strictly greater.
     val result: TypeCheckResult[Expression] = exprToInferTypeOf.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
         case Some(tipe) =>
@@ -155,6 +156,7 @@ object TypeCheck {
       case Lambda(name, tipe, body) => for {
         varType <- tipe.wellTypedBetaNormalize(gamma)
         updatedContext = gamma.prepend(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
+        //_ = println(s"DEBUG 2: updated context is $updatedContext")
         bodyType <- body.inferTypeWith(updatedContext)
         typeOfLambda = (Expression(Variable(name, BigInt(0))) | varType) ->: bodyType
         _ <- typeOfLambda.inferTypeWith(gamma)
@@ -162,6 +164,7 @@ object TypeCheck {
 
       case Forall(name, tipe, body) =>
         val updatedContext = gamma.prepend(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        //println(s"DEBUG 2: updated context is $updatedContext")
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
@@ -238,7 +241,10 @@ object TypeCheck {
             (ConstructorName("None"), None),
             (ConstructorName("Some"), Some(optType))
           )))).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
-          Expression(Merge(record, ~"x", None)).inferTypeWith(updatedContext)
+          //println(s"DEBUG 1: updated context is $updatedContext")
+          val newRecord = Semantics.shift(true, VarName("x"), 0, record) // TODO verify that this is true, as this contradicts type-inference.md
+          // TODO report issue: for typechecking `Γ ⊢ merge t o : T` we need to shift up `t` as well, not only `Γ`. Also, notation must be `Γ` and not `Γ0`.
+          Expression(Merge(newRecord, ~"x", None)).inferTypeWith(updatedContext)
 
         case (other1, other2) => typeError(s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.toDhall} and ${other2.toDhall}")
       }
@@ -377,7 +383,8 @@ object TypeCheck {
             val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
             val b2 = Semantics.shift(false, varName, 0, b1)
             Valid(b2.betaNormalized)
-          } else typeError(s"Function application in ${exprToInferTypeOf.toDhall} must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}")
+          } else
+            typeError(s"Function application in ${exprToInferTypeOf.toDhall} must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}")
         case (other, _) => typeError(s"Function application in ${exprToInferTypeOf.toDhall} must use a function type, but instead found ${other.toDhall}")
       }
 

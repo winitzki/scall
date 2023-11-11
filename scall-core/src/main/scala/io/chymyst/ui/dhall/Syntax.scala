@@ -828,7 +828,7 @@ object Syntax {
         case Variable(name, index) => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
         case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p)).getOrElse("")} = ${subst.atPrecedence(TermPrecedence.lowest)}\nin ${body.atPrecedence(p)}"
+        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(TermPrecedence.lowest)}\nin ${body.atPrecedence(p)}"
         case If(cond, ifTrue, ifFalse) => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
         case Merge(record, update, tipe) => "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
           case Some(value) => ": " + value.atPrecedence(p)
@@ -840,7 +840,7 @@ object Syntax {
         })
         case EmptyList(tipe) => s"[]: ${tipe.atPrecedence(p)}"
         case NonEmptyList(exprs) => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
-        case Annotation(data, tipe) => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p)}"
+        case Annotation(data, tipe) => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p - 1)}"
         case ExprOperator(lop, op, rop) => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
         case Application(func, arg) => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
         case Field(base, name) => base.atPrecedence(p) + "." + name.name
