@@ -181,8 +181,8 @@ sealed trait CBORmodel {
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
 
-        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CIntTag(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 =>
-          ExpressionScheme.TimeLiteral.of(hours, minutes, totalSeconds, precision)
+        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CInt(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 =>
+          ExpressionScheme.TimeLiteral.of(hours, minutes, totalSeconds, precision).or(s"Invalid TimeLiteral($hours, $minutes, $totalSeconds, $precision)")
 
         case CIntTag(32) :: (CTrue | CFalse) :: CIntTag(hours) :: CIntTag(minutes) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 =>
           val sign = data(1) match {
@@ -227,7 +227,7 @@ object CBORmodel {
     val bais = new ByteArrayInputStream(bytes)
     new CborDecoder(bais).decode.asScala.toList match {
       case head :: Nil => fromCbor1(head)
-      case head :: tail => ().die(s"Invalid sequence of CBOR objects, $tail, after the first CBOR1 object")
+      case head :: tail => ().die(s"Invalid sequence of CBOR objects, $tail, after the first CBOR1 object, $head")
       case Nil => ().die(s"Invalid null byte stream for decoding CBOR1")
     }
   }
@@ -562,8 +562,8 @@ object CBOR {
 
     case ExpressionScheme.DateLiteral(y, m, d) => array(30, y, m, d)
 
-    case ExpressionScheme.TimeLiteral(hours, minutes, totalSeconds, precision) =>
-      array(31, hours, minutes, CTagged(4, array(precision, totalSeconds)))
+    case t@ExpressionScheme.TimeLiteral(hours, minutes, _, _) =>
+      array(31, hours, minutes, CTagged(4, array(t.cborPrecision, t.cborTotalSeconds)))
 
     case t@ExpressionScheme.TimeZoneLiteral(_) =>
       val cborSign: CBORmodel = if (t.isPositive) CTrue else CFalse

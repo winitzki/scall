@@ -566,9 +566,10 @@ object Grammar {
   def partial_time[$: P]: P[TimeLiteral] = P(
     time_hour ~ ":" ~ time_minute ~ ":" ~ time_second
       ~ time_secfrac.?
-  ).flatMap { case (h, m, s, secfrac) =>
+  ).flatMap { case (h, m, s, secfracOpt) =>
+    val secfrac = secfracOpt.getOrElse("")
     Try(TimeLiteral.of(h, m, s, secfrac)) match {
-      case Failure(exception) => Fail(s"Invalid local time literal $h:$m:$s${secfrac.map("." + _).getOrElse("")}, error: $exception")
+      case Failure(exception) => Fail(s"Invalid local time literal ${TimeLiteral(h, m, s, secfrac)}, error: $exception")
       case Success(value) => Pass(value)
     }
   }

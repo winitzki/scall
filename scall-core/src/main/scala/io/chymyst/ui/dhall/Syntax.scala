@@ -626,34 +626,46 @@ object Syntax {
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
     // TODO report issue - it should be documented that TimeLiteral supports arbitrary precision in nanoseconds and keeps all trailing zeros. For example, 10:59:59.1234567890123456789000000000 is printed via Time/show with no changes.
-    final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: Option[String]) extends ExpressionScheme[Nothing] with VarPrecedence {
-      //      val power = math.pow(10, -precision).toLong
-      //      val seconds = (totalSeconds / power).toInt
-      val nanos: Int = ??? // ((totalSeconds % power) * math.pow(10, precision + 9)).toInt
-      // TODO: fix this
-      //      override def toString: String = {
-      //        val nanosPrinted = f"$nanos%09d" // TODO: fix this
-      //        f"$hours%02d:$minutes%02d:$seconds%02d$nanosPrinted"
-      //      }
+    final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+      lazy val cborTotalSeconds: BigInt = BigInt(seconds.toString + nanosPrinted)
 
-      val localTime: LocalTime = ??? //LocalTime.of(hours, minutes, seconds, nanos)
+      // This is a negative number such that cborTotalSeconds * math.pow(10, cborPrecision) = seconds + math.pow(10, -9)*nanoSeconds
+      // and the number of digits in cborTotalSeconds must be the same as the length of nanosPrinted.
+      val cborPrecision: Int = -nanosPrinted.length
+
+      /** The Dhall `TimeLiteral` has arbitrary-precision nanoseconds. Truncate them for converting to `java.time.LocalTime`.
+       *
+       */
+      val nanosTruncated: Int = (nanosPrinted.take(9) + "0" * 9).take(9).toInt
+
+      val localTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanosTruncated)
+
+      override def toString: String = f"$hours%02d:$minutes%02d:$seconds%02d${if (nanosPrinted.isEmpty) "" else "." + nanosPrinted}"
     }
 
     object TimeLiteral {
+      def of(hours: Int, minutes: Int, totalSeconds: BigInt, precision: Int): TimeLiteral = {
+        require(precision <= 0)
+        val fracLength = -precision
+        // Example: totalSeconds = 102003000 and precision = -8
+        // We will compute seconds = 1 and secFraction = Some("02003000")
+        val power = BigInt(10).pow(fracLength)
+        val (secondsBigInt, fracBigInt) = totalSeconds /% power
+        val seconds: Int = if (secondsBigInt.isValidInt && secondsBigInt.intValue >= 0 && secondsBigInt.intValue <= 59)
+          secondsBigInt.intValue
+        else throw new Exception(s"Invalid TimeLiteral: totalSeconds = $totalSeconds, precision = $precision is inconsistent because seconds = $secondsBigInt and is not between 0 and 59")
+        if (fracLength == 0) TimeLiteral(hours, minutes, seconds, "") else {
+          val fracBigIntString = fracBigInt.toString(10)
+          val leadingZeros: String = "0" * (fracLength - fracBigIntString.length)
+          val secFraction = leadingZeros + fracBigIntString
+          TimeLiteral(hours, minutes, seconds, secFraction)
+        }
+      }
 
-      // TODO: fix this
-
-      // secfrac may be None or Some(12340000, "01234")
-      //      @tailrec def getPrecision(nanos: Long, initPrecision: Int): Int =
-      //        if (nanos <= 0) 0
-      //        else if (nanos % 10 > 0) initPrecision
-      //        else getPrecision(nanos / 10, initPrecision - 1)
-      //
-      //      val precision = getPrecision(time.getNano, 9)
-      //      val totalSeconds: Long = (time.getSecond * math.pow(10, precision).toLong + time.getNano) / math.pow(10, precision).toLong
-      def of(h: Int, m: Int, s: Int, secFraction: Option[String]): TimeLiteral = ???
-
-      def of(hours: Int, minutes: Int, totalSeconds: Int, precision: Int): TimeLiteral = ???
+      def of(h: Int, m: Int, s: Int, secFraction: String): TimeLiteral = {
+        require(h >= 0 && h <= 59 && m >= 0 && m <= 59 && s >= 0 && s <= 59 && (secFraction matches "^[0-9]*$"))
+        TimeLiteral(h, m, s, secFraction)
+      }
     }
 
     final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
