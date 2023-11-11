@@ -65,7 +65,7 @@ class SimpleTypecheckTest extends FunSuite {
         val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
         println(s"Parsed expression: ${ourResult.toDhall}")
         ourResult.inferType match {
-          case TypeCheckResult.Invalid(errors) => expect(errors contains "Field selection must be for a record or a union, but instead found type Bool")
+          case TypeCheckResult.Invalid(errors) => expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
         }
       }
   }
