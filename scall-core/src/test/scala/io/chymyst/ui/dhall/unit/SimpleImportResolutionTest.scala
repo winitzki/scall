@@ -2,6 +2,7 @@ package io.chymyst.ui.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
+import io.chymyst.test.ResourceFiles
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.Parser.InlineDhall
 import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
@@ -13,6 +14,7 @@ import io.chymyst.ui.dhall.{Parser, SyntaxConstants, TypeCheckResult}
 import munit.FunSuite
 
 import java.io.FileInputStream
+import java.nio.file.Paths
 
 class SimpleImportResolutionTest extends FunSuite {
 
@@ -41,4 +43,8 @@ class SimpleImportResolutionTest extends FunSuite {
     expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp2", "file3.dhall"))))
   }
 
+  test("no loops in importing") {
+    val file = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
+    expect(file.dhall.resolveImports(Paths.get(file).getParent.resolve("package.dhall")).isInstanceOf[Expression])
+  }
 }

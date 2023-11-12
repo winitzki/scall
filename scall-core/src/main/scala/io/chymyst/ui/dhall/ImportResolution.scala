@@ -112,7 +112,7 @@ object ImportResolution {
     .collect { case Success(path) => path }
 
   final case class ImportContext(resolved: Map[Import[Expression], Expression]) {
-    override def toString: String = resolved.map { case (k, v) => k.toDhall + " -> " + v.toDhall }.mkString("Map(", ", ", ")")
+    override def toString: String = resolved.map { case (k, v) => k.toDhall.take(160) + (if (k.toDhall.length > 160) "..." else "") + " -> " + v.toDhall.take(160) + (if (v.toDhall.length > 160) "..." else "") }.mkString("Map(\n\t", "\n\t", "\n)")
   }
 
   def httpHeaders(headers: Option[Expression]): Iterable[(String, String)] = headers match {
@@ -145,7 +145,7 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
-    //println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentDir=${currentDir.toAbsolutePath.toString} with initial $state0")
+    println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial $state0")
     expr.scheme match {
       case i@Import(_, _, _) =>
         val (parent, child, referentialCheck) = visited.lastOption match {
