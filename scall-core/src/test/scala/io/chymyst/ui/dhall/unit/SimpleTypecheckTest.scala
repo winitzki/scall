@@ -7,8 +7,8 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, VarName}
 import io.chymyst.ui.dhall.TypeCheck._Type
-import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.{Parser, TypeCheckResult}
+import io.chymyst.ui.dhall.TypecheckResult.Valid
+import io.chymyst.ui.dhall.{Parser, TypecheckResult}
 import munit.FunSuite
 
 import java.io.FileInputStream
@@ -65,7 +65,7 @@ class SimpleTypecheckTest extends FunSuite {
         val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
         println(s"Parsed expression: ${ourResult.toDhall}")
         ourResult.inferType match {
-          case TypeCheckResult.Invalid(errors) => expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
+          case TypecheckResult.Invalid(errors) => expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
         }
       }
   }

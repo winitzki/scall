@@ -12,6 +12,7 @@ import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.security.MessageDigest
 import java.util.regex.Pattern
+import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
@@ -519,11 +520,43 @@ object Semantics {
 final case class FreeVars[A](names: Set[VarName]) // Quick-and-dirty foldMap replacement.
 
 object FreeVars {
-  implicit val ApplicativeCollectFreeVar: Applicative[FreeVars] = new Applicative[FreeVars] {
+  implicit val ApplicativeFreeVars: Applicative[FreeVars] = new Applicative[FreeVars] {
     override def zip[A, B](fa: FreeVars[A], fb: FreeVars[B]): FreeVars[(A, B)] = FreeVars(fa.names union fb.names)
 
     override def map[A, B](f: A => B)(fa: FreeVars[A]): FreeVars[B] = FreeVars(fa.names)
 
     override def pure[A](a: A): FreeVars[A] = FreeVars(Set())
+  }
+}
+
+// We need to define this as an applicative functor, but actually we will use this only with A = Expression.
+final case class UniqueReferences[A](run: mutable.Set[Expression] => (A, mutable.Set[Expression]))
+
+object UniqueReferences {
+  // Replace a given value by a unique reference if available. Otherwise update the dictionary of unique references.
+  def make(expression: Expression): UniqueReferences[Expression] = UniqueReferences { cache =>
+    val newExpression = cache.find(_ == expression).getOrElse {
+      cache.add(expression)
+      expression
+    }
+    (newExpression, cache)
+  }
+
+  implicit val ApplicativeUniqueReferences: Applicative[UniqueReferences] = new Applicative[UniqueReferences] {
+    override def zip[A, B](fa: UniqueReferences[A], fb: UniqueReferences[B]): UniqueReferences[(A, B)] = UniqueReferences(c =>
+      fa.run(c) match {
+        case (a, d) => fb.run(d) match {
+          case (b, e) => ((a, b), e)
+        }
+      }
+    )
+
+    override def map[A, B](f: A => B)(fa: UniqueReferences[A]): UniqueReferences[B] = UniqueReferences(prev =>
+      fa.run(prev) match {
+        case (a, dict) => (f(a), dict)
+      }
+    )
+
+    override def pure[A](a: A): UniqueReferences[A] = UniqueReferences(prev => (a, prev))
   }
 }

@@ -145,7 +145,7 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
-    println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial $state0")
+    //println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
     expr.scheme match {
       case i@Import(_, _, _) =>
         val (parent, child, referentialCheck) = visited.lastOption match {
@@ -239,8 +239,8 @@ object ImportResolution {
             resolveImportsStep(readExpression, visited :+ child, currentFile).run(state0) match {
               case (result1, state1) => result1 match {
                 case Resolved(r) => r.inferType match {
-                  case TypeCheckResult.Valid(_) => (result1, state1)
-                  case TypeCheckResult.Invalid(messages) => (PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")), state1)
+                  case TypecheckResult.Valid(_) => (result1, state1)
+                  case TypecheckResult.Invalid(messages) => (PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")), state1)
                 }
                 case _ => (result1, state1)
               }
@@ -298,7 +298,7 @@ object ImportResolutionResult {
   final case class Resolved[E](expr: E) extends ImportResolutionResult[E]
 }
 
-// A State monad used as an applicative functor to update the state during import resolution.
+// A State monad-transformed ImportResolutionResult, used as an applicative functor to update the state during import resolution.
 final case class ImportResolutionStep[+E](run: ImportContext => (ImportResolutionResult[E], ImportContext))
 
 object ImportResolutionStep {

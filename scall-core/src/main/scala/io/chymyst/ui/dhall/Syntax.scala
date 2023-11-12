@@ -10,7 +10,9 @@ import io.chymyst.ui.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.nio.file.{Path, Paths}
-import java.time.{LocalDate, LocalTime, ZoneOffset}
+import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
+import java.util.concurrent.atomic.AtomicReference
+import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -764,19 +766,27 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
+    def traverseRecursive[F[_] : Applicative](f: Expression => F[Expression]): F[Expression] = scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
+
+    def uniqueSubexpressionReferences: Expression = {
+      val t: UniqueReferences[Expression] = traverseRecursive[UniqueReferences](UniqueReferences.make)
+      val u: (Expression, mutable.Set[Expression]) = t.run(mutable.Set())
+      u._1
+    }
+
     def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
 
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
-    def inferType: TypeCheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
+    def inferType: TypecheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
 
-    def inferTypeWith(gamma: TypeCheck.Gamma): TypeCheckResult[Expression] = TypeCheck.inferType(gamma, this)
+    def inferTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
-    def wellTypedBetaNormalize(gamma: TypeCheck.Gamma): TypeCheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+    def wellTypedBetaNormalize(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
 
-    def inferAndValidateTypeWith(gamma: TypeCheck.Gamma): TypeCheckResult[Expression] = for {
+    def inferAndValidateTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)
     } yield t
@@ -807,14 +817,23 @@ object Syntax {
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 
     // Produce a new Expression that has been beta-normalized and whose .betaNormalized method is precomputed.
-    lazy val betaNormalized: Expression = if (betaN != null) betaN else this.synchronized {
-      val normalized = Semantics.betaNormalize(this)
-      this.betaN = normalized
-      normalized.betaN = normalized
-      normalized
+    lazy val betaNormalized: Expression = if (betaN.get != null) {
+      // println(s"${LocalDateTime.now} DEBUG: using cached betaNormalized expression: ${betaN.get.toDhall}")
+      betaN.get
+    } else {
+      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
+      val normalized = Semantics.betaNormalize(this)  //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
+      if (normalized == this) {
+        this.betaN.compareAndSet(null, this)
+        this
+      } else {
+        this.betaN.compareAndSet(null, normalized)
+        normalized.betaN.compareAndSet(null, normalized)
+        normalized
+      }
     }
 
-    @volatile private var betaN: Expression = null
+    private val betaN: AtomicReference[Expression] = new AtomicReference(null)
 
     // Print to Dhall syntax.
 

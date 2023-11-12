@@ -5,7 +5,7 @@ import fastparse.Parsed
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.ui.dhall.Parser
 import io.chymyst.ui.dhall.Syntax.DhallFile
-import io.chymyst.ui.dhall.TypeCheckResult.Valid
+import io.chymyst.ui.dhall.TypecheckResult.Valid
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}
@@ -22,7 +22,7 @@ class DhallTypeInferenceSuite extends FunSuite {
         val result = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-          // println(s"DEBUG: ${file.getName} starting type inference")
+           println(s"DEBUG: ${file.getName} starting type inference")
           val x = ourResult.resolveImports(file.toPath).inferType match {
             case Valid(a) => a
           }

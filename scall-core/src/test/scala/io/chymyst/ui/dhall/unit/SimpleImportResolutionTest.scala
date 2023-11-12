@@ -9,8 +9,8 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.ui.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportType, VarName}
 import io.chymyst.ui.dhall.TypeCheck._Type
-import io.chymyst.ui.dhall.TypeCheckResult.Valid
-import io.chymyst.ui.dhall.{Parser, SyntaxConstants, TypeCheckResult}
+import io.chymyst.ui.dhall.TypecheckResult.Valid
+import io.chymyst.ui.dhall.{Parser, SyntaxConstants, TypecheckResult}
 import munit.FunSuite
 
 import java.io.FileInputStream

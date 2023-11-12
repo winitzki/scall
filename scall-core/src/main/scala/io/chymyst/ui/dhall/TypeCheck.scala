@@ -5,61 +5,62 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.ui.dhall.SyntaxConstants._
 import io.chymyst.ui.dhall.TypeCheck.Gamma
-import io.chymyst.ui.dhall.TypeCheckResult._
+import io.chymyst.ui.dhall.TypecheckResult._
 
+import java.time.LocalDateTime
 import scala.language.postfixOps
 
-sealed trait TypeCheckResult[+A] {
+sealed trait TypecheckResult[+A] {
   def isValid: Boolean
 
-  def map[B](f: A => B): TypeCheckResult[B]
+  def map[B](f: A => B): TypecheckResult[B]
 
-  def flatMap[B](f: A => TypeCheckResult[B]): TypeCheckResult[B]
+  def flatMap[B](f: A => TypecheckResult[B]): TypecheckResult[B]
 
-  def zip[B](other: TypeCheckResult[B]): TypeCheckResult[(A, B)]
+  def zip[B](other: TypecheckResult[B]): TypecheckResult[(A, B)]
 
-  def withFilter(p: A => Boolean): TypeCheckResult[A]
+  def withFilter(p: A => Boolean): TypecheckResult[A]
 }
 
-object TypeCheckResult {
-  final case class Valid[A](expr: A) extends TypeCheckResult[A] {
+object TypecheckResult {
+  final case class Valid[A](expr: A) extends TypecheckResult[A] {
     override def isValid: Boolean = true
 
-    override def map[B](f: A => B): TypeCheckResult[B] = Valid(f(expr))
+    override def map[B](f: A => B): TypecheckResult[B] = Valid(f(expr))
 
-    override def flatMap[B](f: A => TypeCheckResult[B]): TypeCheckResult[B] = f(expr)
+    override def flatMap[B](f: A => TypecheckResult[B]): TypecheckResult[B] = f(expr)
 
-    override def zip[B](other: TypeCheckResult[B]): TypeCheckResult[(A, B)] = other match {
+    override def zip[B](other: TypecheckResult[B]): TypecheckResult[(A, B)] = other match {
       case Valid(expr2) => Valid(expr, expr2)
       case Invalid(errors) => Invalid(errors)
     }
 
-    override def withFilter(p: A => Boolean): TypeCheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(Gamma(Map()))
+    override def withFilter(p: A => Boolean): TypecheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(Gamma(Map()))
   }
 
-  final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypeCheckResult[Nothing] {
+  final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypecheckResult[Nothing] {
     override def isValid: Boolean = false
 
-    override def map[B](f: Nothing => B): TypeCheckResult[B] = Invalid(errors)
+    override def map[B](f: Nothing => B): TypecheckResult[B] = Invalid(errors)
 
-    override def flatMap[B](f: Nothing => TypeCheckResult[B]): TypeCheckResult[B] = Invalid(errors)
+    override def flatMap[B](f: Nothing => TypecheckResult[B]): TypecheckResult[B] = Invalid(errors)
 
-    override def zip[B](other: TypeCheckResult[B]): TypeCheckResult[(Nothing, B)] = other match {
+    override def zip[B](other: TypecheckResult[B]): TypecheckResult[(Nothing, B)] = other match {
       case Valid(_) => Invalid(errors)
       case Invalid(otherErrors) => Invalid(errors ++ otherErrors)
     }
 
-    override def withFilter(p: Nothing => Boolean): TypeCheckResult[Nothing] = this
+    override def withFilter(p: Nothing => Boolean): TypecheckResult[Nothing] = this
   }
 
-  def typeError(message: String)(implicit gamma: Gamma): TypeCheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
+  def typeError(message: String)(implicit gamma: Gamma): TypecheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
 
-  implicit val ApplicativeTypeCheckResult: Applicative[TypeCheckResult] = new Applicative[TypeCheckResult] {
-    override def zip[A, B](fa: TypeCheckResult[A], fb: TypeCheckResult[B]): TypeCheckResult[(A, B)] = fa zip fb
+  implicit val ApplicativeTypeCheckResult: Applicative[TypecheckResult] = new Applicative[TypecheckResult] {
+    override def zip[A, B](fa: TypecheckResult[A], fb: TypecheckResult[B]): TypecheckResult[(A, B)] = fa zip fb
 
-    override def map[A, B](f: A => B)(fa: TypeCheckResult[A]): TypeCheckResult[B] = fa map f
+    override def map[A, B](f: A => B)(fa: TypecheckResult[A]): TypecheckResult[B] = fa map f
 
-    override def pure[A](a: A): TypeCheckResult[A] = Valid(a)
+    override def pure[A](a: A): TypecheckResult[A] = Valid(a)
   }
 }
 
@@ -68,23 +69,23 @@ object TypeCheck {
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
-  final case class Gamma(defs: Map[VarName, IndexedSeq[Expression]]) {
-    def lookup(variable: Variable): Option[Expression] = defs.get(variable.name).flatMap { exprs =>
+  final case class Gamma(variables: Map[VarName, IndexedSeq[Expression]]) {
+    def lookup(variable: Variable): Option[Expression] = variables.get(variable.name).flatMap { exprs =>
       if (variable.index.isValidInt) exprs.lift(variable.index.intValue) else None
     }
 
     // Important: the expressions must be prepended to the list even though the math notation is `(Γ0, x : A1)`.
     // This is because a de Bruijn index increases to the left in the list.
-    def prepend(varName: VarName, expr: Expression) = Gamma(defs.updatedWith(varName) {
+    def prepend(varName: VarName, expr: Expression) = Gamma(variables.updatedWith(varName) {
       case Some(exprs) =>
         //println(s"DEBUG: prepending ${varName.name} : ${expr.toDhall} to ${exprs.map{_.toDhall}.mkString("[", ", ", "]")} in $this")
         Some(expr +: exprs)
       case None => Some(IndexedSeq(expr))
     })
 
-    def mapExpr(f: Expression => Expression): Gamma = Gamma(defs.map { case (name, exprs) => (name, exprs.map(f)) })
+    def mapExpr(f: Expression => Expression): Gamma = Gamma(variables.map { case (name, exprs) => (name, exprs.map(f)) })
 
-    override def toString: String = defs.flatMap { case (varName, exprs) =>
+    override def toString: String = variables.flatMap { case (varName, exprs) =>
       exprs.zipWithIndex.map { case (expr, index) =>
         varName.name + (if (index > 0) s"@$index" else "") + " : " + expr.toDhall
       }
@@ -93,7 +94,7 @@ object TypeCheck {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   // Check that a given expression has the given type, that is, gamma |- expr : tipe. If this holds, no errors are output.
-  def validate(gamma: Gamma, expr: Expression, tipe: Expression): TypeCheckResult[Expression] = {
+  def validate(gamma: Gamma, expr: Expression, tipe: Expression): TypecheckResult[Expression] = {
     inferType(gamma, expr) match {
       case Valid(inferredType) =>
         if (Semantics.equivalent(tipe, inferredType))
@@ -105,17 +106,20 @@ object TypeCheck {
     }
   }
 
-  def required(cond: Boolean)(error: String)(implicit gamma: Gamma): TypeCheckResult[Unit] =
+  def required(cond: Boolean)(error: String)(implicit gamma: Gamma): TypecheckResult[Unit] =
     if (cond) Valid(()) else typeError(error)
 
   val _Type: Expression = ExprConstant(Constant.Type)
   val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
-  // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: Gamma, exprToInferTypeOf: Expression): TypeCheckResult[Expression] = {
-    implicit def toExpr(expr: Expression): TypeCheckResult[Expression] = Valid(expr)
+  // TODO: can we somehow cache all expressions that already have inferred types, to avoid inferring the same types again? At least, for closed terms? Add the context to TypecheckResult
 
-    implicit def fromBuiltin(builtin: Builtin): TypeCheckResult[Expression] = Valid(~builtin)
+  // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
+  def inferType(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
+//    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
+    implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
+
+    implicit def fromBuiltin(builtin: Builtin): TypecheckResult[Expression] = Valid(~builtin)
 
     implicit val _gamma: Gamma = gamma
 
@@ -125,8 +129,8 @@ object TypeCheck {
     ))))
 
     // Compute the upper bound of all universes in the given list.
-    def upperBoundUniverse(defs: Seq[Option[Expression]]): TypeCheckResult[Expression] = {
-      val result: TypeCheckResult[Seq[Constant]] = for {
+    def upperBoundUniverse(defs: Seq[Option[Expression]]): TypecheckResult[Expression] = {
+      val result: TypecheckResult[Seq[Constant]] = for {
         // Verify that all expressions are typed as Type, Kind, or Sort.
         exprTypes <- seqSeq(defs.flatMap(_.map(_.inferTypeWith(gamma))))
         unexpectedTypes = exprTypes.filterNot(_.scheme match {
@@ -143,7 +147,7 @@ object TypeCheck {
       result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
     }
 
-    val result: TypeCheckResult[Expression] = exprToInferTypeOf.scheme match {
+    val result: TypecheckResult[Expression] = exprToInferTypeOf.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
         case Some(tipe) =>
           tipe.inferTypeWith(gamma) match {
@@ -211,7 +215,7 @@ object TypeCheck {
 
         case (Expression(matcher@RecordType(defsMatcher)), Expression(target@UnionType(defsTarget))) => // Now the RecordType is nonempty but tipe is empty.
           if (defsMatcher.sizeCompare(defsTarget) == 0) {
-            val typesInParts: TypeCheckResult[Seq[Expression]] = seqSeq(matcher.sorted.defs zip target.sorted.defs map {
+            val typesInParts: TypecheckResult[Seq[Expression]] = seqSeq(matcher.sorted.defs zip target.sorted.defs map {
               case ((name1, expr1), (name2, expr2)) if name1.name == name2.name =>
                 expr2 match {
                   case Some(partType) => expr1 match {
