@@ -178,7 +178,6 @@ object Semantics {
         }
       }
 
-      // TODO report issue: Does betaNormalize(toMap {=} T) give [] : T' where T' = betaNormalize T? Or does it not normalize T? beta-normalization.md specifies "EmptyList _T₀", which implies no normalization in that case.
       case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
       case ToMap(data, _) => matchOrNormalize(data) {
         case RecordLiteral(defs) =>
@@ -340,7 +339,7 @@ object Semantics {
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
                 // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
-                g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN)).betaNormalized
+                (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
 
               // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
               case EmptyList(_) => argN

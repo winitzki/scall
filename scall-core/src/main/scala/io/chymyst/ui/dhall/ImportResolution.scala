@@ -238,7 +238,7 @@ object ImportResolution {
           case Right(readExpression) =>
             resolveImportsStep(readExpression, visited :+ child, currentFile).run(state0) match {
               case (result1, state1) => result1 match {
-                case Resolved(r) => r.inferType match {
+                case Resolved(r) => r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
                   case TypecheckResult.Valid(_) => (result1, state1)
                   case TypecheckResult.Invalid(messages) => (PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")), state1)
                 }

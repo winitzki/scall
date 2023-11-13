@@ -32,7 +32,23 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
       )
     }
     println(results.filter(_.isFailure).map(_.failed.get).take(10).map(_.getMessage).mkString("\n"))
-    TestUtils.requireSuccessAtLeast(TestFixtures.timeLiterals.length, results)
+    TestUtils.requireSuccessAtLeast(results.length, results)
+  }
+
+  test("time literals with truncated nanos") {
+    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.toSeq.flatMap { case (input, output) =>
+      val x = input.dhall
+      Seq(
+        Try(expect(x.toDhall == output)),
+        Try(cborRoundtrip(x)),
+        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme) == x)),
+        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme) == x)),
+      )
+    }
+    println(results.filter(_.isFailure).map(_.failed.get).take(10).map(_.getMessage).mkString("\n"))
+    TestUtils.requireSuccessAtLeast(results.length, results)
   }
 
   test("type inference must use correct de Bruijn index, no imports") {

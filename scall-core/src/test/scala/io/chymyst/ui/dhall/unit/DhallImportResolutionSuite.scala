@@ -16,7 +16,6 @@ import scala.util.Try
 object DhallImportResolutionSuite {
   def readHeadersFromEnv(envVarsFile: File): Seq[(String, String)] = if (envVarsFile.exists) {
     val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
-    // TODO report issue - the test README should say that the special resource files *ENV.dhall must be beta-normalized before use.
     envs.betaNormalized.toPrimitiveValue match {
       case Some(t: List[Map[String, AnyRef]]) => t.flatMap {
         case x: Map[String, AnyRef] if x.keys.toList.sorted == List("mapKey", "mapValue") && x.values.forall(_.isInstanceOf[String]) =>

@@ -222,7 +222,6 @@ object TypeCheck {
                     case Expression(handlerType@Forall(varName, varType, targetType)) => for {
                       result <- Valid(Semantics.shift(false, varName, 0, targetType))
                       _ <- required(Semantics.equivalent(varType, partType))(s"merge expression must have matcher's argument types equal to field types, but found ${varType.toDhall} and ${partType.toDhall}")
-                      // TODO report issue: type-inference.md says "`x` not free in `T" but does not explain why and what kind of error occurs if x were free in T0, or how to detect free variables.
                       _ <- required(!Semantics.freeVars(targetType).names.contains(varName))(s"Disallowed handler type ${handlerType.toDhall}, cannot be a type constructor (a handler's body cannot have $varName as a free variable)")
                     } yield result
 
@@ -245,10 +244,8 @@ object TypeCheck {
             (ConstructorName("None"), None),
             (ConstructorName("Some"), Some(optType))
           )))).mapExpr(Semantics.shift(true, VarName("x"), 0, _))
-          //println(s"DEBUG 1: updated context is $updatedContext")
-          val newRecord = Semantics.shift(true, VarName("x"), 0, record) // TODO verify that this is true, as this contradicts type-inference.md
-          // TODO report issue: for typechecking `Γ ⊢ merge t o : T` we need to shift up `t` as well, not only `Γ`. Also, notation must be `Γ` and not `Γ0`.
-          Expression(Merge(newRecord, ~"x", None)).inferTypeWith(updatedContext)
+          val updatedRecord = Semantics.shift(true, VarName("x"), 0, record) // TODO verify that this is true, as this contradicts type-inference.md
+          Expression(Merge(updatedRecord, ~"x", None)).inferTypeWith(updatedContext)
 
         case (other1, other2) => typeError(s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.toDhall} and ${other2.toDhall}")
       }
