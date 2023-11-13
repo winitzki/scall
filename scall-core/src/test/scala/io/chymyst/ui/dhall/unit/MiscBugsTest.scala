@@ -15,7 +15,7 @@ import munit.FunSuite
 
 import java.io.FileInputStream
 import java.nio.file.{Files, Paths}
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 class MiscBugsTest extends FunSuite with ResourceFiles {
 
@@ -53,16 +53,57 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
 
   test("cbor encoding for time literals with long fraction using cbor1") {
     val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
-    val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal_1.cbor").get.toPath)).toScheme
+    val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
     expect(input.dhall == fromCbor1)
     expect(expected.dhall == fromCbor1)
   }
 
   test("cbor encoding for time literals with long fraction using cbor2") {
     val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
-    val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal_1.cbor").get.toPath)).toScheme
+    val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
     expect(input.dhall == fromCbor2)
     expect(expected.dhall == fromCbor2)
+  }
+
+  def runTestWithNanos(iterations: Int, initialSeconds: Int, createFiles: Boolean) = {
+    // Encode "00:00:00.000000000000" with various numbers of zeros after comma.
+    val results = (1 to iterations).map { i =>
+      val inputString = f"00:00:$initialSeconds%02d." + "0" * i
+      val input = inputString.dhall
+      val fileName = s"time_literal_$initialSeconds.$i.cbor"
+      if (createFiles) {
+        import scala.sys.process._
+        Try {
+          Files.write(Paths.get("1.sh"), s"echo '$inputString' | dhall encode > $fileName".getBytes)
+          "bash 1.sh".!
+        }
+      } else {
+        val filePath = resourceAsFile("time_literal/" + fileName).get.toPath
+        val validationBytes = Files.readAllBytes(filePath)
+        val fromCbor1 = CBORmodel.decodeCbor1(validationBytes)
+        val fromCbor2 = CBORmodel.decodeCbor2(validationBytes)
+        Try {
+          expect(input.toDhall == fromCbor1.toScheme.toDhall)
+          expect(input.scheme == fromCbor1.toScheme)
+          expect(fromCbor1 == fromCbor2)
+          expect(input.toCBORmodel == fromCbor1)
+          expect(input.toCBORmodel.encodeCbor1 sameElements validationBytes)
+          expect(input.toCBORmodel.encodeCbor2 sameElements validationBytes)
+        } recoverWith { case t: Throwable =>
+          println(s"Failure with file $fileName (valid CBOR model $fromCbor1): $t")
+        Failure(t)
+        }
+      }
+    }
+    TestUtils.requireSuccessAtLeast(results.length, results)
+  }
+
+  test("cbor encoding for time literals of varying precision for 00:00:00.000000000000") {
+    runTestWithNanos(30, 0, false)
+  }
+
+  test("cbor encoding for time literals of varying precision for 00:00:01.000000000000") {
+    runTestWithNanos(30, 1, false)
   }
 
   test("type inference must use correct de Bruijn index, no imports") {

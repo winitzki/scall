@@ -178,7 +178,8 @@ sealed trait CBORmodel {
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
 
-        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), totalSecondsObj))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && decodeTotalSeconds(totalSecondsObj).nonEmpty =>
+        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), totalSecondsObj))) :: Nil
+          if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && decodeTotalSeconds(totalSecondsObj).nonEmpty =>
           val totalSeconds = decodeTotalSeconds(totalSecondsObj).get
           ExpressionScheme.TimeLiteral.of(hours, minutes, totalSeconds, precision).or(s"Invalid TimeLiteral($hours, $minutes, $totalSeconds, $precision)")
 
@@ -222,7 +223,9 @@ object CBORmodel {
   def decodeTotalSeconds(totalSecondsObj: CBORmodel): Option[Natural] = {
     totalSecondsObj match {
       case CInt(data) if data >= 0 => Some(data)
-      case CTagged(2, CBytes(data)) if BigInt(data) >= 0 => Some(BigInt(data))
+      case CTagged(2, CBytes(data)) =>
+        val totalSeconds = BigInt(Array[Byte](0) ++ data)
+        if (totalSeconds >= 0) Some(totalSeconds) else None
       case _ => None
     }
   }
@@ -488,8 +491,10 @@ object CBORmodel {
 
 // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/binary.md
 object CBOR {
+  val maxCborNumberAsCInt: BigInt = BigInt(1L) << 64
+
   def naturalToCbor2(index: Natural): CBORObject =
-    if (index < BigInt(1).<<(64))
+    if (index < maxCborNumberAsCInt)
       CBORObject.FromObject(index.bigInteger)
     else
       CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // TODO: Does this work correctly? Do we need to set littleEndian = true?
@@ -570,7 +575,11 @@ object CBOR {
 
     case t@ExpressionScheme.TimeLiteral(hours, minutes, _, _) =>
       // TODO report issue: need to add a test to Dhall standard tests in order to validate the CBOR encoding with long nanos as CTagged(2,CByte(...)) instead of CInt(...)
-      val cborTotalSeconds: Any = if (t.cborTotalSeconds >= Integer.MAX_VALUE) CTagged(2, CBytes(t.cborTotalSeconds.toByteArray)) else t.cborTotalSeconds
+      val cborTotalSeconds: Any = if (t.cborTotalSeconds < maxCborNumberAsCInt) CInt(t.cborTotalSeconds) else {
+        val bytes = t.cborTotalSeconds.toByteArray
+        val bytesWithoutLeadingZero = if (bytes(0) == 0) bytes.drop(1) else bytes
+        CTagged(2, CBytes(bytesWithoutLeadingZero))
+      }
       array(31, hours, minutes, CTagged(4, array(t.cborPrecision, cborTotalSeconds)))
 
     case t@ExpressionScheme.TimeZoneLiteral(_) =>
