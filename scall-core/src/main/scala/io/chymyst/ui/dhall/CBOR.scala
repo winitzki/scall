@@ -13,12 +13,9 @@ import io.chymyst.ui.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathCo
 import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
-import java.time.LocalTime
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
-import scala.collection.mutable
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 sealed trait CBORmodel {
@@ -181,7 +178,8 @@ sealed trait CBORmodel {
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
 
-        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), CInt(totalSeconds)))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && totalSeconds >= 0 =>
+        case CIntTag(31) :: CIntTag(hours) :: CIntTag(minutes) :: CTagged(4, CArray(Array(CIntTag(precision), totalSecondsObj))) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 && precision <= 0 && decodeTotalSeconds(totalSecondsObj).nonEmpty =>
+          val totalSeconds = decodeTotalSeconds(totalSecondsObj).get
           ExpressionScheme.TimeLiteral.of(hours, minutes, totalSeconds, precision).or(s"Invalid TimeLiteral($hours, $minutes, $totalSeconds, $precision)")
 
         case CIntTag(32) :: (CTrue | CFalse) :: CIntTag(hours) :: CIntTag(minutes) :: Nil if hours >= 0 && hours <= 23 && minutes >= 0 && minutes < 60 =>
@@ -202,8 +200,8 @@ sealed trait CBORmodel {
   def asString: String = (this.asInstanceOf[CString].data).or(s"This CBORmodel is $this and not a CString")
 }
 
-// In the library "cbor1" there is no constructor for double values with automatic downgrading of precision. This provides that function.
-object CBOR1fix extends AbstractBuilder[CborBuilder](new CborBuilder()) {
+// In the library "cbor1" there is no constructor for double values with automatic downgrading of precision. This code provides that function.
+private object CBOR1fix extends AbstractBuilder[CborBuilder](new CborBuilder()) {
   // We need to inherit from AbstractBuilder only to use the "convert" functions, which are `protected`.
   def createDataItemForDoubleAtMinimumPrecision(data: Double): DataItem =
     if (data.isFinite)
@@ -218,6 +216,14 @@ object CBORmodel {
     def or(message: String): A = Try(expr) match {
       case Failure(t) => die(message, t)
       case Success(value) => value
+    }
+  }
+
+  def decodeTotalSeconds(totalSecondsObj: CBORmodel): Option[Natural] = {
+    totalSecondsObj match {
+      case CInt(data) if data >= 0 => Some(data)
+      case CTagged(2, CBytes(data)) if BigInt(data) >= 0 => Some(BigInt(data))
+      case _ => None
     }
   }
 
@@ -563,7 +569,9 @@ object CBOR {
     case ExpressionScheme.DateLiteral(y, m, d) => array(30, y, m, d)
 
     case t@ExpressionScheme.TimeLiteral(hours, minutes, _, _) =>
-      array(31, hours, minutes, CTagged(4, array(t.cborPrecision, t.cborTotalSeconds)))
+      // TODO report issue: need to add a test to Dhall standard tests in order to validate the CBOR encoding with long nanos as CTagged(2,CByte(...)) instead of CInt(...)
+      val cborTotalSeconds: Any = if (t.cborTotalSeconds >= Integer.MAX_VALUE) CTagged(2, CBytes(t.cborTotalSeconds.toByteArray)) else t.cborTotalSeconds
+      array(31, hours, minutes, CTagged(4, array(t.cborPrecision, cborTotalSeconds)))
 
     case t@ExpressionScheme.TimeZoneLiteral(_) =>
       val cborSign: CBORmodel = if (t.isPositive) CTrue else CFalse

@@ -14,7 +14,7 @@ import io.chymyst.ui.dhall.{CBOR, CBORmodel, Grammar, Parser}
 import munit.FunSuite
 
 import java.io.FileInputStream
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import scala.util.Try
 
 class MiscBugsTest extends FunSuite with ResourceFiles {
@@ -36,7 +36,7 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
   }
 
   test("time literals with truncated nanos") {
-    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.toSeq.flatMap { case (input, output) =>
+    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.flatMap { case (input, output) =>
       val x = input.dhall
       Seq(
         Try(expect(x.toDhall == output)),
@@ -49,6 +49,20 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
     }
     println(results.filter(_.isFailure).map(_.failed.get).take(10).map(_.getMessage).mkString("\n"))
     TestUtils.requireSuccessAtLeast(results.length, results)
+  }
+
+  test("cbor encoding for time literals with long fraction using cbor1") {
+    val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
+    val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal_1.cbor").get.toPath)).toScheme
+    expect(input.dhall == fromCbor1)
+    expect(expected.dhall == fromCbor1)
+  }
+
+  test("cbor encoding for time literals with long fraction using cbor2") {
+    val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
+    val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal_1.cbor").get.toPath)).toScheme
+    expect(input.dhall == fromCbor2)
+    expect(expected.dhall == fromCbor2)
   }
 
   test("type inference must use correct de Bruijn index, no imports") {

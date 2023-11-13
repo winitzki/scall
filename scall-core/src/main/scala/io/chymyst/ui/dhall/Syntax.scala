@@ -627,8 +627,7 @@ object Syntax {
 
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    // TODO report issue - it should be documented that TimeLiteral supports 12 decimal digits of precision in nanoseconds but keeps all trailing zeros as given in the. For example, 09:00:00.99999999999999999999999999999999 is printed via Time/show as "09:00:00.99999999999900000000000000000000".
-    final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class TimeLiteral private(hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       lazy val cborTotalSeconds: BigInt = BigInt(seconds.toString + nanosPrinted)
 
       // This is a negative number such that cborTotalSeconds * math.pow(10, cborPrecision) = seconds + math.pow(10, -9)*nanoSeconds
@@ -660,13 +659,15 @@ object Syntax {
           val fracBigIntString = fracBigInt.toString(10)
           val leadingZeros: String = "0" * (fracLength - fracBigIntString.length)
           val secFraction = leadingZeros + fracBigIntString
-          TimeLiteral(hours, minutes, seconds, secFraction)
+          TimeLiteral(hours, minutes, seconds, truncateSecondsFraction(secFraction))
         }
       }
 
-      def of(h: Int, m: Int, s: Int, secFraction: String): TimeLiteral = {
-        require(h >= 0 && h <= 59 && m >= 0 && m <= 59 && s >= 0 && s <= 59 && (secFraction matches "^[0-9]*$"))
-        TimeLiteral(h, m, s, secFraction)
+      private def truncateSecondsFraction(secFraction: String): String = secFraction.take(12) + "0" * math.max(0, secFraction.length - 12)
+
+      def of(hours: Int, minutes: Int, seconds: Int, secFraction: String): TimeLiteral = {
+        require(hours >= 0 && hours <= 59 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59 && (secFraction matches "^[0-9]*$"))
+        TimeLiteral(hours, minutes, seconds, truncateSecondsFraction(secFraction))
       }
     }
 
@@ -822,7 +823,7 @@ object Syntax {
       betaN.get
     } else {
       println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
-      val normalized = Semantics.betaNormalize(this)  //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
+      val normalized = Semantics.betaNormalize(this) //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
       if (normalized == this) {
         this.betaN.compareAndSet(null, this)
         this
