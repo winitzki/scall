@@ -822,7 +822,7 @@ object Syntax {
       // println(s"${LocalDateTime.now} DEBUG: using cached betaNormalized expression: ${betaN.get.toDhall}")
       betaN.get
     } else {
-      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
+//      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
       val normalized = Semantics.betaNormalize(this) //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
       if (normalized == this) {
         this.betaN.compareAndSet(null, this)

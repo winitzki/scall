@@ -145,9 +145,9 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through while resolving subexpressions.
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] = ImportResolutionStep[Expression] { case state0@ImportContext(gamma) =>
-    //println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
     expr.scheme match {
       case i@Import(_, _, _) =>
+        println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
         val (parent, child, referentialCheck) = visited.lastOption match {
           case Some(parent) =>
             val child = (parent chainWith i).canonicalize
