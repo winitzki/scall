@@ -8,6 +8,7 @@ import io.chymyst.ui.dhall.TypeCheck.Gamma
 import io.chymyst.ui.dhall.TypecheckResult._
 
 import java.time.LocalDateTime
+import scala.collection.mutable
 import scala.language.postfixOps
 
 sealed trait TypecheckResult[+A] {
@@ -67,6 +68,8 @@ object TypecheckResult {
 object TypeCheck {
   val emptyContext: Gamma = Gamma(Map())
 
+  val cacheTypeCheck = ObservedCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]]()
+
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
   final case class Gamma(variables: Map[VarName, IndexedSeq[Expression]]) {
@@ -115,7 +118,10 @@ object TypeCheck {
   // TODO: can we somehow cache all expressions that already have inferred types, to avoid inferring the same types again? At least, for closed terms? Add the context to TypecheckResult
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
+
+  def inferType(gamma: Gamma, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
+
+  private def inferTypeOrCached(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
     //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
     implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
 

@@ -4,7 +4,7 @@ import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.test.{ResourceFiles, TestTimeouts}
-import io.chymyst.ui.dhall.Parser
+import io.chymyst.ui.dhall.{Parser, Semantics, TypeCheck}
 import io.chymyst.ui.dhall.Parser.InlineDhall
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
 import munit.FunSuite
@@ -46,6 +46,11 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
       .foreach { file =>
         val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
         expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
+        println(s"Beta-normalization cache: ${Semantics.cacheBetaNormalize.statistics}\nType inference cache: ${TypeCheck.cacheTypeCheck.statistics}")
+        /*
+        Beta-normalization cache: Total requests: 176721, cache hits: 147798, total cache size: 28923
+        Type inference cache: Total requests: 143975, cache hits: 53668, total cache size: 90307
+         */
       }
   }
 

@@ -16,6 +16,16 @@ import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
+final case class ObservedCache[A, B](cache: mutable.Map[A, B] = mutable.Map[A, B](), var requests: Long = 0, var hits: Long = 0) {
+  def getOrElseUpdate(key: A, default: => B): B = {
+    requests += 1
+    if (cache contains key) hits += 1
+    cache.getOrElseUpdate(key, default)
+  }
+
+  def statistics: String = s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}"
+}
+
 object Semantics {
   // TODO: make sure this algorithm is correct for variables with de Bruijn indices!
   private def freeVarsForLambda(name: VarName, tipe: Option[Expression], body: Expression): FreeVars[Expression] = {
@@ -32,7 +42,9 @@ object Semantics {
     case other => other.traverse(expr => freeVars(expr)).map(Expression.apply)
   }
 
-  private val cacheListFold: mutable.Map[(Expression, Seq[Expression], Expression, Expression, Expression), Expression] = mutable.Map()
+  // TODO find and use a limited-size cache with least-recent-used cleanup
+  //  private val cacheListFold: mutable.Map[(Expression, Seq[Expression], Expression, Expression, Expression), Expression] = mutable.Map()
+  //  private val cacheNaturalFold: mutable.Map[(Natural, Expression, Expression, Expression), Expression] = mutable.Map()
 
   def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
@@ -145,7 +157,7 @@ object Semantics {
       .toSeq
       .sortBy(_._1.name)
 
-  private val cacheBetaNormalize: mutable.Map[ExpressionScheme[Expression], Expression] = mutable.Map()
+  val cacheBetaNormalize = ObservedCache[ExpressionScheme[Expression], Expression]()
 
   def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
 
@@ -291,7 +303,11 @@ object Semantics {
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).betaNormalized
           case Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)), g) =>
             // g (Natural/fold n b g argN)
-            if (m == 0) argN else g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
+            if (m == 0) argN else
+            //              cacheNaturalFold.getOrElseUpdate(
+            //              (m, b, g, argN),
+              g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
+          //        )
           case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
@@ -345,12 +361,12 @@ object Semantics {
             matchOrNormalize(expressions) {
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
                 // We need to beta-normalize the expression List/fold typeA0 expressions b g argN. Check if it is in the cache; otherwise compute it.
-                cacheListFold.getOrElseUpdate((typeA0, exprs, b, g, argN), {
-                  val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
-                  //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
-                  // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
-                  (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
-                })
+                //   cacheListFold.getOrElseUpdate((typeA0, exprs, b, g, argN), {
+                val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
+                //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
+                // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
+                (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
+              // })
 
               // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
               case EmptyList(_) => argN
