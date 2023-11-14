@@ -26,7 +26,7 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
     val problematic1 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1 ] ≡ [ 1, 2, 3 ]"
     val problematic2 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1, 3, 2, 1 ] ≡ [ 1, 1, 2, 2, 3, 3 ]"
     val path = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/package.dhall").get.toPath
-    println(problematic2.dhall.resolveImports(path).toDhall)
+//    println(problematic2.dhall.resolveImports(path).toDhall)
     expect(problematic1.dhall.resolveImports(path).inferType.isValid)
     expect(problematic2.dhall.resolveImports(path).isInstanceOf[Expression])
     expect(problematic2.dhall.resolveImports(path).inferType.isValid)

@@ -895,7 +895,7 @@ object Syntax {
           val importTypeString = importType match {
             case ImportType.Missing => "missing"
             case ImportType.Remote(url, headers) => url.toString + (headers match {
-              case Some(value) => "using " + value.atPrecedence(p)
+              case Some(value) => " using " + value.atPrecedence(p)
               case None => ""
             })
             case p@ImportType.Path(filePrefix, file) => p.toString
