@@ -822,7 +822,7 @@ object Syntax {
       // println(s"${LocalDateTime.now} DEBUG: using cached betaNormalized expression: ${betaN.get.toDhall}")
       betaN.get
     } else {
-//      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
+      //      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
       val normalized = Semantics.betaNormalize(this) //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
       if (normalized == this) {
         this.betaN.compareAndSet(null, this)
@@ -848,7 +848,7 @@ object Syntax {
         case Variable(name, index) => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
         case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(TermPrecedence.lowest)}\nin ${body.atPrecedence(p)}"
+        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(p - 1)}\nin ${body.atPrecedence(p)}"
         case If(cond, ifTrue, ifFalse) => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
         case Merge(record, update, tipe) => "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
           case Some(value) => ": " + value.atPrecedence(p)

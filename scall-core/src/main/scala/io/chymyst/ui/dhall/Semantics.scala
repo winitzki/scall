@@ -11,6 +11,7 @@ import io.chymyst.ui.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.ui.dhall.SyntaxConstants._
 
 import java.security.MessageDigest
+import java.time.LocalDateTime
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
@@ -30,6 +31,8 @@ object Semantics {
     case Let(name, tipe, subst, body) => FreeVars(freeVarsForLambda(name, tipe, body).names union freeVars(subst).names)
     case other => other.traverse(expr => freeVars(expr)).map(Expression.apply)
   }
+
+  private val cacheListFold: mutable.Map[(Expression, Seq[Expression], Expression, Expression, Expression), Expression] = mutable.Map()
 
   def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
@@ -142,8 +145,12 @@ object Semantics {
       .toSeq
       .sortBy(_._1.name)
 
+  private val cacheBetaNormalize: mutable.Map[ExpressionScheme[Expression], Expression] = mutable.Map()
+
+  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
+
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
-  def betaNormalize(expr: Expression): Expression = {
+  private def betaNormalizeUncached(expr: Expression): Expression = {
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(matcher: PartialFunction[ExpressionScheme[Expression], Expression]): Expression =
@@ -337,9 +344,13 @@ object Semantics {
           case Application(Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)), g) =>
             matchOrNormalize(expressions) {
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
-                val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
-                // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
-                (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
+                // We need to beta-normalize the expression List/fold typeA0 expressions b g argN. Check if it is in the cache; otherwise compute it.
+                cacheListFold.getOrElseUpdate((typeA0, exprs, b, g, argN), {
+                  val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
+                  //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
+                  // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
+                  (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
+                })
 
               // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
               case EmptyList(_) => argN

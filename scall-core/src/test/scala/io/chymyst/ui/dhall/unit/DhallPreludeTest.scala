@@ -16,37 +16,20 @@ import scala.util.Try
 
 class DhallPreludeTest extends FunSuite with TestTimeouts {
 
-  test("typecheck Natural/package.dhall imports") {
-    val imports = Seq(
-//       "./build.dhall",
-//       "./enumerate.dhall",
-//       "./even.dhall",
-//       "./fold.dhall",
-//       "./isZero.dhall",
-//       "./odd.dhall",
-//       "./product.dhall",
-//       "./sum.dhall",
-//       "./show.dhall",
-//       "./toDouble.dhall",
-//       "./toInteger.dhall",
-//       "./lessThan.dhall",
-//       "./lessThanEqual.dhall",
-//       "./equal.dhall",
-//       "./greaterThanEqual.dhall",
-//       "./greaterThan.dhall",
-//       "./min.dhall",
-//       "./max.dhall",
-//       "./listMin.dhall",
-       "../List/partition.dhall",
-      "./sort.dhall",
-//            "./subtract.dhall",
-    )
+  test("typecheck List/partition.dhall imports") {
+    val problematic1 = "../List/partition.dhall"
     val path = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/package.dhall").get.toPath
-    imports.foreach {i =>
-      println(s"Resolving imports in $i")
-      i.dhall.resolveImports(path)
-    }
+    expect(problematic1.dhall.resolveImports(path).inferType.isValid)
+  }
 
+  test("typecheck Natural/sort.dhall imports") {
+    val problematic1 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1 ] ≡ [ 1, 2, 3 ]"
+    val problematic2 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1, 3, 2, 1 ] ≡ [ 1, 1, 2, 2, 3, 3 ]"
+    val path = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/package.dhall").get.toPath
+    println(problematic2.dhall.resolveImports(path).toDhall)
+    expect(problematic1.dhall.resolveImports(path).inferType.isValid)
+    expect(problematic2.dhall.resolveImports(path).isInstanceOf[Expression])
+    expect(problematic2.dhall.resolveImports(path).inferType.isValid)
   }
 
   test("import dhall-lang/Prelude/Natural/package.dhall without hanging") {
@@ -66,7 +49,7 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
       }
   }
 
-  test("import each file from the standard prelude except two package.dhall files") {
+  test("resolve imports (but do not typecheck) each file from the standard prelude except two package.dhall files") {
     val results = enumerateResourceFiles("dhall-lang/Prelude", Some(".dhall"))
       .filterNot(_.getAbsolutePath contains "dhall-lang/Prelude/package.dhall")
       .filterNot(_.getAbsolutePath contains "dhall-lang/Prelude/Natural/package.dhall")
@@ -75,7 +58,7 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
           //println(s"${LocalDateTime.now} Parsing file ${file.getAbsolutePath}")
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           println(s"${LocalDateTime.now} Resolving imports in file ${file.getAbsolutePath}")
-          val (_, elapsed) = elapsedNanos(expect(ourResult.resolveImports(file.toPath).inferType.isValid))
+          val (_, elapsed) = elapsedNanos(expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression]))
           elapsed
         }
         if (result.isFailure) println(s"Failure for file $file: ${result.failed.get}")

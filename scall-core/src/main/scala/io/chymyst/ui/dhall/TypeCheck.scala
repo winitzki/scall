@@ -116,7 +116,7 @@ object TypeCheck {
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
   def inferType(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
-//    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
+    //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
     implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypecheckResult[Expression] = Valid(~builtin)
@@ -174,22 +174,34 @@ object TypeCheck {
           case (other1, other2) => typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
         }
 
-      case Let(name, tipe, subst, body) => for {
-        typeOfSubst <- subst.inferTypeWith(gamma)
-        _ <- tipe match {
-          case Some(annot) =>
+      case Let(name, tipe, subst, body) =>
+
+        val substWellTyped = for {
+          typeOfSubst <- subst.inferTypeWith(gamma)
+          _ <- tipe match {
+            case Some(annot) =>
+              for {
+                _ <- annot.inferTypeWith(gamma)
+                _ <- required(Semantics.equivalent(annot, typeOfSubst))(s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}")
+              } yield ()
+            case None => Valid(())
+          }
+        } yield typeOfSubst
+        // TODO report issue: suggest to add this optimization to the standard in type-inference.md?
+        // Optimization: the type of `let x = subst in x` is just the type of `subst`, no need to beta-normalize `subst` in that case.
+        val typeOfBody = body.scheme match {
+          case Variable(x, index) if x == name && index == 0 => substWellTyped
+          case _ =>
             for {
-              _ <- annot.inferTypeWith(gamma)
-              _ <- required(Semantics.equivalent(annot, typeOfSubst))(s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}")
-            } yield ()
-          case None => Valid(())
+              _ <- substWellTyped
+              a1 = subst.betaNormalized
+              a2 = Semantics.shift(true, name, 0, a1)
+              b1 = Semantics.substitute(body, name, BigInt(0), a2)
+              b2 = Semantics.shift(false, name, 0, b1)
+              typeOfLet <- b2.inferTypeWith(gamma)
+            } yield typeOfLet
         }
-        a1 = subst.betaNormalized
-        a2 = Semantics.shift(true, name, 0, a1)
-        b1 = Semantics.substitute(body, name, BigInt(0), a2)
-        b2 = Semantics.shift(false, name, 0, b1)
-        typeOfLet <- b2.inferTypeWith(gamma)
-      } yield typeOfLet
+        typeOfBody
 
       case If(cond, ifTrue, ifFalse) =>
         val lopType = ifTrue.inferAndValidateTypeWith(gamma)
