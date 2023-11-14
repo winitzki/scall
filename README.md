@@ -20,15 +20,16 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] Alpha-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md). All alpha-normalization tests pass.
 
-- [x] Beta-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md). Two out of 285 beta-normalization tests fail because import resolution is not yet implemented. All other tests pass.
+- [x] Beta-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md). All 285 beta-normalization tests pass.
 
 - [ ] Import resolution code is in progress.
 
-- [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md). Some typechecking tests fail because import resolution is not yet implemented. All other tests pass.
+- [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md). All typechecking tests pass.
 
 ## Roadmap for future developments
 
 1. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values.)
+2. More caching and more native implementation for literals, to improve performance. (Without caching, List/sort would hang on a list of 6 natural numbers.)
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system). Support both Scala 2 and Scala 3.
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports. Publish the Dhall standard library and other libraries as JARs.
