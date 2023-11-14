@@ -145,10 +145,9 @@ object Semantics {
     .replace("$", "\\u0024")
     .replace("\"", "\\\"")
     .flatMap { c => if (c.toInt < 32) String.format("\\u00%02x", c.toInt) else String.valueOf(c) }
-    .pipe(s => "\"" + s + "\"") // TODO: report issue to dhall-lang that this step is not shown in beta-normalization.md
-  // TODO report issue that characters like \u0007 and \u0010 are to be escaped according to the test `TextShowAllEscapesA.dhall` but it is not shown in beta-normalization.md
+    .pipe(s => "\"" + s + "\"")
 
-  // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently.
+  // TODO: implement and use a function that determines whether a given Dhall function will return literals when applied to literals. Implement such functions efficiently. -- Isn't every Dhall function in this class?
   // TODO: implement and use a function that determines which literals can be given to a function so that it will then ignore another (curried) argument. Use this to implement foldWhile efficiently.
 
   private def mergeRecordPartsPreferringSecond(defs1: Seq[(FieldName, Expression)], operator: Operator, defs2: Seq[(FieldName, Expression)]): Seq[(FieldName, Expression)] =
@@ -246,7 +245,7 @@ object Semantics {
             case (RecordLiteral(Seq()), _) => ropN
             case (_, RecordLiteral(Seq())) => lopN
             case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
-              RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this - ???
+              RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this, otherwise tests fail
             case _ => normalizeArgs
           }
 
@@ -259,7 +258,7 @@ object Semantics {
                 (defs1.toMap ++ defs2.toMap) // The operation ++ on Map prefers the second map's value when keys are the same.
                   .toSeq
                   .sortBy(_._1.name)
-              RecordLiteral(mergedFields).betaNormalized
+              RecordLiteral(mergedFields) //.betaNormalized  - not needed here.
             case _ if equivalent(lopN, ropN) => lopN // TODO report issue: beta-normalization.md does not include this rule in Haskell code after `betaNormalize (Operator ls₀ Prefer rs₀)`
             case _ => normalizeArgs
           }
@@ -268,8 +267,7 @@ object Semantics {
             case (RecordType(Seq()), _) => ropN
             case (_, RecordType(Seq())) => lopN
             case (RecordType(defs1), RecordType(defs2)) =>
-              RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this -- ???
-            case _ => normalizeArgs
+              RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this, otherwise tests fail.
           }
 
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
@@ -440,19 +438,16 @@ object Semantics {
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.Prefer, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
-          // TODO report issue: beta-normalization.md possibly forgot to betaNormalize Field, it is necesary.
           case Some(v) => v
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(Expression(r@RecordLiteral(_)), Operator.CombineRecordTerms, target) => r.lookup(name) match {
           // Do not normalize this again because it won't be possible.
-          // TODO report issue: forgot to apply Field to `Operator (RecordLiteral [(x, v)]) CombineRecordTerms t₁`
           case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name)
           case None => Field(target, name).betaNormalized
         }
         case ExprOperator(target, Operator.CombineRecordTerms, Expression(r@RecordLiteral(_))) => r.lookup(name) match {
           // Do not normalize this again because it won't be possible.
-          // TODO report issue: forgot to apply Field to `Operator t₁ CombineRecordTerms (RecordLiteral [(x, v)])`
           case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name)
           case None => Field(target, name).betaNormalized
         }
@@ -465,7 +460,6 @@ object Semantics {
         case RecordLiteral(defs) => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
         case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
         case ExprOperator(left, Operator.Prefer, right@Expression(RecordLiteral(defs))) =>
-          // TODO report issue: need to betaNormalize t1 given after `ProjectByLabels (RecordLiteral rs) (filter predicate xs₀)`
           val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
           val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
           ExprOperator(newL, Operator.Prefer, newR).betaNormalized
@@ -473,7 +467,8 @@ object Semantics {
       }
 
       case ProjectByType(base, labels) => matchOrNormalize(labels) {
-        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1)).betaNormalized // TODO report issue: does beta-normalization.md say that ProjectByLabels(...) must be beta-normalized? If not, tests fail.
+        case RecordType(defs) => ProjectByLabels(base, defs.map(_._1)).betaNormalized
+        // TODO report issue: does beta-normalization.md say that ProjectByLabels(...) must be beta-normalized? If not, tests fail. -- Has this been corrected already?
       }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type
