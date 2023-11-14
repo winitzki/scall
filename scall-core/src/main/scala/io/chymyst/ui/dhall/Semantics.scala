@@ -157,6 +157,7 @@ object Semantics {
       .toSeq
       .sortBy(_._1.name)
 
+  // TODO: possibly remove special lazy handling for .betaNormalized because that is not effective enough and we have to cache all betaNormalized results anyway.
   val cacheBetaNormalize = ObservedCache[ExpressionScheme[Expression], Expression]()
 
   def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))

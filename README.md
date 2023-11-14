@@ -4,7 +4,8 @@ This project is a Scala implementation of the [Dhall language](https://dhall-lan
 
 ## Goals of the project
 
-1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. It should be possible in Scala to read arbitrary Dhall code and implement standard functions such as normalization, serialization, and JSON / YAML export.
+1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. It should be possible in Scala to read arbitrary Dhall code and implement standard functions such as normalization, serialization, and type checking.
+2. Implement JSON and YAML export.
 2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall types (both at run time and at compile time if possible). Most Dhall integrations only support a small subset of Dhall, but Scala has a rich type system. We would like to support Scala function types, Scala type constructors, higher-kinded types, and other Scala features as much as possible.
 3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a transparent replacement of the standard Dhall imports, as far as Scala is concerned.
 
@@ -22,9 +23,9 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] Beta-normalization is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md). All 285 beta-normalization tests pass.
 
-- [ ] Import resolution code is in progress.
+- [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md), including the "function check". All typechecking tests pass.
 
-- [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md). All typechecking tests pass.
+- [ ] Import resolution code is in progress. Basic import resolution is implemented (files, environment variables, and URLs).
 
 ## Roadmap for future developments
 

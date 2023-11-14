@@ -413,10 +413,15 @@ object Grammar {
   val constantSymbolNames = SyntaxConstants.Constant.namesToValuesMap.keys.toSeq
   val constantSymbolNamesSet = SyntaxConstants.Constant.namesToValuesMap.keySet
 
-  def builtin[$: P]: P[Expression] = // TODO report issue: possible confusion between Builtin and Constant symbols. Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant.
+  def builtin[$: P]: P[Expression] = {
+    // TODO report issue: possible confusion between Builtin and Constant symbols.
+    // Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant.
+    // TODO figure out whether True and False should be moved to Builtin out of Constants. (Syntax.hs says it's "typechecking constants".)
+    // Are there any situations where True and False are parsed as Builtin (e.g. prohibiting other usage) and not as a Constant? In that case there is a confusion in the standard.
     (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)
       | concatKeywords(constantSymbolNames).map(SyntaxConstants.Constant.withName).map(ExprConstant)
       ).map(Expression.apply)
+  }
 
   def combine[$: P] = P(
     "\u2227" | "/\\"
