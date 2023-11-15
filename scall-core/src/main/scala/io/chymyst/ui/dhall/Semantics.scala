@@ -179,7 +179,7 @@ object Semantics {
 
       // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
       // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
-      case Let(VarName(name), _, subst, body) => ((v(name) | ~Natural) -> body)(subst).betaNormalized
+      case Let( name , _, subst, body) => ((v(name.name) | ~Natural) -> body)(subst).betaNormalized
 
       case If(cond, ifTrue, ifFalse) =>
         if (cond.betaNormalized.scheme == ExprConstant(Constant.True)) ifTrue.betaNormalized
@@ -268,6 +268,7 @@ object Semantics {
             case (_, RecordType(Seq())) => lopN
             case (RecordType(defs1), RecordType(defs2)) =>
               RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)).betaNormalized // TODO report issue that we need to beta-normalize this, otherwise tests fail.
+            case _ => normalizeArgs
           }
 
           case Operator.Times => (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
@@ -346,11 +347,13 @@ object Semantics {
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListBuild)), tipe) =>
+            // The Dhall standard and the tests require the names "a" and "as".
             val freshName = "a"
             val a = v(freshName)
+            val aseq = v("as")
+
             val newType = shift(true, VarName(freshName), 0, tipe)
             // g (List A₀) (λ(a : A₀) → λ(as : List A₁) → [ a ] # as) ([] : List A₀) ⇥ b
-            val aseq = v("as")
             argN((~Builtin.List)(tipe))((a | tipe) -> (
               (aseq | (~Builtin.List)(newType)) ->
                 Expression(NonEmptyList(Seq(a))).op(ListAppend)(aseq)
@@ -520,8 +523,8 @@ object Semantics {
 
       case ShowConstructor(data) =>
         matchOrNormalize(data) {
-          case Application(Expression(Field(Expression(UnionType(_)), FieldName(name))), _) => TextLiteral.ofString(name)
-          case Field(Expression(UnionType(_)), FieldName(name)) => TextLiteral.ofString(name)
+          case Application(Expression(Field(Expression(UnionType(_)), fieldName)), _) => TextLiteral.ofString(fieldName.name)
+          case Field(Expression(UnionType(_)), fieldName) => TextLiteral.ofString(fieldName.name)
           // Builtin union type: Optional
           case Application(Expression(ExprBuiltin(Builtin.None)), _) => TextLiteral.ofString(Builtin.None.entryName)
           case KeywordSome(_) => TextLiteral.ofString("Some")

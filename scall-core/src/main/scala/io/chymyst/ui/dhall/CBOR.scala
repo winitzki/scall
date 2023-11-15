@@ -34,7 +34,7 @@ sealed trait CBORmodel {
 
   final def encodeCbor2: Array[Byte] = this.toCbor2.EncodeToBytes()
 
-  lazy val dhallDiagnostics: String = this.toString
+  def dhallDiagnostics: String = this.toString
 
   private def removeVacuousTag(model: CBORmodel): CBORmodel = model match {
     case CArray(data) => CArray(data.map(removeVacuousTag))
@@ -173,7 +173,7 @@ sealed trait CBORmodel {
           case _ => false
         } => ExpressionScheme.With(base.toScheme, defs.map {
           case CIntTag(0) => PathComponent.DescendOptional
-          case CString(name) => PathComponent.Label(FieldName(name))
+          case name: CString => PathComponent.Label(FieldName(name.data))
         }, target.toScheme)
 
         case CIntTag(30) :: CIntTag(year) :: CIntTag(month) :: CIntTag(day) :: Nil if month >= 1 && month <= 12 && day >= 1 && day <= 31 => ExpressionScheme.DateLiteral(year, month, day)
@@ -388,7 +388,7 @@ object CBORmodel {
 
     override def toString: String = s"\"$escaped\"" //s"\"$escaped\""
 
-    lazy val escaped: String = data.flatMap {
+    def escaped: String = data.flatMap {
       case '\b' => "\\b"
       case '\n' => "\\n"
       case '\f' => "\\f"
@@ -408,7 +408,7 @@ object CBORmodel {
 
     override def toString: String = "[" + data.map(_.toString).mkString(", ") + "]"
 
-    override lazy val dhallDiagnostics: String = "[" + data.map(_.dhallDiagnostics).mkString(", ") + "]"
+    override def dhallDiagnostics: String = "[" + data.map(_.dhallDiagnostics).mkString(", ") + "]"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall { case (x, y) => x equals y })
 
@@ -450,7 +450,7 @@ object CBORmodel {
 
     override def toString: String = s"$tag($data)"
 
-    override lazy val dhallDiagnostics: String = toBigIntIfPossible match {
+    override def dhallDiagnostics: String = toBigIntIfPossible match {
       case Success(value) => CInt(value).dhallDiagnostics
       case _ => s"$tag(${data.dhallDiagnostics})"
     }
@@ -508,7 +508,7 @@ object CBOR {
 
     case e@ExpressionScheme.Let(_, _, _, _) =>
       @tailrec def loop(acc: Seq[Any], expr: ExpressionScheme[Expression]): Seq[Any] = expr match {
-        case ExpressionScheme.Let(VarName(name), tipe, subst, body) => loop((acc :+ name) :+ (tipe.orNull: Any) :+ subst, body)
+        case ExpressionScheme.Let(name, tipe, subst, body) => loop((acc :+ name.name) :+ (tipe.orNull: Any) :+ subst, body)
         case _ => acc :+ expr
       }
 
@@ -542,7 +542,7 @@ object CBOR {
 
       array(0 +: loop(Seq(), f): _*)
 
-    case ExpressionScheme.Field(base, FieldName(name)) => array(9, base, name)
+    case ExpressionScheme.Field(base, name) => array(9, base, name.name)
 
     case ExpressionScheme.ProjectByLabels(base, labels) => array(10 +: base +: labels.map(_.name): _*)
 
@@ -554,7 +554,7 @@ object CBOR {
 
     case ExpressionScheme.With(data, pathComponents, body) =>
       val path: Seq[Any] = pathComponents.map {
-        case PathComponent.Label(FieldName(name)) => name
+        case PathComponent.Label(name) => name.name
         case PathComponent.DescendOptional => 0
       }
       array(29, data, array(path: _*), body)
@@ -588,19 +588,19 @@ object CBOR {
 
     case ExpressionScheme.RecordType(defs) =>
       val dict = defs
-        .map { case (FieldName(name), expr) => (name, expr) }
+        .map { case (fieldName, expr) => (fieldName.name, expr) }
         .toMap
       array(7, dict)
 
     case ExpressionScheme.RecordLiteral(defs) =>
       val dict = defs
-        .map { case (FieldName(name), expr) => (name, expr) }
+        .map { case (fieldName, expr) => (fieldName.name, expr) }
         .toMap
       array(8, dict)
 
     case ExpressionScheme.UnionType(defs) =>
       val dict = defs
-        .map { case (ConstructorName(name), maybeExpr) => (name, maybeExpr.orNull: Any)
+        .map { case (constructorName, maybeExpr) => (constructorName.name, maybeExpr.orNull: Any)
         }.toMap
       array(11, dict)
 

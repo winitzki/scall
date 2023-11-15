@@ -3,7 +3,7 @@ package io.chymyst.ui.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.{ResourceFiles, TestTimeouts}
+import io.chymyst.test.{ResourceFiles, TestTimeouts, Throwables}
 import io.chymyst.ui.dhall.{Parser, Semantics, TypeCheck}
 import io.chymyst.ui.dhall.Parser.InlineDhall
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression}
@@ -62,12 +62,12 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
         val result = Try {
           //println(s"${LocalDateTime.now} Parsing file ${file.getAbsolutePath}")
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-          println(s"${LocalDateTime.now} Resolving imports in file ${file.getAbsolutePath}")
+//          println(s"${LocalDateTime.now} Resolving imports in file ${file.getAbsolutePath}")
           val (_, elapsed) = elapsedNanos(expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression]))
           elapsed
         }
-        if (result.isFailure) println(s"Failure for file $file: ${result.failed.get}")
-        else println(f"Success for file $file took ${result.get / 1000000.0}%2.2f ms")
+        if (result.isFailure) println(s"Failure for file $file: ${Throwables.printThrowable(result.failed.get)}")
+//        else println(f"Success for file $file took ${result.get / 1000000.0}%2.2f ms")
         result
       }
     TestUtils.requireSuccessAtLeast(256, results)

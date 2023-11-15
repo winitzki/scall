@@ -153,6 +153,9 @@ object TypeCheck {
       result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
     }
 
+    // TODO: possible optimization - replace Seq[(VarName, Expr)] by Map[VarName, Expr] and so on. Make sure we detect and eliminate repeated keys at an appropriate stage.
+
+    // TODO: possible optimization - put this into case classes and avoid a big match/case
     val result: TypecheckResult[Expression] = exprToInferTypeOf.scheme match {
       case v@Variable(_, _) => gamma.lookup(v) match {
         case Some(tipe) =>

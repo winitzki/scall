@@ -809,7 +809,7 @@ object Syntax {
       case ExprConstant(Constant.False) => Some(java.lang.Boolean.valueOf(false))
       case KeywordSome(data) => data.toPrimitiveValue.map(Some.apply)
       case RecordLiteral(defs) =>
-        val decoded = defs.map { case (FieldName(name), e) => e.toPrimitiveValue.map(v => (name -> v)) }
+        val decoded = defs.map { case (fieldName, e) => e.toPrimitiveValue.map(v => (fieldName.name -> v)) }
         if (decoded.forall(_.nonEmpty)) Some(decoded.flatten.toMap) else None
       case _ => None
     }
