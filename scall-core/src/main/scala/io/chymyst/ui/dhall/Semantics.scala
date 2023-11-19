@@ -49,7 +49,6 @@ object Semantics {
     case other => other.traverse(expr => freeVars(expr)).map(Expression.apply)
   }
 
-  // TODO find and use a limited-size cache with least-recent-used cleanup
   //  private val cacheListFold: mutable.Map[(Expression, Seq[Expression], Expression, Expression, Expression), Expression] = mutable.Map()
   //  private val cacheNaturalFold: mutable.Map[(Natural, Expression, Expression, Expression), Expression] = mutable.Map()
 
