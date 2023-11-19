@@ -68,7 +68,9 @@ object TypecheckResult {
 object TypeCheck {
   val emptyContext: Gamma = Gamma(Map())
 
-  val cacheTypeCheck = ObservedCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]]()
+  val useLRUcache: Option[Int] = Some(50000)
+
+  val cacheTypeCheck = ObservedCache.chooseCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](useLRUcache)
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 

@@ -16,7 +16,7 @@ import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
-final case class ObservedCache[A, B](cache: mutable.Map[A, B] = mutable.Map[A, B](), var requests: Long = 0, var hits: Long = 0) {
+final case class ObservedCache[A, B](cache: mutable.Map[A, B], var requests: Long = 0, var hits: Long = 0) {
   def getOrElseUpdate(key: A, default: => B): B = {
     requests += 1
     if (cache contains key) hits += 1
@@ -24,6 +24,13 @@ final case class ObservedCache[A, B](cache: mutable.Map[A, B] = mutable.Map[A, B
   }
 
   def statistics: String = s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}"
+}
+
+object ObservedCache {
+  def chooseCache[A, B](maybeSize: Option[Int]): ObservedCache[A, B] = ObservedCache(maybeSize match {
+    case Some(maxSize) => new LRUCache[A, B](maxSize)
+    case None => mutable.Map[A, B]()
+  })
 }
 
 object Semantics {
@@ -156,8 +163,10 @@ object Semantics {
       .toSeq
       .sortBy(_._1.name)
 
+  val chooseLRUcache: Option[Int] = Some(30000)
+
   // TODO: possibly remove special lazy handling for .betaNormalized because that is not effective enough and we have to cache all betaNormalized results anyway.
-  val cacheBetaNormalize = ObservedCache[ExpressionScheme[Expression], Expression]()
+  val cacheBetaNormalize = ObservedCache.chooseCache[ExpressionScheme[Expression], Expression](chooseLRUcache)
 
   def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
 
@@ -311,7 +320,7 @@ object Semantics {
           case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
-          // NaturalShow defined later.
+          // NaturalShow is defined later.
           case ExprBuiltin(Builtin.NaturalToInteger) => matchOrNormalize(arg) { case NaturalLiteral(a) => IntegerLiteral(a) }
           case Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), a) =>
             val aN = a.betaNormalized

@@ -769,11 +769,11 @@ object Syntax {
   final case class Expression(scheme: ExpressionScheme[Expression]) {
     def traverseRecursive[F[_] : Applicative](f: Expression => F[Expression]): F[Expression] = scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
 
-    def uniqueSubexpressionReferences: Expression = {
+    /*def uniqueSubexpressionReferences: Expression = {
       val t: UniqueReferences[Expression] = traverseRecursive[UniqueReferences](UniqueReferences.make)
       val u: (Expression, mutable.Set[Expression]) = t.run(mutable.Set())
       u._1
-    }
+    }*/
 
     def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
 
@@ -817,8 +817,10 @@ object Syntax {
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
 
+    lazy val betaNormalized: Expression = Semantics.betaNormalize(this)
+    /*
     // Produce a new Expression that has been beta-normalized and whose .betaNormalized method is precomputed.
-    lazy val betaNormalized: Expression = if (betaN.get != null) {
+    lazy val betaNormalizedx: Expression = if (betaN.get != null) {
       // println(s"${LocalDateTime.now} DEBUG: using cached betaNormalized expression: ${betaN.get.toDhall}")
       betaN.get
     } else {
@@ -834,7 +836,7 @@ object Syntax {
       }
     }
 
-    private val betaN: AtomicReference[Expression] = new AtomicReference(null)
+    private val betaN: AtomicReference[Expression] = new AtomicReference(null)*/
 
     // Print to Dhall syntax.
 
