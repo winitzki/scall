@@ -27,7 +27,7 @@ final case class ObservedCache[A, B](cache: mutable.Map[A, B], var requests: Lon
 }
 
 object ObservedCache {
-  def chooseCache[A, B](maybeSize: Option[Int]): ObservedCache[A, B] = ObservedCache(maybeSize match {
+  def createCache[A, B](maybeSize: Option[Int]): ObservedCache[A, B] = ObservedCache(maybeSize match {
     case Some(maxSize) => new LRUCache[A, B](maxSize)
     case None          => mutable.Map[A, B]()
   })
@@ -108,8 +108,10 @@ object Semantics {
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
   }
 
+  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr.scheme,alphaNormalizeUncached(expr))
+
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
-  def alphaNormalize(expr: Expression): Expression = expr.scheme match {
+  private def alphaNormalizeUncached(expr: Expression): Expression = expr.scheme match {
     case Variable(_, _) => expr
 
     case Lambda(name, tipe, body) =>
@@ -168,8 +170,9 @@ object Semantics {
 
   val maxCacheSize: Option[Int] = Some(30000)
 
-  // TODO: possibly remove special lazy handling for .betaNormalized because that is not effective enough and we have to cache all betaNormalized results anyway.
-  val cacheBetaNormalize = ObservedCache.chooseCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+  val cacheBetaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+
+  val cacheAlphaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
 
   def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
 

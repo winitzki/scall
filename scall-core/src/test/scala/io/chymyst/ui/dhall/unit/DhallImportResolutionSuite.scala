@@ -10,7 +10,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme.NonEmptyList
 import munit.FunSuite
 import os.root
 
-import java.io.{File, FileInputStream, ObjectInputFilter}
+import java.io.{File, FileInputStream}
 import scala.util.Try
 
 object DhallImportResolutionSuite {

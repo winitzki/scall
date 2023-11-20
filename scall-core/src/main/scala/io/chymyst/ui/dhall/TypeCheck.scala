@@ -70,7 +70,7 @@ object TypeCheck {
 
   val maxCacheSize: Option[Int] = Some(50000)
 
-  val cacheTypeCheck = ObservedCache.chooseCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize)
+  val cacheTypeCheck = ObservedCache.createCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize)
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 

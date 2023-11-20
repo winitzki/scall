@@ -63,7 +63,7 @@ class ParserTest extends FunSuite {
     import fastparse._
     import NoWhitespace._
 
-    val input: String = TestUtils.readFileToString((this.getClass.getResource("/valid_non_ascii.txt").toURI))
+    val input: String = TestUtils.readFileToString((this.getClass.getResource("/valid_non_ascii.txt").toURI.getPath))
 
     def rule[$: P] = P(Grammar.valid_non_ascii.rep)
 
