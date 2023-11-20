@@ -6,7 +6,7 @@ let matrix =
       toMap { java = [ "8.0.382", "11.0.21", "17.0.9" ], scala = [ "2.13.11" ] }
 
 let setup =
-      [ GithubActions.steps.actions/checkout
+      [ GithubActions.steps.actions/checkout // { `with` = Some (toMap { submodules = "true" }) }
       , GithubActions.steps.actions/cache
           { path =
               ''

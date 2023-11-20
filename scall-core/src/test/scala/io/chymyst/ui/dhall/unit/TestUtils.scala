@@ -11,15 +11,17 @@ import scala.util.Try
 
 object TestUtils {
 
+  def readFileToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+
   def v(name: String): Expression = Expression(Variable(SyntaxConstants.VarName(name), BigInt(0)))
 
   def checkMaybeLastPosition[A](parsed: Parsed[A], input: String, expectedResult: A, lastPosition: Option[Int] = None): Unit = {
-    parsed match {
+    /*parsed match {
       case Parsed.Success(value, index)          =>
         println(s"Parsing input '$input', got Success($value, $index), expecting Success($expectedResult, _)")
       case Parsed.Failure(message, index, extra) =>
         println(s"Error: Parsing input '$input', expected Success($expectedResult, $index) but got Failure('$message', $index, ${Try(extra.stack).toOption})")
-    }
+    }*/
     lastPosition match {
       case Some(lastIndex) => expect((input != null) && (parsed == Parsed.Success(expectedResult, lastIndex)))
       case None            => expect((input != null) && (parsed.get.value == expectedResult))
