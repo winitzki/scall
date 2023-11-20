@@ -21,7 +21,7 @@ jobs:
           architecture: x64
           java-package: jdk
           java-version: "${{ matrix.java}}"
-      - run: "sbt \"++${{ matrix.scala}} test\""
+      - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
     strategy:
       matrix:
         java:
@@ -29,7 +29,6 @@ jobs:
           - '11.0.21'
           - '17.0.9'
         scala:
-          - '2.12.17'
           - '2.13.11'
   checks:
     name: Checks
