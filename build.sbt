@@ -18,8 +18,11 @@ val cbor3 = "io.bullet"      %% "borer-core" % "1.8.0"
 
 val curryhoward = "io.chymyst" %% "curryhoward" % "0.3.8"
 
-val jdkModuleOptions: Seq[String] =
-  if (scala.sys.props.get("JDK_VERSION") exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
+lazy val jdkModuleOptions: Seq[String] = {
+  val options = if (scala.sys.props.get("JDK_VERSION") exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
+  println(s"Additional JDK options: ${options.mkString(" ")}")
+  options
+}
 
 lazy val root =
   (project in file(".")).settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root").aggregate(scall_core, scall_testutils)
