@@ -34,7 +34,9 @@ object Grammar {
       // U+103FF = "\uD800\uDFFF"
       // U+10400 = "\uD01\uDC00"
       // U+1FFFD = "\uD83F\uDFFD"
+      // format: off
       | (CharIn("\uD800-\uD83E") ~ CharIn("\uDC00-\uDFFF"))
+      // format: on
       | (CharIn("\uD83F") ~ CharIn("\uDC00-\uDFFD"))
       //      // %x1FFFE_1FFFF = non_characters
       //      | % x20000_2FFFD   // U+20000 = \uD840\uDC00

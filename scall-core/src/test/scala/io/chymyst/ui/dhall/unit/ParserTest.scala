@@ -15,8 +15,8 @@ import java.nio.file.{Files, Paths}
 class ParserTest extends FunSuite {
 
   test("quoted_label_char") {
-    val Parsed.Success((), 1) = parse("expected", Grammar.quoted_label_char(_))
-    val f@Parsed.Failure(failure, index, _) = parse("`expected", Grammar.quoted_label_char(_))
+    val Parsed.Success((), 1)                 = parse("expected", Grammar.quoted_label_char(_))
+    val f @ Parsed.Failure(failure, index, _) = parse("`expected", Grammar.quoted_label_char(_))
     expect(failure == "")
     expect(index == 0)
     expect(f.msg == """Position 1:1, found "`expected"""")
@@ -45,9 +45,10 @@ class ParserTest extends FunSuite {
     }
 
     check(Grammar.valid_non_ascii(_), "ф  ", (), 1)
-    "¡™£¢∞§¶•ªº≠œ∑´®†¥¨ˆøπ“‘«åß∂ƒ©˙∆˚¬…æ≥≤µ˜∫√ç≈Ω⁄€‹›ﬁ°·‚—±»’”∏Ø¨ÁÅÍÎÏÓÔÒÚÆ˘¯Â¸фывапролджэאבגדהוזחטיכךלמםנןסעפףצץקרששׂשׁתבּגּדּהּוּוֹזּטּיּכּךּךָךְלּמּנּסּפּףּצּקּשּׂשּׁתּ".foreach { c =>
-      check(Grammar.valid_non_ascii(_), s"$c", (), 1)
-    }
+    "¡™£¢∞§¶•ªº≠œ∑´®†¥¨ˆøπ“‘«åß∂ƒ©˙∆˚¬…æ≥≤µ˜∫√ç≈Ω⁄€‹›ﬁ°·‚—±»’”∏Ø¨ÁÅÍÎÏÓÔÒÚÆ˘¯Â¸фывапролджэאבגדהוזחטיכךלמםנןסעפףצץקרששׂשׁתבּגּדּהּוּוֹזּטּיּכּךּךָךְלּמּנּסּפּףּצּקּשּׂשּׁתּ"
+      .foreach { c =>
+        check(Grammar.valid_non_ascii(_), s"$c", (), 1)
+      }
   }
 
   test("valid_non_ascii with large Unicode values from UTF-16 surrogates") {
@@ -101,7 +102,7 @@ class ParserTest extends FunSuite {
     // Nothing gets parsed.
     Seq( // Examples may contain trailing whitespace or leading whitespace.
       "",
-      "фыва3 ç≈Ω⁄€‹›ﬁ° }}-}"
+      "фыва3 ç≈Ω⁄€‹›ﬁ° }}-}",
     ).foreach { input =>
       check(Grammar.whsp(_), input, (), 0)
     }
@@ -150,16 +151,7 @@ class ParserTest extends FunSuite {
   }
 
   test("simple_label") {
-    Seq(
-      "abcd",
-      "witha",
-      "awith",
-      "if_",
-      "asa",
-      "_in",
-      "asif",
-      "forallx",
-    ).foreach { input =>
+    Seq("abcd", "witha", "awith", "if_", "asa", "_in", "asif", "forallx").foreach { input =>
       check(Grammar.simple_label(_), input, input, input.length)
     }
     check(Grammar.simple_label(_), "x∀ ", "x", 1)
@@ -184,40 +176,40 @@ class ParserTest extends FunSuite {
   }
 
   test("parse Location as a field name") {
-    val input = "Location : Natural"
+    val input    = "Location : Natural"
     val expected = Expression(Annotation(Expression(Variable(VarName("Location"), BigInt(0))), Expression(ExprBuiltin(Builtin.Natural))))
     check(Grammar.import_expression(_), input, Expression(Variable(VarName("Location"), BigInt(0))))
     check(Grammar.annotated_expression(_), input, expected)
     check(Grammar.complete_expression(_), input, expected)
-    check(Grammar.complete_expression(_), "{ Bytes : Natural, Text: Natural, Location: Natural }", Expression(RecordType(List(
-      (FieldName("Bytes"),Expression(ExprBuiltin(Builtin.Natural))),
-      (FieldName("Location"),Expression(ExprBuiltin(Builtin.Natural))),
-      (FieldName("Text"),Expression(ExprBuiltin(Builtin.Natural))),
-    ))))
+    check(
+      Grammar.complete_expression(_),
+      "{ Bytes : Natural, Text: Natural, Location: Natural }",
+      Expression(
+        RecordType(
+          List(
+            (FieldName("Bytes"), Expression(ExprBuiltin(Builtin.Natural))),
+            (FieldName("Location"), Expression(ExprBuiltin(Builtin.Natural))),
+            (FieldName("Text"), Expression(ExprBuiltin(Builtin.Natural))),
+          )
+        )
+      ),
+    )
   }
 
   test("numeric_double_literal") {
-    Map(
-      "1.0" -> 1.0,
-      "-1.0" -> -1.0,
-      "1.2" -> 1.2,
-      "1.5" -> 1.5,
-      "100e2" -> 100e2,
-      "-100e12" -> -100e12,
-      "100e-2" -> 100e-2,
-      "1.0e-3" -> 1.0e-3,
-    ).foreach { case (s, d) =>
-      check(Grammar.numeric_double_literal(_), s, DoubleLiteral(d), s.length)
+    Map("1.0" -> 1.0, "-1.0" -> -1.0, "1.2" -> 1.2, "1.5" -> 1.5, "100e2" -> 100e2, "-100e12" -> -100e12, "100e-2" -> 100e-2, "1.0e-3" -> 1.0e-3).foreach {
+      case (s, d) =>
+        check(Grammar.numeric_double_literal(_), s, DoubleLiteral(d), s.length)
     }
   }
 
   test("natural_literal") {
     Map(
-      "9" -> BigInt(9),
+      "9"                                        -> BigInt(9),
       "1234512345123451234512345123451234512345" -> BigInt("1234512345123451234512345123451234512345"),
-      "0" -> BigInt(0),
-      "0x10" -> BigInt(16),
-      "0xFFFF" -> BigInt(65535),
+      "0"                                        -> BigInt(0),
+      "0x10"                                     -> BigInt(16),
+      "0xFFFF"                                   -> BigInt(65535),
     ).foreach { case (s, d) =>
       check(Grammar.natural_literal(_), s, NaturalLiteral(d), s.length)
     }
@@ -228,16 +220,16 @@ class ParserTest extends FunSuite {
   test("integer_literal") {
 
     Map(
-      "+9" -> BigInt(9),
+      "+9"                                        -> BigInt(9),
       "+1234512345123451234512345123451234512345" -> BigInt("1234512345123451234512345123451234512345"),
-      "+0" -> BigInt(0),
-      "+0x10" -> BigInt(16),
-      "+0xFFFF" -> BigInt(65535),
-      "-9" -> BigInt(-9),
+      "+0"                                        -> BigInt(0),
+      "+0x10"                                     -> BigInt(16),
+      "+0xFFFF"                                   -> BigInt(65535),
+      "-9"                                        -> BigInt(-9),
       "-1234512345123451234512345123451234512345" -> BigInt("-1234512345123451234512345123451234512345"),
-      "-0" -> BigInt(0),
-      "-0x10" -> BigInt(-16),
-      "-0xFFFF" -> BigInt(-65535),
+      "-0"                                        -> BigInt(0),
+      "-0x10"                                     -> BigInt(-16),
+      "-0xFFFF"                                   -> BigInt(-65535),
     ).foreach { case (s, d) =>
       check(Grammar.integer_literal(_), s, IntegerLiteral(d), s.length)
     }
@@ -291,8 +283,7 @@ class ParserTest extends FunSuite {
   }
 
   test("selector_expression") {
-    check(primitiveExpressions ++ selectorExpressions,
-      Grammar.selector_expression(_))
+    check(primitiveExpressions ++ selectorExpressions, Grammar.selector_expression(_))
   }
 
   test("completion_expression") {

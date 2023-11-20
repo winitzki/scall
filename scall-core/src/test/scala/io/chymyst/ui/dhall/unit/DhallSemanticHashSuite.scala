@@ -10,10 +10,10 @@ import scala.util.Try
 
 class DhallSemanticHashSuite extends FunSuite {
   test("dhall standard acceptance tests for semantic hash") {
-    val results:Seq[Try[String]] =  enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
-      val result = Try{
+    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
+      val result = Try {
         val diagnosticString = Files.readString(Paths.get(file.getAbsolutePath.replace("A.dhall", "B.hash"))).trim
-        val ourHash = "sha256:" + Semantics.semanticHash(Parser.parseDhall(Files.readString(Paths.get(file.getAbsolutePath))).get.value.value, file.toPath)
+        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(Files.readString(Paths.get(file.getAbsolutePath))).get.value.value, file.toPath)
         expect(ourHash == diagnosticString)
         file.getName
       }

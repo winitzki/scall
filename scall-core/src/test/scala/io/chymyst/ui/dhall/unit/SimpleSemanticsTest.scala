@@ -13,12 +13,12 @@ class SimpleSemanticsTest extends FunSuite {
 
   test("substitute in a variable") {
     val variable = v("x")
-    val result = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
+    val result   = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
     expect(result.toDhall == "_")
   }
 
   test("substitute in a lambda") {
-    val lam = (v("y") | ~Natural) -> v("x")
+    val lam    = (v("y") | ~Natural) -> v("x")
     val result = Semantics.substitute(lam, VarName("x"), 0, Variable(underscore, 0))
     expect(result.toDhall == "λ(y: Natural) -> _")
   }
@@ -31,19 +31,19 @@ class SimpleSemanticsTest extends FunSuite {
 
   test("alpha-normalize record access") {
     val dhall = "{ x = \"foo\" }.x"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     val exprN = expr.betaNormalized
     expect(exprN.toDhall == "\"foo\"")
   }
 
   test("correct precedence for imports with fallback") {
     val dhall = "./import1 ? ./import2"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     expect(expr.toDhall == "./import1 ? ./import2")
   }
 
   test("beta-normalize with unique subexpressions") {
-     """let enumerate
+    """let enumerate
        |    : Natural → List Natural
        |    = λ(n : Natural) →
        |        List/build

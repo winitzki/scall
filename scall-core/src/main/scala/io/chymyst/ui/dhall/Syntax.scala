@@ -18,7 +18,9 @@ import scala.util.chaining.scalaUtilChainingOps
 
 object SyntaxConstants {
   final case class VarName(name: String) extends AnyVal {
-    def escape: String = if ((Grammar.simpleKeywordsSet contains name) || (Grammar.builtinSymbolNamesSet contains name) || (SyntaxConstants.Constant.namesToValuesMap.keySet contains name) || (name matches ".*[^-/_A-Za-z0-9].*")) s"`$name`"
+    def escape: String = if (
+      (Grammar.simpleKeywordsSet contains name) || (Grammar.builtinSymbolNamesSet contains name) || (SyntaxConstants.Constant.namesToValuesMap.keySet contains name) || (name matches ".*[^-/_A-Za-z0-9].*")
+    ) s"`$name`"
     else name
   }
 
@@ -156,7 +158,7 @@ object SyntaxConstants {
     def union(other: Constant): Constant = (this, other) match {
       case (Constant.Sort, _) | (_, Constant.Sort) => Constant.Sort
       case (Constant.Kind, _) | (_, Constant.Kind) => Constant.Kind
-      case _ => Constant.Type
+      case _                                       => Constant.Type
     }
   }
 
@@ -216,12 +218,12 @@ object SyntaxConstants {
   sealed abstract class ImportType[+E] {
     def map[H](f: E => H): ImportType[H] = this match {
       case ImportType.Remote(url, headers) => ImportType.Remote(url, headers map f)
-      case _ => this.asInstanceOf[ImportType[H]]
+      case _                               => this.asInstanceOf[ImportType[H]]
     }
 
-    def traverse[F[_] : Applicative, H](f: E => F[H]): F[ImportType[H]] = this match {
+    def traverse[F[_]: Applicative, H](f: E => F[H]): F[ImportType[H]] = this match {
       case ImportType.Remote(url, headers) => seqOption(headers.map(f)).map(headers => ImportType.Remote(url, headers))
-      case _ => Applicative[F].pure(this.asInstanceOf[ImportType[H]])
+      case _                               => Applicative[F].pure(this.asInstanceOf[ImportType[H]])
     }
 
     protected def safetyLevelRequired: Int
@@ -248,7 +250,7 @@ object SyntaxConstants {
       def toJavaPath: java.nio.file.Path = {
         val initialPath = filePrefix match {
           case FilePrefix.Home => System.getProperty("user.home")
-          case _ => filePrefix.prefix
+          case _               => filePrefix.prefix
         }
         Paths.get(initialPath, file.canonicalize.segments: _*)
         // file.canonicalize.segments.foldLeft(initialPath)((prev, segment) => prev.resolve(segment))
@@ -266,7 +268,7 @@ object SyntaxConstants {
   final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String]) {
     override def toString: String = scheme.entryName.toLowerCase + "://" + authority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
-      case None => ""
+      case None        => ""
     })
   }
 
@@ -279,9 +281,9 @@ object SyntaxConstants {
     def canonicalize: File = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]()) { (prev, segment) =>
         segment match {
-          case "." => prev
+          case "."                                       => prev
           case ".." if prev.headOption.exists(_ != "..") => prev.tail
-          case s => s :: prev
+          case s                                         => s :: prev
         }
       }
       File(newSegments.reverse)
@@ -308,9 +310,10 @@ object SyntaxConstants {
       ("\\\\", "\\"),
     ).foldLeft(segment) { case (prev, (s, replacement)) => prev.replace(s, replacement) }
 
-    def urlEscapePathSegment(segment: String): String = Seq(
-      ":", ",", "?", "#", "[", "]", "@", "!", "$", "&", "'", "(", ")", "*", "+", ",", ";", "=",
-    ).foldLeft(segment) { (prev, s) => prev.replace(s, String.format("%%%2H", s)) }
+    def urlEscapePathSegment(segment: String): String =
+      Seq(":", ",", "?", "#", "[", "]", "@", "!", "$", "&", "'", "(", ")", "*", "+", ",", ";", "=").foldLeft(segment) { (prev, s) =>
+        prev.replace(s, String.format("%%%2H", s))
+      }
   }
 }
 
@@ -327,7 +330,7 @@ object Syntax {
     import ExpressionScheme._
 
     def map[H](f: E => H): ExpressionScheme[H] = {
-      implicit val ff: E => H = f
+      implicit val ff: E => H                       = f
       implicit val ffOption: Option[E] => Option[H] = _ map f
 
       implicit def fseq[A]: Seq[E] => Seq[H] = _ map f
@@ -341,62 +344,65 @@ object Syntax {
       implicit def fImport[A]: ImportType[E] => ImportType[H] = _ map f
 
       this match {
-        case Lambda(name, tipe, body) => Lambda(name, tipe, body)
-        case Forall(name, tipe, body) => Forall(name, tipe, body)
-        case Let(name, tipe, subst, body) => Let(name, tipe, subst, body)
-        case If(cond, ifTrue, ifFalse) => If(cond, ifTrue, ifFalse)
-        case Merge(record, update, tipe) => Merge(record, update, tipe)
-        case ToMap(data, tipe) => ToMap(data, tipe)
-        case EmptyList(tipe) => EmptyList(tipe)
-        case NonEmptyList(exprs) => NonEmptyList(exprs)
-        case Annotation(data, tipe) => Annotation(data, tipe)
-        case ExprOperator(lop, op, rop) => ExprOperator(lop, op, rop)
-        case Application(func, arg) => Application(func, arg)
-        case Field(base, name) => Field(base, name)
-        case ProjectByLabels(base, labels) => ProjectByLabels(base, labels)
-        case ProjectByType(base, by) => ProjectByType(base, by)
-        case Completion(base, target) => Completion(base, target)
-        case Assert(assertion) => Assert(assertion)
-        case With(data, pathComponents, body) => With(data, pathComponents, body)
-        case TextLiteral(interpolations, trailing) => TextLiteral(interpolations, trailing)
-        case RecordType(defs) => RecordType(defs)
-        case RecordLiteral(defs) => RecordLiteral(defs)
-        case UnionType(defs) => UnionType(defs)
-        case ShowConstructor(data) => ShowConstructor(data)
+        case Lambda(name, tipe, body)               => Lambda(name, tipe, body)
+        case Forall(name, tipe, body)               => Forall(name, tipe, body)
+        case Let(name, tipe, subst, body)           => Let(name, tipe, subst, body)
+        case If(cond, ifTrue, ifFalse)              => If(cond, ifTrue, ifFalse)
+        case Merge(record, update, tipe)            => Merge(record, update, tipe)
+        case ToMap(data, tipe)                      => ToMap(data, tipe)
+        case EmptyList(tipe)                        => EmptyList(tipe)
+        case NonEmptyList(exprs)                    => NonEmptyList(exprs)
+        case Annotation(data, tipe)                 => Annotation(data, tipe)
+        case ExprOperator(lop, op, rop)             => ExprOperator(lop, op, rop)
+        case Application(func, arg)                 => Application(func, arg)
+        case Field(base, name)                      => Field(base, name)
+        case ProjectByLabels(base, labels)          => ProjectByLabels(base, labels)
+        case ProjectByType(base, by)                => ProjectByType(base, by)
+        case Completion(base, target)               => Completion(base, target)
+        case Assert(assertion)                      => Assert(assertion)
+        case With(data, pathComponents, body)       => With(data, pathComponents, body)
+        case TextLiteral(interpolations, trailing)  => TextLiteral(interpolations, trailing)
+        case RecordType(defs)                       => RecordType(defs)
+        case RecordLiteral(defs)                    => RecordLiteral(defs)
+        case UnionType(defs)                        => UnionType(defs)
+        case ShowConstructor(data)                  => ShowConstructor(data)
         case Import(importType, importMode, digest) => Import(importType, importMode, digest)
-        case KeywordSome(data) => KeywordSome(data)
-        case _ => this.asInstanceOf[ExpressionScheme[H]]
+        case KeywordSome(data)                      => KeywordSome(data)
+        case _                                      => this.asInstanceOf[ExpressionScheme[H]]
       }
     }
 
     def traverse[H, F[_]](f: E => F[H])(implicit ev: Applicative[F]): F[ExpressionScheme[H]] = {
 
       this match {
-        case Lambda(name, tipe, body) => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Lambda(name, tipe, body) }
-        case Forall(name, tipe, body) => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Forall(name, tipe, body) }
-        case Let(name, tipe, subst, body) => seqTuple3(seqOption(tipe.map(f)), f(subst), f(body)).map { case (tipe, subst, body) => Let(name, tipe, subst, body) }
-        case If(cond, ifTrue, ifFalse) => seqSeq(Seq(cond, ifTrue, ifFalse).map(f)).map { case Seq(cond, ifTrue, ifFalse) => If(cond, ifTrue, ifFalse) }
-        case Merge(record, update, tipe) => seqTuple3((f(record), f(update), seqOption(tipe.map(f)))).map { case (record, update, tipe) => Merge(record, update, tipe) }
-        case ToMap(data, tipe) => seqTuple2((f(data), seqOption(tipe map f))).map { case (data, tipe) => ToMap(data, tipe) }
-        case EmptyList(tipe) => f(tipe).map(EmptyList(_))
-        case NonEmptyList(exprs) => seqSeq(exprs.map(f)).map(NonEmptyList(_))
-        case Annotation(data, tipe) => seqTuple2(f(data), f(tipe)).map { case (data, tipe) => Annotation(data, tipe) }
-        case ExprOperator(lop, op, rop) => seqTuple2(f(lop), f(rop)).map { case (lop, rop) => ExprOperator(lop, op, rop) }
-        case Application(func, arg) => seqTuple2(f(func), f(arg)).map { case (func, arg) => Application(func, arg) }
-        case Field(base, name) => f(base).map(Field(_, name))
-        case ProjectByLabels(base, labels) => f(base).map(ProjectByLabels(_, labels))
-        case ProjectByType(base, target) => seqTuple2(f(base), f(target)).map { case (base, target) => ProjectByType(base, target) }
-        case Completion(base, target) => seqTuple2(f(base), f(target)).map { case (base, target) => Completion(base, target) }
-        case Assert(assertion) => f(assertion).map(Assert(_))
-        case With(data, pathComponents, body) => seqSeq(Seq(data, body).map(f)).map { case Seq(data, body) => With(data, pathComponents, body) }
-        case TextLiteral(interpolations, trailing) => seqSeq(interpolations.map { case (prefix, expr) => f(expr).map((prefix, _)) }).map(_.toList).map(TextLiteral(_, trailing))
-        case RecordType(defs) => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordType(_))
-        case RecordLiteral(defs) => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordLiteral(_))
-        case UnionType(defs) => seqSeq(defs.map { case (field, expr) => seqOption(expr.map(f)).map((field, _)) }).map(UnionType(_))
-        case ShowConstructor(data) => f(data).map(ShowConstructor(_))
+        case Lambda(name, tipe, body)               => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Lambda(name, tipe, body) }
+        case Forall(name, tipe, body)               => seqTuple2(f(tipe), f(body)).map { case (tipe, body) => Forall(name, tipe, body) }
+        case Let(name, tipe, subst, body)           =>
+          seqTuple3(seqOption(tipe.map(f)), f(subst), f(body)).map { case (tipe, subst, body) => Let(name, tipe, subst, body) }
+        case If(cond, ifTrue, ifFalse)              => seqSeq(Seq(cond, ifTrue, ifFalse).map(f)).map { case Seq(cond, ifTrue, ifFalse) => If(cond, ifTrue, ifFalse) }
+        case Merge(record, update, tipe)            =>
+          seqTuple3((f(record), f(update), seqOption(tipe.map(f)))).map { case (record, update, tipe) => Merge(record, update, tipe) }
+        case ToMap(data, tipe)                      => seqTuple2((f(data), seqOption(tipe map f))).map { case (data, tipe) => ToMap(data, tipe) }
+        case EmptyList(tipe)                        => f(tipe).map(EmptyList(_))
+        case NonEmptyList(exprs)                    => seqSeq(exprs.map(f)).map(NonEmptyList(_))
+        case Annotation(data, tipe)                 => seqTuple2(f(data), f(tipe)).map { case (data, tipe) => Annotation(data, tipe) }
+        case ExprOperator(lop, op, rop)             => seqTuple2(f(lop), f(rop)).map { case (lop, rop) => ExprOperator(lop, op, rop) }
+        case Application(func, arg)                 => seqTuple2(f(func), f(arg)).map { case (func, arg) => Application(func, arg) }
+        case Field(base, name)                      => f(base).map(Field(_, name))
+        case ProjectByLabels(base, labels)          => f(base).map(ProjectByLabels(_, labels))
+        case ProjectByType(base, target)            => seqTuple2(f(base), f(target)).map { case (base, target) => ProjectByType(base, target) }
+        case Completion(base, target)               => seqTuple2(f(base), f(target)).map { case (base, target) => Completion(base, target) }
+        case Assert(assertion)                      => f(assertion).map(Assert(_))
+        case With(data, pathComponents, body)       => seqSeq(Seq(data, body).map(f)).map { case Seq(data, body) => With(data, pathComponents, body) }
+        case TextLiteral(interpolations, trailing)  =>
+          seqSeq(interpolations.map { case (prefix, expr) => f(expr).map((prefix, _)) }).map(_.toList).map(TextLiteral(_, trailing))
+        case RecordType(defs)                       => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordType(_))
+        case RecordLiteral(defs)                    => seqSeq(defs.map { case (field, expr) => f(expr).map((field, _)) }).map(RecordLiteral(_))
+        case UnionType(defs)                        => seqSeq(defs.map { case (field, expr) => seqOption(expr.map(f)).map((field, _)) }).map(UnionType(_))
+        case ShowConstructor(data)                  => f(data).map(ShowConstructor(_))
         case Import(importType, importMode, digest) => importType.traverse(f).map(importType => Import(importType, importMode, digest))
-        case KeywordSome(data) => f(data).map(KeywordSome(_))
-        case _ => Applicative[F].pure(this.asInstanceOf[ExpressionScheme[H]])
+        case KeywordSome(data)                      => f(data).map(KeywordSome(_))
+        case _                                      => Applicative[F].pure(this.asInstanceOf[ExpressionScheme[H]])
       }
     }
   }
@@ -418,8 +424,8 @@ object Syntax {
       def ofOperator(op: Operator): Int = offsetForOperators + op.cborCode * 2
 
       val offsetForOperators = 30
-      val low = 100
-      val lowest = 1000
+      val low                = 100
+      val lowest             = 1000
     }
 
     trait VarPrecedence extends TermPrecedence {
@@ -489,7 +495,7 @@ object Syntax {
 
     // TODO: report issue: hash codes of DoubleLiteral(-0.0) and DoubleLiteral(+0.0) are the same even though hash codes of -0.0 and +0.0 are different.
     // Workaround: copy the hash of the Double value into the case class.
-    final case class DoubleLiteral private(value: Double, hash: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class DoubleLiteral private (value: Double, hash: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
         val otherValue = other.asInstanceOf[DoubleLiteral].value
         (value == otherValue) || (value.isNaN && otherValue.isNaN)
@@ -544,7 +550,7 @@ object Syntax {
     final case class TextLiteral[+E](interpolations: List[(String, E)], trailing: String) extends ExpressionScheme[E] with VarPrecedence {
 
       def ++[G >: E, H <: G](other: TextLiteral[H]): TextLiteral[G] = other.interpolations match {
-        case List() =>
+        case List()                       =>
           TextLiteral(this.interpolations, this.trailing ++ other.trailing)
         case (headText, headExpr) :: tail =>
           TextLiteral(this.interpolations ++ ((this.trailing + headText, headExpr: G) :: tail), other.trailing)
@@ -570,16 +576,14 @@ object Syntax {
 
             case Some((head, interpolation)) =>
               val headSplit = splitByAllNewlines(head)
-              val l0 = headSplit.head // Guaranteed to exist.
-              val ls = headSplit.tail
-              if (ls.isEmpty) loop(
-                currentLine ++ TextLiteral[H](List((head, interpolation)), ""),
-                TextLiteral(nextLine.interpolations.tail, trailing),
-              )
-              else (currentLine ++ TextLiteral.ofString[H](l0)) +: (ls.init.map(TextLiteral.ofString[H]) ++ loop(
-                TextLiteral[H](List((ls.last, interpolation)), ""),
-                TextLiteral[H](nextLine.interpolations.tail, trailing),
-              ))
+              val l0        = headSplit.head // Guaranteed to exist.
+              val ls        = headSplit.tail
+              if (ls.isEmpty) loop(currentLine ++ TextLiteral[H](List((head, interpolation)), ""), TextLiteral(nextLine.interpolations.tail, trailing))
+              else
+                (currentLine ++ TextLiteral.ofString[H](l0)) +: (ls.init.map(TextLiteral.ofString[H]) ++ loop(
+                  TextLiteral[H](List((ls.last, interpolation)), ""),
+                  TextLiteral[H](nextLine.interpolations.tail, trailing),
+                ))
           }
         }
 
@@ -590,15 +594,12 @@ object Syntax {
         def longestCommonPrefix(a: String, b: String): String = a.iterator.zip(b.iterator).takeWhile { case (x, y) => x == y }.map(_._1).mkString
 
         val removeEmpty: Seq[TextLiteral[E]] = lines.init.filterNot(_.isEmpty) :+ lines.last
-        val longestCommonIndent: String = removeEmpty.map(_.whitespacePrefix).reduceRight(longestCommonPrefix)
+        val longestCommonIndent: String      = removeEmpty.map(_.whitespacePrefix).reduceRight(longestCommonPrefix)
         removeIndentsAndConcatenate(longestCommonIndent.length)
       }
 
       private def splitByAllNewlines(s: String): Seq[String] =
-        s.split("\r\n", -1)
-          .flatMap(_.split("\n", -1))
-          .toSeq
-          .pipe(s => if (s.isEmpty) Seq("") else s)
+        s.split("\r\n", -1).flatMap(_.split("\n", -1)).toSeq.pipe(s => if (s.isEmpty) Seq("") else s)
 
       private def removeIndentsAndConcatenate(indent: Int): TextLiteral[E] = {
         def join(a: TextLiteral[E], b: TextLiteral[E]): TextLiteral[E] = a ++ TextLiteral.ofString("\n") ++ b
@@ -610,13 +611,11 @@ object Syntax {
 
       def stripPrefix(indent: Int): TextLiteral[E] = interpolations.headOption match {
         case Some((head, tail)) => copy(interpolations = (head.drop(indent), tail) +: interpolations.tail)
-        case None => copy(trailing = trailing.drop(indent))
+        case None               => copy(trailing = trailing.drop(indent))
       }
 
-      def mapStrings(f: String => String): TextLiteral[E] = copy(
-        interpolations = interpolations.map { case (head, tail) => (f(head), tail) },
-        trailing = f(trailing),
-      )
+      def mapStrings(f: String => String): TextLiteral[E] =
+        copy(interpolations = interpolations.map { case (head, tail) => (f(head), tail) }, trailing = f(trailing))
 
       private def reEscape(s: String): String = s.replace("'''", "''").replace("''${", "${")
 
@@ -625,7 +624,7 @@ object Syntax {
     }
 
     // The hex string must be lowercase.
-    final case class BytesLiteral private(hex: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class BytesLiteral private (hex: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       val bytes: Array[Byte] = hexStringToByteArray(hex)
     }
 
@@ -637,7 +636,7 @@ object Syntax {
 
     final case class DateLiteral(year: Int, month: Int, day: Int) extends ExpressionScheme[Nothing] with VarPrecedence
 
-    final case class TimeLiteral private(hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class TimeLiteral private (hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       lazy val cborTotalSeconds: BigInt = BigInt(seconds.toString + nanosPrinted)
 
       // This is a negative number such that cborTotalSeconds * math.pow(10, cborPrecision) = seconds + math.pow(10, -9)*nanoSeconds
@@ -645,8 +644,7 @@ object Syntax {
       val cborPrecision: Int = -nanosPrinted.length
 
       /** The Dhall `TimeLiteral` has arbitrary-precision nanoseconds. Truncate them for converting to `java.time.LocalTime`.
-       *
-       */
+        */
       val nanosTruncated: Int = (nanosPrinted.take(9) + "0" * 9).take(9).toInt
 
       val localTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanosTruncated)
@@ -657,18 +655,23 @@ object Syntax {
     object TimeLiteral {
       def of(hours: Int, minutes: Int, totalSeconds: BigInt, precision: Int): TimeLiteral = {
         require(precision <= 0)
-        val fracLength = -precision
+        val fracLength                  = -precision
         // Example: totalSeconds = 102003000 and precision = -8
         // We will compute seconds = 1 and secFraction = Some("02003000")
-        val power = BigInt(10).pow(fracLength)
+        val power                       = BigInt(10).pow(fracLength)
         val (secondsBigInt, fracBigInt) = totalSeconds /% power
-        val seconds: Int = if (secondsBigInt.isValidInt && secondsBigInt.intValue >= 0 && secondsBigInt.intValue <= 59)
-          secondsBigInt.intValue
-        else throw new Exception(s"Invalid TimeLiteral: totalSeconds = $totalSeconds, precision = $precision is inconsistent because seconds = $secondsBigInt and is not between 0 and 59")
-        if (fracLength == 0) TimeLiteral(hours, minutes, seconds, "") else {
-          val fracBigIntString = fracBigInt.toString(10)
+        val seconds: Int                =
+          if (secondsBigInt.isValidInt && secondsBigInt.intValue >= 0 && secondsBigInt.intValue <= 59)
+            secondsBigInt.intValue
+          else
+            throw new Exception(
+              s"Invalid TimeLiteral: totalSeconds = $totalSeconds, precision = $precision is inconsistent because seconds = $secondsBigInt and is not between 0 and 59"
+            )
+        if (fracLength == 0) TimeLiteral(hours, minutes, seconds, "")
+        else {
+          val fracBigIntString     = fracBigInt.toString(10)
           val leadingZeros: String = "0" * (fracLength - fracBigIntString.length)
-          val secFraction = leadingZeros + fracBigIntString
+          val secFraction          = leadingZeros + fracBigIntString
           TimeLiteral(hours, minutes, seconds, truncateSecondsFraction(secFraction))
         }
       }
@@ -682,8 +685,8 @@ object Syntax {
     }
 
     final case class TimeZoneLiteral(totalMinutes: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
-      val hours: Int = math.abs(totalMinutes) / 60
-      val minutes: Int = math.abs(totalMinutes) % 60
+      val hours: Int          = math.abs(totalMinutes) / 60
+      val minutes: Int        = math.abs(totalMinutes) % 60
       val isPositive: Boolean = totalMinutes >= 0
     }
 
@@ -720,22 +723,22 @@ object Syntax {
 
           See https://github.com/dhall-lang/dhall-lang/blob/master/standard/record.md
 
-           */
+         */
         val desugared: Seq[(FieldName, Expression)] = values.map {
           // Desugar { x } into { x = x }.
           case RawRecordLiteral(base, None) => (base, Expression(Variable(VarName(base.name), BigInt(0))))
 
           // Desugar { w.x.y.z = expr } into {w = {x = { y = {z = expr }}}}.
-          case RawRecordLiteral(base, Some((fields, target))) => (base, fields.foldRight(target) { (field, expr) => Expression(RecordLiteral(Seq((field, expr)))) })
+          case RawRecordLiteral(base, Some((fields, target))) =>
+            (base, fields.foldRight(target) { (field, expr) => Expression(RecordLiteral(Seq((field, expr)))) })
         }
 
         // Desugar repeated field names { x = { y = 1 }, x = { z = 1 } } into { x = { y = 1 } ∧ { z = 1} }. This is needed at the top nested level only.
         def desugarRepetition(defs: Seq[(FieldName, Expression)]): Seq[(FieldName, Expression)] = {
           val recordMap: Map[FieldName, Expression] =
-            defs.groupBy(_._1)
-              .map { case (field, subDefs) =>
-                (field, subDefs.map(_._2).reduce((a, b) => Expression(ExprOperator(a, SyntaxConstants.Operator.CombineRecordTerms, b))))
-              }
+            defs.groupBy(_._1).map { case (field, subDefs) =>
+              (field, subDefs.map(_._2).reduce((a, b) => Expression(ExprOperator(a, SyntaxConstants.Operator.CombineRecordTerms, b))))
+            }
           // Preserve the original order of definitions.
           defs.map(_._1).distinct.map { fieldName => (fieldName, recordMap(fieldName)) }
         }
@@ -752,20 +755,21 @@ object Syntax {
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
 
-    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral]) extends ExpressionScheme[E] {
+    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
+        extends ExpressionScheme[E] {
       override def prec: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
 
       def chainWith(child: Import[E]): Import[E] =
         child.copy(importType = ImportResolution.chainWith(importType, child.importType))
 
       def canonicalize: Import[E] = importType match {
-        case i@ImportType.Remote(_, _) =>
+        case i @ ImportType.Remote(_, _) =>
           val canonicalPath = i.url.path.canonicalize
           copy(importType = i.copy(url = i.url.copy(path = canonicalPath)))
-        case i@ImportType.Path(_, _) =>
+        case i @ ImportType.Path(_, _)   =>
           val canonicalPath = i.file.canonicalize
           copy(importType = i.copy(file = canonicalPath))
-        case _ => this
+        case _                           => this
       }
     }
 
@@ -777,7 +781,8 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
-    def traverseRecursive[F[_] : Applicative](f: Expression => F[Expression]): F[Expression] = scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
+    def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =
+      scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
 
     /*def uniqueSubexpressionReferences: Expression = {
       val t: UniqueReferences[Expression] = traverseRecursive[UniqueReferences](UniqueReferences.make)
@@ -803,36 +808,37 @@ object Syntax {
     } yield t
 
     def toPrimitiveValue: Option[AnyRef] = scheme match {
-      case EmptyList(_) => Some(Nil)
-      case NonEmptyList(defs) =>
+      case EmptyList(_)                 => Some(Nil)
+      case NonEmptyList(defs)           =>
         val decoded = defs.map(_.toPrimitiveValue)
         if (decoded.forall(_.nonEmpty)) Some(decoded.flatten) else None
-      case DoubleLiteral(d) => Some(java.lang.Double.valueOf(d))
-      case NaturalLiteral(n) => Some(n)
-      case IntegerLiteral(n) => Some(n)
-      case TextLiteral(Nil, trailing) => Some(trailing)
-      case b@BytesLiteral(_) => Some(b.bytes)
-      case DateLiteral(y, m, d) => Some(LocalDate.of(y, m, d))
-      case t@TimeLiteral(_, _, _, _) => Some(t.localTime)
-      case TimeZoneLiteral(t) => Some(ZoneOffset.ofTotalSeconds(t * 60))
-      case ExprConstant(Constant.True) => Some(java.lang.Boolean.valueOf(true))
+      case DoubleLiteral(d)             => Some(java.lang.Double.valueOf(d))
+      case NaturalLiteral(n)            => Some(n)
+      case IntegerLiteral(n)            => Some(n)
+      case TextLiteral(Nil, trailing)   => Some(trailing)
+      case b @ BytesLiteral(_)          => Some(b.bytes)
+      case DateLiteral(y, m, d)         => Some(LocalDate.of(y, m, d))
+      case t @ TimeLiteral(_, _, _, _)  => Some(t.localTime)
+      case TimeZoneLiteral(t)           => Some(ZoneOffset.ofTotalSeconds(t * 60))
+      case ExprConstant(Constant.True)  => Some(java.lang.Boolean.valueOf(true))
       case ExprConstant(Constant.False) => Some(java.lang.Boolean.valueOf(false))
-      case KeywordSome(data) => data.toPrimitiveValue.map(Some.apply)
-      case RecordLiteral(defs) =>
+      case KeywordSome(data)            => data.toPrimitiveValue.map(Some.apply)
+      case RecordLiteral(defs)          =>
         val decoded = defs.map { case (fieldName, e) => e.toPrimitiveValue.map(v => (fieldName.name -> v)) }
         if (decoded.forall(_.nonEmpty)) Some(decoded.flatten.toMap) else None
-      case _ => None
+      case _                            => None
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
-    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression = Semantics.betaNormalize(this)
+    lazy val alphaNormalized: Expression                                     = Semantics.alphaNormalize(this)
+    lazy val betaNormalized: Expression                                      = Semantics.betaNormalize(this)
 
     /** Print `this` to Dhall syntax.
-     *
-     * @return A string representation of `this` expression in (approximately) Dhall syntax.
-     */
+      *
+      * @return
+      *   A string representation of `this` expression in (approximately) Dhall syntax.
+      */
     def toDhall: String = atPrecedence(TermPrecedence.lowest)
 
     private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm
@@ -840,66 +846,74 @@ object Syntax {
     private def dhallForm: String = {
       val p = scheme.prec
       scheme match {
-        case Variable(name, index) => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
-        case Lambda(name, tipe, body) => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Forall(name, tipe, body) => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Let(name, tipe, subst, body) => s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(p - 1)}\nin ${body.atPrecedence(p)}"
-        case If(cond, ifTrue, ifFalse) => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
-        case Merge(record, update, tipe) => "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
-          case Some(value) => ": " + value.atPrecedence(p)
-          case None => ""
-        })
-        case ToMap(data, tipe) => "toMap " + data.atPrecedence(p) + (tipe match {
-          case Some(value) => ": " + value.atPrecedence(p)
-          case None => ""
-        })
-        case EmptyList(tipe) => s"[]: ${tipe.atPrecedence(p)}"
-        case NonEmptyList(exprs) => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
-        case Annotation(data, tipe) => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p - 1)}"
-        case ExprOperator(lop, op, rop) => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
-        case Application(func, arg) => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
-        case Field(base, name) => base.atPrecedence(p) + "." + name.name
-        case ProjectByLabels(base, labels) => base.atPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
-        case ProjectByType(base, by) => base.atPrecedence(p) + "." + "(" + by.atPrecedence(p) + ")"
-        case Completion(base, target) => base.atPrecedence(p) + " :: " + target.atPrecedence(p)
-        case Assert(assertion) => s"assert : ${assertion.atPrecedence(p)}"
-        case With(data, pathComponents, body) => data.atPrecedence(p) + " with " + pathComponents.map {
-          case PathComponent.Label(name) => name.name
-          case PathComponent.DescendOptional => "?"
-        }.mkString(".") + " = " + body.atPrecedence(p)
-        case DoubleLiteral(value) => value.toString
-        case NaturalLiteral(value) => value.toString(10)
-        case IntegerLiteral(value) => (if (value >= 0) "+" else "") + value.toString(10)
-        case TextLiteral(interpolations, trailing) => "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.atPrecedence(p) + "}" }.mkString + trailing + "\""
-        case BytesLiteral(hex) => s"0x\"$hex\""
-        case DateLiteral(year, month, day) => f"$year%04d-$month%02d-$day%02d"
-        case t@TimeLiteral(_, _, _, _) => t.toString
-        case t@TimeZoneLiteral(_) => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
-        case RecordType(defs) => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
-        case RecordLiteral(defs) => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
-        case UnionType(defs) => "< " + defs.map { case (name, expr) => name.name + expr.map(_.atPrecedence(p)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
-        case ShowConstructor(data) => "showConstructor " + data.atPrecedence(p)
+        case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
+        case Lambda(name, tipe, body)               => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
+        case Forall(name, tipe, body)               => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
+        case Let(name, tipe, subst, body)           =>
+          s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(p - 1)}\nin ${body.atPrecedence(p)}"
+        case If(cond, ifTrue, ifFalse)              => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
+        case Merge(record, update, tipe)            =>
+          "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
+            case Some(value) => ": " + value.atPrecedence(p)
+            case None        => ""
+          })
+        case ToMap(data, tipe)                      =>
+          "toMap " + data.atPrecedence(p) + (tipe match {
+            case Some(value) => ": " + value.atPrecedence(p)
+            case None        => ""
+          })
+        case EmptyList(tipe)                        => s"[]: ${tipe.atPrecedence(p)}"
+        case NonEmptyList(exprs)                    => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
+        case Annotation(data, tipe)                 => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p - 1)}"
+        case ExprOperator(lop, op, rop)             => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
+        case Application(func, arg)                 => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
+        case Field(base, name)                      => base.atPrecedence(p) + "." + name.name
+        case ProjectByLabels(base, labels)          => base.atPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
+        case ProjectByType(base, by)                => base.atPrecedence(p) + "." + "(" + by.atPrecedence(p) + ")"
+        case Completion(base, target)               => base.atPrecedence(p) + " :: " + target.atPrecedence(p)
+        case Assert(assertion)                      => s"assert : ${assertion.atPrecedence(p)}"
+        case With(data, pathComponents, body)       =>
+          data.atPrecedence(p) + " with " + pathComponents
+            .map {
+              case PathComponent.Label(name)     => name.name
+              case PathComponent.DescendOptional => "?"
+            }.mkString(".") + " = " + body.atPrecedence(p)
+        case DoubleLiteral(value)                   => value.toString
+        case NaturalLiteral(value)                  => value.toString(10)
+        case IntegerLiteral(value)                  => (if (value >= 0) "+" else "") + value.toString(10)
+        case TextLiteral(interpolations, trailing)  =>
+          "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.atPrecedence(p) + "}" }.mkString + trailing + "\""
+        case BytesLiteral(hex)                      => s"0x\"$hex\""
+        case DateLiteral(year, month, day)          => f"$year%04d-$month%02d-$day%02d"
+        case t @ TimeLiteral(_, _, _, _)            => t.toString
+        case t @ TimeZoneLiteral(_)                 => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
+        case RecordType(defs)                       => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
+        case RecordLiteral(defs)                    => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
+        case UnionType(defs)                        =>
+          "< " + defs.map { case (name, expr) => name.name + expr.map(_.atPrecedence(p)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
+        case ShowConstructor(data)                  => "showConstructor " + data.atPrecedence(p)
         case Import(importType, importMode, digest) =>
-          val digestString = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
+          val digestString     = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
           val importModeString = importMode match {
-            case ImportMode.Code => ""
+            case ImportMode.Code     => ""
             case ImportMode.RawBytes => " as Bytes"
-            case ImportMode.RawText => " as Text"
+            case ImportMode.RawText  => " as Text"
             case ImportMode.Location => " as Location"
           }
           val importTypeString = importType match {
-            case ImportType.Missing => "missing"
-            case ImportType.Remote(url, headers) => url.toString + (headers match {
-              case Some(value) => " using " + value.atPrecedence(p)
-              case None => ""
-            })
-            case p@ImportType.Path(filePrefix, file) => p.toString
-            case ImportType.Env(envVarName) => "env:" + envVarName
+            case ImportType.Missing                    => "missing"
+            case ImportType.Remote(url, headers)       =>
+              url.toString + (headers match {
+                case Some(value) => " using " + value.atPrecedence(p)
+                case None        => ""
+              })
+            case p @ ImportType.Path(filePrefix, file) => p.toString
+            case ImportType.Env(envVarName)            => "env:" + envVarName
           }
           importTypeString + digestString + importModeString
-        case KeywordSome(data) => s"Some ${data.atPrecedence(p)}"
-        case ExprBuiltin(builtin) => builtin.entryName
-        case ExprConstant(constant) => constant.entryName
+        case KeywordSome(data)                      => s"Some ${data.atPrecedence(p)}"
+        case ExprBuiltin(builtin)                   => builtin.entryName
+        case ExprConstant(constant)                 => constant.entryName
       }
     }
 
@@ -917,13 +931,13 @@ object Syntax {
     // Lambda is a -> b where a must be (Variable :: T)
     def ->(other: Expression): Expression = this.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
-      case _ => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.toDhall}: $this")
+      case _                                                              => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.toDhall}: $this")
     }
 
     // Forall type expressions.
     def ->:(tipe: Expression): Expression = tipe.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Forall(name, t, this)
-      case _ => Forall(underscore, tipe, this)
+      case _                                                              => Forall(underscore, tipe, this)
     }
 
   }
