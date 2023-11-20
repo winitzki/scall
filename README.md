@@ -25,7 +25,13 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md), including the "function check". All typechecking tests pass.
 
+- [x] GitHub Actions are used to test across JDK 8, 11, 17 and Scala 2.13.11 and 3.3.1.
+
 - [ ] Import resolution code is in progress. Basic import resolution is implemented (files, environment variables, and URLs).
+
+## Special features in the Scala implementation of Dhall
+
+- [x] All alpha-normalization, beta-normalization, and type-checking results are cached in LRU caches of configurable size.
 
 ## Roadmap for future developments
 

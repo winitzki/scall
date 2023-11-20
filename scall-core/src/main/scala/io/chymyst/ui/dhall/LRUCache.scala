@@ -7,7 +7,6 @@ import java.util
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
-
 final case class LRUCache[K, V](maxSize: Int) extends mutable.Map[K, V] {
   private val lruCache = new util.LinkedHashMap[K, V](maxSize * 4 / 3, 0.75f, true) {
     override def removeEldestEntry(eldest: util.Map.Entry[K, V]): Boolean = size > maxSize
@@ -27,4 +26,3 @@ final case class LRUCache[K, V](maxSize: Int) extends mutable.Map[K, V] {
     this
   }
 }
-

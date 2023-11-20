@@ -11,18 +11,20 @@ import scala.util.Try
 
 object TestUtils {
 
+  def readFileToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+
   def v(name: String): Expression = Expression(Variable(SyntaxConstants.VarName(name), BigInt(0)))
 
   def checkMaybeLastPosition[A](parsed: Parsed[A], input: String, expectedResult: A, lastPosition: Option[Int] = None): Unit = {
-    parsed match {
-      case Parsed.Success(value, index) =>
+    /*parsed match {
+      case Parsed.Success(value, index)          =>
         println(s"Parsing input '$input', got Success($value, $index), expecting Success($expectedResult, _)")
       case Parsed.Failure(message, index, extra) =>
         println(s"Error: Parsing input '$input', expected Success($expectedResult, $index) but got Failure('$message', $index, ${Try(extra.stack).toOption})")
-    }
+    }*/
     lastPosition match {
       case Some(lastIndex) => expect((input != null) && (parsed == Parsed.Success(expectedResult, lastIndex)))
-      case None => expect((input != null) && (parsed.get.value == expectedResult))
+      case None            => expect((input != null) && (parsed.get.value == expectedResult))
     }
   }
 
@@ -50,10 +52,12 @@ object TestUtils {
   def toFail[A](grammarRule: P[_] => P[A], input: Array[Byte], lastIndex: Int): Unit = {
     val parsed = parse(input, grammarRule)
     parsed match {
-      case Parsed.Success(value, index) =>
+      case Parsed.Success(value, index)              =>
         throw new Exception(s"Error: Parsing input '$input', expected Failure but got Success($value, $index)")
-      case f@Parsed.Failure(message, index, extra) =>
-        println(s"Parsing input '$input', expected index $lastIndex, got Failure('$message', $index, ${Try(extra.stack).toOption}), message '${f.msg}' as expected")
+      case f @ Parsed.Failure(message, index, extra) =>
+        println(
+          s"Parsing input '$input', expected index $lastIndex, got Failure('$message', $index, ${Try(extra.stack).toOption}), message '${f.msg}' as expected"
+        )
         expect(input != null && f.index == lastIndex)
     }
   }
@@ -61,10 +65,12 @@ object TestUtils {
   def toFail[A](grammarRule: P[_] => P[A], input: String, parsedInput: String, expectedMessage: String, lastIndex: Int): Unit = {
     val parsed = parse(input, grammarRule)
     parsed match {
-      case Parsed.Success(value, index) =>
+      case Parsed.Success(value, index)              =>
         throw new Exception(s"Error: Parsing input '$input', expected Failure but got Success($value, $index)")
-      case f@Parsed.Failure(message, index, extra) =>
-        println(s"Parsing input '$input', expected index $lastIndex, got Failure('$message', $index, ${Try(extra.stack).toOption}), message '${f.msg}' as expected")
+      case f @ Parsed.Failure(message, index, extra) =>
+        println(
+          s"Parsing input '$input', expected index $lastIndex, got Failure('$message', $index, ${Try(extra.stack).toOption}), message '${f.msg}' as expected"
+        )
         expect(input != null && (f.msg contains expectedMessage), input != null && f.index == lastIndex)
     }
   }
@@ -83,7 +89,7 @@ object TestUtils {
   }
 
   def requireSuccessAtLeast(n: Int, results: Seq[Try[_]]) = {
-    val failures = results.count(_.isFailure)
+    val failures  = results.count(_.isFailure)
     val successes = results.count(_.isSuccess)
     println(s"Success count: $successes\nFailure count: $failures")
     expect(failures == 0 && successes >= n)

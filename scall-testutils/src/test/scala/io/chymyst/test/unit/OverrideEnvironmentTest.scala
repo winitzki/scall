@@ -16,16 +16,12 @@ class OverrideEnvironmentTest extends FunSuite with OverrideEnvironment {
 
     // Test code will now see the modified environment.
     def myTestCode() = {
-      val home = System.getenv("HOME")
+      val home   = System.getenv("HOME")
       val tmpdir = Option(System.getenv("TMPDIR")).getOrElse("/tmp")
       assert(home == "/fake/home" && tmpdir == "/fake/tmpdir")
     }
   }
-  val fakeVars = Seq(
-    "xyzpdq1" -> "value1",
-    "xyzpdq2" -> "value2",
-    "xyzpdq3" -> "value3",
-  )
+  val fakeVars = Seq("xyzpdq1" -> "value1", "xyzpdq2" -> "value2", "xyzpdq3" -> "value3")
 
   test("fake environment variables can be added") {
     // Initially the environment should not contain those variables.

@@ -8,8 +8,8 @@ trait TestTimeouts {
   }
 
   def elapsedNanos[R](code: => R): (R, Long) = {
-    val initNanos = System.nanoTime()
-    val result = code
+    val initNanos  = System.nanoTime()
+    val result     = code
     val finalNanos = System.nanoTime()
     (result, finalNanos - initNanos)
   }

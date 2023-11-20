@@ -52,14 +52,14 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
   }
 
   test("cbor encoding for time literals with long fraction using cbor1") {
-    val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
+    val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
     expect(input.dhall == fromCbor1)
     expect(expected.dhall == fromCbor1)
   }
 
   test("cbor encoding for time literals with long fraction using cbor2") {
-    val (input, expected) = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
+    val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
     expect(input.dhall == fromCbor2)
     expect(expected.dhall == fromCbor2)
@@ -69,8 +69,8 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
     // Encode "00:00:00.000000000000" with various numbers of zeros after comma.
     val results = (1 to iterations).map { i =>
       val inputString = f"00:00:$initialSeconds%02d." + "0" * i
-      val input = inputString.dhall
-      val fileName = s"time_literal_$initialSeconds.$i.cbor"
+      val input       = inputString.dhall
+      val fileName    = s"time_literal_$initialSeconds.$i.cbor"
       if (createFiles) {
         import scala.sys.process._
         Try {
@@ -78,10 +78,10 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
           "bash 1.sh".!
         }
       } else {
-        val filePath = resourceAsFile("time_literal/" + fileName).get.toPath
+        val filePath        = resourceAsFile("time_literal/" + fileName).get.toPath
         val validationBytes = Files.readAllBytes(filePath)
-        val fromCbor1 = CBORmodel.decodeCbor1(validationBytes)
-        val fromCbor2 = CBORmodel.decodeCbor2(validationBytes)
+        val fromCbor1       = CBORmodel.decodeCbor1(validationBytes)
+        val fromCbor2       = CBORmodel.decodeCbor2(validationBytes)
         Try {
           expect(input.toDhall == fromCbor1.toScheme.toDhall)
           expect(input.scheme == fromCbor1.toScheme)
@@ -91,7 +91,7 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
           expect(input.toCBORmodel.encodeCbor2 sameElements validationBytes)
         } recoverWith { case t: Throwable =>
           println(s"Failure with file $fileName (valid CBOR model $fromCbor1): $t")
-        Failure(t)
+          Failure(t)
         }
       }
     }

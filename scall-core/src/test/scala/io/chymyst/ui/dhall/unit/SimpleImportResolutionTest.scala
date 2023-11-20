@@ -19,17 +19,22 @@ import java.nio.file.Paths
 class SimpleImportResolutionTest extends FunSuite {
 
   test("environment presets are parsed correctly for testing") {
-    enumerateResourceFiles("dhall-lang/tests/import/success", Some("originHeadersENV.dhall"))
-      .foreach { file =>
-        val envs = DhallImportResolutionSuite.readHeadersFromEnv(file)
-        expect(envs == Seq(("DHALL_HEADERS",
-          """toMap {
+    enumerateResourceFiles("dhall-lang/tests/import/success", Some("originHeadersENV.dhall")).foreach { file =>
+      val envs = DhallImportResolutionSuite.readHeadersFromEnv(file)
+      expect(
+        envs == Seq(
+          (
+            "DHALL_HEADERS",
+            """toMap {
             |  `httpbin.org:443` = toMap {
             |    `User-Agent` = "Dhall"
             |  }
             |}
-            |""".stripMargin)))
-      }
+            |""".stripMargin,
+          )
+        )
+      )
+    }
   }
 
   test("import chaining must compute correct paths") {
@@ -38,7 +43,7 @@ class SimpleImportResolutionTest extends FunSuite {
     val chained = import1 chainWith import2
     expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp", "file2.dhall"))))
 
-    val import3 = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
+    val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained13 = import1 chainWith import3
     expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp2", "file3.dhall"))))
   }

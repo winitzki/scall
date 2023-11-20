@@ -19,18 +19,15 @@ class ParserTest2 extends FunSuite {
     import io.chymyst.ui.dhall.SyntaxConstants.FilePrefix.Here
     import io.chymyst.ui.dhall.SyntaxConstants.ImportType.Path
 
-    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (Path(Here, File(List
-    ("local", "import"))), Some(sha256example)), 86)
+    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (Path(Here, File(List("local", "import"))), Some(sha256example)), 86)
   }
 
   test("import_expression") {
-    check(primitiveExpressions ++ selectorExpressions ++ completionExpressions ++ importExpressions,
-      Grammar.import_expression(_))
+    check(primitiveExpressions ++ selectorExpressions ++ completionExpressions ++ importExpressions, Grammar.import_expression(_))
   }
 
   test("plus_expression") {
-    check(primitiveExpressions ++ selectorExpressions ++ completionExpressions ++ importExpressions ++ plusExpressions,
-      Grammar.plus_expression(_))
+    check(primitiveExpressions ++ selectorExpressions ++ completionExpressions ++ importExpressions ++ plusExpressions, Grammar.plus_expression(_))
   }
 
   test("primitive_expression") {

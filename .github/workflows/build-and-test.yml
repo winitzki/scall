@@ -1,0 +1,60 @@
+jobs:
+  build:
+    name: Build
+    needs:
+      - checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
+      - name: "~/.sbt\n\"~/.cache/coursier\"\n cache"
+        uses: "actions/cache@v3"
+        with:
+          key: "${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}"
+          path: |
+            ~/.sbt
+            "~/.cache/coursier"
+          restore-keys: |
+            ${{ runner.os }}-sbt
+      - name: "java ${{ matrix.java}} setup"
+        uses: "actions/setup-java@v1.4.3"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: "${{ matrix.java}}"
+      - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
+    strategy:
+      matrix:
+        java:
+          - '8.0.382'
+          - '11.0.21'
+          - '17.0.9'
+        scala:
+          - '2.13.11'
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
+      - name: "~/.sbt\n\"~/.cache/coursier\"\n cache"
+        uses: "actions/cache@v3"
+        with:
+          key: "${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}"
+          path: |
+            ~/.sbt
+            "~/.cache/coursier"
+          restore-keys: |
+            ${{ runner.os }}-sbt
+      - name: java 17 setup
+        uses: "actions/setup-java@v1.4.3"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: '17'
+      - run: sbt scalafmtCheckAll scalafmtSbtCheck
+name: scall - build and test
+on:
+  push: {}

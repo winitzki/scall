@@ -6,12 +6,12 @@ import munit.FunSuite
 
 class ResourceFilesTest extends FunSuite with ResourceFiles {
   test("get resource as file") {
-    val file1 = resourceAsFile("testfile1.txt")
-    val file2 = resourceAsFile("testdir")
+    val file1  = resourceAsFile("testfile1.txt")
+    val file2  = resourceAsFile("testdir")
     val file2a = resourceAsFile("testdir/")
-    val file3 = resourceAsFile("testdir/testfile.txt")
-    val file4 = resourceAsFile("nonexisting")
-    val file5 = resourceAsFile("testdir/nonexisting")
+    val file3  = resourceAsFile("testdir/testfile.txt")
+    val file4  = resourceAsFile("nonexisting")
+    val file5  = resourceAsFile("testdir/nonexisting")
     expect(Seq(file1, file2, file2a, file3).forall(_.nonEmpty))
     expect(Seq(file4, file5).forall(_.isEmpty))
 
