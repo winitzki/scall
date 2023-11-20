@@ -108,7 +108,7 @@ object Semantics {
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
   }
 
-  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr.scheme,alphaNormalizeUncached(expr))
+  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr.scheme, alphaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
   private def alphaNormalizeUncached(expr: Expression): Expression = expr.scheme match {
