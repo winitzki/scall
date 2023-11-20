@@ -49,9 +49,6 @@ object Semantics {
     case other => other.traverse(expr => freeVars(expr)).map(Expression.apply)
   }
 
-  //  private val cacheListFold: mutable.Map[(Expression, Seq[Expression], Expression, Expression, Expression), Expression] = mutable.Map()
-  //  private val cacheNaturalFold: mutable.Map[(Natural, Expression, Expression, Expression), Expression] = mutable.Map()
-
   def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
 
@@ -162,10 +159,10 @@ object Semantics {
       .toSeq
       .sortBy(_._1.name)
 
-  val chooseLRUcache: Option[Int] = Some(30000)
+  val maxCacheSize: Option[Int] = Some(30000)
 
   // TODO: possibly remove special lazy handling for .betaNormalized because that is not effective enough and we have to cache all betaNormalized results anyway.
-  val cacheBetaNormalize = ObservedCache.chooseCache[ExpressionScheme[Expression], Expression](chooseLRUcache)
+  val cacheBetaNormalize = ObservedCache.chooseCache[ExpressionScheme[Expression], Expression](maxCacheSize)
 
   def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
 

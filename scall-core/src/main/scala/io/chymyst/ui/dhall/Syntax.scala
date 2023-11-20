@@ -487,11 +487,21 @@ object Syntax {
       require(pathComponents.nonEmpty)
     }
 
-    final case class DoubleLiteral(value: Double) extends ExpressionScheme[Nothing] with VarPrecedence {
+    // TODO: report issue: hash codes of DoubleLiteral(-0.0) and DoubleLiteral(+0.0) are the same even though hash codes of -0.0 and +0.0 are different.
+    // Workaround: copy the hash of the Double value into the case class.
+    final case class DoubleLiteral private(value: Double, hash: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
         val otherValue = other.asInstanceOf[DoubleLiteral].value
         (value == otherValue) || (value.isNaN && otherValue.isNaN)
       }
+
+      def getValue = value
+    }
+
+    object DoubleLiteral {
+      def apply(value: Double): DoubleLiteral = DoubleLiteral(value, value.hashCode)
+
+      def unapply(x: DoubleLiteral): Option[Double] = Some(x.getValue)
     }
 
     final case class NaturalLiteral(value: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
@@ -814,32 +824,15 @@ object Syntax {
       case _ => None
     }
 
+    // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
     lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-
     lazy val betaNormalized: Expression = Semantics.betaNormalize(this)
-    /*
-    // Produce a new Expression that has been beta-normalized and whose .betaNormalized method is precomputed.
-    lazy val betaNormalizedx: Expression = if (betaN.get != null) {
-      // println(s"${LocalDateTime.now} DEBUG: using cached betaNormalized expression: ${betaN.get.toDhall}")
-      betaN.get
-    } else {
-      //      println(s"${LocalDateTime.now} DEBUG: need to betaNormalize: ${this.toDhall}")
-      val normalized = Semantics.betaNormalize(this) //.uniqueSubexpressionReferences).uniqueSubexpressionReferences
-      if (normalized == this) {
-        this.betaN.compareAndSet(null, this)
-        this
-      } else {
-        this.betaN.compareAndSet(null, normalized)
-        normalized.betaN.compareAndSet(null, normalized)
-        normalized
-      }
-    }
 
-    private val betaN: AtomicReference[Expression] = new AtomicReference(null)*/
-
-    // Print to Dhall syntax.
-
+    /** Print `this` to Dhall syntax.
+     *
+     * @return A string representation of `this` expression in (approximately) Dhall syntax.
+     */
     def toDhall: String = atPrecedence(TermPrecedence.lowest)
 
     private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm

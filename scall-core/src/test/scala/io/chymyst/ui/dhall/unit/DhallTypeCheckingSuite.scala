@@ -12,7 +12,7 @@ import java.io.{File, FileInputStream}
 import scala.collection.immutable.Seq
 import scala.util.Try
 
-class DhallTypeInferenceSuite extends FunSuite {
+class DhallTypeCheckingSuite extends FunSuite {
 
   test("type inference success") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/type-inference/success", Some("A.dhall"))

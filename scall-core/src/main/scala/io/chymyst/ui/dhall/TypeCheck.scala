@@ -68,9 +68,9 @@ object TypecheckResult {
 object TypeCheck {
   val emptyContext: Gamma = Gamma(Map())
 
-  val useLRUcache: Option[Int] = Some(50000)
+  val maxCacheSize: Option[Int] = Some(50000)
 
-  val cacheTypeCheck = ObservedCache.chooseCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](useLRUcache)
+  val cacheTypeCheck = ObservedCache.chooseCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize)
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
@@ -117,10 +117,7 @@ object TypeCheck {
   val _Type: Expression = ExprConstant(Constant.Type)
   val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
-  // TODO: can we somehow cache all expressions that already have inferred types, to avoid inferring the same types again? At least, for closed terms? Add the context to TypecheckResult
-
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-
   def inferType(gamma: Gamma, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
 
   private def inferTypeOrCached(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
