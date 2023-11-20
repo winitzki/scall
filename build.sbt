@@ -19,8 +19,9 @@ val cbor3 = "io.bullet"      %% "borer-core" % "1.8.0"
 val curryhoward = "io.chymyst" %% "curryhoward" % "0.3.8"
 
 lazy val jdkModuleOptions: Seq[String] = {
-  val options = if (scala.sys.props.get("JDK_VERSION") exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
-  println(s"Additional JDK options: ${options.mkString(" ")}")
+  val jdkVersion = scala.sys.props.get("JDK_VERSION")
+  val options = if (jdkVersion exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
+  println(s"Additional JDK ${jdkVersion.getOrElse("")} options: ${options.mkString(" ")}")
   options
 }
 
@@ -33,6 +34,8 @@ lazy val scall_core = (project in file("scall-core"))
     crossScalaVersions       := Seq(scala2V, scala3V),
     testFrameworks += munitFramework,
     Test / parallelExecution := true,
+    Test / fork := true,
+    Test / javaOptions ++= jdkModuleOptions,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     libraryDependencies ++= Seq(
       fastparse,
@@ -52,7 +55,7 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
   scalaVersion             := scalaV,
   crossScalaVersions       := Seq(scala2V, scala3V),
   testFrameworks += munitFramework,
-  Test / parallelExecution := false,
+  Test / parallelExecution := true,
   Test / fork              := true,
   Test / javaOptions ++= jdkModuleOptions,
   libraryDependencies ++= Seq(munitTest, assertVerboseTest),

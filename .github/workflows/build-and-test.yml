@@ -57,5 +57,4 @@ jobs:
       - run: sbt scalafmtCheckAll scalafmtSbtCheck
 name: scall - build and test
 on:
-  pull_request: {}
   push: {}

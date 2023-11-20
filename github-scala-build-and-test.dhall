@@ -26,7 +26,7 @@ in  GithubActions.Workflow::{
     , name = "scall - build and test"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{=}
-      , pull_request = Some GithubActions.PullRequest::{=}
+      --, pull_request = Some GithubActions.PullRequest::{=}
       }
     , jobs = toMap
         { checks = GithubActions.Job::{
