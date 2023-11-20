@@ -20,7 +20,7 @@ val curryhoward = "io.chymyst" %% "curryhoward" % "0.3.8"
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
-  val options = if (jdkVersion exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
+  val options    = if (jdkVersion exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
   println(s"Additional JDK ${jdkVersion.getOrElse("")} options: ${options.mkString(" ")}")
   options
 }
@@ -34,7 +34,7 @@ lazy val scall_core = (project in file("scall-core"))
     crossScalaVersions       := Seq(scala2V, scala3V),
     testFrameworks += munitFramework,
     Test / parallelExecution := true,
-    Test / fork := true,
+    Test / fork              := true,
     Test / javaOptions ++= jdkModuleOptions,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     libraryDependencies ++= Seq(
