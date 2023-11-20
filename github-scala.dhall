@@ -23,7 +23,7 @@ let setup =
       ]
 
 in  GithubActions.Workflow::{
-    , name = "Greeting"
+    , name = "scall - build and test"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{=}
       , pull_request = Some GithubActions.PullRequest::{=}
@@ -47,7 +47,7 @@ in  GithubActions.Workflow::{
           , steps =
                 setup
               # [ GithubActions.steps.actions/setup-java
-                    { java-version = "\${{ matrix.scala}}" }
+                    { java-version = "\${{ matrix.java}}" }
                 , GithubActions.steps.run
                     { run = "sbt \"++\${{ matrix.scala}} test\"" }
                 ]

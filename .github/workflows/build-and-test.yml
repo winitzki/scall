@@ -15,12 +15,12 @@ jobs:
             "~/.cache/coursier"
           restore-keys: |
             ${{ runner.os }}-sbt
-      - name: "java ${{ matrix.scala}} setup"
+      - name: "java ${{ matrix.java}} setup"
         uses: "actions/setup-java@v1.4.3"
         with:
           architecture: x64
           java-package: jdk
-          java-version: "${{ matrix.scala}}"
+          java-version: "${{ matrix.java}}"
       - run: "sbt \"++${{ matrix.scala}} test\""
     strategy:
       matrix:
@@ -52,7 +52,7 @@ jobs:
           java-package: jdk
           java-version: '17'
       - run: sbt scalafmtCheckAll scalafmtSbtCheck
-name: Greeting
+name: scall - build and test
 on:
   pull_request: {}
   push: {}
