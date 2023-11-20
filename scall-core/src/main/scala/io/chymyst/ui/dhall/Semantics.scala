@@ -17,13 +17,13 @@ import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
 final case class ObservedCache[A, B](cache: mutable.Map[A, B], var requests: Long = 0, var hits: Long = 0) {
-  def getOrElseUpdate(key: A, default: => B): B = {
+  def getOrElseUpdate(key: A, default: => B): B = this.synchronized {
     requests += 1
     if (cache contains key) hits += 1
     cache.getOrElseUpdate(key, default)
   }
 
-  def statistics: String = s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}"
+  def statistics: String = this.synchronized(s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}")
 }
 
 object ObservedCache {
