@@ -34,11 +34,11 @@ class DhallParserSuite extends FunSuite {
       } yield result2
       result match {
         case Failure(exception) => println(exception.getMessage)
-        case Success(value)     => ()
+        case Success(value)     => println(file.getAbsolutePath)
       }
       result
     }
-    TestUtils.requireSuccessAtLeast(285, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("parse standard examples for failed parsing") {
@@ -66,7 +66,7 @@ class DhallParserSuite extends FunSuite {
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
       result
     }
-    TestUtils.requireSuccessAtLeast(285, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("validate CBOR writing for standard examples") {

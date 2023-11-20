@@ -595,11 +595,12 @@ object ImportResolution {
     Application(ListType, Expression(RecordType(Seq((FieldName("mapKey"), TextType), (FieldName("mapValue"), typeOfGenericHeadersForHost)))))
 
   private def readCached(cacheRoot: java.nio.file.Path, digest: BytesLiteral): Try[Expression] = {
-    val cachedPath = cacheRoot.resolve("1220" + digest.hex.toLowerCase)
+    val digestHex  = digest.hex.toLowerCase
+    val cachedPath = cacheRoot.resolve("1220" + digestHex)
     for {
       bytes   <- Try(Files.readAllBytes(cachedPath))
-      ourHash <- Try(CBytes.byteArrayToHexString(bytes))
-      _       <- if (ourHash.toLowerCase == digest.hex.toLowerCase) Success(())
+      ourHash <- Try(Semantics.computeHash(bytes))
+      _       <- if (ourHash == digestHex) Success(())
                  else Failure(new Exception(s"SHA256 mismatch: cached at $cachedPath has a different hash (${ourHash.toLowerCase})"))
       expr    <- Try(CBORmodel.decodeCbor1(bytes).toScheme: Expression)
     } yield expr
