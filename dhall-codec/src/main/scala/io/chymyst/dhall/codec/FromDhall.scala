@@ -84,7 +84,7 @@ object FromDhall {
             case ExpressionScheme.IntegerLiteral(value)                  => checkType(value, Tag[BigInt])
             case ExpressionScheme.TextLiteral(interpolations, trailing)  =>
               if (interpolations.isEmpty) checkType(trailing, Tag[String])
-              else  ??? // TODO: need `traverse` for this
+              else ??? // TODO: need `traverse` for this
             case b: ExpressionScheme.BytesLiteral                        => checkType(b.bytes, Tag[Array[Byte]])
             case d: ExpressionScheme.DateLiteral                         => checkType(d.toLocalDate, Tag[LocalDate])
             case d: ExpressionScheme.TimeLiteral                         => checkType(d.toLocalTime, Tag[LocalTime])

@@ -552,7 +552,7 @@ For all other cases, recursively descend into sub-expressions:
 object ImportResolution {
   // TODO: missing sha256:... should be resolved if a cached value is available.
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
-    case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))   =>
+    case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
       Remote(URL(scheme1, authority1, path1 chain path2, query1), headers1)
     case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                     => Path(filePrefix, path1 chain path2)
     case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Parent, path2)) =>
@@ -699,7 +699,7 @@ object ImportResolution {
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       expr.scheme match {
-        case i @ Import(_, _, _)                          =>
+        case i @ Import(_, _, _)                 =>
           //        println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val (parent, child, referentialCheck) = visited.lastOption match { // TODO: check that `parent` is actually used in the code below
             case Some(parent) =>
@@ -723,7 +723,7 @@ object ImportResolution {
 
           // val xdgOption                  = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
 
-          lazy val defaultHeadersLocation             =
+          lazy val defaultHeadersLocation                 =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall ? []""".dhall
           // TODO: fix this. `resolveImportsStep(defaultHeadersLocation, visited, currentFile)` is incorrect here.
           //  `visited` should be a list of Dhall expressions, not just a list of Import expressions. `currentFile` should be an import expression, not only a `java.nio.file.File`.

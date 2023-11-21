@@ -64,7 +64,7 @@ class DhallParserSuite extends FunSuite {
         case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
         case _                                     => None
       }
-      val result                       = r.map { expr => Try(expr.toCBORmodel.encodeCbor2) }
+      val result                = r.map { expr => Try(expr.toCBORmodel.encodeCbor2) }
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
       result
     }

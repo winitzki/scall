@@ -18,7 +18,7 @@ class ToScalaTest extends FunSuite {
     val x             = "-0.0".dhall
     val y             = x.asScala[Double]
     val z: Expression = y match {
-      case Left(error)          => throw new Exception(s"Failure to convert to Double: $error")
+      case Left(error)            => throw new Exception(s"Failure to convert to Double: $error")
       case Right(x: Lazy[Double]) => DoubleLiteral(x.value)
     }
     expect(x == z)
@@ -31,7 +31,7 @@ class ToScalaTest extends FunSuite {
     expect("True".dhall.asScala[Boolean].map(_.value) == Right(true))
     expect("False".dhall.asScala[Boolean].map(_.value) == Right(false))
     // For byte arrays, we need to compare the data in the arrays to verify that they are equal.
-    expect((" 0x\"11111111\"  ".dhall.asScala[Array[Byte]] map (_.value sameElements Array[Byte](17, 17, 17, 17))  ) == Right(true))
+    expect((" 0x\"11111111\"  ".dhall.asScala[Array[Byte]] map (_.value sameElements Array[Byte](17, 17, 17, 17))) == Right(true))
     expect("00:00:00".dhall.asScala[LocalTime].map(_.value) == Right(LocalTime.of(0, 0, 0)))
     expect("2003-03-03".dhall.asScala[LocalDate].map(_.value) == Right(LocalDate.of(2003, 3, 3)))
     expect("-02:00".dhall.asScala[ZoneOffset].map(_.value) == Right(ZoneOffset.ofHoursMinutes(-2, 0)))
@@ -78,6 +78,6 @@ class ToScalaTest extends FunSuite {
     val tag2 = Tag[TestTrait]
     val tag3 = Tag[TestClass]
     val tag4 = Tag[{ def a[A]: A }]
-    val d = "\\(A: Type) -> \\(x : A) -> x".dhall
+    val d    = "\\(A: Type) -> \\(x : A) -> x".dhall
   }
 }

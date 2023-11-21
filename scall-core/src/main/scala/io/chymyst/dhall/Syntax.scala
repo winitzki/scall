@@ -247,7 +247,7 @@ object SyntaxConstants {
     final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
       override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
 
-      override def remoteOrigin:  Option[String]  =  Some(url.httpAuthority)
+      override def remoteOrigin: Option[String] = Some(url.httpAuthority)
 
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
@@ -276,12 +276,12 @@ object SyntaxConstants {
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
   final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String]) {
-    override def toString: String =  httpAuthority+ "/" + path.toString + (query match {
+    override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""
     })
 
-    def httpAuthority: String =  scheme.entryName.toLowerCase + "://" + authority
+    def httpAuthority: String = scheme.entryName.toLowerCase + "://" + authority
   }
 
   final case class File(segments: Seq[String]) {
