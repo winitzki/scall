@@ -24,7 +24,7 @@ class DhallTypeCheckingSuite extends FunSuite {
         val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
 
         val resolved = ourResult.resolveImports(file.toPath)
-       // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.toDhall}, after resolving: $resolved")
+        // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.toDhall}, after resolving: $resolved")
 
         val x = resolved.inferType match {
           case Valid(a) => a

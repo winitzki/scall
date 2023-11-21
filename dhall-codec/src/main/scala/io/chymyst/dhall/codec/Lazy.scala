@@ -3,7 +3,7 @@ package io.chymyst.dhall.codec
 import java.util.concurrent.atomic.AtomicBoolean
 
 class Lazy[A](a: => A) {
-  private val strictness  = new AtomicBoolean(false)
+  private val strictness = new AtomicBoolean(false)
 
   def isStrict: Boolean = strictness.get
 

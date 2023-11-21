@@ -59,10 +59,11 @@ object FromDhall {
 //            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
 //          )
           expr.scheme match {
-            case v@ExpressionScheme.Variable(_, _)                  => variables.get(v) match {
-              case Some(knownVariableAssignment) =>
-              case None => ???
-            }
+            case v @ ExpressionScheme.Variable(_, _)                     =>
+              variables.get(v) match {
+                case Some(knownVariableAssignment) =>
+                case None                          => ???
+              }
             case ExpressionScheme.Lambda(name, tipe, body)               => ???
             case ExpressionScheme.Forall(name, tipe, body)               => ???
             case ExpressionScheme.Let(name, tipe, subst, body)           => ???
