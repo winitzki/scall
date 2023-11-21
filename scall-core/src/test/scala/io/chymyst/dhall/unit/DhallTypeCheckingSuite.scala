@@ -6,6 +6,7 @@ import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
 import io.chymyst.dhall.TypecheckResult.Valid
+import io.chymyst.test.Throwables
 import munit.FunSuite
 
 import java.io.{File, FileInputStream}
@@ -21,15 +22,18 @@ class DhallTypeCheckingSuite extends FunSuite {
       val result = Try {
         val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
         val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-        println(s"DEBUG: ${file.getName} starting type inference")
-        val x                                                 = ourResult.resolveImports(file.toPath).inferType match {
+
+        val resolved = ourResult.resolveImports(file.toPath)
+       // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.toDhall}, after resolving: $resolved")
+
+        val x = resolved.inferType match {
           case Valid(a) => a
         }
-        val y                                                 = validationResult
+        val y = validationResult
         expect(x.toDhall == y.toDhall && x == y)
         file.getName
       }
-      if (result.isFailure) println(s"${file.getPath}: ${result.failed.get.getMessage}") // \n${printFailure(result.failed.get)}")
+      if (result.isFailure) println(s"${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})
       result
     }
     TestUtils.requireSuccessAtLeast(364, results)

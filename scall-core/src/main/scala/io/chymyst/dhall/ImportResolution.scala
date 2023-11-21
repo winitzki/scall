@@ -724,7 +724,7 @@ object ImportResolution {
           // val xdgOption                  = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
 
           lazy val defaultHeadersLocation                 =
-            """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall ? []""".dhall
+            """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
           // TODO: fix this. `resolveImportsStep(defaultHeadersLocation, visited, currentFile)` is incorrect here.
           //  `visited` should be a list of Dhall expressions, not just a list of Import expressions. `currentFile` should be an import expression, not only a `java.nio.file.File`.
           lazy val (defaultHeadersForOrigin, stateGamma1) = child.importType.remoteOrigin match {

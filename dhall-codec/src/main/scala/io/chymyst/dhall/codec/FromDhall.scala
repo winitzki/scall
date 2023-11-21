@@ -1,6 +1,6 @@
 package io.chymyst.dhall.codec
 
-import io.chymyst.dhall.Syntax.ExpressionScheme.ExprConstant
+import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
@@ -40,7 +40,7 @@ object FromDhall {
 
   }
 
-  def asScala[A](expr: Expression)(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = {
+  def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = {
 
     implicit def toLazy[A](a: A): Lazy[A] = new Lazy(a)
 
@@ -55,11 +55,14 @@ object FromDhall {
           def checkType(value: => Any, expectedTag: Tag[_])(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] =
             if (tpe == expectedTag) Right(value.asInstanceOf[A]) else Left(AsScalaError(expr, validType, tpe))
 
-          println(
-            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
-          )
+//          println(
+//            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
+//          )
           expr.scheme match {
-            case ExpressionScheme.Variable(name, index)                  => ???
+            case v@ExpressionScheme.Variable(_, _)                  => variables.get(v) match {
+              case Some(knownVariableAssignment) =>
+              case None => ???
+            }
             case ExpressionScheme.Lambda(name, tipe, body)               => ???
             case ExpressionScheme.Forall(name, tipe, body)               => ???
             case ExpressionScheme.Let(name, tipe, subst, body)           => ???
@@ -68,7 +71,7 @@ object FromDhall {
             case ExpressionScheme.ToMap(data, tipe)                      => ???
             case ExpressionScheme.EmptyList(tipe)                        => checkType(Seq(), Tag[Seq[_]]) // TODO check if this works
             case ExpressionScheme.NonEmptyList(exprs)                    => ???
-            case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data)
+            case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data, variables)
             case ExpressionScheme.ExprOperator(lop, op, rop)             => ???
             case ExpressionScheme.Application(func, arg)                 => ???
             case ExpressionScheme.Field(base, name)                      => ???
