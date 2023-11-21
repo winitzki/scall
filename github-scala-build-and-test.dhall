@@ -23,7 +23,7 @@ let setup =
       ]
 
 in  GithubActions.Workflow::{
-    , name = "scall - build and test"
+    , name = "scall_build_and_test"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{=}
       --, pull_request = Some GithubActions.PullRequest::{=}

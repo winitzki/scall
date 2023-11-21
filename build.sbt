@@ -5,12 +5,13 @@ val scalaV  = scala2V
 val munitTest      = "org.scalameta" %% "munit" % "0.7.29" % Test
 def munitFramework = new TestFramework("munit.Framework")
 
-val fastparse         = "com.lihaoyi"          %% "fastparse"  % "3.0.2"
-val os_lib            = "com.lihaoyi"          %% "os-lib"     % "0.9.2"
-val httpRequest       = "com.lihaoyi"          %% "requests"   % "0.8.0"
-val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"    % "0.16.0" % Test
-val enumeratum        = "com.beachape"         %% "enumeratum" % "1.7.3"
-val flatlaf           = "com.formdev"           % "flatlaf"    % "3.2.2"
+val fastparse         = "com.lihaoyi"          %% "fastparse"     % "3.0.2"
+val os_lib            = "com.lihaoyi"          %% "os-lib"        % "0.9.2"
+val httpRequest       = "com.lihaoyi"          %% "requests"      % "0.8.0"
+val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"       % "0.16.0" % Test
+val enumeratum        = "com.beachape"         %% "enumeratum"    % "1.7.3"
+val flatlaf           = "com.formdev"           % "flatlaf"       % "3.2.2"
+val izumi_reflect     = "dev.zio"              %% "izumi-reflect" % "2.3.8"
 
 val cbor1 = "co.nstant.in"    % "cbor"       % "0.9"
 val cbor2 = "com.upokecenter" % "cbor"       % "4.5.2"
@@ -25,18 +26,19 @@ lazy val jdkModuleOptions: Seq[String] = {
   options
 }
 
-lazy val root =
-  (project in file(".")).settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root").aggregate(scall_core, scall_testutils)
+lazy val root = (project in file("."))
+  .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
+  .aggregate(scall_core, scall_testutils, dhall_codec)
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(
     scalaVersion             := scalaV,
     crossScalaVersions       := Seq(scala2V, scala3V),
-    testFrameworks += munitFramework,
     Test / parallelExecution := true,
     Test / fork              := true,
-    Test / javaOptions ++= jdkModuleOptions,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(
       fastparse,
       munitTest,
@@ -54,9 +56,20 @@ lazy val scall_core = (project in file("scall-core"))
 lazy val scall_testutils = (project in file("scall-testutils")).settings(
   scalaVersion             := scalaV,
   crossScalaVersions       := Seq(scala2V, scala3V),
-  testFrameworks += munitFramework,
   Test / parallelExecution := true,
   Test / fork              := true,
+  testFrameworks += munitFramework,
   Test / javaOptions ++= jdkModuleOptions,
   libraryDependencies ++= Seq(munitTest, assertVerboseTest),
 )
+
+lazy val dhall_codec = (project in file("dhall-codec"))
+  .settings(
+    scalaVersion             := scalaV,
+    crossScalaVersions       := Seq(scala2V, scala3V),
+    Test / parallelExecution := true,
+    Test / fork              := true,
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
+  ).dependsOn(scall_core, scall_testutils % "test->compile")
