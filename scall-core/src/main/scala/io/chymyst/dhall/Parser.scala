@@ -883,7 +883,7 @@ object Grammar {
   def expression_as_in[$: P]: P[Expression] = P(
     requireKeyword("as") ~ whsp1 ~/ application_expression ~ whsp ~
       requireKeyword("in") ~ whsp1 ~/ expression ~ whsp ~
-      with_binding.rep(1) ~ requireKeyword("then") ~ whsp1 ~ expression
+      with_binding.rep ~ requireKeyword("then") ~ whsp1 ~ expression
   ).map { case (Expression(Application(typeConstructor, typeArg)), bind, withBindings, thenResult) =>
     // Desugar according to https://discourse.dhall-lang.org/t/proposal-do-notation-syntax/99
     //    as (M A) in bind ... with x : B in q <rest>
