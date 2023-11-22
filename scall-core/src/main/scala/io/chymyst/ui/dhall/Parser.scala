@@ -899,6 +899,7 @@ object Grammar {
     val varA = ~"a"
     val varB = ~"b"
 
+    // The type of `bind` must be ∀(a : Type) → ∀(b : Type) → M a → (a → M b) → M b
     val bindWithTypeAnnotation = bind | ((varA | _Type) ->: (varB | _Type) ->: typeConstructor(varA) ->: ((~"_" | varA) ->: typeConstructor(varB)) ->: typeConstructor(varB))
 
     withBindings.foldRight(thenResult) { case ((varName, varType, source), b) => bindWithTypeAnnotation(varType)(typeArg)(source)((~(varName.name) | varType) -> b) }
