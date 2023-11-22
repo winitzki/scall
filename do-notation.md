@@ -61,17 +61,49 @@ This function has type `Natural -> Optional Natural`.
 
 A full working test is shown [here](https://github.com/winitzki/scall/blame/master/scall-core/src/test/scala/io/chymyst/dhall/unit/SimpleSemanticsTest.scala#L77).
 
-## Desugaring of the do-notation
+## Parsing the do-notation syntax
 
-The do-notation contains the first block `as M T in bind_function`, then zero or more `with ... in ...` blocks, then a closing block `then ...`.
+The do-notation contains the first block: `as M T in b`, then zero or more `with ... in ...` blocks, and finally a closing block `then ...`.
+
+The type application `M T` may be in parentheses but does not need to be, as it is surrounded by keywords.
 
 Type annotations (`x : A`) are mandatory in the `with x : A in p` blocks.
 
+There is one more sub-rule (`expression-as-in`) in the top `expression` rule:
+
+```abnf
+expression =
+            ...; "forall (x : a) -> b"
+            ; do notation: "as M T in bind_function with x : A in p with y : B in q then r"
+            / expression-as-in
+            / ... ; a -> b
+            / ...
+
+; "as (M T) in bind_function *(with x : A in p) then r"
+expression-as-in = "as" whsp1 application-expression whsp "in" whsp1 expression whsp *with-binding "then" whsp1 expression
+
+; "with x : A in p"
+with-binding = "with" whsp1 nonreserved-label whsp ":" whsp1 expression whsp "in" whsp1 expression whsp
+```
+
+The parsed sub-expressions are immediately desugared at the parsing stage into a nested application of `bind_function`.
+
+## Desugaring the do-notation
+
 The do-notation is desugared at parsing stage into nested applications of `bind_function`.
+Type-checking is performed at a later stage.
 
 The desugaring algorithm is defined by:
 
      desugar(as M T in bind_function with x : A in p <rest of the code>)
        = bind_function A T p (λ(x : A) -> desugar(as M T in bind_function <rest of the code>))`
      
-     desugar(as M T in bind_function then x) = x : M T
+     desugar(as M T in bind_function then x) = x
+
+After desugaring, type annotations are added to aid error detection.
+
+     M : Type → Type
+     T : Type
+     bind_function : ∀(a : Type) → ∀(b : Type) → M a → (a → M b) → M b
+     p : M A
+     desugar(as M T in bind_function ...): M T
