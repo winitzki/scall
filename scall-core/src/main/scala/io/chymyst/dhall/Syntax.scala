@@ -661,7 +661,7 @@ object Syntax {
         */
       val nanosTruncated: Int = (nanosPrinted.take(9) + "0" * 9).take(9).toInt
 
-      lazy val toLocalTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanosTruncated)
+      val toLocalTime: LocalTime = LocalTime.of(hours, minutes, seconds, nanosTruncated)
 
       override def toString: String = f"$hours%02d:$minutes%02d:$seconds%02d${if (nanosPrinted.isEmpty) "" else "." + nanosPrinted}"
     }
