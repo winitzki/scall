@@ -7,6 +7,7 @@ import io.chymyst.ui.dhall.Syntax.ExpressionScheme._
 import io.chymyst.ui.dhall.Syntax._
 import io.chymyst.ui.dhall.Syntax.{DhallFile, Expression, ExpressionScheme, PathComponent, RawRecordLiteral}
 import io.chymyst.ui.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
+import io.chymyst.ui.dhall.TypeCheck._Type
 import jdk.jfr.Experimental
 
 import java.io.InputStream
@@ -880,6 +881,36 @@ object Grammar {
       letBindings.foldRight(expr) { case ((varName, tipe, body), prev) => Let(varName, tipe, body, prev) }
     }
 
+  // Experimental: "do notation"
+  //  "as (M A) in bind with x : B in p with y : C in q then z"
+  def expression_as_in[$: P]: P[Expression] = P(
+    requireKeyword("as") ~ whsp1 ~/ application_expression ~ whsp ~
+      requireKeyword("in") ~ whsp1 ~/ expression ~ whsp ~
+      with_binding.rep(1) ~ requireKeyword("then") ~ whsp1 ~ expression
+  ).map { case (Expression(Application(typeConstructor, typeArg)), bind, withBindings, thenResult) =>
+    // Desugar according to https://discourse.dhall-lang.org/t/proposal-do-notation-syntax/99
+    //    as (M A) in bind ... with x : B in q <rest>
+    // desugars to
+    //    bind B A q (\(x: B) -> desugar <rest> )
+    //
+    //    as (M A) in bind ...then q  <end of construction>
+    // desugars to
+    //    ... -> q
+    val varA = ~"a"
+    val varB = ~"b"
+
+    // The type of `bind` must be ∀(a : Type) → ∀(b : Type) → M a → (a → M b) → M b
+    val bindWithTypeAnnotation = bind | ((varA | _Type) ->: (varB | _Type) ->: typeConstructor(varA) ->: ((~"_" | varA) ->: typeConstructor(varB)) ->: typeConstructor(varB))
+
+    withBindings.foldRight(thenResult) { case ((varName, varType, source), b) => bindWithTypeAnnotation(varType)(typeArg)(source)((~(varName.name) | varType) -> b) }
+  }
+
+  // A part of the do-notation syntax: "with x : B in p".
+  // The type annotation is required because we will then desugar to a Lambda where a type annotation is required, and it's too early for type inference.
+  def with_binding[$: P]: P[(VarName, Expression , Expression)] = P(
+    requireKeyword("with") ~ whsp1 ~/ nonreserved_label ~ whsp ~ ":" ~ whsp1 ~/ expression ~ whsp ~ requireKeyword("in") ~ whsp1 ~/ expression ~ whsp
+  )
+
   def expression_forall[$: P]: P[Expression] = P(forall ~ whsp ~/ "(" ~ whsp ~ nonreserved_label ~ whsp ~/ ":" ~ whsp1 ~/ expression ~ whsp ~ ")" ~ whsp ~ arrow ~/
     whsp ~ expression)
     .map { case (varName, tipe, body) => Forall(varName, tipe, body) }
@@ -914,6 +945,10 @@ object Grammar {
       //
       //  "forall (x : a) -> b"
       | NoCut(expression_forall)
+      //
+      // Experimental: "do notation"
+      //  "as (M A) in bind with x : B in p with y : C in q then z"
+      | NoCut(expression_as_in)
       //
       //  "a -> b"
       //
