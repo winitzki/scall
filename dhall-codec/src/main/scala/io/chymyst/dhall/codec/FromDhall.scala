@@ -61,7 +61,7 @@ object FromDhall {
           expr.scheme match {
             case v @ ExpressionScheme.Variable(_, _)                     =>
               variables.get(v) match {
-                case Some(knownVariableAssignment) =>
+                case Some(knownVariableAssignment) => asScala[A](knownVariableAssignment, variables) // TODO: is this correct?
                 case None                          => ???
               }
             case ExpressionScheme.Lambda(name, tipe, body)               => ???
