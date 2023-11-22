@@ -3,25 +3,17 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
-import io.chymyst.dhall.Syntax.Expression
-import io.chymyst.dhall.Syntax.ExpressionScheme.Import
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.dhall.Syntax.ExpressionScheme.{Import, _}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
-import io.chymyst.dhall.SyntaxConstants.ImportType.Missing
-import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Operator, VarName}
-import io.chymyst.dhall.{CBORmodel, Grammar, Parser}
-import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
-import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
 import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
-import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, File, VarName}
-import io.chymyst.dhall._
+import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
+import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
+import io.chymyst.dhall._
+import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 
 import scala.util.Try
@@ -325,5 +317,200 @@ class SimpleExpressionTest extends FunSuite {
   test("import with a long file path") { // TODO report issue: parser tests should exercise various characters that are allowed or disallowed in import paths
     val input = "./path0/path1/path2/file"
     check(Grammar.import_expression(_), input, Expression(Import(Path(Here, File(List("path0", "path1", "path2", "file"))), Code, None)))
+  }
+
+  test("do notation") {
+    val input =
+      """as List Natural in bind
+        |  with x : Bool in q
+        |  with y : Integer in r
+        |  with z : Text in s
+        |  then k
+        |""".stripMargin
+
+    val expected: Expression = Expression(
+      Application(
+        Expression(
+          Application(
+            Expression(
+              Application(
+                Expression(
+                  Application(
+                    Expression(
+                      Annotation(
+                        Expression(Variable(VarName("bind"), 0)),
+                        Expression(
+                          Forall(
+                            VarName("a"),
+                            Expression(ExprConstant(Constant.Type)),
+                            Expression(
+                              Forall(
+                                VarName("b"),
+                                Expression(ExprConstant(Constant.Type)),
+                                Expression(
+                                  Forall(
+                                    VarName("_"),
+                                    Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("a"), 0)))),
+                                    Expression(
+                                      Forall(
+                                        VarName("_"),
+                                        Expression(
+                                          Forall(
+                                            VarName("_"),
+                                            Expression(Variable(VarName("a"), 0)),
+                                            Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))),
+                                          )
+                                        ),
+                                        Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))),
+                                      )
+                                    ),
+                                  )
+                                ),
+                              )
+                            ),
+                          )
+                        ),
+                      )
+                    ),
+                    Expression(ExprBuiltin(Builtin.Bool)),
+                  )
+                ),
+                Expression(ExprBuiltin(Natural)),
+              )
+            ),
+            Expression(Variable(VarName("q"), 0)),
+          )
+        ),
+        Expression(
+          Lambda(
+            VarName("x"),
+            Expression(ExprBuiltin(Builtin.Bool)),
+            Expression(
+              Application(
+                Expression(
+                  Application(
+                    Expression(
+                      Application(
+                        Expression(
+                          Application(
+                            Expression(
+                              Annotation(
+                                Expression(Variable(VarName("bind"), 0)),
+                                Expression(
+                                  Forall(
+                                    VarName("a"),
+                                    Expression(ExprConstant(Constant.Type)),
+                                    Expression(
+                                      Forall(
+                                        VarName("b"),
+                                        Expression(ExprConstant(SyntaxConstants.Constant.Type)),
+                                        Expression(
+                                          Forall(
+                                            VarName("_"),
+                                            Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("a"), 0)))),
+                                            Expression(
+                                              Forall(
+                                                VarName("_"),
+                                                Expression(
+                                                  Forall(
+                                                    VarName("_"),
+                                                    Expression(Variable(VarName("a"), 0)),
+                                                    Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))),
+                                                  )
+                                                ),
+                                                Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))),
+                                              )
+                                            ),
+                                          )
+                                        ),
+                                      )
+                                    ),
+                                  )
+                                ),
+                              )
+                            ),
+                            Expression(ExprBuiltin(Builtin.Integer)),
+                          )
+                        ),
+                        Expression(ExprBuiltin(Natural)),
+                      )
+                    ),
+                    Expression(Variable(VarName("r"), 0)),
+                  )
+                ),
+                Expression(
+                  Lambda(
+                    VarName("y"),
+                    Expression(ExprBuiltin(Builtin.Integer)),
+                    Expression(
+                      Application(
+                        Expression(
+                          Application(
+                            Expression(
+                              Application(
+                                Expression(
+                                  Application(
+                                    Expression(
+                                      Annotation(
+                                        Expression(Variable(VarName("bind"), 0)),
+                                        Expression(
+                                          Forall(
+                                            VarName("a"),
+                                            Expression(ExprConstant(Constant.Type)),
+                                            Expression(
+                                              Forall(
+                                                VarName("b"),
+                                                Expression(ExprConstant(Constant.Type)),
+                                                Expression(
+                                                  Forall(
+                                                    VarName("_"),
+                                                    Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("a"), 0)))),
+                                                    Expression(
+                                                      Forall(
+                                                        VarName("_"),
+                                                        Expression(
+                                                          Forall(
+                                                            VarName("_"),
+                                                            Expression(Variable(VarName("a"), 0)),
+                                                            Expression(
+                                                              Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))
+                                                            ),
+                                                          )
+                                                        ),
+                                                        Expression(Application(Expression(ExprBuiltin(Builtin.List)), Expression(Variable(VarName("b"), 0)))),
+                                                      )
+                                                    ),
+                                                  )
+                                                ),
+                                              )
+                                            ),
+                                          )
+                                        ),
+                                      )
+                                    ),
+                                    Expression(ExprBuiltin(Builtin.Text)),
+                                  )
+                                ),
+                                Expression(ExprBuiltin(Natural)),
+                              )
+                            ),
+                            Expression(Variable(VarName("s"), 0)),
+                          )
+                        ),
+                        Expression(Lambda(VarName("z"), Expression(ExprBuiltin(Builtin.Text)), Expression(Variable(VarName("k"), 0)))),
+                      )
+                    ),
+                  )
+                ),
+              )
+            ),
+          )
+        ),
+      )
+    )
+    check(Grammar.expression_as_in(_), input, expected)
+    expect(
+      expected.toDhall == "bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Bool Natural q (λ(x: Bool) -> bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Integer Natural r (λ(y: Integer) -> bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Text Natural s (λ(z: Text) -> k)))"
+    )
   }
 }

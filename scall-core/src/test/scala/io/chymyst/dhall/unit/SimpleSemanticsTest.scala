@@ -5,8 +5,8 @@ import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.Expression._
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.VarName
-import io.chymyst.dhall.{Parser, Semantics}
+import io.chymyst.dhall.SyntaxConstants.{Builtin, VarName}
+import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
 import munit.FunSuite
 
 class SimpleSemanticsTest extends FunSuite {
@@ -72,5 +72,53 @@ class SimpleSemanticsTest extends FunSuite {
        |
        |in  enumerate
        |""".stripMargin.dhall.betaNormalized
+  }
+
+  test("do notation") {
+    val expr =
+      """
+        |let fold
+        |    : ∀(a : Type) →
+        |      Optional a →
+        |      ∀(optional : Type) →
+        |      ∀(some : a → optional) →
+        |      ∀(none : optional) →
+        |        optional
+        |    = λ(a : Type) →
+        |      λ(o : Optional a) →
+        |      λ(optional : Type) →
+        |      λ(some : a → optional) →
+        |      λ(none : optional) →
+        |        merge { Some = some, None = none } o
+        |in
+        |
+        |let bind
+        |    : ∀(a: Type) -> ∀(b: Type) -> ∀(_: Optional a) -> ∀(_: ∀(_: a) -> Optional b) -> Optional b
+        |    = λ(a: Type)-> λ(b: Type) -> λ(x: Optional a) -> λ(f: a -> Optional b) -> fold a x (Optional b) f (None b)
+        |in
+        |
+        |let subtract1Optional = λ(x : Natural) → if Natural/isZero x then None Natural else Some (Natural/subtract 1 x)
+        |in
+        |
+        |
+        |let subtract3Optional = λ(x : Natural) →
+        |  as Optional Natural in bind
+        |    with y : Natural in subtract1Optional x
+        |    with z : Natural in subtract1Optional y
+        |    then subtract1Optional z
+        |in
+        |
+        |let _ = assert : subtract3Optional 10 === Some 7
+        |let _ = assert : subtract3Optional 3 === Some 0
+        |let _ = assert : subtract3Optional 2 === None Natural
+        |let _ = assert : subtract3Optional 1 === None Natural
+        |let _ = assert : subtract3Optional 0 === None Natural
+        |in
+        | 
+        |[ subtract3Optional 3, subtract3Optional 2]
+        |""".stripMargin.dhall
+
+    expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
+    expect(expr.betaNormalized.toDhall == "[(Some 0), (None Natural)]")
   }
 }

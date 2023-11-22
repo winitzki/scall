@@ -953,7 +953,7 @@ object Syntax {
       case _                                                              => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.toDhall}: $this")
     }
 
-    // Forall type expressions.
+    // Forall type expressions. The argument must be an annotation.
     def ->:(tipe: Expression): Expression = tipe.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Forall(name, t, this)
       case _                                                              => Forall(underscore, tipe, this)
