@@ -10,11 +10,18 @@ import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import munit.FunSuite
 
 import java.io.FileInputStream
+import java.nio.file.Files
 import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 class DhallPreludeTest extends FunSuite with TestTimeouts {
+
+  test("read List/partition.dhall and beta-normalize it alone") {
+    val expr = Files.readString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall
+    expect(expr.inferType.isValid)
+    expr.betaNormalized
+  }
 
   test("typecheck List/partition.dhall imports") {
     val problematic1 = "../List/partition.dhall"
@@ -22,13 +29,30 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
     expect(problematic1.dhall.resolveImports(path).inferType.isValid)
   }
 
+  test("read Natural/sort.dhall and beta-normalize it alone") {
+    val path = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/sort.dhall").get.toPath
+    val expr = Files.readString(path).dhall
+    expect(!expr.inferType.isValid) // Type-checking fails without first resolving imports.
+    val resolved      = expr.resolveImports(path)
+    expect(resolved.isInstanceOf[Expression])
+    println("resolved sort.dhall beta-normalized without typechecking:\n" + resolved.betaNormalized.toDhall)
+    val smallListTest = resolved("[3, 2]".dhall).betaNormalized
+    println(s"sort [3, 2] = ${smallListTest.toDhall}")
+    println(s"sort [4, 3, 2, 1] = ${resolved("[4, 3, 2, 1]".dhall).betaNormalized}")
+    resolved.inferType
+  }
+
   test("typecheck Natural/sort.dhall imports") {
+    val problematic0 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2 ] ≡ [ 2, 3 ]"
     val problematic1 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1 ] ≡ [ 1, 2, 3 ]"
     val problematic2 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1, 3, 2, 1 ] ≡ [ 1, 1, 2, 2, 3, 3 ]"
     val path         = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/package.dhall").get.toPath
-//    println(problematic2.dhall.resolveImports(path).toDhall)
+    expect(problematic0.dhall.resolveImports(path).inferType.isValid)
+    println(problematic0.dhall.resolveImports(path).toDhall)
     expect(problematic1.dhall.resolveImports(path).inferType.isValid)
+    println(problematic1.dhall.resolveImports(path).toDhall)
     expect(problematic2.dhall.resolveImports(path).isInstanceOf[Expression])
+    println(problematic2.dhall.resolveImports(path).toDhall)
     expect(problematic2.dhall.resolveImports(path).inferType.isValid)
   }
 
@@ -43,7 +67,9 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
     enumerateResourceFiles("dhall-lang/Prelude", Some("package.dhall")).filter(_.getAbsolutePath contains "dhall-lang/Prelude/package.dhall").foreach { file =>
       val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
       expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
-      println(s"Beta-normalization cache: ${Semantics.cacheBetaNormalize.statistics}\nType inference cache: ${TypeCheck.cacheTypeCheck.statistics}")
+      println(
+        s"Alpha-normalization cache: ${Semantics.cacheAlphaNormalize.statistics}\nBeta-normalization cache: ${Semantics.cacheBetaNormalize.statistics}\nType inference cache: ${TypeCheck.cacheTypeCheck.statistics}"
+      )
       /*
         Beta-normalization cache: Total requests: 176721, cache hits: 147798, total cache size: 28923
         Type inference cache: Total requests: 143975, cache hits: 53668, total cache size: 90307
@@ -57,7 +83,6 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
       .filterNot(_.getAbsolutePath contains "dhall-lang/Prelude/Natural/package.dhall")
       .map { file =>
         val result = Try {
-          // println(s"${LocalDateTime.now} Parsing file ${file.getAbsolutePath}")
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
 //          println(s"${LocalDateTime.now} Resolving imports in file ${file.getAbsolutePath}")
           val (_, elapsed)                               = elapsedNanos(expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression]))
