@@ -31,9 +31,6 @@ class ObservedCache[A, B](name: String, cache: mutable.Map[A, B]) {
           case e: Expression => e.toDhall
           case _             => key
         }}")
-    else if (requests == 4000111) {
-      println(s"request $requests")
-    }
     if (cache contains key) hits += 1
     cache.getOrElseUpdate(key, default)
   }
@@ -45,8 +42,9 @@ class ObservedCache[A, B](name: String, cache: mutable.Map[A, B]) {
 
 final case class IdempotentCache[A](name: String, cache: mutable.Map[A, A]) extends ObservedCache[A, A](name, cache) {
   override def getOrElseUpdate(key: A, default: => A): A = this.synchronized {
-    cache.put(default, default) // The cached operation is assumed to be idempotent.
-    super.getOrElseUpdate(key, default)
+    val result = super.getOrElseUpdate(key, default)
+    cache.put(result, result) // The cached operation is assumed to be idempotent. Do not use `default` here because we want to avoid computing it if possible.
+    result
   }
 }
 
