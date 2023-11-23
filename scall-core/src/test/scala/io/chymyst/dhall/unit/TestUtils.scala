@@ -14,7 +14,7 @@ object TestUtils {
 
   def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
 
-  def readToString(path: Path): String = new String( Files.readAllBytes(path)).trim
+  def readToString(path: Path): String = new String(Files.readAllBytes(path)).trim
 
   def v(name: String): Expression = Expression(Variable(SyntaxConstants.VarName(name), BigInt(0)))
 
