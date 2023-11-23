@@ -926,26 +926,26 @@ object Grammar {
   def expression_assert[$: P]: P[Expression] = P(requireKeyword("assert") ~ whsp ~/ ":" ~ whsp1 ~/ expression)
     .map { expr => Assert(expr) }
 
-  def expression[$: P]: P[Expression] = P( // TODO: remove some of these NoCut() because they are probably not needed.
+  def expression[$: P]: P[Expression] = P(
     //  "\(x : a) -> b"
-    NoCut(expression_lambda)
+    expression_lambda
       //
       //  "if a then b else c"
-      | NoCut(expression_if_then_else)
+      |  expression_if_then_else
       //
       //  "let x : t = e1 in e2"
       //  "let x     = e1 in e2"
       //  We allow dropping the `in` between adjacent let_expressions; the following are equivalent:
       //  "let x = e1 let y = e2 in e3"
       //  "let x = e1 in let y = e2 in e3"
-      | NoCut(expression_let_binding)
+      |  expression_let_binding
       //
       //  "forall (x : a) -> b"
-      | NoCut(expression_forall)
+      |  expression_forall
       //
       // Experimental: "do notation"
       //  "as (M A) in bind with x : B in p with y : C in q then z"
-      | NoCut(expression_as_in)
+      |  expression_as_in
       //
       //  "a -> b"
       //
