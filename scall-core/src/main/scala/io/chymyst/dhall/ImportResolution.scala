@@ -703,7 +703,7 @@ object ImportResolution {
   // TODO: verify that a child is not part of "visited"
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
-      expr.scheme match {
+      val (importResolutionResult, finalState) = expr.scheme match {
         case i @ Import(_, _, _)                 =>
           //        println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val (parent, child, referentialCheck) = visited.lastOption match { // TODO: check that `parent` is actually used in the code below
@@ -923,7 +923,6 @@ object ImportResolution {
                 case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
                 case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
               }
-
           }
 
         case _ =>
@@ -931,6 +930,11 @@ object ImportResolution {
             case (scheme, state) => (scheme.map(Expression.apply), state)
           }
       }
+      val checkDigest                          = importResolutionResult.flatMap {
+        case e @ Expression(Import(importType, importMode, digest)) => validateHashAndCacheResolved(e, digest)
+        case e @ _                                                  => Resolved(e)
+      }
+      (checkDigest, finalState)
     }
 
 }
