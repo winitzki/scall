@@ -30,7 +30,7 @@ in  GithubActions.Workflow::{
       }
     , jobs = toMap
         { checks = GithubActions.Job::{
-          , name = Some "Checks"
+          , name = Some "Check formatting"
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
           , steps =
                 setup

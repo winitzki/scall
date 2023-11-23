@@ -46,52 +46,53 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
   test("import resolution success") {
     setupEnvironment {
       val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall")).map { file =>
-        val envVarsFile                         = new File(file.getAbsolutePath.replace(".dhall", "ENV.dhall"))
+        val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
         val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
+        val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
         runInFakeEnvironmentWith(extraEnvVars: _*) {
           val result = Try {
-            val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-            // TODO: resolve with ./dhall-lang/tests/...dhall as parent import
-            val x                                          = Try(ourResult.resolveImports(file.toPath))
-            expect(x.isFailure)
+            val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+            val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+            val x                                                 = ourResult.resolveImports(file.toPath)
+            val y                                                 = validationResult
+
+            if (x.toDhall != y.toDhall)
+              println(
+                s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n"
+              )
+            else if (x != y)
+              println(
+                s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
+              )
+
+            expect(x.toDhall == y.toDhall && x == y)
             file.getName
           }
-          if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+          if (result.isFailure)
+            println(s"${file.getName}: ${result.failed.get}")
           result
         }
+
       }
       Try(TestUtils.requireSuccessAtLeast(72, results)) // TODO: enable this test when import resolution is fully implemented
     }
   }
 
   test("import resolution failure") {
-    val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/failure", Some(".dhall")).map { file =>
-      val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
-
-      val result = Try {
-        val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-        val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-        val x                                                 = ourResult.betaNormalized
-        val y                                                 = validationResult
-
-        if (x.toDhall != y.toDhall)
-          println(
-            s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n"
-          )
-        else if (x != y)
-          println(
-            s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
-          )
-
-        expect(x.toDhall == y.toDhall && x == y)
-        file.getName
+    setupEnvironment {
+      val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/failure", Some(".dhall")).map { file =>
+        val result = Try {
+          val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+          // TODO: resolve with ./dhall-lang/tests/...dhall as parent import
+          val x                                          = Try(ourResult.resolveImports(file.toPath))
+          expect(x.isFailure)
+          file.getName
+        }
+        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+        result
       }
-      if (result.isFailure)
-        println(
-          s"${file.getName}: ${result.failed.get}${printThrowable(result.failed.get).split("\n", -1).filter(_ contains "Semantics.scala").mkString("\n")}"
-        )
-      result
+      Try(TestUtils.requireSuccessAtLeast(25, results)) // TODO: enable this test when import resolution is fully implemented
     }
-    Try(TestUtils.requireSuccessAtLeast(25, results)) // TODO: enable this test when import resolution is fully implemented
   }
+
 }

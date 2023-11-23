@@ -33,7 +33,7 @@ jobs:
         scala:
           - '2.13.11'
   checks:
-    name: Checks
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: "actions/checkout@v2"

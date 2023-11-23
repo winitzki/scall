@@ -86,7 +86,7 @@ expression-as-in = "as" whsp1 application-expression whsp "in" whsp1 expression 
 with-binding = "with" whsp1 nonreserved-label whsp ":" whsp1 expression whsp "in" whsp1 expression whsp
 ```
 
-The parsed sub-expressions are immediately desugared at the parsing stage into a nested application of `bind_function`.
+The parsed sub-expressions are desugared at the parsing stage into a nested application of `bind_function`.
 
 ## Desugaring the do-notation
 

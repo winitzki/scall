@@ -566,7 +566,7 @@ object ImportResolution {
   // This function returns `None` if there is no error in CORS compliance.
   def corsComplianceError(parent: ImportType[Expression], child: ImportType[Expression], responseHeaders: Map[String, Seq[String]]): Option[String] =
     (parent, child) match {
-      // TODO: report issue: what if parent = Remote but child = Path, does the cors judgment then always fail?
+      // TODO: report issue: what if parent = Remote but child = Path, does the cors judgment then always succeed?
       case (Remote(URL(scheme1, authority1, path1, query1), headers1), Remote(URL(scheme2, authority2, path2, query2), headers2)) =>
         if (scheme1 == scheme2 && authority1 == authority2) None
         else
@@ -581,28 +581,25 @@ object ImportResolution {
       case _                                                                                                                      => None
     }
 
-  val TextType = Expression(ExprBuiltin(Text))
-  val ListType = Expression(ExprBuiltin(Builtin.List))
-
   lazy val typeOfImportAsLocation: Expression = UnionType(
     Seq(
-      (ConstructorName("Local"), Some(TextType)),
-      (ConstructorName("Remote"), Some(TextType)),
-      (ConstructorName("Environment"), Some(TextType)),
+      (ConstructorName("Local"), Some(~Builtin.Text)),
+      (ConstructorName("Remote"), Some(~Builtin.Text)),
+      (ConstructorName("Environment"), Some(~Builtin.Text)),
       (ConstructorName("Missing"), None),
     )
   )
 
   lazy val typeOfGenericHeadersForHost: Expression =
-    Application(ListType, Expression(RecordType(Seq((FieldName("mapKey"), TextType), (FieldName("mapValue"), TextType)))))
+    Application(~Builtin.List, Expression(RecordType(Seq((FieldName("mapKey"), ~Builtin.Text), (FieldName("mapValue"), ~Builtin.Text)))))
 
   lazy val typeOfUserDefinedAlternativeHeadersForHost: Expression =
-    Application(ListType, Expression(RecordType(Seq((FieldName("header"), TextType), (FieldName("value"), TextType)))))
+    Application(~Builtin.List, Expression(RecordType(Seq((FieldName("header"), ~Builtin.Text), (FieldName("value"), ~Builtin.Text)))))
 
   lazy val typeOfGenericHeadersForAllHosts: Expression =
-    Application(ListType, Expression(RecordType(Seq((FieldName("mapKey"), TextType), (FieldName("mapValue"), typeOfGenericHeadersForHost)))))
+    Application(~Builtin.List, Expression(RecordType(Seq((FieldName("mapKey"), ~Builtin.Text), (FieldName("mapValue"), typeOfGenericHeadersForHost)))))
 
-  lazy val emptyHeadersForHost: Expression = EmptyList(typeOfGenericHeadersForHost)
+  lazy val emptyHeadersForHost: Iterable[(String, String)] = Seq()
 
   private def readCached(cacheRoot: java.nio.file.Path, digest: BytesLiteral): Try[Expression] = {
     val digestHex  = digest.hex.toLowerCase
@@ -636,6 +633,7 @@ object ImportResolution {
           .map { cachePath =>
             Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
             // TODO: log errors while writing the cache file
+            // TODO verify that we will attempt to read the cached file from any of the locations, not just from the first one.
           }.filter(_.isSuccess)
           .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
         Resolved(expr)
@@ -664,11 +662,6 @@ object ImportResolution {
       }.mkString("Map(\n\t", "\n\t", "\n)")
   }
 
-  def httpHeaders(headers: Option[Expression]): Iterable[(String, String)] = headers match {
-    case Some(Expression(_)) => ???
-    case None                => Seq()
-  }
-
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially?
   def resolveAllImports(expr: Expression, currentFile: java.nio.file.Path): Expression = {
@@ -693,9 +686,21 @@ object ImportResolution {
 
   def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.toDhall).mkString("[", ", ", "]")
 
+  def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.scheme match {
+    case EmptyList(_)        => emptyHeadersForHost
+    case NonEmptyList(exprs) =>
+      exprs.map(_.scheme).map { case d @ RecordLiteral(_) =>
+        (
+          d.lookup(FieldName(keyName)).get.toPrimitiveValue.get.asInstanceOf[String],
+          d.lookup(FieldName(valueName)).get.toPrimitiveValue.get.asInstanceOf[String],
+        )
+      }
+  }
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
+
+  // TODO: verify that a child is not part of "visited"
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       expr.scheme match {
@@ -721,19 +726,23 @@ object ImportResolution {
           }
           // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and also whether Γ1 is being reused
 
-          // val xdgOption                  = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
+          // val xdgOption = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
 
-          lazy val defaultHeadersLocation                 =
+          lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
+
+          // TODO: top headers need to be just beta-normalized and then we don't need to have general Expression as "visited" element. But then we need the beta-normalization to return the new Gamma context.
+          // Alternatively we just implement the ? expression reduction by hand, since a beta-normalization with updates of Gamma is not used anywhere else.
+
           // TODO: fix this. `resolveImportsStep(defaultHeadersLocation, visited, currentFile)` is incorrect here.
           //  `visited` should be a list of Dhall expressions, not just a list of Import expressions. `currentFile` should be an import expression, not only a `java.nio.file.File`.
-          lazy val (defaultHeadersForOrigin, stateGamma1) = child.importType.remoteOrigin match {
+          lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
             case None               => (emptyHeadersForHost, stateGamma0)
             case Some(remoteOrigin) =>
               val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, currentFile).run(stateGamma0)
               result match {
                 case Resolved(expr)                           =>
-                  val headersForOrigin: Expression = (expr | typeOfGenericHeadersForAllHosts).inferType match {
+                  val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
                       expr.scheme match {
                         case NonEmptyList(exprs) =>
@@ -742,7 +751,7 @@ object ImportResolution {
                               true
                             case _                                                                                                                         => false
                           } match {
-                            case Some(Expression(r @ RecordLiteral(_))) => r.lookup(FieldName("mapValue")).get
+                            case Some(Expression(r @ RecordLiteral(_))) => extractHeaders(r.lookup(FieldName("mapValue")).get, "mapKey", "mapValue")
                             case None                                   =>
                               println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteOrigin'")
                               emptyHeadersForHost
@@ -798,10 +807,39 @@ object ImportResolution {
           lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
             case ImportType.Missing => Left(TransientFailure(Seq("import is `missing` (perhaps not an error)")))
 
-            case Remote(url, headers) => // TODO: use headers and also receive headers for CORS check
-              Try(requests.get(url.toString, headers = httpHeaders(headers)).bytes) match {
-                case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $url: $exception")))
-                case Success(bytes)     => Right(bytes)
+            case Remote(url, headers) =>
+              // Verify the type of headers.
+              val checkHeaderTypeGeneric: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = headers match {
+                case Some(headersExpr) =>
+                  (headersExpr | typeOfGenericHeadersForHost).inferType match {
+                    case TypecheckResult.Valid(_)        => Right(extractHeaders(headersExpr, "mapKey", "mapValue"))
+                    case TypecheckResult.Invalid(errors) =>
+                      Left(PermanentFailure(Seq(s"import from url $url failed typecheck for headers of type ${typeOfGenericHeadersForHost.toDhall}: $errors")))
+                  }
+                case None              => Right(emptyHeadersForHost)
+              }
+              val checkHeaderTypeSpecial: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = headers match {
+                case Some(headersExpr) =>
+                  (headersExpr | typeOfUserDefinedAlternativeHeadersForHost).inferType match {
+                    case TypecheckResult.Valid(_)        => Right(extractHeaders(headersExpr, "header", "value"))
+                    case TypecheckResult.Invalid(errors) =>
+                      Left(
+                        PermanentFailure(
+                          Seq(s"import from url $url failed typecheck for headers of type ${typeOfUserDefinedAlternativeHeadersForHost.toDhall}: $errors")
+                        )
+                      )
+                  }
+                case None              => Right(emptyHeadersForHost)
+              }
+              (checkHeaderTypeGeneric orElse checkHeaderTypeSpecial) flatMap { userHeadersForHost =>
+                Try(requests.get(url.toString, headers = defaultHeadersForHost ++ userHeadersForHost)) match {
+                  case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $url: $exception")))
+                  case Success(response)  =>
+                    corsComplianceError(parent.importType, child.importType, response.headers) match {
+                      case Some(corsError) => Left(PermanentFailure(Seq(s"import from url $url failed CORS check: $corsError")))
+                      case None            => Right(response.bytes)
+                    }
+                }
               }
 
             case path @ Path(_, _) =>
@@ -841,21 +879,27 @@ object ImportResolution {
           val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
             case Left(gotEarlyResult)  => (gotEarlyResult, stateGamma1)
             case Right(readExpression) =>
-              resolveImportsStep(readExpression, visited :+ child, currentFile).run(stateGamma1) match {
-                case (result1, stateGamma2) =>
-                  result1 match {
-                    case Resolved(r) =>
-                      r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
-                        case TypecheckResult.Valid(_)          => (result1, stateGamma2)
-                        case TypecheckResult.Invalid(messages) =>
-                          (
-                            PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")),
-                            stateGamma2,
-                          )
-                      }
-                    case _           => (result1, stateGamma2)
-                  }
-              }
+              if (visited contains child)
+                (
+                  ImportResolutionResult.PermanentFailure(Seq(s"Cyclic import of $child from $parent")),
+                  stateGamma1,
+                ) // TODO maybe do this check at a different place?
+              else
+                resolveImportsStep(readExpression, visited :+ child, currentFile).run(stateGamma1) match {
+                  case (result1, stateGamma2) =>
+                    result1 match {
+                      case Resolved(r) =>
+                        r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
+                          case TypecheckResult.Valid(_)          => (result1, stateGamma2)
+                          case TypecheckResult.Invalid(messages) =>
+                            (
+                              PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")),
+                              stateGamma2,
+                            )
+                        }
+                      case _           => (result1, stateGamma2)
+                    }
+                }
           }
           // Add the new resolved expression to the import context.
           newState match {
