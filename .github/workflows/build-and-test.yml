@@ -33,7 +33,7 @@ jobs:
         scala:
           - '2.13.11'
   checks:
-    name: Checks
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: "actions/checkout@v2"
@@ -55,6 +55,6 @@ jobs:
           java-package: jdk
           java-version: '17'
       - run: sbt scalafmtCheckAll scalafmtSbtCheck
-name: scall - build and test
+name: scall_build_and_test
 on:
   push: {}
