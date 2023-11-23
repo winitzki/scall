@@ -37,7 +37,7 @@ class DhallCbor1Suite extends FunSuite {
       val validationFile      = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
       val diagnosticFile      = file.getAbsolutePath.replace("A.dhall", "B.diag")
-      val diagnosticString    = TestUtils.readFileToString((diagnosticFile))
+      val diagnosticString    = TestUtils.readToString(diagnosticFile)
       val result1             = for {
         cborValidationModel           <- Try(CBORmodel.decodeCbor1(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _) <- Try(Parser.parseDhallStream(new FileInputStream(file)))
@@ -72,7 +72,7 @@ class DhallCbor1Suite extends FunSuite {
       val validationFile      = file.getAbsolutePath.replace("A.dhall", "B.dhallb")
       val cborValidationBytes = Files.readAllBytes(Paths.get(validationFile))
       val diagnosticFile      = file.getAbsolutePath.replace("A.dhall", "B.diag")
-      val diagnosticString    = TestUtils.readFileToString((diagnosticFile))
+      val diagnosticString    = TestUtils.readToString(diagnosticFile)
       val result1             = for {
         cborValidationModel             <- Try(CBORmodel.decodeCbor1(cborValidationBytes).toString)
         Parsed.Success(dhallValue, _)   <- Try(Parser.parseDhallStream(new FileInputStream(file)))
@@ -115,7 +115,7 @@ class DhallCbor1Suite extends FunSuite {
       val cborBytes      = Files.readAllBytes(Paths.get(file.getAbsolutePath))
       val result         = Try {
         val diagnosticFile                = file.getAbsolutePath.replace("A.dhallb", "A.diag")
-        val diagnosticString              = TestUtils.readFileToString((diagnosticFile))
+        val diagnosticString              = TestUtils.readToString(diagnosticFile)
         val ourExpr: Expression           = CBORmodel.decodeCbor1(cborBytes).toScheme
         val cborModelFromFileA: CBORmodel = CBORmodel.decodeCbor1(cborBytes)
         val Parsed.Success(dhallValue, _) = Parser.parseDhallStream(new FileInputStream(validationFile))
@@ -137,7 +137,7 @@ class DhallCbor1Suite extends FunSuite {
       val diagnosticFile = file.getAbsolutePath.replace(".dhallb", ".diag")
       val cborBytes      = Files.readAllBytes(Paths.get(file.getAbsolutePath))
       val result         = Try {
-        val diagnosticString              = TestUtils.readFileToString((diagnosticFile))
+        val diagnosticString              = TestUtils.readToString(diagnosticFile)
         val cborModelFromFileA: CBORmodel = CBORmodel.decodeCbor1(cborBytes)
         // We have read the CBOR file correctly.
         expect(cborModelFromFileA.toString == diagnosticString)

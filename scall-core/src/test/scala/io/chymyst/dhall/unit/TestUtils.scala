@@ -7,11 +7,14 @@ import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
 import io.chymyst.dhall.SyntaxConstants
 
+import java.nio.file.{Files, Path}
 import scala.util.Try
 
 object TestUtils {
 
-  def readFileToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+  def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+
+  def readToString(path: Path): String = new String( Files.readAllBytes(path)).trim
 
   def v(name: String): Expression = Expression(Variable(SyntaxConstants.VarName(name), BigInt(0)))
 
@@ -88,10 +91,11 @@ object TestUtils {
     }
   }
 
-  def requireSuccessAtLeast(n: Int, results: Seq[Try[_]]) = {
+  def requireSuccessAtLeast(n: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
     val failures  = results.count(_.isFailure)
     val successes = results.count(_.isSuccess)
     println(s"Success count: $successes\nFailure count: $failures")
-    expect(failures == 0 && successes >= n)
+    expect(failures <= allowFailures && successes >= n - allowFailures)
   }
+
 }

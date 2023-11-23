@@ -7,6 +7,7 @@ import io.chymyst.test.{ResourceFiles, TestTimeouts, Throwables}
 import io.chymyst.dhall.{Parser, Semantics, TypeCheck}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.dhall.unit.TestUtils.readToString
 import munit.FunSuite
 
 import java.io.FileInputStream
@@ -18,7 +19,7 @@ import scala.util.Try
 class DhallPreludeTest extends FunSuite with TestTimeouts {
 
   test("read List/partition.dhall and beta-normalize it alone") {
-    val expr = Files.readString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall
+    val expr = readToString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall
     expect(expr.inferType.isValid)
     expr.betaNormalized
   }
@@ -31,7 +32,7 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
 
   test("read Natural/sort.dhall and beta-normalize it alone") {
     val path = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/sort.dhall").get.toPath
-    val expr = Files.readString(path).dhall
+    val expr = readToString(path).dhall
     expect(!expr.inferType.isValid) // Type-checking fails without first resolving imports.
     val resolved      = expr.resolveImports(path)
     expect(resolved.isInstanceOf[Expression])
