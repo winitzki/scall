@@ -860,6 +860,8 @@ object Syntax {
       */
     def toDhall: String = atPrecedence(TermPrecedence.lowest)
 
+    override def toString: String = toDhall
+
     private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm
 
     private def dhallForm: String = {

@@ -17,23 +17,6 @@ import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
-final case class ObservedCache[A, B](cache: mutable.Map[A, B], var requests: Long = 0, var hits: Long = 0) {
-  def getOrElseUpdate(key: A, default: => B): B = this.synchronized {
-    requests += 1
-    if (cache contains key) hits += 1
-    cache.getOrElseUpdate(key, default)
-  }
-
-  def statistics: String = this.synchronized(s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}")
-}
-
-object ObservedCache {
-  def createCache[A, B](maybeSize: Option[Int]): ObservedCache[A, B] = ObservedCache(maybeSize match {
-    case Some(maxSize) => new LRUCache[A, B](maxSize)
-    case None          => mutable.Map[A, B]()
-  })
-}
-
 object Semantics {
   // TODO: make sure this algorithm is correct for variables with de Bruijn indices!
   private def freeVarsForLambda(name: VarName, tipe: Option[Expression], body: Expression): FreeVars[Expression] = {
@@ -109,7 +92,7 @@ object Semantics {
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
   }
 
-  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr.scheme, alphaNormalizeUncached(expr))
+  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr, alphaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
   private def alphaNormalizeUncached(expr: Expression): Expression = expr.scheme match {
@@ -169,13 +152,13 @@ object Semantics {
   ): Seq[(FieldName, Expression)] =
     (defs1.toSeq ++ defs2.toSeq).groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r)).toSeq.sortBy(_._1.name)
 
-  val maxCacheSize: Option[Int] = Some(30000)
+  val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
-  val cacheBetaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+  val cacheBetaNormalize = IdempotentCache("Beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  val cacheAlphaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+  val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
+  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   private def betaNormalizeUncached(expr: Expression): Expression = {
@@ -326,19 +309,19 @@ object Semantics {
         lazy val argN = arg.betaNormalized
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         func.betaNormalized.scheme match {
-          case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
+          case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).betaNormalized
           case Application(
                 Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)),
                 g,
               ) =>
             // g (Natural/fold n b g argN)
-            if (m == 0) argN
-            else
-              //              cacheNaturalFold.getOrElseUpdate(
-              //              (m, b, g, argN),
-              g((~NaturalFold)(NaturalLiteral(m - 1))(b)(g)(argN)).betaNormalized
-          //        )
+            // Try to optimize this because it's very slow.
+
+            def loop(m: Natural): Expression = if (m <= 0) argN else g(loop(m - 1)).betaNormalized
+
+            loop(m)
+
           case ExprBuiltin(Builtin.NaturalIsZero)                               => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven)                                 => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd)                                  => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
@@ -394,21 +377,26 @@ object Semantics {
             )(Expression(EmptyList((~Builtin.List)(tipe)))).betaNormalized
 
           case Application(
-                Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), b)),
+                Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), typeB)),
                 g,
               ) =>
             matchOrNormalize(expressions) {
+              // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
+              case EmptyList(_) => argN
+
+              // We need to beta-normalize the expression `List/fold typeA0 expressions b g argN`.
+              // Try to optimize this as well as Natural/fold because beta-normalization is extremely slow.
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
-                // We need to beta-normalize the expression List/fold typeA0 expressions b g argN. Check if it is in the cache; otherwise compute it.
-                //   cacheListFold.getOrElseUpdate((typeA0, exprs, b, g, argN), {
+                exprs match {
+                  case Seq(head) => g(head)(argN).betaNormalized
+                  case _         => exprs.foldRight(argN) { case (a, rest) => g(a)(rest).betaNormalized }.betaNormalized
+                }
+              /*
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
                 //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
                 // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
-                (g(exprs.head)((~ListFold)(typeA0)(rest)(b)(g)(argN))).betaNormalized
-              // })
-
-              // List/fold A₀ ([] : List A₁) B g b₀  ⇥  b₁
-              case EmptyList(_)        => argN
+                (g(exprs.head)((~ListFold)(typeA0)(rest)(typeB)(g)(argN))).betaNormalized
+               */
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) =>

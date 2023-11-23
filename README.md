@@ -1,5 +1,5 @@
 [![Project stage: Experimental][project-stage-badge: Experimental]][project-stage-page]
-[![Build](https://github.com/winitzki/scall/workflows/scall_build_and_test/badge.svg)](https://github.com/winitzki/scall/workflows/build-and-test.yml)
+[![Build](https://github.com/winitzki/scall/workflows/scall_build_and_test/badge.svg)](https://github.com/winitzki/scall/actions/workflows/build-and-test.yml)
 
 
 [project-stage-page]: https://blog.pother.ca/project-stages/

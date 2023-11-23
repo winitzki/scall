@@ -74,7 +74,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         }
 
       }
-      Try(TestUtils.requireSuccessAtLeast(72, results)) // TODO: enable this test when import resolution is fully implemented
+      TestUtils.requireSuccessAtLeast(72, results, 43)
     }
   }
 
@@ -91,7 +91,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
         result
       }
-      Try(TestUtils.requireSuccessAtLeast(25, results)) // TODO: enable this test when import resolution is fully implemented
+      TestUtils.requireSuccessAtLeast(25, results, 4)
     }
   }
 

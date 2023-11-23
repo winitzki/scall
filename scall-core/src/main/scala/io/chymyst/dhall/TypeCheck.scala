@@ -68,9 +68,10 @@ object TypecheckResult {
 object TypeCheck {
   val emptyContext: Gamma = Gamma(Map())
 
-  val maxCacheSize: Option[Int] = Some(50000)
+  val maxCacheSize: Option[Int] = Some(1000000) // Specify `None` for no limit.
 
-  val cacheTypeCheck = ObservedCache.createCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize)
+  val cacheTypeCheck =
+    new ObservedCache("Type-checking cache", ObservedCache.createCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize))
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
@@ -544,7 +545,7 @@ object TypeCheck {
               case exprN @ ExprOperator(lop, Operator.Equivalent, rop) =>
                 if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
                 else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.toDhall}")
-              case _                                                   => typeError(s"An `assert` expression must have an equality type but has ${assertion.toDhall}")
+              case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.toDhall}")
             }
           case errors   => errors
         }

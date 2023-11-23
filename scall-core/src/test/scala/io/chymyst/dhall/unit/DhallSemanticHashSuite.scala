@@ -13,8 +13,8 @@ class DhallSemanticHashSuite extends FunSuite {
   test("dhall standard acceptance tests for semantic hash") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
       val result = Try {
-        val diagnosticString = TestUtils.readFileToString((file.getAbsolutePath.replace("A.dhall", "B.hash")))
-        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(TestUtils.readFileToString((file.getAbsolutePath))).get.value.value, file.toPath)
+        val diagnosticString = TestUtils.readToString((file.getAbsolutePath.replace("A.dhall", "B.hash")))
+        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(TestUtils.readToString((file.getAbsolutePath))).get.value.value, file.toPath)
         expect(ourHash == diagnosticString)
         file.getName
       }
