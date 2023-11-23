@@ -671,7 +671,9 @@ object ImportResolution {
       Code,
       None,
     )
-    val initState      = ImportContext(Map())
+
+    val initState = ImportContext(Map())
+
     resolveImportsStep(expr, Seq(initialVisited), currentFile).run(initState) match {
       case (resolved, finalState) =>
         resolved match {
@@ -705,7 +707,10 @@ object ImportResolution {
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       val (importResolutionResult, finalState) = expr.scheme match {
         case i @ Import(_, _, _)                 =>
-          //        println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..." else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${state0.resolved.keys.toSeq.map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
+          // TODO remove this
+//          println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..."
+//            else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${stateGamma0.resolved.keys.toSeq
+//              .map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val (parent, child, referentialCheck) = visited.lastOption match { // TODO: check that `parent` is actually used in the code below
             case Some(parent) =>
               val child            = (parent chainWith i).canonicalize
@@ -887,18 +892,17 @@ object ImportResolution {
               else
                 resolveImportsStep(readExpression, visited :+ child, currentFile).run(stateGamma1) match {
                   case (result1, stateGamma2) =>
-                    result1 match {
-                      case Resolved(r) =>
-                        r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
-                          case TypecheckResult.Valid(_)          => (result1, stateGamma2)
-                          case TypecheckResult.Invalid(messages) =>
-                            (
-                              PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}")),
-                              stateGamma2,
-                            )
-                        }
-                      case _           => (result1, stateGamma2)
+                    // If the expression was successfully imported, we need to type-check and beta-normalize it.
+                    val result2: ImportResolutionResult[Expression] = result1.flatMap { r =>
+                      r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
+                        case TypecheckResult.Valid(_)          =>
+                          println(s"DEBUG resolved import $child into ${r.toDhall}, will beta-normalize now") // TODO remove this
+                          Resolved(r.betaNormalized)
+                        case TypecheckResult.Invalid(messages) =>
+                          PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}"))
+                      }
                     }
+                    (result2, stateGamma2)
                 }
           }
           // Add the new resolved expression to the import context.

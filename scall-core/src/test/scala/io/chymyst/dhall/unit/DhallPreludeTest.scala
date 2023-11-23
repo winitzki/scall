@@ -41,6 +41,12 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
     println(s"sort [3, 2] = ${smallListTest.toDhall}")
     println(s"sort [4, 3, 2, 1] = ${resolved("[4, 3, 2, 1]".dhall).betaNormalized}")
     resolved.inferType
+    println(TestUtils.cacheStatistics())
+    /*
+    Alpha-normalization cache: Total requests: 936, cache hits: 54.06%, total cache size: 479
+    Beta-normalization cache: Total requests: 4837, cache hits: 63.26%, total cache size: 2164
+    Type-checking cache: Total requests: 2711, cache hits: 42.27%, total cache size: 1565
+     */
   }
 
   test("typecheck Natural/sort.dhall imports") {
@@ -68,9 +74,7 @@ class DhallPreludeTest extends FunSuite with TestTimeouts {
     enumerateResourceFiles("dhall-lang/Prelude", Some("package.dhall")).filter(_.getAbsolutePath contains "dhall-lang/Prelude/package.dhall").foreach { file =>
       val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
       expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
-      println(
-        s"Alpha-normalization cache: ${Semantics.cacheAlphaNormalize.statistics}\nBeta-normalization cache: ${Semantics.cacheBetaNormalize.statistics}\nType inference cache: ${TypeCheck.cacheTypeCheck.statistics}"
-      )
+      println(TestUtils.cacheStatistics())
       /*
         Beta-normalization cache: Total requests: 176721, cache hits: 147798, total cache size: 28923
         Type inference cache: Total requests: 143975, cache hits: 53668, total cache size: 90307

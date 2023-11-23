@@ -5,7 +5,7 @@ import fastparse._
 import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
-import io.chymyst.dhall.SyntaxConstants
+import io.chymyst.dhall.{Semantics, SyntaxConstants, TypeCheck}
 
 import java.nio.file.{Files, Path}
 import scala.util.Try
@@ -96,6 +96,11 @@ object TestUtils {
     val successes = results.count(_.isSuccess)
     println(s"Success count: $successes\nFailure count: $failures")
     expect(failures <= allowFailures && successes >= n - allowFailures)
+  }
+
+  def cacheStatistics(): String = {
+    Seq(Semantics.cacheAlphaNormalize, Semantics.cacheBetaNormalize, TypeCheck.cacheTypeCheck)
+      .map(cache => s"${cache.name}: ${cache.statistics}").mkString("\n")
   }
 
 }
