@@ -17,21 +17,44 @@ import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
-final case class ObservedCache[A, B](cache: mutable.Map[A, B], var requests: Long = 0, var hits: Long = 0) {
+class ObservedCache[A, B](name: String, cache: mutable.Map[A, B]) {
+  protected var requests: Long = 0
+
+  protected var hits: Long = 0
+
+  val step = 100000
+
   def getOrElseUpdate(key: A, default: => B): B = this.synchronized {
     requests += 1
+    if (requests > 1 && requests % step == 0)
+      println(s"INFO $name processed ${requests / 1000}K requests with $percentHits% cache hits, this request is for key = ${key match {
+          case e: Expression => e.toDhall
+          case _             => key
+        }}")
+    else if (requests == 4000111) {
+      println(s"request $requests")
+    }
     if (cache contains key) hits += 1
     cache.getOrElseUpdate(key, default)
   }
 
-  def statistics: String = this.synchronized(s"Total requests: $requests, cache hits: $hits, total cache size: ${cache.size}")
+  def percentHits = f"${hits.toDouble * 100 / (if (requests > 0) requests else 1).toDouble}%2.2f"
+
+  def statistics: String = this.synchronized(s"Total requests: $requests, cache hits: $percentHits%, total cache size: ${cache.size}")
+}
+
+final case class IdempotentCache[A](name: String, cache: mutable.Map[A, A]) extends ObservedCache[A, A](name, cache) {
+  override def getOrElseUpdate(key: A, default: => A): A = this.synchronized {
+    cache.put(default, default) // The cached operation is assumed to be idempotent.
+    super.getOrElseUpdate(key, default)
+  }
 }
 
 object ObservedCache {
-  def createCache[A, B](maybeSize: Option[Int]): ObservedCache[A, B] = ObservedCache(maybeSize match {
+  def createCache[A, B](maybeSize: Option[Int]): mutable.Map[A, B] = maybeSize match {
     case Some(maxSize) => new LRUCache[A, B](maxSize)
     case None          => mutable.Map[A, B]()
-  })
+  }
 }
 
 object Semantics {
@@ -109,7 +132,7 @@ object Semantics {
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
   }
 
-  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr.scheme, alphaNormalizeUncached(expr))
+  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr, alphaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
   private def alphaNormalizeUncached(expr: Expression): Expression = expr.scheme match {
@@ -169,13 +192,13 @@ object Semantics {
   ): Seq[(FieldName, Expression)] =
     (defs1.toSeq ++ defs2.toSeq).groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r)).toSeq.sortBy(_._1.name)
 
-  val maxCacheSize: Option[Int] = Some(30000)
+  val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
-  val cacheBetaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+  val cacheBetaNormalize = IdempotentCache("Beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  val cacheAlphaNormalize = ObservedCache.createCache[ExpressionScheme[Expression], Expression](maxCacheSize)
+  val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr.scheme, betaNormalizeUncached(expr))
+  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   private def betaNormalizeUncached(expr: Expression): Expression = {
