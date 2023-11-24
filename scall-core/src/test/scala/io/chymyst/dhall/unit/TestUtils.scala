@@ -91,11 +91,11 @@ object TestUtils {
     }
   }
 
-  def requireSuccessAtLeast(n: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
+  def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
     val failures  = results.count(_.isFailure)
     val successes = results.count(_.isSuccess)
     println(s"Success count: $successes\nFailure count: $failures")
-    expect(failures <= allowFailures && successes >= n - allowFailures)
+    expect(failures <= allowFailures && successes >= totalTests - allowFailures)
   }
 
   def cacheStatistics(): String = {
