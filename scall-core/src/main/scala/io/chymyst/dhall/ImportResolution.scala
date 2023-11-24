@@ -473,7 +473,7 @@ For all other cases, recursively descend into sub-expressions:
 
  */
 object ImportResolution {
-  // TODO: missing sha256:... should be resolved if a cached value is available.
+
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(URL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
       Remote(URL(scheme1, authority1, path1 chain path2, query1), headers1)
@@ -626,10 +626,6 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
 
-  // TODO: verify that `child` is not part of "visited"
-
-// Note that `visited` may be empty.
-
   /** Perform one step of import resolution. This function may call itself on sub-expressions.
     *
     * Example:
@@ -676,7 +672,7 @@ object ImportResolution {
     * @param expr
     *   An expression in which imports need to be resolved.
     * @param visited
-    *   List of nested import expressions that have been resolved before encountering this one.
+    *   List of nested import expressions that have been resolved before encountering this one. This may be empty.
     * @param parent
     *   The parent import expression that has been already resolved, its contents was fetched and parsed as `expr`.
     * @return
@@ -687,10 +683,6 @@ object ImportResolution {
       val (importResolutionResult, finalState) = expr.scheme match {
         // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.
         case i @ Import(_, _, _)                 =>
-          // TODO remove this
-//          println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..."
-//            else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${stateGamma0.resolved.keys.toSeq
-//              .map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
             if (visited contains child)
@@ -712,11 +704,6 @@ object ImportResolution {
           lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
 
-          // TODO: top headers need to be just beta-normalized and then we don't need to have general Expression as "visited" element. But then we need the beta-normalization to return the new Gamma context.
-          // Alternatively we just implement the ? expression reduction by hand, since a beta-normalization with updates of Gamma is not used anywhere else.
-
-          // TODO: fix this. `resolveImportsStep(defaultHeadersLocation, visited, currentFile)` is incorrect here.
-          //  `visited` should be a list of Dhall expressions, not just a list of Import expressions. `currentFile` should be an import expression, not only a `java.nio.file.File`.
           lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
             case None               => (emptyHeadersForHost, stateGamma0)
             case Some(remoteOrigin) =>
@@ -767,7 +754,7 @@ object ImportResolution {
                 case Some(text) => withField.apply(TextLiteral.ofString(text))
                 case None       => withField
               }
-              Left(Resolved(expr)) // TODO - use validateHashAndCacheResolved() at a later stage and only once, rather than here
+              Left(Resolved(expr))
 
             case ImportMode.Code     =>
               Right(bytes =>
