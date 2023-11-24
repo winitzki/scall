@@ -896,7 +896,6 @@ object ImportResolution {
                     val result2: ImportResolutionResult[Expression] = result1.flatMap { r =>
                       r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
                         case TypecheckResult.Valid(_)          =>
-//                          println(s"DEBUG resolved import $child into ${r.toDhall}, will beta-normalize now") // TODO remove this
                           Resolved(r.betaNormalized)
                         case TypecheckResult.Invalid(messages) =>
                           PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}"))

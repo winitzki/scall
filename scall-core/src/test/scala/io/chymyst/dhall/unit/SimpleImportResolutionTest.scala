@@ -3,7 +3,7 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.test.ResourceFiles
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
@@ -15,6 +15,7 @@ import munit.FunSuite
 
 import java.io.FileInputStream
 import java.nio.file.Paths
+import scala.util.Try
 
 class SimpleImportResolutionTest extends FunSuite {
 
@@ -49,7 +50,14 @@ class SimpleImportResolutionTest extends FunSuite {
   }
 
   test("no loops in importing") {
-    val file = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
+    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
     expect(file.dhall.resolveImports(Paths.get(file).getParent.resolve("package.dhall")).isInstanceOf[Expression])
+  }
+
+  test("import alternatives inside expressions") {
+    val file   = resourceAsFile("dhall-lang/Prelude/Bool/and.dhall").get.toPath.toString
+    val parent = Paths.get(file).getParent.resolve("package.dhall")
+    expect(Try("{a = missing}".dhall.resolveImports(parent)).isFailure)
+    expect(s"{ a = missing } ? { a = $file } ? { a = missing }".dhall.resolveImports(parent).isInstanceOf[Expression])
   }
 }
