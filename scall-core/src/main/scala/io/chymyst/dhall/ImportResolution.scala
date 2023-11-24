@@ -542,8 +542,8 @@ object ImportResolution {
     dhallCacheRoots
       .map(readCached(_, digest))
       .map(_.tap { t =>
-        if (t.isFailure) println(s"Warning: failure reading from cache: ${t.failed.get}")
-      })                                          // TODO: print this failure only when the error is important (hash mismatch)
+        if (t.isFailure && t.failed.get.getMessage.contains("SHA256 mismatch")) println(s"Warning: failure reading from cache: ${t.failed.get}")
+      })                                          // Print this failure only when the error is important (hash mismatch).
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
@@ -714,7 +714,7 @@ object ImportResolution {
             case Some((remoteScheme, remoteAuthority)) =>
               val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
               result match {
-                case Resolved(expr)                           =>
+                case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
                       expr.betaNormalized.scheme match { // TODO report issue: imports.md does not say that headers must be beta-normalized before use
@@ -746,8 +746,9 @@ object ImportResolution {
                       emptyHeadersForHost
                   }
                   (headersForOrigin, state01)
-                case failure: ImportResolutionResult[Nothing] =>
-                  println(s"Warning: failed to resolve headers: $failure")
+                case TransientFailure(_)        => (emptyHeadersForHost, stateGamma0)
+                case PermanentFailure(messages) =>
+                  println(s"Warning: failed to resolve headers: $messages")
                   (emptyHeadersForHost, stateGamma0)
               }
           }

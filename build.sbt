@@ -34,7 +34,7 @@ lazy val scall_core = (project in file("scall-core"))
   .settings(
     scalaVersion             := scalaV,
     crossScalaVersions       := Seq(scala2V, scala3V),
-    Test / parallelExecution := false,
+    Test / parallelExecution := true,
     Test / fork              := true,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
