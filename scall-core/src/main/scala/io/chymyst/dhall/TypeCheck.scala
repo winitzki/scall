@@ -4,7 +4,7 @@ import io.chymyst.dhall.Applicative.seqSeq
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.TypeCheck.Gamma
+import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult._
 
 import java.time.LocalDateTime
@@ -36,7 +36,7 @@ object TypecheckResult {
       case Invalid(errors) => Invalid(errors)
     }
 
-    override def withFilter(p: A => Boolean): TypecheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(Gamma(Map()))
+    override def withFilter(p: A => Boolean): TypecheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(KnownVars(Map()))
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypecheckResult[Nothing] {
@@ -54,7 +54,7 @@ object TypecheckResult {
     override def withFilter(p: Nothing => Boolean): TypecheckResult[Nothing] = this
   }
 
-  def typeError(message: String)(implicit gamma: Gamma): TypecheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
+  def typeError(message: String)(implicit gamma: KnownVars): TypecheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
 
   implicit val ApplicativeTypeCheckResult: Applicative[TypecheckResult] = new Applicative[TypecheckResult] {
     override def zip[A, B](fa: TypecheckResult[A], fb: TypecheckResult[B]): TypecheckResult[(A, B)] = fa zip fb
@@ -66,30 +66,31 @@ object TypecheckResult {
 }
 
 object TypeCheck {
-  val emptyContext: Gamma = Gamma(Map())
+  val emptyContext  = KnownVars(Map())
 
   val maxCacheSize: Option[Int] = Some(1000000) // Specify `None` for no limit.
 
   val cacheTypeCheck =
-    new ObservedCache("Type-checking cache", ObservedCache.createCache[(Gamma, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize))
+    new ObservedCache("Type-checking cache", ObservedCache.createCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize))
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
 
-  final case class Gamma(variables: Map[VarName, IndexedSeq[Expression]]) {
+  // This data structure is denoted by Γ in the math notation. This can be used as a "context" for type-checking and for evaluation.
+  final case class KnownVars(variables: Map[VarName, IndexedSeq[Expression]]) {
     def lookup(variable: Variable): Option[Expression] = variables.get(variable.name).flatMap { exprs =>
       if (variable.index.isValidInt) exprs.lift(variable.index.intValue) else None
     }
 
     // Important: the expressions must be prepended to the list even though the math notation is `(Γ0, x : A1)`.
     // This is because a de Bruijn index increases to the left in the list.
-    def prepend(varName: VarName, expr: Expression) = Gamma(variables.updatedWith(varName) {
+    def prepend(varName: VarName, expr: Expression) = KnownVars(variables.updatedWith(varName) {
       case Some(exprs) =>
         // println(s"DEBUG: prepending ${varName.name} : ${expr.toDhall} to ${exprs.map{_.toDhall}.mkString("[", ", ", "]")} in $this")
         Some(expr +: exprs)
       case None        => Some(IndexedSeq(expr))
     })
 
-    def mapExpr(f: Expression => Expression): Gamma = Gamma(variables.map { case (name, exprs) => (name, exprs.map(f)) })
+    def mapExpr(f: Expression => Expression): KnownVars = KnownVars(variables.map { case (name, exprs) => (name, exprs.map(f)) })
 
     override def toString: String = variables
       .flatMap { case (varName, exprs) =>
@@ -101,7 +102,7 @@ object TypeCheck {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   // Check that a given expression has the given type, that is, gamma |- expr : tipe. If this holds, no errors are output.
-  def validate(gamma: Gamma, expr: Expression, tipe: Expression): TypecheckResult[Expression] = {
+  def validate(gamma: KnownVars, expr: Expression, tipe: Expression): TypecheckResult[Expression] = {
     inferType(gamma, expr) match {
       case Valid(inferredType) =>
         if (Semantics.equivalent(tipe, inferredType))
@@ -113,22 +114,22 @@ object TypeCheck {
     }
   }
 
-  def required(cond: Boolean)(error: String)(implicit gamma: Gamma): TypecheckResult[Unit] =
+  def required(cond: Boolean)(error: String)(implicit gamma: KnownVars): TypecheckResult[Unit] =
     if (cond) Valid(()) else typeError(error)
 
   val _Type: Expression      = ExprConstant(Constant.Type)
   val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: Gamma, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
+  def inferType(gamma: KnownVars, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
 
-  private def inferTypeOrCached(gamma: Gamma, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
+  private def inferTypeOrCached(gamma: KnownVars, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
     //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
     implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypecheckResult[Expression] = Valid(~builtin)
 
-    implicit val _gamma: Gamma = gamma
+    implicit val _gamma: KnownVars = gamma
 
     def typeOfToMap(t: Expression): Expression = (~Builtin.List)(Expression(RecordType(Seq((FieldName("mapKey"), ~Builtin.Text), (FieldName("mapValue"), t)))))
 

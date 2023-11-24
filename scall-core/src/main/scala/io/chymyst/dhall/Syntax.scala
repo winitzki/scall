@@ -817,11 +817,11 @@ object Syntax {
 
     def inferType: TypecheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
 
-    def inferTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
+    def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
-    def wellTypedBetaNormalize(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+    def wellTypedBetaNormalize(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
 
-    def inferAndValidateTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = for {
+    def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)
     } yield t
