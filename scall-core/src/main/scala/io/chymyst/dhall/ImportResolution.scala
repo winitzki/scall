@@ -763,7 +763,7 @@ object ImportResolution {
                 case Remote(url, _)             => (FieldName("Remote"), Some(url.toString))
                 case p @ Path(_, _)             => (FieldName("Local"), Some(p.toString))
                 case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
-              }
+              } // TODO report issue: imports.md incorrectly specifies the field name as `.Location` whereas it must be `.Local`
               val withField: Expression                   = Field(typeOfImportAsLocation, field)
               val expr: Expression                        = arg match {
                 case Some(text) => withField.apply(TextLiteral.ofString(text))
@@ -890,7 +890,9 @@ object ImportResolution {
           // Add the new resolved expression to the import context.
           newState match {
             case (result2, state2) =>
-              result2.flatMap(validateHashAndCacheResolved(_, child.digest)) match {
+              // Corner case: import as Location must not attempt to use the digest cache.
+              val effectiveDigest = if (child.importMode == ImportMode.Location) None else child.digest
+              result2.flatMap(validateHashAndCacheResolved(_, effectiveDigest)) match {
                 case Resolved(r) => (result2, state2.copy(state2.resolved.updated(child, r)))
                 case failure     => (failure, state2)
               }

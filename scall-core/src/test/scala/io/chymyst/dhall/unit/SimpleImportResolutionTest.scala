@@ -10,7 +10,7 @@ import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportType, VarName}
 import io.chymyst.dhall.TypeCheck._Type
 import io.chymyst.dhall.TypecheckResult.Valid
-import io.chymyst.dhall.{Parser, SyntaxConstants, TypecheckResult}
+import io.chymyst.dhall.{Parser, Semantics, SyntaxConstants, TypecheckResult}
 import munit.FunSuite
 
 import java.io.FileInputStream
@@ -73,5 +73,12 @@ class SimpleImportResolutionTest extends FunSuite {
     expect(Try(expr1.resolveImports(file)).isFailure)
     val expr2 = "./and.dhall sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".dhall
     expect(Try(expr2.resolveImports(file)).isFailure)
+  }
+
+  test("correct sha256 check") {
+    val expr1 = "./some/import.dhall as Location".dhall
+    expect(Semantics.semanticHash(expr1.resolveImports(), Paths.get(".")) == "de93ce8633ee0cbc9c4d4351cafcd82965c5a7c221d28ad194900ead38887617")
+    val expr2 = "./some/import.dhall sha256:efc43103e49b56c5bf089db8e0365bbfc455b8a2f0dc6ee5727a3586f85969fd as Location".dhall
+    expect(Semantics.semanticHash(expr2.resolveImports(), Paths.get(".")) == "de93ce8633ee0cbc9c4d4351cafcd82965c5a7c221d28ad194900ead38887617")
   }
 }

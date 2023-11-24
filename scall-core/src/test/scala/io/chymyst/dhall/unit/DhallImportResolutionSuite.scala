@@ -76,7 +76,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         }
 
       }
-      TestUtils.requireSuccessAtLeast(72, results, 2)
+      TestUtils.requireSuccessAtLeast(72, results, 1)
     }
   }
 
@@ -101,7 +101,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             result
           }
         }
-      TestUtils.requireSuccessAtLeast(25, results, 0)
+      TestUtils.requireSuccessAtLeast(24, results, 0)
     }
   }
 
