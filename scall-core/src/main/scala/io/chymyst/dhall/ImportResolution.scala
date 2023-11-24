@@ -687,7 +687,8 @@ object ImportResolution {
 //              .map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
-            if (visited contains parent) Left(PermanentFailure(Seq(s"Cyclic import of $child from $parent")))
+            if (visited contains child)
+              Left(PermanentFailure(Seq(s"Cyclic import of $child not allowed, imports already visited: ${visited.map(_.toDhall).mkString("; ")}")))
             else Right(())
           val referentialCheck  =
             if (parent.importType allowedToImportAnother child.importType) Right(())
