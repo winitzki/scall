@@ -796,7 +796,7 @@ object ImportResolution {
             case ImportType.Missing => Left(TransientFailure(Seq("import is `missing` (perhaps not an error)")))
 
             case Remote(childUrl, childUserHeaders) =>
-              // Verify the type of headers.
+              // Verify the type of headers. `extractHeaders` will beta-normalize only if typechecking succeeds.
               val checkHeaderTypeGeneric: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = childUserHeaders match {
                 case Some(headersExpr) =>
                   (headersExpr | typeOfGenericHeadersForHost).inferType match {
