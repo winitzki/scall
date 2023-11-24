@@ -586,11 +586,11 @@ object ImportResolution {
   }
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
-  // TODO workaround: allow the "visited" list to be empty initially?
+  // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
   def resolveAllImports(expr: Expression, currentFile: java.nio.file.Path): Expression = {
     val initialVisited = Import[Expression](
       // Workaround: use current file as import path, import as code without sha256.
-      ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(currentFile.iterator.asScala.toSeq.map(_.toString))),
+      ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(currentFile.iterator.asScala.toSeq.map(_.toString))),
       Code,
       None,
     )

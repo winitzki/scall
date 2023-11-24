@@ -644,19 +644,19 @@ object Grammar {
 
   def parent_path[$: P] = P(
     ".." ~/ path // Relative path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Parent, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Parent, SyntaxConstants.FilePath.of(segments)))
 
   def here_path[$: P] = P(
     "." ~ path // Relative path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Here, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Here, SyntaxConstants.FilePath.of(segments)))
 
   def home_path[$: P] = P(
     "~" ~/ path // Home_anchored path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Home, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Home, SyntaxConstants.FilePath.of(segments)))
 
   def absolute_path[$: P] = P(
     path // Absolute path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Absolute, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Absolute, SyntaxConstants.FilePath.of(segments)))
 
 
   def scheme[$: P]: P[SyntaxConstants.Scheme] = P(
@@ -667,9 +667,9 @@ object Grammar {
     scheme ~ "://" ~ authority.! ~ path_abempty ~ ("?" ~ query.!).?
   ).map { case (s, a, p, q) => SyntaxConstants.URL(s, a, p, q) }
 
-  def path_abempty[$: P]: P[SyntaxConstants.File] = P(
+  def path_abempty[$: P]: P[SyntaxConstants.FilePath] = P(
     ("/" ~ segment.!).rep
-  ).map { segments => SyntaxConstants.File.of(segments) }
+  ).map { segments => SyntaxConstants.FilePath.of(segments) }
 
   def authority[$: P] = P(
     (userinfo ~ "@").? ~ host ~ (":" ~ port).?

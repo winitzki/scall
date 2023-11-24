@@ -118,34 +118,34 @@ object TestFixtures {
 
   val importExpressions: Seq[(String, Expression)] = Seq(
     s"./a.dhall sha256:$sha256example"                                             -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, File(Seq("a.dhall"))),
+      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./a.dhall sha256:$sha256lc"                                                  -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, File(Seq("a.dhall"))),
+      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256lc.toUpperCase)),
     ),
-    "./local/import as Location"                                                   -> Import[Expression](ImportType.Path(FilePrefix.Here, File(Seq("local", "import"))), ImportMode.Location, None),
+    "./local/import as Location"                                                   -> Import[Expression](ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))), ImportMode.Location, None),
     s"./local/import sha256:$sha256example"                                        -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, File(Seq("local", "import"))),
+      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import.dhall sha256:$sha256example as Text"                          -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, File(Seq("local", "import.dhall"))),
+      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import.dhall"))),
       ImportMode.RawText,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import sha256:$sha256example as Bytes"                               -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, File(Seq("local", "import"))),
+      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.RawBytes,
       Some(BytesLiteral(sha256example)),
     ),
     "env:HOME as Text"                                                             -> Import[Expression](ImportType.Env("HOME"), ImportMode.RawText, None),
     s"https://example.com/a/b?c=d using headers123 sha256:$sha256example as Bytes" -> Import[Expression](
-      ImportType.Remote(URL(Scheme.HTTPS, "example.com", File(Seq("a", "b")), Some("c=d")), Some(v("headers123"))),
+      ImportType.Remote(URL(Scheme.HTTPS, "example.com", FilePath(Seq("a", "b")), Some("c=d")), Some(v("headers123"))),
       ImportMode.RawBytes,
       Some(BytesLiteral(sha256example)),
     ),

@@ -252,7 +252,7 @@ object SyntaxConstants {
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
 
-    final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing] {
+    final case class Path(filePrefix: FilePrefix, file: FilePath) extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
 
       override def toString: String = filePrefix.prefix + file.toString
@@ -275,7 +275,7 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String]) {
+  final case class URL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
     override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""
@@ -284,13 +284,15 @@ object SyntaxConstants {
     def httpAuthority: String = scheme.entryName.toLowerCase + "://" + authority
   }
 
-  final case class File(segments: Seq[String]) {
-    require(segments.nonEmpty) // The last segment is a file name (but may be a empty string), all previous segments are path components (may be none).
+  // This is called `File` in the Dhall standard.
+  // The last segment is a file name (but may be a empty string), all previous segments are path components (may be none).
+  final case class FilePath(segments: Seq[String]) {
+    require(segments.nonEmpty)
 
     override def toString: String = segments.mkString("/")
 
     // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
-    def canonicalize: File = {
+    def canonicalize: FilePath = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]()) { (prev, segment) =>
         segment match {
           case "."                                       => prev
@@ -298,16 +300,16 @@ object SyntaxConstants {
           case s                                         => s :: prev
         }
       }
-      File(newSegments.reverse)
+      if (newSegments.isEmpty) FilePath(Seq("")) else FilePath(newSegments.reverse)
     }
 
-    def chain(child: File): File = if (segments.isEmpty) child else File(segments.init ++ child.segments)
+    def chain(child: FilePath): FilePath = if (segments.isEmpty) child else FilePath(segments.init ++ child.segments)
 
-    def chainToParent(child: File): File = chain(File(".." +: child.segments))
+    def chainToParent(child: FilePath): FilePath = chain(FilePath(".." +: child.segments))
   }
 
-  object File {
-    def of(segments: Seq[String]): File = if (segments.isEmpty) File(Seq("")) else File(segments)
+  object FilePath {
+    def of(segments: Seq[String]): FilePath = if (segments.isEmpty) FilePath(Seq("")) else FilePath(segments)
 
     def unescapePathSegment(segment: String): String = Seq(
       ("\\a", "\u0007"),

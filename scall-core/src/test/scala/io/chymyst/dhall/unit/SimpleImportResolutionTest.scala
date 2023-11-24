@@ -42,11 +42,11 @@ class SimpleImportResolutionTest extends FunSuite {
     val import1 = "/tmp/file1.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val import2 = "/tmp/file2.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained = import1 chainWith import2
-    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp", "file2.dhall"))))
+    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
 
     val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained13 = import1 chainWith import3
-    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp2", "file3.dhall"))))
+    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
   }
 
   test("no loops in importing") {
@@ -59,5 +59,11 @@ class SimpleImportResolutionTest extends FunSuite {
     val parent = Paths.get(file).getParent.resolve("package.dhall")
     expect(Try("{a = missing}".dhall.resolveImports(parent)).isFailure)
     expect(s"{ a = missing } ? { a = $file } ? { a = missing }".dhall.resolveImports(parent).isInstanceOf[Expression])
+  }
+
+  test("import . or .. or other invalid imports should fail") {
+    Seq("{a = missing}", ".", "./", "./.", "./..", "./././..", "./../.././..", "/tmp").foreach { string =>
+      expect(Try(string.dhall.resolveImports(Paths.get("."))).isFailure)
+    }
   }
 }

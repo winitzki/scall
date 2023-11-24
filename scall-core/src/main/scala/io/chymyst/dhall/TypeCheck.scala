@@ -66,7 +66,7 @@ object TypecheckResult {
 }
 
 object TypeCheck {
-  val emptyContext  = KnownVars(Map())
+  val emptyContext = KnownVars(Map())
 
   val maxCacheSize: Option[Int] = Some(1000000) // Specify `None` for no limit.
 
