@@ -3,11 +3,9 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.dhall.Parser
-import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
-import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
-import io.chymyst.dhall.Syntax.ExpressionScheme.NonEmptyList
+import io.chymyst.test.Throwables.printThrowable
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
 import munit.FunSuite
 import os.root
 
@@ -51,13 +49,14 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
         val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
         val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
-        if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
+        // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
         runInFakeEnvironmentWith(extraEnvVars: _*) {
           val result = Try {
             val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
             val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-            val x                                                 = ourResult.resolveImports(relativePathForTest)
-            val y                                                 = validationResult
+            // TODO report issue: the test dhall-lang/tests/import/success/unit/ImportRelativeToHomeB.dhall should be "hello" ++ " world" because tests should not beta-normalize entire expressions (only imported sub-expressions)
+            val x                                                 = ourResult.resolveImports(relativePathForTest) // We should not beta-normalize entire expressions. // .typeCheckAndBetaNormalize().unsafeGet
+            val y                                                 = validationResult.resolveImports(relativePathForTest)
 
             if (x.toDhall != y.toDhall)
               println(
@@ -72,12 +71,12 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             file.getName
           }
           if (result.isFailure)
-            println(s"${file.getName}: ${result.failed.get}")
+            println(s"${file.getName}: ${result.failed.get}\n${printThrowable(result.failed.get)}")
           result
         }
 
       }
-      TestUtils.requireSuccessAtLeast(72, results, 8)
+      TestUtils.requireSuccessAtLeast(72, results, 2)
     }
   }
 
@@ -88,11 +87,10 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
         val relativePathForTest                 = parentPath.relativize(file.toPath)
         val envVarsFile                         = new File(file.getAbsolutePath.replace(".dhall", "ENV.dhall"))
         val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
-        if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
+        // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
         runInFakeEnvironmentWith(extraEnvVars: _*) {
           val result = Try {
             val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-            // TODO: resolve with ./dhall-lang/tests/...dhall as parent import
             val x                                          = Try(ourResult.resolveImports(relativePathForTest))
             expect(x.isFailure)
             file.getName
@@ -101,7 +99,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
           result
         }
       }
-      TestUtils.requireSuccessAtLeast(25, results, 2)
+      TestUtils.requireSuccessAtLeast(25, results, 1)
     }
   }
 

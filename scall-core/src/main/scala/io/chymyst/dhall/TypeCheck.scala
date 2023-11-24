@@ -7,8 +7,6 @@ import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult._
 
-import java.time.LocalDateTime
-import scala.collection.mutable
 import scala.language.postfixOps
 
 sealed trait TypecheckResult[+A] {
@@ -21,10 +19,14 @@ sealed trait TypecheckResult[+A] {
   def zip[B](other: TypecheckResult[B]): TypecheckResult[(A, B)]
 
   def withFilter(p: A => Boolean): TypecheckResult[A]
+
+  def unsafeGet: A
 }
 
 object TypecheckResult {
   final case class Valid[A](expr: A) extends TypecheckResult[A] {
+    override def unsafeGet: A = expr
+
     override def isValid: Boolean = true
 
     override def map[B](f: A => B): TypecheckResult[B] = Valid(f(expr))
@@ -40,6 +42,8 @@ object TypecheckResult {
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypecheckResult[Nothing] {
+    override def unsafeGet: Nothing = throw new Exception(s"Type-checking failed with errors: $errors")
+
     override def isValid: Boolean = false
 
     override def map[B](f: Nothing => B): TypecheckResult[B] = Invalid(errors)
@@ -74,6 +78,10 @@ object TypeCheck {
     new ObservedCache("Type-checking cache", ObservedCache.createCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize))
 
   type TypeCheckErrors = Seq[String] // Non-empty list.
+
+  object KnownVars {
+    def empty: KnownVars = KnownVars(Map())
+  }
 
   // This data structure is denoted by Γ in the math notation. This can be used as a "context" for type-checking and for evaluation.
   final case class KnownVars(variables: Map[VarName, IndexedSeq[Expression]]) {
@@ -168,7 +176,7 @@ object TypeCheck {
 
       case Lambda(name, tipe, body) =>
         for {
-          varType       <- tipe.wellTypedBetaNormalize(gamma)
+          varType       <- tipe.typeCheckAndBetaNormalize(gamma)
           updatedContext = gamma.prepend(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
           // _ = println(s"DEBUG 2: updated context is $updatedContext")
           bodyType      <- body.inferTypeWith(updatedContext)
@@ -386,7 +394,7 @@ object TypeCheck {
 
           case Operator.CombineRecordTerms =>
             (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap { case (lopType, ropType) =>
-              Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).wellTypedBetaNormalize(gamma)
+              Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).typeCheckAndBetaNormalize(gamma)
             }
 
           case Operator.Prefer =>
@@ -516,7 +524,7 @@ object TypeCheck {
           case other                        => typeError(s"ProjectByType is invalid because the base expression has type ${other.toDhall} instead of RecordType")
         }
         val projectIsByRecordType =
-          by.wellTypedBetaNormalize(gamma).flatMap {
+          by.typeCheckAndBetaNormalize(gamma).flatMap {
             case Expression(RecordType(defs)) => Valid(defs)
             case other                        => typeError(s"ProjectByType is invalid because the projection expression is ${other.toDhall} instead of RecordType")
           }

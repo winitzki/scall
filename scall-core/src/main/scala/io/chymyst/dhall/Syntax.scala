@@ -1,8 +1,6 @@
 package io.chymyst.dhall
 
 import enumeratum._
-import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Grammar.TextLiteralNoInterp
 import io.chymyst.dhall.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
@@ -11,10 +9,8 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
 
-import java.nio.file.{Path, Paths}
-import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
-import java.util.concurrent.atomic.AtomicReference
-import scala.collection.mutable
+import java.nio.file.Paths
+import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
@@ -235,7 +231,7 @@ object SyntaxConstants {
     def allowedToImportAnother(anotherImportType: ImportType[_]): Boolean =
       this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
 
-    def remoteOrigin: Option[String] = None
+    def remoteOrigin: Option[(Scheme, String)] = None
 
     def hasUserHeaders: Boolean = false
   }
@@ -245,10 +241,10 @@ object SyntaxConstants {
       override def safetyLevelRequired: Int = 1 // The `Missing` import is always a failure and cannot import anything else.
     }
 
-    final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
+    final case class Remote[E](url: ImportURL, headers: Option[E]) extends ImportType[E] {
       override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
 
-      override def remoteOrigin: Option[String] = Some(url.httpAuthority)
+      override def remoteOrigin: Option[(Scheme, String)] = Some(url.scheme, url.authority)
 
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
@@ -276,7 +272,7 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
+  final case class ImportURL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
     override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""
@@ -833,7 +829,8 @@ object Syntax {
 
     def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
-    def wellTypedBetaNormalize(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+    def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty): TypecheckResult[Expression] =
+      inferTypeWith(gamma).map(_ => betaNormalized)
 
     def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
