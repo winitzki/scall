@@ -68,7 +68,7 @@ class SimpleImportResolutionTest extends FunSuite {
   }
 
   test("do not recover from sha mismatch") {
-    val file = resourceAsFile("dhall-lang/Prelude/Bool/and.dhall").get.toPath
+    val file  = resourceAsFile("dhall-lang/Prelude/Bool/and.dhall").get.toPath
     val expr1 = "./and.dhall sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ? 0".dhall
     expect(Try(expr1.resolveImports(file)).isFailure)
     val expr2 = "./and.dhall sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".dhall

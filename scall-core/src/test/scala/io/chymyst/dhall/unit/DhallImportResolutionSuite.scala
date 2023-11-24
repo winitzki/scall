@@ -46,8 +46,8 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
   test("import resolution success") {
     setupEnvironment {
       val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall")).map { file =>
-        val parentPath = resourceAsFile("dhall-lang").get.toPath.getParent
-        val relativePathForTest = parentPath.relativize(file.toPath)
+        val parentPath                          = resourceAsFile("dhall-lang").get.toPath.getParent
+        val relativePathForTest                 = parentPath.relativize(file.toPath)
         val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
         val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
         val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
@@ -83,9 +83,9 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
   test("import resolution failure") {
     setupEnvironment {
       val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/failure", Some(".dhall")).map { file =>
-        val parentPath = resourceAsFile("dhall-lang").get.toPath.getParent
+        val parentPath          = resourceAsFile("dhall-lang").get.toPath.getParent
         val relativePathForTest = parentPath.relativize(file.toPath)
-        val result = Try {
+        val result              = Try {
           val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
           // TODO: resolve with ./dhall-lang/tests/...dhall as parent import
           val x                                          = Try(ourResult.resolveImports(relativePathForTest))
