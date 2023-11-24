@@ -15,6 +15,7 @@ import java.nio.file.{Path, Paths}
 import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -431,7 +432,7 @@ object Syntax {
     }
 
     trait TermPrecedence {
-      def prec: Int = TermPrecedence.low // Default is this precedence.
+      def precedence: Int = TermPrecedence.low // Default is this precedence.
     }
 
     object TermPrecedence {
@@ -443,15 +444,15 @@ object Syntax {
     }
 
     trait VarPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.offsetForOperators / 3
+      override def precedence: Int = TermPrecedence.offsetForOperators / 3
     }
 
     trait HighPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.offsetForOperators / 2
+      override def precedence: Int = TermPrecedence.offsetForOperators / 2
     }
 
     trait LowerPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.low + 100
+      override def precedence: Int = TermPrecedence.low + 100
     }
 
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
@@ -482,7 +483,7 @@ object Syntax {
     final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
 
     final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.ofOperator(op)
+      override def precedence: Int = TermPrecedence.ofOperator(op)
     }
 
     final case class Application[E](func: E, arg: E) extends ExpressionScheme[E]
@@ -498,7 +499,7 @@ object Syntax {
 
     // An Expression of the form `T::r` is syntactic sugar for `(T.default // r) : T.Type`.
     final case class Completion[E](base: E, target: E) extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.offsetForOperators + 13
+      override def precedence: Int = TermPrecedence.offsetForOperators + 13
     }
 
     final case class Assert[E](assertion: E) extends ExpressionScheme[E]
@@ -776,12 +777,9 @@ object Syntax {
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
 
-    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
+    final case class Import[+E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
         extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
-
-      def chainWith(child: Import[E]): Import[E] =
-        child.copy(importType = ImportResolution.chainWith(importType, child.importType))
+      override def precedence: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
 
       def canonicalize: Import[E] = importType match {
         case i @ ImportType.Remote(_, _) =>
@@ -792,6 +790,22 @@ object Syntax {
           copy(importType = i.copy(file = canonicalPath))
         case _                           => this
       }
+    }
+
+    object Import {
+      def chainWith[E](parent: Import[E], child: Import[E]): Import[E] =
+        child.copy(importType = ImportResolution.chainWith(parent.importType, child.importType))
+
+      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = Import(
+        // Workaround: use current file as import path, import as code without sha256.
+        ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))),
+        ImportMode.Code,
+        digest = None,
+      )
+
+      implicit def ofJavaFile(file: java.io.File): Import[Nothing] = ofJavaPath(file.toPath)
+
+      implicit def ofString(fileName: String): Import[Nothing] = ofJavaPath(Paths.get(fileName))
     }
 
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
@@ -864,10 +878,10 @@ object Syntax {
 
     override def toString: String = toDhall
 
-    private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm
+    private def atPrecedence(level: Int) = if (scheme.precedence > level) "(" + dhallForm + ")" else dhallForm
 
     private def dhallForm: String = {
-      val p = scheme.prec
+      val p = scheme.precedence
       scheme match {
         case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body)               => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"

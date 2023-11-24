@@ -41,11 +41,11 @@ class SimpleImportResolutionTest extends FunSuite {
   test("import chaining must compute correct paths") {
     val import1 = "/tmp/file1.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val import2 = "/tmp/file2.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
-    val chained = import1 chainWith import2
+    val chained = Import.chainWith(import1, import2)
     expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
 
     val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
-    val chained13 = import1 chainWith import3
+    val chained13 = Import.chainWith(import1, import3)
     expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
   }
 

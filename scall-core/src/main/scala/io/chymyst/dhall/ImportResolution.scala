@@ -587,17 +587,12 @@ object ImportResolution {
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
-  def resolveAllImports(expr: Expression, currentFile: java.nio.file.Path): Expression = {
-    val initialVisited = Import[Expression](
-      // Workaround: use current file as import path, import as code without sha256.
-      ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(currentFile.iterator.asScala.toSeq.map(_.toString))),
-      Code,
-      None,
-    )
+  def resolveAllImports(expr: Expression, currentImport: Import[Expression]): Expression = {
+    val initialVisited = currentImport
 
     val initState = ImportContext(Map())
 
-    resolveImportsStep(expr, Seq(initialVisited), currentFile).run(initState) match {
+    resolveImportsStep(expr, Seq(initialVisited), currentImport).run(initState) match {
       case (resolved, finalState) =>
         resolved match {
           case TransientFailure(messages) =>
@@ -611,7 +606,7 @@ object ImportResolution {
 
   def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.toDhall).mkString("[", ", ", "]")
 
-  def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.scheme match {
+  private def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.scheme match {
     case EmptyList(_)        => emptyHeadersForHost
     case NonEmptyList(exprs) =>
       exprs.map(_.scheme).map { case d @ RecordLiteral(_) =>
@@ -625,30 +620,81 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
 
-  // TODO: verify that a child is not part of "visited"
-  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], currentFile: java.nio.file.Path): ImportResolutionStep[Expression] =
+  // TODO: verify that `child` is not part of "visited"
+
+// Note that `visited` may be empty.
+
+  /** Perform one step of import resolution. This function may call itself on sub-expressions.
+    *
+    * Example:
+    *
+    * Suppose a file `./program` contains the URL string `http://a.org/lib/func1`.
+    *
+    * When we fetch that URL, we get the string `./func2`. When we fetch `http://a.org/lib/func2`, we get the string `0`.
+    *
+    * These imports are resolved like this:
+    *
+    * After parsing the file `./program`, we get an expression of type [[Import]]:
+    *
+    * {{{
+    *   "http://a.org/lib/func1".dhall
+    * }}}
+    *
+    * To resolve that, we will call:
+    *
+    * {{{
+    *    resolveImportsStep(expr = "http://a.org/lib/func1".dhall, visited = Seq(), currentImport = "./program".dhall)
+    * }}}
+    *
+    * Here, `visited` is empty because there are no previous imports before `./program`.
+    *
+    * This call will read the URL `http://a.org/lib/func1` and obtain the text `"./func2"`. Parsing that text will give an expression of type [[Import]].
+    *
+    * So, this is a nested import. To resolve this, we need to call:
+    *
+    * {{{
+    *    resolveImportsStep(expr = "./func2".dhall, visited = Seq("./program".dhall), currentImport = "http://a.org/lib/func1".dhall)
+    * }}}
+    *
+    * Because `"./func2".dhall` is again an expression of type [[Import]], we continue the import resolution.
+    *
+    * We chain the current import with `./func2` and obtain the new child import expression: `http://a.org/lib/func2`. We fetch that URL and parse the string
+    * `0`. Then we call:
+    *
+    * {{{
+    *   resolveImportsStep(expr = "0".dhall, visited = Seq("./program".dhall, "http://a.org/lib/func1".dhall), currentImport = "http://a.org/lib/func2".dhall)
+    * }}}
+    *
+    * At this point the import resolution is finished and the final expression is computed as `0`.
+    *
+    * @param expr
+    *   An expression in which imports need to be resolved.
+    * @param visited
+    *   List of nested import expressions that have been resolved before encountering this one.
+    * @param parent
+    *   The parent import expression that has been already resolved, its contents was fetched and parsed as `expr`.
+    * @return
+    *   A function that updates the import context and returns an [[ImportResolutionResult]].
+    */
+  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], parent: Import[Expression]): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       val (importResolutionResult, finalState) = expr.scheme match {
+        // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.
         case i @ Import(_, _, _)                 =>
           // TODO remove this
 //          println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..."
 //            else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${stateGamma0.resolved.keys.toSeq
 //              .map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
-          val (parent, child, referentialCheck) = visited.lastOption match { // TODO: check that `parent` is actually used in the code below
-            case Some(parent) =>
-              val child            = (parent chainWith i).canonicalize
-              val referentialCheck =
-                if (parent.importType allowedToImportAnother child.importType) Right(())
-                else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
-              (parent, child, referentialCheck)
-            case None         =>
-              // Special case: we are resolving imports in a dhall source that is not a file. We do not have a `parent` import.
-              // TODO report issue: perhaps add the no-parent-import case to the Dhall standard
-              val child = i.canonicalize
-              (child, child, Right(()))
-          }
+          val child             = Import.chainWith(parent, i).canonicalize
+          val cyclicImportCheck =
+            if (visited contains parent) Left(PermanentFailure(Seq(s"Cyclic import of $child from $parent")))
+            else Right(())
+          val referentialCheck  =
+            if (parent.importType allowedToImportAnother child.importType) Right(())
+            else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
+
           // println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
-          lazy val resolveIfAlreadyResolved     = gamma.get(child) match {
+          lazy val resolveIfAlreadyResolved = gamma.get(child) match {
             case Some(r) => Left(ImportResolutionResult.Resolved(r))
             case None    => Right(())
           }
@@ -667,7 +713,7 @@ object ImportResolution {
           lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
             case None               => (emptyHeadersForHost, stateGamma0)
             case Some(remoteOrigin) =>
-              val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, currentFile).run(stateGamma0)
+              val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
               result match {
                 case Resolved(expr)                           =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
@@ -718,7 +764,7 @@ object ImportResolution {
 
             case ImportMode.Code     =>
               Right(bytes =>
-                Parser.parseDhallBytes(bytes, currentFile) match {
+                Parser.parseDhallBytes(bytes) match {
                   case Parsed.Success(DhallFile(_, expr), _) => Resolved(expr)
                   case failure: Parsed.Failure               => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
                 }
@@ -794,6 +840,7 @@ object ImportResolution {
           val result: Either[ImportResolutionResult[Expression], Expression] = for {
             _                <- resolveIfAlreadyResolved
             _                <- resolveIfCached
+            _                <- cyclicImportCheck
             _                <- referentialCheck
             readByImportMode <- resolveIfLocation
             bytes            <- missingOrData
@@ -807,25 +854,19 @@ object ImportResolution {
           val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
             case Left(gotEarlyResult)  => (gotEarlyResult, stateGamma1)
             case Right(readExpression) =>
-              if (visited contains child)
-                (
-                  ImportResolutionResult.PermanentFailure(Seq(s"Cyclic import of $child from $parent")),
-                  stateGamma1,
-                ) // TODO maybe do this check at a different place?
-              else
-                resolveImportsStep(readExpression, visited :+ child, currentFile).run(stateGamma1) match {
-                  case (result1, stateGamma2) =>
-                    // If the expression was successfully imported, we need to type-check and beta-normalize it.
-                    val result2: ImportResolutionResult[Expression] = result1.flatMap { r =>
-                      r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
-                        case TypecheckResult.Valid(_)          =>
-                          Resolved(r.betaNormalized)
-                        case TypecheckResult.Invalid(messages) =>
-                          PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}"))
-                      }
+              resolveImportsStep(readExpression, visited :+ parent, child).run(stateGamma1) match {
+                case (result1, stateGamma2) =>
+                  // If the expression was successfully imported, we need to type-check and beta-normalize it.
+                  val result2: ImportResolutionResult[Expression] = result1.flatMap { r =>
+                    r.inferType match { // Note: this type inference is done with empty context because imports may not have any free variables.
+                      case TypecheckResult.Valid(_)          =>
+                        Resolved(r.betaNormalized)
+                      case TypecheckResult.Invalid(messages) =>
+                        PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}"))
                     }
-                    (result2, stateGamma2)
-                }
+                  }
+                  (result2, stateGamma2)
+              }
           }
           // Add the new resolved expression to the import context.
           newState match {
@@ -838,13 +879,13 @@ object ImportResolution {
 
         // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
         case ExprOperator(lop, Alternative, rop) =>
-          resolveImportsStep(lop, visited, currentFile).run(stateGamma0) match {
+          resolveImportsStep(lop, visited, parent).run(stateGamma0) match {
             case resolved @ (Resolved(_), _) => resolved
 
             case failed @ (PermanentFailure(_), _) => failed
 
             case (TransientFailure(messages1), state1) =>
-              resolveImportsStep(rop, visited, currentFile).run(state1) match {
+              resolveImportsStep(rop, visited, parent).run(state1) match {
                 case resolved @ (Resolved(_), _)           => resolved
                 case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
                 case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
@@ -852,7 +893,7 @@ object ImportResolution {
           }
 
         case _ =>
-          expr.scheme.traverse(resolveImportsStep(_, visited, currentFile)).run(stateGamma0) match {
+          expr.scheme.traverse(resolveImportsStep(_, visited, parent)).run(stateGamma0) match {
             case (scheme, state) => (scheme.map(Expression.apply), state)
           }
       }
