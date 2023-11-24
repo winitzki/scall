@@ -11,7 +11,7 @@ import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
 
-class DhallCbor1Suite extends FunSuite {
+class DhallParserAndCbor1Suite extends FunSuite {
   def testFilesForSuccess = enumerateResourceFiles("dhall-lang/tests/parser/success", Some(".dhall"))
 
   def testFilesForFailure = enumerateResourceFiles("dhall-lang/tests/parser/failure", Some(".dhall"))
