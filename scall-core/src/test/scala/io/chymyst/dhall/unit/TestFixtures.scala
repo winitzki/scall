@@ -145,7 +145,7 @@ object TestFixtures {
     ),
     "env:HOME as Text"                                                             -> Import[Expression](ImportType.Env("HOME"), ImportMode.RawText, None),
     s"https://example.com/a/b?c=d using headers123 sha256:$sha256example as Bytes" -> Import[Expression](
-      ImportType.Remote(ImportURL(Scheme.HTTPS, "example.com", FilePath(Seq("a", "b")), Some("c=d")), Some(v("headers123"))),
+      ImportType.Remote(URL(Scheme.HTTPS, "example.com", FilePath(Seq("a", "b")), Some("c=d")), Some(v("headers123"))),
       ImportMode.RawBytes,
       Some(BytesLiteral(sha256example)),
     ),
