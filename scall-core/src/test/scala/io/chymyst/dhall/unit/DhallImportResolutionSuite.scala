@@ -63,7 +63,7 @@ class DhallImportResolutionSuite extends DhallTest {
         }
 
       }
-      TestUtils.requireSuccessAtLeast(72, results, 1)
+      TestUtils.requireSuccessAtLeast(72, results, 0)
     }
   }
 

@@ -17,7 +17,7 @@ import scala.util.Try
 object TestUtils {
 
   trait UsingCaches {
-    implicit val caches: AllCaches = AllCaches(50000, 50000, 20000)
+    implicit lazy val caches: AllCaches = AllCaches(65535, 65535, 32767)
   }
 
   def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
