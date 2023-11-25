@@ -28,7 +28,6 @@ jobs:
         name: Report test results
         uses: "dorny/test-reporter@v1"
         with:
-          fail-on-error: 'true'
           name: SBT tests
           path: "target/surefire-reports/*.xml"
           reporter: java-junit
