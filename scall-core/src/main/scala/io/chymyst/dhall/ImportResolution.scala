@@ -3,24 +3,18 @@ package io.chymyst.dhall
 import fastparse.Parsed
 import geny.Generator.from
 import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Syntax.Expression
-import io.chymyst.dhall.Syntax.ExpressionScheme.{BytesLiteral, Import, TextLiteral}
-import io.chymyst.dhall.SyntaxConstants.Builtin.Text
-import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
-import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, Location}
-import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
-import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName, FilePrefix, ImportMode, ImportType}
-import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.ImportResolution.ImportContext
 import io.chymyst.dhall.ImportResolutionResult._
 import io.chymyst.dhall.Parser.StringAsDhallExpression
-import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.dhall.Syntax.ExpressionScheme._
+import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
+import io.chymyst.dhall.SyntaxConstants.ImportMode.Location
 import io.chymyst.dhall.SyntaxConstants.ImportType.{Path, Remote}
+import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
 
 import java.nio.file.{Files, Paths}
-import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 

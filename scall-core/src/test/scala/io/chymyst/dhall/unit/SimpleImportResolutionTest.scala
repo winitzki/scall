@@ -81,4 +81,5 @@ class SimpleImportResolutionTest extends FunSuite {
     val expr2 = "./some/import.dhall sha256:efc43103e49b56c5bf089db8e0365bbfc455b8a2f0dc6ee5727a3586f85969fd as Location".dhall
     expect(Semantics.semanticHash(expr2.resolveImports(), Paths.get(".")) == "de93ce8633ee0cbc9c4d4351cafcd82965c5a7c221d28ad194900ead38887617")
   }
+
 }
