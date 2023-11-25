@@ -24,12 +24,11 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java}}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
-      - if: always
-        name: Report test results
+      - name: Report test results
         uses: "dorny/test-reporter@v1"
         with:
           name: SBT tests
-          path: "target/surefire-reports/*.xml"
+          path: "target/test-reports/*.xml"
           reporter: java-junit
     strategy:
       matrix:

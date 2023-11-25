@@ -60,10 +60,10 @@ in  GithubActions.Workflow::{
                 , GithubActions.Step::{
                                 name = Some "Report test results",
                                 uses = Some "dorny/test-reporter@v1",
-                                `if` = Some "always",
+                                --`if` = Some "always",
                                 `with` = Some (toMap {
                                     name = "SBT tests",
-                                    path = "target/surefire-reports/*.xml",
+                                    path = "target/test-reports/*.xml",
                                     reporter = "java-junit",
                                     --fail-on-error = "true",
                                   }),
