@@ -683,6 +683,7 @@ object ImportResolution {
   def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], parent: Import[Expression]): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       val (importResolutionResult, finalState) = expr.scheme match {
+
         // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.
         case i @ Import(_, _, _)                 =>
           val child = Import.chainWith(parent, i).canonicalize
@@ -698,7 +699,7 @@ object ImportResolution {
             else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall} due to the referential check")))
 
           // println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
-          lazy val resolveIfAlreadyResolved = gamma.get(child) match {
+          lazy val checkIfAlreadyResolved = gamma.get(child) match {
             case Some(r) => Left(ImportResolutionResult.Resolved(r))
             case None    => Right(())
           }
@@ -717,7 +718,7 @@ object ImportResolution {
                 case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
-                      expr.betaNormalized.scheme match { // TODO report issue: imports.md does not say that headers must be beta-normalized before use
+                      expr.betaNormalized.scheme match { // TODO report issue: imports.md does not say that headers must be beta-normalized before use, but tests require that.
                         case NonEmptyList(exprs) =>
                           exprs.find {
                             case Expression(r @ RecordLiteral(_)) =>
@@ -857,7 +858,7 @@ object ImportResolution {
 
           // Resolve imports in the expression we just parsed.
           val result: Either[ImportResolutionResult[Expression], Expression] = for {
-            _                <- resolveIfAlreadyResolved
+            _                <- checkIfAlreadyResolved
             _                <- resolveIfCached
             _                <- cyclicImportCheck
             _                <- referentialCheck
@@ -919,7 +920,7 @@ object ImportResolution {
             case (scheme, state) => (scheme.map(Expression.apply), state)
           }
       }
-      val checkDigest                          = importResolutionResult.flatMap {
+      val checkDigest = importResolutionResult.flatMap {
         case e @ Expression(Import(importType, importMode, digest)) => validateHashAndCacheResolved(e, digest)
         case e @ _                                                  => Resolved(e)
       }
