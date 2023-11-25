@@ -36,7 +36,7 @@ object Semantics {
   def computeHash(bytes: Array[Byte]): String =
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
 
-  def semanticHash(expr: Expression, currentFile: java.nio.file.Path): String =
+  def semanticHash(expr: Expression, currentFile: java.nio.file.Path)(implicit caches: AllCaches): String =
     computeHash(expr.resolveImports(currentFile).alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/shift.md
@@ -92,10 +92,10 @@ object Semantics {
     case other => other.map(expression => substitute(expression, substVar, substIndex, substTarget))
   }
 
-  def alphaNormalize(expr: Expression): Expression = cacheAlphaNormalize.getOrElseUpdate(expr, alphaNormalizeUncached(expr))
+  def alphaNormalize(expr: Expression)(implicit caches: AllCaches): Expression = caches.alpha.getOrElseUpdate(expr, alphaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md
-  private def alphaNormalizeUncached(expr: Expression): Expression = expr.scheme match {
+  private def alphaNormalizeUncached(expr: Expression)(implicit caches: AllCaches): Expression = expr.scheme match {
     case Variable(_, _) => expr
 
     case Lambda(name, tipe, body) =>
@@ -152,16 +152,10 @@ object Semantics {
   ): Seq[(FieldName, Expression)] =
     (defs1.toSeq ++ defs2.toSeq).groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r)).toSeq.sortBy(_._1.name)
 
-  val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
-
-  val cacheBetaNormalize = IdempotentCache("Beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
-
-  val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
-
-  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr))
+  def betaNormalize(expr: Expression)(implicit caches: AllCaches): Expression = caches.beta.getOrElseUpdate(expr, betaNormalizeUncached(expr))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
-  private def betaNormalizeUncached(expr: Expression): Expression = {
+  private def betaNormalizeUncached(expr: Expression)(implicit caches: AllCaches): Expression = {
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
 
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
@@ -584,7 +578,7 @@ object Semantics {
   }
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
-  def equivalent(x: Expression, y: Expression): Boolean =
+  def equivalent(x: Expression, y: Expression)(implicit caches: AllCaches): Boolean =
     x.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1 sameElements y.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
 
   def desugar(c: Completion[Expression]): Expression =
@@ -602,7 +596,7 @@ object FreeVars {
     override def pure[A](a: A): FreeVars[A] = FreeVars(Set())
   }
 }
-
+/*
 // We need to define this as an applicative functor, but actually we will use this only with A = Expression.
 final case class UniqueReferences[A](run: mutable.Set[Expression] => (A, mutable.Set[Expression]))
 
@@ -635,3 +629,4 @@ object UniqueReferences {
     override def pure[A](a: A): UniqueReferences[A] = UniqueReferences(prev => (a, prev))
   }
 }
+ */

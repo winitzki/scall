@@ -6,10 +6,11 @@ import io.chymyst.dhall.Syntax.Expression._
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
 import io.chymyst.dhall.SyntaxConstants.{Builtin, VarName}
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
 import munit.FunSuite
 
-class SimpleSemanticsTest extends FunSuite {
+class SimpleSemanticsTest extends DhallTest {
 
   test("substitute in a variable") {
     val variable = v("x")

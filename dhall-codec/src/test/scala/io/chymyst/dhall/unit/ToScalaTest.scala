@@ -7,12 +7,13 @@ import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.codec.{DhallKinds, Lazy}
 import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+import io.chymyst.dhall.unit.TestUtils.UsingCaches
 import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
 
 import java.time.{LocalDate, LocalTime, ZoneOffset}
 
-class ToScalaTest extends FunSuite {
+class ToScalaTest extends FunSuite with UsingCaches {
 
   test("convert DoubleLiteral to Scala") {
     val x             = "-0.0".dhall
@@ -61,7 +62,7 @@ class ToScalaTest extends FunSuite {
   test("convert built-in functions to Scala functions") {
     expect("Natural/even".dhall.asScala[Natural => Boolean].map(_.value) == Right(Natural_even))
     expect("Natural/odd".dhall.asScala[Natural => Boolean].map(_.value) == Right(Natural_odd))
-    expect(Natural_odd(2) == false && Natural_even(2) == true)
+    expect(Natural_odd(2) == false, Natural_even(2) == true)
   }
 
   test("convert generic functions to Scala generic functions") {

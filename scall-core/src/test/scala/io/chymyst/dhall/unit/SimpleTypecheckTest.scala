@@ -8,12 +8,13 @@ import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, VarName}
 import io.chymyst.dhall.TypeCheck._Type
 import io.chymyst.dhall.TypecheckResult.Valid
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
 import io.chymyst.dhall.{Parser, TypecheckResult}
 import munit.FunSuite
 
 import java.io.FileInputStream
 
-class SimpleTypecheckTest extends FunSuite {
+class SimpleTypecheckTest extends DhallTest {
   test("typecheck record of types") {
     val input = "{ x = 1, y = +2 }"
     expect(
@@ -74,12 +75,14 @@ class SimpleTypecheckTest extends FunSuite {
   }
 
   test("type inference failure with RecordSelectionNotRecord.dhall") {
-    enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall")).foreach { file =>
-      val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-      println(s"Parsed expression: ${ourResult.toDhall}")
-      ourResult.inferType match {
-        case TypecheckResult.Invalid(errors) =>
-          expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
+    setupEnvironment {
+      enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall")).foreach { file =>
+        val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+        println(s"Parsed expression: ${ourResult.toDhall}")
+        ourResult.inferType match {
+          case TypecheckResult.Invalid(errors) =>
+            expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
+        }
       }
     }
   }

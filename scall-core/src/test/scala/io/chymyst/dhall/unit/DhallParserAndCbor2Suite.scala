@@ -9,6 +9,7 @@ import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.CBORmodel.fromCbor2
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 import io.chymyst.dhall.{CBOR, CBORmodel, Parser, Syntax}
 import munit.FunSuite
 
@@ -16,7 +17,7 @@ import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
 
-class DhallParserAndCbor2Suite extends FunSuite {
+class DhallParserAndCbor2Suite extends DhallTest {
 
   def testFilesForSuccess = enumerateResourceFiles("dhall-lang/tests/parser/success", Some(".dhall"))
 
@@ -105,7 +106,7 @@ class DhallParserAndCbor2Suite extends FunSuite {
     val failures      = results.count(_.isFailure)
     val modelFailures = results.filter(_.isFailure).count(_.failed.get.getMessage.contains("model differs"))
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures\nCBOR model mismatch count: $modelFailures")
-    expect(failures <= 2 && modelFailures == 0) // Two failures are due to a bug in CBOR-Java. PR was already merged to fix that bug.
+    expect(failures <= 2, modelFailures == 0) // Two failures are due to a bug in CBOR-Java. PR was already merged to fix that bug.
   }
 
   test("validate CBOR reading for standard examples") {
@@ -162,8 +163,7 @@ class DhallParserAndCbor2Suite extends FunSuite {
         val Parsed.Success(dhallValue, _) = Parser.parseDhallStream(new FileInputStream(validationFile))
         val validationExpr                = dhallValue.value
         // We have read the CBOR file correctly.
-        expect((ourExpr.toCBORmodel equals validationExpr.toCBORmodel) && (ourExpr equals validationExpr))
-        expect(cborModelFromFileA.dhallDiagnostics == diagnosticString)
+        expect(ourExpr.toCBORmodel equals validationExpr.toCBORmodel, ourExpr equals validationExpr, cborModelFromFileA.dhallDiagnostics == diagnosticString)
         file.getName
       }
       if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
@@ -180,8 +180,7 @@ class DhallParserAndCbor2Suite extends FunSuite {
         val diagnosticString              = TestUtils.readToString(diagnosticFile)
         val cborModelFromFileA: CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(cborBytes))
         // We have read the CBOR file correctly.
-        expect(cborModelFromFileA.toString == diagnosticString)
-        expect(Try(CBORmodel.decodeCbor2(cborBytes).toScheme).isFailure)
+        expect(cborModelFromFileA.toString == diagnosticString, Try(CBORmodel.decodeCbor2(cborBytes).toScheme).isFailure)
         file.getName
       }
       if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")

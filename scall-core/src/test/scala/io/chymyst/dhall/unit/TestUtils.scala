@@ -5,12 +5,20 @@ import fastparse._
 import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
-import io.chymyst.dhall.{Semantics, SyntaxConstants, TypeCheck}
+import io.chymyst.dhall.{AllCaches, Semantics, SyntaxConstants, TypeCheck}
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
+import io.chymyst.test.ResourceFiles.resourceAsFile
+import munit.FunSuite
+import os.root
 
 import java.nio.file.{Files, Path}
 import scala.util.Try
 
 object TestUtils {
+
+  trait UsingCaches {
+    implicit val caches: AllCaches = AllCaches(50000, 50000, 20000)
+  }
 
   def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
 
@@ -95,12 +103,25 @@ object TestUtils {
     val failures  = results.count(_.isFailure)
     val successes = results.count(_.isSuccess)
     println(s"Success count: $successes\nFailure count: $failures")
-    expect(failures <= allowFailures && successes >= totalTests - allowFailures)
+    expect(failures <= allowFailures, successes >= totalTests - allowFailures)
   }
 
-  def cacheStatistics(): String = {
-    Seq(Semantics.cacheAlphaNormalize, Semantics.cacheBetaNormalize, TypeCheck.cacheTypeCheck)
-      .map(cache => s"${cache.name}: ${cache.statistics}").mkString("\n")
+  def cacheStatistics(implicit caches: AllCaches): String = {
+    Seq(caches.alpha, caches.beta, caches.gamma).map(cache => s"${cache.name}: ${cache.statistics}").mkString("\n")
   }
 
+  trait FakeEnvironment extends OverrideEnvironment {
+    def setupEnvironment[R](code: => R): R = {
+      val tempDir = os.temp.dir(root / "tmp", deleteOnExit = true)
+      try {
+        os.copy(from = os.Path(resourceAsFile("dhall-lang/tests/import/cache").get.getAbsolutePath), to = tempDir, replaceExisting = true)
+        val dhallHome = resourceAsFile("dhall-lang/tests/import/home").get.getAbsolutePath
+        System.setProperty("user.home", dhallHome)
+        val envVars   = Seq("DHALL_TEST_VAR" -> "6 * 7", "XDG_CACHE_HOME" -> tempDir.toNIO.toAbsolutePath.toString, "HOME" -> dhallHome)
+        runInFakeEnvironmentWith(envVars: _*)(code)
+      } finally os.remove.all(tempDir)
+    }
+  }
+
+  trait DhallTest extends FunSuite with OverrideEnvironment with ResourceFiles with UsingCaches with FakeEnvironment
 }

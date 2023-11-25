@@ -11,7 +11,7 @@ import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
 import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
 import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, check, toFail, v}
 import io.chymyst.dhall._
 import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite

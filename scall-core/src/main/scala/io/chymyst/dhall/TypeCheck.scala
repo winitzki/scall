@@ -68,12 +68,11 @@ object TypecheckResult {
 object TypeCheck {
   val emptyContext = KnownVars(Map())
 
-  val maxCacheSize: Option[Int] = Some(1000000) // Specify `None` for no limit.
-
-  val cacheTypeCheck =
-    new ObservedCache("Type-checking cache", ObservedCache.createCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]](maxCacheSize))
-
   type TypeCheckErrors = Seq[String] // Non-empty list.
+
+  object KnownVars {
+    def empty: KnownVars = KnownVars(Map())
+  }
 
   // This data structure is denoted by Γ in the math notation. This can be used as a "context" for type-checking and for evaluation.
   final case class KnownVars(variables: Map[VarName, IndexedSeq[Expression]]) {
@@ -102,7 +101,7 @@ object TypeCheck {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md
   // Check that a given expression has the given type, that is, gamma |- expr : tipe. If this holds, no errors are output.
-  def validate(gamma: KnownVars, expr: Expression, tipe: Expression): TypecheckResult[Expression] = {
+  def validate(gamma: KnownVars, expr: Expression, tipe: Expression)(implicit caches: AllCaches): TypecheckResult[Expression] = {
     inferType(gamma, expr) match {
       case Valid(inferredType) =>
         if (Semantics.equivalent(tipe, inferredType))
@@ -121,9 +120,10 @@ object TypeCheck {
   val underscore: Expression = Expression(Variable(ExpressionScheme.underscore, BigInt(0)))
 
   // Infer the type of a given expression (not necessarily in beta-normalized form). If no errors, return Right(tipe) that fits gamma |- expr : tipe.
-  def inferType(gamma: KnownVars, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
+  def inferType(gamma: KnownVars, expr: Expression)(implicit caches: AllCaches): TypecheckResult[Expression] =
+    caches.gamma.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
 
-  private def inferTypeOrCached(gamma: KnownVars, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
+  private def inferTypeOrCached(gamma: KnownVars, exprToInferTypeOf: Expression)(implicit caches: AllCaches): TypecheckResult[Expression] = {
     //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
     implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
 
@@ -168,7 +168,7 @@ object TypeCheck {
 
       case Lambda(name, tipe, body) =>
         for {
-          varType       <- tipe.wellTypedBetaNormalize(gamma)
+          varType       <- tipe.typeCheckAndBetaNormalize(gamma)
           updatedContext = gamma.prepend(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
           // _ = println(s"DEBUG 2: updated context is $updatedContext")
           bodyType      <- body.inferTypeWith(updatedContext)
@@ -386,7 +386,7 @@ object TypeCheck {
 
           case Operator.CombineRecordTerms =>
             (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap { case (lopType, ropType) =>
-              Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).wellTypedBetaNormalize(gamma)
+              Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).typeCheckAndBetaNormalize(gamma)
             }
 
           case Operator.Prefer =>
@@ -516,7 +516,7 @@ object TypeCheck {
           case other                        => typeError(s"ProjectByType is invalid because the base expression has type ${other.toDhall} instead of RecordType")
         }
         val projectIsByRecordType =
-          by.wellTypedBetaNormalize(gamma).flatMap {
+          by.typeCheckAndBetaNormalize(gamma).flatMap {
             case Expression(RecordType(defs)) => Valid(defs)
             case other                        => typeError(s"ProjectByType is invalid because the projection expression is ${other.toDhall} instead of RecordType")
           }
