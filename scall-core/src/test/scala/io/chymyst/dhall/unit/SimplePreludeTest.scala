@@ -16,7 +16,7 @@ import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-class DhallPreludeTest extends FunSuite with TestTimeouts {
+class SimplePreludeTest extends FunSuite with TestTimeouts {
 
   test("read List/partition.dhall and beta-normalize it alone") {
     val expr = readToString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall

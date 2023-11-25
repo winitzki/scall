@@ -644,19 +644,19 @@ object Grammar {
 
   def parent_path[$: P] = P(
     ".." ~/ path // Relative path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Parent, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Parent, SyntaxConstants.FilePath.of(segments)))
 
   def here_path[$: P] = P(
     "." ~ path // Relative path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Here, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Here, SyntaxConstants.FilePath.of(segments)))
 
   def home_path[$: P] = P(
     "~" ~/ path // Home_anchored path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Home, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Home, SyntaxConstants.FilePath.of(segments)))
 
   def absolute_path[$: P] = P(
     path // Absolute path
-  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Absolute, SyntaxConstants.File.of(segments)))
+  ).map(segments => ImportType.Path(SyntaxConstants.FilePrefix.Absolute, SyntaxConstants.FilePath.of(segments)))
 
 
   def scheme[$: P]: P[SyntaxConstants.Scheme] = P(
@@ -667,9 +667,9 @@ object Grammar {
     scheme ~ "://" ~ authority.! ~ path_abempty ~ ("?" ~ query.!).?
   ).map { case (s, a, p, q) => SyntaxConstants.URL(s, a, p, q) }
 
-  def path_abempty[$: P]: P[SyntaxConstants.File] = P(
+  def path_abempty[$: P]: P[SyntaxConstants.FilePath] = P(
     ("/" ~ segment.!).rep
-  ).map { segments => SyntaxConstants.File.of(segments) }
+  ).map { segments => SyntaxConstants.FilePath.of(segments) }
 
   def authority[$: P] = P(
     (userinfo ~ "@").? ~ host ~ (":" ~ port).?
@@ -926,26 +926,26 @@ object Grammar {
   def expression_assert[$: P]: P[Expression] = P(requireKeyword("assert") ~ whsp ~/ ":" ~ whsp1 ~/ expression)
     .map { expr => Assert(expr) }
 
-  def expression[$: P]: P[Expression] = P( // TODO: remove some of these NoCut() because they are probably not needed.
+  def expression[$: P]: P[Expression] = P(
     //  "\(x : a) -> b"
-    NoCut(expression_lambda)
+    expression_lambda
       //
       //  "if a then b else c"
-      | NoCut(expression_if_then_else)
+      |  expression_if_then_else
       //
       //  "let x : t = e1 in e2"
       //  "let x     = e1 in e2"
       //  We allow dropping the `in` between adjacent let_expressions; the following are equivalent:
       //  "let x = e1 let y = e2 in e3"
       //  "let x = e1 in let y = e2 in e3"
-      | NoCut(expression_let_binding)
+      |  expression_let_binding
       //
       //  "forall (x : a) -> b"
-      | NoCut(expression_forall)
+      |  expression_forall
       //
       // Experimental: "do notation"
       //  "as (M A) in bind with x : B in p with y : C in q then z"
-      | NoCut(expression_as_in)
+      |  expression_as_in
       //
       //  "a -> b"
       //
@@ -1257,11 +1257,11 @@ object Parser {
 
   def dhall(input: String): Expression = parseDhall(input).get.value.value
 
-  def parseDhallBytes(source: Array[Byte], currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhall(source: String, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhall(source: String): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhallStream(source: InputStream, currentDirectoryForImports: java.nio.file.Path = Paths.get("")): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallStream(source: InputStream): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
   private def localDateTimeZone(dateOption: Option[DateLiteral], timeOption: Option[TimeLiteral], zoneOption: Option[Int]): Expression = {
     val dateR = dateOption.map { date => (FieldName("date"), Expression(date)) }

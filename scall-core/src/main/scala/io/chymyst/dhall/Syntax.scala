@@ -15,6 +15,7 @@ import java.nio.file.{Path, Paths}
 import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -252,7 +253,7 @@ object SyntaxConstants {
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
 
-    final case class Path(filePrefix: FilePrefix, file: File) extends ImportType[Nothing] {
+    final case class Path(filePrefix: FilePrefix, file: FilePath) extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
 
       override def toString: String = filePrefix.prefix + file.toString
@@ -275,7 +276,7 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: File, query: Option[String]) {
+  final case class URL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
     override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""
@@ -284,13 +285,15 @@ object SyntaxConstants {
     def httpAuthority: String = scheme.entryName.toLowerCase + "://" + authority
   }
 
-  final case class File(segments: Seq[String]) {
-    require(segments.nonEmpty) // The last segment is a file name (but may be a empty string), all previous segments are path components (may be none).
+  // This is called `File` in the Dhall standard.
+  // The last segment is a file name (but may be a empty string), all previous segments are path components (may be none).
+  final case class FilePath(segments: Seq[String]) {
+    require(segments.nonEmpty)
 
     override def toString: String = segments.mkString("/")
 
     // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
-    def canonicalize: File = {
+    def canonicalize: FilePath = {
       val newSegments: Seq[String] = segments.foldLeft(List[String]()) { (prev, segment) =>
         segment match {
           case "."                                       => prev
@@ -298,16 +301,16 @@ object SyntaxConstants {
           case s                                         => s :: prev
         }
       }
-      File(newSegments.reverse)
+      if (newSegments.isEmpty) FilePath(Seq("")) else FilePath(newSegments.reverse)
     }
 
-    def chain(child: File): File = if (segments.isEmpty) child else File(segments.init ++ child.segments)
+    def chain(child: FilePath): FilePath = if (segments.isEmpty) child else FilePath(segments.init ++ child.segments)
 
-    def chainToParent(child: File): File = chain(File(".." +: child.segments))
+    def chainToParent(child: FilePath): FilePath = chain(FilePath(".." +: child.segments))
   }
 
-  object File {
-    def of(segments: Seq[String]): File = if (segments.isEmpty) File(Seq("")) else File(segments)
+  object FilePath {
+    def of(segments: Seq[String]): FilePath = if (segments.isEmpty) FilePath(Seq("")) else FilePath(segments)
 
     def unescapePathSegment(segment: String): String = Seq(
       ("\\a", "\u0007"),
@@ -429,7 +432,7 @@ object Syntax {
     }
 
     trait TermPrecedence {
-      def prec: Int = TermPrecedence.low // Default is this precedence.
+      def precedence: Int = TermPrecedence.low // Default is this precedence.
     }
 
     object TermPrecedence {
@@ -441,15 +444,15 @@ object Syntax {
     }
 
     trait VarPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.offsetForOperators / 3
+      override def precedence: Int = TermPrecedence.offsetForOperators / 3
     }
 
     trait HighPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.offsetForOperators / 2
+      override def precedence: Int = TermPrecedence.offsetForOperators / 2
     }
 
     trait LowerPrecedence extends TermPrecedence {
-      override def prec: Int = TermPrecedence.low + 100
+      override def precedence: Int = TermPrecedence.low + 100
     }
 
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
@@ -480,7 +483,7 @@ object Syntax {
     final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
 
     final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.ofOperator(op)
+      override def precedence: Int = TermPrecedence.ofOperator(op)
     }
 
     final case class Application[E](func: E, arg: E) extends ExpressionScheme[E]
@@ -496,7 +499,7 @@ object Syntax {
 
     // An Expression of the form `T::r` is syntactic sugar for `(T.default // r) : T.Type`.
     final case class Completion[E](base: E, target: E) extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.offsetForOperators + 13
+      override def precedence: Int = TermPrecedence.offsetForOperators + 13
     }
 
     final case class Assert[E](assertion: E) extends ExpressionScheme[E]
@@ -774,12 +777,9 @@ object Syntax {
 
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
 
-    final case class Import[E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
+    final case class Import[+E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
         extends ExpressionScheme[E] {
-      override def prec: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
-
-      def chainWith(child: Import[E]): Import[E] =
-        child.copy(importType = ImportResolution.chainWith(importType, child.importType))
+      override def precedence: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
 
       def canonicalize: Import[E] = importType match {
         case i @ ImportType.Remote(_, _) =>
@@ -790,6 +790,22 @@ object Syntax {
           copy(importType = i.copy(file = canonicalPath))
         case _                           => this
       }
+    }
+
+    object Import {
+      def chainWith[E](parent: Import[E], child: Import[E]): Import[E] =
+        child.copy(importType = ImportResolution.chainWith(parent.importType, child.importType))
+
+      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = Import(
+        // Workaround: use current file as import path, import as code without sha256.
+        ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))),
+        ImportMode.Code,
+        digest = None,
+      )
+
+      implicit def ofJavaFile(file: java.io.File): Import[Nothing] = ofJavaPath(file.toPath)
+
+      implicit def ofString(fileName: String): Import[Nothing] = ofJavaPath(Paths.get(fileName))
     }
 
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
@@ -817,11 +833,11 @@ object Syntax {
 
     def inferType: TypecheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
 
-    def inferTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
+    def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
-    def wellTypedBetaNormalize(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+    def wellTypedBetaNormalize(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
 
-    def inferAndValidateTypeWith(gamma: TypeCheck.Gamma): TypecheckResult[Expression] = for {
+    def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)
     } yield t
@@ -862,10 +878,10 @@ object Syntax {
 
     override def toString: String = toDhall
 
-    private def atPrecedence(level: Int) = if (scheme.prec > level) "(" + dhallForm + ")" else dhallForm
+    private def atPrecedence(level: Int) = if (scheme.precedence > level) "(" + dhallForm + ")" else dhallForm
 
     private def dhallForm: String = {
-      val p = scheme.prec
+      val p = scheme.precedence
       scheme match {
         case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
         case Lambda(name, tipe, body)               => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"

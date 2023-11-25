@@ -310,13 +310,13 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("application to an import") {
-    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(Path(Here, File(List("file"))), Code, None)))
+    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(Path(Here, FilePath(List("file"))), Code, None)))
     check(Grammar.application_expression(_), "List ./file", expected)
   }
 
   test("import with a long file path") { // TODO report issue: parser tests should exercise various characters that are allowed or disallowed in import paths
     val input = "./path0/path1/path2/file"
-    check(Grammar.import_expression(_), input, Expression(Import(Path(Here, File(List("path0", "path1", "path2", "file"))), Code, None)))
+    check(Grammar.import_expression(_), input, Expression(Import(Path(Here, FilePath(List("path0", "path1", "path2", "file"))), Code, None)))
   }
 
   test("do notation") {

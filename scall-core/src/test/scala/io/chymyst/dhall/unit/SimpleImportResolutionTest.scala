@@ -3,7 +3,7 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.test.ResourceFiles
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
@@ -15,6 +15,7 @@ import munit.FunSuite
 
 import java.io.FileInputStream
 import java.nio.file.Paths
+import scala.util.Try
 
 class SimpleImportResolutionTest extends FunSuite {
 
@@ -40,16 +41,29 @@ class SimpleImportResolutionTest extends FunSuite {
   test("import chaining must compute correct paths") {
     val import1 = "/tmp/file1.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val import2 = "/tmp/file2.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
-    val chained = import1 chainWith import2
-    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp", "file2.dhall"))))
+    val chained = Import.chainWith(import1, import2)
+    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
 
     val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
-    val chained13 = import1 chainWith import3
-    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.File(Seq("tmp2", "file3.dhall"))))
+    val chained13 = Import.chainWith(import1, import3)
+    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
   }
 
   test("no loops in importing") {
-    val file = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
+    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
     expect(file.dhall.resolveImports(Paths.get(file).getParent.resolve("package.dhall")).isInstanceOf[Expression])
+  }
+
+  test("import alternatives inside expressions") {
+    val file   = resourceAsFile("dhall-lang/Prelude/Bool/and.dhall").get.toPath.toString
+    val parent = Paths.get(file).getParent.resolve("package.dhall")
+    expect(Try("{a = missing}".dhall.resolveImports(parent)).isFailure)
+    expect(s"{ a = missing } ? { a = $file } ? { a = missing }".dhall.resolveImports(parent).isInstanceOf[Expression])
+  }
+
+  test("import . or .. or other invalid imports should fail") {
+    Seq("{a = missing}", ".", "./", "./.", "./..", "./././..", "./../.././..", "/tmp").foreach { string =>
+      expect(Try(string.dhall.resolveImports(Paths.get("."))).isFailure)
+    }
   }
 }
