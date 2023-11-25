@@ -1,11 +1,28 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.dhall.TypeCheck.KnownVars
+import io.chymyst.dhall.TypeCheck.{KnownVars}
 
 import java.util
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.IteratorHasAsScala
+
+final case class AllCaches(
+  alpha: IdempotentCache[Expression],
+  beta: IdempotentCache[Expression],
+  gamma: ObservedCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]],
+)
+
+object AllCaches {
+  def apply(alphaCacheSize: Int, betaCacheSize: Int, gammaCacheSize: Int): AllCaches = AllCaches(
+    alpha = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](Option(alphaCacheSize).filter(_ >= 0))),
+    beta = IdempotentCache("Beta-normalization cache", ObservedCache.createCache[Expression, Expression](Option(betaCacheSize).filter(_ >= 0))),
+    gamma = new ObservedCache(
+      "Type-checking cache",
+      ObservedCache.createCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]](Option(gammaCacheSize).filter(_ >= 0)),
+    ),
+  )
+}
 
 final case class LRUCache[K, V](maxSize: Int) extends mutable.Map[K, V] {
   private val lruCache = new util.LinkedHashMap[K, V](maxSize * 4 / 3, 0.75f, true) {

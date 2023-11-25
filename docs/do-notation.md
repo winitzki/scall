@@ -1,6 +1,7 @@
 # Do-notation for Dhall
 
-Following a proposal in https://discourse.dhall-lang.org/t/proposal-do-notation-syntax/99 the Scala implementation contains a version of the "do-notation".
+Following a proposal in https://discourse.dhall-lang.org/t/proposal-do-notation-syntax/99 the Scala implementation
+contains a version of the "do-notation".
 
 This implementation reuses existing keywords and does not introduce any new reserved symbols.
 
@@ -42,7 +43,8 @@ In the Dhall example, `M : Type → Type` is any type constructor for which a "b
 
 The type of `bind_function` must be `∀(a : Type) → ∀(b : Type) → M a → (a → M b) → M b`.
 
-Similarly to the do-notation in Haskell, the expressions `p`, `q`, `r`, etc., may use variables `x : A`, `y : B`, etc., defined at any line _above_ the line where it is used.
+Similarly to the do-notation in Haskell, the expressions `p`, `q`, `r`, etc., may use variables `x : A`, `y : B`, etc.,
+defined at any line _above_ the line where it is used.
 
 The types of those expressions must be `p : M A`, `q : M B`, `r : M C`, and `s : M T`.
 
@@ -59,11 +61,13 @@ Example:
 
 This function has type `Natural -> Optional Natural`.
 
-A full working test is shown [here](https://github.com/winitzki/scall/blame/master/scall-core/src/test/scala/io/chymyst/dhall/unit/SimpleSemanticsTest.scala#L77).
+A full working test is
+shown [here](https://github.com/winitzki/scall/blame/master/scall-core/src/test/scala/io/chymyst/dhall/unit/SimpleSemanticsTest.scala#L77).
 
 ## Parsing the do-notation syntax
 
-The do-notation contains the first block: `as M T in b`, then zero or more `with ... in ...` blocks, and finally a closing block `then ...`.
+The do-notation contains the first block: `as M T in b`, then zero or more `with ... in ...` blocks, and finally a
+closing block `then ...`.
 
 The type application `M T` may be in parentheses but does not need to be, as it is surrounded by keywords.
 

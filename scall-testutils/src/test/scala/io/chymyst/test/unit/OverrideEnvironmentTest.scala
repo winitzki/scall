@@ -18,7 +18,7 @@ class OverrideEnvironmentTest extends FunSuite with OverrideEnvironment {
     def myTestCode() = {
       val home   = System.getenv("HOME")
       val tmpdir = Option(System.getenv("TMPDIR")).getOrElse("/tmp")
-      assert(home == "/fake/home" && tmpdir == "/fake/tmpdir")
+      expect(home == "/fake/home", tmpdir == "/fake/tmpdir")
     }
   }
   val fakeVars = Seq("xyzpdq1" -> "value1", "xyzpdq2" -> "value2", "xyzpdq3" -> "value3")

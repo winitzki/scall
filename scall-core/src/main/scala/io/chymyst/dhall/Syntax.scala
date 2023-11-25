@@ -825,19 +825,22 @@ object Syntax {
       u._1
     }*/
 
-    def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
+    def resolveImports(currentFile: java.nio.file.Path = Paths.get("."))(implicit caches: AllCaches): Expression =
+      ImportResolution.resolveAllImports(this, currentFile)
 
     def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
-    def inferType: TypecheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
+    def inferType(implicit caches: AllCaches): TypecheckResult[Expression] = TypeCheck.inferType(TypeCheck.emptyContext, this)
 
-    def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
+    def inferTypeWith(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty)(implicit caches: AllCaches): TypecheckResult[Expression] =
+      TypeCheck.inferType(gamma, this)
 
-    def wellTypedBetaNormalize(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = inferTypeWith(gamma).map(_ => betaNormalized)
+    def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty)(implicit caches: AllCaches): TypecheckResult[Expression] =
+      inferTypeWith(gamma).map(_ => betaNormalized)
 
-    def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
+    def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars)(implicit caches: AllCaches): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
       _ <- TypeCheck.inferType(gamma, t)
     } yield t
@@ -865,9 +868,9 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
-    lazy val alphaNormalized: Expression                                     = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression                                      = Semantics.betaNormalize(this)
+    def schemeWithBetaNormalizedArguments(implicit caches: AllCaches): ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
+    def alphaNormalized(implicit caches: AllCaches): Expression                                     = Semantics.alphaNormalize(this)
+    def betaNormalized(implicit caches: AllCaches): Expression                                      = Semantics.betaNormalize(this)
 
     /** Print `this` to Dhall syntax.
       *

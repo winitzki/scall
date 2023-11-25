@@ -10,6 +10,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
 import io.chymyst.dhall.{CBOR, CBORmodel, Grammar, Parser}
 import munit.FunSuite
 
@@ -17,7 +18,7 @@ import java.io.FileInputStream
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Try}
 
-class MiscBugsTest extends FunSuite with ResourceFiles {
+class MiscBugsTest extends FunSuite with ResourceFiles with UsingCaches {
 
   test("time literals with nanos") {
     val results: Seq[Try[_]] = ("12:30:00.1111111" +: TestFixtures.timeLiterals).flatMap { t =>

@@ -4,7 +4,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.{SyntaxConstants, TypecheckResult}
+import io.chymyst.dhall.{AllCaches, SyntaxConstants, TypecheckResult}
 import izumi.reflect.{Tag, TagK}
 
 import java.time.{LocalDate, LocalTime, ZoneOffset}
@@ -25,7 +25,7 @@ object DhallBuiltinFunctions {
 
 object FromDhall {
 
-  implicit class DhallExpressionAsScala(val x: Expression) extends AnyVal {
+  implicit class DhallExpressionAsScala(val x: Expression)(implicit caches: AllCaches) {
     def asScala[A](implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = FromDhall.asScala[A](x)
   }
 
@@ -40,7 +40,7 @@ object FromDhall {
 
   }
 
-  def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = {
+  def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A], caches: AllCaches): Either[AsScalaError, Lazy[A]] = {
 
     implicit def toLazy[A](a: A): Lazy[A] = new Lazy(a)
 

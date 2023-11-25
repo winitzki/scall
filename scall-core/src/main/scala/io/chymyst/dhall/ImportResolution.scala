@@ -545,23 +545,25 @@ object ImportResolution {
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
-  def validateHashAndCacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
-    case None => Resolved(expr)
+  def validateHashAndCacheResolved(expr: Expression, digest: Option[BytesLiteral])(implicit caches: AllCaches): ImportResolutionResult[Expression] =
+    digest match {
+      case None => Resolved(expr)
 
-    case Some(BytesLiteral(hex)) =>
-      val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
-      val ourHash  = Semantics.computeHash(ourBytes).toLowerCase
-      if (hex.toLowerCase == ourHash) {
-        dhallCacheRoots
-          .map { cachePath =>
-            Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
-            // TODO: log errors while writing the cache file
-            // TODO verify that we will attempt to read the cached file from any of the locations, not just from the first one.
-          }.filter(_.isSuccess)
-          .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
-        Resolved(expr)
-      } else PermanentFailure(Seq(s"sha-256 mismatch: found $ourHash from expression ${expr.alphaNormalized.betaNormalized.toDhall} instead of specified $hex"))
-  }
+      case Some(BytesLiteral(hex)) =>
+        val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+        val ourHash  = Semantics.computeHash(ourBytes).toLowerCase
+        if (hex.toLowerCase == ourHash) {
+          dhallCacheRoots
+            .map { cachePath =>
+              Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
+              // TODO: log errors while writing the cache file
+              // TODO verify that we will attempt to read the cached file from any of the locations, not just from the first one.
+            }.filter(_.isSuccess)
+            .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
+          Resolved(expr)
+        } else
+          PermanentFailure(Seq(s"sha-256 mismatch: found $ourHash from expression ${expr.alphaNormalized.betaNormalized.toDhall} instead of specified $hex"))
+    }
 
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
 
@@ -587,7 +589,7 @@ object ImportResolution {
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
-  def resolveAllImports(expr: Expression, currentImport: Import[Expression]): Expression = {
+  def resolveAllImports(expr: Expression, currentImport: Import[Expression])(implicit caches: AllCaches): Expression = {
     val initialVisited = currentImport
 
     val initState = ImportContext(Map())
@@ -676,7 +678,9 @@ object ImportResolution {
     * @return
     *   A function that updates the import context and returns an [[ImportResolutionResult]].
     */
-  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], parent: Import[Expression]): ImportResolutionStep[Expression] =
+  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], parent: Import[Expression])(implicit
+    caches: AllCaches
+  ): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       val (importResolutionResult, finalState) = expr.scheme match {
         // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.

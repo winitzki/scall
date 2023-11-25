@@ -2,12 +2,13 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.dhall.Parser
-import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
+import io.chymyst.dhall.{AllCaches, Parser}
 import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
 import io.chymyst.dhall.Syntax.ExpressionScheme.NonEmptyList
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, FakeEnvironment, UsingCaches}
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
 import munit.FunSuite
 import os.root
 
@@ -15,7 +16,7 @@ import java.io.{File, FileInputStream}
 import scala.util.Try
 
 object DhallImportResolutionSuite {
-  def readHeadersFromEnv(envVarsFile: File): Seq[(String, String)] = if (envVarsFile.exists) {
+  def readHeadersFromEnv(envVarsFile: File)(implicit caches: AllCaches): Seq[(String, String)] = if (envVarsFile.exists) {
     val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
     envs.betaNormalized.toPrimitiveValue match {
       case Some(t: List[Map[String, AnyRef]]) =>
@@ -30,18 +31,7 @@ object DhallImportResolutionSuite {
   } else Seq()
 }
 
-class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with ResourceFiles {
-
-  def setupEnvironment[R](code: => R): R = {
-    val tempDir = os.temp.dir(root / "tmp", deleteOnExit = true)
-    try {
-      os.copy(from = os.Path(resourceAsFile("dhall-lang/tests/import/cache").get.getAbsolutePath), to = tempDir, replaceExisting = true)
-      val dhallHome = resourceAsFile("dhall-lang/tests/import/home").get.getAbsolutePath
-      System.setProperty("user.home", dhallHome)
-      val envVars   = Seq("DHALL_TEST_VAR" -> "6 * 7", "XDG_CACHE_HOME" -> tempDir.toNIO.toAbsolutePath.toString, "HOME" -> dhallHome)
-      runInFakeEnvironmentWith(envVars: _*)(code)
-    } finally os.remove.all(tempDir)
-  }
+class DhallImportResolutionSuite extends DhallTest {
 
   test("import resolution success") {
     setupEnvironment {
@@ -65,7 +55,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
                 s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
               )
 
-            expect(x.toDhall == y.toDhall && x == y)
+            expect(x.toDhall == y.toDhall, x == y)
             file.getName
           }
           if (result.isFailure)
