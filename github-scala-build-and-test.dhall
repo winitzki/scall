@@ -32,7 +32,7 @@ in  GithubActions.Workflow::{
     , name = "scall_build_and_test"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{=}
-      --, pull_request = Some GithubActions.PullRequest::{=}
+      --, pull_request = Some GithubActions.PullRequest::{=} -- disabling this will disable builds in PRs submitted from other people's forks
       }
     , jobs = toMap
         { checks = GithubActions.Job::{
@@ -52,10 +52,22 @@ in  GithubActions.Workflow::{
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
           , steps =
                 setup
-              # [ GithubActions.steps.actions/setup-java
+              # [
+                , GithubActions.steps.actions/setup-java
                     { java-version = "\${{ matrix.java}}" }
                 , GithubActions.steps.run
                     { run = "sbt -DJDK_VERSION=\${{ matrix.java}} \"++\${{ matrix.scala}} test\"" }
+                , GithubActions.Step::{
+                                name = Some "Report test results",
+                                uses = Some "dorny/test-reporter@v1",
+                                `if` = Some "always",
+                                `with` = Some (toMap {
+                                    name = "SBT tests",
+                                    path = "target/surefire-reports/*.xml",
+                                    reporter = "java-junit",
+                                    fail-on-error = "true",
+                                  }),
+                 }
                 ]
           }
         }

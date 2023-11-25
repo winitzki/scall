@@ -24,6 +24,14 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java}}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
+      - if: always
+        name: Report test results
+        uses: "dorny/test-reporter@v1"
+        with:
+          fail-on-error: 'true'
+          name: SBT tests
+          path: "target/surefire-reports/*.xml"
+          reporter: java-junit
     strategy:
       matrix:
         java:
