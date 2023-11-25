@@ -27,6 +27,7 @@ jobs:
       - name: Report test results
         uses: "dorny/test-reporter@v1"
         with:
+          fail-on-error: 'true'
           name: SBT tests
           path: "target/test-reports/*.xml"
           reporter: java-junit

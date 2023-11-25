@@ -65,7 +65,7 @@ in  GithubActions.Workflow::{
                                     name = "SBT tests",
                                     path = "target/test-reports/*.xml",
                                     reporter = "java-junit",
-                                    --fail-on-error = "true",
+                                    fail-on-error = "true",
                                   }),
                  }
                 ]
