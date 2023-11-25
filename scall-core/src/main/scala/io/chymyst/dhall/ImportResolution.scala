@@ -611,10 +611,6 @@ object ImportResolution {
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
 
-  // TODO: verify that `child` is not part of "visited"
-
-// Note that `visited` may be empty.
-
   /** Perform one step of import resolution. This function may call itself on sub-expressions.
     *
     * Example:
