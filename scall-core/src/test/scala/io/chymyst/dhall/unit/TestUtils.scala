@@ -2,12 +2,12 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse._
-import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
-import io.chymyst.dhall.{AllCaches, Semantics, SyntaxConstants, TypeCheck}
-import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
+import io.chymyst.dhall.{AllCaches, SyntaxConstants}
 import io.chymyst.test.ResourceFiles.resourceAsFile
+import io.chymyst.test.Throwables.printThrowable
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
 import munit.FunSuite
 import os.root
 

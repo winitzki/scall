@@ -1,13 +1,9 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 import io.chymyst.dhall.{Parser, Semantics}
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.dhall.{Parser, Semantics}
-import munit.FunSuite
 
-import java.nio.file.{Files, Paths}
 import scala.util.Try
 
 class DhallSemanticHashSuite extends DhallTest {

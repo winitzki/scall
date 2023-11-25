@@ -3,16 +3,16 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
-import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Import, _}
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
 import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
 import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, check, toFail, v}
 import io.chymyst.dhall._
+import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
 import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 

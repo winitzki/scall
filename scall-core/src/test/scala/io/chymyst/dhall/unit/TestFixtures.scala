@@ -1,14 +1,11 @@
 package io.chymyst.dhall.unit
 
 import io.chymyst.dhall.Grammar.TextLiteralNoInterp
-import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
+import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.{Grammar, SyntaxConstants}
 import io.chymyst.dhall.unit.TestUtils.v
-
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.Throwables.printThrowable
+import io.chymyst.dhall.{Grammar, SyntaxConstants}
 
 object TestFixtures {
 

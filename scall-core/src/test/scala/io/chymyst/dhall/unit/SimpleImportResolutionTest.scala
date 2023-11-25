@@ -1,20 +1,13 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import fastparse.Parsed
-import io.chymyst.test.ResourceFiles
-import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportType, VarName}
-import io.chymyst.dhall.TypeCheck._Type
-import io.chymyst.dhall.TypecheckResult.Valid
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
-import io.chymyst.dhall.{Parser, SyntaxConstants, TypecheckResult}
-import munit.FunSuite
+import io.chymyst.dhall.SyntaxConstants
+import io.chymyst.dhall.SyntaxConstants.{FilePrefix, ImportType}
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 
-import java.io.FileInputStream
 import java.nio.file.Paths
 import scala.util.Try
 

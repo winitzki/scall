@@ -6,9 +6,8 @@ import io.chymyst.dhall.Syntax.Expression._
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
 import io.chymyst.dhall.SyntaxConstants.{Builtin, VarName}
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
-import munit.FunSuite
 
 class SimpleSemanticsTest extends DhallTest {
 

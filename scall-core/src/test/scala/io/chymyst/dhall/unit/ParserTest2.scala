@@ -1,7 +1,6 @@
 package io.chymyst.dhall.unit
 
 import io.chymyst.dhall.Grammar
-import io.chymyst.dhall.Grammar
 import io.chymyst.dhall.unit.TestFixtures._
 import io.chymyst.dhall.unit.TestUtils._
 import munit.FunSuite

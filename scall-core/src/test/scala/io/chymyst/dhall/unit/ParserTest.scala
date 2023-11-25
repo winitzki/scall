@@ -3,18 +3,13 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse._
 import io.chymyst.dhall.Grammar
-import io.chymyst.dhall.Syntax.ExpressionScheme.{BytesLiteral, Variable}
-import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName, VarName}
+import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
+import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, FieldName, VarName}
 import io.chymyst.dhall.unit.TestFixtures._
 import io.chymyst.dhall.unit.TestUtils._
-import io.chymyst.dhall.{Grammar, SyntaxConstants}
 import munit.FunSuite
-
-import java.nio.file.{Files, Paths}
 
 class ParserTest extends FunSuite {
 

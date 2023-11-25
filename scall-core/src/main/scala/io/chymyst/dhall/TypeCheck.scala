@@ -7,8 +7,6 @@ import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult._
 
-import java.time.LocalDateTime
-import scala.collection.mutable
 import scala.language.postfixOps
 
 sealed trait TypecheckResult[+A] {

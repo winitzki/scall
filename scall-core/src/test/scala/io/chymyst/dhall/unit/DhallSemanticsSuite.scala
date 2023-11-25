@@ -3,12 +3,9 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.dhall.Parser
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
-import munit.FunSuite
+import io.chymyst.dhall.unit.TestUtils.DhallTest
+import io.chymyst.test.Throwables.printThrowable
 
 import java.io.{File, FileInputStream}
 import scala.util.Try

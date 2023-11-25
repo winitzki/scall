@@ -2,18 +2,13 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.{ResourceFiles, TestTimeouts, Throwables}
-import io.chymyst.dhall.{Parser, Semantics, TypeCheck}
+import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches, readToString}
-import munit.FunSuite
+import io.chymyst.dhall.unit.TestUtils.{DhallTest, readToString}
+import io.chymyst.test.{ResourceFiles, TestTimeouts, Throwables}
 
 import java.io.FileInputStream
-import java.nio.file.Files
-import java.time.LocalDateTime
-import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 class SimplePreludeTest extends DhallTest with TestTimeouts {

@@ -1,17 +1,14 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.upokecenter.cbor.CBORObject
 import fastparse.Parsed
-import io.chymyst.test.{ResourceFiles, Throwables}
-import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, UsingCaches}
-import io.chymyst.dhall.{CBOR, CBORmodel, Grammar, Parser}
+import io.chymyst.dhall.unit.TestUtils.UsingCaches
+import io.chymyst.dhall.{CBORmodel, Parser}
+import io.chymyst.test.ResourceFiles
 import munit.FunSuite
 
 import java.io.FileInputStream

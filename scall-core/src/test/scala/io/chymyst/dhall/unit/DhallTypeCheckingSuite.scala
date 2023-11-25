@@ -2,13 +2,10 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
 import io.chymyst.dhall.TypecheckResult.Valid
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, FakeEnvironment, UsingCaches}
-import io.chymyst.test.{OverrideEnvironment, Throwables}
-import munit.FunSuite
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 
 import java.io.{File, FileInputStream}
 import scala.collection.immutable.Seq

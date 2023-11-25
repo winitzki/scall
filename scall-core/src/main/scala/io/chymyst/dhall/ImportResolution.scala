@@ -3,24 +3,18 @@ package io.chymyst.dhall
 import fastparse.Parsed
 import geny.Generator.from
 import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Syntax.Expression
-import io.chymyst.dhall.Syntax.ExpressionScheme.{BytesLiteral, Import, TextLiteral}
-import io.chymyst.dhall.SyntaxConstants.Builtin.Text
-import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
-import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, Location}
-import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
-import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName, FilePrefix, ImportMode, ImportType}
-import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.ImportResolution.ImportContext
 import io.chymyst.dhall.ImportResolutionResult._
 import io.chymyst.dhall.Parser.StringAsDhallExpression
-import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
+import io.chymyst.dhall.Syntax.ExpressionScheme._
+import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
+import io.chymyst.dhall.SyntaxConstants.ImportMode.Location
 import io.chymyst.dhall.SyntaxConstants.ImportType.{Path, Remote}
+import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
 
 import java.nio.file.{Files, Paths}
-import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
@@ -477,11 +471,11 @@ object ImportResolution {
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
       Remote(ImportURL(scheme1, authority1, path1 chain path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                     => Path(filePrefix, path1 chain path2)
+    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                           => Path(filePrefix, path1 chain path2)
     case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Parent, path2)) =>
       Remote(ImportURL(scheme1, authority1, path1 chainToParent path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                   => Path(filePrefix, path1 chainToParent path2)
-    case _                                                                                           => child
+    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                         => Path(filePrefix, path1 chainToParent path2)
+    case _                                                                                                 => child
   }
 
   val corsHeader = "Access-Control-Allow-Origin".toLowerCase
@@ -502,8 +496,8 @@ object ImportResolution {
               )
             case None                                                                           => Some(s"Scheme or authority differs from parent $parent but no CORS header in child $child, headers $responseHeaders")
           }
-      case (Remote(ImportURL(_, _, _, _), _), _)                                                                                        => Some(s"Remote parent $parent may not import a non-remote $child")
-      case _                                                                                                                      => None
+      case (Remote(ImportURL(_, _, _, _), _), _)                                                                                              => Some(s"Remote parent $parent may not import a non-remote $child")
+      case _                                                                                                                                  => None
     }
 
   lazy val typeOfImportAsLocation: Expression = UnionType(
@@ -563,11 +557,11 @@ object ImportResolution {
             }.filter(_.isSuccess)
             .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
           Resolved(expr)
-      } else {
-        val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.toDhall}"
-        println(s"Error: $message")
-        PermanentFailure(Seq(message))
-      }
+        } else {
+          val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.toDhall}"
+          println(s"Error: $message")
+          PermanentFailure(Seq(message))
+        }
     }
 
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
@@ -702,25 +696,25 @@ object ImportResolution {
           lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
 
-            def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.betaNormalized.scheme match {
-            case EmptyList(_) => emptyHeadersForHost
+          def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.betaNormalized.scheme match {
+            case EmptyList(_)        => emptyHeadersForHost
             case NonEmptyList(exprs) =>
-              exprs.map(_.scheme).map { case d@RecordLiteral(_) =>
+              exprs.map(_.scheme).map { case d @ RecordLiteral(_) =>
                 (
                   d.lookup(FieldName(keyName)).get.toPrimitiveValue.get.asInstanceOf[String],
                   d.lookup(FieldName(valueName)).get.toPrimitiveValue.get.asInstanceOf[String],
                 )
               }
-            case other =>
+            case other               =>
               throw new Exception(s"ERROR: internal error - headers must be of type ${typeOfGenericHeadersForHost.toDhall} but instead have ${other.toDhall}")
           }
 
           lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
-            case None               => (emptyHeadersForHost, stateGamma0)
+            case None                                  => (emptyHeadersForHost, stateGamma0)
             case Some((remoteScheme, remoteAuthority)) =>
               val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
               result match {
-                case Resolved(expr)                           =>
+                case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
                       expr.betaNormalized.scheme match { // TODO report issue: imports.md does not say that headers must be beta-normalized before use, but tests require that.
@@ -738,7 +732,7 @@ object ImportResolution {
                                 case None => false
                               } // contains Expression(TextLiteral.ofString(remoteOrigin)) =>
 
-                            case _                                                                                                                         => false
+                            case _ => false
                           } match {
                             case Some(Expression(r @ RecordLiteral(_))) => extractHeaders(r.lookup(FieldName("mapValue")).get, "mapKey", "mapValue")
                             case None                                   =>
@@ -795,9 +789,9 @@ object ImportResolution {
               Right(())
             else
               child.digest.flatMap(readFirstCached) match {
-            case Some(expr) => Left(Resolved(expr))
-            case None       => Right(())
-          }
+                case Some(expr) => Left(Resolved(expr))
+                case None       => Right(())
+              }
 
           lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
             case ImportType.Missing => Left(TransientFailure(Seq("import is `missing` (perhaps not an error)")))

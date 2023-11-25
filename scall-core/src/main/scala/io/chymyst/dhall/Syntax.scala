@@ -1,8 +1,6 @@
 package io.chymyst.dhall
 
 import enumeratum._
-import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Grammar.TextLiteralNoInterp
 import io.chymyst.dhall.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
@@ -11,10 +9,8 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
 
-import java.nio.file.{Path, Paths}
-import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
-import java.util.concurrent.atomic.AtomicReference
-import scala.collection.mutable
+import java.nio.file.Paths
+import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps

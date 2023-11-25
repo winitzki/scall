@@ -2,15 +2,10 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
+import io.chymyst.dhall.Syntax.DhallFile
+import io.chymyst.dhall.unit.TestUtils.DhallTest
 import io.chymyst.dhall.{AllCaches, Parser}
 import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Parser
-import io.chymyst.dhall.Syntax.DhallFile
-import io.chymyst.dhall.Syntax.ExpressionScheme.NonEmptyList
-import io.chymyst.dhall.unit.TestUtils.{DhallTest, FakeEnvironment, UsingCaches}
-import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
-import munit.FunSuite
-import os.root
 
 import java.io.{File, FileInputStream}
 import scala.util.Try
@@ -83,15 +78,15 @@ class DhallImportResolutionSuite extends DhallTest {
           val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
           // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
           runInFakeEnvironmentWith(extraEnvVars: _*) {
-        val result = Try {
-          val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+            val result = Try {
+              val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
               val x                                          = Try(ourResult.resolveImports(relativePathForTest))
-          expect(x.isFailure)
-          file.getName
-        }
-        if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}\n${printThrowable(result.failed.get)}")
-        result
-      }
+              expect(x.isFailure)
+              file.getName
+            }
+            if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}\n${printThrowable(result.failed.get)}")
+            result
+          }
         }
       TestUtils.requireSuccessAtLeast(24, results, 0)
     }
