@@ -21,10 +21,14 @@ sealed trait TypecheckResult[+A] {
   def zip[B](other: TypecheckResult[B]): TypecheckResult[(A, B)]
 
   def withFilter(p: A => Boolean): TypecheckResult[A]
+
+  def unsafeGet: A
 }
 
 object TypecheckResult {
   final case class Valid[A](expr: A) extends TypecheckResult[A] {
+    override def unsafeGet: A = expr
+
     override def isValid: Boolean = true
 
     override def map[B](f: A => B): TypecheckResult[B] = Valid(f(expr))
@@ -40,6 +44,8 @@ object TypecheckResult {
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypecheckResult[Nothing] {
+    override def unsafeGet: Nothing = throw new Exception(s"Type-checking failed with errors: $errors")
+
     override def isValid: Boolean = false
 
     override def map[B](f: Nothing => B): TypecheckResult[B] = Invalid(errors)

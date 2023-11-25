@@ -235,7 +235,7 @@ object SyntaxConstants {
     def allowedToImportAnother(anotherImportType: ImportType[_]): Boolean =
       this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
 
-    def remoteOrigin: Option[String] = None
+    def remoteOrigin: Option[(Scheme, String)] = None
 
     def hasUserHeaders: Boolean = false
   }
@@ -245,10 +245,10 @@ object SyntaxConstants {
       override def safetyLevelRequired: Int = 1 // The `Missing` import is always a failure and cannot import anything else.
     }
 
-    final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
+    final case class Remote[E](url: ImportURL, headers: Option[E]) extends ImportType[E] {
       override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
 
-      override def remoteOrigin: Option[String] = Some(url.httpAuthority)
+      override def remoteOrigin: Option[(Scheme, String)] = Some(url.scheme, url.authority)
 
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
@@ -276,7 +276,7 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
+  final case class ImportURL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
     override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""
@@ -796,12 +796,10 @@ object Syntax {
       def chainWith[E](parent: Import[E], child: Import[E]): Import[E] =
         child.copy(importType = ImportResolution.chainWith(parent.importType, child.importType))
 
-      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = Import(
-        // Workaround: use current file as import path, import as code without sha256.
-        ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))),
-        ImportMode.Code,
-        digest = None,
-      )
+      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = {
+        val prefix = if (path.isAbsolute) FilePrefix.Absolute else FilePrefix.Here
+        Import(ImportType.Path(prefix, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))), ImportMode.Code, digest = None)
+      }
 
       implicit def ofJavaFile(file: java.io.File): Import[Nothing] = ofJavaPath(file.toPath)
 
@@ -879,7 +877,7 @@ object Syntax {
       */
     def toDhall: String = atPrecedence(TermPrecedence.lowest)
 
-    override def toString: String = toDhall
+    // override def toString: String = toDhall
 
     private def atPrecedence(level: Int) = if (scheme.precedence > level) "(" + dhallForm + ")" else dhallForm
 
@@ -927,10 +925,13 @@ object Syntax {
         case DateLiteral(year, month, day)          => f"$year%04d-$month%02d-$day%02d"
         case t @ TimeLiteral(_, _, _, _)            => t.toString
         case t @ TimeZoneLiteral(_)                 => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
-        case RecordType(defs)                       => "{ " + defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(p) }.mkString(", ") + " }"
-        case RecordLiteral(defs)                    => "{ " + defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
-        case UnionType(defs)                        =>
-          "< " + defs.map { case (name, expr) => name.name + expr.map(_.atPrecedence(p)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
+        case r @ RecordType(_)                      =>
+          "{ " + r.sorted.defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
+        case r @ RecordLiteral(_)                   =>
+          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
+        case u @ UnionType(_)                       =>
+          "< " + u.sorted.defs
+            .map { case (name, expr) => name.name + expr.map(_.atPrecedence(TermPrecedence.lowest)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
         case ShowConstructor(data)                  => "showConstructor " + data.atPrecedence(p)
         case Import(importType, importMode, digest) =>
           val digestString     = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
