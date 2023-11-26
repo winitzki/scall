@@ -19,17 +19,16 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
-
 object ImportResolution {
   // TODO: missing sha256:... should be resolved if a cached value is available.
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
       Remote(ImportURL(scheme1, authority1, path1 chain path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                     => Path(filePrefix, path1 chain path2)
+    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                           => Path(filePrefix, path1 chain path2)
     case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Parent, path2)) =>
       Remote(ImportURL(scheme1, authority1, path1 chainToParent path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                   => Path(filePrefix, path1 chainToParent path2)
-    case _                                                                                           => child
+    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                         => Path(filePrefix, path1 chainToParent path2)
+    case _                                                                                                 => child
   }
 
   val corsHeader = "Access-Control-Allow-Origin"
@@ -48,8 +47,8 @@ object ImportResolution {
               Some(s"Scheme or authority differs from parent $parent but CORS headers in child $child is $responseHeaders and does not allow importing")
             case None                                                                           => Some(s"Scheme or authority differs from parent $parent but no CORS header in child $child, headers $responseHeaders")
           }
-      case (Remote(ImportURL(_, _, _, _), _), _)                                                                                        => Some(s"Remote parent $parent may not import a non-remote $child")
-      case _                                                                                                                      => None
+      case (Remote(ImportURL(_, _, _, _), _), _)                                                                                              => Some(s"Remote parent $parent may not import a non-remote $child")
+      case _                                                                                                                                  => None
     }
 
   lazy val typeOfImportAsLocation: Expression = UnionType(
