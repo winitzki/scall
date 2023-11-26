@@ -28,11 +28,7 @@ lazy val jdkModuleOptions: Seq[String] = {
 
 lazy val root = (project in file("."))
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-<<<<<<< Updated upstream
-  .aggregate(scall_core, scall_testutils, dhall_codec)
-=======
   .aggregate(scall_core, scall_testutils, dhall_codec, abnf)
->>>>>>> Stashed changes
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(
@@ -77,8 +73,6 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
   ).dependsOn(scall_core, scall_testutils % "test->compile")
-<<<<<<< Updated upstream
-=======
 
 lazy val abnf = (project in file("abnf")).settings(
   name                     := "scall-abnf",
@@ -88,4 +82,3 @@ lazy val abnf = (project in file("abnf")).settings(
   testFrameworks += munitFramework,
   libraryDependencies ++= Seq(fastparse, munitTest, assertVerboseTest),
 )
->>>>>>> Stashed changes

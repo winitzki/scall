@@ -2,13 +2,14 @@ package io.chymyst.abnf
 
 import fastparse.NoWhitespace._
 import fastparse._
+import io.chymyst.abnf.ABNF.ProseValue
 
 sealed trait ABNF
 
 object ABNF {
   final case class Alpha(data: Byte)        extends ABNF
   final case class Bit(data: Byte)          extends ABNF
-  final case class Char(data: Byte)         extends ABNF
+  final case class Char(data: Char)         extends ABNF
   final case class ProseValue(data: String) extends ABNF
 }
 
