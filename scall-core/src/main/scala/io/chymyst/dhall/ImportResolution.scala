@@ -157,7 +157,7 @@ object ImportResolution {
 
   def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.toDhall).mkString("[", ", ", "]")
 
-  private def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.scheme match {
+  private def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.betaNormalized.scheme match {
     case EmptyList(_)        => emptyHeadersForHost
     case NonEmptyList(exprs) =>
       exprs.map(_.scheme).map { case d @ RecordLiteral(_) =>
@@ -260,7 +260,7 @@ object ImportResolution {
                 case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
-                      expr.scheme match {
+                      expr.betaNormalized.scheme match { // TODO report issue: imports.md does not say that headers must be beta-normalized before use, but tests require that.
                         case NonEmptyList(exprs) =>
                           exprs.find {
                             case Expression(r @ RecordLiteral(_)) =>
