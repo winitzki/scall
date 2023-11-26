@@ -1,8 +1,6 @@
 package io.chymyst.dhall
 
 import enumeratum._
-import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Grammar.TextLiteralNoInterp
 import io.chymyst.dhall.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
@@ -11,10 +9,8 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
 
-import java.nio.file.{Path, Paths}
-import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneOffset}
-import java.util.concurrent.atomic.AtomicReference
-import scala.collection.mutable
+import java.nio.file.Paths
+import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
@@ -796,12 +792,10 @@ object Syntax {
       def chainWith[E](parent: Import[E], child: Import[E]): Import[E] =
         child.copy(importType = ImportResolution.chainWith(parent.importType, child.importType))
 
-      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = Import(
-        // Workaround: use current file as import path, import as code without sha256.
-        ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))),
-        ImportMode.Code,
-        digest = None,
-      )
+      implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = {
+        val prefix = if (path.isAbsolute) FilePrefix.Absolute else FilePrefix.Here
+        Import(ImportType.Path(prefix, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))), ImportMode.Code, digest = None)
+      }
 
       implicit def ofJavaFile(file: java.io.File): Import[Nothing] = ofJavaPath(file.toPath)
 
