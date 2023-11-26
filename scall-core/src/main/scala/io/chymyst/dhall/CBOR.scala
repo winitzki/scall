@@ -161,7 +161,7 @@ sealed trait CBORmodel {
               val headers  = if (headersOrCNull == CNull) None else Some(headersOrCNull.toScheme)
               val query    = if (relativeURL.last == CNull) None else Some(relativeURL.last.asString)
               val segments = relativeURL.init.map(_.asString)
-              val url      = SyntaxConstants.URL(
+              val url      = SyntaxConstants.ImportURL(
                 scheme = SyntaxConstants.Scheme.cborCodeDict(t),
                 authority = authority,
                 path = SyntaxConstants.FilePath.of(segments),
@@ -644,7 +644,7 @@ object CBOR {
       val part2     = importType match {
         case ImportType.Missing => Seq(7)
 
-        case ImportType.Remote(SyntaxConstants.URL(scheme, authority, SyntaxConstants.FilePath(segments), query), headers) =>
+        case ImportType.Remote(SyntaxConstants.ImportURL(scheme, authority, SyntaxConstants.FilePath(segments), query), headers) =>
           scheme.cborCode +: (headers.orNull: Any) +: authority +: segments :+ (query.orNull: Any)
 
         case ImportType.Path(filePrefix, SyntaxConstants.FilePath(segments)) => filePrefix.cborCode +: segments
