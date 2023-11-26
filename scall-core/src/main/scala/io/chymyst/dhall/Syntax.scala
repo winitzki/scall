@@ -235,7 +235,7 @@ object SyntaxConstants {
     def allowedToImportAnother(anotherImportType: ImportType[_]): Boolean =
       this.safetyLevelRequired <= anotherImportType.safetyLevelRequired
 
-    def remoteOrigin: Option[String] = None
+    def remoteOrigin: Option[(Scheme, String)] = None
 
     def hasUserHeaders: Boolean = false
   }
@@ -248,7 +248,7 @@ object SyntaxConstants {
     final case class Remote[E](url: ImportURL, headers: Option[E]) extends ImportType[E] {
       override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
 
-      override def remoteOrigin: Option[String] = Some(url.httpAuthority)
+      override def remoteOrigin: Option[(Scheme, String)] = Some(url.scheme, url.authority)
 
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }

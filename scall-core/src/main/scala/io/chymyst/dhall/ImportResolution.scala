@@ -252,14 +252,9 @@ object ImportResolution {
           lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
 
-          // TODO: top headers need to be just beta-normalized and then we don't need to have general Expression as "visited" element. But then we need the beta-normalization to return the new Gamma context.
-          // Alternatively we just implement the ? expression reduction by hand, since a beta-normalization with updates of Gamma is not used anywhere else.
-
-          // TODO: fix this. `resolveImportsStep(defaultHeadersLocation, visited, currentFile)` is incorrect here.
-          //  `visited` should be a list of Dhall expressions, not just a list of Import expressions. `currentFile` should be an import expression, not only a `java.nio.file.File`.
           lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
-            case None               => (emptyHeadersForHost, stateGamma0)
-            case Some(remoteOrigin) =>
+            case None                                  => (emptyHeadersForHost, stateGamma0)
+            case Some((remoteScheme, remoteAuthority)) =>
               val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
               result match {
                 case Resolved(expr)             =>
@@ -268,13 +263,23 @@ object ImportResolution {
                       expr.scheme match {
                         case NonEmptyList(exprs) =>
                           exprs.find {
-                            case Expression(r @ RecordLiteral(_)) if r.lookup(FieldName("mapKey")) contains Expression(TextLiteral.ofString(remoteOrigin)) =>
-                              true
-                            case _                                                                                                                         => false
+                            case Expression(r @ RecordLiteral(_)) =>
+                              r.lookup(FieldName("mapKey")) match {
+                                case Some(
+                                      Expression(TextLiteral(List(), originInHeaders))
+                                    ) => // remoteOrigin = https://host  may match originInHeaders = host:443 and http://host may match host:80 unless port is specified in remoteOrigin.
+                                  (originInHeaders.toLowerCase == remoteAuthority.toLowerCase) ||
+                                  (remoteScheme == Scheme.HTTP && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":80") ||
+                                  (remoteScheme == Scheme.HTTPS && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":443")
+
+                                case None => false
+                              } // contains Expression(TextLiteral.ofString(remoteOrigin)) =>
+
+                            case _ => false
                           } match {
                             case Some(Expression(r @ RecordLiteral(_))) => extractHeaders(r.lookup(FieldName("mapValue")).get, "mapKey", "mapValue")
                             case None                                   =>
-                              println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteOrigin'")
+                              println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteAuthority'")
                               emptyHeadersForHost
                           }
                         case _                   => emptyHeadersForHost
@@ -361,7 +366,9 @@ object ImportResolution {
                 case None              => Right(emptyHeadersForHost)
               }
               (checkHeaderTypeGeneric orElse checkHeaderTypeSpecial) flatMap { userHeadersForHost =>
-                Try(requests.get(childUrl.toString, headers = defaultHeadersForHost ++ userHeadersForHost)) match {
+                val combinedHeaders: Iterable[(String, String)] =
+                  (userHeadersForHost.toMap ++ defaultHeadersForHost.toMap).to(Iterable) // The default headers must override user headers.
+                Try(requests.get(childUrl.toString, headers = combinedHeaders)) match {
                   case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $childUrl: $exception")))
                   case Success(response)  =>
                     corsComplianceError(parent.importType, child.importType, response.headers) match {
