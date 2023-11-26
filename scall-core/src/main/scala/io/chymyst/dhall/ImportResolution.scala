@@ -20,7 +20,7 @@ import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
-  // TODO: missing sha256:... should be resolved if a cached value is available.
+
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
     case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
       Remote(ImportURL(scheme1, authority1, path1 chain path2, query1), headers1)
@@ -31,7 +31,7 @@ object ImportResolution {
     case _                                                                                                 => child
   }
 
-  val corsHeader = "Access-Control-Allow-Origin"
+  val corsHeader = "Access-Control-Allow-Origin".toLowerCase
 
   // This function returns `None` if there is no error in CORS compliance.
   def corsComplianceError(parent: ImportType[Expression], child: ImportType[Expression], responseHeaders: Map[String, Seq[String]]): Option[String] =
@@ -40,7 +40,7 @@ object ImportResolution {
       case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Remote(ImportURL(scheme2, authority2, path2, query2), headers2)) =>
         if (scheme1 == scheme2 && authority1 == authority2) None
         else
-          responseHeaders.get(corsHeader) match {
+          responseHeaders.map { case (k, v) => (k.toLowerCase, v) }.get(corsHeader) match {
             case Some(Seq("*"))                                                                 => None
             case Some(Seq(other)) if other.toLowerCase == s"$scheme2://$authority2".toLowerCase => None
             case Some(_)                                                                        =>
