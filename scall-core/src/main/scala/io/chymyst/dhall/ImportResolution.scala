@@ -262,7 +262,7 @@ object ImportResolution {
             case Some(remoteOrigin) =>
               val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
               result match {
-                case Resolved(expr)                           =>
+                case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
                     case TypecheckResult.Valid(_)        =>
                       expr.scheme match {
