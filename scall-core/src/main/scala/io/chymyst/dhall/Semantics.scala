@@ -1,18 +1,16 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Applicative.ApplicativeOps
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Syntax.Expression.v
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
-import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalFold, NaturalSubtract}
+import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalSubtract}
 import io.chymyst.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.dhall.SyntaxConstants._
 
 import java.security.MessageDigest
-import java.time.LocalDateTime
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps

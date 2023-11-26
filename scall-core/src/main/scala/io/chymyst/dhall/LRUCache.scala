@@ -1,7 +1,6 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.dhall.TypeCheck.KnownVars
+import io.chymyst.dhall.Syntax.Expression
 
 import java.util
 import scala.collection.mutable
