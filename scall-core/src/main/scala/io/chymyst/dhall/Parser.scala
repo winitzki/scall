@@ -2,7 +2,7 @@ package io.chymyst.dhall
 
 import fastparse.NoWhitespace._
 import fastparse._
-import io.chymyst.dhall.ABNFGrammar.BIT
+import io.chymyst.abnf.ABNFGrammar.BIT
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, PathComponent, RawRecordLiteral}
 import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
