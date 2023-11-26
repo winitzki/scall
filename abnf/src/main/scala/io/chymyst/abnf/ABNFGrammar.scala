@@ -1,8 +1,7 @@
-package io.chymyst.dhall
+package io.chymyst.abnf
 
+import fastparse.NoWhitespace._
 import fastparse._
-import NoWhitespace._
-import io.chymyst.dhall.ABNF._
 
 sealed trait ABNF
 
