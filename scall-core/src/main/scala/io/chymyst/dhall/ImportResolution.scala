@@ -58,7 +58,7 @@ object ImportResolution {
       (ConstructorName("Environment"), Some(~Builtin.Text)),
       (ConstructorName("Missing"), None),
     )
-  )
+  ).sorted
 
   lazy val typeOfGenericHeadersForHost: Expression =
     Application(~Builtin.List, Expression(RecordType(Seq((FieldName("mapKey"), ~Builtin.Text), (FieldName("mapValue"), ~Builtin.Text)))))
@@ -237,7 +237,8 @@ object ImportResolution {
             else Right(())
           val referentialCheck  =
             if (parent.importType allowedToImportAnother child.importType) Right(())
-            else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall}")))
+            else if (child.importMode == ImportMode.Location) Right(()) // Corner case: import as `Location` does not need the referential check.
+            else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall} due to the referential check")))
 
           // println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
           lazy val checkIfAlreadyResolved = gamma.get(child) match {
@@ -283,8 +284,9 @@ object ImportResolution {
                       emptyHeadersForHost
                   }
                   (headersForOrigin, state01)
-                case failure: ImportResolutionResult[Nothing] =>
-                  println(s"Warning: failed to resolve headers: $failure")
+                case TransientFailure(_)        => (emptyHeadersForHost, stateGamma0)
+                case PermanentFailure(messages) =>
+                  println(s"Warning: failed to resolve headers: $messages")
                   (emptyHeadersForHost, stateGamma0)
               }
           }
