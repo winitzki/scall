@@ -60,7 +60,7 @@ in  GithubActions.Workflow::{
                 , GithubActions.Step::{
                                 name = Some "Report test results",
                                 uses = Some "dorny/test-reporter@v1.7.0",
-                                `if` = Some "always",
+                                `if` = Some "success() || failure()",
                                 `with` = Some (toMap {
                                     name = "SBT tests",
                                     path = "target/test-reports/*.xml",
