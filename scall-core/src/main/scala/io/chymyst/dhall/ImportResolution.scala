@@ -302,13 +302,13 @@ object ImportResolution {
                 case Remote(url, _)             => (FieldName("Remote"), Some(url.toString))
                 case p @ Path(_, _)             => (FieldName("Local"), Some(p.toString))
                 case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
-              }
+              } // TODO report issue: imports.md incorrectly specifies the field name as `.Location` whereas it must be `.Local`
               val withField: Expression                   = Field(typeOfImportAsLocation, field)
               val expr: Expression                        = arg match {
                 case Some(text) => withField.apply(TextLiteral.ofString(text))
                 case None       => withField
               }
-              Left(Resolved(expr)) // TODO - use validateHashAndCacheResolved() at a later stage and only once, rather than here
+              Left(Resolved(expr))
 
             case ImportMode.Code     =>
               Right(bytes =>
@@ -321,44 +321,51 @@ object ImportResolution {
             case ImportMode.RawText  => Right(bytes => Resolved(Expression(TextLiteral.ofString(new String(bytes)))))
           }
 
-          lazy val resolveIfCached: Either[ImportResolutionResult[Expression], Unit] = child.digest.flatMap(readFirstCached) match {
-            case Some(expr) => Left(Resolved(expr))
-            case None       => Right(())
-          }
+          // Corner case: If the import mode is `Location`, we must not attempt to use the cache.
+          lazy val resolveIfCached: Either[ImportResolutionResult[Expression], Unit] =
+            if (child.importMode == ImportMode.Location)
+              Right(())
+            else
+              child.digest.flatMap(readFirstCached) match {
+                case Some(expr) => Left(Resolved(expr))
+                case None       => Right(())
+              }
 
           lazy val missingOrData: Either[ImportResolutionResult[Expression], Array[Byte]] = child.importType match {
             case ImportType.Missing => Left(TransientFailure(Seq("import is `missing` (perhaps not an error)")))
 
-            case Remote(url, headers) =>
-              // Verify the type of headers.
-              val checkHeaderTypeGeneric: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = headers match {
+            case Remote(childUrl, childUserHeaders) =>
+              // Verify the type of headers. `extractHeaders` will beta-normalize only if typechecking succeeds.
+              val checkHeaderTypeGeneric: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = childUserHeaders match {
                 case Some(headersExpr) =>
                   (headersExpr | typeOfGenericHeadersForHost).inferType match {
                     case TypecheckResult.Valid(_)        => Right(extractHeaders(headersExpr, "mapKey", "mapValue"))
                     case TypecheckResult.Invalid(errors) =>
-                      Left(PermanentFailure(Seq(s"import from url $url failed typecheck for headers of type ${typeOfGenericHeadersForHost.toDhall}: $errors")))
+                      Left(
+                        PermanentFailure(Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfGenericHeadersForHost.toDhall}: $errors"))
+                      )
                   }
                 case None              => Right(emptyHeadersForHost)
               }
-              val checkHeaderTypeSpecial: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = headers match {
+              val checkHeaderTypeSpecial: Either[ImportResolutionResult[Expression], Iterable[(String, String)]] = childUserHeaders match {
                 case Some(headersExpr) =>
                   (headersExpr | typeOfUserDefinedAlternativeHeadersForHost).inferType match {
                     case TypecheckResult.Valid(_)        => Right(extractHeaders(headersExpr, "header", "value"))
                     case TypecheckResult.Invalid(errors) =>
                       Left(
                         PermanentFailure(
-                          Seq(s"import from url $url failed typecheck for headers of type ${typeOfUserDefinedAlternativeHeadersForHost.toDhall}: $errors")
+                          Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfUserDefinedAlternativeHeadersForHost.toDhall}: $errors")
                         )
                       )
                   }
                 case None              => Right(emptyHeadersForHost)
               }
               (checkHeaderTypeGeneric orElse checkHeaderTypeSpecial) flatMap { userHeadersForHost =>
-                Try(requests.get(url.toString, headers = defaultHeadersForHost ++ userHeadersForHost)) match {
-                  case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $url: $exception")))
+                Try(requests.get(childUrl.toString, headers = defaultHeadersForHost ++ userHeadersForHost)) match {
+                  case Failure(exception) => Left(TransientFailure(Seq(s"import failed from url $childUrl: $exception")))
                   case Success(response)  =>
                     corsComplianceError(parent.importType, child.importType, response.headers) match {
-                      case Some(corsError) => Left(PermanentFailure(Seq(s"import from url $url failed CORS check: $corsError")))
+                      case Some(corsError) => Left(PermanentFailure(Seq(s"import from url $childUrl failed CORS check: $corsError")))
                       case None            => Right(response.bytes)
                     }
                 }
@@ -416,6 +423,7 @@ object ImportResolution {
                   (result2, stateGamma2)
               }
           }
+          // The new expression has been resolved (or failed).
           // Add the new resolved expression to the import context.
           newState match {
             case (result2, state2) =>
