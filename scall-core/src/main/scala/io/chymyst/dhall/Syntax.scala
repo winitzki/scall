@@ -245,7 +245,7 @@ object SyntaxConstants {
       override def safetyLevelRequired: Int = 1 // The `Missing` import is always a failure and cannot import anything else.
     }
 
-    final case class Remote[E](url: URL, headers: Option[E]) extends ImportType[E] {
+    final case class Remote[E](url: ImportURL, headers: Option[E]) extends ImportType[E] {
       override def safetyLevelRequired: Int = 0 // This can import itself or Missing.
 
       override def remoteOrigin: Option[String] = Some(url.httpAuthority)
@@ -276,7 +276,7 @@ object SyntaxConstants {
 
   // The authority of http://user@host:port/foo is stored as "user@host:port".
   // The query of ?foo=1&bar=true is stored as "foo=1&bar=true".
-  final case class URL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
+  final case class ImportURL(scheme: Scheme, authority: String, path: FilePath, query: Option[String]) {
     override def toString: String = httpAuthority + "/" + path.toString + (query match {
       case Some(value) => "?" + value
       case None        => ""

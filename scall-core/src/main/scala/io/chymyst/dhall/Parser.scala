@@ -663,9 +663,9 @@ object Grammar {
     "http" ~ "s".?
   ).!.map(s => SyntaxConstants.Scheme.withNameInsensitive(s))
 
-  def http_raw[$: P]: P[SyntaxConstants.URL] = P(
+  def http_raw[$: P]: P[SyntaxConstants.ImportURL] = P(
     scheme ~ "://" ~ authority.! ~ path_abempty ~ ("?" ~ query.!).?
-  ).map { case (s, a, p, q) => SyntaxConstants.URL(s, a, p, q) }
+  ).map { case (s, a, p, q) => SyntaxConstants.ImportURL(s, a, p, q) }
 
   def path_abempty[$: P]: P[SyntaxConstants.FilePath] = P(
     ("/" ~ segment.!).rep
