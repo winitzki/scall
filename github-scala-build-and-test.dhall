@@ -56,10 +56,14 @@ in  GithubActions.Workflow::{
              actions: read
              checks: write
           -}
-          , permissions = Some [
-                { mapKey = GithubActions.types.Permission.actions, mapValue = GithubActions.types.PermissionAccess.read },
-                { mapKey = GithubActions.types.Permission.checks, mapValue = GithubActions.types.PermissionAccess.write },
-                { mapKey = GithubActions.types.Permission.contents, mapValue = GithubActions.types.PermissionAccess.read },
+          , permissions =
+           let Permission = GithubActions.types.Permission
+            in let read =GithubActions.types.PermissionAccess.read
+             in let write = GithubActions.types.PermissionAccess.write
+              in Some [
+                { mapKey = Permission.actions, mapValue = read },
+                { mapKey = Permission.checks, mapValue  = write },
+                { mapKey = Permission.contents, mapValue= read },
           ]
           , steps =
                 setup
@@ -74,7 +78,7 @@ in  GithubActions.Workflow::{
                                 `if` = Some "success() || failure()",
                                 `with` = Some (toMap {
                                     name = "SBT tests",
-                                    path = "target/test-reports/*.xml",
+                                    path = "*/target/test-reports/*.xml",
                                     reporter = "java-junit",
                                     fail-on-error = "true",
                                   }),

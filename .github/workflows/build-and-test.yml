@@ -34,7 +34,7 @@ jobs:
         with:
           fail-on-error: 'true'
           name: SBT tests
-          path: "target/test-reports/*.xml"
+          path: "*/target/test-reports/*.xml"
           reporter: java-junit
     strategy:
       matrix:
