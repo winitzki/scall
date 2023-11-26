@@ -87,8 +87,8 @@ object ImportResolution {
     dhallCacheRoots
       .map(readCached(_, digest))
       .map(_.tap { t =>
-        if (t.isFailure) println(s"Warning: failure reading from cache: ${t.failed.get}")
-      })                                          // TODO: print this failure only when the error is important (hash mismatch)
+        if (t.isFailure && t.failed.get.getMessage.contains("SHA256 mismatch")) println(s"Warning: failure reading from cache: ${t.failed.get}")
+      })                                          // Print this failure only when the error is important (hash mismatch).
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
@@ -107,7 +107,11 @@ object ImportResolution {
           }.filter(_.isSuccess)
           .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
         Resolved(expr)
-      } else PermanentFailure(Seq(s"sha-256 mismatch: found $ourHash from expression ${expr.alphaNormalized.betaNormalized.toDhall} instead of specified $hex"))
+      } else {
+        val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.toDhall}"
+        println(s"Error: $message")
+        PermanentFailure(Seq(message))
+      }
   }
 
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
@@ -162,14 +166,12 @@ object ImportResolution {
           d.lookup(FieldName(valueName)).get.toPrimitiveValue.get.asInstanceOf[String],
         )
       }
+    case other               =>
+      throw new Exception(s"ERROR: internal error - headers must be of type ${typeOfGenericHeadersForHost.toDhall} but instead have ${other.toDhall}")
   }
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
-
-  // TODO: verify that `child` is not part of "visited"
-
-// Note that `visited` may be empty.
 
   /** Perform one step of import resolution. This function may call itself on sub-expressions.
     *
@@ -217,7 +219,7 @@ object ImportResolution {
     * @param expr
     *   An expression in which imports need to be resolved.
     * @param visited
-    *   List of nested import expressions that have been resolved before encountering this one.
+    *   List of nested import expressions that have been resolved before encountering this one. This may be empty.
     * @param parent
     *   The parent import expression that has been already resolved, its contents was fetched and parsed as `expr`.
     * @return
@@ -228,10 +230,6 @@ object ImportResolution {
       val (importResolutionResult, finalState) = expr.scheme match {
         // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.
         case i @ Import(_, _, _)                 =>
-          // TODO remove this
-//          println(s"DEBUG 0 resolveImportsStep(${expr.toDhall.take(160)}${if (expr.toDhall.length > 160) "..."
-//            else ""}, currentFile=${currentFile.toAbsolutePath.toString} with initial ${stateGamma0.resolved.keys.toSeq
-//              .map(_.toDhall).map(_.replaceAll("^.*test-classes/", "")).sorted.mkString("[\n\t", "\n\t", "\n]\n")}")
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
             if (visited contains child)
