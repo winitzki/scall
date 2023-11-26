@@ -46,9 +46,12 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
   test("import resolution success") {
     setupEnvironment {
       val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall")).map { file =>
+        val parentPath                          = resourceAsFile("dhall-lang").get.toPath.getParent
+        val relativePathForTest                 = parentPath.relativize(file.toPath)
         val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
         val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
         val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
+        // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
         runInFakeEnvironmentWith(extraEnvVars: _*) {
           val result = Try {
             val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
@@ -69,7 +72,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             file.getName
           }
           if (result.isFailure)
-            println(s"${file.getName}: ${result.failed.get}")
+            println(s"${file.getName}: ${result.failed.get}\n${printThrowable(result.failed.get)}")
           result
         }
 
