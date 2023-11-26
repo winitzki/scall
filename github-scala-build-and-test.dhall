@@ -50,6 +50,17 @@ in  GithubActions.Workflow::{
           , needs = Some [ "checks" ]
           , strategy = Some GithubActions.Strategy::{ matrix }
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
+          {-
+           permissions:
+             contents: read
+             actions: read
+             checks: write
+          -}
+          , permissions = Some [
+                { mapKey = GithubActions.types.Permission.actions, mapValue = GithubActions.types.PermissionAccess.read },
+                { mapKey = GithubActions.types.Permission.checks, mapValue = GithubActions.types.PermissionAccess.write },
+                { mapKey = GithubActions.types.Permission.contents, mapValue = GithubActions.types.PermissionAccess.read },
+          ]
           , steps =
                 setup
               # [
