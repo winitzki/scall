@@ -59,8 +59,8 @@ in  GithubActions.Workflow::{
                     { run = "sbt -DJDK_VERSION=\${{ matrix.java}} \"++\${{ matrix.scala}} test\"" }
                 , GithubActions.Step::{
                                 name = Some "Report test results",
-                                uses = Some "dorny/test-reporter@v1",
-                                --`if` = Some "always",
+                                uses = Some "dorny/test-reporter@v1.7.0",
+                                `if` = Some "always",
                                 `with` = Some (toMap {
                                     name = "SBT tests",
                                     path = "target/test-reports/*.xml",

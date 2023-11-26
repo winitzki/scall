@@ -24,8 +24,9 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java}}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
-      - name: Report test results
-        uses: "dorny/test-reporter@v1"
+      - if: always
+        name: Report test results
+        uses: "dorny/test-reporter@v1.7.0"
         with:
           fail-on-error: 'true'
           name: SBT tests
