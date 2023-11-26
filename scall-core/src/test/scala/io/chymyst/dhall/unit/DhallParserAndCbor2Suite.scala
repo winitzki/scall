@@ -35,8 +35,8 @@ class DhallParserAndCbor2Suite extends FunSuite {
                    }
       } yield result2
       result match {
-        case Failure(exception) => println(exception.getMessage)
-        case Success(value)     => println(file.getAbsolutePath)
+        case Failure(exception) => println("For file " + file.getAbsolutePath + ", error: " + exception.getMessage)
+        case Success(value)     => // println(file.getAbsolutePath)
       }
       result
     }

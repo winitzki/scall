@@ -36,15 +36,17 @@ object ImportResolution {
   // This function returns `None` if there is no error in CORS compliance.
   def corsComplianceError(parent: ImportType[Expression], child: ImportType[Expression], responseHeaders: Map[String, Seq[String]]): Option[String] =
     (parent, child) match {
-      // TODO: report issue: what if parent = Remote but child = Path, does the cors judgment then always succeed?
+      // TODO: report issue: what if parent = Remote but child = Path, does the cors judgment then always succeed? The standard should say explicitly.
       case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Remote(ImportURL(scheme2, authority2, path2, query2), headers2)) =>
         if (scheme1 == scheme2 && authority1 == authority2) None
         else
           responseHeaders.map { case (k, v) => (k.toLowerCase, v) }.get(corsHeader) match {
             case Some(Seq("*"))                                                                 => None
-            case Some(Seq(other)) if other.toLowerCase == s"$scheme2://$authority2".toLowerCase => None
-            case Some(_)                                                                        =>
-              Some(s"Scheme or authority differs from parent $parent but CORS headers in child $child is $responseHeaders and does not allow importing")
+            case Some(Seq(other)) if other.toLowerCase == s"$scheme1://$authority1".toLowerCase => None
+            case Some(other)                                                                    =>
+              Some(
+                s"Scheme or authority differs from parent $parent but response headers when fetching child $child are $responseHeaders, the CORS header is $other, importing is prohibited"
+              )
             case None                                                                           => Some(s"Scheme or authority differs from parent $parent but no CORS header in child $child, headers $responseHeaders")
           }
       case (Remote(ImportURL(_, _, _, _), _), _)                                                                                              => Some(s"Remote parent $parent may not import a non-remote $child")
