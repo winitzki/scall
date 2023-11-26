@@ -32,7 +32,7 @@ in  GithubActions.Workflow::{
     , name = "scall_build_and_test"
     , on = GithubActions.On::{
       , push = Some GithubActions.Push::{=}
-      --, pull_request = Some GithubActions.PullRequest::{=}
+      --, pull_request = Some GithubActions.PullRequest::{=} -- disabling this will disable builds in PRs submitted from other people's forks
       }
     , jobs = toMap
         { checks = GithubActions.Job::{
@@ -50,12 +50,39 @@ in  GithubActions.Workflow::{
           , needs = Some [ "checks" ]
           , strategy = Some GithubActions.Strategy::{ matrix }
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
+          {-
+           permissions:
+             contents: read
+             actions: read
+             checks: write
+          -}
+          , permissions =
+           let Permission = GithubActions.types.Permission
+            in let read =GithubActions.types.PermissionAccess.read
+             in let write = GithubActions.types.PermissionAccess.write
+              in Some [
+                { mapKey = Permission.actions, mapValue = read },
+                { mapKey = Permission.checks, mapValue  = write },
+                { mapKey = Permission.contents, mapValue= read },
+          ]
           , steps =
                 setup
-              # [ GithubActions.steps.actions/setup-java
+              # [
+                , GithubActions.steps.actions/setup-java
                     { java-version = "\${{ matrix.java}}" }
                 , GithubActions.steps.run
                     { run = "sbt -DJDK_VERSION=\${{ matrix.java}} \"++\${{ matrix.scala}} test\"" }
+                , GithubActions.Step::{
+                                name = Some "Report test results",
+                                uses = Some "dorny/test-reporter@v1.7.0",
+                                `if` = Some "success() || failure()",
+                                `with` = Some (toMap {
+                                    name = "SBT tests",
+                                    path = "*/target/test-reports/*.xml",
+                                    reporter = "java-junit",
+                                    fail-on-error = "true",
+                                  }),
+                 }
                 ]
           }
         }

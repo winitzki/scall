@@ -3,6 +3,10 @@ jobs:
     name: Build
     needs:
       - checks
+    permissions:
+      actions: read
+      checks: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: "actions/checkout@v2"
@@ -24,6 +28,14 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java}}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
+      - if: "success() || failure()"
+        name: Report test results
+        uses: "dorny/test-reporter@v1.7.0"
+        with:
+          fail-on-error: 'true'
+          name: SBT tests
+          path: "*/target/test-reports/*.xml"
+          reporter: java-junit
     strategy:
       matrix:
         java:
