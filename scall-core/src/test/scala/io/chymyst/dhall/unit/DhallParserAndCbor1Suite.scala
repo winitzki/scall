@@ -129,7 +129,7 @@ class DhallParserAndCbor1Suite extends FunSuite {
       result
     }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-   TestUtils.requireSuccessAtLeast(82, results)
+    TestUtils.requireSuccessAtLeast(82, results)
   }
 
   test("validate binary decoding/failure") {
