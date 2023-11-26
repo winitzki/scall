@@ -32,6 +32,7 @@ lazy val root = (project in file("."))
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(
+    name                     := "scall-core",
     scalaVersion             := scalaV,
     crossScalaVersions       := Seq(scala2V, scala3V),
     Test / parallelExecution := true,
@@ -54,6 +55,7 @@ lazy val scall_core = (project in file("scall-core"))
   ).dependsOn(scall_testutils % "test->compile")
 
 lazy val scall_testutils = (project in file("scall-testutils")).settings(
+  name                     := "scall-testutils",
   scalaVersion             := scalaV,
   crossScalaVersions       := Seq(scala2V, scala3V),
   Test / parallelExecution := true,
@@ -65,6 +67,7 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
 
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(
+    name                     := "dhall-codec",
     scalaVersion             := scalaV,
     crossScalaVersions       := Seq(scala2V, scala3V),
     Test / parallelExecution := true,
@@ -74,7 +77,8 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
-lazy val abnf_fuzz = (project in file("dhall-codec")).settings(
+lazy val abnf_fuzz = (project in file("abnf-fuzz")).settings(
+  name                     := "abnf-fuzz",
   scalaVersion             := scalaV,
   crossScalaVersions       := Seq(scala2V, scala3V),
   Test / parallelExecution := true,
