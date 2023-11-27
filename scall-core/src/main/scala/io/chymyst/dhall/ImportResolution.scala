@@ -228,7 +228,7 @@ object ImportResolution {
     * @param expr
     *   An expression in which imports need to be resolved.
     * @param visited
-    *   List of nested import expressions that have been resolved before encountering this one. This may be empty.
+    *   List of nested import expressions that have been resolved before encountering this one. This list may be empty.
     * @param parent
     *   The parent import expression that has been already resolved, its contents was fetched and parsed as `expr`.
     * @return
@@ -241,7 +241,7 @@ object ImportResolution {
         case i @ Import(_, _, _)                 =>
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
-            if (visited contains child)
+            if (visited.contains (child) || parent == child)
               Left(PermanentFailure(Seq(s"Cyclic import of $child not allowed, imports already visited: ${visited.map(_.toDhall).mkString("; ")}")))
             else Right(())
           val referentialCheck  =
@@ -255,8 +255,6 @@ object ImportResolution {
             case None    => Right(())
           }
           // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and also whether Γ1 is being reused
-
-          // val xdgOption = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
 
           lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
