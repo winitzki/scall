@@ -25,6 +25,7 @@ class ToScalaTest extends FunSuite {
   }
 
   test("convert other literals to Scala") {
+    expect("12345".dhall.asScala[Natural].map(_.value.intValue) == Right(12345))
     expect("0b1010".dhall.asScala[Natural].map(_.value.intValue) == Right(10))
     expect("\"0b1010\"".dhall.asScala[String].map(_.value) == Right("0b1010"))
     expect(" +0b1010 ".dhall.asScala[BigInt].map(_.value.intValue) == Right(10))

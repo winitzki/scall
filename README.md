@@ -14,6 +14,23 @@
 
 This project is a Scala implementation of the [Dhall language](https://dhall-lang.org), a purely functional programming language designed for programmable configuration with strong guarantees of consistency and security.
 
+# Example usage
+
+Read a Dhall expression into a Dhall syntax tree, perform type checking and beta-normalization, and convert into a Scala value.
+
+```scala
+import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+
+val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean].value
+
+assert(a == true)
+
+val b = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt].toOption.get.value.intValue
+
+assert(b == 3)
+```
+
 ## Goals of the project
 
 1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass.

@@ -2,7 +2,7 @@ package io.chymyst.dhall
 
 import fastparse.NoWhitespace._
 import fastparse._
-import io.chymyst.abnf.ABNFGrammar.BIT
+import io.chymyst.abnf.ABNFGrammar.{ALPHA, BIT, DIGIT}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, PathComponent, RawRecordLiteral}
 import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
@@ -142,22 +142,18 @@ object Grammar {
   )
 
   def whsp[$: P]: P[Unit] = P(
-    NoCut(whitespace_chunk.rep)
+     whitespace_chunk.rep
   )
 
   def whsp1[$: P]: P[Unit] = P(
-    NoCut(whitespace_chunk.rep(1))
+     whitespace_chunk.rep(1)
   )
-
-  def ALPHA[$: P] = P(CharIn("\u0041-\u005A", "\u0061-\u007A"))
-
-  def DIGIT[$: P] = P(CharIn("0-9"))
 
   def ALPHANUM[$: P] = P(
     ALPHA | DIGIT
   )
 
-  def HEXDIG[$: P] = P(
+  def hexdigitAnyCase[$: P] = P(
     CharIn("0-9A-Fa-f")
   )
 
@@ -247,16 +243,16 @@ object Grammar {
   )
 
   def unicode_suffix[$: P] = P(
-    (CharIn("0-9A-E") ~ HEXDIG.rep(exactly = 3))
-      | ("F" ~ HEXDIG.rep(exactly = 2) ~ CharIn("0-9A-D"))
+    (CharIn("0-9A-E") ~ hexdigitAnyCase.rep(exactly = 3))
+      | ("F" ~ hexdigitAnyCase.rep(exactly = 2) ~ CharIn("0-9A-D"))
   )
 
   def unbraced_escape[$: P] = P(
-    ((DIGIT | "A" | "B" | "C") ~ HEXDIG.rep(exactly = 3))
-      | ("D" ~ CharIn("0-7") ~ HEXDIG ~ HEXDIG)
+    ((DIGIT | "A" | "B" | "C") ~ hexdigitAnyCase.rep(exactly = 3))
+      | ("D" ~ CharIn("0-7") ~ hexdigitAnyCase ~ hexdigitAnyCase)
       // %xD800_DFFF Surrogate pairs
-      | ("E" ~ HEXDIG)
-      | ("F" ~ HEXDIG.rep(exactly = 2) ~ CharIn("0-9A-D"))
+      | ("E" ~ hexdigitAnyCase)
+      | ("F" ~ hexdigitAnyCase.rep(exactly = 2) ~ CharIn("0-9A-D"))
     // %xFFFE_FFFF Non_characters
   )
 
@@ -268,7 +264,7 @@ object Grammar {
       //  1_16
       //  )
       | unbraced_escape // (Plane 0)
-      | HEXDIG.rep(min = 1, max = 3) // %x000_FFF
+      | hexdigitAnyCase.rep(min = 1, max = 3) // %x000_FFF
   )
 
   def braced_escape[$: P] = P(
@@ -338,7 +334,7 @@ object Grammar {
   }
 
   def bytes_literal[$: P]: P[BytesLiteral] = P(
-    "0x\"" ~ HEXDIG.rep(exactly = 2).rep.! ~ "\""
+    "0x\"" ~ hexdigitAnyCase.rep(exactly = 2).rep.! ~ "\""
   ).map(BytesLiteral.of)
 
   val simpleKeywords = Seq(
@@ -486,7 +482,7 @@ object Grammar {
     // Binary with "0b" prefix
     ("0b" ~ BIT.rep(1).!).map(bindigits => BigInt(bindigits, 2))
       // Hexadecimal with "0x" prefix
-      | ("0x" ~ HEXDIG.rep(1).!).map(hexdigits => BigInt(hexdigits, 16))
+      | ("0x" ~ hexdigitAnyCase.rep(1).!).map(hexdigits => BigInt(hexdigits, 16))
       // Decimal; leading 0 digits are not allowed
       | (CharIn("1-9") ~ DIGIT.rep).!.map(digits => BigInt(digits, 10))
       // ... except for 0 itself
@@ -691,7 +687,7 @@ object Grammar {
   )
 
   def IPvFuture[$: P] = P(
-    "v" ~ HEXDIG.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
+    "v" ~ hexdigitAnyCase.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
   )
 
   def IPv6address[$: P] = P(
@@ -720,7 +716,7 @@ object Grammar {
    */
 
   def h16[$: P] = P(
-    HEXDIG.rep(min = 1, max = 4)
+    hexdigitAnyCase.rep(min = 1, max = 4)
   )
 
   def ls32[$: P] = P(
@@ -760,7 +756,7 @@ object Grammar {
   )
 
   def pct_encoded[$: P] = P(
-    "%" ~ HEXDIG ~ HEXDIG
+    "%" ~ hexdigitAnyCase ~ hexdigitAnyCase
   )
 
   def unreserved[$: P] = P(
@@ -841,7 +837,7 @@ object Grammar {
   )
 
   def hash[$: P] = P(
-    "sha256:" ~/ HEXDIG.rep(exactly = 64).! // "sha256:XXX...XXX"
+    "sha256:" ~/ hexdigitAnyCase.rep(exactly = 64).! // "sha256:XXX...XXX"
   )
 
   def import_hashed[$: P]: P[(ImportType[Expression], Option[String])] = P(

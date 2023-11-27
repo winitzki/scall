@@ -61,7 +61,10 @@ object FromDhall {
           def checkType(value: => Any, expectedTag: Tag[_])(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] =
             if (tpe == expectedTag) Lazy(value.asInstanceOf[A]) else AsScalaError(expr, validType, tpe)
 
-//          println(
+          def checkTypeLazy[E](lazyValue: Lazy[E], expectedTag: Tag[_])(implicit tpe: Tag[E]): Either[Seq[AsScalaError], Lazy[A]] =
+            if (tpe == expectedTag) lazyValue.asInstanceOf[Lazy[A]] else AsScalaError(expr, validType, tpe)
+
+          //          println(
 //            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
 //          )
           expr.scheme match {
@@ -120,9 +123,14 @@ object FromDhall {
             case ExpressionScheme.NaturalLiteral(value)                 => checkType(value, Tag[Natural])
             case ExpressionScheme.IntegerLiteral(value)                 => checkType(value, Tag[BigInt])
             case ExpressionScheme.TextLiteral(interpolations, trailing) =>
-              seqSeq(interpolations.map { case (prefix, expr) => asScala[String](expr, variables).map(_.map(prefix + _)) })
-                .map(interpolatedParts => seqSeq(interpolatedParts).map(_.mkString))
-                .flatMap(interpolatedPortion => checkType(interpolatedPortion + trailing, Tag[String]))
+              val computeInterpolated: Either[Seq[AsScalaError], Seq[Lazy[String]]] = seqSeq(interpolations.map { case (prefix, expr) =>
+                asScala[String](expr, variables).map(_.map(prefix + _))
+              })
+
+              val concatenateInterpolated: Either[Seq[AsScalaError], Lazy[String]] =
+                computeInterpolated.map(interpolatedParts => seqSeq(interpolatedParts).map(_.mkString + trailing))
+
+              concatenateInterpolated.flatMap(checkTypeLazy(_, Tag[String]))
 
             case b: ExpressionScheme.BytesLiteral                        => checkType(b.bytes, Tag[Array[Byte]])
             case d: ExpressionScheme.DateLiteral                         => checkType(d.toLocalDate, Tag[LocalDate])
