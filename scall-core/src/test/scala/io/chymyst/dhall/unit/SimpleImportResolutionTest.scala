@@ -42,11 +42,11 @@ class SimpleImportResolutionTest extends FunSuite {
     val import1 = "/tmp/file1.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val import2 = "/tmp/file2.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained = Import.chainWith(import1, import2)
-    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
+    expect(chained.importType == ImportType.ImportPath(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
 
     val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained13 = Import.chainWith(import1, import3)
-    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
+    expect(chained13.canonicalize.importType == ImportType.ImportPath(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
   }
 
   test("no loops in importing") {

@@ -1,9 +1,10 @@
 package io.chymyst.dhall.codec
 
 import io.chymyst.dhall.Applicative.{ApplicativeOps, seqSeq}
-import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
+import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, TextLiteral, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, Operator}
+import io.chymyst.dhall.SyntaxConstants.Builtin.TextShow
+import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator}
 import io.chymyst.dhall.TypecheckResult.Invalid
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.{SyntaxConstants, TypecheckResult}
@@ -21,18 +22,27 @@ object DhallKinds {
 }
 
 object DhallBuiltinFunctions {
+  val Date_show: LocalDate => String                  = _.toString
   val Double_show: Double => String                   = _.toString
-  val Natural_even: Natural => Boolean                = _ % 2 == 0
-  val Natural_odd: Natural => Boolean                 = _ % 2 != 0
-  val Natural_show: Natural => String                 = _.toString(10)
-  val Natural_subtract: Natural => Natural => Natural = x => y => y - x
-  val Natural_toInteger: Natural => BigInt            = identity
-  val Natural_isZero: Natural => Boolean              = _ == 0
   val Integer_clamp: BigInt => Natural                = x => if (x < 0) BigInt(0) else x
   val Integer_negate: BigInt => BigInt                = -_
   val Integer_show: BigInt => String                  = _.toString(10)
   val Integer_toDouble: BigInt => Double              = _.toDouble
+  val Natural_even: Natural => Boolean                = _ % 2 == 0
+  val Natural_isZero: Natural => Boolean              = _ == 0
+  val Natural_odd: Natural => Boolean                 = _ % 2 != 0
+  val Natural_show: Natural => String                 = _.toString(10)
+  val Natural_subtract: Natural => Natural => Natural = x => y => y - x
+  val Natural_toInteger: Natural => BigInt            = identity
+  val Time_show: LocalTime => String                  = _.toString
+  val Text_show: String => String                     = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.toDhall
+  val TimeZone_show: ZoneOffset => String             = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
+
+final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])])
+final case class DhallRecordType(fields: Map[FieldName, Tag[_]])
+final case class DhallUnionType(fields: Map[ConstructorName, Tag[_]])
+final case class DhallUnionValue(value: Any, tpe: DhallUnionType, constructor: ConstructorName)
 
 object FromDhall {
 
@@ -53,10 +63,9 @@ object FromDhall {
 
   def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] = {
 
-    // implicit def toLazy[B](b: B): Lazy[B] = new Lazy(b)
-
     implicit def toSingleError(error: AsScalaError): Left[Seq[AsScalaError], Nothing] = Left(Seq(error))
-    implicit def toRightResult[B](result: Lazy[B]): Right[Nothing, Lazy[B]]           = Right(result)
+
+    implicit def toRightResult[B](result: Lazy[B]): Right[Nothing, Lazy[B]] = Right(result)
 
     // Exception: Dhall's `Sort` cannot be type-checked.
     if (expr.scheme == ExprConstant(SyntaxConstants.Constant.Sort)) {
@@ -66,7 +75,8 @@ object FromDhall {
       expr.inferType match {
         case errors @ TypecheckResult.Invalid(_)     => AsScalaError(expr, errors, tpe)
         case validType @ TypecheckResult.Valid(tipe) =>
-          def checkType(value: => Any, expectedTag: Tag[_])(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] =
+          // Helper functions.
+          def checkType[E](value: => E, expectedTag: Tag[E])(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] =
             if (tpe == expectedTag) Lazy(value.asInstanceOf[A]) else AsScalaError(expr, validType, tpe)
 
           def checkTypeLazy[E](lazyValue: Lazy[E], expectedTag: Tag[_])(implicit tpe: Tag[E]): Either[Seq[AsScalaError], Lazy[A]] =
@@ -75,6 +85,7 @@ object FromDhall {
           //          println(
 //            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
 //          )
+
           expr.scheme match {
             case v @ ExpressionScheme.Variable(_, _)                    =>
               variables.get(v) match {
@@ -144,7 +155,8 @@ object FromDhall {
             case d: ExpressionScheme.DateLiteral         => checkType(d.toLocalDate, Tag[LocalDate])
             case d: ExpressionScheme.TimeLiteral         => checkType(d.toLocalTime, Tag[LocalTime])
             case d: ExpressionScheme.TimeZoneLiteral     => checkType(d.toZoneOffset, Tag[ZoneOffset])
-            case ExpressionScheme.RecordType(defs)       => ???
+            case ExpressionScheme.RecordType(defs)       =>
+              ??? // need to use the inferred record type (tipe) checkType(defs.map { case (k, v) => ()}.toMap, Tag[DhallRecordType])
             case ExpressionScheme.RecordLiteral(defs)    => ???
             case ExpressionScheme.UnionType(defs)        => ???
             case ExpressionScheme.ShowConstructor(data)  => ???
@@ -156,7 +168,7 @@ object FromDhall {
                 case Builtin.Bool             => checkType(Tag[Boolean], Tag[Tag[Boolean]])
                 case Builtin.Bytes            => checkType(Tag[Array[Byte]], Tag[Tag[Array[Byte]]])
                 case Builtin.Date             => checkType(Tag[LocalDate], Tag[Tag[LocalDate]])
-                case Builtin.DateShow         => ???
+                case Builtin.DateShow         => checkType(Date_show, Tag[LocalDate => String])
                 case Builtin.Double           => checkType(Tag[Double], Tag[Tag[Double]])
                 case Builtin.DoubleShow       => checkType(Double_show, Tag[Double => String])
                 case Builtin.Integer          => checkType(Tag[BigInt], Tag[Tag[BigInt]])
@@ -185,11 +197,11 @@ object FromDhall {
                 case Builtin.Optional         => checkType(TagK[Option], Tag[TagK[Option]])
                 case Builtin.Text             => checkType(Tag[String], Tag[Tag[String]])
                 case Builtin.TextReplace      => ???
-                case Builtin.TextShow         => ???
+                case Builtin.TextShow         => checkType(Text_show, Tag[String => String])
                 case Builtin.Time             => checkType(Tag[LocalTime], Tag[Tag[LocalTime]])
-                case Builtin.TimeShow         => ???
+                case Builtin.TimeShow         => checkType(Time_show, Tag[LocalTime => String])
                 case Builtin.TimeZone         => checkType(Tag[ZoneOffset], Tag[Tag[ZoneOffset]])
-                case Builtin.TimeZoneShow     => ???
+                case Builtin.TimeZoneShow     => checkType(TimeZone_show, Tag[ZoneOffset => String])
               }
             case ExpressionScheme.ExprConstant(constant) =>
               constant match {

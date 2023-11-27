@@ -118,28 +118,28 @@ object TestFixtures {
 
   val importExpressions: Seq[(String, Expression)] = Seq(
     s"./a.dhall sha256:$sha256example"                                             -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./a.dhall sha256:$sha256lc"                                                  -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256lc.toUpperCase)),
     ),
-    "./local/import as Location"                                                   -> Import[Expression](ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))), ImportMode.Location, None),
+    "./local/import as Location"                                                   -> Import[Expression](ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))), ImportMode.Location, None),
     s"./local/import sha256:$sha256example"                                        -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import.dhall sha256:$sha256example as Text"                          -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import.dhall"))),
       ImportMode.RawText,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import sha256:$sha256example as Bytes"                               -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.RawBytes,
       Some(BytesLiteral(sha256example)),
     ),

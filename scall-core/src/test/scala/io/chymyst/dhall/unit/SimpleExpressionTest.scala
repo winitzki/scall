@@ -4,11 +4,11 @@ import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.Syntax.ExpressionScheme.{Import, _}
+import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
-import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
+import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, ImportPath}
 import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
@@ -310,13 +310,13 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("application to an import") {
-    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(Path(Here, FilePath(List("file"))), Code, None)))
+    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(ImportPath(Here, FilePath(List("file"))), Code, None)))
     check(Grammar.application_expression(_), "List ./file", expected)
   }
 
   test("import with a long file path") { // TODO report issue: parser tests should exercise various characters that are allowed or disallowed in import paths
     val input = "./path0/path1/path2/file"
-    check(Grammar.import_expression(_), input, Expression(Import(Path(Here, FilePath(List("path0", "path1", "path2", "file"))), Code, None)))
+    check(Grammar.import_expression(_), input, Expression(Import(ImportPath(Here, FilePath(List("path0", "path1", "path2", "file"))), Code, None)))
   }
 
   test("do notation") {

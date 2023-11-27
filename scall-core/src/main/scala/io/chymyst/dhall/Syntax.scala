@@ -188,7 +188,7 @@ object SyntaxConstants {
       override def hasUserHeaders: Boolean = headers.nonEmpty
     }
 
-    final case class Path(filePrefix: FilePrefix, file: FilePath) extends ImportType[Nothing] {
+    final case class ImportPath(filePrefix: FilePrefix, file: FilePath) extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = -1 // This can import anything else.
 
       override def toString: String = filePrefix.prefix + file.toString
@@ -689,13 +689,13 @@ object Syntax {
       override def precedence: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
 
       def canonicalize: Import[E] = importType match {
-        case i @ ImportType.Remote(_, _) =>
+        case i @ ImportType.Remote(_, _)     =>
           val canonicalPath = i.url.path.canonicalize
           copy(importType = i.copy(url = i.url.copy(path = canonicalPath)))
-        case i @ ImportType.Path(_, _)   =>
+        case i @ ImportType.ImportPath(_, _) =>
           val canonicalPath = i.file.canonicalize
           copy(importType = i.copy(file = canonicalPath))
-        case _                           => this
+        case _                               => this
       }
     }
 
@@ -705,7 +705,7 @@ object Syntax {
 
       implicit def ofJavaPath(path: java.nio.file.Path): Import[Nothing] = {
         val prefix = if (path.isAbsolute) FilePrefix.Absolute else FilePrefix.Here
-        Import(ImportType.Path(prefix, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))), ImportMode.Code, digest = None)
+        Import(ImportType.ImportPath(prefix, SyntaxConstants.FilePath(path.iterator.asScala.toSeq.map(_.toString))), ImportMode.Code, digest = None)
       }
 
       implicit def ofJavaFile(file: java.io.File): Import[Nothing] = ofJavaPath(file.toPath)
@@ -844,14 +844,14 @@ object Syntax {
             case ImportMode.Location => " as Location"
           }
           val importTypeString = importType match {
-            case ImportType.Missing                    => "missing"
-            case ImportType.Remote(url, headers)       =>
+            case ImportType.Missing              => "missing"
+            case ImportType.Remote(url, headers) =>
               url.toString + (headers match {
                 case Some(value) => " using " + value.atPrecedence(p)
                 case None        => ""
               })
-            case p @ ImportType.Path(filePrefix, file) => p.toString
-            case ImportType.Env(envVarName)            => "env:" + envVarName
+            case p @ ImportType.ImportPath(_, _) => p.toString
+            case ImportType.Env(envVarName)      => "env:" + envVarName
           }
           importTypeString + digestString + importModeString
         case KeywordSome(data)                      => s"Some ${data.atPrecedence(p)}"

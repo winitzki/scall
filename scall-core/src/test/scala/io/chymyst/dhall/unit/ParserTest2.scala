@@ -18,9 +18,9 @@ class ParserTest2 extends FunSuite {
     import io.chymyst.dhall.Grammar
     import io.chymyst.dhall.SyntaxConstants.FilePath
     import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
-    import io.chymyst.dhall.SyntaxConstants.ImportType.Path
+    import io.chymyst.dhall.SyntaxConstants.ImportType.ImportPath
 
-    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (Path(Here, FilePath(List("local", "import"))), Some(sha256example)), 86)
+    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (ImportPath(Here, FilePath(List("local", "import"))), Some(sha256example)), 86)
   }
 
   test("import_expression") {

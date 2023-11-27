@@ -10,7 +10,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.Location
-import io.chymyst.dhall.SyntaxConstants.ImportType.{Path, Remote}
+import io.chymyst.dhall.SyntaxConstants.ImportType.{ImportPath, Remote}
 import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
 
@@ -22,13 +22,13 @@ import scala.util.{Failure, Success, Try}
 object ImportResolution {
 
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
-    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
+    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), ImportPath(Here, path2))              =>
       Remote(ImportURL(scheme1, authority1, path1 chain path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                           => Path(filePrefix, path1 chain path2)
-    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Parent, path2)) =>
+    case (ImportPath(filePrefix, path1), ImportPath(FilePrefix.Here, path2))                                     => ImportPath(filePrefix, path1 chain path2)
+    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), ImportPath(FilePrefix.Parent, path2)) =>
       Remote(ImportURL(scheme1, authority1, path1 chainToParent path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                         => Path(filePrefix, path1 chainToParent path2)
-    case _                                                                                                 => child
+    case (ImportPath(filePrefix, path1), ImportPath(FilePrefix.Parent, path2))                                   => ImportPath(filePrefix, path1 chainToParent path2)
+    case _                                                                                                       => child
   }
 
   val corsHeader = "Access-Control-Allow-Origin".toLowerCase
@@ -314,7 +314,7 @@ object ImportResolution {
               val (field: FieldName, arg: Option[String]) = canonical.importType match {
                 case ImportType.Missing         => (FieldName("Missing"), None)
                 case Remote(url, _)             => (FieldName("Remote"), Some(url.toString))
-                case p @ Path(_, _)             => (FieldName("Local"), Some(p.toString))
+                case p @ ImportPath(_, _)       => (FieldName("Local"), Some(p.toString))
                 case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
               } // TODO report issue: imports.md incorrectly specifies the field name as `.Location` whereas it must be `.Local`
               val withField: Expression                   = Field(typeOfImportAsLocation, field)
@@ -387,7 +387,7 @@ object ImportResolution {
                 }
               }
 
-            case path @ Path(_, _) =>
+            case path @ ImportPath(_, _) =>
               (for {
                 javaPath <- Try(path.toJavaPath)
                 _        <- if (javaPath.toFile.exists) Success(()) else Failure(new Exception(messageForNonexistingImportFile(javaPath)))
