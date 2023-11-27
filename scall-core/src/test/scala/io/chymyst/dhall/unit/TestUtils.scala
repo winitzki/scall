@@ -92,9 +92,11 @@ object TestUtils {
   }
 
   def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
-    val failures  = results.count(_.isFailure)
-    val successes = results.count(_.isSuccess)
-    println(s"Success count: $successes\nFailure count: $failures")
+    val failures          = results.count(_.isFailure)
+    val successes         = results.count(_.isSuccess)
+    val unexpectedSuccess = math.max(0, successes - (totalTests - allowFailures))
+    println(s"Success count: $successes, failure count: $failures${if (unexpectedSuccess > 0) s"but the success count is $unexpectedSuccess more than expected."
+      else "."}")
     expect(failures <= allowFailures && successes >= totalTests - allowFailures)
   }
 

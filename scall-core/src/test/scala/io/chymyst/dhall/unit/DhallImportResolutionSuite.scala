@@ -48,77 +48,67 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
   }
 
   test("import resolution success") {
-    val parentPath         = resourceAsFile("dhall-lang").get.toPath.getParent
-    val currentDirForTests = parentPath.toFile.getAbsoluteFile
-    val oldUserDir         = System.getProperty("user.dir")
-    try {
-      System.setProperty("user.dir", currentDirForTests.getAbsolutePath)
-      setupEnvironment {
-        val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall")).map { file =>
-          val relativePathForTest                 = parentPath.relativize(file.toPath)
-          val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
-          val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
-          val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
-          // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
-          runInFakeEnvironmentWith(extraEnvVars: _*) {
-            val result = Try {
-              val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-              val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-              val x                                                 = ourResult.resolveImports(
-                relativePathForTest
-              ) // Here we must avoid beta-normalizing entire expressions. Only the import contents must be normalized.
-              val y = validationResult.resolveImports(relativePathForTest)
+    val parentPath = resourceAsFile("dhall-lang").get.toPath.getParent
+    setupEnvironment {
+      val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/success", Some("A.dhall")).map { file =>
+        val relativePathForTest                 = parentPath.relativize(file.toPath)
+        val envVarsFile                         = new File(file.getAbsolutePath.replace("A.dhall", "ENV.dhall"))
+        val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
+        val validationFile                      = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
+        // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
+        runInFakeEnvironmentWith(extraEnvVars: _*) {
+          val result = Try {
+            val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+            val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+            val x                                                 = ourResult.resolveImports(
+              relativePathForTest
+            ) // Here we must avoid beta-normalizing entire expressions. Only the import contents must be normalized.
+            val y = validationResult.resolveImports(relativePathForTest)
 
-              if (x.toDhall != y.toDhall)
-                println(
-                  s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n"
-                )
-              else if (x != y)
-                println(
-                  s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
-                )
+            if (x.toDhall != y.toDhall)
+              println(
+                s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n"
+              )
+            else if (x != y)
+              println(
+                s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
+              )
 
-              expect(x.toDhall == y.toDhall && x == y)
-              file.getName
-            }
-            if (result.isFailure)
-              println(s"${file.getName}: ${result.failed.get}\n${printThrowable(result.failed.get)}")
-            result
+            expect(x.toDhall == y.toDhall && x == y)
+            file.getName
           }
+          if (result.isFailure)
+            println(s"${file.getName}: ${result.failed.get}\n${printThrowable(result.failed.get)}")
+          result
         }
-        TestUtils.requireSuccessAtLeast(72, results, 0)
       }
-    } finally System.setProperty("user.dir", oldUserDir)
+      TestUtils.requireSuccessAtLeast(72, results)
+    }
   }
 
   test("import resolution failure") {
     setupEnvironment {
-      val parentPath         = resourceAsFile("dhall-lang").get.toPath.getParent
-      val currentDirForTests = parentPath.toFile.getAbsoluteFile
-      val oldUserDir         = System.getProperty("user.dir")
-      try {
-        System.setProperty("user.dir", currentDirForTests.getAbsolutePath)
-        val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/failure", Some(".dhall"))
-          .filterNot(_.getAbsolutePath endsWith "ENV.dhall") // Otherwise we cannot distinguish between test files and their ENV files.
-          .map { file =>
-            val relativePathForTest                 = parentPath.relativize(file.toPath)
-            val envVarsFile                         = new File(file.getAbsolutePath.replace(".dhall", "ENV.dhall"))
-            val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
-            // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
-            runInFakeEnvironmentWith(extraEnvVars: _*) {
-              val result = Try {
-                val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-                val x                                          = Try(ourResult.resolveImports(relativePathForTest))
-                expect(x.isFailure)
-                file.getName
-              }
-              if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
-              result
+      val parentPath                = resourceAsFile("dhall-lang").get.toPath.getParent
+      val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/import/failure", Some(".dhall"))
+        .filterNot(_.getAbsolutePath endsWith "ENV.dhall") // Otherwise we cannot distinguish between test files and their ENV files.
+        .map { file =>
+          val relativePathForTest                 = parentPath.relativize(file.toPath)
+          val envVarsFile                         = new File(file.getAbsolutePath.replace(".dhall", "ENV.dhall"))
+          val extraEnvVars: Seq[(String, String)] = DhallImportResolutionSuite.readHeadersFromEnv(envVarsFile)
+          // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
+          runInFakeEnvironmentWith(extraEnvVars: _*) {
+            val result = Try {
+              val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+              val x                                          = Try(ourResult.resolveImports(relativePathForTest))
+              expect(x.isFailure)
+              file.getName
             }
+            if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+            result
           }
+        }
 
-        TestUtils.requireSuccessAtLeast(24, results, 0)
-      } finally System.setProperty("user.dir", oldUserDir)
+      TestUtils.requireSuccessAtLeast(24, results)
     }
   }
 

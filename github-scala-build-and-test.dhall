@@ -1,8 +1,9 @@
 let GithubActions =
       https://regadas.dev/github-actions-dhall/package.dhall
         sha256:71df44892a17abca817cfb35e2612d117f7fceec55114a6eb76b65a7eea4e6f4
---  java versions 8.0.382, 11.0.21 and scala version 3.3.1 are to be added here
-let matrix = toMap { java = [ "17.0.9" ], scala = [ "2.13.11" ] }
+
+let matrix =
+      toMap { java = [ "8.0.382", "11.0.21", "17.0.9" ], scala = [ "2.13.11" ] }
 
 let setup =
       [     GithubActions.steps.actions/checkout
