@@ -178,9 +178,11 @@ object ImportResolution {
       s"Imported file at relative path $javaPath does not exist, absolute path ${javaPath.toAbsolutePath}, current directory is ${Paths.get(".").toAbsolutePath}"
 
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
-  /** Perform one step of import resolution. This function may call itself on sub-expressions. See
-    * https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order
-    * to track changes in the resolution context.
+  /** Perform one step of import resolution. This function may call itself on sub-expressions.
+    *
+    * See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
+    *
+    * We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
     *
     * Example:
     *

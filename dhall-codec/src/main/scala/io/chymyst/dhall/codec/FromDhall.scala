@@ -74,21 +74,22 @@ object FromDhall {
             case ExpressionScheme.EmptyList(tipe)                        => checkType(Seq(), Tag[Seq[_]]) // TODO check if this works
             case ExpressionScheme.NonEmptyList(exprs)                    => ???
             case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data, variables)
-            case ExpressionScheme.ExprOperator(lop, op, rop)             => op match {
-              case Operator.Or => ???
-              case Operator.Plus => ???
-              case Operator.TextAppend => ???
-              case Operator.ListAppend => ???
-              case Operator.And => ???
-              case Operator.CombineRecordTerms => ???
-              case Operator.Prefer => ???
-              case Operator.CombineRecordTypes => ???
-              case Operator.Times => ???
-              case Operator.Equal => ???
-              case Operator.NotEqual => ???
-              case Operator.Equivalent => ???
-              case Operator.Alternative => ???
-            }
+            case ExpressionScheme.ExprOperator(lop, op, rop)             =>
+              op match {
+                case Operator.Or                 => ???
+                case Operator.Plus               => ???
+                case Operator.TextAppend         => ???
+                case Operator.ListAppend         => ???
+                case Operator.And                => ???
+                case Operator.CombineRecordTerms => ???
+                case Operator.Prefer             => ???
+                case Operator.CombineRecordTypes => ???
+                case Operator.Times              => ???
+                case Operator.Equal              => ???
+                case Operator.NotEqual           => ???
+                case Operator.Equivalent         => ???
+                case Operator.Alternative        => ???
+              }
             case ExpressionScheme.Application(func, arg)                 => ???
             case ExpressionScheme.Field(base, name)                      => ???
             case ExpressionScheme.ProjectByLabels(base, labels)          => ???
