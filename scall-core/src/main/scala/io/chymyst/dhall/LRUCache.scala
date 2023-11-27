@@ -22,6 +22,8 @@ object AllCaches {
       ObservedCache.createCache[(KnownVars, ExpressionScheme[Expression]), TypecheckResult[Expression]](Option(gammaCacheSize).filter(_ >= 0)),
     ),
   )
+
+  def default = apply(2000000, 2000000, 1000000)
 }
 
 final case class LRUCache[K, V](maxSize: Int) extends mutable.Map[K, V] {

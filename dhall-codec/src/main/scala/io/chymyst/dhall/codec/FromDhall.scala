@@ -1,8 +1,10 @@
 package io.chymyst.dhall.codec
 
+import io.chymyst.dhall.Applicative.ApplicativeOps
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, Operator}
+import io.chymyst.dhall.TypecheckResult.Invalid
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.{SyntaxConstants, TypecheckResult}
 import izumi.reflect.{Tag, TagK}
@@ -27,34 +29,37 @@ object DhallBuiltinFunctions {
 object FromDhall {
 
   implicit class DhallExpressionAsScala(val x: Expression) extends AnyVal {
-    def asScala[A](implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = FromDhall.asScala[A](x)
+    def asScala[A](implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] = FromDhall.asScala[A](x)
   }
 
-  final case class AsScalaError(expr: Expression, inferredType: TypecheckResult[Expression], typeTag: Tag[_]) {
+  final case class AsScalaError(expr: Expression, inferredType: TypecheckResult[Expression], typeTag: Tag[_], message: Option[String] = None) {
     private lazy val typecheckingMessage = inferredType match {
       case TypecheckResult.Valid(tipe: Expression) => s"inferred type ${tipe.toDhall}"
       case TypecheckResult.Invalid(errors)         => s"type errors: $errors"
     }
 
     override def toString: String =
-      s"Expression ${expr.toDhall} having $typecheckingMessage cannot be converted to the given Scala type $typeTag (${typeTag.tag.longNameWithPrefix})"
-
+      s"Expression ${expr.toDhall} having $typecheckingMessage cannot be converted to the given Scala type $typeTag (${typeTag.tag.longNameWithPrefix})${message
+          .map(": " + _).getOrElse("")}"
   }
 
-  def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] = {
+  def asScala[A](expr: Expression, variables: Map[Variable, Expression] = Map())(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] = {
 
-    implicit def toLazy[A](a: A): Lazy[A] = new Lazy(a)
+    // implicit def toLazy[B](b: B): Lazy[B] = new Lazy(b)
+
+    implicit def toSingleError(error: AsScalaError): Left[Seq[AsScalaError], Nothing] = Left(Seq(error))
+    implicit def toRightResult[B](result: Lazy[B]): Right[Nothing, Lazy[B]]           = Right(result)
 
     // Exception: Dhall's `Sort` cannot be type-checked.
     if (expr.scheme == ExprConstant(SyntaxConstants.Constant.Sort)) {
-      if (tpe == Tag[DhallKinds]) Right(DhallKinds.Sort.asInstanceOf[A])
-      else Left(AsScalaError(expr, TypecheckResult.Invalid(Seq("Expression(ExprConstant(Sort)) is not well-typed because it is the top universe")), tpe))
+      if (tpe == Tag[DhallKinds]) Lazy.strict(DhallKinds.Sort.asInstanceOf[A])
+      else AsScalaError(expr, Invalid(Seq("Expression(ExprConstant(Sort)) is not well-typed because it is the top universe")), tpe)
     } else {
       expr.inferType match {
-        case errors @ TypecheckResult.Invalid(_)     => Left(AsScalaError(expr, errors, tpe))
+        case errors @ TypecheckResult.Invalid(_)     => AsScalaError(expr, errors, tpe)
         case validType @ TypecheckResult.Valid(tipe) =>
-          def checkType(value: => Any, expectedTag: Tag[_])(implicit tpe: Tag[A]): Either[AsScalaError, Lazy[A]] =
-            if (tpe == expectedTag) Right(value.asInstanceOf[A]) else Left(AsScalaError(expr, validType, tpe))
+          def checkType(value: => Any, expectedTag: Tag[_])(implicit tpe: Tag[A]): Either[Seq[AsScalaError], Lazy[A]] =
+            if (tpe == expectedTag) Lazy(value.asInstanceOf[A]) else AsScalaError(expr, validType, tpe)
 
 //          println(
 //            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
@@ -63,7 +68,7 @@ object FromDhall {
             case v @ ExpressionScheme.Variable(_, _)                     =>
               variables.get(v) match {
                 case Some(knownVariableAssignment) => asScala[A](knownVariableAssignment, variables) // TODO: is this correct?
-                case None                          => throw new Exception(s"Error: undefined variable $v while known variables are $variables")
+                case None                          => AsScalaError(expr, validType, tpe, Some(s"Error: undefined variable $v while known variables are $variables"))
               }
             case ExpressionScheme.Lambda(name, tipe, body)               => ???
             case ExpressionScheme.Forall(name, tipe, body)               => ???
@@ -75,20 +80,28 @@ object FromDhall {
             case ExpressionScheme.NonEmptyList(exprs)                    => ???
             case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data, variables)
             case ExpressionScheme.ExprOperator(lop, op, rop)             =>
+              def useOp[P: Tag, Q: Tag](operator: (P, Q) => _): Either[Seq[AsScalaError], Lazy[A]] = {
+                val evalLop = asScala[P](lop, variables)
+                val evalRop = asScala[Q](rop, variables)
+
+                val opUncurried: ((P, Q)) => A = { case (a, b) => operator(a, b).asInstanceOf[A] }
+                evalLop.zip(evalRop).map { a => a._1 zip a._2 map opUncurried }
+              }
+
               op match {
-                case Operator.Or                 => ???
-                case Operator.Plus               => ???
-                case Operator.TextAppend         => ???
-                case Operator.ListAppend         => ???
-                case Operator.And                => ???
+                case Operator.Or                 => useOp[Boolean, Boolean](_ || _)
+                case Operator.Plus               => useOp[Natural, Natural](_ + _)
+                case Operator.TextAppend         => useOp[String, String](_ ++ _)
+                case Operator.ListAppend         => useOp[List[_], List[_]](_ ++ _)
+                case Operator.And                => useOp[Boolean, Boolean](_ && _)
                 case Operator.CombineRecordTerms => ???
                 case Operator.Prefer             => ???
                 case Operator.CombineRecordTypes => ???
-                case Operator.Times              => ???
-                case Operator.Equal              => ???
-                case Operator.NotEqual           => ???
+                case Operator.Times              => useOp[Natural, Natural](_ * _)
+                case Operator.Equal              => useOp[Boolean, Boolean](_ == _)
+                case Operator.NotEqual           => useOp[Boolean, Boolean](_ != _)
                 case Operator.Equivalent         => ???
-                case Operator.Alternative        => ???
+                case Operator.Alternative        => AsScalaError(expr, validType, tpe, Some("Cannot convert to Scala unless all import alternatives are resolved"))
               }
             case ExpressionScheme.Application(func, arg)                 => ???
             case ExpressionScheme.Field(base, name)                      => ???
@@ -114,7 +127,12 @@ object FromDhall {
             case ExpressionScheme.UnionType(defs)                        => ???
             case ExpressionScheme.ShowConstructor(data)                  => ???
             case ExpressionScheme.Import(importType, importMode, digest) =>
-              Left(AsScalaError(expr, validType, tpe)) // Imports must be resolved before converting to Scala values.
+              AsScalaError(
+                expr,
+                validType,
+                tpe,
+                Some("Cannot convert to Scala unless imports are resolved"),
+              ) // Imports must be resolved before converting to Scala values.
             case ExpressionScheme.KeywordSome(data)                      => ???                           // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
             case ExpressionScheme.ExprBuiltin(builtin)                   =>
               builtin match {
