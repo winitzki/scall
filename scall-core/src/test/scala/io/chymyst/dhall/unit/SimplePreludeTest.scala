@@ -8,12 +8,11 @@ import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.unit.TestUtils.readToString
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.test.{ResourceFiles, TestTimings, Throwables}
-import munit.FunSuite
 
 import java.io.FileInputStream
 import scala.util.Try
 
-class SimplePreludeTest extends FunSuite with TestTimings {
+class SimplePreludeTest extends DhallTest with TestTimings {
 
   test("read List/partition.dhall and beta-normalize it alone") {
     val expr = readToString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall

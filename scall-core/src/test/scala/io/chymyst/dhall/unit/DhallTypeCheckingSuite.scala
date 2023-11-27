@@ -2,18 +2,16 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
 import io.chymyst.dhall.TypecheckResult.Valid
-import io.chymyst.test.Throwables
-import munit.FunSuite
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 
 import java.io.{File, FileInputStream}
 import scala.collection.immutable.Seq
 import scala.util.Try
 
-class DhallTypeCheckingSuite extends FunSuite {
+class DhallTypeCheckingSuite extends DhallTest {
 
   test("type inference success") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/type-inference/success", Some("A.dhall")).map { file =>

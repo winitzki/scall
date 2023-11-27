@@ -2,10 +2,11 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse._
-import io.chymyst.test.Throwables.printThrowable
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
 import io.chymyst.dhall.{Semantics, SyntaxConstants, TypeCheck}
+import io.chymyst.test.Throwables.printThrowable
+import munit.FunSuite
 
 import java.nio.file.{Files, Path}
 import scala.util.Try
@@ -106,3 +107,5 @@ object TestUtils {
   }
 
 }
+
+trait DhallTest extends FunSuite

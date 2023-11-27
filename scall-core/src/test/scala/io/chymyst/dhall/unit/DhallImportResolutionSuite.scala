@@ -3,12 +3,9 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.dhall.Parser
-import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
-import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Syntax.DhallFile
-import io.chymyst.dhall.Syntax.ExpressionScheme.NonEmptyList
-import munit.FunSuite
+import io.chymyst.test.Throwables.printThrowable
+import io.chymyst.test.{OverrideEnvironment, ResourceFiles}
 import os.root
 
 import java.io.{File, FileInputStream}
@@ -30,7 +27,7 @@ object DhallImportResolutionSuite {
   } else Seq()
 }
 
-class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with ResourceFiles {
+class DhallImportResolutionSuite extends DhallTest with OverrideEnvironment with ResourceFiles {
 
   def setupEnvironment[R](code: => R): R = {
     val tempDir     = os.temp.dir(root / "tmp", deleteOnExit = true)

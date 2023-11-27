@@ -3,22 +3,21 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
-import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
-import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, ImportPath}
+import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, ImportPath, Missing}
 import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
 import io.chymyst.dhall._
+import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
 import io.chymyst.test.Throwables.printThrowable
-import munit.FunSuite
 
 import scala.util.Try
 
-class SimpleExpressionTest extends FunSuite {
+class SimpleExpressionTest extends DhallTest {
 
   test("simple invalid expression: 1+1") {
     toFail(Grammar.complete_dhall_file(_), "1+1", "", "", 1)

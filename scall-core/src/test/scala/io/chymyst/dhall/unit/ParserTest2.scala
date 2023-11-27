@@ -1,12 +1,10 @@
 package io.chymyst.dhall.unit
 
 import io.chymyst.dhall.Grammar
-import io.chymyst.dhall.Grammar
 import io.chymyst.dhall.unit.TestFixtures._
 import io.chymyst.dhall.unit.TestUtils._
-import munit.FunSuite
 
-class ParserTest2 extends FunSuite {
+class ParserTest2 extends DhallTest {
 
   test("import_only") {
     importExpressions.foreach { case (s, d) =>

@@ -3,16 +3,14 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
 import io.chymyst.dhall.Parser
+import io.chymyst.dhall.Syntax.DhallFile
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.test.Throwables.printThrowable
-import io.chymyst.dhall.Parser
-import io.chymyst.dhall.Syntax.DhallFile
-import munit.FunSuite
 
 import java.io.{File, FileInputStream}
 import scala.util.Try
 
-class DhallSemanticsSuite extends FunSuite {
+class DhallSemanticsSuite extends DhallTest {
 
   test("alpha normalization success") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/alpha-normalization/success", Some("A.dhall")).map { file =>

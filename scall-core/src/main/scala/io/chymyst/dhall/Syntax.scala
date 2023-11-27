@@ -370,19 +370,19 @@ object Syntax {
     }
 
     object TermPrecedence {
-      def ofOperator(op: Operator): Int = offsetForOperators + op.cborCode * 2
+      def ofOperator(op: Operator): Int = offsetForOperators - op.cborCode * 2
 
-      val offsetForOperators = 30
+      val offsetForOperators = 60
       val low                = 100
       val lowest             = 1000
     }
 
     trait VarPrecedence extends TermPrecedence {
-      override def precedence: Int = TermPrecedence.offsetForOperators / 3
+      override def precedence: Int = 10
     }
 
     trait HighPrecedence extends TermPrecedence {
-      override def precedence: Int = TermPrecedence.offsetForOperators / 2
+      override def precedence: Int = 15
     }
 
     trait LowerPrecedence extends TermPrecedence {
@@ -410,7 +410,7 @@ object Syntax {
     final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E]                          {
       override def precedence: Int = TermPrecedence.ofOperator(op)
     }
-    final case class Application[E](func: E, arg: E)                               extends ExpressionScheme[E]
+    final case class Application[E](func: E, arg: E)                               extends ExpressionScheme[E] with HighPrecedence
     final case class Field[E](base: E, name: FieldName)                            extends ExpressionScheme[E] with HighPrecedence
     // Note: `labels` may be an empty list.
     final case class ProjectByLabels[E](base: E, labels: Seq[FieldName])           extends ExpressionScheme[E]                          {
@@ -419,7 +419,7 @@ object Syntax {
     final case class ProjectByType[E](base: E, by: E)                              extends ExpressionScheme[E]
     // An Expression of the form `T::r` is syntactic sugar for `(T.default // r) : T.Type`.
     final case class Completion[E](base: E, target: E)                             extends ExpressionScheme[E]                          {
-      override def precedence: Int = TermPrecedence.offsetForOperators + 13
+      override def precedence: Int = TermPrecedence.offsetForOperators - 13 * 2
     }
     final case class Assert[E](assertion: E)                                       extends ExpressionScheme[E]
     final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E]                          {
@@ -787,8 +787,8 @@ object Syntax {
       val p = scheme.precedence
       scheme match {
         case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
-        case Lambda(name, tipe, body)               => s"λ(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Forall(name, tipe, body)               => s"∀(${name.escape}: ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
+        case Lambda(name, tipe, body)               => s"λ(${name.escape} : ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
+        case Forall(name, tipe, body)               => s"∀(${name.escape} : ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
         case Let(name, tipe, subst, body)           =>
           s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(p - 1)}\nin ${body.atPrecedence(p)}"
         case If(cond, ifTrue, ifFalse)              => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
@@ -802,9 +802,9 @@ object Syntax {
             case Some(value) => ": " + value.atPrecedence(p)
             case None        => ""
           })
-        case EmptyList(tipe)                        => s"[]: ${tipe.atPrecedence(p)}"
+        case EmptyList(tipe)                        => s"[] : ${tipe.atPrecedence(p)}"
         case NonEmptyList(exprs)                    => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
-        case Annotation(data, tipe)                 => s"${data.atPrecedence(p)}: ${tipe.atPrecedence(p - 1)}"
+        case Annotation(data, tipe)                 => s"${data.atPrecedence(p)} : ${tipe.atPrecedence(p - 1)}"
         case ExprOperator(lop, op, rop)             => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
         case Application(func, arg)                 => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
         case Field(base, name)                      => base.atPrecedence(p) + "." + name.name

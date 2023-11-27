@@ -1,23 +1,19 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.upokecenter.cbor.CBORObject
 import fastparse.Parsed
-import io.chymyst.test.{ResourceFiles, Throwables}
-import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
-import io.chymyst.dhall.{CBOR, CBORmodel, Grammar, Parser}
-import munit.FunSuite
+import io.chymyst.dhall.{CBORmodel, Parser}
+import io.chymyst.test.ResourceFiles
 
 import java.io.FileInputStream
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Try}
 
-class MiscBugsTest extends FunSuite with ResourceFiles {
+class MiscBugsTest extends DhallTest with ResourceFiles {
 
   test("time literals with nanos") {
     val results: Seq[Try[_]] = ("12:30:00.1111111" +: TestFixtures.timeLiterals).flatMap { t =>
