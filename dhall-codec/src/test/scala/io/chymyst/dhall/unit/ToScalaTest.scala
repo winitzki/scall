@@ -62,6 +62,8 @@ class ToScalaTest extends FunSuite {
     expect("Natural/even".dhall.asScala[Natural => Boolean].map(_.value) == Right(Natural_even))
     expect("Natural/odd".dhall.asScala[Natural => Boolean].map(_.value) == Right(Natural_odd))
     expect(Natural_odd(2) == false && Natural_even(2) == true)
+    expect("Natural/show".dhall.asScala[Natural => String].map(_.value) == Right(Natural_show))
+    expect("Natural/show 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[String].map(_.value) == Right("2"))
   }
 
   test("convert generic functions to Scala generic functions") {

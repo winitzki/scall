@@ -76,7 +76,7 @@ sealed trait CBORmodel {
         case CIntTag(3) :: CInt(code) :: left :: right :: Nil if code.isValidByte && code >= 0 && code < 13 => // ExpressionScheme.Operator
           ExpressionScheme.ExprOperator(left.toScheme, SyntaxConstants.Operator.cborCodeDict(code.toInt), right.toScheme)
 
-        case CIntTag(3) :: CInt(code) :: left :: right :: Nil if code.isValidInt && code.intValue == 13 => // ExpressionScheme.Operator
+        case CIntTag(3) :: CInt(code) :: left :: right :: Nil if code.isValidInt && code.intValue == 13 => // ExpressionScheme.Completion - this is not an operator.
           ExpressionScheme.Completion(left.toScheme, right.toScheme)
 
         case CIntTag(28) :: tipe :: Nil => ExpressionScheme.EmptyList(tipe.toScheme)
