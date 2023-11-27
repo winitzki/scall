@@ -21,9 +21,17 @@ object DhallKinds {
 }
 
 object DhallBuiltinFunctions {
-  val Natural_even: Natural => Boolean = _ % 2 == 0
-  val Natural_odd: Natural => Boolean  = _ % 2 != 0
-  val Natural_show: Natural => String  = _.toString(10)
+  val Double_show: Double => String                   = _.toString
+  val Natural_even: Natural => Boolean                = _ % 2 == 0
+  val Natural_odd: Natural => Boolean                 = _ % 2 != 0
+  val Natural_show: Natural => String                 = _.toString(10)
+  val Natural_subtract: Natural => Natural => Natural = x => y => y - x
+  val Natural_toInteger: Natural => BigInt            = identity
+  val Natural_isZero: Natural => Boolean              = _ == 0
+  val Integer_clamp: BigInt => Natural                = x => if (x < 0) BigInt(0) else x
+  val Integer_negate: BigInt => BigInt                = -_
+  val Integer_show: BigInt => String                  = _.toString(10)
+  val Integer_toDouble: BigInt => Double              = _.toDouble
 }
 
 object FromDhall {
@@ -132,30 +140,30 @@ object FromDhall {
 
               concatenateInterpolated.flatMap(checkTypeLazy(_, Tag[String]))
 
-            case b: ExpressionScheme.BytesLiteral                        => checkType(b.bytes, Tag[Array[Byte]])
-            case d: ExpressionScheme.DateLiteral                         => checkType(d.toLocalDate, Tag[LocalDate])
-            case d: ExpressionScheme.TimeLiteral                         => checkType(d.toLocalTime, Tag[LocalTime])
-            case d: ExpressionScheme.TimeZoneLiteral                     => checkType(d.toZoneOffset, Tag[ZoneOffset])
-            case ExpressionScheme.RecordType(defs)                       => ???
-            case ExpressionScheme.RecordLiteral(defs)                    => ???
-            case ExpressionScheme.UnionType(defs)                        => ???
-            case ExpressionScheme.ShowConstructor(data)                  => ???
-            case ExpressionScheme.Import(importType, importMode, digest) =>
+            case b: ExpressionScheme.BytesLiteral        => checkType(b.bytes, Tag[Array[Byte]])
+            case d: ExpressionScheme.DateLiteral         => checkType(d.toLocalDate, Tag[LocalDate])
+            case d: ExpressionScheme.TimeLiteral         => checkType(d.toLocalTime, Tag[LocalTime])
+            case d: ExpressionScheme.TimeZoneLiteral     => checkType(d.toZoneOffset, Tag[ZoneOffset])
+            case ExpressionScheme.RecordType(defs)       => ???
+            case ExpressionScheme.RecordLiteral(defs)    => ???
+            case ExpressionScheme.UnionType(defs)        => ???
+            case ExpressionScheme.ShowConstructor(data)  => ???
+            case ExpressionScheme.Import(_, _, _)        =>
               AsScalaError(expr, validType, tpe, Some("Cannot convert to Scala unless imports are resolved"))
-            case ExpressionScheme.KeywordSome(data)                      => ??? // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
-            case ExpressionScheme.ExprBuiltin(builtin)                   =>
+            case ExpressionScheme.KeywordSome(data)      => ??? // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
+            case ExpressionScheme.ExprBuiltin(builtin)   =>
               builtin match {
                 case Builtin.Bool             => checkType(Tag[Boolean], Tag[Tag[Boolean]])
                 case Builtin.Bytes            => checkType(Tag[Array[Byte]], Tag[Tag[Array[Byte]]])
                 case Builtin.Date             => checkType(Tag[LocalDate], Tag[Tag[LocalDate]])
                 case Builtin.DateShow         => ???
                 case Builtin.Double           => checkType(Tag[Double], Tag[Tag[Double]])
-                case Builtin.DoubleShow       => ???
+                case Builtin.DoubleShow       => checkType(Double_show, Tag[Double => String])
                 case Builtin.Integer          => checkType(Tag[BigInt], Tag[Tag[BigInt]])
-                case Builtin.IntegerClamp     => ???
-                case Builtin.IntegerNegate    => ???
-                case Builtin.IntegerShow      => ???
-                case Builtin.IntegerToDouble  => ???
+                case Builtin.IntegerClamp     => checkType(Integer_clamp, Tag[BigInt => Natural])
+                case Builtin.IntegerNegate    => checkType(Integer_negate, Tag[BigInt => BigInt])
+                case Builtin.IntegerShow      => checkType(Integer_show, Tag[BigInt => String])
+                case Builtin.IntegerToDouble  => checkType(Integer_toDouble, Tag[BigInt => Double])
                 case Builtin.List             => checkType(TagK[List], Tag[TagK[List]])
                 case Builtin.ListBuild        => ???
                 case Builtin.ListFold         => ???
@@ -168,11 +176,11 @@ object FromDhall {
                 case Builtin.NaturalBuild     => ???
                 case Builtin.NaturalEven      => checkType(Natural_even, Tag[Natural => Boolean])
                 case Builtin.NaturalFold      => ???
-                case Builtin.NaturalIsZero    => ???
+                case Builtin.NaturalIsZero    => checkType(Natural_isZero, Tag[Natural => Boolean])
                 case Builtin.NaturalOdd       => checkType(Natural_odd, Tag[Natural => Boolean])
                 case Builtin.NaturalShow      => checkType(Natural_show, Tag[Natural => String])
-                case Builtin.NaturalSubtract  => ???
-                case Builtin.NaturalToInteger => ???
+                case Builtin.NaturalSubtract  => checkType(Natural_subtract, Tag[Natural => Natural => Natural])
+                case Builtin.NaturalToInteger => checkType(Natural_toInteger, Tag[Natural => BigInt])
                 case Builtin.None             => ???
                 case Builtin.Optional         => checkType(TagK[Option], Tag[TagK[Option]])
                 case Builtin.Text             => checkType(Tag[String], Tag[Tag[String]])
@@ -183,7 +191,7 @@ object FromDhall {
                 case Builtin.TimeZone         => checkType(Tag[ZoneOffset], Tag[Tag[ZoneOffset]])
                 case Builtin.TimeZoneShow     => ???
               }
-            case ExpressionScheme.ExprConstant(constant)                 =>
+            case ExpressionScheme.ExprConstant(constant) =>
               constant match {
                 case Constant.Type  => checkType(DhallKinds.Type, Tag[DhallKinds])
                 case Constant.Kind  => checkType(DhallKinds.Kind, Tag[DhallKinds])

@@ -142,11 +142,11 @@ object Grammar {
   )
 
   def whsp[$: P]: P[Unit] = P(
-     whitespace_chunk.rep
+    NoCut(whitespace_chunk.rep)
   )
 
   def whsp1[$: P]: P[Unit] = P(
-     whitespace_chunk.rep(1)
+    NoCut(whitespace_chunk.rep(1))
   )
 
   def ALPHANUM[$: P] = P(
