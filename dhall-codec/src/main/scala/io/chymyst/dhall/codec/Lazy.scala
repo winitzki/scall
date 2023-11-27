@@ -1,5 +1,7 @@
 package io.chymyst.dhall.codec
 
+import io.chymyst.dhall.Applicative
+
 import java.util.concurrent.atomic.AtomicBoolean
 
 class Lazy[+A](a: => A) {
@@ -26,5 +28,13 @@ object Lazy {
     val result = new Lazy(a)
     result.value
     result
+  }
+
+  implicit val applicativeLazy: Applicative[Lazy] = new Applicative[Lazy] {
+    override def zip[A, B](fa: Lazy[A], fb: Lazy[B]): Lazy[(A, B)] = fa zip fb
+
+    override def map[A, B](f: A => B)(fa: Lazy[A]): Lazy[B] = fa map f
+
+    override def pure[A](a: A): Lazy[A] = Lazy.strict(a)
   }
 }

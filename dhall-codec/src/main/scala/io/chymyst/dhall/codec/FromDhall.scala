@@ -1,6 +1,6 @@
 package io.chymyst.dhall.codec
 
-import io.chymyst.dhall.Applicative.ApplicativeOps
+import io.chymyst.dhall.Applicative.{ApplicativeOps, seqSeq}
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, Operator}
@@ -65,21 +65,25 @@ object FromDhall {
 //            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
 //          )
           expr.scheme match {
-            case v @ ExpressionScheme.Variable(_, _)                     =>
+            case v @ ExpressionScheme.Variable(_, _)                    =>
               variables.get(v) match {
                 case Some(knownVariableAssignment) => asScala[A](knownVariableAssignment, variables) // TODO: is this correct?
                 case None                          => AsScalaError(expr, validType, tpe, Some(s"Error: undefined variable $v while known variables are $variables"))
               }
-            case ExpressionScheme.Lambda(name, tipe, body)               => ???
-            case ExpressionScheme.Forall(name, tipe, body)               => ???
-            case ExpressionScheme.Let(name, tipe, subst, body)           => ???
-            case ExpressionScheme.If(cond, ifTrue, ifFalse)              => ???
-            case ExpressionScheme.Merge(record, update, tipe)            => ???
-            case ExpressionScheme.ToMap(data, tipe)                      => ???
-            case ExpressionScheme.EmptyList(tipe)                        => checkType(Seq(), Tag[Seq[_]]) // TODO check if this works
-            case ExpressionScheme.NonEmptyList(exprs)                    => ???
-            case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data, variables)
-            case ExpressionScheme.ExprOperator(lop, op, rop)             =>
+            case ExpressionScheme.Lambda(name, tipe, body)              => ???
+            case ExpressionScheme.Forall(name, tipe, body)              => ???
+            case ExpressionScheme.Let(name, tipe, subst, body)          => ???
+            case ExpressionScheme.If(cond, ifTrue, ifFalse)             =>
+              for {
+                condition <- asScala[Boolean](cond, variables).map(_.value)
+                result    <- asScala[A](if (condition) ifTrue else ifFalse, variables)
+              } yield result
+            case ExpressionScheme.Merge(record, update, tipe)           => ???
+            case ExpressionScheme.ToMap(data, tipe)                     => ???
+            case ExpressionScheme.EmptyList(tipe)                       => checkType(Seq(), Tag[Seq[_]]) // TODO check if this works and make it type-safe if possible.
+            case ExpressionScheme.NonEmptyList(exprs)                   => ???
+            case ExpressionScheme.Annotation(data, tipe)                => asScala[A](data, variables)
+            case ExpressionScheme.ExprOperator(lop, op, rop)            =>
               def useOp[P: Tag, Q: Tag](operator: (P, Q) => _): Either[Seq[AsScalaError], Lazy[A]] = {
                 val evalLop = asScala[P](lop, variables)
                 val evalRop = asScala[Q](rop, variables)
@@ -100,24 +104,26 @@ object FromDhall {
                 case Operator.Times              => useOp[Natural, Natural](_ * _)
                 case Operator.Equal              => useOp[Boolean, Boolean](_ == _)
                 case Operator.NotEqual           => useOp[Boolean, Boolean](_ != _)
-                case Operator.Equivalent         => ???
+                case Operator.Equivalent         => Lazy.strict(null.asInstanceOf[A]) // TODO: do we need something else here?
                 case Operator.Alternative        => AsScalaError(expr, validType, tpe, Some("Cannot convert to Scala unless all import alternatives are resolved"))
               }
-            case ExpressionScheme.Application(func, arg)                 => ???
-            case ExpressionScheme.Field(base, name)                      => ???
-            case ExpressionScheme.ProjectByLabels(base, labels)          => ???
-            case ExpressionScheme.ProjectByType(base, by)                => ???
-            case ExpressionScheme.Completion(base, target)               => ???
-            case ExpressionScheme.Assert(_)                              =>
+            case ExpressionScheme.Application(func, arg)                => ???
+            case ExpressionScheme.Field(base, name)                     => ???
+            case ExpressionScheme.ProjectByLabels(base, labels)         => ???
+            case ExpressionScheme.ProjectByType(base, by)               => ???
+            case ExpressionScheme.Completion(base, target)              => ???
+            case ExpressionScheme.Assert(_)                             =>
               // This assertion has been type-checked, so it holds or we have a type error. We return Unit here.
               checkType((), Tag[Unit])
-            case ExpressionScheme.With(data, pathComponents, body)       => ???
-            case ExpressionScheme.DoubleLiteral(value)                   => checkType(value, Tag[Double])
-            case ExpressionScheme.NaturalLiteral(value)                  => checkType(value, Tag[Natural])
-            case ExpressionScheme.IntegerLiteral(value)                  => checkType(value, Tag[BigInt])
-            case ExpressionScheme.TextLiteral(interpolations, trailing)  =>
-              if (interpolations.isEmpty) checkType(trailing, Tag[String])
-              else ??? // TODO: need `traverse` for this
+            case ExpressionScheme.With(data, pathComponents, body)      => ???
+            case ExpressionScheme.DoubleLiteral(value)                  => checkType(value, Tag[Double])
+            case ExpressionScheme.NaturalLiteral(value)                 => checkType(value, Tag[Natural])
+            case ExpressionScheme.IntegerLiteral(value)                 => checkType(value, Tag[BigInt])
+            case ExpressionScheme.TextLiteral(interpolations, trailing) =>
+              seqSeq(interpolations.map { case (prefix, expr) => asScala[String](expr, variables).map(_.map(prefix + _)) })
+                .map(interpolatedParts => seqSeq(interpolatedParts).map(_.mkString))
+                .flatMap(interpolatedPortion => checkType(interpolatedPortion + trailing, Tag[String]))
+
             case b: ExpressionScheme.BytesLiteral                        => checkType(b.bytes, Tag[Array[Byte]])
             case d: ExpressionScheme.DateLiteral                         => checkType(d.toLocalDate, Tag[LocalDate])
             case d: ExpressionScheme.TimeLiteral                         => checkType(d.toLocalTime, Tag[LocalTime])
@@ -127,13 +133,8 @@ object FromDhall {
             case ExpressionScheme.UnionType(defs)                        => ???
             case ExpressionScheme.ShowConstructor(data)                  => ???
             case ExpressionScheme.Import(importType, importMode, digest) =>
-              AsScalaError(
-                expr,
-                validType,
-                tpe,
-                Some("Cannot convert to Scala unless imports are resolved"),
-              ) // Imports must be resolved before converting to Scala values.
-            case ExpressionScheme.KeywordSome(data)                      => ???                           // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
+              AsScalaError(expr, validType, tpe, Some("Cannot convert to Scala unless imports are resolved"))
+            case ExpressionScheme.KeywordSome(data)                      => ??? // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
             case ExpressionScheme.ExprBuiltin(builtin)                   =>
               builtin match {
                 case Builtin.Bool             => checkType(Tag[Boolean], Tag[Tag[Boolean]])
