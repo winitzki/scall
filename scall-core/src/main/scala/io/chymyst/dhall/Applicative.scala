@@ -1,11 +1,6 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.ImportResolution.ImportContext
-import io.chymyst.dhall.Syntax.Expression
-import io.chymyst.dhall.Syntax.ExpressionScheme.Import
-
 import scala.util.{Success, Try}
-import scala.util.chaining.scalaUtilChainingOps
 
 trait Applicative[F[_]] {
   def zip[A, B](fa: F[A], fb: F[B]): F[(A, B)]

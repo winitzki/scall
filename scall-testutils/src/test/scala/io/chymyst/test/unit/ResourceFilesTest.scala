@@ -31,12 +31,9 @@ class ResourceFilesTest extends FunSuite with ResourceFiles {
   }
 
   test("change current working directory") {
-    def cwd            = new File(".").getAbsolutePath
-    val expectedSuffix = "/scall/."
-    expect(cwd endsWith expectedSuffix)
-    val cwdPrefix      = cwd.replace("/scall/.", "")
-    expect(cwd == cwdPrefix + expectedSuffix)
-    expect(ResourceFiles.changeCurrentWorkingDirectory(Paths.get(cwd).getParent.getParent.toFile))
-    expect(ResourceFiles.getCurrentWorkingDirectory.getAbsolutePath == cwdPrefix)
+    val cwd    = new File(".").toPath.toAbsolutePath
+    val newCwd = cwd.getParent.getParent
+    expect(ResourceFiles.changeCurrentWorkingDirectory(newCwd.toFile))
+    expect(ResourceFiles.getCurrentWorkingDirectory.getAbsolutePath == newCwd.toAbsolutePath.toString)
   }
 }
