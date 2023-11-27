@@ -241,7 +241,7 @@ object ImportResolution {
         case i @ Import(_, _, _)                 =>
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
-            if (visited.contains (child) || parent == child)
+            if (visited.contains(child) || parent == child)
               Left(PermanentFailure(Seq(s"Cyclic import of $child not allowed, imports already visited: ${visited.map(_.toDhall).mkString("; ")}")))
             else Right(())
           val referentialCheck  =
