@@ -39,6 +39,9 @@ lazy val scall_core = (project in file("scall-core"))
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
+    // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
+    // That base directory should contain `./dhall-lang` and all files below that.
+    Test / baseDirectory     := (Test / resourceDirectory).value,
     libraryDependencies ++= Seq(
       fastparse,
       munitTest,

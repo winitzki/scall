@@ -39,7 +39,7 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] GitHub Actions are used to test across JDK 8, 11, 17 and Scala 2.13.11 and 3.3.1.
 
-- [ ] Import resolution code is in progress. Basic import resolution is implemented (files, environment variables, and URLs).
+- [x] Import resolution code is fully implemented, all tests pass.
 
 ## Special features in the Scala implementation of Dhall
 

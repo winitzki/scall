@@ -14,6 +14,7 @@ import io.chymyst.dhall.SyntaxConstants.ImportType.{Path, Remote}
 import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
 
+import java.nio.file
 import java.nio.file.{Files, Paths}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
@@ -173,6 +174,9 @@ object ImportResolution {
   // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
   // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
+
+  private def messageForMissingImportFile(javaPath: file.Path) =
+    s"Imported file $javaPath does not exist, absolute path ${javaPath.toAbsolutePath}, current directory ${Paths.get(".").toAbsolutePath}"
 
   /** Perform one step of import resolution. This function may call itself on sub-expressions.
     *
@@ -382,6 +386,7 @@ object ImportResolution {
             case path @ Path(_, _) =>
               (for {
                 javaPath <- Try(path.toJavaPath)
+                _        <- if (javaPath.toFile.exists) Success(()) else Failure(new Exception(messageForMissingImportFile(javaPath)))
                 bytes    <- Try(Files.readAllBytes(javaPath))
               } yield bytes) match {
                 case Failure(exception) => Left(TransientFailure(Seq(s"Failed to read imported file: $exception")))

@@ -64,9 +64,10 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             val result = Try {
               val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
               val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-              // TODO report issue: the test dhall-lang/tests/import/success/unit/ImportRelativeToHomeB.dhall should be "hello" ++ " world" because tests should not beta-normalize entire expressions (only imported sub-expressions)
-              val x                                                 = ourResult.resolveImports(relativePathForTest) // We should not beta-normalize entire expressions.
-              val y                                                 = validationResult.resolveImports(relativePathForTest)
+              val x                                                 = ourResult.resolveImports(
+                relativePathForTest
+              ) // Here we must avoid beta-normalizing entire expressions. Only the import contents must be normalized.
+              val y = validationResult.resolveImports(relativePathForTest)
 
               if (x.toDhall != y.toDhall)
                 println(
@@ -85,7 +86,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             result
           }
         }
-        TestUtils.requireSuccessAtLeast(72, results, 15)
+        TestUtils.requireSuccessAtLeast(72, results, 0)
       }
     } finally System.setProperty("user.dir", oldUserDir)
   }
@@ -116,7 +117,7 @@ class DhallImportResolutionSuite extends FunSuite with OverrideEnvironment with 
             }
           }
 
-        TestUtils.requireSuccessAtLeast(24, results, 4)
+        TestUtils.requireSuccessAtLeast(24, results, 0)
       } finally System.setProperty("user.dir", oldUserDir)
     }
   }
