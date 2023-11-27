@@ -509,7 +509,10 @@ class SimpleExpressionTest extends DhallTest {
     )
     check(Grammar.expression_as_in(_), input, expected)
     assertEquals(
-      clue(expected.toDhall),clue("(bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Bool Natural q (λ(x : Bool) -> (bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Integer Natural r (λ(y : Integer) -> (bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Text Natural s (λ(z : Text) -> k)))")
+      clue(expected.toDhall),
+      clue(
+        "(bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Bool Natural q (λ(x : Bool) -> (bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Integer Natural r (λ(y : Integer) -> (bind : (∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b)) Text Natural s (λ(z : Text) -> k)))"
+      ),
     )
   }
 }
