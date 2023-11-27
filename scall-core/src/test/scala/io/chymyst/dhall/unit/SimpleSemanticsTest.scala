@@ -19,13 +19,13 @@ class SimpleSemanticsTest extends DhallTest {
   test("substitute in a lambda") {
     val lam    = (v("y") | ~Natural) -> v("x")
     val result = Semantics.substitute(lam, VarName("x"), 0, Variable(underscore, 0))
-    expect(result.toDhall == "λ(y: Natural) -> _")
+    expect(result.toDhall == "λ(y : Natural) -> _")
   }
 
   test("alpha-normalize a nested lambda") {
     val nested = (v("x") | ~Natural) -> ((v("y") | ~Natural) -> v("x"))
-    expect(nested.toDhall == "λ(x: Natural) -> λ(y: Natural) -> x")
-    expect(nested.alphaNormalized.toDhall == "λ(_: Natural) -> λ(_: Natural) -> _@1")
+    expect(nested.toDhall == "λ(x : Natural) -> λ(y : Natural) -> x")
+    expect(nested.alphaNormalized.toDhall == "λ(_ : Natural) -> λ(_ : Natural) -> _@1")
   }
 
   test("alpha-normalize record access") {
@@ -118,7 +118,7 @@ class SimpleSemanticsTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[(Some 0), (None Natural)]")
+    expect(expr.betaNormalized.toDhall == "[(Some 0), None Natural]")
   }
 
   test("do notation having no `with` lines") {
@@ -163,7 +163,7 @@ class SimpleSemanticsTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[(Some 0), (None Natural)]")
+    expect(expr.betaNormalized.toDhall == "[(Some 0), None Natural]")
   }
 
 }
