@@ -1,6 +1,9 @@
 package io.chymyst.test
 
+import jnr.posix.POSIX
+
 import java.io.File
+import java.nio.file.Paths
 import scala.util.Try
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -23,4 +26,18 @@ trait ResourceFiles {
 
     case None => throw new Exception(s"File $directory is not a directory, cannot list.")
   }).toOption.toSeq.flatten
+
+  // Note: `Paths#toAbsolutePath` and `File#getAbsolutePath` will always resolve with respect to the current working directory at the time JVM started and `user.dir` was first read.
+  // Calls to `Paths#toAbsolutePath` and `File#getAbsolutePath` will not re-read `user.dir` each time.
+  // So, `changeCurrentWorkingDirectory()` has no effect on relative files and paths via java.io and java.nio!
+  // This may have an effect on other processes that depend on the current directory.
+  def changeCurrentWorkingDirectory(directory: File): Boolean = {
+    val nativePosix: POSIX = jnr.posix.POSIXFactory.getNativePOSIX()
+    nativePosix.isNative && jnr.posix.JavaLibCHelper.chdir(directory.getAbsolutePath) == 0 && nativePosix.chdir(directory.getAbsolutePath) == 0
+  }
+
+  def getCurrentWorkingDirectory: File = {
+    val nativePosix: POSIX = jnr.posix.POSIXFactory.getNativePOSIX()
+    new File(nativePosix.getcwd())
+  }
 }

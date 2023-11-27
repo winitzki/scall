@@ -2,7 +2,7 @@ package io.chymyst.dhall.codec
 
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
+import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, Operator}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.{SyntaxConstants, TypecheckResult}
 import izumi.reflect.{Tag, TagK}
@@ -21,6 +21,7 @@ object DhallKinds {
 object DhallBuiltinFunctions {
   val Natural_even: Natural => Boolean = _ % 2 == 0
   val Natural_odd: Natural => Boolean  = _ % 2 != 0
+  val Natural_show: Natural => String  = _.toString(10)
 }
 
 object FromDhall {
@@ -62,7 +63,7 @@ object FromDhall {
             case v @ ExpressionScheme.Variable(_, _)                     =>
               variables.get(v) match {
                 case Some(knownVariableAssignment) => asScala[A](knownVariableAssignment, variables) // TODO: is this correct?
-                case None                          => ???
+                case None                          => throw new Exception(s"Error: undefined variable $v while known variables are $variables")
               }
             case ExpressionScheme.Lambda(name, tipe, body)               => ???
             case ExpressionScheme.Forall(name, tipe, body)               => ???
@@ -73,7 +74,22 @@ object FromDhall {
             case ExpressionScheme.EmptyList(tipe)                        => checkType(Seq(), Tag[Seq[_]]) // TODO check if this works
             case ExpressionScheme.NonEmptyList(exprs)                    => ???
             case ExpressionScheme.Annotation(data, tipe)                 => asScala[A](data, variables)
-            case ExpressionScheme.ExprOperator(lop, op, rop)             => ???
+            case ExpressionScheme.ExprOperator(lop, op, rop)             =>
+              op match {
+                case Operator.Or                 => ???
+                case Operator.Plus               => ???
+                case Operator.TextAppend         => ???
+                case Operator.ListAppend         => ???
+                case Operator.And                => ???
+                case Operator.CombineRecordTerms => ???
+                case Operator.Prefer             => ???
+                case Operator.CombineRecordTypes => ???
+                case Operator.Times              => ???
+                case Operator.Equal              => ???
+                case Operator.NotEqual           => ???
+                case Operator.Equivalent         => ???
+                case Operator.Alternative        => ???
+              }
             case ExpressionScheme.Application(func, arg)                 => ???
             case ExpressionScheme.Field(base, name)                      => ???
             case ExpressionScheme.ProjectByLabels(base, labels)          => ???
@@ -127,7 +143,7 @@ object FromDhall {
                 case Builtin.NaturalFold      => ???
                 case Builtin.NaturalIsZero    => ???
                 case Builtin.NaturalOdd       => checkType(Natural_odd, Tag[Natural => Boolean])
-                case Builtin.NaturalShow      => ???
+                case Builtin.NaturalShow      => checkType(Natural_show, Tag[Natural => String])
                 case Builtin.NaturalSubtract  => ???
                 case Builtin.NaturalToInteger => ???
                 case Builtin.None             => ???

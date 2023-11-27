@@ -39,34 +39,21 @@ object SyntaxConstants {
   sealed abstract class Operator(val name: String, val cborCode: Int) extends EnumEntry with HasCborCode[Operator, Int]
 
   object Operator extends Enum[Operator] with HasCborCodeDict[Int, Operator] {
-
     val values = findValues
 
-    case object Or extends Operator("||", 0)
-
-    case object Plus extends Operator("+", 4)
-
-    case object TextAppend extends Operator("++", 6)
-
-    case object ListAppend extends Operator("#", 7)
-
-    case object And extends Operator("&&", 1)
-
+    case object Or                 extends Operator("||", 0)
+    case object Plus               extends Operator("+", 4)
+    case object TextAppend         extends Operator("++", 6)
+    case object ListAppend         extends Operator("#", 7)
+    case object And                extends Operator("&&", 1)
     case object CombineRecordTerms extends Operator("∧", 8)
-
-    case object Prefer extends Operator("⫽", 9)
-
+    case object Prefer             extends Operator("⫽", 9)
     case object CombineRecordTypes extends Operator("⩓", 10)
-
-    case object Times extends Operator("*", 5)
-
-    case object Equal extends Operator("==", 2)
-
-    case object NotEqual extends Operator("!=", 3)
-
-    case object Equivalent extends Operator("≡", 12)
-
-    case object Alternative extends Operator("?", 11)
+    case object Times              extends Operator("*", 5)
+    case object Equal              extends Operator("==", 2)
+    case object NotEqual           extends Operator("!=", 3)
+    case object Equivalent         extends Operator("≡", 12)
+    case object Alternative        extends Operator("?", 11)
   }
 
   sealed abstract class Builtin(override val entryName: String) extends EnumEntry {
@@ -74,79 +61,43 @@ object SyntaxConstants {
   }
 
   object Builtin extends Enum[Builtin] {
-    case object Bool extends Builtin("Bool")
-
-    case object Bytes extends Builtin("Bytes")
-
-    case object Date extends Builtin("Date")
-
-    case object DateShow extends Builtin("Date/show")
-
-    case object Double extends Builtin("Double")
-
-    case object DoubleShow extends Builtin("Double/show")
-
-    case object Integer extends Builtin("Integer")
-
-    case object IntegerClamp extends Builtin("Integer/clamp")
-
-    case object IntegerNegate extends Builtin("Integer/negate")
-
-    case object IntegerShow extends Builtin("Integer/show")
-
-    case object IntegerToDouble extends Builtin("Integer/toDouble")
-
-    case object List extends Builtin("List")
-
-    case object ListBuild extends Builtin("List/build")
-
-    case object ListFold extends Builtin("List/fold")
-
-    case object ListHead extends Builtin("List/head")
-
-    case object ListIndexed extends Builtin("List/indexed")
-
-    case object ListLast extends Builtin("List/last")
-
-    case object ListLength extends Builtin("List/length")
-
-    case object ListReverse extends Builtin("List/reverse")
-
-    case object Natural extends Builtin("Natural")
-
-    case object NaturalBuild extends Builtin("Natural/build")
-
-    case object NaturalEven extends Builtin("Natural/even")
-
-    case object NaturalFold extends Builtin("Natural/fold")
-
-    case object NaturalIsZero extends Builtin("Natural/isZero")
-
-    case object NaturalOdd extends Builtin("Natural/odd")
-
-    case object NaturalShow extends Builtin("Natural/show")
-
-    case object NaturalSubtract extends Builtin("Natural/subtract")
-
+    case object Bool             extends Builtin("Bool")
+    case object Bytes            extends Builtin("Bytes")
+    case object Date             extends Builtin("Date")
+    case object DateShow         extends Builtin("Date/show")
+    case object Double           extends Builtin("Double")
+    case object DoubleShow       extends Builtin("Double/show")
+    case object Integer          extends Builtin("Integer")
+    case object IntegerClamp     extends Builtin("Integer/clamp")
+    case object IntegerNegate    extends Builtin("Integer/negate")
+    case object IntegerShow      extends Builtin("Integer/show")
+    case object IntegerToDouble  extends Builtin("Integer/toDouble")
+    case object List             extends Builtin("List")
+    case object ListBuild        extends Builtin("List/build")
+    case object ListFold         extends Builtin("List/fold")
+    case object ListHead         extends Builtin("List/head")
+    case object ListIndexed      extends Builtin("List/indexed")
+    case object ListLast         extends Builtin("List/last")
+    case object ListLength       extends Builtin("List/length")
+    case object ListReverse      extends Builtin("List/reverse")
+    case object Natural          extends Builtin("Natural")
+    case object NaturalBuild     extends Builtin("Natural/build")
+    case object NaturalEven      extends Builtin("Natural/even")
+    case object NaturalFold      extends Builtin("Natural/fold")
+    case object NaturalIsZero    extends Builtin("Natural/isZero")
+    case object NaturalOdd       extends Builtin("Natural/odd")
+    case object NaturalShow      extends Builtin("Natural/show")
+    case object NaturalSubtract  extends Builtin("Natural/subtract")
     case object NaturalToInteger extends Builtin("Natural/toInteger")
-
-    case object None extends Builtin("None")
-
-    case object Optional extends Builtin("Optional")
-
-    case object Text extends Builtin("Text")
-
-    case object TextReplace extends Builtin("Text/replace")
-
-    case object TextShow extends Builtin("Text/show")
-
-    case object Time extends Builtin("Time")
-
-    case object TimeShow extends Builtin("Time/show")
-
-    case object TimeZone extends Builtin("TimeZone")
-
-    case object TimeZoneShow extends Builtin("TimeZone/show")
+    case object None             extends Builtin("None")
+    case object Optional         extends Builtin("Optional")
+    case object Text             extends Builtin("Text")
+    case object TextReplace      extends Builtin("Text/replace")
+    case object TextShow         extends Builtin("Text/show")
+    case object Time             extends Builtin("Time")
+    case object TimeShow         extends Builtin("Time/show")
+    case object TimeZone         extends Builtin("TimeZone")
+    case object TimeZoneShow     extends Builtin("TimeZone/show")
 
     override def values = findValues
   }
@@ -164,16 +115,11 @@ object SyntaxConstants {
   object Constant extends Enum[Constant] {
     val values = findValues
 
-    case object Type extends Constant
-
-    case object Kind extends Constant
-
-    case object Sort extends Constant
-
-    case object True extends Constant
-
+    case object Type  extends Constant
+    case object Kind  extends Constant
+    case object Sort  extends Constant
+    case object True  extends Constant
     case object False extends Constant
-
   }
 
   sealed abstract class ImportMode(val cborCode: Int) extends EnumEntry with HasCborCode[ImportMode, Int]
@@ -181,12 +127,9 @@ object SyntaxConstants {
   object ImportMode extends Enum[ImportMode] with HasCborCodeDict[Int, ImportMode] {
     val values = findValues
 
-    case object Code extends ImportMode(0)
-
+    case object Code     extends ImportMode(0)
     case object RawBytes extends ImportMode(3)
-
-    case object RawText extends ImportMode(1)
-
+    case object RawText  extends ImportMode(1)
     case object Location extends ImportMode(2)
   }
 
@@ -195,8 +138,7 @@ object SyntaxConstants {
   object Scheme extends Enum[Scheme] with HasCborCodeDict[Int, Scheme] {
     val values = findValues
 
-    case object HTTP extends Scheme(0)
-
+    case object HTTP  extends Scheme(0)
     case object HTTPS extends Scheme(1)
   }
 
@@ -205,13 +147,10 @@ object SyntaxConstants {
   object FilePrefix extends Enum[FilePrefix] with HasCborCodeDict[Int, FilePrefix] {
     val values = findValues
 
-    case object Absolute extends FilePrefix(2, "/") // /absolute/path/to/file
-
-    case object Here extends FilePrefix(3, "./") // ./something relative to the current working directory
-
-    case object Parent extends FilePrefix(4, "../") // ./something relative to the parent working directory
-
-    case object Home extends FilePrefix(5, "~/") // ~/something relative to the user's home directory
+    case object Absolute extends FilePrefix(2, "/")   // /absolute/path/to/file
+    case object Here     extends FilePrefix(3, "./")  // ./something relative to the current working directory
+    case object Parent   extends FilePrefix(4, "../") // ./something relative to the parent working directory
+    case object Home     extends FilePrefix(5, "~/")  // ~/something relative to the user's home directory
   }
 
   sealed abstract class ImportType[+E] {
@@ -332,7 +271,6 @@ object Syntax {
   final case class DhallFile(shebangs: Seq[String], value: Expression)
 
   type Natural = BigInt
-
   type Integer = BigInt
 
   // Define a recursion scheme for Expression.
@@ -458,55 +396,38 @@ object Syntax {
       }
     }
 
-    final case class Lambda[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E] with LowerPrecedence
-
-    final case class Forall[E](name: VarName, tipe: E, body: E) extends ExpressionScheme[E] with LowerPrecedence
-
-    final case class Let[E](name: VarName, tipe: Option[E], subst: E, body: E) extends ExpressionScheme[E]
-
-    final case class If[E](cond: E, ifTrue: E, ifFalse: E) extends ExpressionScheme[E]
-
-    final case class Merge[E](record: E, update: E, tipe: Option[E]) extends ExpressionScheme[E]
-
-    final case class ToMap[E](data: E, tipe: Option[E]) extends ExpressionScheme[E]
-
-    final case class EmptyList[E](tipe: E) extends ExpressionScheme[E] with HighPrecedence
-
-    final case class NonEmptyList[E](exprs: Seq[E]) extends ExpressionScheme[E] with HighPrecedence {
+    final case class Lambda[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with LowerPrecedence
+    final case class Forall[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with LowerPrecedence
+    final case class Let[E](name: VarName, tipe: Option[E], subst: E, body: E)     extends ExpressionScheme[E]
+    final case class If[E](cond: E, ifTrue: E, ifFalse: E)                         extends ExpressionScheme[E]
+    final case class Merge[E](record: E, update: E, tipe: Option[E])               extends ExpressionScheme[E]
+    final case class ToMap[E](data: E, tipe: Option[E])                            extends ExpressionScheme[E]
+    final case class EmptyList[E](tipe: E)                                         extends ExpressionScheme[E] with HighPrecedence
+    final case class NonEmptyList[E](exprs: Seq[E])                                extends ExpressionScheme[E] with HighPrecedence      {
       require(exprs.nonEmpty)
     }
-
-    final case class Annotation[E](data: E, tipe: E) extends ExpressionScheme[E]
-
-    final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E] {
+    final case class Annotation[E](data: E, tipe: E)                               extends ExpressionScheme[E]
+    final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E]                          {
       override def precedence: Int = TermPrecedence.ofOperator(op)
     }
-
-    final case class Application[E](func: E, arg: E) extends ExpressionScheme[E]
-
-    final case class Field[E](base: E, name: FieldName) extends ExpressionScheme[E] with HighPrecedence
-
+    final case class Application[E](func: E, arg: E)                               extends ExpressionScheme[E]
+    final case class Field[E](base: E, name: FieldName)                            extends ExpressionScheme[E] with HighPrecedence
     // Note: `labels` may be an empty list.
-    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName]) extends ExpressionScheme[E] {
+    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName])           extends ExpressionScheme[E]                          {
       def sorted: ProjectByLabels[E] = ProjectByLabels(base, labels.sortBy(_.name))
     }
-
-    final case class ProjectByType[E](base: E, by: E) extends ExpressionScheme[E]
-
+    final case class ProjectByType[E](base: E, by: E)                              extends ExpressionScheme[E]
     // An Expression of the form `T::r` is syntactic sugar for `(T.default // r) : T.Type`.
-    final case class Completion[E](base: E, target: E) extends ExpressionScheme[E] {
+    final case class Completion[E](base: E, target: E)                             extends ExpressionScheme[E]                          {
       override def precedence: Int = TermPrecedence.offsetForOperators + 13
     }
-
-    final case class Assert[E](assertion: E) extends ExpressionScheme[E]
-
-    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E] {
+    final case class Assert[E](assertion: E)                                       extends ExpressionScheme[E]
+    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E]                          {
       require(pathComponents.nonEmpty)
     }
-
     // TODO: report issue: hash codes of DoubleLiteral(-0.0) and DoubleLiteral(+0.0) are the same even though hash codes of -0.0 and +0.0 are different.
     // Workaround: copy the hash of the Double value into the case class.
-    final case class DoubleLiteral private (value: Double, hash: Int) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class DoubleLiteral private (value: Double, hash: Int)              extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
         val otherValue = other.asInstanceOf[DoubleLiteral].value
         (value == otherValue) || (value.isNaN && otherValue.isNaN)
@@ -514,52 +435,42 @@ object Syntax {
 
       def getValue = value
     }
-
     object DoubleLiteral {
       def apply(value: Double): DoubleLiteral = DoubleLiteral(value, value.hashCode)
 
       def unapply(x: DoubleLiteral): Option[Double] = Some(x.getValue)
     }
-
-    final case class NaturalLiteral(value: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class NaturalLiteral(value: Natural)                                extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[NaturalLiteral] && {
         val otherValue = other.asInstanceOf[NaturalLiteral].value
         value equals otherValue
       }
     }
-
     object NaturalLiteral {
       def apply(value: Int): NaturalLiteral = {
         require(value >= 0)
         NaturalLiteral(BigInt(value))
       }
     }
-
-    final case class IntegerLiteral(value: Integer) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class IntegerLiteral(value: Integer)                                extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[IntegerLiteral] && {
         val otherValue = other.asInstanceOf[IntegerLiteral].value
         value equals otherValue
       }
     }
-
     object IntegerLiteral {
       def apply(value: Int): IntegerLiteral = {
         IntegerLiteral(BigInt(value))
       }
     }
-
     object TextLiteral {
-      def ofString[E](s: String) = ofText[E](TextLiteralNoInterp(s))
-
-      def ofText[E](textLiteralNoInterp: TextLiteralNoInterp) = TextLiteral[E](List(), textLiteralNoInterp.value)
-
-      def empty[E] = TextLiteral[E](List(), "")
-
-      def ofExpression[E](expr: E) = TextLiteral(interpolations = List(("", expr)), trailing = "")
+      def ofString[E](s: String)                              = TextLiteral[E](List(), s)
+      def ofText[E](textLiteralNoInterp: TextLiteralNoInterp) = ofString[E](textLiteralNoInterp.value)
+      def empty[E]                                            = ofString[E]("")
+      def ofExpression[E](expr: E)                            = TextLiteral[E](interpolations = List(("", expr)), trailing = "")
     }
 
     final case class TextLiteral[+E](interpolations: List[(String, E)], trailing: String) extends ExpressionScheme[E] with VarPrecedence {
-
       def ++[G >: E, H <: G](other: TextLiteral[H]): TextLiteral[G] = other.interpolations match {
         case List()                       =>
           TextLiteral(this.interpolations, this.trailing ++ other.trailing)
@@ -801,11 +712,8 @@ object Syntax {
 
       implicit def ofString(fileName: String): Import[Nothing] = ofJavaPath(Paths.get(fileName))
     }
-
     final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
-
-    final case class ExprBuiltin(builtin: SyntaxConstants.Builtin) extends ExpressionScheme[Nothing] with VarPrecedence
-
+    final case class ExprBuiltin(builtin: SyntaxConstants.Builtin)    extends ExpressionScheme[Nothing] with VarPrecedence
     final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing] with VarPrecedence
   }
 
