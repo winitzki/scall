@@ -9,7 +9,6 @@ import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType,
 import io.chymyst.dhall.TypeCheck._Type
 
 import java.io.InputStream
-import java.nio.file.Paths
 import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
 

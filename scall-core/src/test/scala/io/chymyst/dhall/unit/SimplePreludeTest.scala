@@ -36,7 +36,7 @@ class SimplePreludeTest extends FunSuite with TestTimeouts {
     expect(!expr.inferType.isValid) // Type-checking fails without first resolving imports.
     val resolved      = expr.resolveImports(path)
     expect(resolved.isInstanceOf[Expression])
-    println("resolved sort.dhall beta-normalized without typechecking:\n" + resolved.betaNormalized.toDhall)
+    // println("resolved sort.dhall beta-normalized without typechecking:\n" + resolved.betaNormalized.toDhall)
     val smallListTest = resolved("[3, 2]".dhall).betaNormalized
     println(s"sort [3, 2] = ${smallListTest.toDhall}")
     println(s"sort [4, 3, 2, 1] = ${resolved("[4, 3, 2, 1]".dhall).betaNormalized}")

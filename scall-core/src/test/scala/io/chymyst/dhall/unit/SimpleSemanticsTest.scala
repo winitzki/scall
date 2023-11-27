@@ -121,4 +121,50 @@ class SimpleSemanticsTest extends FunSuite {
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
     expect(expr.betaNormalized.toDhall == "[(Some 0), (None Natural)]")
   }
+
+  test("do notation having no `with` lines") {
+    val expr =
+      """
+        |let fold
+        |    : ∀(a : Type) →
+        |      Optional a →
+        |      ∀(optional : Type) →
+        |      ∀(some : a → optional) →
+        |      ∀(none : optional) →
+        |        optional
+        |    = λ(a : Type) →
+        |      λ(o : Optional a) →
+        |      λ(optional : Type) →
+        |      λ(some : a → optional) →
+        |      λ(none : optional) →
+        |        merge { Some = some, None = none } o
+        |in
+        |
+        |let bind
+        |    : ∀(a: Type) -> ∀(b: Type) -> ∀(_: Optional a) -> ∀(_: ∀(_: a) -> Optional b) -> Optional b
+        |    = λ(a: Type)-> λ(b: Type) -> λ(x: Optional a) -> λ(f: a -> Optional b) -> fold a x (Optional b) f (None b)
+        |in
+        |
+        |let subtract1Optional = λ(x : Natural) → if Natural/isZero x then None Natural else Some (Natural/subtract 1 x)
+        |in
+        |
+        |let subtract1aOptional = λ(x : Natural) →
+        |  as Optional Natural in bind
+        |    then subtract1Optional x
+        |in
+        |
+        |let _ = assert : subtract1aOptional 10 === Some 9
+        |let _ = assert : subtract1aOptional 3 === Some 2
+        |let _ = assert : subtract1aOptional 2 === Some 1
+        |let _ = assert : subtract1aOptional 1 === Some 0
+        |let _ = assert : subtract1aOptional 0 === None Natural
+        |in
+        |
+        |[ subtract1aOptional 1, subtract1aOptional 0]
+        |""".stripMargin.dhall
+
+    expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
+    expect(expr.betaNormalized.toDhall == "[(Some 0), (None Natural)]")
+  }
+
 }

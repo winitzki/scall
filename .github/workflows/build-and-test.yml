@@ -39,6 +39,8 @@ jobs:
     strategy:
       matrix:
         java:
+          - '8.0.382'
+          - '11.0.21'
           - '17.0.9'
         scala:
           - '2.13.11'
