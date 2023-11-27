@@ -17,7 +17,8 @@ val cbor1 = "co.nstant.in"    % "cbor"       % "0.9"
 val cbor2 = "com.upokecenter" % "cbor"       % "4.5.2"
 val cbor3 = "io.bullet"      %% "borer-core" % "1.8.0"
 
-val curryhoward = "io.chymyst" %% "curryhoward" % "0.3.8"
+val curryhoward = "io.chymyst"    %% "curryhoward" % "0.3.8"
+val jnr_posix   = "com.github.jnr" % "jnr-posix"   % "3.1.18"
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
@@ -63,7 +64,7 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
   Test / fork              := true,
   testFrameworks += munitFramework,
   Test / javaOptions ++= jdkModuleOptions,
-  libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+  libraryDependencies ++= Seq(munitTest, assertVerboseTest, jnr_posix),
 )
 
 lazy val dhall_codec = (project in file("dhall-codec"))

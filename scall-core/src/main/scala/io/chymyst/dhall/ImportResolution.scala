@@ -171,14 +171,16 @@ object ImportResolution {
     case other               =>
       throw new Exception(s"ERROR: internal error - headers must be of type ${typeOfGenericHeadersForHost.toDhall} but instead have ${other.toDhall}")
   }
-  // Recursively resolve imports. See https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md
-  // We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order to track changes in the resolution context.
+
+  private def messageForNonexistingImportFile(javaPath: file.Path) =
+    if (javaPath.isAbsolute) s"Imported file $javaPath does not exist."
+    else
+      s"Imported file at relative path $javaPath does not exist, absolute path ${javaPath.toAbsolutePath}, current directory is ${Paths.get(".").toAbsolutePath}"
+
   // TODO: report issue to mention in imports.md (at the end) that the updates of the resolution context must be threaded through all resolved subexpressions.
-
-  private def messageForMissingImportFile(javaPath: file.Path) =
-    s"Imported file $javaPath does not exist, absolute path ${javaPath.toAbsolutePath}, current directory ${Paths.get(".").toAbsolutePath}"
-
-  /** Perform one step of import resolution. This function may call itself on sub-expressions.
+  /** Perform one step of import resolution. This function may call itself on sub-expressions. See
+    * https://github.com/dhall-lang/dhall-lang/blob/master/standard/imports.md We will use `traverse` on `ExpressionScheme` with this Kleisli function, in order
+    * to track changes in the resolution context.
     *
     * Example:
     *
@@ -386,7 +388,7 @@ object ImportResolution {
             case path @ Path(_, _) =>
               (for {
                 javaPath <- Try(path.toJavaPath)
-                _        <- if (javaPath.toFile.exists) Success(()) else Failure(new Exception(messageForMissingImportFile(javaPath)))
+                _        <- if (javaPath.toFile.exists) Success(()) else Failure(new Exception(messageForNonexistingImportFile(javaPath)))
                 bytes    <- Try(Files.readAllBytes(javaPath))
               } yield bytes) match {
                 case Failure(exception) => Left(TransientFailure(Seq(s"Failed to read imported file: $exception")))

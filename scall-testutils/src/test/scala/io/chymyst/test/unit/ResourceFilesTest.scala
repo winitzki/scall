@@ -4,6 +4,9 @@ import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.test.ResourceFiles
 import munit.FunSuite
 
+import java.io.File
+import java.nio.file.{Files, Paths}
+
 class ResourceFilesTest extends FunSuite with ResourceFiles {
   test("get resource as file") {
     val file1  = resourceAsFile("testfile1.txt")
@@ -25,5 +28,15 @@ class ResourceFilesTest extends FunSuite with ResourceFiles {
     expect(enumerateResourceFiles("", Some(".txt")).map(_.getName) == Seq("testfile.txt", "testfile1.txt"))
     expect(enumerateResourceFiles("testdir").map(_.getName) == Seq("testfile.txt"))
     expect(enumerateResourceFiles("nonexisting").map(_.getName) == Seq())
+  }
+
+  test("change current working directory") {
+    def cwd            = new File(".").getAbsolutePath
+    val expectedSuffix = "/scall/."
+    expect(cwd endsWith expectedSuffix)
+    val cwdPrefix      = cwd.replace("/scall/.", "")
+    expect(cwd == cwdPrefix + expectedSuffix)
+    expect(ResourceFiles.changeCurrentWorkingDirectory(Paths.get(cwd).getParent.getParent.toFile))
+    expect(ResourceFiles.getCurrentWorkingDirectory.getAbsolutePath == cwdPrefix)
   }
 }
