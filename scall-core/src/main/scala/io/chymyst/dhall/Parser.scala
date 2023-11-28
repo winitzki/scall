@@ -544,7 +544,7 @@ object Grammar {
   ).!.map(_.toInt)
 
   def time_secfrac[$: P]: P[String] = P( // Keep the trailing fraction of a second as String with no changes.
-    "." ~/ (DIGIT.! // TODO: should we add a cut after "."?
+    "." ~ (DIGIT.!
       .rep(1) // RFC 3339
       .map(_.mkString)
       )
@@ -598,7 +598,7 @@ object Grammar {
     This is guaranteed because `nonreserved_label` does not match any keyword or builtin, and we match builtins separately without a de Bruijn index.
      */
   def variable[$: P]: P[Expression] = P(
-    nonreserved_label ~ (whsp ~ "@" ~/ whsp ~ natural_literal).? // TODO: do we need a cut after "@"?
+    nonreserved_label ~ (whsp ~ "@" ~/ whsp ~ natural_literal).?
   ).map { case (name, index) => Variable(name, index.map(_.value).getOrElse(BigInt(0))) }
 
   def path_character[$: P] = P( // Note: character 002D is the hyphen and needs to be escaped when used under CharIn().
@@ -831,7 +831,7 @@ object Grammar {
   def import_type[$: P]: P[ImportType[Expression]] = P(
     // Prevent parsing `missingfoo` as `missing` followed by a parse failure.
     (requireKeyword("missing") ~ !simple_label_next_char).map(_ => ImportType.Missing)
-      | NoCut(local) // TODO: do we need NoCut here?
+      | local
       | http
       | env
   )
