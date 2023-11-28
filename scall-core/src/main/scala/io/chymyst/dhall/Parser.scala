@@ -544,7 +544,7 @@ object Grammar {
   ).!.map(_.toInt)
 
   def time_secfrac[$: P]: P[String] = P( // Keep the trailing fraction of a second as String with no changes.
-    "." ~ (DIGIT.!
+    "." ~ (DIGIT.! // Do not add a cut after "."!
       .rep(1) // RFC 3339
       .map(_.mkString)
       )

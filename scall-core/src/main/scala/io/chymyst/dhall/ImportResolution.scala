@@ -276,13 +276,11 @@ object ImportResolution {
                               r.lookup(FieldName("mapKey")) match {
                                 case Some(
                                       Expression(TextLiteral(List(), originInHeaders))
-                                    ) => // remoteOrigin = https://host  may match originInHeaders = host:443 and http://host may match host:80 unless port is specified in remoteOrigin.
+                                    ) => // remoteOrigin = https://host  may match originInHeaders = host:443 and http://host may match host:80 unless port is specified in remoteAuthority.
                                   (originInHeaders.toLowerCase == remoteAuthority.toLowerCase) ||
-                                  (remoteScheme == Scheme.HTTP && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":80") ||
-                                  (remoteScheme == Scheme.HTTPS && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":443")
-
+                                  (!remoteAuthority.matches(":[0-9]+$") && originInHeaders.toLowerCase == s"$remoteAuthority:${remoteScheme.defaultPort}")
                                 case None => false
-                              } // contains Expression(TextLiteral.ofString(remoteOrigin)) =>
+                              }
 
                             case _ => false
                           } match {

@@ -133,13 +133,13 @@ object SyntaxConstants {
     case object Location extends ImportMode(2)
   }
 
-  sealed abstract class Scheme(val cborCode: Int) extends EnumEntry with HasCborCode[Scheme, Int]
+  sealed abstract class Scheme(val cborCode: Int, val defaultPort: Int) extends EnumEntry with HasCborCode[Scheme, Int]
 
   object Scheme extends Enum[Scheme] with HasCborCodeDict[Int, Scheme] {
     val values = findValues
 
-    case object HTTP  extends Scheme(0)
-    case object HTTPS extends Scheme(1)
+    case object HTTP  extends Scheme(0, 80)
+    case object HTTPS extends Scheme(1, 443)
   }
 
   sealed abstract class FilePrefix(val cborCode: Int, val prefix: String) extends EnumEntry with HasCborCode[FilePrefix, Int]
