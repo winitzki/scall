@@ -51,14 +51,14 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
   test("cbor encoding for time literals with long fraction using cbor1") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall == fromCbor1)
+    expect(input.dhall.toDhall == input)
     expect(expected.dhall == fromCbor1)
   }
 
   test("cbor encoding for time literals with long fraction using cbor2") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall == fromCbor2)
+    expect(input.dhall.toDhall == input) // We no longer truncate seconds fractions.
     expect(expected.dhall == fromCbor2)
   }
 
