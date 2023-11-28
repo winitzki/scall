@@ -624,7 +624,7 @@ object Syntax {
         }
       }
 
-      private def truncateSecondsFraction(secFraction: String): String = secFraction.take(12) + "0" * math.max(0, secFraction.length - 12)
+      private def truncateSecondsFraction(secFraction: String): String = secFraction // secFraction.take(12) + "0" * math.max(0, secFraction.length - 12)
 
       def of(hours: Int, minutes: Int, seconds: Int, secFraction: String): TimeLiteral = {
         require(hours >= 0 && hours <= 59 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59 && (secFraction matches "^[0-9]*$"))

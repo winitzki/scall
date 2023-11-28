@@ -306,7 +306,7 @@ object ImportResolution {
 
           // Values of type Either[ImportResolutionResult[Expression], _] are used to report early results as Left().
           // At the end of the computation, we will have Either[ImportResolutionResult[Expression], ImportResolutionResult[Expression]] and we will `merge` that.
-          lazy val resolveIfLocation: Either[ImportResolutionResult[Expression], Array[Byte] => ImportResolutionResult[Expression]] = child.importMode match {
+          lazy val resolveByImportMode: Either[ImportResolutionResult[Expression], Array[Byte] => ImportResolutionResult[Expression]] = child.importMode match {
             case Location =>
               val canonical                               = child.canonicalize
               // Need to process this first, because `missing as Location` is not a failure while `missing as` anything else must be a failure.
@@ -413,7 +413,7 @@ object ImportResolution {
             _                <- resolveIfCached
             _                <- cyclicImportCheck
             _                <- referentialCheck
-            readByImportMode <- resolveIfLocation
+            readByImportMode <- resolveByImportMode
             bytes            <- missingOrData
             expr             <- Right(readByImportMode(bytes))
             successfullyRead <- expr match {
