@@ -706,12 +706,14 @@ object Syntax {
       def lookup(field: ConstructorName): Option[Option[E]] = defs.find(_._1 == field).map(_._2) // TODO: do we need a faster lookup here?
     }
 
-    final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
+    final case class ShowConstructor[E](data: E) extends ExpressionScheme[E] with ApplicationPrecedence
 
     final case class Import[+E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
-        extends ExpressionScheme[E]
-        with ApplicationPrecedence {
-      override def precedence: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
+        extends ExpressionScheme[E] {
+      override def precedence: Int = (importType, importMode) match {
+        case (ImportType.Remote(_, Some(_)), ImportMode.Code) => TermPrecedence.min
+        case _                                                => TermPrecedence.max
+      }
 
       def canonicalize: Import[E] = importType match {
         case i @ ImportType.Remote(_, _)     =>
@@ -737,7 +739,7 @@ object Syntax {
 
       implicit def ofString(fileName: String): Import[Nothing] = ofJavaPath(Paths.get(fileName))
     }
-    final case class KeywordSome[E](data: E) extends ExpressionScheme[E]
+    final case class KeywordSome[E](data: E) extends ExpressionScheme[E] with ApplicationPrecedence
     final case class ExprBuiltin(builtin: SyntaxConstants.Builtin)    extends ExpressionScheme[Nothing] with VarPrecedence
     final case class ExprConstant(constant: SyntaxConstants.Constant) extends ExpressionScheme[Nothing] with VarPrecedence
   }
@@ -874,7 +876,7 @@ object Syntax {
             case ImportType.Missing              => "missing"
             case ImportType.Remote(url, headers) =>
               url.toString + (headers match {
-                case Some(value) => " using " + value.inPrecedence(p)
+                case Some(value) => " using " + value.inPrecedence(TermPrecedence.min)
                 case None        => ""
               })
             case p @ ImportType.ImportPath(_, _) => p.toString

@@ -831,7 +831,7 @@ object Grammar {
   def import_type[$: P]: P[ImportType[Expression]] = P(
     // Prevent parsing `missingfoo` as `missing` followed by a parse failure.
     (requireKeyword("missing") ~ !simple_label_next_char).map(_ => ImportType.Missing)
-      | NoCut(local)
+      | NoCut(local) // TODO: do we need NoCut here?
       | http
       | env
   )

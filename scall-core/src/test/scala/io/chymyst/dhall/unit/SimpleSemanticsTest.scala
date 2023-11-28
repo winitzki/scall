@@ -118,7 +118,7 @@ class SimpleSemanticsTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[(Some 0), None Natural]")
+    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
   }
 
   test("do notation having no `with` lines") {
@@ -163,7 +163,7 @@ class SimpleSemanticsTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[(Some 0), None Natural]")
+    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
   }
 
 }

@@ -72,7 +72,7 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 ## Roadmap for future developments
 
-1. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values because it is often used by the Prelude already.)
+1. Possibly, implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if other arguments can be used to infer the type. List/map [ 1, 2, 3 ] (\x -> x + 1) should be sufficient. Similarly with the do-notation, `as bind with x in p then q` should be sufficient. (This probably requires introducing a new syntax form for do-notation rather than immediate desugaring, but perhaps not.)
 2. More caching and more native implementation for literals, to improve performance. (Without caching, List/sort would hang on a list of 6 natural numbers.)
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system). Support both Scala 2 and Scala 3.
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
