@@ -111,7 +111,7 @@ object FromDhall {
                 val evalRop = asScala[Q](rop, variables)
 
                 val opUncurried: ((P, Q)) => A = { case (a, b) => operator(a, b).asInstanceOf[A] }
-                evalLop.zip(evalRop).map { a => a._1 zip a._2 map opUncurried }
+                evalLop zip evalRop map { a => a._1 zip a._2 map opUncurried }
               }
 
               op match {
