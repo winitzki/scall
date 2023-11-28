@@ -32,8 +32,9 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
   }
 
   test("time literals with truncated nanos") {
-    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.flatMap { case (input, output) =>
-      val x = input.dhall
+    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.flatMap { case (input, _) =>
+      val output = input // We no longer truncate seconds fractions.
+      val x      = input.dhall
       Seq(
         Try(expect(x.toDhall == output)),
         Try(cborRoundtrip(x)),
