@@ -365,28 +365,52 @@ object Syntax {
       def unary_~ : Expression = Expression(Variable(VarName(name), BigInt(0)))
     }
 
-    trait TermPrecedence {
-      def precedence: Int = TermPrecedence.low // Default is this precedence.
+    /*
+    Precedence rules:
+
+    - High precedence means high binding power. Example: `+` has precedence 4 and `*` has precedence 5.
+    - If an operand has inner precedence x and outer precedence y, parentheses are needed if x < y.
+    - Each operation has inner precedence and some surrounding precedence value. (Left and right must be taken the max of.)
+    - Each operand has its own precedence.
+    - An expression can have operands that are shielded from the left, from the right, or both. For example, in `[x, y]` the operand `x` is shielded from both sides by special symbols. In that case, we never need to add parentheses around x. This is as if the operand x's outer precedence were -Infinity. We also don't need to add parentheses around `[x, y]`. This is as if the inner precedence of `[ , ]` were +Infinity.
+    - An atom (e.g., `1` or `x`) never needs parentheses. This is as if its inner precedence were +Infinity.
+    - The outer expression never needs parentheses. This is as if its outer precedence were -Infinity.
+    - If an expression shields operands only on one side but not on the other side:
+         Example: (if cond then x else 1 + 1) + 1
+         The half-shielded operands (or any other operands) never need parentheses but the entire expression always does, unless outer precedence is -Infinity. Its precedence is -Infinity.
+     */
+
+    sealed trait TermPrecedence {
+      def precedence: Int = TermPrecedence.default
     }
 
     object TermPrecedence {
-      def ofOperator(op: Operator): Int = offsetForOperators - op.cborCode * 2
+      def ofOperator(op: Operator): Int = ofOperator(op.cborCode)
+      def ofOperator(prec: Int): Int    = offsetForOperators + prec * 2
 
-      val offsetForOperators = 60
-      val low                = 100
-      val lowest             = 1000
+      val high                  = 2000
+      val applicationPrecedence = 1000
+      val offsetForOperators    = 500
+      val default               = 200
+      val low                   = 100
+      val max                   = 10000
+      val min                   = 0
     }
 
-    trait VarPrecedence extends TermPrecedence {
-      override def precedence: Int = 10
+    sealed trait VarPrecedence extends TermPrecedence {
+      override def precedence: Int = TermPrecedence.max
     }
 
-    trait HighPrecedence extends TermPrecedence {
-      override def precedence: Int = 15
+    sealed trait HighPrecedence extends TermPrecedence {
+      override def precedence: Int = TermPrecedence.high
     }
 
-    trait LowerPrecedence extends TermPrecedence {
-      override def precedence: Int = TermPrecedence.low + 100
+    sealed trait ApplicationPrecedence extends TermPrecedence {
+      override def precedence: Int = TermPrecedence.applicationPrecedence // Higher than any operators.
+    }
+
+    sealed trait MinPrecedence extends TermPrecedence {
+      override def precedence: Int = TermPrecedence.min
     }
 
     final case class Variable(name: VarName, index: Natural) extends ExpressionScheme[Nothing] with VarPrecedence {
@@ -396,33 +420,33 @@ object Syntax {
       }
     }
 
-    final case class Lambda[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with LowerPrecedence
-    final case class Forall[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with LowerPrecedence
-    final case class Let[E](name: VarName, tipe: Option[E], subst: E, body: E)     extends ExpressionScheme[E]
-    final case class If[E](cond: E, ifTrue: E, ifFalse: E)                         extends ExpressionScheme[E]
-    final case class Merge[E](record: E, update: E, tipe: Option[E])               extends ExpressionScheme[E]
-    final case class ToMap[E](data: E, tipe: Option[E])                            extends ExpressionScheme[E]
-    final case class EmptyList[E](tipe: E)                                         extends ExpressionScheme[E] with HighPrecedence
-    final case class NonEmptyList[E](exprs: Seq[E])                                extends ExpressionScheme[E] with HighPrecedence      {
+    final case class Lambda[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with MinPrecedence
+    final case class Forall[E](name: VarName, tipe: E, body: E)                    extends ExpressionScheme[E] with MinPrecedence
+    final case class Let[E](name: VarName, tipe: Option[E], subst: E, body: E)     extends ExpressionScheme[E] with MinPrecedence
+    final case class If[E](cond: E, ifTrue: E, ifFalse: E)                         extends ExpressionScheme[E] with MinPrecedence
+    final case class Merge[E](record: E, update: E, tipe: Option[E])               extends ExpressionScheme[E] with ApplicationPrecedence
+    final case class ToMap[E](data: E, tipe: Option[E])                            extends ExpressionScheme[E] with ApplicationPrecedence
+    final case class EmptyList[E](tipe: E)                                         extends ExpressionScheme[E] with MinPrecedence
+    final case class NonEmptyList[E](exprs: Seq[E])                                extends ExpressionScheme[E] with MinPrecedence       {
       require(exprs.nonEmpty)
     }
-    final case class Annotation[E](data: E, tipe: E)                               extends ExpressionScheme[E]
+    final case class Annotation[E](data: E, tipe: E)                               extends ExpressionScheme[E] with MinPrecedence
     final case class ExprOperator[E](lop: E, op: SyntaxConstants.Operator, rop: E) extends ExpressionScheme[E]                          {
       override def precedence: Int = TermPrecedence.ofOperator(op)
     }
-    final case class Application[E](func: E, arg: E)                               extends ExpressionScheme[E] with HighPrecedence
+    final case class Application[E](func: E, arg: E)                               extends ExpressionScheme[E] with ApplicationPrecedence
     final case class Field[E](base: E, name: FieldName)                            extends ExpressionScheme[E] with HighPrecedence
     // Note: `labels` may be an empty list.
-    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName])           extends ExpressionScheme[E]                          {
+    final case class ProjectByLabels[E](base: E, labels: Seq[FieldName])           extends ExpressionScheme[E] with HighPrecedence      {
       def sorted: ProjectByLabels[E] = ProjectByLabels(base, labels.sortBy(_.name))
     }
-    final case class ProjectByType[E](base: E, by: E)                              extends ExpressionScheme[E]
+    final case class ProjectByType[E](base: E, by: E)                              extends ExpressionScheme[E] with HighPrecedence
     // An Expression of the form `T::r` is syntactic sugar for `(T.default // r) : T.Type`.
     final case class Completion[E](base: E, target: E)                             extends ExpressionScheme[E]                          {
-      override def precedence: Int = TermPrecedence.offsetForOperators - 13 * 2
+      override def precedence: Int = TermPrecedence.ofOperator(13)
     }
-    final case class Assert[E](assertion: E)                                       extends ExpressionScheme[E]
-    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E]                          {
+    final case class Assert[E](assertion: E)                                       extends ExpressionScheme[E] with MinPrecedence
+    final case class With[E](data: E, pathComponents: Seq[PathComponent], body: E) extends ExpressionScheme[E] with MinPrecedence       {
       require(pathComponents.nonEmpty)
     }
     // TODO: report issue: hash codes of DoubleLiteral(-0.0) and DoubleLiteral(+0.0) are the same even though hash codes of -0.0 and +0.0 are different.
@@ -685,7 +709,8 @@ object Syntax {
     final case class ShowConstructor[E](data: E) extends ExpressionScheme[E]
 
     final case class Import[+E](importType: SyntaxConstants.ImportType[E], importMode: SyntaxConstants.ImportMode, digest: Option[BytesLiteral])
-        extends ExpressionScheme[E] {
+        extends ExpressionScheme[E]
+        with ApplicationPrecedence {
       override def precedence: Int = TermPrecedence.ofOperator(Operator.Alternative) - 1
 
       def canonicalize: Import[E] = importType match {
@@ -777,64 +802,66 @@ object Syntax {
       * @return
       *   A string representation of `this` expression in (approximately) Dhall syntax.
       */
-    def toDhall: String = atPrecedence(TermPrecedence.lowest)
+    def toDhall: String = inPrecedence(TermPrecedence.min)
 
     override def toString: String = toDhall
 
-    private def atPrecedence(level: Int) = if (scheme.precedence > level) "(" + dhallForm + ")" else dhallForm
+    private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
     private def dhallForm: String = {
-      val p = scheme.precedence
+      val p    = scheme.precedence
+      val minP = TermPrecedence.min
+      val appP = TermPrecedence.applicationPrecedence
       scheme match {
         case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
-        case Lambda(name, tipe, body)               => s"λ(${name.escape} : ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
-        case Forall(name, tipe, body)               => s"∀(${name.escape} : ${tipe.atPrecedence(p)}) -> ${body.atPrecedence(p)}"
+        case Lambda(name, tipe, body)               => s"λ(${name.escape} : ${tipe.inPrecedence(p)}) -> ${body.inPrecedence(p)}"
+        case Forall(name, tipe, body)               => s"∀(${name.escape} : ${tipe.inPrecedence(p)}) -> ${body.inPrecedence(p)}"
         case Let(name, tipe, subst, body)           =>
-          s"let ${name.escape} ${tipe.map(t => ": " + t.atPrecedence(p - 1)).getOrElse("")} = ${subst.atPrecedence(p - 1)}\nin ${body.atPrecedence(p)}"
-        case If(cond, ifTrue, ifFalse)              => s"if ${cond.atPrecedence(p)} then ${ifTrue.atPrecedence(p)} else ${ifFalse.atPrecedence(p)}"
+          s"let ${name.escape} ${tipe.map(t => ": " + t.inPrecedence(p)).getOrElse("")} = ${subst.inPrecedence(p)}\nin ${body.inPrecedence(p)}"
+        case If(cond, ifTrue, ifFalse)              => s"if ${cond.inPrecedence(p)} then ${ifTrue.inPrecedence(p)} else ${ifFalse.inPrecedence(p)}"
         case Merge(record, update, tipe)            =>
-          "merge " + record.atPrecedence(p) + " " + update.atPrecedence(p) + (tipe match {
-            case Some(value) => ": " + value.atPrecedence(p)
+          "merge " + record.inPrecedence(appP) + " " + update.inPrecedence(appP) + (tipe match {
+            case Some(value) => " : " + value.inPrecedence(minP)
             case None        => ""
           })
         case ToMap(data, tipe)                      =>
-          "toMap " + data.atPrecedence(p) + (tipe match {
-            case Some(value) => ": " + value.atPrecedence(p)
+          "toMap " + data.inPrecedence(appP) + (tipe match {
+            case Some(value) => " : " + value.inPrecedence(minP)
             case None        => ""
           })
-        case EmptyList(tipe)                        => s"[] : ${tipe.atPrecedence(p)}"
-        case NonEmptyList(exprs)                    => exprs.map(_.atPrecedence(p)).mkString("[", ", ", "]")
-        case Annotation(data, tipe)                 => s"${data.atPrecedence(p)} : ${tipe.atPrecedence(p - 1)}"
-        case ExprOperator(lop, op, rop)             => s"${lop.atPrecedence(p)} ${op.name} ${rop.atPrecedence(p)}"
-        case Application(func, arg)                 => s"${func.atPrecedence(p)} ${arg.atPrecedence(p - 1)}" // Application of Application must be in parentheses.
-        case Field(base, name)                      => base.atPrecedence(p) + "." + name.name
-        case ProjectByLabels(base, labels)          => base.atPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
-        case ProjectByType(base, by)                => base.atPrecedence(p) + "." + "(" + by.atPrecedence(p) + ")"
-        case Completion(base, target)               => base.atPrecedence(p) + " :: " + target.atPrecedence(p)
-        case Assert(assertion)                      => s"assert : ${assertion.atPrecedence(p)}"
+        case EmptyList(tipe)                        => s"[] : ${tipe.inPrecedence(p)}"
+        case NonEmptyList(exprs)                    => exprs.map(_.inPrecedence(p)).mkString("[", ", ", "]")
+        case Annotation(data, tipe)                 => s"${data.inPrecedence(p)} : ${tipe.inPrecedence(p - 1)}"
+        case ExprOperator(lop, op, rop)             => s"${lop.inPrecedence(p)} ${op.name} ${rop.inPrecedence(p)}"
+        case Application(func, arg)                 => s"${func.inPrecedence(p)} ${arg.inPrecedence(p - 1)}" // Application of Application must be in parentheses.
+        case Field(base, name)                      => base.inPrecedence(p) + "." + name.name
+        case ProjectByLabels(base, labels)          => base.inPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
+        case ProjectByType(base, by)                => base.inPrecedence(p) + "." + "(" + by.inPrecedence(p) + ")"
+        case Completion(base, target)               => base.inPrecedence(p) + " :: " + target.inPrecedence(p)
+        case Assert(assertion)                      => s"assert : ${assertion.inPrecedence(p)}"
         case With(data, pathComponents, body)       =>
-          data.atPrecedence(p) + " with " + pathComponents
+          data.inPrecedence(p) + " with " + pathComponents
             .map {
               case PathComponent.Label(name)     => name.name
               case PathComponent.DescendOptional => "?"
-            }.mkString(".") + " = " + body.atPrecedence(p)
+            }.mkString(".") + " = " + body.inPrecedence(p)
         case DoubleLiteral(value)                   => value.toString
         case NaturalLiteral(value)                  => value.toString(10)
         case IntegerLiteral(value)                  => (if (value >= 0) "+" else "") + value.toString(10)
         case TextLiteral(interpolations, trailing)  =>
-          "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.atPrecedence(p) + "}" }.mkString + trailing + "\""
+          "\"" + interpolations.map { case (prefix, expr) => prefix + "${" + expr.inPrecedence(p) + "}" }.mkString + trailing + "\""
         case BytesLiteral(hex)                      => s"0x\"$hex\""
         case DateLiteral(year, month, day)          => f"$year%04d-$month%02d-$day%02d"
         case t @ TimeLiteral(_, _, _, _)            => t.toString
         case t @ TimeZoneLiteral(_)                 => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case r @ RecordType(_)                      =>
-          "{ " + r.sorted.defs.map { case (name, expr) => name.name + ": " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
+          "{ " + r.sorted.defs.map { case (name, expr) => name.name + ": " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case r @ RecordLiteral(_)                   =>
-          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.atPrecedence(TermPrecedence.lowest) }.mkString(", ") + " }"
+          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case u @ UnionType(_)                       =>
           "< " + u.sorted.defs
-            .map { case (name, expr) => name.name + expr.map(_.atPrecedence(TermPrecedence.lowest)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
-        case ShowConstructor(data)                  => "showConstructor " + data.atPrecedence(p)
+            .map { case (name, expr) => name.name + expr.map(_.inPrecedence(TermPrecedence.min)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "
+        case ShowConstructor(data)                  => "showConstructor " + data.inPrecedence(p)
         case Import(importType, importMode, digest) =>
           val digestString     = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
           val importModeString = importMode match {
@@ -847,14 +874,14 @@ object Syntax {
             case ImportType.Missing              => "missing"
             case ImportType.Remote(url, headers) =>
               url.toString + (headers match {
-                case Some(value) => " using " + value.atPrecedence(p)
+                case Some(value) => " using " + value.inPrecedence(p)
                 case None        => ""
               })
             case p @ ImportType.ImportPath(_, _) => p.toString
             case ImportType.Env(envVarName)      => "env:" + envVarName
           }
           importTypeString + digestString + importModeString
-        case KeywordSome(data)                      => s"Some ${data.atPrecedence(p)}"
+        case KeywordSome(data)                      => s"Some ${data.inPrecedence(p)}"
         case ExprBuiltin(builtin)                   => builtin.entryName
         case ExprConstant(constant)                 => constant.entryName
       }

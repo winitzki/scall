@@ -242,7 +242,9 @@ object ImportResolution {
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
             if (visited.contains(child) || parent == child)
-              Left(PermanentFailure(Seq(s"Cyclic import of $child not allowed, imports already visited: ${visited.map(_.toDhall).mkString("; ")}")))
+              Left(
+                PermanentFailure(Seq(s"cyclic import of $child is not allowed, imports already visited: ${(visited :+ parent).map(_.toDhall).mkString("; ")}"))
+              )
             else Right(())
           val referentialCheck  =
             if (parent.importType allowedToImportAnother child.importType) Right(())
@@ -289,7 +291,7 @@ object ImportResolution {
                               println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteAuthority'")
                               emptyHeadersForHost
                           }
-                        case _                   => emptyHeadersForHost
+                        case _                   => emptyHeadersForHost // TODO report issue - if headers have wrong type, do we ignore them or fail the entire expression?
                       }
                     case TypecheckResult.Invalid(errors) =>
                       println(s"Warning: headers resolved from ${expr.toDhall} have a wrong type: $errors")
@@ -298,7 +300,8 @@ object ImportResolution {
                   (headersForOrigin, state01)
                 case TransientFailure(_)        => (emptyHeadersForHost, stateGamma0)
                 case PermanentFailure(messages) =>
-                  println(s"Warning: failed to resolve headers: $messages")
+                  // TODO report issue - if we permanently failed to resolve the headers' own transitive imports, do we need to fail the entire expression or use empty headers? Looks like we need to fail the entire expression but there are no tests for this.
+                  println(s"Error: permanently failed to resolve headers: $messages")
                   (emptyHeadersForHost, stateGamma0)
               }
           }
