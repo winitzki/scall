@@ -13,6 +13,7 @@ import izumi.reflect.{Tag, TagK}
 import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
+import scala.language.dynamics
 
 sealed trait DhallKinds
 
@@ -40,8 +41,14 @@ object DhallBuiltinFunctions {
   val TimeZone_show: ZoneOffset => String             = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
 
-final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])])
-final case class DhallRecordType(fields: Map[FieldName, Tag[_]])
+final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])]) extends Dynamic {
+  def selectDynamic(field: String): Any = fields(FieldName(field))._1
+}
+
+final case class DhallRecordType(fields: Map[FieldName, Tag[_]]) extends Dynamic {
+def selectDynamic(field: String): Tag[_] = fields(FieldName(field))
+}
+
 final case class DhallUnionType(fields: Map[ConstructorName, Tag[_]])
 final case class DhallUnionValue(value: Any, tpe: DhallUnionType, constructor: ConstructorName)
 final case class DhallEqualityType(left: AsScalaVal, right: AsScalaVal)
@@ -179,15 +186,18 @@ object FromDhall {
 
               concatenateInterpolated.flatMap(result(_, Tag[String]))
 
-            case b: ExpressionScheme.BytesLiteral     => result(b.bytes, Tag[Array[Byte]])
-            case d: ExpressionScheme.DateLiteral      => result(d.toLocalDate, Tag[LocalDate])
-            case d: ExpressionScheme.TimeLiteral      => result(d.toLocalTime, Tag[LocalTime])
-            case d: ExpressionScheme.TimeZoneLiteral  => result(d.toZoneOffset, Tag[ZoneOffset])
-            case ExpressionScheme.RecordType(defs)    =>
-              ???
+            case b: ExpressionScheme.BytesLiteral    => result(b.bytes, Tag[Array[Byte]])
+            case d: ExpressionScheme.DateLiteral     => result(d.toLocalDate, Tag[LocalDate])
+            case d: ExpressionScheme.TimeLiteral     => result(d.toLocalTime, Tag[LocalTime])
+            case d: ExpressionScheme.TimeZoneLiteral => result(d.toZoneOffset, Tag[ZoneOffset])
+            case ExpressionScheme.RecordType(defs)   =>
+              seqSeq(defs.map { case (field, tipe) => valueAndType(tipe, variables).map(t => (field, t.typeTag)) })
+                .map(_.toMap)
+                .map(fields => AsScalaVal(DhallRecordType(fields), validType, Tag[DhallRecordType]))
+
             case ExpressionScheme.RecordLiteral(defs) =>
               val types: Either[Seq[AsScalaError], Map[FieldName, Tag[_]]]       = seqSeq(
-                tipe.asInstanceOf[RecordType[Expression]].defs.map { case (field, tipe) => valueAndType(tipe, variables).map(t => (field, t.typeTag)) }
+                tipe.scheme.asInstanceOf[RecordType[Expression]].defs.map { case (field, tipe) => valueAndType(tipe, variables).map(t => (field, t.typeTag)) }
               ).map(_.toMap)
               val exprs: Either[Seq[AsScalaError], Seq[(FieldName, AsScalaVal)]] = seqSeq(defs.map { case (field, value) =>
                 valueAndType(value, variables).map((field, _))
@@ -197,7 +207,7 @@ object FromDhall {
                 AsScalaVal(DhallRecordValue(fields), validType, Tag[DhallRecordValue])
               }
 
-            case u @ ExpressionScheme.UnionType(defs) =>
+            case ExpressionScheme.UnionType(defs) =>
               val types: Either[Seq[AsScalaError], Map[ConstructorName, Tag[_]]] = seqSeq(defs.map {
                 case (constructor, None)    => Right((constructor, Tag[Unit]))
                 case (constructor, Some(t)) => valueAndType(t, variables).map(r => (constructor, r.typeTag))

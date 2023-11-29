@@ -5,7 +5,7 @@ import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.codec.{DhallKinds}
+import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
 import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
 import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
@@ -64,7 +64,14 @@ class ToScalaTest extends FunSuite {
     expect("Natural/show 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[String] == "2")
   }
 
-  test("convert generic functions to Scala generic functions") {
+  test("convert record literals to Scala") {
+    val record = """{a = 1, b = True, c = "xyz"}""".dhall.asScala[DhallRecordValue]
+    expect(record.a.asInstanceOf[BigInt] == BigInt(1))
+    expect(record.b.asInstanceOf[Boolean] == true)
+    expect(record.c.asInstanceOf[String] == "xyz")
+  }
+
+  test("wip convert generic functions to Scala generic functions") {
     object TestObj  {
       def a[A](x: A): A = x
     }
