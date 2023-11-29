@@ -22,11 +22,11 @@ Read a Dhall expression into a Dhall syntax tree, perform type checking and beta
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
 
-val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean].value
+val a: Boolean = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean]
 
 assert(a == true)
 
-val b = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt].toOption.get.value.intValue
+val b: BigInt = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt]
 
 assert(b == 3)
 ```
@@ -39,6 +39,8 @@ assert(b == 3)
 3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a transparent replacement of the standard Dhall imports, as far as Scala is concerned.
 
 ## Current status
+
+- [x] The [Dhall language standard version v23.0.0](https://github.com/dhall-lang/dhall-lang/blob/master/CHANGELOG.md) is fully implemented.
 
 - [x] A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).  All the parser tests pass.
 

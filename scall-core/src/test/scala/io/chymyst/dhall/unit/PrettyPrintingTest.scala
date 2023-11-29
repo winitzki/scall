@@ -24,4 +24,8 @@ class PrettyPrintingTest extends DhallTest {
       expect(a.dhall.toDhall == b)
     }
   }
+
+  test("print assert expressions") {
+    expect("let x=1===1 in assert: x".dhall.typeCheckAndBetaNormalize().unsafeGet.toDhall == "assert : 1 ≡ 1")
+  }
 }

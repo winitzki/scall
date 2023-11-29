@@ -8,11 +8,11 @@ class ReadmeTest extends FunSuite {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
     import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
 
-    val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean].toOption.get.value
+    val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean]
 
     assert(a == true)
 
-    val b = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt].toOption.get.value.intValue
+    val b = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt]
 
     assert(b == 3)
   }

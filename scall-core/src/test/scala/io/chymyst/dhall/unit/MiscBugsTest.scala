@@ -48,6 +48,7 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
     TestUtils.requireSuccessAtLeast(results.length, results)
   }
 
+  // The file `time_literal/time_literal_test.cbor` was prepared with the Haskell version of dhall that truncates seconds fractions to 12 after-comma digits.
   test("cbor encoding for time literals with long fraction using cbor1") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
