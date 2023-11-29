@@ -19,8 +19,8 @@ class ReadmeTest extends FunSuite {
 
   test("factorial example from readme") {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
-    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
     import io.chymyst.dhall.Syntax.Expression
+    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
     val factorial: Expression =
       """
         |\(x: Natural) ->
@@ -38,8 +38,28 @@ class ReadmeTest extends FunSuite {
 
     val ten: Expression = "10".dhall
 
-    val tenFactorial: BigInt = factorial(ten).betaNormalized.asScala[BigInt]
+    val tenFactorial: Expression = factorial(ten)
 
-    assert(tenFactorial == BigInt(3628800))
+    assert(tenFactorial.betaNormalized.asScala[BigInt] == BigInt(3628800))
+  }
+
+  test("ill-typed example from readme") {
+    import io.chymyst.dhall.Parser.StringAsDhallExpression
+
+    // Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
+    val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
+
+    val argument = """\(x: Bool) -> x""".dhall
+    val bad      = illTyped(argument)
+    // These expressions fail type-checking.
+    assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
+    assert(bad.typeCheckAndBetaNormalize().isValid == false)
+    // If we try evaluating `bad` without type-checking, we will get an infinite loop.
+    try {
+      bad.betaNormalized
+    } catch {
+      case _: StackOverflowError =>
+    }
+
   }
 }
