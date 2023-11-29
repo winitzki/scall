@@ -21,6 +21,12 @@ class PrettyPrintingTest extends DhallTest {
     ("x y z", "x y z"),
     ("x (y z)", "x (y z)"),
     ("(x y) z", "x y z"),
+    ("x || y && z", "x || y && z"),
+    ("(x || y) && z", "(x || y) && z"),
+    ("x || (y && z)", "x || y && z"),
+    ("x || y == z", "x || y == z"),
+    ("(x || y) == z", "(x || y) == z"),
+    ("x || (y == z)", "x || y == z"),
   )
 
   test("print Dhall expressions") {
