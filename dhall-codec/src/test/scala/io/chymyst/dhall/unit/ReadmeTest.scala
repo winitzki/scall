@@ -48,18 +48,19 @@ class ReadmeTest extends FunSuite {
 
     // Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
     val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
-
     val argument = """\(x: Bool) -> x""".dhall
-    val bad      = illTyped(argument)
+
+    val bad = illTyped(argument)
     // These expressions fail type-checking.
     assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
     assert(bad.typeCheckAndBetaNormalize().isValid == false)
-    // If we try evaluating `bad` without type-checking, we will get an infinite loop.
-    try {
-      bad.betaNormalized
-    } catch {
-      case _: StackOverflowError =>
-    }
 
+    // If we try evaluating `bad` without type-checking, we will get an infinite loop.
+    val result: String =
+      try bad.betaNormalized.toDhall
+      catch {
+        case e: Throwable => e.toString
+      }
+    assert(result == "java.lang.StackOverflowError")
   }
 }
