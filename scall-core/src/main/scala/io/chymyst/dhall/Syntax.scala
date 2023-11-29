@@ -816,8 +816,8 @@ object Syntax {
       val appP = TermPrecedence.applicationPrecedence
       scheme match {
         case Variable(name, index)                  => s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}"
-        case Lambda(name, tipe, body)               => s"λ(${name.escape} : ${tipe.inPrecedence(p)}) -> ${body.inPrecedence(p)}"
-        case Forall(name, tipe, body)               => s"∀(${name.escape} : ${tipe.inPrecedence(p)}) -> ${body.inPrecedence(p)}"
+        case Lambda(name, tipe, body)               => s"λ(${name.escape} : ${tipe.inPrecedence(p)}) → ${body.inPrecedence(p)}"
+        case Forall(name, tipe, body)               => s"∀(${name.escape} : ${tipe.inPrecedence(p)}) → ${body.inPrecedence(p)}"
         case Let(name, tipe, subst, body)           =>
           s"let ${name.escape} ${tipe.map(t => ": " + t.inPrecedence(p)).getOrElse("")} = ${subst.inPrecedence(p)}\nin ${body.inPrecedence(p)}"
         case If(cond, ifTrue, ifFalse)              => s"if ${cond.inPrecedence(p)} then ${ifTrue.inPrecedence(p)} else ${ifFalse.inPrecedence(p)}"
@@ -835,7 +835,7 @@ object Syntax {
         case NonEmptyList(exprs)                    => exprs.map(_.inPrecedence(p)).mkString("[", ", ", "]")
         case Annotation(data, tipe)                 => s"${data.inPrecedence(p)} : ${tipe.inPrecedence(p - 1)}"
         case ExprOperator(lop, op, rop)             => s"${lop.inPrecedence(p)} ${op.name} ${rop.inPrecedence(p)}"
-        case Application(func, arg)                 => s"${func.inPrecedence(p)} ${arg.inPrecedence(p - 1)}" // Application of Application must be in parentheses.
+        case Application(func, arg)                 => s"${func.inPrecedence(p)} ${arg.inPrecedence(p + 1)}" // Application of Application must be in parentheses.
         case Field(base, name)                      => base.inPrecedence(p) + "." + name.name
         case ProjectByLabels(base, labels)          => base.inPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
         case ProjectByType(base, by)                => base.inPrecedence(p) + "." + "(" + by.inPrecedence(p) + ")"
@@ -857,7 +857,7 @@ object Syntax {
         case t @ TimeLiteral(_, _, _, _)            => t.toString
         case t @ TimeZoneLiteral(_)                 => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case r @ RecordType(_)                      =>
-          "{ " + r.sorted.defs.map { case (name, expr) => name.name + ": " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
+          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " : " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case r @ RecordLiteral(_)                   =>
           "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case u @ UnionType(_)                       =>

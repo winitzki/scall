@@ -31,6 +31,57 @@ val b: BigInt = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigI
 assert(b == 3)
 ```
 
+Define a Dhall factorial function as a Dhall expression, and apply it to another a Dhall expression.
+
+```scala
+import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.Syntax.Expression
+import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+
+val factorial: Expression =
+  """
+    |\(x: Natural) ->
+    |  let t = {acc: Natural, count: Natural}
+    |  let result = Natural/fold x t (\(x: t) -> {acc = x.acc * x.count, count = x.count + 1} ) {acc = 1, count = 1}
+    |    in result.acc
+        """.stripMargin.dhall.betaNormalized
+
+assert(factorial.toDhall ==
+  """
+    |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
+    |""".stripMargin.trim)
+
+val ten: Expression = "10".dhall
+
+// Manipulate Dhall expressions.
+val tenFactorial: Expression = factorial(ten)
+
+assert(tenFactorial.betaNormalized.asScala[BigInt] == BigInt(3628800))
+```
+
+In this example, we skipped type-checking since we know that our expression is well-typed.
+However, Dhall only guarantees correct evaluation for well-typed expressions.
+An ill-typed expression may fail to evaluate or even cause an infinite loop:
+
+```scala
+import io.chymyst.dhall.Parser.StringAsDhallExpression
+
+// Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
+val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
+
+val argument = """\(x: Bool) -> x""".dhall
+val bad = illTyped(argument)
+// These expressions fail type-checking.
+assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
+assert(bad.typeCheckAndBetaNormalize().isValid == false)
+// If we try evaluating `bad` without type-checking, we will get an infinite loop.
+try {
+  bad.betaNormalized
+} catch {
+  case _: StackOverflowError =>
+}
+```
+
 ## Goals of the project
 
 1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. (This is done.)
@@ -56,11 +107,11 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] Typechecking is implemented according to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/type-inference.md), including the "function check". All typechecking tests pass.
 
-- [x] GitHub Actions are used to test across JDK 8, 11, 17 and Scala 2.13.11 and 3.3.1.
+- [x] GitHub Actions are used to test with JDK 8, 11, 17 and Scala 2.13.11.
 
 - [x] Import resolution code is fully implemented, all tests pass.
 
-- [ ] Converting Dhall values to Scala values is in progress.
+- [ ] Converting Dhall values to Scala values: in progress.
 
 ## Special features in the Scala implementation of Dhall
 
