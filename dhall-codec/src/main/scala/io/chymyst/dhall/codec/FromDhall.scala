@@ -133,11 +133,21 @@ object FromDhall {
               }
 
               op match {
-                case Operator.Or                 => useOp[Boolean, Boolean](_ || _) // TODO make this lazy
+                case Operator.Or                 => // useOp[Boolean, Boolean](_ || _)
+                  // This operation must be lazy and avoid evaluating `rop` if `lop` is `True`.
+                  for {
+                    l      <- valueAndType(lop, variables)
+                    result <- if (l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables)
+                  } yield result
                 case Operator.Plus               => useOp[Natural, Natural](_ + _)
                 case Operator.TextAppend         => useOp[String, String](_ ++ _)
                 case Operator.ListAppend         => useOp[List[_], List[_]](_ ++ _)
-                case Operator.And                => useOp[Boolean, Boolean](_ && _) // TODO make this lazy
+                case Operator.And                => // useOp[Boolean, Boolean](_ && _)
+                  // This operation must be lazy and avoid evaluating `rop` if `lop` is `False`.
+                  for {
+                    l      <- valueAndType(lop, variables)
+                    result <- if (!l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables)
+                  } yield result
                 case Operator.CombineRecordTerms => ???
                 case Operator.Prefer             => ???
                 case Operator.CombineRecordTypes => ???
