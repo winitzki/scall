@@ -29,6 +29,30 @@ assert(a == true)
 val b: BigInt = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt]
 
 assert(b == 3)
+
+// Define a Dhall factorial function. This is a Dhall expression.
+
+import io.chymyst.dhall.Syntax.Expression
+
+val factorial: Expression =
+  """
+    |\(x: Natural) ->
+    |  let t = {acc: Natural, count: Natural}
+    |  let result = Natural/fold x t (\(x: t) -> {acc = x.acc * x.count, count = x.count + 1} ) {acc = 1, count = 1}
+    |    in result.acc
+        """.stripMargin.dhall.betaNormalized
+
+assert(factorial.toDhall ==
+  """
+    |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
+    |""".stripMargin.trim)
+
+val ten: Expression = "10".dhall
+
+// Manipulate Dhall expressions.
+val tenFactorial: BigInt = factorial(ten).betaNormalized.asScala[BigInt]
+
+assert(tenFactorial == BigInt(3628800))
 ```
 
 ## Goals of the project
