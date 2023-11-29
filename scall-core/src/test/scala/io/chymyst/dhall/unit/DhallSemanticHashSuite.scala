@@ -3,13 +3,10 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.{Parser, Semantics}
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.dhall.{Parser, Semantics}
-import munit.FunSuite
 
-import java.nio.file.{Files, Paths}
 import scala.util.Try
 
-class DhallSemanticHashSuite extends FunSuite {
+class DhallSemanticHashSuite extends DhallTest {
   test("dhall standard acceptance tests for semantic hash") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
       val result = Try {

@@ -1,14 +1,11 @@
 package io.chymyst.dhall.unit
 
 import io.chymyst.dhall.Grammar.TextLiteralNoInterp
-import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
+import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.{Grammar, SyntaxConstants}
 import io.chymyst.dhall.unit.TestUtils.v
-
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.Throwables.printThrowable
+import io.chymyst.dhall.{Grammar, SyntaxConstants}
 
 object TestFixtures {
 
@@ -118,28 +115,28 @@ object TestFixtures {
 
   val importExpressions: Seq[(String, Expression)] = Seq(
     s"./a.dhall sha256:$sha256example"                                             -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./a.dhall sha256:$sha256lc"                                                  -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("a.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("a.dhall"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256lc.toUpperCase)),
     ),
-    "./local/import as Location"                                                   -> Import[Expression](ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))), ImportMode.Location, None),
+    "./local/import as Location"                                                   -> Import[Expression](ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))), ImportMode.Location, None),
     s"./local/import sha256:$sha256example"                                        -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.Code,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import.dhall sha256:$sha256example as Text"                          -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import.dhall"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import.dhall"))),
       ImportMode.RawText,
       Some(BytesLiteral(sha256example)),
     ),
     s"./local/import sha256:$sha256example as Bytes"                               -> Import[Expression](
-      ImportType.Path(FilePrefix.Here, FilePath(Seq("local", "import"))),
+      ImportType.ImportPath(FilePrefix.Here, FilePath(Seq("local", "import"))),
       ImportMode.RawBytes,
       Some(BytesLiteral(sha256example)),
     ),
@@ -250,6 +247,7 @@ object TestFixtures {
     "00:00:01.00000000000000000",
   )
 
+  // A revised standard will no longer truncate seconds fractions in TimeLiteral.
   val timeLiteralsTruncated: Seq[(String, String)] = Seq(
     "09:00:00.0123456789012345678901234567890000000000"    -> "09:00:00.0123456789010000000000000000000000000000",
     "00:59:00.0000000000000000000000000012345678900"       -> "00:59:00.0000000000000000000000000000000000000",

@@ -1,12 +1,10 @@
 package io.chymyst.dhall.unit
 
 import io.chymyst.dhall.Grammar
-import io.chymyst.dhall.Grammar
 import io.chymyst.dhall.unit.TestFixtures._
 import io.chymyst.dhall.unit.TestUtils._
-import munit.FunSuite
 
-class ParserTest2 extends FunSuite {
+class ParserTest2 extends DhallTest {
 
   test("import_only") {
     importExpressions.foreach { case (s, d) =>
@@ -18,9 +16,9 @@ class ParserTest2 extends FunSuite {
     import io.chymyst.dhall.Grammar
     import io.chymyst.dhall.SyntaxConstants.FilePath
     import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
-    import io.chymyst.dhall.SyntaxConstants.ImportType.Path
+    import io.chymyst.dhall.SyntaxConstants.ImportType.ImportPath
 
-    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (Path(Here, FilePath(List("local", "import"))), Some(sha256example)), 86)
+    check(Grammar.import_hashed(_), s"./local/import sha256:$sha256example", (ImportPath(Here, FilePath(List("local", "import"))), Some(sha256example)), 86)
   }
 
   test("import_expression") {

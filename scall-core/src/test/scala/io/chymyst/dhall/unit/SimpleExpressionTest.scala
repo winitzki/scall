@@ -3,22 +3,21 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import fastparse.{Parsed, parse}
+import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.Syntax.ExpressionScheme.{Import, _}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.{Code, RawText}
-import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, Missing, Path}
+import io.chymyst.dhall.SyntaxConstants.ImportType.{Env, ImportPath, Missing}
 import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
 import io.chymyst.dhall._
+import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
 import io.chymyst.test.Throwables.printThrowable
-import munit.FunSuite
 
 import scala.util.Try
 
-class SimpleExpressionTest extends FunSuite {
+class SimpleExpressionTest extends DhallTest {
 
   test("simple invalid expression: 1+1") {
     toFail(Grammar.complete_dhall_file(_), "1+1", "", "", 1)
@@ -310,13 +309,13 @@ class SimpleExpressionTest extends FunSuite {
   }
 
   test("application to an import") {
-    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(Path(Here, FilePath(List("file"))), Code, None)))
+    val expected = Expression(Application(ExprBuiltin(Builtin.List), Import(ImportPath(Here, FilePath(List("file"))), Code, None)))
     check(Grammar.application_expression(_), "List ./file", expected)
   }
 
   test("import with a long file path") { // TODO report issue: parser tests should exercise various characters that are allowed or disallowed in import paths
     val input = "./path0/path1/path2/file"
-    check(Grammar.import_expression(_), input, Expression(Import(Path(Here, FilePath(List("path0", "path1", "path2", "file"))), Code, None)))
+    check(Grammar.import_expression(_), input, Expression(Import(ImportPath(Here, FilePath(List("path0", "path1", "path2", "file"))), Code, None)))
   }
 
   test("do notation") {
@@ -509,8 +508,11 @@ class SimpleExpressionTest extends FunSuite {
       )
     )
     check(Grammar.expression_as_in(_), input, expected)
-    expect(
-      expected.toDhall == "bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Bool Natural q (λ(x: Bool) -> bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Integer Natural r (λ(y: Integer) -> bind: (∀(a: Type) -> ∀(b: Type) -> ∀(_: List a) -> ∀(_: ∀(_: a) -> List b) -> List b) Text Natural s (λ(z: Text) -> k)))"
+    assertEquals(
+      clue(expected.toDhall),
+      clue(
+        "(bind : ∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b) Bool Natural q (λ(x : Bool) -> (bind : ∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b) Integer Natural r (λ(y : Integer) -> (bind : ∀(a : Type) -> ∀(b : Type) -> ∀(_ : List a) -> ∀(_ : ∀(_ : a) -> List b) -> List b) Text Natural s (λ(z : Text) -> k)))"
+      ),
     )
   }
 }

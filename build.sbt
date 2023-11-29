@@ -43,6 +43,7 @@ lazy val scall_core = (project in file("scall-core"))
     // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
     // That base directory should contain `./dhall-lang` and all files below that.
     Test / baseDirectory     := (Test / resourceDirectory).value,
+    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
     libraryDependencies ++= Seq(
       fastparse,
       munitTest,

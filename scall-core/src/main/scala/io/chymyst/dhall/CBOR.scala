@@ -172,7 +172,7 @@ sealed trait CBORmodel {
 
             case (t, filePath) if SyntaxConstants.FilePrefix.cborCodeDict.keySet contains t =>
               val filePrefix: FilePrefix = FilePrefix.cborCodeDict(t)
-              ImportType.Path(filePrefix, SyntaxConstants.FilePath.of(filePath.map(_.asString)))
+              ImportType.ImportPath(filePrefix, SyntaxConstants.FilePath.of(filePath.map(_.asString)))
 
             case (6, List(CString(varName))) => ImportType.Env(varName)
 
@@ -648,7 +648,7 @@ object CBOR {
         case ImportType.Remote(SyntaxConstants.ImportURL(scheme, authority, SyntaxConstants.FilePath(segments), query), headers) =>
           scheme.cborCode +: (headers.orNull: Any) +: authority +: segments :+ (query.orNull: Any)
 
-        case ImportType.Path(filePrefix, SyntaxConstants.FilePath(segments)) => filePrefix.cborCode +: segments
+        case ImportType.ImportPath(filePrefix, SyntaxConstants.FilePath(segments)) => filePrefix.cborCode +: segments
 
         case ImportType.Env(envVarName) => Seq(6, envVarName)
       }

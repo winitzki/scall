@@ -1,23 +1,17 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import fastparse.Parsed
-import io.chymyst.test.ResourceFiles
-import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, FilePrefix, ImportType, VarName}
-import io.chymyst.dhall.TypeCheck._Type
-import io.chymyst.dhall.TypecheckResult.Valid
-import io.chymyst.dhall.{Parser, Semantics, SyntaxConstants, TypecheckResult}
-import munit.FunSuite
+import io.chymyst.dhall.SyntaxConstants.{FilePrefix, ImportType}
+import io.chymyst.dhall.{Semantics, SyntaxConstants}
+import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 
-import java.io.FileInputStream
 import java.nio.file.Paths
 import scala.util.Try
 
-class SimpleImportResolutionTest extends FunSuite {
+class SimpleImportResolutionTest extends DhallTest {
 
   test("environment presets are parsed correctly for testing") {
     enumerateResourceFiles("dhall-lang/tests/import/success", Some("originHeadersENV.dhall")).foreach { file =>
@@ -42,11 +36,11 @@ class SimpleImportResolutionTest extends FunSuite {
     val import1 = "/tmp/file1.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val import2 = "/tmp/file2.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained = Import.chainWith(import1, import2)
-    expect(chained.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
+    expect(chained.importType == ImportType.ImportPath(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp", "file2.dhall"))))
 
     val import3   = "../tmp2/file3.dhall".dhall.scheme.asInstanceOf[Import[Expression]]
     val chained13 = Import.chainWith(import1, import3)
-    expect(chained13.canonicalize.importType == ImportType.Path(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
+    expect(chained13.canonicalize.importType == ImportType.ImportPath(FilePrefix.Absolute, SyntaxConstants.FilePath(Seq("tmp2", "file3.dhall"))))
   }
 
   test("no loops in importing") {

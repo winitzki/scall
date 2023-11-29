@@ -10,7 +10,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.FilePrefix.Here
 import io.chymyst.dhall.SyntaxConstants.ImportMode.Location
-import io.chymyst.dhall.SyntaxConstants.ImportType.{Path, Remote}
+import io.chymyst.dhall.SyntaxConstants.ImportType.{ImportPath, Remote}
 import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
 
@@ -22,13 +22,13 @@ import scala.util.{Failure, Success, Try}
 object ImportResolution {
 
   def chainWith[E](parent: ImportType[E], child: ImportType[E]): ImportType[E] = (parent, child) match {
-    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(Here, path2))              =>
+    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), ImportPath(Here, path2))              =>
       Remote(ImportURL(scheme1, authority1, path1 chain path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Here, path2))                                           => Path(filePrefix, path1 chain path2)
-    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), Path(FilePrefix.Parent, path2)) =>
+    case (ImportPath(filePrefix, path1), ImportPath(FilePrefix.Here, path2))                                     => ImportPath(filePrefix, path1 chain path2)
+    case (Remote(ImportURL(scheme1, authority1, path1, query1), headers1), ImportPath(FilePrefix.Parent, path2)) =>
       Remote(ImportURL(scheme1, authority1, path1 chainToParent path2, query1), headers1)
-    case (Path(filePrefix, path1), Path(FilePrefix.Parent, path2))                                         => Path(filePrefix, path1 chainToParent path2)
-    case _                                                                                                 => child
+    case (ImportPath(filePrefix, path1), ImportPath(FilePrefix.Parent, path2))                                   => ImportPath(filePrefix, path1 chainToParent path2)
+    case _                                                                                                       => child
   }
 
   val corsHeader = "Access-Control-Allow-Origin".toLowerCase
@@ -228,7 +228,7 @@ object ImportResolution {
     * @param expr
     *   An expression in which imports need to be resolved.
     * @param visited
-    *   List of nested import expressions that have been resolved before encountering this one. This may be empty.
+    *   List of nested import expressions that have been resolved before encountering this one. This list may be empty.
     * @param parent
     *   The parent import expression that has been already resolved, its contents was fetched and parsed as `expr`.
     * @return
@@ -241,8 +241,10 @@ object ImportResolution {
         case i @ Import(_, _, _)                 =>
           val child             = Import.chainWith(parent, i).canonicalize
           val cyclicImportCheck =
-            if (visited contains child)
-              Left(PermanentFailure(Seq(s"Cyclic import of $child not allowed, imports already visited: ${visited.map(_.toDhall).mkString("; ")}")))
+            if (visited.contains(child) || parent == child)
+              Left(
+                PermanentFailure(Seq(s"cyclic import of $child is not allowed, imports already visited: ${(visited :+ parent).map(_.toDhall).mkString("; ")}"))
+              )
             else Right(())
           val referentialCheck  =
             if (parent.importType allowedToImportAnother child.importType) Right(())
@@ -255,8 +257,6 @@ object ImportResolution {
             case None    => Right(())
           }
           // TODO report issue - imports.md does not clearly explain `Γ(headersPath) = userHeadersExpr` and also whether Γ1 is being reused
-
-          // val xdgOption = Option(System.getenv("XDG_CONFIG_HOME")).map(xdg => s""" ? "$xdg/dhall/headers.dhall"""").getOrElse("")
 
           lazy val defaultHeadersLocation =
             """env:DHALL_HEADERS ? "${env:XDG_CONFIG_HOME as Text}/dhall/headers.dhall" ? ~/.config/dhall/headers.dhall""".dhall
@@ -276,13 +276,11 @@ object ImportResolution {
                               r.lookup(FieldName("mapKey")) match {
                                 case Some(
                                       Expression(TextLiteral(List(), originInHeaders))
-                                    ) => // remoteOrigin = https://host  may match originInHeaders = host:443 and http://host may match host:80 unless port is specified in remoteOrigin.
+                                    ) => // remoteOrigin = https://host  may match originInHeaders = host:443 and http://host may match host:80 unless port is specified in remoteAuthority.
                                   (originInHeaders.toLowerCase == remoteAuthority.toLowerCase) ||
-                                  (remoteScheme == Scheme.HTTP && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":80") ||
-                                  (remoteScheme == Scheme.HTTPS && originInHeaders.toLowerCase == remoteAuthority.replaceAll(":[0-9]+$", "") + ":443")
-
+                                  (!remoteAuthority.matches(":[0-9]+$") && originInHeaders.toLowerCase == s"$remoteAuthority:${remoteScheme.defaultPort}")
                                 case None => false
-                              } // contains Expression(TextLiteral.ofString(remoteOrigin)) =>
+                              }
 
                             case _ => false
                           } match {
@@ -291,7 +289,7 @@ object ImportResolution {
                               println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteAuthority'")
                               emptyHeadersForHost
                           }
-                        case _                   => emptyHeadersForHost
+                        case _                   => emptyHeadersForHost // TODO report issue - if headers have wrong type, do we ignore them or fail the entire expression?
                       }
                     case TypecheckResult.Invalid(errors) =>
                       println(s"Warning: headers resolved from ${expr.toDhall} have a wrong type: $errors")
@@ -300,21 +298,22 @@ object ImportResolution {
                   (headersForOrigin, state01)
                 case TransientFailure(_)        => (emptyHeadersForHost, stateGamma0)
                 case PermanentFailure(messages) =>
-                  println(s"Warning: failed to resolve headers: $messages")
+                  // TODO report issue - if we permanently failed to resolve the headers' own transitive imports, do we need to fail the entire expression or use empty headers? Looks like we need to fail the entire expression but there are no tests for this.
+                  println(s"Error: permanently failed to resolve headers: $messages")
                   (emptyHeadersForHost, stateGamma0)
               }
           }
 
           // Values of type Either[ImportResolutionResult[Expression], _] are used to report early results as Left().
           // At the end of the computation, we will have Either[ImportResolutionResult[Expression], ImportResolutionResult[Expression]] and we will `merge` that.
-          lazy val resolveIfLocation: Either[ImportResolutionResult[Expression], Array[Byte] => ImportResolutionResult[Expression]] = child.importMode match {
+          lazy val resolveByImportMode: Either[ImportResolutionResult[Expression], Array[Byte] => ImportResolutionResult[Expression]] = child.importMode match {
             case Location =>
               val canonical                               = child.canonicalize
               // Need to process this first, because `missing as Location` is not a failure while `missing as` anything else must be a failure.
               val (field: FieldName, arg: Option[String]) = canonical.importType match {
                 case ImportType.Missing         => (FieldName("Missing"), None)
                 case Remote(url, _)             => (FieldName("Remote"), Some(url.toString))
-                case p @ Path(_, _)             => (FieldName("Local"), Some(p.toString))
+                case p @ ImportPath(_, _)       => (FieldName("Local"), Some(p.toString))
                 case ImportType.Env(envVarName) => (FieldName("Environment"), Some(envVarName))
               } // TODO report issue: imports.md incorrectly specifies the field name as `.Location` whereas it must be `.Local`
               val withField: Expression                   = Field(typeOfImportAsLocation, field)
@@ -387,7 +386,7 @@ object ImportResolution {
                 }
               }
 
-            case path @ Path(_, _) =>
+            case path @ ImportPath(_, _) =>
               (for {
                 javaPath <- Try(path.toJavaPath)
                 _        <- if (javaPath.toFile.exists) Success(()) else Failure(new Exception(messageForNonexistingImportFile(javaPath)))
@@ -414,7 +413,7 @@ object ImportResolution {
             _                <- resolveIfCached
             _                <- cyclicImportCheck
             _                <- referentialCheck
-            readByImportMode <- resolveIfLocation
+            readByImportMode <- resolveByImportMode
             bytes            <- missingOrData
             expr             <- Right(readByImportMode(bytes))
             successfullyRead <- expr match {

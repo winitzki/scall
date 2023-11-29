@@ -14,14 +14,33 @@
 
 This project is a Scala implementation of the [Dhall language](https://dhall-lang.org), a purely functional programming language designed for programmable configuration with strong guarantees of consistency and security.
 
+# Example usage
+
+Read a Dhall expression into a Dhall syntax tree, perform type checking and beta-normalization, and convert into a Scala value.
+
+```scala
+import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+
+val a: Boolean = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean]
+
+assert(a == true)
+
+val b: BigInt = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt]
+
+assert(b == 3)
+```
+
 ## Goals of the project
 
-1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass.
+1. Fully implement the syntax and semantics of Dhall. All standard tests from the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. (This is done.)
 2. Implement JSON and YAML export.
 2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall types (both at run time and at compile time if possible). Most Dhall integrations only support a small subset of Dhall, but Scala has a rich type system. We would like to support Scala function types, Scala type constructors, higher-kinded types, and other Scala features as much as possible.
 3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a transparent replacement of the standard Dhall imports, as far as Scala is concerned.
 
 ## Current status
+
+- [x] The [Dhall language standard version v23.0.0](https://github.com/dhall-lang/dhall-lang/blob/master/CHANGELOG.md) is fully implemented.
 
 - [x] A parser from Dhall to Scala case classes is implemented using [fastparse](https://github.com/com-lihaoyi/fastparse).  All the parser tests pass.
 
@@ -41,19 +60,21 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] Import resolution code is fully implemented, all tests pass.
 
+- [ ] Converting Dhall values to Scala values is in progress.
+
 ## Special features in the Scala implementation of Dhall
 
 - [x] All alpha-normalization, beta-normalization, and type-checking results are cached in LRU caches of configurable size.
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [ ] Dhall values of function types can be converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is converted into the Scala function equivalent to `{ x : BigInt => x + 1 }`, of type `Function1[BigInt, BigInt]`.
+- [ ] Dhall values of function types are converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is converted into the Scala function equivalent to `{ x : BigInt => x + 1 }`, which has type `Function1[BigInt, BigInt]`.
 
-- [ ] Dhall values of type `Kind` (for example, `Text`, `Bool`, or `Natural -> Natural`) can be converted to Scala type tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
+- [ ] Dhall values of type `Type` (for example, `Text`, `Bool`, or `Natural -> Natural`) are converted to Scala type tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
 ## Roadmap for future developments
 
-1. Possibly, implement more type inference (e.g. `Prelude/List/map _-_ [1, 2, 3]`? Note that `_` cannot be used for automatically inferred values because it is often used by the Prelude already.)
+1. Possibly, implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if other arguments can be used to infer the type. List/map [ 1, 2, 3 ] (\x -> x + 1) should be sufficient. Similarly with the do-notation, `as bind with x in p then q` should be sufficient. (This probably requires introducing a new syntax form for do-notation rather than immediate desugaring, but perhaps not.)
 2. More caching and more native implementation for literals, to improve performance. (Without caching, List/sort would hang on a list of 6 natural numbers.)
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system). Support both Scala 2 and Scala 3.
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).

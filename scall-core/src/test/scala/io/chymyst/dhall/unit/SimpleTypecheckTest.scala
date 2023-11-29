@@ -2,18 +2,17 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, VarName}
 import io.chymyst.dhall.TypeCheck._Type
 import io.chymyst.dhall.TypecheckResult.Valid
 import io.chymyst.dhall.{Parser, TypecheckResult}
-import munit.FunSuite
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 
 import java.io.FileInputStream
 
-class SimpleTypecheckTest extends FunSuite {
+class SimpleTypecheckTest extends DhallTest {
   test("typecheck record of types") {
     val input = "{ x = 1, y = +2 }"
     expect(

@@ -1,5 +1,7 @@
 package io.chymyst.dhall
 
+import io.chymyst.dhall.Monoid.MonoidSyntax
+
 import scala.util.{Success, Try}
 
 trait Applicative[F[_]] {
@@ -40,4 +42,36 @@ object Applicative {
 
     override def pure[A](a: A): Try[A] = Success(a)
   }
+
+  implicit def eitherMonoidApplicative[E: Monoid]: Applicative[Either[E, *]] = new Applicative[Either[E, *]] {
+    override def zip[A, B](fa: Either[E, A], fb: Either[E, B]): Either[E, (A, B)] = (fa, fb) match {
+      case (Right(a), Right(b)) => Right((a, b))
+      case (Left(ea), Right(_)) => Left(ea)
+      case (Right(_), Left(eb)) => Left(eb)
+      case (Left(ea), Left(eb)) => Left(ea ++ eb)
+    }
+
+    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = fa map f
+
+    override def pure[A](a: A): Either[E, A] = Right(a)
+  }
+}
+
+sealed trait Monoid[M] {
+  def empty: M
+  def combine(a: M, b: M): M
+}
+
+object Monoid {
+  implicit class MonoidSyntax[M: Monoid](m: M) {
+    def ++(other: M): M = implicitly[Monoid[M]].combine(m, other)
+  }
+
+  implicit def monoidSeq[A]: Monoid[Seq[A]] = new Monoid[Seq[A]] {
+    override def empty: Seq[A] = Seq()
+
+    override def combine(a: Seq[A], b: Seq[A]): Seq[A] = a ++ b
+  }
+
+  def apply[M: Monoid]: Monoid[M] = implicitly[Monoid[M]]
 }

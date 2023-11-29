@@ -1,23 +1,19 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.upokecenter.cbor.CBORObject
 import fastparse.Parsed
-import io.chymyst.test.{ResourceFiles, Throwables}
-import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
-import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant}
+import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
-import io.chymyst.dhall.{CBOR, CBORmodel, Grammar, Parser}
-import munit.FunSuite
+import io.chymyst.dhall.{CBORmodel, Parser}
+import io.chymyst.test.ResourceFiles
 
 import java.io.FileInputStream
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Try}
 
-class MiscBugsTest extends FunSuite with ResourceFiles {
+class MiscBugsTest extends DhallTest with ResourceFiles {
 
   test("time literals with nanos") {
     val results: Seq[Try[_]] = ("12:30:00.1111111" +: TestFixtures.timeLiterals).flatMap { t =>
@@ -36,8 +32,9 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
   }
 
   test("time literals with truncated nanos") {
-    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.flatMap { case (input, output) =>
-      val x = input.dhall
+    val results: Seq[Try[_]] = TestFixtures.timeLiteralsTruncated.flatMap { case (input, _) =>
+      val output = input // We no longer truncate seconds fractions.
+      val x      = input.dhall
       Seq(
         Try(expect(x.toDhall == output)),
         Try(cborRoundtrip(x)),
@@ -51,17 +48,18 @@ class MiscBugsTest extends FunSuite with ResourceFiles {
     TestUtils.requireSuccessAtLeast(results.length, results)
   }
 
+  // The file `time_literal/time_literal_test.cbor` was prepared with the Haskell version of dhall that truncates seconds fractions to 12 after-comma digits.
   test("cbor encoding for time literals with long fraction using cbor1") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall == fromCbor1)
+    expect(input.dhall.toDhall == input)
     expect(expected.dhall == fromCbor1)
   }
 
   test("cbor encoding for time literals with long fraction using cbor2") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall == fromCbor2)
+    expect(input.dhall.toDhall == input) // We no longer truncate seconds fractions.
     expect(expected.dhall == fromCbor2)
   }
 

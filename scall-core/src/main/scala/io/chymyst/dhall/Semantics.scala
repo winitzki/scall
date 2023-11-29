@@ -210,12 +210,18 @@ object Semantics {
 
       case ExprOperator(lop, op, rop) =>
         lazy val ExprOperator(lopN, _, ropN) = normalizeArgs
+
+        // Make sure we do not evaluate unnecessarily.
+        def booleans(ifLeftFalse: => Expression, ifLeftTrue: => Expression): Expression =
+          if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) ifLeftFalse
+          else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) ifLeftTrue
+          else if (equivalent(lopN, ropN)) ropN
+          else normalizeArgs
+
         op match {
-          case Operator.Or =>
-            if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) ropN
-            else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) lopN
-            else if (equivalent(lop, rop)) lopN
-            else normalizeArgs
+          case Operator.Or => booleans(ropN, lopN)
+
+          case Operator.And => booleans(lopN, ropN)
 
           case Operator.Plus =>
             (lopN.scheme, ropN.scheme) match { // Simplified only for Natural arguments.
@@ -234,12 +240,6 @@ object Semantics {
               case (NonEmptyList(exprs1), NonEmptyList(exprs2)) => NonEmptyList(exprs1 ++ exprs2).betaNormalized
               case _                                            => normalizeArgs
             }
-
-          case Operator.And =>
-            if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) lopN
-            else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) ropN
-            else if (equivalent(lop, rop)) lopN
-            else normalizeArgs
 
           case Operator.CombineRecordTerms =>
             (lopN.scheme, ropN.scheme) match {

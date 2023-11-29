@@ -2,16 +2,15 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.{CBORmodel, Parser, Syntax}
-import munit.FunSuite
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 
 import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import scala.util.{Failure, Success, Try}
 
-class DhallParserAndCbor1Suite extends FunSuite {
+class DhallParserAndCbor1Suite extends DhallTest {
   def testFilesForSuccess = enumerateResourceFiles("dhall-lang/tests/parser/success", Some(".dhall"))
 
   def testFilesForFailure = enumerateResourceFiles("dhall-lang/tests/parser/failure", Some(".dhall"))

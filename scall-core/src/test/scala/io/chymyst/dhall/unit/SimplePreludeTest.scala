@@ -2,21 +2,17 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
-import io.chymyst.test.ResourceFiles.enumerateResourceFiles
-import io.chymyst.test.{ResourceFiles, TestTimings, Throwables}
-import io.chymyst.dhall.{Parser, Semantics, TypeCheck}
+import io.chymyst.dhall.Parser
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.unit.TestUtils.readToString
-import munit.FunSuite
+import io.chymyst.test.ResourceFiles.enumerateResourceFiles
+import io.chymyst.test.{ResourceFiles, TestTimings, Throwables}
 
 import java.io.FileInputStream
-import java.nio.file.Files
-import java.time.LocalDateTime
-import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-class SimplePreludeTest extends FunSuite with TestTimings {
+class SimplePreludeTest extends DhallTest with TestTimings {
 
   test("read List/partition.dhall and beta-normalize it alone") {
     val expr = readToString(ResourceFiles.resourceAsFile("dhall-lang/Prelude/List/partition.dhall").get.toPath).dhall
