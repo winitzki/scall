@@ -18,6 +18,9 @@ class PrettyPrintingTest extends DhallTest {
     ("\\(x : A) -> Natural/isZero x + 1", "λ(x : A) → Natural/isZero x + 1"),
     ("((if (Natural/isZero (1 + 1)) then Natural/even else Natural/odd) 2)", "(if Natural/isZero (1 + 1) then Natural/even else Natural/odd) 2"),
     ("\\(x : A) -> \\(y: B) -> z", "λ(x : A) → λ(y : B) → z"),
+    ("x y z", "x y z"),
+    ("x (y z)", "x (y z)"),
+    ("(x y) z", "x y z"),
   )
 
   test("print Dhall expressions") {

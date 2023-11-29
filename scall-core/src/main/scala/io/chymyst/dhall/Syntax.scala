@@ -835,7 +835,7 @@ object Syntax {
         case NonEmptyList(exprs)                    => exprs.map(_.inPrecedence(p)).mkString("[", ", ", "]")
         case Annotation(data, tipe)                 => s"${data.inPrecedence(p)} : ${tipe.inPrecedence(p - 1)}"
         case ExprOperator(lop, op, rop)             => s"${lop.inPrecedence(p)} ${op.name} ${rop.inPrecedence(p)}"
-        case Application(func, arg)                 => s"${func.inPrecedence(p)} ${arg.inPrecedence(p - 1)}" // Application of Application must be in parentheses.
+        case Application(func, arg)                 => s"${func.inPrecedence(p)} ${arg.inPrecedence(p + 1)}" // Application of Application must be in parentheses.
         case Field(base, name)                      => base.inPrecedence(p) + "." + name.name
         case ProjectByLabels(base, labels)          => base.inPrecedence(p) + "." + "{" + labels.map(_.name).mkString(", ") + "}"
         case ProjectByType(base, by)                => base.inPrecedence(p) + "." + "(" + by.inPrecedence(p) + ")"
