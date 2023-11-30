@@ -46,7 +46,7 @@ final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])]) extends
 }
 
 final case class DhallRecordType(fields: Map[FieldName, Tag[_]]) extends Dynamic {
-def selectDynamic(field: String): Tag[_] = fields(FieldName(field))
+  def selectDynamic(field: String): Tag[_] = fields(FieldName(field))
 }
 
 final case class DhallUnionType(fields: Map[ConstructorName, Tag[_]])
