@@ -463,16 +463,19 @@ object Semantics {
         }
 
       case Field(base, name) =>
-        matchOrNormalize(base) {
-          case r @ RecordLiteral(_) =>
-            val x = r.lookup(name)
-            x.getOrElse(
-              throw new Exception(
-                s"Error in typechecker: record access in $expr has invalid field name $name not occurring among record fields ${r.defs.map(_._1).mkString(", ")}"
-              )
+        def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
+          maybeExpression.getOrElse(
+            throw new Exception(
+              s"Record access in $expr has invalid field name $name, which should be one of the record literal's fields: ${defs.map(_._1).mkString(", ")}"
             )
+          )
 
-          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
+        matchOrNormalize(base) {
+          case r @ RecordLiteral(_) => lookupOrFailure(r.defs, "record literal", r.lookup(name))
+
+          case r @ RecordType(_) => lookupOrFailure(r.defs, "record type", r.lookup(name))
+
+          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized // TODO verify that we should be skipping the inner ProjectByLabels operation.
 
           case ExprOperator(Expression(r @ RecordLiteral(_)), Operator.Prefer, target)             =>
             r.lookup(name) match {
@@ -500,11 +503,12 @@ object Semantics {
 
         }
 
-      case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+      // case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
 
       case p @ ProjectByLabels(base, labels) =>
         matchOrNormalize(base) {
           case RecordLiteral(defs)                                                          => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
+          case RecordType(defs)                                                             => RecordType(defs.filter { case (name, _) => labels contains name })    // TODO: do we need a faster lookup here?
           case ProjectByLabels(t, _)                                                        => ProjectByLabels(t, labels).betaNormalized
           case ExprOperator(left, Operator.Prefer, right @ Expression(RecordLiteral(defs))) =>
             val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))

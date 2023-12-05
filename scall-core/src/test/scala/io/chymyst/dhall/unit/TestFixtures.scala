@@ -256,4 +256,30 @@ object TestFixtures {
     "09:00:00.99999999999999999999999999999999"            -> "09:00:00.99999999999900000000000000000000",
     "09:00:00.0987654321098765432109876543210987654321"    -> "09:00:00.0987654321090000000000000000000000000000",
   )
+
+  val prettyPrintingExamples: Seq[(String, String)] = Seq(
+    ("1 + 2", "1 + 2"),
+    ("1 + 2 * 3", "1 + 2 * 3"),
+    ("1 * 2 + 3", "1 * 2 + 3"),
+    ("(1 + 2) * 3", "(1 + 2) * 3"),
+    ("(1 + 2) + 3", "1 + 2 + 3"),
+    ("1 + (2 + 3)", "1 + 2 + 3"),
+    ("\\(x : A) -> (x + 1) * 2", "λ(x : A) → (x + 1) * 2"),
+    ("\\(x : A) -> Natural/isZero (x + 1) * 2", "λ(x : A) → Natural/isZero (x + 1) * 2"),
+    ("\\(x : A) -> Natural/isZero ((x + 1) * 2)", "λ(x : A) → Natural/isZero ((x + 1) * 2)"),
+    ("\\(x : A) -> Natural/isZero (x + 1)", "λ(x : A) → Natural/isZero (x + 1)"),
+    ("\\(x : A) -> Natural/isZero x + 1", "λ(x : A) → Natural/isZero x + 1"),
+    ("((if (Natural/isZero (1 + 1)) then Natural/even else Natural/odd) 2)", "(if Natural/isZero (1 + 1) then Natural/even else Natural/odd) 2"),
+    ("\\(x : A) -> \\(y: B) -> z", "λ(x : A) → λ(y : B) → z"),
+    ("x y z", "x y z"),
+    ("x (y z)", "x (y z)"),
+    ("(x y) z", "x y z"),
+    ("x || y && z", "x || y && z"),
+    ("(x || y) && z", "(x || y) && z"),
+    ("x || (y && z)", "x || y && z"),
+    ("x || y == z", "x || y == z"),
+    ("(x || y) == z", "(x || y) == z"),
+    ("x || (y == z)", "x || y == z"),
+  )
+
 }

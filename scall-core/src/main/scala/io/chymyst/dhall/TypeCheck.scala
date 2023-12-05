@@ -465,7 +465,7 @@ object TypeCheck {
           case (other, _)                                                => typeError(s"Function application in ${exprToInferTypeOf.toDhall} must use a function type, but instead found ${other.toDhall}")
         }
 
-      // Field selection is possible only in two cases: from a record value and from a union type.
+      // Field selection is possible only from a record value, from a record type, or from a union type.
       case Field(base, name)      =>
         base.inferTypeWith(gamma).flatMap {
           case Expression(r @ RecordType(defs))                                                                                            =>
@@ -494,26 +494,48 @@ object TypeCheck {
                   case Some(None)       => Expression(r)
                   case None             => typeError(s"UnionType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
                 }
-              case other               => typeError(s"Field selection is possible only from union type but found ${other.toDhall}")
+
+              case r @ RecordType(defs) =>
+                r.lookup(name) match {
+                  case Some(tipe) => tipe.inferTypeWith(gamma)
+                  case None       => typeError(s"RecordType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+                }
+
+              case other => typeError(s"Field selection is possible only from record type or union type but found ${other.toDhall}")
             }
 
-          case other => typeError(s"Field selection in ${exprToInferTypeOf.toDhall} must be for a record or a union, but instead found type ${other.toDhall}")
+          case other =>
+            typeError(
+              s"Field selection in ${exprToInferTypeOf.toDhall} must be for a record type, a record value, or a union type, but instead found type ${other.toDhall}"
+            )
         }
 
       case ProjectByLabels(base, labels) =>
+        lazy val labelSet                    = labels.toSet
         val distinctLabelsCheck              =
           if (labels.size != labels.distinct.size) typeError(s"Duplicate projection labels in {${labels.mkString(", ")}}") else Valid(())
         val baseTypeIsARecordHavingAllLabels = base.inferTypeWith(gamma).flatMap { tipe =>
           tipe.scheme match {
             case RecordType(defs) =>
-              val labelSet      = labels.toSet
               val missingLabels = labelSet diff defs.map(_._1).toSet
               if (missingLabels.nonEmpty)
                 typeError(
                   s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record"
                 )
               else Expression(RecordType(defs.filter(d => labelSet contains d._1)))
-            case other            => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+
+            case ExprConstant(Constant.Type) | ExprConstant(Constant.Kind) | ExprConstant(Constant.Sort) =>
+              base.betaNormalized.scheme match {
+                case RecordType(defs) =>
+                  val missingLabels = labelSet diff defs.map(_._1).toSet
+                  if (missingLabels.nonEmpty)
+                    typeError(
+                      s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record type"
+                    )
+                  else upperBoundUniverse(defs.filter(d => labelSet contains d._1).map(pair => Some(pair._2)))
+              }
+
+            case other => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType")
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)

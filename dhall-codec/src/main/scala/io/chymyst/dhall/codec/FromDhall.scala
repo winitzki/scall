@@ -209,8 +209,8 @@ object FromDhall {
 
             case ExpressionScheme.UnionType(defs) =>
               val types: Either[Seq[AsScalaError], Map[ConstructorName, Tag[_]]] = seqSeq(defs.map {
-                case (constructor, None)    => Right((constructor, Tag[Unit]))
-                case (constructor, Some(t)) => valueAndType(t, variables).map(r => (constructor, r.typeTag))
+                case (constructor, None)                => Right((constructor, Tag[Unit]))
+                case (constructor, Some(t: Expression)) => valueAndType(t, variables).map(r => (constructor, r.typeTag))
               }).map(_.toMap)
               types.map(fields => AsScalaVal(DhallUnionType(fields), validType, Tag[DhallUnionType]))
 
