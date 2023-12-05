@@ -462,7 +462,7 @@ object Semantics {
           case _                                    => normalizeArgs
         }
 
-      case Field(base, name) =>
+      case Field(base, name)         =>
         def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
           maybeExpression.getOrElse(
             throw new Exception(
@@ -503,8 +503,9 @@ object Semantics {
 
         }
 
-        // TODO this cannot be disabled really. But we need type inference to find out if it's an empty  RecordType or an empty RecordLiteral here.
-      // case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+      // TODO this cannot be disabled really. But we need type inference to find out if it's an empty  RecordType or an empty RecordLiteral here!
+      // TODO make typecheck fail for t.{} where t is not a record value, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
+      case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
 
       case p @ ProjectByLabels(base, labels) =>
         matchOrNormalize(base) {

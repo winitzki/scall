@@ -535,7 +535,8 @@ object TypeCheck {
                   else upperBoundUniverse(defs.filter(d => labelSet contains d._1).map(pair => Some(pair._2)))
               }
 
-            case other => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType or a type constant")
+            case other =>
+              typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType or a type constant")
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)

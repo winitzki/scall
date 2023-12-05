@@ -78,7 +78,9 @@ class SimpleTypecheckTest extends DhallTest {
       println(s"Parsed expression: ${ourResult.toDhall}")
       ourResult.inferType match {
         case TypecheckResult.Invalid(errors) =>
-          expect(errors contains "Field selection in True.x must be for a record type, a record value, or a union type, but instead found type Bool, type inference context = {}")
+          expect(
+            errors contains "Field selection in True.x must be for a record type, a record value, or a union type, but instead found type Bool, type inference context = {}"
+          )
       }
     }
   }
