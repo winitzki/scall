@@ -503,6 +503,7 @@ object Semantics {
 
         }
 
+        // TODO this cannot be disabled really. But we need type inference to find out if it's an empty  RecordType or an empty RecordLiteral here.
       // case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
 
       case p @ ProjectByLabels(base, labels) =>

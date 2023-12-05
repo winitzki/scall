@@ -157,7 +157,7 @@ object TypeCheck {
         case ExprConstant(Constant.Sort) => Constant.Sort
       }
 
-      result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
+      result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply) // For empty sequences, it's always `Type`.
     }
 
     // TODO: possible optimization - replace Seq[(VarName, Expr)] by Map[VarName, Expr] and so on. Make sure we detect and eliminate repeated keys at an appropriate stage.
@@ -535,7 +535,7 @@ object TypeCheck {
                   else upperBoundUniverse(defs.filter(d => labelSet contains d._1).map(pair => Some(pair._2)))
               }
 
-            case other => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+            case other => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType or a type constant")
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)
