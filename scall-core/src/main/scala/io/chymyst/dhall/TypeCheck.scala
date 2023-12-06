@@ -450,7 +450,7 @@ object TypeCheck {
           case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.toDhall}")
         }
 
-      case Application(func, arg) =>
+      case Application(func, arg)        =>
         func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
           case (Expression(Forall(varName, varType, bodyType)), argType) =>
             if (Semantics.equivalent(varType, argType)) {
@@ -466,7 +466,7 @@ object TypeCheck {
         }
 
       // Field selection is possible only from a record value, from a record type, or from a union type.
-      case Field(base, name)      =>
+      case Field(base, name)             =>
         base.inferTypeWith(gamma).flatMap {
           case Expression(r @ RecordType(defs))                                                                                            =>
             r.lookup(name) match {
@@ -510,10 +510,15 @@ object TypeCheck {
             )
         }
 
+      // TODO add tests to make sure typecheck fails for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
       case ProjectByLabels(base, labels) =>
-        lazy val labelSet                    = labels.toSet
+        val labelSet                         = labels.toSet
         val distinctLabelsCheck              =
-          if (labels.size != labels.distinct.size) typeError(s"Duplicate projection labels in {${labels.mkString(", ")}}") else Valid(())
+          if (labels.size != labelSet.size)
+            typeError(
+              s"Duplicate projection labels (${labels.sortBy(_.name).diff(labels.sortBy(_.name).distinct).mkString(", ")}) in {${labels.mkString(", ")}}"
+            )
+          else Valid(())
         val baseTypeIsARecordHavingAllLabels = base.inferTypeWith(gamma).flatMap { tipe =>
           tipe.scheme match {
             case RecordType(defs) =>
@@ -533,10 +538,13 @@ object TypeCheck {
                       s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record type"
                     )
                   else upperBoundUniverse(defs.filter(d => labelSet contains d._1).map(pair => Some(pair._2)))
+                case other            => typeError(s"ProjectByLabels is invalid because the base expression is ${other.toDhall}, but it must be a literal RecordType")
               }
 
             case other =>
-              typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType or a type constant")
+              typeError(
+                s"ProjectByLabels is invalid, the base expression has type ${other.toDhall} but it must be a value of a record type or reducible to a literal RecordType"
+              )
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)
