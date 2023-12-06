@@ -462,7 +462,7 @@ object Semantics {
           case _                                    => normalizeArgs
         }
 
-      case Field(base, name)         =>
+      case Field(base, name) =>
         def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
           maybeExpression.getOrElse(
             throw new Exception(
@@ -503,20 +503,24 @@ object Semantics {
 
         }
 
-      // TODO this cannot be disabled really. But we need type inference to find out if it's an empty  RecordType or an empty RecordLiteral here!
-      // TODO make typecheck fail for t.{} where t is not a record value, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
-      case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+      //      case ProjectByLabels(_, Seq()) => // This code is moved below.
 
       case p @ ProjectByLabels(base, labels) =>
         matchOrNormalize(base) {
-          case RecordLiteral(defs)                                                          => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
-          case RecordType(defs)                                                             => RecordType(defs.filter { case (name, _) => labels contains name })    // TODO: do we need a faster lookup here?
-          case ProjectByLabels(t, _)                                                        => ProjectByLabels(t, labels).betaNormalized
+          case RecordLiteral(defs)   => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
+          case RecordType(defs)      => RecordType(defs.filter { case (name, _) => labels contains name })    // TODO: do we need a faster lookup here?
+          case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
+
           case ExprOperator(left, Operator.Prefer, right @ Expression(RecordLiteral(defs))) =>
             val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
             val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
             ExprOperator(newL, Operator.Prefer, newR).betaNormalized
-          case _                                                                            => p.sorted.schemeWithBetaNormalizedArguments
+
+          // This case is t.{} where t could be a record type literal, or a n unknown value of a record type.
+          // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
+          case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
+
+          case _ => p.sorted.schemeWithBetaNormalizedArguments
         }
 
       case ProjectByType(base, labels) =>
