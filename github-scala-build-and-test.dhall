@@ -57,7 +57,7 @@ in  GithubActions.Workflow::{
                     { java-version = "\${{ matrix.java }}" }
                 , GithubActions.steps.run
                     { run =
-                        "sbt -DJDK_VERSION=\${{ matrix.java }} \"++\${{ matrix.scala }} coverage test coverageReport\""
+                        "sbt -DJDK_VERSION=\${{ matrix.java }} ++\${{ matrix.scala }} coverage test coverageReport"
                     }
                 , GithubActions.Step::{
                   , name = Some "Report test results"

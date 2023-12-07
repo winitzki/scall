@@ -27,7 +27,7 @@ jobs:
           architecture: x64
           java-package: jdk
           java-version: "${{ matrix.java }}"
-      - run: "sbt -DJDK_VERSION=${{ matrix.java }} \"++${{ matrix.scala }} coverage test coverageReport\""
+      - run: "sbt -DJDK_VERSION=${{ matrix.java }} ++${{ matrix.scala }} coverage test coverageReport"
       - if: "success() || failure()"
         name: Report test results
         uses: "dorny/test-reporter@v1.7.0"
