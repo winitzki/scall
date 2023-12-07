@@ -1,6 +1,6 @@
 [![Project stage: Experimental][project-stage-badge: Experimental]][project-stage-page]
 [![Build](https://github.com/winitzki/scall/workflows/scall_build_and_test/badge.svg)](https://github.com/winitzki/scall/actions/workflows/build-and-test.yml)
-
+[![codecov](https://codecov.io/gh/winitzki/scall/graph/badge.svg?token=7DB1MQJMTW)](https://codecov.io/gh/winitzki/scall)
 
 [project-stage-page]: https://blog.pother.ca/project-stages/
 [project-stage-badge: Concept]: https://img.shields.io/badge/Project%20Stage-Concept-red.svg
