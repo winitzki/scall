@@ -46,7 +46,7 @@ val factorial: Expression =
     |    in result.acc
         """.stripMargin.dhall.betaNormalized
 
-assert(factorial.toDhall ==
+assert(factorial.print ==
   """
     |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
     |""".stripMargin.trim)
@@ -68,18 +68,15 @@ import io.chymyst.dhall.Parser.StringAsDhallExpression
 
 // Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
 val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
-
 val argument = """\(x: Bool) -> x""".dhall
 val bad = illTyped(argument)
+
 // These expressions fail type-checking.
 assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
 assert(bad.typeCheckAndBetaNormalize().isValid == false)
+
 // If we try evaluating `bad` without type-checking, we will get an infinite loop.
-try {
-  bad.betaNormalized
-} catch {
-  case _: StackOverflowError =>
-}
+bad.betaNormalized // java.lang.StackOverflowError
 ```
 
 ## Goals of the project

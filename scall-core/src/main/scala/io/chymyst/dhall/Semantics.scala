@@ -391,7 +391,7 @@ object Semantics {
                 }
               /*
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
-                //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
+                //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.print}) ${exprs.map(_.print).mkString("[ ", ", ", " ]")} (${b.print}) (${g.print}) (${argN.print})")
                 // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
                 (g(exprs.head)((~ListFold)(typeA0)(rest)(typeB)(g)(argN))).betaNormalized
                */
@@ -449,12 +449,12 @@ object Semantics {
             val b2 = shift(false, name, 0, b1)
             b2.betaNormalized
 
-          case ExprBuiltin(Builtin.DateShow)        => matchOrNormalize(arg) { case d @ DateLiteral(_, _, _) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.TimeShow)        => matchOrNormalize(arg) { case d @ TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.TimeZoneShow)    => matchOrNormalize(arg) { case d @ TimeZoneLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.DoubleShow)      => matchOrNormalize(arg) { case d @ DoubleLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.IntegerShow)     => matchOrNormalize(arg) { case d @ IntegerLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.NaturalShow)     => matchOrNormalize(arg) { case d @ NaturalLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.DateShow)        => matchOrNormalize(arg) { case d @ DateLiteral(_, _, _) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.TimeShow)        => matchOrNormalize(arg) { case d @ TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.TimeZoneShow)    => matchOrNormalize(arg) { case d @ TimeZoneLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.DoubleShow)      => matchOrNormalize(arg) { case d @ DoubleLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.IntegerShow)     => matchOrNormalize(arg) { case d @ IntegerLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.NaturalShow)     => matchOrNormalize(arg) { case d @ NaturalLiteral(_) => TextLiteral.ofString(d.print) }
           case ExprBuiltin(Builtin.IntegerClamp)    => matchOrNormalize(arg) { case IntegerLiteral(a) => NaturalLiteral(a.max(0)) }
           case ExprBuiltin(Builtin.IntegerNegate)   => matchOrNormalize(arg) { case IntegerLiteral(a) => IntegerLiteral(-a) }
           case ExprBuiltin(Builtin.IntegerToDouble) => matchOrNormalize(arg) { case IntegerLiteral(a) => DoubleLiteral(a.toDouble) }
@@ -463,16 +463,19 @@ object Semantics {
         }
 
       case Field(base, name) =>
-        matchOrNormalize(base) {
-          case r @ RecordLiteral(_) =>
-            val x = r.lookup(name)
-            x.getOrElse(
-              throw new Exception(
-                s"Error in typechecker: record access in $expr has invalid field name $name not occurring among record fields ${r.defs.map(_._1).mkString(", ")}"
-              )
+        def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
+          maybeExpression.getOrElse(
+            throw new Exception(
+              s"Record access in $expr has invalid field name $name, which should be one of the record literal's fields: ${defs.map(_._1).mkString(", ")}"
             )
+          )
 
-          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized
+        matchOrNormalize(base) {
+          case r @ RecordLiteral(_) => lookupOrFailure(r.defs, "record literal", r.lookup(name))
+
+          case r @ RecordType(_) => lookupOrFailure(r.defs, "record type", r.lookup(name))
+
+          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized // TODO verify that we should be skipping the inner ProjectByLabels operation.
 
           case ExprOperator(Expression(r @ RecordLiteral(_)), Operator.Prefer, target)             =>
             r.lookup(name) match {
@@ -500,17 +503,24 @@ object Semantics {
 
         }
 
-      case ProjectByLabels(_, Seq()) => RecordLiteral(Seq())
+      //      case ProjectByLabels(_, Seq()) => // This code is moved below.
 
       case p @ ProjectByLabels(base, labels) =>
         matchOrNormalize(base) {
-          case RecordLiteral(defs)                                                          => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
-          case ProjectByLabels(t, _)                                                        => ProjectByLabels(t, labels).betaNormalized
+          case RecordLiteral(defs)   => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
+          case RecordType(defs)      => RecordType(defs.filter { case (name, _) => labels contains name })    // TODO: do we need a faster lookup here?
+          case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
+
           case ExprOperator(left, Operator.Prefer, right @ Expression(RecordLiteral(defs))) =>
             val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
             val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
             ExprOperator(newL, Operator.Prefer, newR).betaNormalized
-          case _                                                                            => p.sorted.schemeWithBetaNormalizedArguments
+
+          // This case is t.{} where t could be a record type literal, or a n unknown value of a record type.
+          // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
+          case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
+
+          case _ => p.sorted.schemeWithBetaNormalizedArguments
         }
 
       case ProjectByType(base, labels) =>

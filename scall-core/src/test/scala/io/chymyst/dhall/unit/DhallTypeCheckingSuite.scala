@@ -22,13 +22,13 @@ class DhallTypeCheckingSuite extends DhallTest {
         val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
 
         val resolved = ourResult.resolveImports(file.toPath)
-        // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.toDhall}, after resolving: $resolved")
+        // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.print}, after resolving: $resolved")
 
         val x = resolved.inferType match {
           case Valid(a) => a
         }
         val y = validationResult
-        expect(x.toDhall == y.toDhall && x == y)
+        expect(x.print == y.print && x == y)
         file.getName
       }
       if (result.isFailure) println(s"${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})

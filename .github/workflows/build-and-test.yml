@@ -21,21 +21,25 @@ jobs:
             "~/.cache/coursier"
           restore-keys: |
             ${{ runner.os }}-sbt
-      - name: "java ${{ matrix.java}} setup"
+      - name: "java ${{ matrix.java }} setup"
         uses: "actions/setup-java@v1.4.3"
         with:
           architecture: x64
           java-package: jdk
-          java-version: "${{ matrix.java}}"
-      - run: "sbt -DJDK_VERSION=${{ matrix.java}} \"++${{ matrix.scala}} test\""
+          java-version: "${{ matrix.java }}"
+      - run: "sbt -DJDK_VERSION=${{ matrix.java }} ++${{ matrix.scala }} coverage test coverageReport"
       - if: "success() || failure()"
         name: Report test results
         uses: "dorny/test-reporter@v1.7.0"
         with:
           fail-on-error: 'true'
-          name: SBT tests
+          name: Test results
           path: "*/target/test-reports/*.xml"
           reporter: java-junit
+      - env:
+          CODECOV_TOKEN: "${{ secrets.CODECOV_TOKEN }}"
+        name: Upload coverage reports to Codecov
+        uses: "codecov/codecov-action@v3"
     strategy:
       matrix:
         java:

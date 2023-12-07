@@ -54,10 +54,10 @@ in  GithubActions.Workflow::{
           , steps =
                 setup
               # [ GithubActions.steps.actions/setup-java
-                    { java-version = "\${{ matrix.java}}" }
+                    { java-version = "\${{ matrix.java }}" }
                 , GithubActions.steps.run
                     { run =
-                        "sbt -DJDK_VERSION=\${{ matrix.java}} \"++\${{ matrix.scala}} test\""
+                        "sbt -DJDK_VERSION=\${{ matrix.java }} ++\${{ matrix.scala }} coverage test coverageReport"
                     }
                 , GithubActions.Step::{
                   , name = Some "Report test results"
@@ -65,11 +65,19 @@ in  GithubActions.Workflow::{
                   , `if` = Some "success() || failure()"
                   , `with` = Some
                       ( toMap
-                          { name = "SBT tests"
+                          { name = "Test results"
                           , path = "*/target/test-reports/*.xml"
                           , reporter = "java-junit"
                           , fail-on-error = "true"
                           }
+                      )
+                  }
+                , GithubActions.Step::{
+                  , name = Some "Upload coverage reports to Codecov"
+                  , uses = Some "codecov/codecov-action@v3"
+                  , env = Some
+                      ( toMap
+                          { CODECOV_TOKEN = "\${{ secrets.CODECOV_TOKEN }}" }
                       )
                   }
                 ]

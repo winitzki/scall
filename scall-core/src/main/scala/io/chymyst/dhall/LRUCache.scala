@@ -57,7 +57,7 @@ class ObservedCache[A, B](val name: String, cache: mutable.Map[A, B]) {
     requests += 1
     if (requests > 1 && requests % step == 0)
       println(s"INFO $name processed ${requests / 1000}K requests with $percentHits% cache hits, this request is for key = ${key match {
-          case e: Expression => e.toDhall
+          case e: Expression => e.print
           case _             => key
         }}")
     if (cache contains key) hits += 1

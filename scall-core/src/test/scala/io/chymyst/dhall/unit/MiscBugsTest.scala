@@ -19,11 +19,11 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
     val results: Seq[Try[_]] = ("12:30:00.1111111" +: TestFixtures.timeLiterals).flatMap { t =>
       val x = t.dhall
       Seq(
-        Try(expect(x.toDhall == t)),
+        Try(expect(x.print == t)),
         Try(cborRoundtrip(x)),
-        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).print == x.print)),
         Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme) == x)),
-        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme).print == x.print)),
         Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme) == x)),
       )
     }
@@ -36,11 +36,11 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
       val output = input // We no longer truncate seconds fractions.
       val x      = input.dhall
       Seq(
-        Try(expect(x.toDhall == output)),
+        Try(expect(x.print == output)),
         Try(cborRoundtrip(x)),
-        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme).print == x.print)),
         Try(expect(Expression(CBORmodel.decodeCbor1(x.toCBORmodel.encodeCbor1).toScheme) == x)),
-        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme).toDhall == x.toDhall)),
+        Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme).print == x.print)),
         Try(expect(Expression(CBORmodel.decodeCbor2(x.toCBORmodel.encodeCbor2).toScheme) == x)),
       )
     }
@@ -52,14 +52,14 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
   test("cbor encoding for time literals with long fraction using cbor1") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor1: Expression = CBORmodel.decodeCbor1(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall.toDhall == input)
+    expect(input.dhall.print == input)
     expect(expected.dhall == fromCbor1)
   }
 
   test("cbor encoding for time literals with long fraction using cbor2") {
     val (input, expected)     = "09:00:00.0123456789012345678901234567890000000000" -> "09:00:00.0123456789010000000000000000000000000000"
     val fromCbor2: Expression = CBORmodel.decodeCbor2(Files.readAllBytes(resourceAsFile("time_literal/time_literal_test.cbor").get.toPath)).toScheme
-    expect(input.dhall.toDhall == input) // We no longer truncate seconds fractions.
+    expect(input.dhall.print == input) // We no longer truncate seconds fractions.
     expect(expected.dhall == fromCbor2)
   }
 
@@ -81,7 +81,7 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
         val fromCbor1       = CBORmodel.decodeCbor1(validationBytes)
         val fromCbor2       = CBORmodel.decodeCbor2(validationBytes)
         Try {
-          expect(input.toDhall == fromCbor1.toScheme.toDhall)
+          expect(input.print == fromCbor1.toScheme.print)
           expect(input.scheme == fromCbor1.toScheme)
           expect(fromCbor1 == fromCbor2)
           expect(input.toCBORmodel == fromCbor1)

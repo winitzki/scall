@@ -13,32 +13,32 @@ class SimpleSemanticsTest extends DhallTest {
   test("substitute in a variable") {
     val variable = v("x")
     val result   = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
-    expect(result.toDhall == "_")
+    expect(result.print == "_")
   }
 
   test("substitute in a lambda") {
     val lam    = (v("y") | ~Natural) -> v("x")
     val result = Semantics.substitute(lam, VarName("x"), 0, Variable(underscore, 0))
-    expect(result.toDhall == "λ(y : Natural) → _")
+    expect(result.print == "λ(y : Natural) → _")
   }
 
   test("alpha-normalize a nested lambda") {
     val nested = (v("x") | ~Natural) -> ((v("y") | ~Natural) -> v("x"))
-    expect(nested.toDhall == "λ(x : Natural) → λ(y : Natural) → x")
-    expect(nested.alphaNormalized.toDhall == "λ(_ : Natural) → λ(_ : Natural) → _@1")
+    expect(nested.print == "λ(x : Natural) → λ(y : Natural) → x")
+    expect(nested.alphaNormalized.print == "λ(_ : Natural) → λ(_ : Natural) → _@1")
   }
 
   test("alpha-normalize record access") {
     val dhall = "{ x = \"foo\" }.x"
     val expr  = Parser.parseDhall(dhall).get.value.value
     val exprN = expr.betaNormalized
-    expect(exprN.toDhall == "\"foo\"")
+    expect(exprN.print == "\"foo\"")
   }
 
   test("correct precedence for imports with fallback") {
     val dhall = "./import1 ? ./import2"
     val expr  = Parser.parseDhall(dhall).get.value.value
-    expect(expr.toDhall == "./import1 ? ./import2")
+    expect(expr.print == "./import1 ? ./import2")
   }
 
   test("beta-normalize with unique subexpressions") {
@@ -73,97 +73,54 @@ class SimpleSemanticsTest extends DhallTest {
        |""".stripMargin.dhall.betaNormalized
   }
 
-  test("do notation") {
-    val expr =
-      """
-        |let fold
-        |    : ∀(a : Type) →
-        |      Optional a →
-        |      ∀(optional : Type) →
-        |      ∀(some : a → optional) →
-        |      ∀(none : optional) →
-        |        optional
-        |    = λ(a : Type) →
-        |      λ(o : Optional a) →
-        |      λ(optional : Type) →
-        |      λ(some : a → optional) →
-        |      λ(none : optional) →
-        |        merge { Some = some, None = none } o
-        |in
-        |
-        |let bind
-        |    : ∀(a: Type) -> ∀(b: Type) -> ∀(_: Optional a) -> ∀(_: ∀(_: a) -> Optional b) -> Optional b
-        |    = λ(a: Type)-> λ(b: Type) -> λ(x: Optional a) -> λ(f: a -> Optional b) -> fold a x (Optional b) f (None b)
-        |in
-        |
-        |let subtract1Optional = λ(x : Natural) → if Natural/isZero x then None Natural else Some (Natural/subtract 1 x)
-        |in
-        |
-        |
-        |let subtract3Optional = λ(x : Natural) →
-        |  as Optional Natural in bind
-        |    with y : Natural in subtract1Optional x
-        |    with z : Natural in subtract1Optional y
-        |    then subtract1Optional z
-        |in
-        |
-        |let _ = assert : subtract3Optional 10 === Some 7
-        |let _ = assert : subtract3Optional 3 === Some 0
-        |let _ = assert : subtract3Optional 2 === None Natural
-        |let _ = assert : subtract3Optional 1 === None Natural
-        |let _ = assert : subtract3Optional 0 === None Natural
-        |in
-        | 
-        |[ subtract3Optional 3, subtract3Optional 2]
-        |""".stripMargin.dhall
-
-    expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
+  test("foldWhile performance test with bitLength") { // TODO: this should work with iterations = 1000. Try optimizing foldWhile and try implementing a lazy evaluation strategy.
+    val result = """
+      |-- Helpers from Prelude/Natural.
+      |let Natural/lessThanEqual
+      |    : Natural → Natural → Bool
+      |    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
+      |
+      |let example = assert : Natural/lessThanEqual 5 6 ≡ True
+      |let example = assert : Natural/lessThanEqual 5 5 ≡ True
+      |let example = assert : Natural/lessThanEqual 5 4 ≡ False
+      |
+      |let Natural/equal
+      |    : Natural → Natural → Bool
+      |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a
+      |
+      |let Natural/lessThan
+      |    : Natural → Natural → Bool
+      |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/equal a b == False
+      |
+      |let example = assert : Natural/lessThan 5 6 ≡ True
+      |let example = assert : Natural/lessThan 5 5 ≡ False
+      |let example = assert : Natural/lessThan 5 4 ≡ False
+      |
+      |-- Fold while an updater function returns a non-empty option, up to a given number of iterations.
+      |let foldWhile: ∀(n: Natural) → ∀(res : Type) → ∀(succ : res → Optional res) → ∀(zero : res) → res =
+      |    \(n: Natural) -> \(R: Type) -> \(succ: R -> Optional R) -> \(zero: R) ->
+      |    let Acc: Type = { current: R, done: Bool }
+      |    let update: Acc -> Acc = \(acc: Acc) -> if acc.done then acc else
+      |    merge { Some = \(r: R) -> acc // {current = r}, None = acc // {done = True} } (succ acc.current)
+      |    let init: Acc = { current = zero, done = False }
+      |    let result: Acc = Natural/fold n Acc update init
+      |    in
+      |    result.current
+      |
+      |-- Subtract 1 from 5 until the result is below 3. Max 6 iterations. This becomes very slow at >= 8 iterations.
+      |let example = let iterations = 6
+      |    in assert : foldWhile iterations Natural (\(x: Natural) -> if Natural/lessThan x 3 then None Natural else Some (Natural/subtract 1 x)) 5 === 2
+      |
+      |-- Compute 1 + ceil(log2(n)) by counting how many times we need to multiply by 2 so that the result is >= n.
+      |let log2 = \(n: Natural) ->
+      |    let Acc = { result: Natural, bound: Natural }
+      |    let foldResult = foldWhile n Acc (\(acc: Acc) ->
+      |        if Natural/lessThan n acc.bound then None Acc else Some { result = acc.result + 1, bound = acc.bound * 2}
+      |    ) { result = 0, bound = 1 }
+      |       in foldResult.result
+      |
+      |    in [log2 0, log2 1, log2 2, log2 3, log2 4, log2 5]
+      |""".stripMargin.dhall.typeCheckAndBetaNormalize().unsafeGet
+    expect(result.print == "[0, 1, 2, 2, 3, 3]")
   }
-
-  test("do notation having no `with` lines") {
-    val expr =
-      """
-        |let fold
-        |    : ∀(a : Type) →
-        |      Optional a →
-        |      ∀(optional : Type) →
-        |      ∀(some : a → optional) →
-        |      ∀(none : optional) →
-        |        optional
-        |    = λ(a : Type) →
-        |      λ(o : Optional a) →
-        |      λ(optional : Type) →
-        |      λ(some : a → optional) →
-        |      λ(none : optional) →
-        |        merge { Some = some, None = none } o
-        |in
-        |
-        |let bind
-        |    : ∀(a: Type) -> ∀(b: Type) -> ∀(_: Optional a) -> ∀(_: ∀(_: a) -> Optional b) -> Optional b
-        |    = λ(a: Type)-> λ(b: Type) -> λ(x: Optional a) -> λ(f: a -> Optional b) -> fold a x (Optional b) f (None b)
-        |in
-        |
-        |let subtract1Optional = λ(x : Natural) → if Natural/isZero x then None Natural else Some (Natural/subtract 1 x)
-        |in
-        |
-        |let subtract1aOptional = λ(x : Natural) →
-        |  as Optional Natural in bind
-        |    then subtract1Optional x
-        |in
-        |
-        |let _ = assert : subtract1aOptional 10 === Some 9
-        |let _ = assert : subtract1aOptional 3 === Some 2
-        |let _ = assert : subtract1aOptional 2 === Some 1
-        |let _ = assert : subtract1aOptional 1 === Some 0
-        |let _ = assert : subtract1aOptional 0 === None Natural
-        |in
-        |
-        |[ subtract1aOptional 1, subtract1aOptional 0]
-        |""".stripMargin.dhall
-
-    expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Natural))))
-    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
-  }
-
 }

@@ -93,7 +93,7 @@ object TypeCheck {
     // This is because a de Bruijn index increases to the left in the list.
     def prepend(varName: VarName, expr: Expression) = KnownVars(variables.updatedWith(varName) {
       case Some(exprs) =>
-        // println(s"DEBUG: prepending ${varName.name} : ${expr.toDhall} to ${exprs.map{_.toDhall}.mkString("[", ", ", "]")} in $this")
+        // println(s"DEBUG: prepending ${varName.name} : ${expr.print} to ${exprs.map{_.print}.mkString("[", ", ", "]")} in $this")
         Some(expr +: exprs)
       case None        => Some(IndexedSeq(expr))
     })
@@ -103,7 +103,7 @@ object TypeCheck {
     override def toString: String = variables
       .flatMap { case (varName, exprs) =>
         exprs.zipWithIndex.map { case (expr, index) =>
-          varName.name + (if (index > 0) s"@$index" else "") + " : " + expr.toDhall
+          varName.name + (if (index > 0) s"@$index" else "") + " : " + expr.print
         }
       }.mkString("{", ", ", "}")
   }
@@ -116,7 +116,7 @@ object TypeCheck {
         if (Semantics.equivalent(tipe, inferredType))
           Valid(expr)
         else
-          typeError(s"Expression ${expr.toDhall} has inferred type ${inferredType.toDhall} and not the expected type ${tipe.toDhall}")(gamma)
+          typeError(s"Expression ${expr.print} has inferred type ${inferredType.print} and not the expected type ${tipe.print}")(gamma)
 
       case error @ Invalid(_) => error
     }
@@ -132,7 +132,7 @@ object TypeCheck {
   def inferType(gamma: KnownVars, expr: Expression): TypecheckResult[Expression] = cacheTypeCheck.getOrElseUpdate((gamma, expr), inferTypeOrCached(gamma, expr))
 
   private def inferTypeOrCached(gamma: KnownVars, exprToInferTypeOf: Expression): TypecheckResult[Expression] = {
-    //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.toDhall})")
+    //    println(s"DEBUG: ${LocalDateTime.now} inferType(${exprToInferTypeOf.print})")
     implicit def toExpr(expr: Expression): TypecheckResult[Expression] = Valid(expr)
 
     implicit def fromBuiltin(builtin: Builtin): TypecheckResult[Expression] = Valid(~builtin)
@@ -150,14 +150,14 @@ object TypeCheck {
                             case ExprConstant(Constant.Type) | ExprConstant(Constant.Kind) | ExprConstant(Constant.Sort) => true
                             case _                                                                                       => false
                           })
-        _              <- required(unexpectedTypes.isEmpty)(s"Unexpected types (must be one of Type, Kind, Sort): ${unexpectedTypes.map(_.toDhall).mkString("; ")}")
+        _              <- required(unexpectedTypes.isEmpty)(s"Unexpected types (must be one of Type, Kind, Sort): ${unexpectedTypes.map(_.print).mkString("; ")}")
       } yield exprTypes.map(_.scheme).collect {
         case ExprConstant(Constant.Type) => Constant.Type
         case ExprConstant(Constant.Kind) => Constant.Kind
         case ExprConstant(Constant.Sort) => Constant.Sort
       }
 
-      result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply)
+      result.map(_.foldLeft(Constant.Type: Constant)((x, y) => x union y)).map(ExprConstant.apply) // For empty sequences, it's always `Type`.
     }
 
     // TODO: possible optimization - replace Seq[(VarName, Expr)] by Map[VarName, Expr] and so on. Make sure we detect and eliminate repeated keys at an appropriate stage.
@@ -169,9 +169,9 @@ object TypeCheck {
           case Some(tipe) =>
             tipe.inferTypeWith(gamma) match {
               case Valid(_)        => tipe
-              case Invalid(errors) => Invalid(errors :+ s"Variable ${exprToInferTypeOf.toDhall} has type error(s)")
+              case Invalid(errors) => Invalid(errors :+ s"Variable ${exprToInferTypeOf.print} has type error(s)")
             }
-          case None       => typeError(s"Variable ${exprToInferTypeOf.toDhall} is not in type inference context")
+          case None       => typeError(s"Variable ${exprToInferTypeOf.print} is not in type inference context")
         }
 
       case Lambda(name, tipe, body) =>
@@ -190,7 +190,7 @@ object TypeCheck {
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2)                                                            =>
-            typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.toDhall} and ${other2.toDhall}")
+            typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.print} and ${other2.print}")
         }
 
       case Let(name, tipe, subst, body) =>
@@ -200,9 +200,8 @@ object TypeCheck {
                            case Some(annot) =>
                              for {
                                _ <- annot.inferTypeWith(gamma)
-                               _ <- required(Semantics.equivalent(annot, typeOfSubst))(
-                                      s"Type annotation ${annot.toDhall} does not match inferred type ${typeOfSubst.toDhall}"
-                                    )
+                               _ <-
+                                 required(Semantics.equivalent(annot, typeOfSubst))(s"Type annotation ${annot.print} does not match inferred type ${typeOfSubst.print}")
                              } yield ()
                            case None        => Valid(())
                          }
@@ -228,7 +227,7 @@ object TypeCheck {
         val ropType          = ifFalse.inferAndValidateTypeWith(gamma)
         val equivalenceCheck = for {
           pair <- lopType zip ropType
-          _    <- required(Semantics.equivalent(pair._1, pair._2))(s"Types of two If() clauses are not equivalent: ${pair._1.toDhall} and ${pair._2.toDhall}")
+          _    <- required(Semantics.equivalent(pair._1, pair._2))(s"Types of two If() clauses are not equivalent: ${pair._1.print} and ${pair._2.print}")
         } yield pair._1
         validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
@@ -238,14 +237,14 @@ object TypeCheck {
             if (defs.isEmpty) {
               tipe match {
                 case Some(value) => Valid(value)
-                case None        => typeError(s"merge expression with empty arguments must have a type annotation, but found ${exprToInferTypeOf.toDhall}")
+                case None        => typeError(s"merge expression with empty arguments must have a type annotation, but found ${exprToInferTypeOf.print}")
               }
-            } else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.toDhall}")
+            } else typeError(s"merge expression with empty matcher must be applied to an empty union, but found ${u.print}")
 
           case _ if tipe.nonEmpty =>
             Expression(Merge(record, update, None)).inferTypeWith(gamma).flatMap { inferred =>
               if (Semantics.equivalent(inferred, tipe.get)) inferred
-              else typeError(s"merge expression has inferred type ${inferred.toDhall}, but type annotation ${tipe.get.toDhall}")
+              else typeError(s"merge expression has inferred type ${inferred.print}, but type annotation ${tipe.get.print}")
             }
 
           case (
@@ -263,15 +262,15 @@ object TypeCheck {
                             result <- Valid(Semantics.shift(false, varName, 0, targetType))
                             _      <-
                               required(Semantics.equivalent(varType, partType))(
-                                s"merge expression must have matcher's argument types equal to field types, but found ${varType.toDhall} and ${partType.toDhall}"
+                                s"merge expression must have matcher's argument types equal to field types, but found ${varType.print} and ${partType.print}"
                               )
                             _      <-
                               required(!Semantics.freeVars(targetType).names.contains(varName))(
-                                s"Disallowed handler type ${handlerType.toDhall}, cannot be a type constructor (a handler's body cannot have $varName as a free variable)"
+                                s"Disallowed handler type ${handlerType.print}, cannot be a type constructor (a handler's body cannot have $varName as a free variable)"
                               )
                           } yield result
 
-                        case other => typeError(s"merge expression must have a function matcher for field $name1, but instead it has type ${other.toDhall}")
+                        case other => typeError(s"merge expression must have a function matcher for field $name1, but instead it has type ${other.print}")
                       }
                     case None           => Valid(expr1)
                   }
@@ -280,11 +279,11 @@ object TypeCheck {
               typesInParts.flatMap { exprs => // Non-empty list.
                 exprs.tail.find(expr => !Semantics.equivalent(exprs.head, expr)) match {
                   case Some(value) =>
-                    typeError(s"merge expression must have all matcher's output types the same, but found ${exprs.head.toDhall}, ..., ${value.toDhall}")
+                    typeError(s"merge expression must have all matcher's output types the same, but found ${exprs.head.print}, ..., ${value.print}")
                   case None        => Valid(exprs.head)
                 }
               }
-            } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.toDhall} and ${target.toDhall}")
+            } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.print} and ${target.print}")
 
           case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
             val updatedContext = gamma
@@ -295,9 +294,7 @@ object TypeCheck {
             Expression(Merge(updatedRecord, ~"x", None)).inferTypeWith(updatedContext)
 
           case (other1, other2) =>
-            typeError(
-              s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.toDhall} and ${other2.toDhall}"
-            )
+            typeError(s"merge's first argument must have RecordType and the second argument must have UnionType, but found ${other1.print} and ${other2.print}")
         }
 
       case ToMap(e, tipe) =>
@@ -314,31 +311,31 @@ object TypeCheck {
                           )
                         ) =>
                       newT
-                    case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T but has ${other.toDhall}")
+                    case other => typeError(s"toMap must have a type annotation of the form ${typeOfToMap(~"T")} for some type T but has ${other.print}")
                   }
                 }
-              case None    => typeError(s"toMap of empty record, ${exprToInferTypeOf.toDhall}, must have a type annotation")
+              case None    => typeError(s"toMap of empty record, ${exprToInferTypeOf.print}, must have a type annotation")
             }
           case Expression(RecordType(defs))  =>
             tipe match {
               case Some(t1) =>
                 ToMap(e, None).inferTypeWith(gamma).flatMap { t0 =>
                   if (Semantics.equivalent(t0, t1)) Valid(t0)
-                  else typeError(s"toMap with type annotation ${t1.toDhall} has a different inferred type ${t0.toDhall}")
+                  else typeError(s"toMap with type annotation ${t1.print} has a different inferred type ${t0.print}")
                 }
               case None     =>
                 // All types in `defs` must be equivalent and must have type Type. Also, `defs` is now a non-empty list.
                 val allTypesEqual = defs.tail.find(tipe => !Semantics.equivalent(defs.head._2, tipe._2)) match {
                   case Some((field, expr)) =>
                     typeError(
-                      s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.toDhall}, ..., ${field.name} : ${expr.toDhall}}"
+                      s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.print}, ..., ${field.name} : ${expr.print}}"
                     )
                   case None                => validate(gamma, defs.head._2, _Type)
                 }
                 allTypesEqual.map(typeOfToMap)
 
             }
-          case other                         => typeError(s"toMap's argument must have a record type but instead has type ${other.toDhall}")
+          case other                         => typeError(s"toMap's argument must have a record type but instead has type ${other.print}")
         }
 
       case EmptyList(tipe) =>
@@ -354,7 +351,7 @@ object TypeCheck {
           .flatMap { types =>
             val differentType: Option[Expression] = types.tail.find(tipe => !Semantics.equivalent(types.head, tipe))
             differentType match {
-              case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.toDhall}, ..., ${value.toDhall}, ...]")
+              case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.print}, ..., ${value.print}, ...]")
               case None        => (~Builtin.List)(types.head)
             }
           }
@@ -364,9 +361,7 @@ object TypeCheck {
         else {
           for {
             pair <- data.inferTypeWith(gamma) zip tipe.inferTypeWith(gamma)
-            _    <- required(Semantics.equivalent(pair._1, tipe))(
-                      s"Inferred type ${pair._1.toDhall} is not equal to the type ${tipe.toDhall} given in the annotation"
-                    )
+            _    <- required(Semantics.equivalent(pair._1, tipe))(s"Inferred type ${pair._1.print} is not equal to the type ${tipe.print} given in the annotation")
           } yield pair._1 // Return the inferred type because it is assured to be in a normalized form.
         }
 
@@ -389,7 +384,7 @@ object TypeCheck {
             } yield t
             (lopType zip ropType).flatMap { case (l, r) =>
               if (Semantics.equivalent(l, r)) Valid((~Builtin.List)(l))
-              else typeError(s"List types in ${exprToInferTypeOf.toDhall} must be equal for ListAppend but found ${l.toDhall} and ${r.toDhall}")
+              else typeError(s"List types in ${exprToInferTypeOf.print} must be equal for ListAppend but found ${l.print} and ${r.print}")
             }
 
           case Operator.CombineRecordTerms =>
@@ -405,7 +400,7 @@ object TypeCheck {
 
               case (other1, other2) =>
                 typeError(
-                  s"Arguments of Operator.Prefer (${Operator.Prefer.name}) must both have record types, instead found ${other1.toDhall} and ${other2.toDhall}"
+                  s"Arguments of Operator.Prefer (${Operator.Prefer.name}) must both have record types, instead found ${other1.print} and ${other2.print}"
                 )
             }
 
@@ -426,7 +421,7 @@ object TypeCheck {
 
                 case (other1, other2, t1, t2) =>
                   typeError(
-                    s"Arguments of Operator.CombineRecordTypes (${Operator.CombineRecordTypes.name}) must both have record types, instead found ${other1.toDhall} : ${t1.toDhall} and ${other2.toDhall} : ${t2.toDhall}"
+                    s"Arguments of Operator.CombineRecordTypes (${Operator.CombineRecordTypes.name}) must both have record types, instead found ${other1.print} : ${t1.print} and ${other2.print} : ${t2.print}"
                   )
               }
             }
@@ -443,14 +438,14 @@ object TypeCheck {
             val equivalenceCheck = for {
               pair <- lopType zip ropType
               _    <-
-                required(Semantics.equivalent(pair._1, pair._2))(s"Types of two sides of `===` are not equivalent: ${pair._1.toDhall} and ${pair._2.toDhall}")
+                required(Semantics.equivalent(pair._1, pair._2))(s"Types of two sides of `===` are not equivalent: ${pair._1.print} and ${pair._2.print}")
             } yield ()
             equivalenceCheck.map(_ => _Type)
 
-          case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.toDhall}")
+          case Operator.Alternative => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.print}")
         }
 
-      case Application(func, arg) =>
+      case Application(func, arg)        =>
         func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
           case (Expression(Forall(varName, varType, bodyType)), argType) =>
             if (Semantics.equivalent(varType, argType)) {
@@ -459,14 +454,12 @@ object TypeCheck {
               val b2 = Semantics.shift(false, varName, 0, b1)
               Valid(b2.betaNormalized)
             } else
-              typeError(
-                s"Function application in ${exprToInferTypeOf.toDhall} must have matching types, but instead found ${varType.toDhall} and ${argType.toDhall}"
-              )
-          case (other, _)                                                => typeError(s"Function application in ${exprToInferTypeOf.toDhall} must use a function type, but instead found ${other.toDhall}")
+              typeError(s"Function application in ${exprToInferTypeOf.print} must have matching types, but instead found ${varType.print} and ${argType.print}")
+          case (other, _)                                                => typeError(s"Function application in ${exprToInferTypeOf.print} must use a function type, but instead found ${other.print}")
         }
 
-      // Field selection is possible only in two cases: from a record value and from a union type.
-      case Field(base, name)      =>
+      // Field selection is possible only from a record value, from a record type, or from a union type.
+      case Field(base, name)             =>
         base.inferTypeWith(gamma).flatMap {
           case Expression(r @ RecordType(defs))                                                                                            =>
             r.lookup(name) match {
@@ -494,26 +487,57 @@ object TypeCheck {
                   case Some(None)       => Expression(r)
                   case None             => typeError(s"UnionType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
                 }
-              case other               => typeError(s"Field selection is possible only from union type but found ${other.toDhall}")
+
+              case r @ RecordType(defs) =>
+                r.lookup(name) match {
+                  case Some(tipe) => tipe.inferTypeWith(gamma)
+                  case None       => typeError(s"RecordType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+                }
+
+              case other => typeError(s"Field selection is possible only from record type or union type but found ${other.print}")
             }
 
-          case other => typeError(s"Field selection in ${exprToInferTypeOf.toDhall} must be for a record or a union, but instead found type ${other.toDhall}")
+          case other =>
+            typeError(
+              s"Field selection in ${exprToInferTypeOf.print} must be for a record type, a record value, or a union type, but instead found type ${other.print}"
+            )
         }
 
+      // TODO add tests to make sure typecheck fails for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
       case ProjectByLabels(base, labels) =>
+        val labelSet                         = labels.toSet
         val distinctLabelsCheck              =
-          if (labels.size != labels.distinct.size) typeError(s"Duplicate projection labels in {${labels.mkString(", ")}}") else Valid(())
+          if (labels.size != labelSet.size)
+            typeError(
+              s"Duplicate projection labels (${labels.sortBy(_.name).diff(labels.sortBy(_.name).distinct).mkString(", ")}) in {${labels.mkString(", ")}}"
+            )
+          else Valid(())
         val baseTypeIsARecordHavingAllLabels = base.inferTypeWith(gamma).flatMap { tipe =>
           tipe.scheme match {
             case RecordType(defs) =>
-              val labelSet      = labels.toSet
               val missingLabels = labelSet diff defs.map(_._1).toSet
               if (missingLabels.nonEmpty)
                 typeError(
                   s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record"
                 )
               else Expression(RecordType(defs.filter(d => labelSet contains d._1)))
-            case other            => typeError(s"ProjectByLabels is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+
+            case ExprConstant(Constant.Type) | ExprConstant(Constant.Kind) | ExprConstant(Constant.Sort) =>
+              base.betaNormalized.scheme match {
+                case RecordType(defs) =>
+                  val missingLabels = labelSet diff defs.map(_._1).toSet
+                  if (missingLabels.nonEmpty)
+                    typeError(
+                      s"Record projection by {${labels.mkString(", ")}} is invalid because labels {${missingLabels.mkString(", ")}} are missing from the base record type"
+                    )
+                  else upperBoundUniverse(defs.filter(d => labelSet contains d._1).map(pair => Some(pair._2)))
+                case other            => typeError(s"ProjectByLabels is invalid because the base expression is ${other.print}, but it must be a literal RecordType")
+              }
+
+            case other =>
+              typeError(
+                s"ProjectByLabels is invalid, the base expression has type ${other.print} but it must be a value of a record type or reducible to a literal RecordType"
+              )
           }
         }
         distinctLabelsCheck zip baseTypeIsARecordHavingAllLabels map (_._2)
@@ -521,12 +545,12 @@ object TypeCheck {
       case ProjectByType(base, by) =>
         val baseType              = base.inferTypeWith(gamma).flatMap {
           case Expression(RecordType(defs)) => Valid(defs)
-          case other                        => typeError(s"ProjectByType is invalid because the base expression has type ${other.toDhall} instead of RecordType")
+          case other                        => typeError(s"ProjectByType is invalid because the base expression has type ${other.print} instead of RecordType")
         }
         val projectIsByRecordType =
           by.typeCheckAndBetaNormalize(gamma).flatMap {
             case Expression(RecordType(defs)) => Valid(defs)
-            case other                        => typeError(s"ProjectByType is invalid because the projection expression is ${other.toDhall} instead of RecordType")
+            case other                        => typeError(s"ProjectByType is invalid because the projection expression is ${other.print} instead of RecordType")
           }
         baseType zip projectIsByRecordType flatMap { case (defsBase, defsProjectBy) =>
           val baseLabels                   = defsBase.toMap
@@ -553,8 +577,8 @@ object TypeCheck {
             assertion.betaNormalized.scheme match {
               case exprN @ ExprOperator(lop, Operator.Equivalent, rop) =>
                 if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
-                else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.toDhall}")
-              case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.toDhall}")
+                else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.print}")
+              case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.print}")
             }
           case errors   => errors
         }
@@ -576,7 +600,7 @@ object TypeCheck {
                 newData.inferTypeWith(gamma).map { t => RecordType(defs.filterNot(_._1 == first) :+ (first, t)).sorted }
 
               case PathComponent.DescendOptional =>
-                typeError(s"The label `?` can be used in `with` expressions only with the `Optional` type, but here it is used with ${t.toDhall}")
+                typeError(s"The label `?` can be used in `with` expressions only with the `Optional` type, but here it is used with ${t.print}")
             }
 
           case tt @ Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), t)) =>
@@ -584,7 +608,7 @@ object TypeCheck {
               validate(gamma, body, t).map(_ => tt)
             } else typeError(s"An Optional value must be updated with `?` but instead found ${pathComponents.head}")
 
-          case other => typeError(s"A `with` expression's arg must have record type, but instead found ${other.toDhall}")
+          case other => typeError(s"A `with` expression's arg must have record type, but instead found ${other.print}")
         }
 
       case DoubleLiteral(_)  => Builtin.Double
@@ -596,7 +620,7 @@ object TypeCheck {
         val interpolationsWithTypeBuiltinText = typesOfInterpolations.map {
           case (expr, Valid(tipe)) =>
             if (Semantics.equivalent(tipe, ~Builtin.Text)) Valid(expr)
-            else typeError(s"Interpolation chunk ${expr.toDhall} is not of type Text but has type ${tipe.toDhall}")
+            else typeError(s"Interpolation chunk ${expr.print} is not of type Text but has type ${tipe.print}")
           case (_, other)          => other
         }
         seqSeq(interpolationsWithTypeBuiltinText).map(_ => ~Builtin.Text) // If all interpolation expressions have type Text, the entire TextLiteral also does.
@@ -621,16 +645,16 @@ object TypeCheck {
         val constructorNames         = defs.map(_._1)
         // Verify that all constructor names are distinct.
         val constructorNamesDistinct =
-          required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${exprToInferTypeOf.toDhall}")
+          required(constructorNames.size == constructorNames.distinct.size)(s"Some constructor names are duplicated in ${exprToInferTypeOf.print}")
         upperBoundUniverse(defs.map(_._2)) zip constructorNamesDistinct map (_._1)
 
       case ShowConstructor(data) =>
         data.inferTypeWith(gamma) flatMap {
           case Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), _)) | Expression(UnionType(_)) => ~Builtin.Text
-          case tipe                                                                                             => typeError(s"showConstructor's argument must have a union type or Optional type, but has type ${tipe.toDhall}")
+          case tipe                                                                                             => typeError(s"showConstructor's argument must have a union type or Optional type, but has type ${tipe.print}")
         }
 
-      case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.toDhall}")
+      case Import(_, _, _) => typeError(s"Cannot typecheck an expression with unresolved imports: ${exprToInferTypeOf.print}")
 
       case KeywordSome(data) => // The argument of Some can be only a Type. No universe-level polymorphism!
         data.inferTypeWith(gamma).flatMap { tipe => validate(gamma, tipe, _Type).map(_ => (~Builtin.Optional)(tipe)) }

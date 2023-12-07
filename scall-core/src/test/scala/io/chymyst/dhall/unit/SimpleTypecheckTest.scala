@@ -2,6 +2,7 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import fastparse.Parsed
+import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, ConstructorName, FieldName, VarName}
@@ -68,19 +69,37 @@ class SimpleTypecheckTest extends DhallTest {
   test("simplify equivalence type") {
     val input = "(λ(g : Natural → Bool) → assert : g 0 ≡ g 0) Natural/even"
     expect(
-      Parser.parseDhall(input).get.value.value.inferType.map(_.toDhall) == Valid("True ≡ True")
+      Parser.parseDhall(input).get.value.value.inferType.map(_.print) == Valid("True ≡ True")
     ) // Valid((~Constant.True).op(Operator.Equivalent)(~Constant.True)))
   }
 
   test("type inference failure with RecordSelectionNotRecord.dhall") {
     enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some("RecordSelectionNotRecord.dhall")).foreach { file =>
       val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-      println(s"Parsed expression: ${ourResult.toDhall}")
+      println(s"Parsed expression: ${ourResult.print}")
       ourResult.inferType match {
         case TypecheckResult.Invalid(errors) =>
-          expect(errors contains "Field selection in True.x must be for a record or a union, but instead found type Bool, type inference context = {}")
+          expect(
+            errors contains "Field selection in True.x must be for a record type, a record value, or a union type, but instead found type Bool, type inference context = {}"
+          )
       }
     }
+  }
+
+  test("empty selection from record types or record values") {
+    expect(!"123.{}".dhall.inferType.isValid)
+    expect(!"True.{}".dhall.inferType.isValid)
+    expect(!"Text.{}".dhall.inferType.isValid)
+    expect(!"Type.{}".dhall.inferType.isValid)
+    expect(" {a = 0} .{}".dhall.inferType.isValid)
+    expect(" {a : Bool} .{}".dhall.inferType.isValid)
+    expect(" \\(x: {a : Bool}) -> x.{}".dhall.inferType.isValid)
+    expect("{=}.{}".dhall.inferType.isValid)
+    expect("{}.{}".dhall.inferType.isValid)
+  }
+
+  test("empty selection is not allowed when the base is not a record type literal") {
+    expect(!" \\(x: Type) -> x.{}".dhall.inferType.isValid)
   }
 
 }

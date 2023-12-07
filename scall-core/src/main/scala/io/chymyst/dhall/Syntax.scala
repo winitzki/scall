@@ -804,9 +804,9 @@ object Syntax {
       * @return
       *   A string representation of `this` expression in (approximately) Dhall syntax.
       */
-    def toDhall: String = inPrecedence(TermPrecedence.min)
+    def print: String = inPrecedence(TermPrecedence.min)
 
-    override def toString: String = toDhall
+    override def toString: String = print
 
     private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
@@ -903,7 +903,7 @@ object Syntax {
     // Lambda is a -> b where a must be (Variable :: T)
     def ->(other: Expression): Expression = this.scheme match {
       case Annotation(Expression(Variable(name, index)), t) if index == 0 => Lambda(name, t, other)
-      case _                                                              => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.toDhall}: $this")
+      case _                                                              => throw new Exception(s"Invalid lambda in DSL: base must be an Annotation with zero-index variable but is ${this.print}: $this")
     }
 
     // Forall type expressions. The argument must be an annotation.

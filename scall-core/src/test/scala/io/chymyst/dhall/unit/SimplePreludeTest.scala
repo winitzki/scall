@@ -32,9 +32,9 @@ class SimplePreludeTest extends DhallTest with TestTimings {
     expect(!expr.inferType.isValid) // Type-checking fails without first resolving imports.
     val resolved      = expr.resolveImports(path)
     expect(resolved.isInstanceOf[Expression])
-    // println("resolved sort.dhall beta-normalized without typechecking:\n" + resolved.betaNormalized.toDhall)
+    // println("resolved sort.dhall beta-normalized without typechecking:\n" + resolved.betaNormalized.print)
     val smallListTest = resolved("[3, 2]".dhall).betaNormalized
-    println(s"sort [3, 2] = ${smallListTest.toDhall}")
+    println(s"sort [3, 2] = ${smallListTest.print}")
     println(s"sort [4, 3, 2, 1] = ${resolved("[4, 3, 2, 1]".dhall).betaNormalized}")
     resolved.inferType
     println(TestUtils.cacheStatistics())
@@ -51,11 +51,11 @@ class SimplePreludeTest extends DhallTest with TestTimings {
     val problematic2 = "let sort = ../Natural/sort.dhall in  assert : sort [ 3, 2, 1, 3, 2, 1 ] ≡ [ 1, 1, 2, 2, 3, 3 ]"
     val path         = ResourceFiles.resourceAsFile("dhall-lang/Prelude/Natural/package.dhall").get.toPath
     expect(problematic0.dhall.resolveImports(path).inferType.isValid)
-    println(problematic0.dhall.resolveImports(path).toDhall)
+    println(problematic0.dhall.resolveImports(path).print)
     expect(problematic1.dhall.resolveImports(path).inferType.isValid)
-    println(problematic1.dhall.resolveImports(path).toDhall)
+    println(problematic1.dhall.resolveImports(path).print)
     expect(problematic2.dhall.resolveImports(path).isInstanceOf[Expression])
-    println(problematic2.dhall.resolveImports(path).toDhall)
+    println(problematic2.dhall.resolveImports(path).print)
     expect(problematic2.dhall.resolveImports(path).inferType.isValid)
   }
 

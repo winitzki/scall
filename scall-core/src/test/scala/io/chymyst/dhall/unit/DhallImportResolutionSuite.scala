@@ -62,16 +62,16 @@ class DhallImportResolutionSuite extends DhallTest with OverrideEnvironment with
             ) // Here we must avoid beta-normalizing entire expressions. Only the import contents must be normalized.
             val y = validationResult.resolveImports(relativePathForTest)
 
-            if (x.toDhall != y.toDhall)
+            if (x.print != y.print)
               println(
-                s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\texpected correct answer:\n${y.toDhall}\n"
+                s"DEBUG: ${file.getName}: The Dhall texts differ. Our parser gives:\n${ourResult.print}\n\t\tafter beta-normalization:\n${x.print}\n\t\texpected correct answer:\n${y.print}\n"
               )
             else if (x != y)
               println(
-                s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.toDhall}\n\t\tafter beta-normalization:\n${x.toDhall}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
+                s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.print}\n\t\tafter beta-normalization:\n${x.print}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
               )
 
-            expect(x.toDhall == y.toDhall && x == y)
+            expect(x.print == y.print && x == y)
             file.getName
           }
           if (result.isFailure)
