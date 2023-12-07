@@ -30,7 +30,7 @@ class ReadmeTest extends FunSuite {
         """.stripMargin.dhall.betaNormalized
 
     assert(
-      factorial.toDhall ==
+      factorial.print ==
         """
         |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
         |""".stripMargin.trim
@@ -57,7 +57,7 @@ class ReadmeTest extends FunSuite {
 
     // If we try evaluating `bad` without type-checking, we will get an infinite loop.
     val result: String =
-      try bad.betaNormalized.toDhall
+      try bad.betaNormalized.print
       catch {
         case e: Throwable => e.toString
       }

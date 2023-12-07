@@ -391,7 +391,7 @@ object Semantics {
                 }
               /*
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
-                //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.toDhall}) ${exprs.map(_.toDhall).mkString("[ ", ", ", " ]")} (${b.toDhall}) (${g.toDhall}) (${argN.toDhall})")
+                //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.print}) ${exprs.map(_.print).mkString("[ ", ", ", " ]")} (${b.print}) (${g.print}) (${argN.print})")
                 // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
                 (g(exprs.head)((~ListFold)(typeA0)(rest)(typeB)(g)(argN))).betaNormalized
                */
@@ -449,12 +449,12 @@ object Semantics {
             val b2 = shift(false, name, 0, b1)
             b2.betaNormalized
 
-          case ExprBuiltin(Builtin.DateShow)        => matchOrNormalize(arg) { case d @ DateLiteral(_, _, _) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.TimeShow)        => matchOrNormalize(arg) { case d @ TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.TimeZoneShow)    => matchOrNormalize(arg) { case d @ TimeZoneLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.DoubleShow)      => matchOrNormalize(arg) { case d @ DoubleLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.IntegerShow)     => matchOrNormalize(arg) { case d @ IntegerLiteral(_) => TextLiteral.ofString(d.toDhall) }
-          case ExprBuiltin(Builtin.NaturalShow)     => matchOrNormalize(arg) { case d @ NaturalLiteral(_) => TextLiteral.ofString(d.toDhall) }
+          case ExprBuiltin(Builtin.DateShow)        => matchOrNormalize(arg) { case d @ DateLiteral(_, _, _) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.TimeShow)        => matchOrNormalize(arg) { case d @ TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.TimeZoneShow)    => matchOrNormalize(arg) { case d @ TimeZoneLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.DoubleShow)      => matchOrNormalize(arg) { case d @ DoubleLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.IntegerShow)     => matchOrNormalize(arg) { case d @ IntegerLiteral(_) => TextLiteral.ofString(d.print) }
+          case ExprBuiltin(Builtin.NaturalShow)     => matchOrNormalize(arg) { case d @ NaturalLiteral(_) => TextLiteral.ofString(d.print) }
           case ExprBuiltin(Builtin.IntegerClamp)    => matchOrNormalize(arg) { case IntegerLiteral(a) => NaturalLiteral(a.max(0)) }
           case ExprBuiltin(Builtin.IntegerNegate)   => matchOrNormalize(arg) { case IntegerLiteral(a) => IntegerLiteral(-a) }
           case ExprBuiltin(Builtin.IntegerToDouble) => matchOrNormalize(arg) { case IntegerLiteral(a) => DoubleLiteral(a.toDouble) }

@@ -6,11 +6,11 @@ class PrettyPrintingTest extends DhallTest {
 
   test("print Dhall expressions") {
     TestFixtures.prettyPrintingExamples.foreach { case (a, b) =>
-      expect(a.dhall.toDhall == b)
+      expect(a.dhall.print == b)
     }
   }
 
   test("print assert expressions") {
-    expect("let x=1===1 in assert: x".dhall.typeCheckAndBetaNormalize().unsafeGet.toDhall == "assert : 1 ≡ 1")
+    expect("let x=1===1 in assert: x".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "assert : 1 ≡ 1")
   }
 }

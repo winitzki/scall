@@ -2,23 +2,22 @@ val scala2V = "2.13.12"
 val scala3V = "3.3.1"
 val scalaV  = scala2V
 
-val munitTest      = "org.scalameta" %% "munit" % "0.7.29" % Test
 def munitFramework = new TestFramework("munit.Framework")
 
-val fastparse         = "com.lihaoyi"          %% "fastparse"     % "3.0.2"
-val os_lib            = "com.lihaoyi"          %% "os-lib"        % "0.9.2"
-val httpRequest       = "com.lihaoyi"          %% "requests"      % "0.8.0"
-val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"       % "0.16.0" % Test
-val enumeratum        = "com.beachape"         %% "enumeratum"    % "1.7.3"
-val flatlaf           = "com.formdev"           % "flatlaf"       % "3.2.2"
-val izumi_reflect     = "dev.zio"              %% "izumi-reflect" % "2.3.8"
-
-val cbor1 = "co.nstant.in"    % "cbor"       % "0.9"
-val cbor2 = "com.upokecenter" % "cbor"       % "4.5.2"
-val cbor3 = "io.bullet"      %% "borer-core" % "1.8.0"
-
-val curryhoward = "io.chymyst"    %% "curryhoward" % "0.3.8"
-val jnr_posix   = "com.github.jnr" % "jnr-posix"   % "3.1.18"
+val munitTest         = "org.scalameta"        %% "munit"          % "0.7.29" % Test
+val fastparse         = "com.lihaoyi"          %% "fastparse"      % "3.0.2"
+val os_lib            = "com.lihaoyi"          %% "os-lib"         % "0.9.2"
+val httpRequest       = "com.lihaoyi"          %% "requests"       % "0.8.0"
+val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"        % "0.16.0" % Test
+val enumeratum        = "com.beachape"         %% "enumeratum"     % "1.7.3"
+val flatlaf           = "com.formdev"           % "flatlaf"        % "3.2.2"
+val izumi_reflect     = "dev.zio"              %% "izumi-reflect"  % "2.3.8"
+val curryhoward       = "io.chymyst"           %% "curryhoward"    % "0.3.8"
+val kindProjector     = "org.typelevel"         % "kind-projector" % "0.13.2" cross CrossVersion.full
+val jnr_posix         = "com.github.jnr"        % "jnr-posix"      % "3.1.18"
+val cbor1             = "co.nstant.in"          % "cbor"           % "0.9"
+val cbor2             = "com.upokecenter"       % "cbor"           % "4.5.2"
+val cbor3             = "io.bullet"            %% "borer-core"     % "1.8.0"
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
@@ -40,11 +39,11 @@ lazy val scall_core = (project in file("scall-core"))
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    Compile / scalacOptions ++= Seq("-Ypatmat-exhaust-depth", "10"),
+    Compile / scalacOptions ++= Seq("-Ypatmat-exhaust-depth", "10"), // Cannot make it smaller than 10. Want to speed up compilation.
     // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
     // That base directory should contain `./dhall-lang` and all files below that.
-    Test / baseDirectory     := (Test / resourceDirectory).value,
-    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
+    Test / baseDirectory := (Test / resourceDirectory).value,
+    addCompilerPlugin(kindProjector),
     libraryDependencies ++= Seq(
       fastparse,
       munitTest,

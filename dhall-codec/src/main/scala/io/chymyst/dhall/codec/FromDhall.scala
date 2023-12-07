@@ -37,7 +37,7 @@ object DhallBuiltinFunctions {
   val Natural_subtract: Natural => Natural => Natural = x => y => y - x
   val Natural_toInteger: Natural => BigInt            = identity
   val Time_show: LocalTime => String                  = _.toString
-  val Text_show: String => String                     = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.toDhall
+  val Text_show: String => String                     = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.print
   val TimeZone_show: ZoneOffset => String             = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
 
@@ -60,12 +60,12 @@ final case class AsScalaVal(value: Any, inferredType: TypecheckResult[Expression
 
 final case class AsScalaError(expr: Expression, inferredType: TypecheckResult[Expression], typeTag: Option[Tag[_]] = None, message: Option[String] = None) {
   private lazy val typecheckingMessage = inferredType match {
-    case TypecheckResult.Valid(tipe: Expression) => s"inferred type ${tipe.toDhall}"
+    case TypecheckResult.Valid(tipe: Expression) => s"inferred type ${tipe.print}"
     case TypecheckResult.Invalid(errors)         => s"type errors: $errors"
   }
 
   override def toString: String =
-    s"Expression ${expr.toDhall} having $typecheckingMessage cannot be converted to the given Scala type $typeTag (${typeTag.map(_.tag.longNameWithPrefix)})${message
+    s"Expression ${expr.print} having $typecheckingMessage cannot be converted to the given Scala type $typeTag (${typeTag.map(_.tag.longNameWithPrefix)})${message
         .map(": " + _).getOrElse("")}"
 }
 
@@ -106,7 +106,7 @@ object FromDhall {
             Right(AsScalaVal(value, validType, expectedTag))
 
           //          println(
-//            s"DEBUG: (${expr.toDhall}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
+//            s"DEBUG: (${expr.print}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
 //          )
 
           expr.scheme match {

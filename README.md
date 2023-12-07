@@ -46,7 +46,7 @@ val factorial: Expression =
     |    in result.acc
         """.stripMargin.dhall.betaNormalized
 
-assert(factorial.toDhall ==
+assert(factorial.print ==
   """
     |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
     |""".stripMargin.trim)

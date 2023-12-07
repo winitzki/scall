@@ -53,7 +53,7 @@ class DoNotationTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Builtin.Natural))))
-    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
+    expect(expr.betaNormalized.print == "[Some 0, None Natural]")
   }
 
   test("do notation having no `with` lines") {
@@ -98,11 +98,12 @@ class DoNotationTest extends DhallTest {
         |""".stripMargin.dhall
 
     expect(expr.inferType == TypecheckResult.Valid((~Builtin.List)((~Builtin.Optional)(~Builtin.Natural))))
-    expect(expr.betaNormalized.toDhall == "[Some 0, None Natural]")
+    expect(expr.betaNormalized.print == "[Some 0, None Natural]")
   }
 
   test("parse do notation correctly") {
-    "as Optional Natural in if a then b else c then d".dhall
+    "as Optional Natural in if a then b else c then d".dhall                    // No test failures.
+    "as Optional Natural in if a then b else c with x : Text in y then d".dhall // No test failures.
     expect(Try("as Optional Natural in if a then b".dhall).failed.get.getMessage contains "Parse Error, Position 1:35")
     expect(Try("as Optional Natural in if a then b else c".dhall).failed.get.getMessage contains "Parse Error, Position 1:42")
   }

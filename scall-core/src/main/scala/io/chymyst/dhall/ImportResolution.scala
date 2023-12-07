@@ -110,7 +110,7 @@ object ImportResolution {
           .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
         Resolved(expr)
       } else {
-        val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.toDhall}"
+        val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.print}"
         println(s"Error: $message")
         PermanentFailure(Seq(message))
       }
@@ -134,7 +134,7 @@ object ImportResolution {
   final case class ImportContext(resolved: Map[Import[Expression], Expression]) {
     override def toString: String = resolved
       .map { case (k, v) =>
-        k.toDhall.take(160) + (if (k.toDhall.length > 160) "..." else "") + " -> " + v.toDhall.take(160) + (if (v.toDhall.length > 160) "..." else "")
+        k.print.take(160) + (if (k.print.length > 160) "..." else "") + " -> " + v.print.take(160) + (if (v.print.length > 160) "..." else "")
       }.mkString("Map(\n\t", "\n\t", "\n)")
   }
 
@@ -149,15 +149,15 @@ object ImportResolution {
       case (resolved, finalState) =>
         resolved match {
           case TransientFailure(messages) =>
-            throw new Exception(s"Transient failure resolving ${expr.toDhall}: ${ImportResolutionResult.printFailures(messages)}")
+            throw new Exception(s"Transient failure resolving ${expr.print}: ${ImportResolutionResult.printFailures(messages)}")
           case PermanentFailure(messages) =>
-            throw new Exception(s"Permanent failure resolving ${expr.toDhall}: ${ImportResolutionResult.printFailures(messages)}")
+            throw new Exception(s"Permanent failure resolving ${expr.print}: ${ImportResolutionResult.printFailures(messages)}")
           case Resolved(r)                => r
         }
     }
   }
 
-  def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.toDhall).mkString("[", ", ", "]")
+  def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.print).mkString("[", ", ", "]")
 
   private def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.betaNormalized.scheme match {
     case EmptyList(_)        => emptyHeadersForHost
@@ -169,7 +169,7 @@ object ImportResolution {
         )
       }
     case other               =>
-      throw new Exception(s"ERROR: internal error - headers must be of type ${typeOfGenericHeadersForHost.toDhall} but instead have ${other.toDhall}")
+      throw new Exception(s"ERROR: internal error - headers must be of type ${typeOfGenericHeadersForHost.print} but instead have ${other.print}")
   }
 
   private def messageForNonexistingImportFile(javaPath: file.Path) =
@@ -243,15 +243,15 @@ object ImportResolution {
           val cyclicImportCheck =
             if (visited.contains(child) || parent == child)
               Left(
-                PermanentFailure(Seq(s"cyclic import of $child is not allowed, imports already visited: ${(visited :+ parent).map(_.toDhall).mkString("; ")}"))
+                PermanentFailure(Seq(s"cyclic import of $child is not allowed, imports already visited: ${(visited :+ parent).map(_.print).mkString("; ")}"))
               )
             else Right(())
           val referentialCheck  =
             if (parent.importType allowedToImportAnother child.importType) Right(())
             else if (child.importMode == ImportMode.Location) Right(()) // Corner case: import as `Location` does not need the referential check.
-            else Left(PermanentFailure(Seq(s"parent import expression ${parent.toDhall} may not import child ${child.toDhall} due to the referential check")))
+            else Left(PermanentFailure(Seq(s"parent import expression ${parent.print} may not import child ${child.print} due to the referential check")))
 
-          // println(s"DEBUG 1 got parent = ${parent.toDhall} and child = ${child.toDhall}")
+          // println(s"DEBUG 1 got parent = ${parent.print} and child = ${child.print}")
           lazy val checkIfAlreadyResolved = gamma.get(child) match {
             case Some(r) => Left(ImportResolutionResult.Resolved(r))
             case None    => Right(())
@@ -286,13 +286,13 @@ object ImportResolution {
                           } match {
                             case Some(Expression(r @ RecordLiteral(_))) => extractHeaders(r.lookup(FieldName("mapValue")).get, "mapKey", "mapValue")
                             case None                                   =>
-                              println(s"Warning: headers resolved from ${expr.toDhall} do not contain a map entry for origin '$remoteAuthority'")
+                              println(s"Warning: headers resolved from ${expr.print} do not contain a map entry for origin '$remoteAuthority'")
                               emptyHeadersForHost
                           }
                         case _                   => emptyHeadersForHost // TODO report issue - if headers have wrong type, do we ignore them or fail the entire expression?
                       }
                     case TypecheckResult.Invalid(errors) =>
-                      println(s"Warning: headers resolved from ${expr.toDhall} have a wrong type: $errors")
+                      println(s"Warning: headers resolved from ${expr.print} have a wrong type: $errors")
                       emptyHeadersForHost
                   }
                   (headersForOrigin, state01)
@@ -355,7 +355,7 @@ object ImportResolution {
                     case TypecheckResult.Valid(_)        => Right(extractHeaders(headersExpr, "mapKey", "mapValue"))
                     case TypecheckResult.Invalid(errors) =>
                       Left(
-                        PermanentFailure(Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfGenericHeadersForHost.toDhall}: $errors"))
+                        PermanentFailure(Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfGenericHeadersForHost.print}: $errors"))
                       )
                   }
                 case None              => Right(emptyHeadersForHost)
@@ -367,7 +367,7 @@ object ImportResolution {
                     case TypecheckResult.Invalid(errors) =>
                       Left(
                         PermanentFailure(
-                          Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfUserDefinedAlternativeHeadersForHost.toDhall}: $errors")
+                          Seq(s"import from url $childUrl failed typecheck for headers of type ${typeOfUserDefinedAlternativeHeadersForHost.print}: $errors")
                         )
                       )
                   }
@@ -433,7 +433,7 @@ object ImportResolution {
                       case TypecheckResult.Valid(_)          =>
                         Resolved(r.betaNormalized)
                       case TypecheckResult.Invalid(messages) =>
-                        PermanentFailure(Seq(s"Type error in imported expression ${readExpression.toDhall}:${messages.mkString("\n\t", "\n\t", "\n")}"))
+                        PermanentFailure(Seq(s"Type error in imported expression ${readExpression.print}:${messages.mkString("\n\t", "\n\t", "\n")}"))
                     }
                   }
                   (result2, stateGamma2)
