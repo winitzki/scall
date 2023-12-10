@@ -53,7 +53,15 @@ final case class DhallUnionType(fields: Map[ConstructorName, Tag[_]])
 final case class DhallUnionValue(value: Any, tpe: DhallUnionType, constructor: ConstructorName)
 final case class DhallEqualityType(left: AsScalaVal, right: AsScalaVal)
 
-// This represents a successful conversion from Dhall to Scala. The `inferredType` must be `Valid()` except when `value = Sort`, which is not typeable.
+/** This represents a successful conversion from Dhall to Scala. The `inferredType` must be `Valid()` except when `value = Sort`, which is not typeable.
+  *
+  * @param value
+  *   A Scala value converted from a Dhall expression.
+  * @param inferredType
+  *   The result of typechecking the Dhall expression.
+  * @param typeTag
+  *   The izumi type tag corresponding to the converted Scala value.
+  */
 final case class AsScalaVal(value: Any, inferredType: TypecheckResult[Expression], typeTag: Tag[_]) {
   def map(f: Any => Any): AsScalaVal = copy(value = f(value))
 }
@@ -75,6 +83,17 @@ object FromDhall {
     def asScala[A](implicit tpe: Tag[A]): A = FromDhall.asScala(expr)
   }
 
+  /** Convert a Dhall expression into a Scala value. The type parameter `A` must be specified.
+    *
+    * @param expr
+    *   A Dhall expression.
+    * @param tpe
+    *   An izumi type tag corresponding to the given type parameter `A`.
+    * @tparam A
+    *   The expected Scala type of the Dhall expression after it is converted to Scala.
+    * @return
+    *   A Scala value of type `A`, or an exception thrown on errors.
+    */
   def asScala[A](expr: Expression)(implicit tpe: Tag[A]): A = FromDhall.valueAndType(expr) match {
     case Left(errors) =>
       val errorMessage = errors.mkString("", "; ", "")
@@ -88,11 +107,9 @@ object FromDhall {
         )
   }
 
-  def valueAndType(expr: Expression, variables: Map[Variable, Expression] = Map()): Either[Seq[AsScalaError], AsScalaVal] = {
+  private def valueAndType(expr: Expression, variables: Map[Variable, Expression] = Map()): Either[Seq[AsScalaError], AsScalaVal] = {
 
     implicit def toSingleError(error: AsScalaError): Left[Seq[AsScalaError], Nothing] = Left(Seq(error))
-
-    // implicit def toRightResult[B](result: B): Right[Nothing, B] = Right(result)
 
     // Exception: Dhall's `Sort` cannot be type-checked.
     if (expr.scheme == ExprConstant(SyntaxConstants.Constant.Sort)) {
@@ -110,31 +127,29 @@ object FromDhall {
 //          )
 
           expr.scheme match {
-            case v @ ExpressionScheme.Variable(_, _)                    =>
+            case v @ ExpressionScheme.Variable(_, _)           =>
               variables.get(v) match {
                 case Some(knownVariableAssignment) => valueAndType(knownVariableAssignment, variables) // TODO: is this correct?
                 case None                          => AsScalaError(expr, validType, None, Some(s"Error: undefined variable $v while known variables are $variables"))
               }
-            case ExpressionScheme.Lambda(name, tipe, body)              => ???
-            case ExpressionScheme.Forall(name, tipe, body)              => ???
-            case ExpressionScheme.Let(name, tipe, subst, body)          => ???
-            case ExpressionScheme.If(cond, ifTrue, ifFalse)             =>
+            case ExpressionScheme.Lambda(name, tipe, body)     => ???
+            case ExpressionScheme.Forall(name, tipe, body)     => ???
+            case ExpressionScheme.Let(name, tipe, subst, body) => ???
+            case ExpressionScheme.If(cond, ifTrue, ifFalse)    =>
               for {
-                condition <- valueAndType(cond, variables) // This has been type-checked, so `condition` is of Dhall type `Bool`.
-                result    <- valueAndType(if (condition.asInstanceOf[Boolean]) ifTrue else ifFalse, variables)
+                condition <- valueAndType(cond, variables)                                                     // This has been type-checked, so `condition` is of Dhall type `Bool`.
+                result    <- valueAndType(if (condition.asInstanceOf[Boolean]) ifTrue else ifFalse, variables) // Only convert to Scala if necessary.
               } yield result
-            case ExpressionScheme.Merge(record, update, tipe)           => ???
-            case ExpressionScheme.ToMap(data, tipe)                     => ???
-            case ExpressionScheme.EmptyList(_)                          => result(Seq(), Tag[Seq[_]]) // TODO check if this works and make it type-safe if possible.
-            case ExpressionScheme.NonEmptyList(exprs)                   => ???
-            case ExpressionScheme.Annotation(data, tipe)                => valueAndType(data, variables)
-            case ExpressionScheme.ExprOperator(lop, op, rop)            =>
+            case ExpressionScheme.Merge(record, update, tipe)  => ???
+            case ExpressionScheme.ToMap(data, tipe)            => ???
+            case ExpressionScheme.EmptyList(_)                 => result(Seq(), Tag[Seq[_]]) // TODO check if this works and make it type-safe if possible.
+            case ExpressionScheme.NonEmptyList(exprs)          => ???
+            case ExpressionScheme.Annotation(data, tipe)       => valueAndType(data, variables)
+            case ExpressionScheme.ExprOperator(lop, op, rop)   =>
               // No checking needed here, because all expressions were already type-checked.
               def useOp[P: Tag, Q: Tag](operator: (P, Q) => _): Either[Seq[AsScalaError], AsScalaVal] = {
                 val evalLop = valueAndType(lop, variables)
                 val evalRop = valueAndType(rop, variables)
-
-                val opUncurried: ((P, Q)) => Any = { case (a, b) => operator(a, b) }
                 // The final value must be of the given type.
                 evalLop zip evalRop map { case (x, y) => AsScalaVal(operator(x.asInstanceOf[P], y.asInstanceOf[Q]), validType, implicitly[Tag[P]]) }
               }
@@ -164,7 +179,13 @@ object FromDhall {
                 case Operator.Equivalent         => useOp[AsScalaVal, AsScalaVal]((x, y) => DhallEqualityType(x, y))
                 case Operator.Alternative        => AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless all import alternatives are resolved"))
               }
-            case ExpressionScheme.Application(func, arg)                => ???
+
+            case ExpressionScheme.Application(func, arg) =>
+              for {
+                functionHead <- valueAndType(func, variables)
+                argument     <- valueAndType(arg, variables)
+              } yield AsScalaVal(functionHead.value.asInstanceOf[Function1[Any, Any]](argument.value), validType, ???)
+
             case ExpressionScheme.Field(base, name)                     => ???
             case ExpressionScheme.ProjectByLabels(base, labels)         => ???
             case ExpressionScheme.ProjectByType(base, by)               => ???
