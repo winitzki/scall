@@ -154,7 +154,7 @@ class SimpleSemanticsTest extends DhallTest {
         |
         |let safeDiv = \(y: Natural) -> \(x: Natural) -> \(_: Nonzero y) -> unsafeDiv y x
         |
-        |    in [ safeDiv 2 4 {=}, safeDiv 2 3 {=}, safeDiv 2 2 {=}, safeDiv 3 2 {=}, safeDiv 0 2 {=} ]
+        |    in [ safeDiv 2 4 {=}, safeDiv 2 3 {=}, safeDiv 2 2 {=}, safeDiv 3 2 {=}Parser.scala ]
         |""".stripMargin.dhall.typeCheckAndBetaNormalize().unsafeGet
     expect(result.print == "[2, 1, 1, 0]")
   }
