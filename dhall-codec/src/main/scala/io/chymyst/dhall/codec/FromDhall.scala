@@ -251,7 +251,6 @@ object FromDhall {
                 r.inferredType match {
                   case Valid(Expression(tipe)) => ???
                 }
-                ???
               }
             case ExpressionScheme.Import(_, _, _)       =>
               AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless imports are resolved"))

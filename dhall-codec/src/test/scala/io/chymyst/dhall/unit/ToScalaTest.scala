@@ -71,11 +71,14 @@ class ToScalaTest extends FunSuite {
 
   test("convert arithmetic") {
     expect("1 + 1".dhall.asScala[Natural] == 2)
-    expect("2 + 2".dhall.asScala[Natural] == 4)
+    expect("2 * 2".dhall.asScala[Natural] == 4)
     expect("False && True".dhall.asScala[Boolean] == false)
+    expect("False == True".dhall.asScala[Boolean] == false)
+    expect("False != True".dhall.asScala[Boolean] == true)
     expect("False || True".dhall.asScala[Boolean] == true)
     expect("if False then False else True".dhall.asScala[Boolean] == true)
     expect(" \"abc\" ++ \"de\" ".dhall.asScala[String] == "abcde")
+    expect("assert : False === False".dhall.asScala[Unit] == ())
   }
 
   test("lists") { // TODO enable this test and fix type tags. The error is: Error importing from Dhall: type mismatch: expected type Tag[Seq[+Boolean]] but Dhall value actually has type Valid(List Bool) and type tag Tag[List[+Tag[=Boolean]]]
@@ -84,6 +87,11 @@ class ToScalaTest extends FunSuite {
     expect(
       "[1, 2] # [3, 4]".dhall.asScala[Seq[_]] == Seq(1, 2, 3, 4).map(BigInt(_))
     )             // TODO: fix type. This should accept asScala[Seq[Natural]] but currently it does not work.
+  }
+
+  test("Optional") {
+    expect("Some True".dhall.asScala[Option[Boolean]] == Some(true))
+    // expect("None Bool".dhall.asScala[Option[Boolean]] == None) // TODO enable this test
   }
 
   test("convert record literals to Scala") {
