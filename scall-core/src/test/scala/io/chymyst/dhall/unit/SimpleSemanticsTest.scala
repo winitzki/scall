@@ -84,13 +84,9 @@ class SimpleSemanticsTest extends DhallTest {
       |let example = assert : Natural/lessThanEqual 5 5 ≡ True
       |let example = assert : Natural/lessThanEqual 5 4 ≡ False
       |
-      |let Natural/equal
-      |    : Natural → Natural → Bool
-      |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a
-      |
       |let Natural/lessThan
       |    : Natural → Natural → Bool
-      |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/equal a b == False
+      |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a == False
       |
       |let example = assert : Natural/lessThan 5 6 ≡ True
       |let example = assert : Natural/lessThan 5 5 ≡ False
@@ -123,4 +119,82 @@ class SimpleSemanticsTest extends DhallTest {
       |""".stripMargin.dhall.typeCheckAndBetaNormalize().unsafeGet
     expect(result.print == "[0, 1, 2, 2, 3, 3]")
   }
+
+  // Prohibit division by 0 statically.
+  test("safe division using dependent types") {
+    val result =
+      """
+        |let Void: Type = ∀(x: Type) -> x
+        |let absurd = \(x: Type) -> \(v: Void) -> v x
+        |
+        |let Nonzero: Natural -> Type = \(y: Natural) -> if Natural/isZero y then Void else {}
+        |
+        |let Natural/lessThanEqual
+        |    : Natural → Natural → Bool
+        |    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
+        |let Natural/lessThan
+        |    : Natural → Natural → Bool
+        |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a == False
+        |
+        | -- unsafeDiv y x means x / y
+        |let unsafeDiv : Natural -> Natural -> Natural =
+        |    let Acc = {result: Natural, sub: Natural, done: Bool}
+        |    in \(y: Natural) -> \(x: Natural) ->
+        |         let r: Acc = Natural/fold x Acc (\(acc: Acc) ->
+        |             if acc.done then acc
+        |             else if Natural/lessThan acc.sub y then acc // {done = True}
+        |             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}) {result = 0, sub = x, done = False}
+        |         in r.result
+        |
+        |let example = assert : unsafeDiv 2 4 === 2
+        |let example = assert : unsafeDiv 2 3 === 1
+        |let example = assert : unsafeDiv 2 2 === 1
+        |let example = assert : unsafeDiv 3 2 === 0
+        |let example = assert : unsafeDiv 0 2 === 2 -- The answer is wrong, because it is assumed that we will never divide by zero.
+        |
+        |let safeDiv = \(y: Natural) -> \(x: Natural) -> \(_: Nonzero y) -> unsafeDiv y x
+        |
+        |    in [ safeDiv 2 4 {=}, safeDiv 2 3 {=}, safeDiv 2 2 {=}, safeDiv 3 2 {=}, safeDiv 0 2 {=} ]
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize().unsafeGet
+    expect(result.print == "[2, 1, 1, 0]")
+  }
+
+  test("safe division using assert") {
+    val result =
+      """
+        |let Natural/lessThanEqual
+        |    : Natural → Natural → Bool
+        |    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
+        |let Natural/lessThan
+        |    : Natural → Natural → Bool
+        |    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a == False
+        |
+        | -- unsafeDiv y x means x / y
+        |let unsafeDiv : Natural -> Natural -> Natural =
+        |    let Acc = {result: Natural, sub: Natural, done: Bool}
+        |    in \(y: Natural) -> \(x: Natural) ->
+        |         let init: Acc = {result = 0, sub = x, done = False}
+        |         let update: Acc -> Acc = \(acc: Acc) ->
+        |             if acc.done then acc
+        |             else if Natural/lessThan acc.sub y then acc // {done = True}
+        |             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
+        |           in (Natural/fold x Acc update init).result
+        |
+        |let example = assert : unsafeDiv 2 4 === 2
+        |let example = assert : unsafeDiv 2 3 === 1
+        |let example = assert : unsafeDiv 2 2 === 1
+        |let example = assert : unsafeDiv 3 2 === 0
+        |let example = assert : unsafeDiv 0 2 === 2 -- The answer is wrong, because it is assumed that we will never divide by zero.
+        |
+        |let safeDiv = \(y: Natural) -> \(x: Natural) ->
+        |    let _ = assert : Natural/isZero y === False -- this does not work!
+        |    in unsafeDiv y x
+        |
+        |    in True
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result match {
+      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Expression `assert` failed: Unequal sides in Natural/isZero y ≡ False")
+    })
+  }
+
 }

@@ -235,10 +235,21 @@ object FromDhall {
               }).map(_.toMap)
               types.map(fields => AsScalaVal(DhallUnionType(fields), validType, Tag[DhallUnionType]))
 
-            case ExpressionScheme.ShowConstructor(data)  => ???
-            case ExpressionScheme.Import(_, _, _)        =>
+            case ExpressionScheme.ShowConstructor(data) =>
+              valueAndType(data, variables).flatMap { r =>
+                // TODO: first we need to implement a Scala equivalent for values of union types
+                r.inferredType match {
+                  case Valid(Expression(tipe)) => ???
+                }
+                ???
+              }
+            case ExpressionScheme.Import(_, _, _)       =>
               AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless imports are resolved"))
-            case ExpressionScheme.KeywordSome(data)      => ??? // TODO  Check that the type is Option[X] and then return  Some(asScala[X](data))
+            case ExpressionScheme.KeywordSome(data)     =>
+              valueAndType(data, variables).flatMap { dataAsScala =>
+                result(Some(dataAsScala.value), Tag.appliedTag(TagK[Option], List(dataAsScala.typeTag.tag)))
+              }
+
             case ExpressionScheme.ExprBuiltin(builtin)   =>
               builtin match {
                 case Builtin.Bool             => result(Tag[Boolean], Tag[Tag[Boolean]])

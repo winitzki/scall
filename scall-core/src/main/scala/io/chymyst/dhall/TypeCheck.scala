@@ -454,7 +454,9 @@ object TypeCheck {
               val b2 = Semantics.shift(false, varName, 0, b1)
               Valid(b2.betaNormalized)
             } else
-              typeError(s"Function application in ${exprToInferTypeOf.print} must have matching types, but instead found ${varType.print} and ${argType.print}")
+              typeError(
+                s"Function application in ${exprToInferTypeOf.print} expects argument of type ${varType.print} but instead found argument ${arg.print} of type ${argType.print}"
+              )
           case (other, _)                                                => typeError(s"Function application in ${exprToInferTypeOf.print} must use a function type, but instead found ${other.print}")
         }
 
