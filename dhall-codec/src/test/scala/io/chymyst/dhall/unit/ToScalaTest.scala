@@ -11,6 +11,7 @@ import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
 
 import java.time.{LocalDate, LocalTime, ZoneOffset}
+import scala.util.Try
 
 class ToScalaTest extends FunSuite {
 
@@ -62,6 +63,17 @@ class ToScalaTest extends FunSuite {
     expect(Natural_odd(2) == false && Natural_even(2) == true)
     expect("Natural/show".dhall.asScala[Natural => String] == Natural_show)
     expect("Natural/show 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[String] == "2")
+  }
+
+  test("fail to convert imports") {
+    expect(Try("./file".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
+  }
+
+  test("convert arithmetic") {
+    expect("1 + 1".dhall.asScala[Natural] == 2)
+    expect("2 + 2".dhall.asScala[Natural] == 4)
+    expect("False && True".dhall.asScala[Boolean] == false)
+    expect("False || True".dhall.asScala[Boolean] == true)
   }
 
   test("convert record literals to Scala") {

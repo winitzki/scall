@@ -147,11 +147,11 @@ object FromDhall {
             case ExpressionScheme.Annotation(data, tipe)       => valueAndType(data, variables)
             case ExpressionScheme.ExprOperator(lop, op, rop)   =>
               // No checking needed here, because all expressions were already type-checked.
-              def useOp[P: Tag, Q: Tag](operator: (P, Q) => _): Either[Seq[AsScalaError], AsScalaVal] = {
+              def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[Seq[AsScalaError], AsScalaVal] = {
                 val evalLop = valueAndType(lop, variables)
                 val evalRop = valueAndType(rop, variables)
                 // The final value must be of the given type.
-                evalLop zip evalRop map { case (x, y) => AsScalaVal(operator(x.asInstanceOf[P], y.asInstanceOf[Q]), validType, implicitly[Tag[P]]) }
+                evalLop zip evalRop map { case (x, y) => AsScalaVal(operator(x.value.asInstanceOf[P], y.value.asInstanceOf[Q]), validType, implicitly[Tag[R]]) }
               }
 
               op match {
@@ -161,9 +161,9 @@ object FromDhall {
                     l      <- valueAndType(lop, variables)
                     result <- if (l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables)
                   } yield result
-                case Operator.Plus               => useOp[Natural, Natural](_ + _)
-                case Operator.TextAppend         => useOp[String, String](_ ++ _)
-                case Operator.ListAppend         => useOp[List[_], List[_]](_ ++ _)
+                case Operator.Plus               => useOp[Natural, Natural, Natural](_ + _)
+                case Operator.TextAppend         => useOp[String, String, String](_ ++ _)
+                case Operator.ListAppend         => useOp[List[_], List[_], List[_]](_ ++ _)
                 case Operator.And                => // useOp[Boolean, Boolean](_ && _)
                   // This operation must be lazy and avoid evaluating `rop` if `lop` is `False`.
                   for {
@@ -173,10 +173,10 @@ object FromDhall {
                 case Operator.CombineRecordTerms => ???
                 case Operator.Prefer             => ???
                 case Operator.CombineRecordTypes => ???
-                case Operator.Times              => useOp[Natural, Natural](_ * _)
-                case Operator.Equal              => useOp[Boolean, Boolean](_ == _)
-                case Operator.NotEqual           => useOp[Boolean, Boolean](_ != _)
-                case Operator.Equivalent         => useOp[AsScalaVal, AsScalaVal]((x, y) => DhallEqualityType(x, y))
+                case Operator.Times              => useOp[Natural, Natural, Natural](_ * _)
+                case Operator.Equal              => useOp[Boolean, Boolean, Boolean](_ == _)
+                case Operator.NotEqual           => useOp[Boolean, Boolean, Boolean](_ != _)
+                case Operator.Equivalent         => useOp[AsScalaVal, AsScalaVal, DhallEqualityType]((x, y) => DhallEqualityType(x, y))
                 case Operator.Alternative        => AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless all import alternatives are resolved"))
               }
 
