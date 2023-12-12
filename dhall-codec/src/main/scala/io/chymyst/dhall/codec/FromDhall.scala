@@ -132,7 +132,12 @@ object FromDhall {
                 case Some(knownVariableAssignment) => valueAndType(knownVariableAssignment, variables) // TODO: is this correct?
                 case None                          => AsScalaError(expr, validType, None, Some(s"Error: undefined variable $v while known variables are $variables"))
               }
-            case ExpressionScheme.Lambda(name, tipe, body)              => ???
+            case ExpressionScheme.Lambda(name, tpe, body)               =>
+              val lambda = { x: Any =>
+                // Create a Scala function with variable named "x". Substitute name = x in body but first shift name upwards in body.
+                // Example: "λ(n : Natural) → n + n@1 + x is replaced by { x: Any -> asScala(x + n@1 + x@1) }
+              }
+              result(lambda, ???)
             case ExpressionScheme.Forall(name, tipe, body)              => ???
             case ExpressionScheme.Let(name, tipe, subst, body)          => ???
             case ExpressionScheme.If(cond, ifTrue, ifFalse)             =>
@@ -159,7 +164,7 @@ object FromDhall {
                     }
                 }
               }
-            case ExpressionScheme.Annotation(data, tipe)                => valueAndType(data, variables)
+            case ExpressionScheme.Annotation(data, _)                   => valueAndType(data, variables)
             case ExpressionScheme.ExprOperator(lop, op, rop)            =>
               // No checking needed here, because all expressions were already type-checked.
               def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[Seq[AsScalaError], AsScalaVal] = {
@@ -191,7 +196,7 @@ object FromDhall {
                 case Operator.Equal              => useOp[Boolean, Boolean, Boolean](_ == _)
                 case Operator.NotEqual           => useOp[Boolean, Boolean, Boolean](_ != _)
                 case Operator.Equivalent         => useOp[AsScalaVal, AsScalaVal, DhallEqualityType]((x, y) => DhallEqualityType(x, y))
-                case Operator.Alternative        => AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless all import alternatives are resolved"))
+                // case Operator.Alternative        => AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless all import alternatives are resolved")) // This will never occur because it would fail type-checking, which we now do up front.
               }
             case ExpressionScheme.Application(func, arg)                =>
               for {

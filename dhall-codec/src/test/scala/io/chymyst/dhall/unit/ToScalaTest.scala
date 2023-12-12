@@ -20,6 +20,7 @@ class ToScalaTest extends FunSuite {
     val y             = x.asScala[Double]
     val z: Expression = DoubleLiteral(y)
     expect(x == z)
+    expect(y == -0.0, y == 0.0, y.sign == 0, !(y equals 0.0)) // Note: y = -0.0 and not 0.0 but only `equals` can see this difference.
   }
 
   test("convert other literals to Scala") {
@@ -27,6 +28,7 @@ class ToScalaTest extends FunSuite {
     expect("0b1010".dhall.asScala[Natural].intValue == 10)
     expect("\"0b1010\"".dhall.asScala[String] == "0b1010")
     expect(" +0b1010 ".dhall.asScala[BigInt].intValue == 10)
+    expect("-0b1010 ".dhall.asScala[BigInt].intValue == -10)
     expect("True".dhall.asScala[Boolean] == true)
     expect("False".dhall.asScala[Boolean] == false)
     // For byte arrays, we need to compare the data in the arrays to verify that they are equal.
@@ -34,6 +36,7 @@ class ToScalaTest extends FunSuite {
     expect("00:00:00".dhall.asScala[LocalTime] == LocalTime.of(0, 0, 0))
     expect("2003-03-03".dhall.asScala[LocalDate] == LocalDate.of(2003, 3, 3))
     expect("-02:00".dhall.asScala[ZoneOffset] == ZoneOffset.ofHoursMinutes(-2, 0))
+    expect("-02:30".dhall.asScala[ZoneOffset] == ZoneOffset.ofHoursMinutes(-2, -30))
   }
 
   test("convert kinds to DhallKinds") {
@@ -81,6 +84,13 @@ class ToScalaTest extends FunSuite {
 
   test("fail to convert imports") {
     expect(Try("./file".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
+    expect(Try("./file ? ./file".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
+    expect(Try("True ? True".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
+  }
+
+  test("make sure we typecheck when doing .asScala") {
+    expect(Try("1 : 2".dhall.asScala[BigInt]).failed.get.getMessage contains "Inferred type Natural is not equal to the type 2 given in the annotation")
+    expect(Try("1 : Bool".dhall.asScala[BigInt]).failed.get.getMessage contains "Inferred type Natural is not equal to the type Bool given in the annotation")
   }
 
   test("convert arithmetic") {
@@ -92,6 +102,7 @@ class ToScalaTest extends FunSuite {
     expect("False || True".dhall.asScala[Boolean] == true)
     expect("if False then False else True".dhall.asScala[Boolean] == true)
     expect(" \"abc\" ++ \"de\" ".dhall.asScala[String] == "abcde")
+    expect(" \"abc\" ++ \"de\" : Text".dhall.asScala[String] == "abcde")
     expect("assert : False === False".dhall.asScala[Unit] == ())
   }
 
