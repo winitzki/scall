@@ -1,6 +1,7 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
+import com.sun.org.apache.xpath.internal.operations.Bool
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
@@ -126,6 +127,10 @@ class ToScalaTest extends FunSuite {
     expect(record.a.asInstanceOf[BigInt] == BigInt(1))
     expect(record.b.asInstanceOf[Boolean] == true)
     expect(record.c.asInstanceOf[String] == "xyz")
+  }
+
+  test("fail on invalid function types") {
+     expect(Try("λ(n : Natural) → n".dhall.asScala[Natural => Boolean]).failed.get.getMessage == "Error importing from Dhall: type mismatch: expected type Tag[Function1[-BigInt,+Boolean]] but the Dhall value actually has type Valid(∀(n : Natural) → Natural) and type tag Tag[Function1[-BigInt,+BigInt]]")
   }
 
   test("convert functions to Scala functions 1") {
