@@ -5,6 +5,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Field, RecordType
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.Builtin.TextShow
 import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator, VarName}
+import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult.{Invalid, Valid}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.{Semantics, SyntaxConstants, TypecheckResult}
@@ -88,7 +89,7 @@ object FromDhall {
   /** Convert a Dhall expression into a Scala value. The type parameter `A` must be specified.
     *
     * @param expr
-    *   A Dhall expression.
+    *   A Dhall expression. This must be a closed term, having no free variables.
     * @param tpe
     *   An izumi type tag corresponding to the given type parameter `A`.
     * @tparam A
@@ -96,7 +97,7 @@ object FromDhall {
     * @return
     *   A Scala value of type `A`, or an exception thrown on errors.
     */
-  def asScala[A](expr: Expression)(implicit tpe: Tag[A]): A = FromDhall.valueAndType(expr) match {
+  def asScala[A](expr: Expression)(implicit tpe: Tag[A]): A = FromDhall.valueAndType(expr, Map(), KnownVars.empty) match {
     case Left(errors) =>
       val errorMessage = errors.mkString("", "; ", "")
       throw new Exception("Error importing from Dhall: " + errorMessage)
@@ -109,7 +110,7 @@ object FromDhall {
         )
   }
 
-  private def valueAndType(expr: Expression, variables: Map[Variable, AsScalaVal] = Map()): Either[Seq[AsScalaError], AsScalaVal] = {
+  private def valueAndType(expr: Expression, variables: Map[Variable, AsScalaVal], dhallVars: KnownVars): Either[Seq[AsScalaError], AsScalaVal] = {
 
     implicit def toSingleError(error: AsScalaError): Left[Seq[AsScalaError], Nothing] = Left(Seq(error))
 
@@ -122,7 +123,7 @@ object FromDhall {
     if (expr.scheme == ExprConstant(SyntaxConstants.Constant.Sort)) {
       Right(new AsScalaVal(DhallKinds.Sort, Invalid(Seq("Expression(ExprConstant(Sort)) is not well-typed because it is the top universe")), Tag[DhallKinds]))
     } else {
-      expr.inferType match {
+      expr.inferTypeWith(dhallVars) match {
         case errors @ TypecheckResult.Invalid(_)     => AsScalaError(expr, errors)
         case validType @ TypecheckResult.Valid(tipe) =>
           // Helper functions.
@@ -146,12 +147,13 @@ object FromDhall {
               // It is replaced by { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
               var varXValue: Any = null
               val variables1     = shiftVars(up = true, name)(variables)
+              val dhallVars2     = dhallVars.prependAndShift(name, tpe)
               for {
-                varType     <- valueAndType(tpe, variables)
+                varType     <- valueAndType(tpe, variables, dhallVars)
                 varTag       = varType.value.asInstanceOf[Tag[_]]
                 varX         = new AsScalaVal(varXValue, Valid(tpe), varTag)
                 variables2   = variables1 ++ Map(ExpressionScheme.Variable(name, BigInt(0)) -> varX)
-                bodyAsScala <- valueAndType(body, variables2)
+                bodyAsScala <- valueAndType(body, variables2, dhallVars2)
               } yield {
                 val lambda = { x: Any =>
                   varXValue = x
@@ -164,34 +166,35 @@ object FromDhall {
             case ExpressionScheme.Let(name, tipe, subst, body)          => ???
             case ExpressionScheme.If(cond, ifTrue, ifFalse)             =>
               for {
-                condition <- valueAndType(cond, variables)                                                           // This has been type-checked, so `condition` is of Dhall type `Bool`.
-                result    <- valueAndType(if (condition.value.asInstanceOf[Boolean]) ifTrue else ifFalse, variables) // Only convert to Scala if necessary.
+                condition <- valueAndType(cond, variables, dhallVars) // This has been type-checked, so `condition` is of Dhall type `Bool`.
+                result    <-
+                  valueAndType(if (condition.value.asInstanceOf[Boolean]) ifTrue else ifFalse, variables, dhallVars) // Only convert to Scala if necessary.
               } yield result
             case ExpressionScheme.Merge(record, update, tipe)           => ???
             case ExpressionScheme.ToMap(data, tipe)                     => ???
             case ExpressionScheme.EmptyList(_)                          =>
               tipe.scheme match {
                 case ExpressionScheme.Application(_, tpe: Expression) =>
-                  valueAndType(tpe, variables).flatMap { t =>
+                  valueAndType(tpe, variables, dhallVars).flatMap { t =>
                     result(Seq(), Tag.appliedTag(TagK[Seq], List(t.typeTag.tag)))
                   }
               }
             case ExpressionScheme.NonEmptyList(exprs)                   =>
-              seqSeq(exprs.map(valueAndType(_, variables))).flatMap { vals =>
+              seqSeq(exprs.map(valueAndType(_, variables, dhallVars))).flatMap { vals =>
                 val listOfValues = vals.map(_.value)
                 tipe.scheme match {
                   case ExpressionScheme.Application(_, tpe: Expression) =>
-                    valueAndType(tpe, variables).flatMap { t =>
+                    valueAndType(tpe, variables, dhallVars).flatMap { t =>
                       result(listOfValues, Tag.appliedTag(TagK[Seq], List(t.typeTag.tag)))
                     }
                 }
               }
-            case ExpressionScheme.Annotation(data, _)                   => valueAndType(data, variables)
+            case ExpressionScheme.Annotation(data, _)                   => valueAndType(data, variables, dhallVars)
             case ExpressionScheme.ExprOperator(lop, op, rop)            =>
               // No checking needed here, because all expressions were already type-checked.
               def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[Seq[AsScalaError], AsScalaVal] = {
-                val evalLop = valueAndType(lop, variables)
-                val evalRop = valueAndType(rop, variables)
+                val evalLop = valueAndType(lop, variables, dhallVars)
+                val evalRop = valueAndType(rop, variables, dhallVars)
                 // The final value must be of the given type.
                 evalLop zip evalRop map { case (x, y) =>
                   new AsScalaVal(operator(x.value.asInstanceOf[P], y.value.asInstanceOf[Q]), validType, implicitly[Tag[R]])
@@ -201,8 +204,8 @@ object FromDhall {
                 case Operator.Or                 => // useOp[Boolean, Boolean](_ || _)
                   // This operation must be lazy and avoid evaluating `rop` if `lop` is `True`.
                   for {
-                    l      <- valueAndType(lop, variables)
-                    result <- if (l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables)
+                    l      <- valueAndType(lop, variables, dhallVars)
+                    result <- if (l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables, dhallVars)
                   } yield result
                 case Operator.Plus               => useOp[Natural, Natural, Natural](_ + _)
                 case Operator.TextAppend         => useOp[String, String, String](_ ++ _)
@@ -210,8 +213,8 @@ object FromDhall {
                 case Operator.And                => // useOp[Boolean, Boolean](_ && _)
                   // This operation must be lazy and avoid evaluating `rop` if `lop` is `False`.
                   for {
-                    l      <- valueAndType(lop, variables)
-                    result <- if (!l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables)
+                    l      <- valueAndType(lop, variables, dhallVars)
+                    result <- if (!l.value.asInstanceOf[Boolean]) Right(l) else valueAndType(rop, variables, dhallVars)
                   } yield result
                 case Operator.CombineRecordTerms => ???
                 case Operator.Prefer             => ???
@@ -224,12 +227,12 @@ object FromDhall {
               }
             case ExpressionScheme.Application(func, arg)                =>
               for {
-                functionHead      <- valueAndType(func, variables)
+                functionHead      <- valueAndType(func, variables, dhallVars)
                 functionResult    <- functionHead.inferredType.unsafeGet.scheme match {
                                        case ExpressionScheme.Forall(_, _, resultType: Expression) => Right(resultType)
                                      }
-                functionResultTag <- valueAndType(functionResult, variables)
-                argument          <- valueAndType(arg, variables)
+                functionResultTag <- valueAndType(functionResult, variables, dhallVars)
+                argument          <- valueAndType(arg, variables, dhallVars)
               } yield new AsScalaVal(functionHead.value.asInstanceOf[Function1[Any, Any]](argument.value), validType, functionResultTag.typeTag)
             case ExpressionScheme.Field(base, name)                     => ???
             case ExpressionScheme.ProjectByLabels(base, labels)         => ???
@@ -244,7 +247,7 @@ object FromDhall {
             case ExpressionScheme.IntegerLiteral(value)                 => result(value, Tag[BigInt])
             case ExpressionScheme.TextLiteral(interpolations, trailing) =>
               val computeInterpolated: Either[Seq[AsScalaError], Seq[String]] = seqSeq(interpolations.map { case (prefix, expr) =>
-                valueAndType(expr, variables)
+                valueAndType(expr, variables, dhallVars)
                   .map(_.map(prefix + _)).map(_.value.asInstanceOf[String]) // We should have typechecked this, so all exprs are strings.
               })
               val concatenateInterpolated: Either[Seq[AsScalaError], String]  =
@@ -257,15 +260,15 @@ object FromDhall {
             case d: ExpressionScheme.TimeLiteral      => result(d.toLocalTime, Tag[LocalTime])
             case d: ExpressionScheme.TimeZoneLiteral  => result(d.toZoneOffset, Tag[ZoneOffset])
             case ExpressionScheme.RecordType(defs)    =>
-              seqSeq(defs.map { case (field, tipe) => valueAndType(tipe, variables).map(t => (field, t.typeTag)) })
+              seqSeq(defs.map { case (field, tipe) => valueAndType(tipe, variables, dhallVars).map(t => (field, t.typeTag)) })
                 .map(_.toMap)
                 .map(fields => new AsScalaVal(DhallRecordType(fields), validType, Tag[DhallRecordType]))
             case ExpressionScheme.RecordLiteral(defs) =>
-              val types: Either[Seq[AsScalaError], Map[FieldName, Tag[_]]]       = seqSeq(
-                tipe.scheme.asInstanceOf[RecordType[Expression]].defs.map { case (field, tipe) => valueAndType(tipe, variables).map(t => (field, t.typeTag)) }
-              ).map(_.toMap)
+              val types: Either[Seq[AsScalaError], Map[FieldName, Tag[_]]]       = seqSeq(tipe.scheme.asInstanceOf[RecordType[Expression]].defs.map {
+                case (field, tipe) => valueAndType(tipe, variables, dhallVars).map(t => (field, t.typeTag))
+              }).map(_.toMap)
               val exprs: Either[Seq[AsScalaError], Seq[(FieldName, AsScalaVal)]] = seqSeq(defs.map { case (field, value) =>
-                valueAndType(value, variables).map((field, _))
+                valueAndType(value, variables, dhallVars).map((field, _))
               })
               exprs zip types map { case (exprSeq, typeMap) =>
                 val fields: Map[FieldName, (Any, Tag[_])] = exprSeq.map { case (field, value) => (field, (value.value, typeMap(field))) }.toMap
@@ -274,21 +277,21 @@ object FromDhall {
             case ExpressionScheme.UnionType(defs)     =>
               val types: Either[Seq[AsScalaError], Map[ConstructorName, Tag[_]]] = seqSeq(defs.map {
                 case (constructor, None)                => Right((constructor, Tag[Unit]))
-                case (constructor, Some(t: Expression)) => valueAndType(t, variables).map(r => (constructor, r.typeTag))
+                case (constructor, Some(t: Expression)) => valueAndType(t, variables, dhallVars).map(r => (constructor, r.typeTag))
               }).map(_.toMap)
               types.map(fields => new AsScalaVal(DhallUnionType(fields), validType, Tag[DhallUnionType]))
 
             case ExpressionScheme.ShowConstructor(data) =>
-              valueAndType(data, variables).flatMap { r =>
+              valueAndType(data, variables, dhallVars).flatMap { r =>
                 // TODO: first we need to implement a Scala equivalent for values of union types
                 r.inferredType match {
-                  case Valid(Expression(tipe)) => ???
+                  case Valid(Expression(tpe)) => ???
                 }
               }
             case ExpressionScheme.Import(_, _, _)       =>
               AsScalaError(expr, validType, None, Some("Cannot convert to Scala unless imports are resolved"))
             case ExpressionScheme.KeywordSome(data)     =>
-              valueAndType(data, variables).flatMap { dataAsScala =>
+              valueAndType(data, variables, dhallVars).flatMap { dataAsScala =>
                 result(Some(dataAsScala.value), Tag.appliedTag(TagK[Option], List(dataAsScala.typeTag.tag)))
               }
 
