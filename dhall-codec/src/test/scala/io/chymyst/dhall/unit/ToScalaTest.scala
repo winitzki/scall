@@ -82,7 +82,7 @@ class ToScalaTest extends FunSuite {
 
   }
 
-  test("fail to convert imports") {
+  test("fail to convert imports and alternatives") {
     expect(Try("./file".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
     expect(Try("./file ? ./file".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
     expect(Try("True ? True".dhall.asScala[Boolean]).failed.get.getMessage contains "Cannot typecheck an expression with unresolved imports")
@@ -126,6 +126,21 @@ class ToScalaTest extends FunSuite {
     expect(record.a.asInstanceOf[BigInt] == BigInt(1))
     expect(record.b.asInstanceOf[Boolean] == true)
     expect(record.c.asInstanceOf[String] == "xyz")
+  }
+
+  test("convert functions to Scala functions 1") {
+    val f = "λ(n : Natural) → n".dhall.asScala[Natural => Natural]
+    expect(f(BigInt(10)) == BigInt(10))
+  }
+
+  test("convert functions to Scala functions 2") {
+    val f = "λ(n : Natural) → n + 2".dhall.asScala[Natural => Natural]
+    expect(f(BigInt(10)) == BigInt(12))
+  }
+
+  test("convert functions to Scala functions 3") {
+    val f = "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2".dhall.asScala[Natural => Natural]
+    expect(f(BigInt(10)) == BigInt(22))
   }
 
   test("wip convert generic functions to Scala generic functions") {
