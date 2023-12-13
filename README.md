@@ -66,7 +66,7 @@ An ill-typed expression may fail to evaluate or even cause an infinite loop:
 ```scala
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 
-// Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
+// Curry's Y combinator. We set the `Bool` type arbitrarily; the types cannot match in any case.
 val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
 val argument = """\(x: Bool) -> x""".dhall
 val bad = illTyped(argument)
@@ -116,21 +116,21 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [ ] Dhall values of function types are converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is converted into the Scala function equivalent to `{ x : BigInt => x + 1 }`, which has type `Function1[BigInt, BigInt]`.
+- [x] Dhall values of function types are converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is converted into a Scala function equivalent to `{ x : BigInt => x + 1 }`, which has type `Function1[BigInt, BigInt]`.
 
 - [ ] Dhall values of type `Type` (for example, `Text`, `Bool`, or `Natural -> Natural`) are converted to Scala type tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
 ## Roadmap for future developments
 
-1. Possibly, implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if other arguments can be used to infer the type. List/map [ 1, 2, 3 ] (\x -> x + 1) should be sufficient. Similarly with the do-notation, `as bind with x in p then q` should be sufficient. (This probably requires introducing a new syntax form for do-notation rather than immediate desugaring, but perhaps not.)
-2. More caching and more native implementation for literals, to improve performance. (Without caching, List/sort would hang on a list of 6 natural numbers.)
+1. Possibly, implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if other arguments can be used to infer the type. List/map [ 1, 2, 3 ] (\x -> x + 1) should be sufficient. Just a `None` without a type should be sufficient in most cases. Similarly with the do-notation, `as bind with x in p then q` should be sufficient. (This probably requires introducing a new syntax form for do-notation rather than immediate desugaring, but perhaps not.)
+2. Try HOAS and PHOAS to make the implementation faster.
 5. Convert between Dhall values and Scala values automatically (as much as possible given the Scala type system). Support both Scala 2 and Scala 3.
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports (import `as Scala`?). Publish the Dhall standard library and other libraries as JARs.
 8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or values may be interpreted via custom Scala code.
 9. Detect Dhall functions that operate efficiently on literal arguments, and implement those functions in efficient JVM code.
 10. Detect Dhall functions that will ignore some (curried) arguments when given certain values of literal arguments, and implement laziness to make code more efficient.
-11. Implement some elementary functions for Natural more efficiently (probably no need to change Dhall language), such as gcd or sqrt.
+11. Implement some elementary functions for Natural more efficiently (probably no need to change Dhall language), such as gcd, div_mod, int_sqrt.
 12. Implement numerical functions for rational numbers (instead of floating-point).
 13. Implement higher-kinded types, heterogeneous lists, dependently-typed lists, etc., if possible.
 

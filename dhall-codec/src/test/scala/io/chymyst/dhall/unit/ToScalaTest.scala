@@ -1,13 +1,13 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.sun.org.apache.xpath.internal.operations.Bool
 import io.chymyst.dhall.Parser.StringAsDhallExpression
-import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
+import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
 import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
+import izumi.reflect.macrortti.{LTag, LightTypeTag}
 import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
 
@@ -168,20 +168,10 @@ class ToScalaTest extends FunSuite {
     expect(f(BigInt(10)) == BigInt(22))
   }
 
-  test("wip convert generic functions to Scala generic functions") {
-    object TestObj  {
-      def a[A](x: A): A = x
-    }
-    trait TestTrait {
-      def a[A](x: A): A = x
-    }
-    class TestClass {
-      def a[A](x: A): A = x
-    }
-    val tag1 = Tag[TestObj.type]
-    val tag2 = Tag[TestTrait]
-    val tag3 = Tag[TestClass]
-    val tag4 = Tag[{ def a[A]: A }]
-    val d    = "\\(A: Type) -> \\(x : A) -> x".dhall
+  test("convert generic functions to Scala generic functions") {
+    val d = "\\(A: Type) -> \\(x: A) -> x".dhall // TODO: enable .asScala[{ def apply[A]: A => A }] or something like that.
+    val e = new { def apply[A](x: A): A = x }
+    assert(e(1) == 1)
+    assert(e("asdf") == "asdf")
   }
 }
