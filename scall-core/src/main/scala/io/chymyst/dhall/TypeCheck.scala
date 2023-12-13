@@ -289,8 +289,8 @@ object TypeCheck {
             } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.print} and ${target.print}")
 
           case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
-            val updatedContext = gamma
-              .prependAndShift(VarName("x"), Expression(UnionType(Seq((ConstructorName("None"), None), (ConstructorName("Some"), Some(optType))))))
+            val updatedContext =
+              gamma.prependAndShift(VarName("x"), Expression(UnionType(Seq((ConstructorName("None"), None), (ConstructorName("Some"), Some(optType))))))
             val updatedRecord  = Semantics.shift(true, VarName("x"), 0, record) // TODO verify that this is true, as this contradicts type-inference.md
             Expression(Merge(updatedRecord, ~"x", None)).inferTypeWith(updatedContext)
 
