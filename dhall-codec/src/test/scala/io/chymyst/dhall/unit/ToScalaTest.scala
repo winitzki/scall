@@ -129,6 +129,22 @@ class ToScalaTest extends FunSuite {
     expect(record.c.asInstanceOf[String] == "xyz")
   }
 
+  test("fail on ill-typed Dhall expressions") {
+    expect(
+      Try(
+        "1 + Bool".dhall.asScala[Boolean]
+      ).failed.get.getMessage == "Error importing from Dhall: Expression 1 + Bool having type errors: List(Expression Bool has inferred type Type and not the expected type Natural, type inference context = {}) cannot be converted to the given Scala type None (None)"
+    )
+  }
+
+  test("fail on non-closed Dhall expressions") {
+    expect(
+      Try(
+        "x : Bool".dhall.asScala[Boolean]
+      ).failed.get.getMessage == "Error importing from Dhall: Expression x : Bool having type errors: List(Variable x is not in type inference context, type inference context = {}) cannot be converted to the given Scala type None (None)"
+    )
+  }
+
   test("fail on invalid function types") {
     expect(
       Try(
