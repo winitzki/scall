@@ -130,7 +130,11 @@ class ToScalaTest extends FunSuite {
   }
 
   test("fail on invalid function types") {
-     expect(Try("λ(n : Natural) → n".dhall.asScala[Natural => Boolean]).failed.get.getMessage == "Error importing from Dhall: type mismatch: expected type Tag[Function1[-BigInt,+Boolean]] but the Dhall value actually has type Valid(∀(n : Natural) → Natural) and type tag Tag[Function1[-BigInt,+BigInt]]")
+    expect(
+      Try(
+        "λ(n : Natural) → n".dhall.asScala[Natural => Boolean]
+      ).failed.get.getMessage == "Error importing from Dhall: type mismatch: expected type Tag[Function1[-BigInt,+Boolean]] but the Dhall value actually has type Valid(∀(n : Natural) → Natural) and type tag Tag[Function1[-BigInt,+BigInt]]"
+    )
   }
 
   test("convert functions to Scala functions 1") {
