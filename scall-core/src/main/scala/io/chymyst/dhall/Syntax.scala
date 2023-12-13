@@ -859,7 +859,8 @@ object Syntax {
         case r @ RecordType(_)                      =>
           "{ " + r.sorted.defs.map { case (name, expr) => name.name + " : " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case r @ RecordLiteral(_)                   =>
-          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
+          if (r.defs.isEmpty) "{=}" // Special case.
+          else "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
         case u @ UnionType(_)                       =>
           "< " + u.sorted.defs
             .map { case (name, expr) => name.name + expr.map(_.inPrecedence(TermPrecedence.min)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "

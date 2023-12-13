@@ -7,7 +7,7 @@ import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult._
 
-import scala.language.postfixOps
+import scala.language.{implicitConversions, postfixOps}
 
 sealed trait TypecheckResult[+A] {
   def isValid: Boolean
@@ -91,14 +91,17 @@ object TypeCheck {
 
     // Important: the expressions must be prepended to the list even though the math notation is `(Γ0, x : A1)`.
     // This is because a de Bruijn index increases to the left in the list.
-    def prepend(varName: VarName, expr: Expression) = KnownVars(variables.updatedWith(varName) {
+    private def prepend(varName: VarName, tipe: Expression) = KnownVars(variables.updatedWith(varName) {
       case Some(exprs) =>
         // println(s"DEBUG: prepending ${varName.name} : ${expr.print} to ${exprs.map{_.print}.mkString("[", ", ", "]")} in $this")
-        Some(expr +: exprs)
-      case None        => Some(IndexedSeq(expr))
+        Some(tipe +: exprs)
+      case None        => Some(IndexedSeq(tipe))
     })
 
-    def mapExpr(f: Expression => Expression): KnownVars = KnownVars(variables.map { case (name, exprs) => (name, exprs.map(f)) })
+    private def mapExpr(f: Expression => Expression): KnownVars = KnownVars(variables.map { case (name, exprs) => (name, exprs.map(f)) })
+
+    def prependAndShift(varName: VarName, tipe: Expression): KnownVars =
+      prepend(varName, tipe).mapExpr(Semantics.shift(true, varName, 0, _))
 
     override def toString: String = variables
       .flatMap { case (varName, exprs) =>
@@ -177,7 +180,7 @@ object TypeCheck {
       case Lambda(name, tipe, body) =>
         for {
           varType       <- tipe.typeCheckAndBetaNormalize(gamma)
-          updatedContext = gamma.prepend(name, varType).mapExpr(Semantics.shift(true, name, 0, _))
+          updatedContext = gamma.prependAndShift(name, varType)
           // _ = println(s"DEBUG 2: updated context is $updatedContext")
           bodyType      <- body.inferTypeWith(updatedContext)
           typeOfLambda   = (Expression(Variable(name, BigInt(0))) | varType) ->: bodyType
@@ -185,7 +188,7 @@ object TypeCheck {
         } yield typeOfLambda
 
       case Forall(name, tipe, body) =>
-        val updatedContext = gamma.prepend(name, tipe).mapExpr(Semantics.shift(true, name, 0, _))
+        val updatedContext = gamma.prependAndShift(name, tipe)
         // println(s"DEBUG 2: updated context is $updatedContext")
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
@@ -286,10 +289,8 @@ object TypeCheck {
             } else typeError(s"merge expression's both arguments must have equal size, but found ${matcher.print} and ${target.print}")
 
           case (Expression(RecordType(_)), Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), optType))) =>
-            val updatedContext = gamma
-              .prepend(VarName("x"), Expression(UnionType(Seq((ConstructorName("None"), None), (ConstructorName("Some"), Some(optType)))))).mapExpr(
-                Semantics.shift(true, VarName("x"), 0, _)
-              )
+            val updatedContext =
+              gamma.prependAndShift(VarName("x"), Expression(UnionType(Seq((ConstructorName("None"), None), (ConstructorName("Some"), Some(optType))))))
             val updatedRecord  = Semantics.shift(true, VarName("x"), 0, record) // TODO verify that this is true, as this contradicts type-inference.md
             Expression(Merge(updatedRecord, ~"x", None)).inferTypeWith(updatedContext)
 
@@ -454,7 +455,9 @@ object TypeCheck {
               val b2 = Semantics.shift(false, varName, 0, b1)
               Valid(b2.betaNormalized)
             } else
-              typeError(s"Function application in ${exprToInferTypeOf.print} must have matching types, but instead found ${varType.print} and ${argType.print}")
+              typeError(
+                s"Function application in ${exprToInferTypeOf.print} expects argument of type ${varType.print} but instead found argument ${arg.print} of type ${argType.print}"
+              )
           case (other, _)                                                => typeError(s"Function application in ${exprToInferTypeOf.print} must use a function type, but instead found ${other.print}")
         }
 

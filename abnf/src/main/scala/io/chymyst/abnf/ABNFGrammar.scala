@@ -122,21 +122,15 @@ object ABNFGrammar {
 
   def comment[$: P] = P(";" ~ (WSP | VCHAR).rep ~ CRLF)
 
-  def alternation[$: P]: P[Unit] = P(
-    concatenation ~
-      (c_wsp.rep ~ "/" ~ c_wsp.rep ~ concatenation).rep
-  )
+  def alternation[$: P]: P[Unit] = P(concatenation ~ (c_wsp.rep ~ "/" ~ c_wsp.rep ~ concatenation).rep)
 
-  def concatenation[$: P] = P(repetition ~ (c_wsp.rep(1) ~ repetition).rep)
+  def concatenation[$: P]: P[Unit] = P(repetition ~ (c_wsp.rep(1) ~ repetition).rep)
 
   def repetition[$: P] = P(repeat.? ~ element)
 
   def repeat[$: P] = P(DIGIT.rep(1) | (DIGIT.rep ~ "*" ~ DIGIT.rep))
 
-  def element[$: P] = P(
-    rulename | group | option |
-      char_val | num_val | prose_val
-  )
+  def element[$: P] = P(rulename | group | option | char_val | num_val | prose_val.map(_ => ()))
 
   def group[$: P] = P("(" ~ c_wsp.rep ~ alternation ~ c_wsp.rep ~ ")")
 
@@ -166,8 +160,8 @@ object ABNFGrammar {
       (("." ~ HEXDIG.rep(1)).rep(1) | ("-" ~ HEXDIG.rep(1))).?
   )
 
-  def prose_val[$: P] = P(
-    "<" ~ CharIn("\u0020-\u003D", "\u003F-\u007E").rep.!.map(ProseValue) ~ ">"
+  def prose_val[$: P]: P[ProseValue] = P(
+    "<" ~ CharIn("\u0020-\u003D", "\u003F-\u007E").rep.!.map(ProseValue.apply) ~ ">"
     //  bracketed string of SP and VCHAR
     //   without angles
     //  prose description, to be used as
