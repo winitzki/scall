@@ -23,8 +23,8 @@ object Macros {
     q"List(..$tags)"
   }
 
-  def knownSubclassesByTag(t: AnyTag): List[AnyTag] = {
-    val params = t.closestClass.getPermittedSubclasses
-    ???
-  }
+//  def knownSubclassesByTag(t: AnyTag): List[AnyTag] = {
+//    val params = t.closestClass.getPermittedSubclasses
+//    ???
+//  }
 }
