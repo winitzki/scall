@@ -1,6 +1,5 @@
 package io.chymyst.dhall
 
-import io.chymyst.tc.Applicative.ApplicativeOps
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Syntax.Expression.v
 import io.chymyst.dhall.Syntax.ExpressionScheme._
@@ -10,6 +9,7 @@ import io.chymyst.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.tc.Applicative
+import io.chymyst.tc.Applicative.ApplicativeOps
 
 import java.security.MessageDigest
 import java.util.regex.Pattern
@@ -176,7 +176,7 @@ object Semantics {
   private def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
     val oldLength = oldExpr.exprCount
     val newLength = newExpr.exprCount
-    newLength > oldLength && newLength > 5
+    newLength >= oldLength && newLength > 5
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
@@ -494,7 +494,8 @@ object Semantics {
               case NonEmptyList(exprs) => NonEmptyList(exprs.reverse)
             }
 
-          case Lambda(name, _, body) => // betaNormalize of Lambda() ignores the type annotation.
+          // Application of a Lambda() to argN.
+          case Lambda(name, _, body)                                        => // betaNormalize of Lambda() ignores the type annotation.
             val a1 = shift(true, name, 0, arg)
             val b1 = substitute(body, name, 0, a1) // Shift free variables in body.
             val b2 = shift(false, name, 0, b1)

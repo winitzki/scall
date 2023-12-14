@@ -18,7 +18,7 @@ class DhallSemanticHashSuite extends DhallTest {
           val resolved = expr.resolveImports(file.toPath)
           val alpha    = resolved.alphaNormalized
           val beta     = alpha.betaNormalized
-          println(s"Resolving imports: $resolved\nAlpha-normalized:$alpha\nBeta-normalized:$beta\nCBOR model: ${beta.toCBORmodel}")
+          println(s"Resolving imports:\n${resolved.print}\nAlpha-normalized:$alpha\nBeta-normalized:$beta\nCBOR model: ${beta.toCBORmodel}")
         }
         expect(ourHash == diagnosticString)
         file.getName
