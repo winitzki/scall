@@ -91,7 +91,7 @@ class SimpleSemanticsTest extends DhallTest {
     val result = """
                    |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
                    |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 9999999999999999999999999996 Natural (λ(x : Natural) → x + 1) (y + 1 + 1 + 1 + 1)")
+    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) y")
   }
 
   test("compute expression count") {
