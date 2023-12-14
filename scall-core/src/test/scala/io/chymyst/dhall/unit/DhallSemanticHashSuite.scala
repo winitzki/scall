@@ -10,8 +10,16 @@ class DhallSemanticHashSuite extends DhallTest {
   test("dhall standard acceptance tests for semantic hash") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
       val result = Try {
-        val diagnosticString = TestUtils.readToString((file.getAbsolutePath.replace("A.dhall", "B.hash")))
-        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(TestUtils.readToString(file.getAbsolutePath)).get.value.value, file.toPath)
+        val diagnosticString = TestUtils.readToString(file.getAbsolutePath.replace("A.dhall", "B.hash"))
+        val expr             = Parser.parseDhall(TestUtils.readToString(file.getAbsolutePath)).get.value.value
+        val ourHash          = "sha256:" + Semantics.semanticHash(expr, file.toPath)
+        if (ourHash != diagnosticString) {
+          println(s"Failure in file ${file.getAbsolutePath}")
+          val resolved = expr.resolveImports(file.toPath)
+          val alpha    = resolved.alphaNormalized
+          val beta     = alpha.betaNormalized
+          println(s"Resolving imports: $resolved\nAlpha-normalized:$alpha\nBeta-normalized:$beta\nCBOR model: ${beta.toCBORmodel}")
+        }
         expect(ourHash == diagnosticString)
         file.getName
       }
