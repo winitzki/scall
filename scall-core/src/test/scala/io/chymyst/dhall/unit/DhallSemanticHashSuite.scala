@@ -11,11 +11,11 @@ class DhallSemanticHashSuite extends DhallTest {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/semantic-hash/success", Some("A.dhall")).map { file =>
       val result = Try {
         val diagnosticString = TestUtils.readToString((file.getAbsolutePath.replace("A.dhall", "B.hash")))
-        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(TestUtils.readToString((file.getAbsolutePath))).get.value.value, file.toPath)
+        val ourHash          = "sha256:" + Semantics.semanticHash(Parser.parseDhall(TestUtils.readToString(file.getAbsolutePath)).get.value.value, file.toPath)
         expect(ourHash == diagnosticString)
         file.getName
       }
-      if (result.isFailure) println(s"${file.getName}: ${result.failed.get}")
+      if (result.isFailure) println(s"${file.getAbsolutePath}: ${result.failed.get}")
       result
     }
     TestUtils.requireSuccessAtLeast(151, results)
