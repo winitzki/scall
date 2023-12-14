@@ -1,7 +1,7 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.dhall.TypeCheck.{KnownVars}
+import io.chymyst.dhall.TypeCheck.KnownVars
 
 import java.util
 import scala.collection.mutable
@@ -52,6 +52,8 @@ class ObservedCache[A, B](val name: String, cache: mutable.Map[A, B]) {
   protected var hits: Long = 0
 
   val step = 100000
+
+  final def get(key: A): Option[B] = cache.get(key)
 
   def getOrElseUpdate(key: A, default: => B): B = this.synchronized {
     requests += 1

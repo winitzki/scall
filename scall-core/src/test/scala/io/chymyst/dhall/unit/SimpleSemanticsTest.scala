@@ -87,9 +87,11 @@ class SimpleSemanticsTest extends DhallTest {
     expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold y Natural (λ(x : Natural) → x) 0")
   }
 
-  test("foldWhile performance test with bitLength") { // TODO: this should work with iterations = 1000. Try optimizing foldWhile and try implementing a lazy evaluation strategy.
+  test("foldWhile performance test with bitLength") {
     val result = """
       |-- Helpers from Prelude/Natural.
+      |let iterations = 1000
+      |
       |let Natural/lessThanEqual
       |    : Natural → Natural → Bool
       |    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
@@ -118,8 +120,7 @@ class SimpleSemanticsTest extends DhallTest {
       |    result.current
       |
       |-- Subtract 1 from 5 until the result is below 3. Max 6 iterations. This becomes very slow at >= 8 iterations.
-      |let example = let iterations = 6
-      |    in assert : foldWhile iterations Natural (\(x: Natural) -> if Natural/lessThan x 3 then None Natural else Some (Natural/subtract 1 x)) 5 === 2
+      |let example = assert : foldWhile iterations Natural (\(x: Natural) -> if Natural/lessThan x 3 then None Natural else Some (Natural/subtract 1 x)) 5 === 2
       |
       |-- Compute 1 + ceil(log2(n)) by counting how many times we need to multiply by 2 so that the result is >= n.
       |let log2 = \(n: Natural) ->

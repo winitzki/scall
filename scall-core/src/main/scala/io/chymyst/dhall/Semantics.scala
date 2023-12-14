@@ -9,7 +9,7 @@ import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, 
 import io.chymyst.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.dhall.SyntaxConstants._
-
+import scala.language.implicitConversions
 import java.security.MessageDigest
 import java.util.regex.Pattern
 import scala.annotation.tailrec
@@ -157,19 +157,35 @@ object Semantics {
 
   val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalizeAndExpand(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding = false))
+  def betaNormalizeAndExpand(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding = false).expr)
 
-  private def betaNormalizeOrUnexpand(expr: Expression, stopExpanding: Boolean): Expression =
-    cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding))
+  private def betaNormalizeOrUnexpand(expr: Expression, stopExpanding: Boolean): Expression = cacheBetaNormalize.get(expr) match {
+    case Some(normalized) => normalized
+    case None             =>
+      val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, stopExpanding)
+      if (didShortcut) {
+        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
+        normalized
+      } else cacheBetaNormalize.getOrElseUpdate(expr, normalized)
+  }
+
+  private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
-  private def betaNormalizeUncached(expr: Expression, stopExpanding: Boolean): Expression = {
+  private def betaNormalizeUncached(expr: Expression, stopExpanding: Boolean): BNResult = {
+
+    implicit def toBNResult(e: Expression): BNResult = BNResult(e)
+
+    implicit def toBNResultFromScheme(e: ExpressionScheme[Expression]): BNResult = BNResult(e)
+
     def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, stopExpanding)
+
+    def bnStopExpanding(e: Expression): Expression = betaNormalizeOrUnexpand(e, stopExpanding = true)
 
     lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, stopExpanding))
 
-    if (stopExpanding) println(s"DEBUG beta-normalize $expr, stopExpanding = $stopExpanding")
+    // if (stopExpanding) println(s"DEBUG beta-normalize $expr, stopExpanding = $stopExpanding")
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
       matcher: PartialFunction[ExpressionScheme[Expression], Expression]
     ): Expression =
@@ -182,9 +198,10 @@ object Semantics {
         expr
 
       // These expressions only need to normalize their arguments.
-      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
+      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
 
       // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
+      case Lambda(name, tipe, body) => Lambda(name, bn(tipe), bnStopExpanding(body))
 
       // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
       // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
@@ -325,20 +342,25 @@ object Semantics {
             // Natural/fold m b g argN = g (Natural/fold (m-1) b g argN)
             // We try to optimize this because it's very slow.
             // Assume that `currentResult` is already beta-normalized.
-            @tailrec def loop(currentResult: => Expression, counter: BigInt): Expression = {
+            @tailrec def loop(currentResult: => Expression, counter: BigInt): BNResult = {
+              // Loop invariant: currentResult == g(g(...g(argN)...)) with `counter` repetitions of `g`.
               if (counter >= m) currentResult
               else {
-                println(s"DEBUG Natural/fold loop with counter = $counter and currentResult = $currentResult")
                 val newResult = g(currentResult).pipe(bn)
-                // Shortcut: the result does not change after applying `g`, so no need to continue looping.
                 if (newResult == currentResult) {
-                  println(s"DEBUG Natural/fold shortcut detected, returning currentResult")
+                  // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   currentResult
-                } else if (stopExpanding && (newResult.print.length > currentResult.print.length * 5 / 4)) {
+                } else if (stopExpanding && (newResult.print.length > currentResult.print.length * 4 / 3)) {
+                  // If the beta-normalized result grew more than 33% in print size, we return the unevaluated intermediate result:
+                  // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
+                  // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
+                  // The remaining calculation is g(g(...g(currentResult)...)) with `m-counter` repetitions of `g`.
+                  // In Dhall, this is `Natural/fold (m-counter) b g currentResult`.
                   println(
-                    s"DEBUG Natural/fold stopExpanding shortcut detected, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, returning currentResult"
+                    s"DEBUG Natural/fold stopExpanding shortcut detected, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, currentResult = $currentResult, newResult = $newResult"
                   )
-                  currentResult
+                  val unevaluatedIntermediateResult = (~Builtin.NaturalFold)(NaturalLiteral(m - counter))(b)(g)(currentResult)
+                  BNResult(unevaluatedIntermediateResult, didShortcut = true)
                 } else {
                   println(
                     s"DEBUG Natural/fold no shortcut, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, proceed to counter = ${counter + 1}"
