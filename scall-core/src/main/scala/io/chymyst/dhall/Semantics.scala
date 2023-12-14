@@ -12,6 +12,7 @@ import io.chymyst.dhall.SyntaxConstants._
 
 import java.security.MessageDigest
 import java.util.regex.Pattern
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -313,12 +314,24 @@ object Semantics {
                 Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)),
                 g,
               ) =>
-            // g (Natural/fold n b g argN)
-            // Try to optimize this because it's very slow.
+            // Natural/fold m b g argN = g (Natural/fold (m-1) b g argN)
+            // We try to optimize this because it's very slow.
+            @tailrec def loop(currentResult: => Expression, counter: BigInt): Expression = {
+              if (counter >= m) currentResult
+              else {
+                val newResult = g(currentResult).betaNormalized
+                if (newResult == currentResult) currentResult // Shortcut: the result does not change after applying `g`, so no need to continue looping.
+                else loop(newResult, counter + 1)
+              }
+            }
 
-            def loop(m: Natural): Expression = if (m <= 0) argN else g(loop(m - 1)).betaNormalized
+            loop(argN, BigInt(0))
 
-            loop(m)
+//            def loop(m: Natural): Expression = if (m <= 0) argN else {
+//              g(loop(m - 1)).betaNormalized
+//            }
+//
+//            loop(m)
 
           case ExprBuiltin(Builtin.NaturalIsZero)                               => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven)                                 => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
