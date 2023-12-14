@@ -9,11 +9,12 @@ import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, 
 import io.chymyst.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.dhall.SyntaxConstants._
-import scala.language.implicitConversions
+
 import java.security.MessageDigest
 import java.util.regex.Pattern
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
 object Semantics {
@@ -170,6 +171,19 @@ object Semantics {
   }
 
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
+
+  def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
+    val result = {
+      val oldLength = oldExpr.print.length
+      val newLength = newExpr.print.length
+      newLength > oldLength * 4 / 3 && newLength > 1000
+    }
+    if (result)
+      println(
+        s"DEBUG stopExpanding shortcut detected, newExpr.print.length=${newExpr.print.length}, oldExpr.print.length=${oldExpr.print.length}, oldExpr = $oldExpr, newExpr = $newExpr"
+      )
+    result
+  }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
@@ -338,7 +352,6 @@ object Semantics {
                 Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)),
                 g,
               ) =>
-            println(s"DEBUG in Natural/fold beta-normalize $expr, stopExpanding = $stopExpanding")
             // Natural/fold m b g argN = g (Natural/fold (m-1) b g argN)
             // We try to optimize this because it's very slow.
             // Assume that `currentResult` is already beta-normalized.
@@ -350,26 +363,19 @@ object Semantics {
                 if (newResult == currentResult) {
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   currentResult
-                } else if (stopExpanding && (newResult.print.length > currentResult.print.length * 4 / 3)) {
+                } else if (stopExpanding && needShortcut(currentResult, newResult)) {
                   // If the beta-normalized result grew more than 33% in print size, we return the unevaluated intermediate result:
                   // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
                   // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
                   // The remaining calculation is g(g(...g(currentResult)...)) with `m-counter` repetitions of `g`.
                   // In Dhall, this is `Natural/fold (m-counter) b g currentResult`.
-                  println(
-                    s"DEBUG Natural/fold stopExpanding shortcut detected, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, currentResult = $currentResult, newResult = $newResult"
-                  )
                   val unevaluatedIntermediateResult = (~Builtin.NaturalFold)(NaturalLiteral(m - counter))(b)(g)(currentResult)
                   BNResult(unevaluatedIntermediateResult, didShortcut = true)
                 } else {
-                  println(
-                    s"DEBUG Natural/fold no shortcut, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, proceed to counter = ${counter + 1}"
-                  )
                   loop(newResult, counter + 1)
                 }
               }
             }
-            println(s"DEBUG Natural/fold begin iterations up to m = $m")
             loop(currentResult = argN, counter = BigInt(0))
 
           case ExprBuiltin(Builtin.NaturalIsZero)                               => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
