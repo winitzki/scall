@@ -103,7 +103,7 @@ class SimpleSemanticsTest extends DhallTest {
   test("foldWhile performance test with bitLength") {
     val result = """
       |-- Helpers from Prelude/Natural.
-      |let iterations = 6
+      |let iterations = 1000 -- Should not be slow even with many iterations.
       |
       |let Natural/lessThanEqual
       |    : Natural → Natural → Bool

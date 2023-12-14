@@ -173,15 +173,10 @@ object Semantics {
 
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
-  def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
-
+  private def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
     val oldLength = oldExpr.exprCount
     val newLength = newExpr.exprCount
-    val result    = newLength > oldLength && newLength > 5
-
-    if (result)
-      println(s"DEBUG stopExpanding shortcut detected, newExpr.exprCount=${newLength}, oldExpr.exprCount=${oldLength}, oldExpr = $oldExpr, newExpr = $newExpr")
-    result
+    newLength > oldLength && newLength > 5
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
