@@ -236,7 +236,7 @@ class SimpleExpressionTest extends DhallTest {
 
     val result = parse(input, grammar(_))
     // \uFFFD is the "replacement character" that is substituted for invalid UTF-8 sequences.
-    assert(result.get.value == Seq(0x20, 0xfffd, 0x20).map(_.toChar))
+    expect(result.get.value == Seq(0x20, 0xfffd, 0x20).map(_.toChar))
     // TODO: figure out how `fastparse` decodes a byte array into characters. This test shows that the non-UTF8 sequence is decoded as a single character \uFFFD.
 
     val invalidUtf8 = " {-".getBytes ++ input ++ "-}".getBytes

@@ -1,5 +1,6 @@
 package io.chymyst.dhall.unit
 
+import com.eed3si9n.expecty.Expecty.expect
 import munit.FunSuite
 
 class ReadmeTest extends FunSuite {
@@ -10,11 +11,11 @@ class ReadmeTest extends FunSuite {
 
     val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean]
 
-    assert(a == true)
+    expect(a == true)
 
     val b = "1 + 2".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[BigInt]
 
-    assert(b == 3)
+    expect(b == 3)
   }
 
   test("factorial example from readme") {
@@ -29,7 +30,7 @@ class ReadmeTest extends FunSuite {
         |    in result.acc
         """.stripMargin.dhall.betaNormalized
 
-    assert(
+    expect(
       factorial.print ==
         """
         |λ(x : Natural) → (Natural/fold x { acc : Natural, count : Natural } (λ(x : { acc : Natural, count : Natural }) → { acc = x.acc * x.count, count = x.count + 1 }) { acc = 1, count = 1 }).acc
@@ -40,7 +41,7 @@ class ReadmeTest extends FunSuite {
 
     val tenFactorial: Expression = factorial(ten)
 
-    assert(tenFactorial.betaNormalized.asScala[BigInt] == BigInt(3628800))
+    expect(tenFactorial.betaNormalized.asScala[BigInt] == BigInt(3628800))
   }
 
   test("ill-typed example from readme") {
@@ -52,8 +53,8 @@ class ReadmeTest extends FunSuite {
 
     val bad = illTyped(argument)
     // These expressions fail type-checking.
-    assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
-    assert(bad.typeCheckAndBetaNormalize().isValid == false)
+    expect(illTyped.typeCheckAndBetaNormalize().isValid == false)
+    expect(bad.typeCheckAndBetaNormalize().isValid == false)
 
     // If we try evaluating `bad` without type-checking, we will get an infinite loop.
     val result: String =
@@ -61,6 +62,6 @@ class ReadmeTest extends FunSuite {
       catch {
         case e: Throwable => e.toString
       }
-    assert(result == "java.lang.StackOverflowError")
+    expect(result == "java.lang.StackOverflowError")
   }
 }

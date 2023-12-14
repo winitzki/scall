@@ -171,7 +171,7 @@ class ToScalaTest extends FunSuite {
   test("convert generic functions to Scala generic functions") {
     val d = "\\(A: Type) -> \\(x: A) -> x".dhall // TODO: enable .asScala[{ def apply[A]: A => A }] or something like that.
     val e = new { def apply[A](x: A): A = x }
-    assert(e(1) == 1)
-    assert(e("asdf") == "asdf")
+    expect(e(1) == 1)
+    expect(e("asdf") == "asdf")
   }
 }
