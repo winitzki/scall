@@ -166,7 +166,7 @@ object Semantics {
     case None             =>
       val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, stopExpanding)
       if (didShortcut) {
-        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
+//        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
         normalized
       } else cacheBetaNormalize.getOrElseUpdate(expr, normalized)
   }
@@ -174,14 +174,14 @@ object Semantics {
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
   def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
-    val result = {
+
       val oldLength = oldExpr.exprCount
       val newLength = newExpr.exprCount
-      newLength > oldLength * 4 / 3 && newLength > 1000
-    }
+     val result = newLength > oldLength && newLength > 5
+
     if (result)
       println(
-        s"DEBUG stopExpanding shortcut detected, newExpr.print.length=${newExpr.print.length}, oldExpr.print.length=${oldExpr.print.length}, oldExpr = $oldExpr, newExpr = $newExpr"
+        s"DEBUG stopExpanding shortcut detected, newExpr.exprCount=${newLength}, oldExpr.exprCount=${oldLength}, oldExpr = $oldExpr, newExpr = $newExpr"
       )
     result
   }

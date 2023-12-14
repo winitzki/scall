@@ -8,6 +8,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.tc.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
+import io.chymyst.tc.Monoid.MonoidSyntax
 import io.chymyst.tc.{Applicative, Monoid}
 
 import java.nio.file.Paths
@@ -747,9 +748,16 @@ object Syntax {
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
     def exprCount: Int = {
-      implicit val monoidInt   = Monoid.monoidIntAdditive
+      implicit val monoidInt    : Monoid[Int] = new Monoid[Int] {
+        override def empty: Int =1
+
+        override def combine(a: Int, b: Int): Int = a + b
+      }
       implicit val monoidConst = Monoid.trivialApplicative[Int]
-      traverseRecursive[Monoid.Const[Int, *]](_ => 1)
+      traverseRecursive[Monoid.Const[Int, *]] {a =>
+        println(s"DEBUG exprCount looking at $a")
+        1
+      }
     }
 
     def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =

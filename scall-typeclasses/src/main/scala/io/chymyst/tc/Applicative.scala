@@ -58,7 +58,7 @@ object Applicative {
   }
 }
 
-sealed trait Monoid[M] {
+trait Monoid[M] {
   def empty: M
   def combine(a: M, b: M): M
 }
@@ -81,12 +81,6 @@ object Monoid {
     override def empty: Seq[A] = Seq()
 
     override def combine(a: Seq[A], b: Seq[A]): Seq[A] = a ++ b
-  }
-
-  val monoidIntAdditive: Monoid[Int] = new Monoid[Int] {
-    override def empty: Int = 0
-
-    override def combine(a: Int, b: Int): Int = a + b
   }
 
   def apply[M: Monoid]: Monoid[M] = implicitly[Monoid[M]]

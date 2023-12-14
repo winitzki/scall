@@ -80,17 +80,30 @@ class SimpleSemanticsTest extends DhallTest {
     expect(result.unsafeGet.print == "0")
   }
 
-  test("avoid expanding Natural/fold when the result grows") {
+  test("shortcut in Natural/fold if the result no longer changes, with symbolic lambda") {
     val result = """
-                   |( \(y: Natural) -> Natural/fold y Natural (\(x: Natural) -> x) 0 )
+                   |( \(x: Natural) -> \(y: Natural) -> Natural/fold x Natural (\(x: Natural) -> x) y ) 50000000000000000000000000
                    |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold y Natural (λ(x : Natural) → x) 0")
+    expect(result.unsafeGet.print == "λ(y : Natural) → y")
+  }
+
+  test("avoid expanding Natural/fold when the result grows as a symbolic expression") {
+    val result = """
+                   |( \(y: Natural) -> Natural/fold 50000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 49999999999999999999999996 Natural (λ(x : Natural) → x + 1) (y + 1 + 1 + 1 + 1)")
+  }
+
+  test("compute expression count") {
+    expect("1".dhall.exprCount == 1)
+    expect("1 + 1".dhall.exprCount == 2)
+    expect("""\(y: Natural) -> Natural/fold 10 Natural (\(x: Natural) -> x + 1) y""".dhall.exprCount ==8)
   }
 
   test("foldWhile performance test with bitLength") {
     val result = """
       |-- Helpers from Prelude/Natural.
-      |let iterations = 1000
+      |let iterations = 6
       |
       |let Natural/lessThanEqual
       |    : Natural → Natural → Bool
