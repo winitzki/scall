@@ -1,13 +1,14 @@
 package io.chymyst.dhall
 
 import enumeratum._
-import io.chymyst.dhall.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
+import io.chymyst.tc.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
+import io.chymyst.tc.{Applicative, Monoid}
 
 import java.nio.file.Paths
 import java.time.{LocalDate, LocalTime, ZoneOffset}
@@ -745,6 +746,12 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
+    def exprCount: Int = {
+      implicit val monoidInt   = Monoid.monoidIntAdditive
+      implicit val monoidConst = Monoid.trivialApplicative[Int]
+      traverseRecursive[Monoid.Const[Int, *]](_ => 1)
+    }
+
     def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =
       scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
 

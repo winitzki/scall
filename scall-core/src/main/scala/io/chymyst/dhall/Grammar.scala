@@ -2,7 +2,6 @@ package io.chymyst.dhall
 
 import fastparse.NoWhitespace._
 import fastparse._
-import io.chymyst.abnf.ABNFGrammar.{ALPHA, BIT, DIGIT}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, PathComponent, RawRecordLiteral}
 import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
@@ -12,6 +11,18 @@ import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
 
 object Grammar {
+
+  def ALPHA[$: P] = P(
+    CharIn("\u0041-\u005A", "\u0061-\u007A") //  A_Z | a_z
+  )
+
+  def BIT[$: P] = P(CharIn("01"))
+
+
+  def DIGIT[$: P] = P(
+    CharIn("0-9")
+    //  0_9
+  )
 
   def end_of_line[$: P] = P("\n" | "\r\n")
 

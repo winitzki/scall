@@ -28,7 +28,7 @@ class DhallTypeCheckingSuite extends DhallTest {
           case Valid(a) => a
         }
         val y = validationResult
-        expect(x.print == y.print && x == y)
+        expect(x.print == y.print, x == y)
         file.getName
       }
       if (result.isFailure) println(s"${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})

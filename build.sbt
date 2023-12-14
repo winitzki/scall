@@ -32,7 +32,7 @@ lazy val jdkModuleOptions: Seq[String] = {
 
 lazy val root = (project in file("."))
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros)
+  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses)
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(
@@ -66,7 +66,7 @@ lazy val scall_core = (project in file("scall-core"))
       httpRequest,
       os_lib % Test,
     ),
-  ).dependsOn(scall_testutils % "test->compile", abnf)
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
 
 lazy val scall_testutils = (project in file("scall-testutils")).settings(
   scalaVersion             := scalaV,
@@ -109,5 +109,19 @@ lazy val scall_macros = (project in file("scall-macros")).settings(
     (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, _)) => Seq(scala_reflect(scalaVersion.value), kindProjectorPlugin)
       case Some((3, _)) => Seq.empty // No need for scala-reflect with Scala 3.
+    }),
+)
+
+lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
+  name                     := "scall-typeclasses",
+  scalaVersion             := scalaV,
+  crossScalaVersions       := Seq(scala2V, scala3V),
+  Test / parallelExecution := true,
+  testFrameworks += munitFramework,
+  libraryDependencies ++= Seq(curryhoward, munitTest, assertVerboseTest),
+  libraryDependencies ++=
+    (CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, _)) => Seq(kindProjectorPlugin)
+      case Some((3, _)) => Seq.empty
     }),
 )

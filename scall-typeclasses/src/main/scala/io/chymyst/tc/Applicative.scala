@@ -1,6 +1,7 @@
-package io.chymyst.dhall
+package io.chymyst.tc
 
-import io.chymyst.dhall.Monoid.MonoidSyntax
+import io.chymyst.ch.implement
+import io.chymyst.tc.Monoid.MonoidSyntax
 
 import scala.util.{Success, Try}
 
@@ -51,7 +52,7 @@ object Applicative {
       case (Left(ea), Left(eb)) => Left(ea ++ eb)
     }
 
-    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = fa map f
+    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = implement
 
     override def pure[A](a: A): Either[E, A] = Right(a)
   }
@@ -63,6 +64,15 @@ sealed trait Monoid[M] {
 }
 
 object Monoid {
+  type Const[M, A] = M
+  implicit def trivialApplicative[M: Monoid]: Applicative[Const[M, *]] = new Applicative[Const[M, *]] {
+    override def zip[A, B](fa: Const[M, A], fb: Const[M, B]): Const[M, (A, B)] = fa ++ fb
+
+    override def map[A, B](f: A => B)(fa: Const[M, A]): Const[M, B] = implement
+
+    override def pure[A](a: A): Const[M, A] = Monoid[M].empty
+  }
+
   implicit class MonoidSyntax[M: Monoid](m: M) {
     def ++(other: M): M = implicitly[Monoid[M]].combine(m, other)
   }
@@ -73,5 +83,27 @@ object Monoid {
     override def combine(a: Seq[A], b: Seq[A]): Seq[A] = a ++ b
   }
 
+  val monoidIntAdditive: Monoid[Int] = new Monoid[Int] {
+    override def empty: Int = 0
+
+    override def combine(a: Int, b: Int): Int = a + b
+  }
+
   def apply[M: Monoid]: Monoid[M] = implicitly[Monoid[M]]
+}
+
+final case class State[S, A](run: S => (S, A))
+
+object State {
+  implicit def applicativeState[S]: Applicative[State[S, *]] = new Applicative[State[S, *]] {
+    override def zip[A, B](fa: State[S, A], fb: State[S, B]): State[S, (A, B)] = State { s =>
+      val (s1, a) = fa.run(s)
+      val (s2, b) = fb.run(s1)
+      (s2, (a, b))
+    }
+
+    override def map[A, B](f: A => B)(fa: State[S, A]): State[S, B] = implement
+
+    override def pure[A](a: A): State[S, A] = implement
+  }
 }

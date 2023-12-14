@@ -1,6 +1,6 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.Applicative.ApplicativeOps
+import io.chymyst.tc.Applicative.ApplicativeOps
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Syntax.Expression.v
 import io.chymyst.dhall.Syntax.ExpressionScheme._
@@ -9,6 +9,7 @@ import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, 
 import io.chymyst.dhall.SyntaxConstants.Constant.{False, True}
 import io.chymyst.dhall.SyntaxConstants.Operator.ListAppend
 import io.chymyst.dhall.SyntaxConstants._
+import io.chymyst.tc.Applicative
 
 import java.security.MessageDigest
 import java.util.regex.Pattern
@@ -174,8 +175,8 @@ object Semantics {
 
   def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
     val result = {
-      val oldLength = oldExpr.print.length
-      val newLength = newExpr.print.length
+      val oldLength = oldExpr.exprCount
+      val newLength = newExpr.exprCount
       newLength > oldLength * 4 / 3 && newLength > 1000
     }
     if (result)

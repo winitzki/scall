@@ -1,11 +1,12 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.Applicative.seqSeq
+import io.chymyst.tc.Applicative.seqSeq
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, PathComponent}
 import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult._
+import io.chymyst.tc.Applicative
 
 import scala.language.{implicitConversions, postfixOps}
 
