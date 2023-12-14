@@ -795,8 +795,8 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val alphaNormalized: Expression                                     = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression                                      = Semantics.betaNormalizeAndExpand(this)
+    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
+    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
 
     /** Print `this` to Dhall syntax.
       *
@@ -823,7 +823,7 @@ object Syntax {
         case Let(name, tipe, subst, body)           =>
           s"let ${name.escape} ${tipe.map(t => ": " + t.inPrecedence(p)).getOrElse("")} = ${subst.inPrecedence(p)}\nin ${body.inPrecedence(p)}"
         case If(cond, ifTrue, ifFalse)              => s"if ${cond.inPrecedence(p)} then ${ifTrue.inPrecedence(p)} else ${ifFalse.inPrecedence(p)}"
-        case Merge(record, update, tipe)            => // TODO: verify precedence of merge a b c where (merge a b) returns a function.
+        case Merge(record, update, tipe)            =>                                                       // TODO: verify precedence of merge a b c where (merge a b) returns a function.
           "merge " + record.inPrecedence(appP) + " " + update.inPrecedence(appP) + (tipe match {
             case Some(value) => " : " + value.inPrecedence(minP)
             case None        => ""

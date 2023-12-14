@@ -182,7 +182,7 @@ object Semantics {
         expr
 
       // These expressions only need to normalize their arguments.
-      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) |  Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
+      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
 
       // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
 
