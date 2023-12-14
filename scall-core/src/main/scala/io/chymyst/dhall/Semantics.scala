@@ -176,13 +176,16 @@ object Semantics {
   private def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
     val oldLength = oldExpr.exprCount
     val newLength = newExpr.exprCount
-    newLength >= oldLength && newLength > 5
+    val result    = newLength >= oldLength && newLength > 5
+    if (result) println(s"DEBUG: shortcut detected with $oldExpr")
+    result
   }
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
   private def betaNormalizeUncached(expr: Expression, stopExpanding: Boolean): BNResult = {
-
+    if (expr.print contains " : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold ")
+      println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = $stopExpanding)")
     implicit def toBNResult(e: Expression): BNResult = BNResult(e)
 
     implicit def toBNResultFromScheme(e: ExpressionScheme[Expression]): BNResult = BNResult(e)
@@ -364,6 +367,7 @@ object Semantics {
                   // The remaining calculation is g(g(...g(currentResult)...)) with `m-counter` repetitions of `g`.
                   // In Dhall, this is `Natural/fold (m-counter) b g currentResult`.
                   val unevaluatedIntermediateResult = (~Builtin.NaturalFold)(NaturalLiteral(m - counter))(b)(g)(currentResult)
+                  println(s"DEBUG detected shortcut stopExpanding = true for expression:\n${unevaluatedIntermediateResult.print}")
                   BNResult(unevaluatedIntermediateResult, didShortcut = true)
                 } else {
                   loop(newResult, counter + 1)

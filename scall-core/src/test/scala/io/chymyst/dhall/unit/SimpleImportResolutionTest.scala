@@ -8,7 +8,7 @@ import io.chymyst.dhall.SyntaxConstants.{FilePrefix, ImportType}
 import io.chymyst.dhall.{Semantics, SyntaxConstants}
 import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import scala.util.Try
 
 class SimpleImportResolutionTest extends DhallTest {
@@ -44,8 +44,18 @@ class SimpleImportResolutionTest extends DhallTest {
   }
 
   test("no loops in importing") {
-    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
-    expect(file.dhall.resolveImports(Paths.get(file).getParent.resolve("package.dhall")).isInstanceOf[Expression])
+    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath
+    expect(file.toString.dhall.resolveImports(file.getParent.resolve("package.dhall")).isInstanceOf[Expression])
+  }
+
+  test("alpha-normalize and beta-normalize imported file") {
+    val file     = resourceAsFile("dhall-lang/tests/semantic-hash/success/prelude/Natural/enumerate/0A.dhall").get.toPath
+    val resolved = TestUtils.readToString(file).dhall.resolveImports(file)
+    println(s"Resolving imports gives:\n${resolved.print}")
+    val alpha    = resolved.alphaNormalized
+    println(s"Alpha-normalized:\n${alpha.print}")
+    val beta     = alpha.betaNormalized
+    println(s"Beta-normalized:\n${beta.print}\nCBOR model:\n${beta.toCBORmodel}")
   }
 
   test("import alternatives inside expressions") {

@@ -818,7 +818,7 @@ object Syntax {
       * @return
       *   A string representation of `this` expression in (approximately) Dhall syntax.
       */
-    def print: String = inPrecedence(TermPrecedence.min)
+    lazy val print: String = inPrecedence(TermPrecedence.min)
 
     override def toString: String = {
       val result = print
@@ -874,10 +874,12 @@ object Syntax {
         case t @ TimeLiteral(_, _, _, _)            => t.toString
         case t @ TimeZoneLiteral(_)                 => f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d"
         case r @ RecordType(_)                      =>
-          "{ " + r.sorted.defs.map { case (name, expr) => name.name + " : " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
+          if (r.defs.isEmpty) "{}" // Special case.
+          else
+            r.sorted.defs.map { case (name, expr) => name.name + " : " + expr.inPrecedence(TermPrecedence.min) }.mkString("{ ", ", ", " }")
         case r @ RecordLiteral(_)                   =>
           if (r.defs.isEmpty) "{=}" // Special case.
-          else "{ " + r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString(", ") + " }"
+          else r.sorted.defs.map { case (name, expr) => name.name + " = " + expr.inPrecedence(TermPrecedence.min) }.mkString("{ ", ", ", " }")
         case u @ UnionType(_)                       =>
           "< " + u.sorted.defs
             .map { case (name, expr) => name.name + expr.map(_.inPrecedence(TermPrecedence.min)).map(": " + _).getOrElse("") }.mkString(" | ") + " > "

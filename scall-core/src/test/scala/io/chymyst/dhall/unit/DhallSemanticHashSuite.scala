@@ -16,9 +16,11 @@ class DhallSemanticHashSuite extends DhallTest {
         if (ourHash != diagnosticString) {
           println(s"Failure in file ${file.getAbsolutePath}")
           val resolved = expr.resolveImports(file.toPath)
+          println(s"Resolving imports gives:\n${resolved.print}")
           val alpha    = resolved.alphaNormalized
+          println(s"Alpha-normalized:\n${alpha.print}")
           val beta     = alpha.betaNormalized
-          println(s"Resolving imports:\n${resolved.print}\nAlpha-normalized:$alpha\nBeta-normalized:$beta\nCBOR model: ${beta.toCBORmodel}")
+          println(s"Beta-normalized:\n${beta.print}\nCBOR model:\n${beta.toCBORmodel}")
         }
         expect(ourHash == diagnosticString)
         file.getName
