@@ -58,6 +58,16 @@ class SimpleImportResolutionTest extends DhallTest {
     println(s"Beta-normalized:\n${beta.print}\nCBOR model:\n${beta.toCBORmodel}")
   }
 
+  test("exponential blowup in normal form") {
+    val input   = """let drop = https://prelude.dhall-lang.org/List/drop
+                  |let generate = https://prelude.dhall-lang.org/List/generate
+                  |let f = \(g : Natural) -> generate g Natural (\(x : Natural) -> x)
+                  |in \(g : Natural) -> \(n : Natural) -> drop n Natural (f g)
+                  |""".stripMargin.dhall.resolveImports().typeCheckAndBetaNormalize().unsafeGet
+    val results = (1 to 10).map { i => input(NaturalLiteral(i)).betaNormalized.print.length }
+    println(results)
+  }
+
   test("import alternatives inside expressions") {
     val file   = resourceAsFile("dhall-lang/Prelude/Bool/and.dhall").get.toPath.toString
     val parent = Paths.get(file).getParent.resolve("package.dhall")

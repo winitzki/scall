@@ -174,9 +174,10 @@ object Semantics {
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
   private def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
-    val oldLength = oldExpr.exprCount
-    val newLength = newExpr.exprCount
-    val result    = newLength >= oldLength && newLength > 5
+    val oldLength   = oldExpr.exprCount
+    val newLength   = newExpr.exprCount
+    val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
+    val result      = newLength >= oldLength && newLength > 5 || hasFreeVars
     if (result) println(s"DEBUG: shortcut detected with $oldExpr")
     result
   }
@@ -361,7 +362,7 @@ object Semantics {
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   currentResult
                 } else if (stopExpanding && needShortcut(currentResult, newResult)) {
-                  // If the beta-normalized result grew more than 33% in print size, we return the unevaluated intermediate result:
+                  // If the beta-normalized result grew in size, we return the unevaluated intermediate result:
                   // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
                   // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
                   // The remaining calculation is g(g(...g(currentResult)...)) with `m-counter` repetitions of `g`.
