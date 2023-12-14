@@ -795,9 +795,8 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val schemeWithBetaNormalizedArguments: ExpressionScheme[Expression] = scheme.map(_.betaNormalized)
     lazy val alphaNormalized: Expression                                     = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression                                      = Semantics.betaNormalize(this)
+    lazy val betaNormalized: Expression                                      = Semantics.betaNormalizeAndExpand(this)
 
     /** Print `this` to Dhall syntax.
       *
@@ -806,7 +805,10 @@ object Syntax {
       */
     def print: String = inPrecedence(TermPrecedence.min)
 
-    override def toString: String = print
+    override def toString: String = {
+      val result = print
+      if (result.length > 256) result.take(256) + s" ... (${result.length - 256} characters omitted)" else result
+    }
 
     private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
@@ -821,7 +823,7 @@ object Syntax {
         case Let(name, tipe, subst, body)           =>
           s"let ${name.escape} ${tipe.map(t => ": " + t.inPrecedence(p)).getOrElse("")} = ${subst.inPrecedence(p)}\nin ${body.inPrecedence(p)}"
         case If(cond, ifTrue, ifFalse)              => s"if ${cond.inPrecedence(p)} then ${ifTrue.inPrecedence(p)} else ${ifFalse.inPrecedence(p)}"
-        case Merge(record, update, tipe)            =>
+        case Merge(record, update, tipe)            => // TODO: verify precedence of merge a b c where (merge a b) returns a function.
           "merge " + record.inPrecedence(appP) + " " + update.inPrecedence(appP) + (tipe match {
             case Some(value) => " : " + value.inPrecedence(minP)
             case None        => ""

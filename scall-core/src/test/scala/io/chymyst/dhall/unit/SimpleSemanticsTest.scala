@@ -5,7 +5,7 @@ import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.Expression._
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.{Builtin, VarName}
+import io.chymyst.dhall.SyntaxConstants.VarName
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
 
 class SimpleSemanticsTest extends DhallTest {
@@ -70,7 +70,21 @@ class SimpleSemanticsTest extends DhallTest {
        |let example1 = assert : enumerate 0 ≡ ([] : List Natural)
        |
        |in  enumerate
-       |""".stripMargin.dhall.betaNormalized
+       |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+  }
+
+  test("shortcut in Natural/fold if the result no longer changes") {
+    val result = """
+                   |( \(y: Natural) -> Natural/fold y Natural (\(x: Natural) -> x) 0 ) 500000000000000000
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "0")
+  }
+
+  test("avoid expanding Natural/fold when the result grows") {
+    val result = """
+                   |( \(y: Natural) -> Natural/fold y Natural (\(x: Natural) -> x) 0 )
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold y Natural (λ(x : Natural) → x) 0")
   }
 
   test("foldWhile performance test with bitLength") { // TODO: this should work with iterations = 1000. Try optimizing foldWhile and try implementing a lazy evaluation strategy.

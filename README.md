@@ -128,8 +128,8 @@ Two of the CBOR tests fail due to a bug in `CBOR-Java`. The bug was fixed [in th
 6. Create Scala-based Dhall values at compile time from Dhall files or from literal Dhall strings (compile-time constants).
 7. Compile Dhall values into a library JAR. Enable importing JAR dependencies instead of Dhall imports (import `as Scala`?). Publish the Dhall standard library and other libraries as JARs.
 8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or values may be interpreted via custom Scala code.
-9. Detect Dhall functions that operate efficiently on literal arguments, and implement those functions in efficient JVM code.
-10. Detect Dhall functions that will ignore some (curried) arguments when given certain values of literal arguments, and implement laziness to make code more efficient.
+9. Avoid beta-normalizing under lambda when that would increase the size of a Dhall function body. This is needed to operate efficiently on literal arguments (function body should not be fully rbeta-normalized until applied to a literal argument).
+10. Detect Dhall functions that will ignore some (curried) arguments when given certain values of literal arguments, and implement laziness to make code more efficient. Detect fixpoints of Dhall functions under fold, and stop the iteration early.
 11. Implement some elementary functions for Natural more efficiently (probably no need to change Dhall language), such as gcd, div_mod, int_sqrt.
 12. Implement numerical functions for rational numbers (instead of floating-point).
 13. Implement higher-kinded types, heterogeneous lists, dependently-typed lists, etc., if possible.

@@ -157,16 +157,23 @@ object Semantics {
 
   val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalize(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr))
+  def betaNormalizeAndExpand(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding = false))
+
+  private def betaNormalizeOrUnexpand(expr: Expression, stopExpanding: Boolean): Expression =
+    cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding))
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
-  private def betaNormalizeUncached(expr: Expression): Expression = {
-    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.schemeWithBetaNormalizedArguments
+  // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
+  private def betaNormalizeUncached(expr: Expression, stopExpanding: Boolean): Expression = {
+    def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, stopExpanding)
 
+    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, stopExpanding))
+
+    if (stopExpanding) println(s"DEBUG beta-normalize $expr, stopExpanding = $stopExpanding")
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
       matcher: PartialFunction[ExpressionScheme[Expression], Expression]
     ): Expression =
-      matcher.applyOrElse(expr.betaNormalized.scheme, { _: ExpressionScheme[Expression] => default })
+      matcher.applyOrElse(bn(expr).scheme, { _: ExpressionScheme[Expression] => default })
 
     expr.scheme match {
       // These expression types are already in beta-normal form.
@@ -175,39 +182,41 @@ object Semantics {
         expr
 
       // These expressions only need to normalize their arguments.
-      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Lambda(_, _, _) | Forall(_, _, _) | Assert(_) => normalizeArgs
+      case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) |  Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
+
+      // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
 
       // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
       // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
-      case Let(name, _, subst, body) => ((v(name.name) | ~Natural) -> body)(subst).betaNormalized
+      case Let(name, _, subst, body) => ((v(name.name) | ~Natural) -> body)(subst) pipe bn
 
       case If(cond, ifTrue, ifFalse) =>
-        if (cond.betaNormalized.scheme == ExprConstant(Constant.True)) ifTrue.betaNormalized
-        else if (cond.betaNormalized.scheme == ExprConstant(Constant.False)) ifFalse.betaNormalized
-        else if (ifFalse.betaNormalized.scheme == ExprConstant(Constant.False) && ifTrue.betaNormalized.scheme == ExprConstant(Constant.True))
-          cond.betaNormalized
-        else if (equivalent(ifTrue, ifFalse)) ifTrue.betaNormalized
+        if (bn(cond).scheme == ExprConstant(Constant.True)) ifTrue.pipe(bn)
+        else if (bn(cond).scheme == ExprConstant(Constant.False)) ifFalse.pipe(bn)
+        else if (bn(ifFalse).scheme == ExprConstant(Constant.False) && bn(ifTrue).scheme == ExprConstant(Constant.True))
+          cond.pipe(bn)
+        else if (equivalent(ifTrue, ifFalse)) ifTrue.pipe(bn)
         else normalizeArgs
 
       case Merge(record, update, _) =>
         matchOrNormalize(record) { case r @ RecordLiteral(_) =>
           matchOrNormalize(update) {
-            case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).betaNormalized
+            case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).pipe(bn)
             case Field(Expression(UnionType(_)), x)                             => r.lookup(x).get
-            case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).betaNormalized
+            case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).pipe(bn)
             case Application(Expression(ExprBuiltin(Builtin.None)), _)          => r.lookup(FieldName("None")).get
           }
         }
 
-      case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.betaNormalized)
+      case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.pipe(bn))
       case ToMap(data, _)                                      =>
         matchOrNormalize(data) { case RecordLiteral(defs) =>
           NonEmptyList(defs.map { case (name, expr) =>
-            Expression(RecordLiteral(Seq((FieldName("mapKey"), TextLiteral.ofString(name.name)), (FieldName("mapValue"), expr.betaNormalized))))
+            Expression(RecordLiteral(Seq((FieldName("mapKey"), TextLiteral.ofString(name.name)), (FieldName("mapValue"), expr.pipe(bn)))))
           })
         }
 
-      case Annotation(data, _) => data.betaNormalized
+      case Annotation(data, _) => data.pipe(bn)
 
       case ExprOperator(lop, op, rop) =>
         lazy val ExprOperator(lopN, _, ropN) = normalizeArgs
@@ -232,13 +241,13 @@ object Semantics {
               case _                                      => normalizeArgs
             }
 
-          case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).betaNormalized
+          case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).pipe(bn)
 
           case Operator.ListAppend =>
             (lopN.scheme, ropN.scheme) match {
               case (EmptyList(_), _)                            => ropN
               case (_, EmptyList(_))                            => lopN
-              case (NonEmptyList(exprs1), NonEmptyList(exprs2)) => NonEmptyList(exprs1 ++ exprs2).betaNormalized
+              case (NonEmptyList(exprs1), NonEmptyList(exprs2)) => Expression(NonEmptyList(exprs1 ++ exprs2)).pipe(bn)
               case _                                            => normalizeArgs
             }
 
@@ -247,9 +256,8 @@ object Semantics {
               case (RecordLiteral(Seq()), _)                    => ropN
               case (_, RecordLiteral(Seq()))                    => lopN
               case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
-                RecordLiteral(
-                  mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)
-                ).betaNormalized // TODO report issue that we need to beta-normalize this, otherwise tests fail
+                Expression(RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)))
+                  .pipe(bn) // TODO report issue that we need to beta-normalize this, otherwise tests fail
               case _                                            => normalizeArgs
             }
 
@@ -262,7 +270,7 @@ object Semantics {
                 val mergedFields =
                   (defs1.toMap ++ defs2.toMap) // The operation ++ on Map prefers the second map's value when keys are the same.
                     .toSeq.sortBy(_._1.name)
-                RecordLiteral(mergedFields)    // .betaNormalized  - not needed here.
+                RecordLiteral(mergedFields)    // .pipe(bn)  - not needed here.
               case _ if equivalent(lopN, ropN)                  =>
                 lopN // TODO report issue: beta-normalization.md does not include this rule in Haskell code after `betaNormalize (Operator ls₀ Prefer rs₀)`
               case _                                            => normalizeArgs
@@ -273,9 +281,8 @@ object Semantics {
               case (RecordType(Seq()), _)                 => ropN
               case (_, RecordType(Seq()))                 => lopN
               case (RecordType(defs1), RecordType(defs2)) =>
-                RecordType(
-                  mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)
-                ).betaNormalized // TODO report issue that we need to beta-normalize this, otherwise tests fail.
+                Expression(RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)))
+                  .pipe(bn) // TODO report issue that we need to beta-normalize this, otherwise tests fail.
               case _                                      => normalizeArgs
             }
 
@@ -305,33 +312,43 @@ object Semantics {
         }
 
       case Application(func, arg) =>
-        lazy val argN = arg.betaNormalized
+        lazy val argN = arg.pipe(bn)
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
-        func.betaNormalized.scheme match {
+        bn(func).scheme match {
           case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
-            argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).betaNormalized
+            argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
           case Application(
                 Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)),
                 g,
               ) =>
+            println(s"DEBUG in Natural/fold beta-normalize $expr, stopExpanding = $stopExpanding")
             // Natural/fold m b g argN = g (Natural/fold (m-1) b g argN)
             // We try to optimize this because it's very slow.
+            // Assume that `currentResult` is already beta-normalized.
             @tailrec def loop(currentResult: => Expression, counter: BigInt): Expression = {
               if (counter >= m) currentResult
               else {
-                val newResult = g(currentResult).betaNormalized
-                if (newResult == currentResult) currentResult // Shortcut: the result does not change after applying `g`, so no need to continue looping.
-                else loop(newResult, counter + 1)
+                println(s"DEBUG Natural/fold loop with counter = $counter and currentResult = $currentResult")
+                val newResult = g(currentResult).pipe(bn)
+                // Shortcut: the result does not change after applying `g`, so no need to continue looping.
+                if (newResult == currentResult) {
+                  println(s"DEBUG Natural/fold shortcut detected, returning currentResult")
+                  currentResult
+                } else if (stopExpanding && (newResult.print.length > currentResult.print.length * 5 / 4)) {
+                  println(
+                    s"DEBUG Natural/fold stopExpanding shortcut detected, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, returning currentResult"
+                  )
+                  currentResult
+                } else {
+                  println(
+                    s"DEBUG Natural/fold no shortcut, newResult.print.length=${newResult.print.length}, currentResult.print.length=${currentResult.print.length}, proceed to counter = ${counter + 1}"
+                  )
+                  loop(newResult, counter + 1)
+                }
               }
             }
-
-            loop(argN, BigInt(0))
-
-//            def loop(m: Natural): Expression = if (m <= 0) argN else {
-//              g(loop(m - 1)).betaNormalized
-//            }
-//
-//            loop(m)
+            println(s"DEBUG Natural/fold begin iterations up to m = $m")
+            loop(currentResult = argN, counter = BigInt(0))
 
           case ExprBuiltin(Builtin.NaturalIsZero)                               => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven)                                 => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
@@ -339,7 +356,7 @@ object Semantics {
           // NaturalShow is defined later.
           case ExprBuiltin(Builtin.NaturalToInteger)                            => matchOrNormalize(arg) { case NaturalLiteral(a) => IntegerLiteral(a) }
           case Application(Expression(ExprBuiltin(Builtin.NaturalSubtract)), a) =>
-            val aN = a.betaNormalized
+            val aN = a.pipe(bn)
             (argN.scheme, aN.scheme) match { // subtract y x = x - y. If the result is negative, return 0.
               case (NaturalLiteral(x), _) if x == 0       => NaturalLiteral(0)
               case (_, NaturalLiteral(y)) if y == 0       => argN
@@ -367,7 +384,7 @@ object Semantics {
                     TextLiteral((head, replacement) +: tl.interpolations, tl.trailing)
                 }
 
-                loop(chunks).betaNormalized
+                Expression(loop(chunks)).pipe(bn)
 
               case _ => normalizeArgs
             }
@@ -385,7 +402,7 @@ object Semantics {
                 (aseq | (~Builtin.List)(newType)) ->
                   Expression(NonEmptyList(Seq(a))).op(ListAppend)(aseq)
               )
-            )(Expression(EmptyList((~Builtin.List)(tipe)))).betaNormalized
+            )(Expression(EmptyList((~Builtin.List)(tipe)))).pipe(bn)
 
           case Application(
                 Expression(Application(Expression(Application(Expression(Application(Expression(ExprBuiltin(ListFold)), typeA0)), expressions)), typeB)),
@@ -399,14 +416,14 @@ object Semantics {
               // Try to optimize this as well as Natural/fold because beta-normalization is extremely slow.
               case NonEmptyList(exprs) => // Guaranteed a non-empty list.
                 exprs match {
-                  case Seq(head) => g(head)(argN).betaNormalized
-                  case _         => exprs.foldRight(argN) { case (a, rest) => g(a)(rest).betaNormalized }.betaNormalized
+                  case Seq(head) => g(head)(argN).pipe(bn)
+                  case _         => exprs.foldRight(argN) { case (a, rest) => g(a)(rest).pipe(bn) }.pipe(bn)
                 }
               /*
                 val rest = if (exprs.length == 1) Expression(EmptyList(typeA0)) else Expression(NonEmptyList(exprs.tail))
                 //                  println(s"DEBUG ${LocalDateTime.now} betaNormalizing List/fold (${typeA0.print}) ${exprs.map(_.print).mkString("[ ", ", ", " ]")} (${b.print}) (${g.print}) (${argN.print})")
                 // List/fold A₀ ([] : List A₁) B g b₀  ⇥  g a (List/fold A₀ [ as… ] B g b₀)
-                (g(exprs.head)((~ListFold)(typeA0)(rest)(typeB)(g)(argN))).betaNormalized
+                (g(exprs.head)((~ListFold)(typeA0)(rest)(typeB)(g)(argN))).pipe(bn)
                */
             }
 
@@ -415,10 +432,9 @@ object Semantics {
               case EmptyList(_)                                => NaturalLiteral(0)
               case NonEmptyList(exprs)                         => NaturalLiteral(exprs.length)
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                (~ListLength)(lop.betaNormalized).betaNormalized
-                  .op(Operator.Plus)(
-                    (~ListLength)(rop.betaNormalized).betaNormalized
-                  ).betaNormalized // TODO: report issue to add this reduction rule to the standard?
+                (~ListLength)(lop.pipe(bn))
+                  .pipe(bn)
+                  .op(Operator.Plus)((~ListLength)(rop.pipe(bn)).pipe(bn)).pipe(bn) // TODO: report issue to add this reduction rule to the standard?
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) =>
@@ -429,9 +445,9 @@ object Semantics {
               // TODO: report issue to add this reduction rule to the standard?
               // Simplify a ListAppend when (List/head lop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                matchOrNormalize((~Builtin.ListHead)(lop.betaNormalized)) {
-                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(rop.betaNormalized).betaNormalized
-                  case KeywordSome(r)                                        => r.betaNormalized
+                matchOrNormalize((~Builtin.ListHead)(lop.pipe(bn))) {
+                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(rop.pipe(bn)).pipe(bn)
+                  case KeywordSome(r)                                        => r.pipe(bn)
                 }
             }
 
@@ -458,9 +474,9 @@ object Semantics {
 
           case Lambda(name, _, body) => // betaNormalize of Lambda() ignores the type annotation.
             val a1 = shift(true, name, 0, arg)
-            val b1 = substitute(body, name, 0, a1)
+            val b1 = substitute(body, name, 0, a1) // Shift free variables in body.
             val b2 = shift(false, name, 0, b1)
-            b2.betaNormalized
+            b2.pipe(bn)
 
           case ExprBuiltin(Builtin.DateShow)        => matchOrNormalize(arg) { case d @ DateLiteral(_, _, _) => TextLiteral.ofString(d.print) }
           case ExprBuiltin(Builtin.TimeShow)        => matchOrNormalize(arg) { case d @ TimeLiteral(_, _, _, _) => TextLiteral.ofString(d.print) }
@@ -488,30 +504,30 @@ object Semantics {
 
           case r @ RecordType(_) => lookupOrFailure(r.defs, "record type", r.lookup(name))
 
-          case ProjectByLabels(base1, _) => Field(base1, name).betaNormalized // TODO verify that we should be skipping the inner ProjectByLabels operation.
+          case ProjectByLabels(base1, _) => Expression(Field(base1, name)).pipe(bn)
 
           case ExprOperator(Expression(r @ RecordLiteral(_)), Operator.Prefer, target)             =>
             r.lookup(name) match {
               // Should not beta-normalize this Field() because it is pointless and may result in an infinite loop.
               case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.Prefer, target)), name)
-              case None    => Field(target, name).betaNormalized
+              case None    => Expression(Field(target, name)).pipe(bn)
             }
           case ExprOperator(target, Operator.Prefer, Expression(r @ RecordLiteral(_)))             =>
             r.lookup(name) match {
               case Some(v) => v
-              case None    => Field(target, name).betaNormalized
+              case None    => Expression(Field(target, name)).pipe(bn)
             }
           case ExprOperator(Expression(r @ RecordLiteral(_)), Operator.CombineRecordTerms, target) =>
             r.lookup(name) match {
               // Do not normalize this again because it won't be possible.
               case Some(v) => Field(Expression(ExprOperator(Expression(RecordLiteral(Seq((name, v)))), Operator.CombineRecordTerms, target)), name)
-              case None    => Field(target, name).betaNormalized
+              case None    => Expression(Field(target, name)).pipe(bn)
             }
           case ExprOperator(target, Operator.CombineRecordTerms, Expression(r @ RecordLiteral(_))) =>
             r.lookup(name) match {
               // Do not normalize this again because it won't be possible.
               case Some(v) => Field(Expression(ExprOperator(target, Operator.CombineRecordTerms, Expression(RecordLiteral(Seq((name, v)))))), name)
-              case None    => Field(target, name).betaNormalized
+              case None    => Expression(Field(target, name)).pipe(bn)
             }
 
         }
@@ -522,52 +538,52 @@ object Semantics {
         matchOrNormalize(base) {
           case RecordLiteral(defs)   => RecordLiteral(defs.filter { case (name, _) => labels contains name }) // TODO: do we need a faster lookup here?
           case RecordType(defs)      => RecordType(defs.filter { case (name, _) => labels contains name })    // TODO: do we need a faster lookup here?
-          case ProjectByLabels(t, _) => ProjectByLabels(t, labels).betaNormalized
+          case ProjectByLabels(t, _) => Expression(ProjectByLabels(t, labels)).pipe(bn)
 
           case ExprOperator(left, Operator.Prefer, right @ Expression(RecordLiteral(defs))) =>
             val newL: Expression = ProjectByLabels(left, labels diff defs.map(_._1))
             val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
-            ExprOperator(newL, Operator.Prefer, newR).betaNormalized
+            Expression(ExprOperator(newL, Operator.Prefer, newR)).pipe(bn)
 
           // This case is t.{} where t could be a record type literal, or a n unknown value of a record type.
           // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
           case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
 
-          case _ => p.sorted.schemeWithBetaNormalizedArguments
+          case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, stopExpanding))
         }
 
       case ProjectByType(base, labels) =>
         matchOrNormalize(labels) { case RecordType(defs) =>
-          ProjectByLabels(base, defs.map(_._1)).betaNormalized
+          Expression(ProjectByLabels(base, defs.map(_._1))).pipe(bn)
         // TODO report issue: does beta-normalization.md say that ProjectByLabels(...) must be beta-normalized? If not, tests fail. -- Has this been corrected already?
         }
 
       // T::r is syntactic sugar for (T.default // r) : T.Type
-      case c @ Completion(_, _)        => desugar(c).betaNormalized
+      case c @ Completion(_, _)        => desugar(c).pipe(bn)
 
       case With(data, pathComponents, body) =>
         matchOrNormalize(data) {
           case r @ RecordLiteral(defs)                                                                             =>
             pathComponents match { // This is a non-empty list.
               case Seq(PathComponent.Label(single)) =>
-                RecordLiteral((defs.toMap ++ Map(single -> body.betaNormalized)).toSeq)
+                RecordLiteral((defs.toMap ++ Map(single -> body.pipe(bn))).toSeq)
               case _ if pathComponents.length > 1   =>
                 val PathComponent.Label(head) = pathComponents.head
                 val tail                      = pathComponents.tail
                 r.lookup(head) match {
                   case Some(e1) =>
-                    val e2 = With(e1, tail, body).betaNormalized
+                    val e2 = Expression(With(e1, tail, body)).pipe(bn)
                     RecordLiteral((defs.toMap ++ Map(head -> e2)).toSeq)
                   case None     =>
-                    val e1 = With(Expression(RecordLiteral(Seq())), tail, body).betaNormalized
+                    val e1 = Expression(With(Expression(RecordLiteral(Seq())), tail, body)).pipe(bn)
                     RecordLiteral((defs.toMap ++ Map(head -> e1)).toSeq)
                 }
               case _                                => normalizeArgs
             }
           case none @ Application(Expression(ExprBuiltin(Builtin.None)), _) if pathComponents.head.isOptionalLabel => none
-          case KeywordSome(_) if pathComponents.length == 1 && pathComponents.head.isOptionalLabel                 => KeywordSome(body.betaNormalized)
+          case KeywordSome(_) if pathComponents.length == 1 && pathComponents.head.isOptionalLabel                 => KeywordSome(body.pipe(bn))
           case KeywordSome(data) if pathComponents.length > 1 && pathComponents.head.isOptionalLabel               =>
-            KeywordSome(With(data, pathComponents.tail, body).betaNormalized)
+            Expression(KeywordSome(With(data, pathComponents.tail, body))).pipe(bn)
         }
 
       case TextLiteral(_, _) =>
