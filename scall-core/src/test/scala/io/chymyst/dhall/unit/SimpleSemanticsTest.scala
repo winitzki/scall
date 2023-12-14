@@ -97,7 +97,7 @@ class SimpleSemanticsTest extends DhallTest {
   test("compute expression count") {
     expect("1".dhall.exprCount == 1)
     expect("1 + 1".dhall.exprCount == 2)
-    expect("""\(y: Natural) -> Natural/fold 10 Natural (\(x: Natural) -> x + 1) y""".dhall.exprCount ==8)
+    expect("""\(y: Natural) -> Natural/fold 10 Natural (\(x: Natural) -> x + 1) y""".dhall.exprCount == 8)
   }
 
   test("foldWhile performance test with bitLength") {

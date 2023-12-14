@@ -102,4 +102,9 @@ class SimpleTypecheckTest extends DhallTest {
     expect(!" \\(x: Type) -> x.{}".dhall.inferType.isValid)
   }
 
+  test("do not alpha-normalize when inferring type") {
+    expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.print == "∀(x : Natural) → Natural")
+    expect("\\(x: Natural) -> x + 1".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "λ(x : Natural) → x + 1")
+    expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.betaNormalized.print == "∀(x : Natural) → Natural")
+  }
 }
