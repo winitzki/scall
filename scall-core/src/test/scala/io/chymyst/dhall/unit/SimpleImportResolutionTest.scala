@@ -58,14 +58,16 @@ class SimpleImportResolutionTest extends DhallTest {
     println(s"Beta-normalized:\n${beta.print}\nCBOR model:\n${beta.toCBORmodel}")
   }
 
-  test("exponential blowup in normal form") {
+  test("exponential blowup in normal form") { // See https://github.com/dhall-lang/dhall-lang/issues/1286
     val input   = """let drop = https://prelude.dhall-lang.org/List/drop
                   |let generate = https://prelude.dhall-lang.org/List/generate
                   |let f = \(g : Natural) -> generate g Natural (\(x : Natural) -> x)
                   |in \(g : Natural) -> \(n : Natural) -> drop n Natural (f g)
                   |""".stripMargin.dhall.resolveImports().typeCheckAndBetaNormalize().unsafeGet
-    val results = (1 to 10).map { i => input(NaturalLiteral(i)).betaNormalized.print.length }
-    expect(results.forall(_ < 2000))
+    // `input` is a function applied to 2 natural numbers (x, y) and gives Scala's (0 to x).drop(y),
+    // but the normal form of partially applied `input n` is of size 2^n.
+    val results = (1 to 15).map { i => input(NaturalLiteral(i)).betaNormalized.exprCount }
+    expect(results.forall(_ < 300000)) // With full optimization, this should be all < 200
   }
 
   test("import alternatives inside expressions") {

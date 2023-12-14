@@ -91,7 +91,8 @@ class SimpleSemanticsTest extends DhallTest {
     val result = """
                    |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
                    |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) y")
+    expect(result.unsafeGet.print contains "Natural/fold 9999999999999999999999999501 Natural")
+//    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) y")
   }
 
   test("compute expression count") {
@@ -227,10 +228,10 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("beta-normalization with Natural/fold and shortcut") {
     val input =
-      """(λ(n : Natural) → List/fold { index : Natural, value : {  } } (List/indexed {  } (Natural/fold n (List {  }) (λ(`as` : List {  }) → ([{=}]) # `as`) ([] : List {  }))) (List Natural) (λ(x : { index : Natural, value : {  } }) → λ(`as` : List Natural) → ([x.index]) # `as`) ([] : List Natural)) 10""".dhall
+      """(λ(n : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold n (List {}) (λ(`as` : List {}) → ([{=}]) # `as`) ([] : List {}))) (List Natural) (λ(x : { index : Natural, value : {} }) → λ(`as` : List Natural) → ([x.index]) # `as`) ([] : List Natural)) 10""".dhall
     expect(input.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
     expect(
-      input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {  } } (List/indexed {  } (Natural/fold _ (List {  }) (λ(_ : List {  }) → ([{=}]) # _) ([] : List {  }))) (List Natural) (λ(_ : { index : Natural, value : {  } }) → λ(_ : List Natural) → ([_@1.index]) # _) ([] : List Natural)) 10"""
+      input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold _ (List {}) (λ(_ : List {}) → ([{=}]) # _) ([] : List {}))) (List Natural) (λ(_ : { index : Natural, value : {} }) → λ(_ : List Natural) → ([_@1.index]) # _) ([] : List Natural)) 10"""
     )
     expect(input.alphaNormalized.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
   }

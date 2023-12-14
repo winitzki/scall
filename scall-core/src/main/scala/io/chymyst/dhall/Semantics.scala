@@ -174,10 +174,12 @@ object Semantics {
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
   private def needShortcut(oldExpr: => Expression, newExpr: => Expression): Boolean = {
-    lazy val oldLength   = oldExpr.exprCount
-    lazy val newLength   = newExpr.exprCount
-    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
-    val result           = newLength >= oldLength * 4 / 3 && newLength > 500
+    lazy val oldLength = oldExpr.exprCount
+    lazy val newLength = newExpr.exprCount
+    // TODO: perhaps enable this optimization. See https://github.com/dhall-lang/dhall-lang/issues/1213#issuecomment-1855878600
+//    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
+
+    val result = newLength >= oldLength && newLength > 500 // || hasFreeVars
     if (result) println(s"DEBUG: shortcut detected with $oldExpr")
     result
   }
