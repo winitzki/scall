@@ -1,6 +1,6 @@
 package io.chymyst.dhall.codec
 
-import io.chymyst.dhall.Applicative.{ApplicativeOps, seqSeq}
+import io.chymyst.tc.Applicative.{ApplicativeOps, seqSeq}
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Field, RecordType, TextLiteral, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.Builtin.TextShow
@@ -13,7 +13,6 @@ import izumi.reflect.{Tag, TagK, TagKK}
 
 import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.language.implicitConversions
-import scala.util.chaining.scalaUtilChainingOps
 import scala.language.dynamics
 
 sealed trait DhallKinds
