@@ -8,7 +8,7 @@ import io.chymyst.dhall.SyntaxConstants.{FilePrefix, ImportType}
 import io.chymyst.dhall.{Semantics, SyntaxConstants}
 import io.chymyst.test.ResourceFiles.{enumerateResourceFiles, resourceAsFile}
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 import scala.util.Try
 
 class SimpleImportResolutionTest extends DhallTest {
@@ -65,7 +65,7 @@ class SimpleImportResolutionTest extends DhallTest {
                   |in \(g : Natural) -> \(n : Natural) -> drop n Natural (f g)
                   |""".stripMargin.dhall.resolveImports().typeCheckAndBetaNormalize().unsafeGet
     val results = (1 to 10).map { i => input(NaturalLiteral(i)).betaNormalized.print.length }
-    println(results)
+    expect(results.forall(_ < 2000))
   }
 
   test("import alternatives inside expressions") {

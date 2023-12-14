@@ -89,9 +89,9 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("avoid expanding Natural/fold when the result grows as a symbolic expression") {
     val result = """
-                   |( \(y: Natural) -> Natural/fold 50000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
+                   |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
                    |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 49999999999999999999999996 Natural (λ(x : Natural) → x + 1) (y + 1 + 1 + 1 + 1)")
+    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 9999999999999999999999999996 Natural (λ(x : Natural) → x + 1) (y + 1 + 1 + 1 + 1)")
   }
 
   test("compute expression count") {

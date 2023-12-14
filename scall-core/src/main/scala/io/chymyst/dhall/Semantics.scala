@@ -174,10 +174,10 @@ object Semantics {
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
   private def needShortcut(oldExpr: Expression, newExpr: Expression): Boolean = {
-    val oldLength   = oldExpr.exprCount
-    val newLength   = newExpr.exprCount
-    val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
-    val result      = newLength >= oldLength && newLength > 5 || hasFreeVars
+    lazy val oldLength   = oldExpr.exprCount
+    lazy val newLength   = newExpr.exprCount
+    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
+    val result           = hasFreeVars || newLength >= oldLength && newLength > 500
     if (result) println(s"DEBUG: shortcut detected with $oldExpr")
     result
   }
