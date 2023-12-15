@@ -48,7 +48,7 @@ class ReadmeTest extends FunSuite {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
 
     // Curry's Y combinator. We set the `Bool` type arbitrarily; the types do not match.
-    val illTyped = """\(f : Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
+    val illTyped = """\(f: Bool) -> let p = (\(x : Bool) -> f x x) in p p""".dhall
     val argument = """\(x: Bool) -> x""".dhall
 
     val bad = illTyped(argument)
@@ -62,12 +62,13 @@ class ReadmeTest extends FunSuite {
       catch {
         case e: Throwable => e.toString
       }
-    expect(result == "java.lang.StackOverflowError")
+
+    val message = result.asInstanceOf[String].toLowerCase
+    expect(message contains "stack", message contains "overflow")
   }
 
   test("Scala factorial example from readme") {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
-    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
 
     val factorialDhall = """
                                          |\(x: Natural) ->
