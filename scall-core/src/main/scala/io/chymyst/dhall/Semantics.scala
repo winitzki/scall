@@ -126,7 +126,7 @@ object Semantics {
         Let(underscore, tipe.map(_.alphaNormalized), subst.alphaNormalized, body3.alphaNormalized)
       }
 
-    case Import(_, _, _) => throw new Exception(s"alphaNormalize($expr): Unresolved imports cannot be α-normalized")
+    case Import(_, _, _) => throw new Exception(s"alphaNormalize($expr): Unresolved imports cannot be alpha-normalized")
 
     case other => other.map(_.alphaNormalized)
   }
@@ -155,9 +155,9 @@ object Semantics {
 
   val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
-  val cacheBetaNormalize = IdempotentCache("Beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
+  val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  val cacheAlphaNormalize = IdempotentCache("Alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
+  val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
   def betaNormalizeAndExpand(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding = false).expr)
 
@@ -401,14 +401,14 @@ object Semantics {
           case Application(Expression(Application(Expression(ExprBuiltin(Builtin.TextReplace)), needle)), replacement) =>
             (needle.scheme, replacement.scheme, argN.scheme) match {
               case (TextLiteral(List(), ""), _, _) | (_, _, TextLiteral(List(), ""))     =>
-                argN // One more case of beta-normalization: empty haystack needs no replacement even if needle is not a TextLiteral.
+                argN // TODO report issue: One more case of beta-normalization: empty haystack needs no replacement even if needle is not a TextLiteral.
               case (TextLiteral(List(), needleString), _, TextLiteral(List(), haystack)) =>
                 val chunks = haystack.split(Pattern.quote(needleString), -1).toList
 
                 def loop(chunks: List[String]): TextLiteral[Expression] = chunks match {
-                  case Nil          => TextLiteral.empty
+                  // case Nil          => TextLiteral.empty // This case will never occur because split("", -1) never produces an empty array.
                   case List(s)      => TextLiteral.ofString(s)
-                  case head :: tail =>
+                  case head :: tail => // This `tail` is never empty because we already matched on a 1-element list.
                     val tl = loop(tail)
                     TextLiteral((head, replacement) +: tl.interpolations, tl.trailing)
                 }
@@ -456,14 +456,14 @@ object Semantics {
                */
             }
 
-          case Application(Expression(ExprBuiltin(Builtin.ListLength)), _) =>
+          case Application(Expression(ExprBuiltin(Builtin.ListLength)), tipe) =>
             matchOrNormalize(arg) {
               case EmptyList(_)                                => NaturalLiteral(0)
               case NonEmptyList(exprs)                         => NaturalLiteral(exprs.length)
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                (~ListLength)(lop.pipe(bn))
+                (~ListLength)(tipe)(lop.pipe(bn))
                   .pipe(bn)
-                  .op(Operator.Plus)((~ListLength)(rop.pipe(bn)).pipe(bn)).pipe(bn) // TODO: report issue to add this reduction rule to the standard?
+                  .op(Operator.Plus)((~ListLength)(tipe)(rop.pipe(bn)).pipe(bn)).pipe(bn) // TODO: report issue to add this reduction rule to the standard?
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) =>
@@ -472,11 +472,11 @@ object Semantics {
               case NonEmptyList(exprs) => KeywordSome(exprs.head)
 
               // TODO: report issue to add this reduction rule to the standard?
-              // Simplify a ListAppend when (List/head lop) evaluates to something concrete.
+              // Simplify a List/head(lop # rop) when (List/head lop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                matchOrNormalize((~Builtin.ListHead)(lop.pipe(bn))) {
-                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(rop.pipe(bn)).pipe(bn)
-                  case KeywordSome(r)                                        => r.pipe(bn)
+                matchOrNormalize((~Builtin.ListHead)(tipe)(lop.pipe(bn))) {
+                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(tipe)(rop.pipe(bn)).pipe(bn)
+                  case KeywordSome(r)                                        => KeywordSome(r.pipe(bn))
                 }
             }
 
@@ -484,6 +484,14 @@ object Semantics {
             matchOrNormalize(arg) {
               case EmptyList(_)        => (~Builtin.None)(tipe)
               case NonEmptyList(exprs) => KeywordSome(exprs.last)
+
+              // TODO: report issue to add this reduction rule to the standard?
+              // Simplify a List/last(lop # rop) when (List/last rop) evaluates to something concrete.
+              case ExprOperator(lop, Operator.ListAppend, rop) =>
+                matchOrNormalize((~Builtin.ListLast)(tipe)(rop.pipe(bn))) {
+                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListLast)(tipe)(lop.pipe(bn)).pipe(bn)
+                  case KeywordSome(r)                                        => KeywordSome(r.pipe(bn))
+                }
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListIndexed)), tipe) =>
@@ -525,7 +533,7 @@ object Semantics {
         def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
           maybeExpression.getOrElse(
             throw new Exception(
-              s"Record access in $expr has invalid field name $name, which should be one of the record literal's fields: ${defs.map(_._1).mkString(", ")}"
+              s"Record access in $expr has invalid field name (${name.name}), which should be one of the $str's fields: (${defs.map(_._1.name).mkString(", ")})"
             )
           )
 

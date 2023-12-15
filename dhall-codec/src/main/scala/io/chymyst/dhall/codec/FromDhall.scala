@@ -1,19 +1,18 @@
 package io.chymyst.dhall.codec
 
-import io.chymyst.tc.Applicative.{ApplicativeOps, seqSeq}
-import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, Field, RecordType, TextLiteral, Variable}
+import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprConstant, RecordType, TextLiteral, Variable}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural}
 import io.chymyst.dhall.SyntaxConstants.Builtin.TextShow
-import io.chymyst.dhall.SyntaxConstants.{Builtin, Constant, ConstructorName, FieldName, Operator, VarName}
+import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.TypecheckResult.{Invalid, Valid}
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.{Semantics, SyntaxConstants, TypecheckResult}
+import io.chymyst.dhall.{SyntaxConstants, TypecheckResult}
+import io.chymyst.tc.Applicative.{ApplicativeOps, seqSeq}
 import izumi.reflect.{Tag, TagK, TagKK}
 
 import java.time.{LocalDate, LocalTime, ZoneOffset}
-import scala.language.implicitConversions
-import scala.language.dynamics
+import scala.language.{dynamics, implicitConversions, reflectiveCalls}
 
 sealed trait DhallKinds
 
@@ -24,21 +23,47 @@ object DhallKinds {
 }
 
 object DhallBuiltinFunctions {
-  val Date_show: LocalDate => String                  = _.toString
-  val Double_show: Double => String                   = _.toString
-  val Integer_clamp: BigInt => Natural                = x => if (x < 0) BigInt(0) else x
-  val Integer_negate: BigInt => BigInt                = -_
-  val Integer_show: BigInt => String                  = _.toString(10)
-  val Integer_toDouble: BigInt => Double              = _.toDouble
-  val Natural_even: Natural => Boolean                = _ % 2 == 0
-  val Natural_isZero: Natural => Boolean              = _ == 0
-  val Natural_odd: Natural => Boolean                 = _ % 2 != 0
-  val Natural_show: Natural => String                 = _.toString(10)
-  val Natural_subtract: Natural => Natural => Natural = x => y => y - x
-  val Natural_toInteger: Natural => BigInt            = identity
-  val Time_show: LocalTime => String                  = _.toString
-  val Text_show: String => String                     = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.print
-  val TimeZone_show: ZoneOffset => String             = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
+  def List_length[A]: Tag[A] => List[A] => Natural                                     = _ => _.length
+  def List_reverse[A]: Tag[A] => List[A] => List[A]                                    = _ => _.reverse
+  def List_head[A]: Tag[A] => List[A] => Option[A]                                     = _ => _.headOption
+  def List_last[A]: Tag[A] => List[A] => Option[A]                                     = _ => _.lastOption
+  def List_indexed[A]: Tag[A] => List[A] => List[{ def index: Natural; def value: A }] = _ =>
+    _.zipWithIndex.map { case (a, i) => new { def index: Natural = BigInt(i); def value: A = a } }
+  val Date_show: LocalDate => String                                                   = _.toString
+  val Double_show: Double => String                                                    = _.toString
+  val Integer_clamp: BigInt => Natural                                                 = x => if (x < 0) BigInt(0) else x
+  val Integer_negate: BigInt => BigInt                                                 = -_
+  val Integer_show: BigInt => String                                                   = _.toString(10)
+  val Integer_toDouble: BigInt => Double                                               = _.toDouble
+  val Natural_even: Natural => Boolean                                                 = _ % 2 == 0
+  val Natural_isZero: Natural => Boolean                                               = _ == 0
+  val Natural_odd: Natural => Boolean                                                  = _ % 2 != 0
+  val Natural_show: Natural => String                                                  = _.toString(10)
+  val Natural_subtract: Natural => Natural => Natural                                  = x => y => y - x
+  val Natural_toInteger: Natural => BigInt                                             = identity
+  val Natural_build: { def apply[A]: (A => A) => A => A } => Natural                   = { build =>
+    build.apply[Natural](x => x + 1)(BigInt(0))
+  }
+  val Natural_fold: Natural => Tag[_] => (Natural => Natural) => Natural => Natural    = { m => _ => update => init =>
+    def loop(currentResult: Natural, counter: Natural): Natural =
+      if (counter >= m) currentResult
+      else {
+        val newResult = update(currentResult)
+        if (newResult == currentResult) {
+          // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
+          currentResult
+        } else {
+          loop(newResult, counter + 1)
+        }
+      }
+
+    loop(currentResult = init, counter = BigInt(0))
+  }
+
+  val Time_show: LocalTime => String = _.toString
+  val Text_show: String => String = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.print
+val Text_replace: String => String=>String => String = find => replace => source => source.replace(find, replace)
+  val TimeZone_show: ZoneOffset => String = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
 
 final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])]) extends Dynamic {
@@ -310,24 +335,24 @@ object FromDhall {
                 case Builtin.List             => result(TagK[List], Tag[TagK[List]])
                 case Builtin.ListBuild        => ???
                 case Builtin.ListFold         => ???
-                case Builtin.ListHead         => ???
-                case Builtin.ListIndexed      => ???
-                case Builtin.ListLast         => ???
-                case Builtin.ListLength       => ???
-                case Builtin.ListReverse      => ???
+                case Builtin.ListHead         => ??? //result (List_head, Tag[  Tag[_] => List[_] => Option[_]])
+                case Builtin.ListIndexed      => ??? //result(List_indexed, Tag[{ def apply[A]: List[A] => List[{ def index: Natural; def value: A }]}])
+                case Builtin.ListLast         => ??? //result(List_last, Tag[{ def apply[A]: List[A] => Option[A]}])
+                case Builtin.ListLength       => ??? //result(List_length, Tag[{ def apply[A]: List[A] => Natural}])
+                case Builtin.ListReverse      => ??? //result(List_reverse, Tag[{ def apply[A]: List[A] => Natural}])
                 case Builtin.Natural          => result(Tag[Natural], Tag[Tag[Natural]])
-                case Builtin.NaturalBuild     => ???
+                case Builtin.NaturalBuild     => result(Natural_build, Tag[{ def apply[A]: (A => A) => A => A } => Natural])
                 case Builtin.NaturalEven      => result(Natural_even, Tag[Natural => Boolean])
-                case Builtin.NaturalFold      => ???
+                case Builtin.NaturalFold      => result(Natural_fold, Tag[Natural => Tag[_] => (Natural => Natural) => Natural => Natural])
                 case Builtin.NaturalIsZero    => result(Natural_isZero, Tag[Natural => Boolean])
                 case Builtin.NaturalOdd       => result(Natural_odd, Tag[Natural => Boolean])
                 case Builtin.NaturalShow      => result(Natural_show, Tag[Natural => String])
                 case Builtin.NaturalSubtract  => result(Natural_subtract, Tag[Natural => Natural => Natural])
                 case Builtin.NaturalToInteger => result(Natural_toInteger, Tag[Natural => BigInt])
-                case Builtin.None             => ???
+                case Builtin.None             => result(None, Tag[Option[Nothing]])
                 case Builtin.Optional         => result(TagK[Option], Tag[TagK[Option]])
                 case Builtin.Text             => result(Tag[String], Tag[Tag[String]])
-                case Builtin.TextReplace      => ???
+                case Builtin.TextReplace      => result(Text_replace, Tag[String => String => String => String])
                 case Builtin.TextShow         => result(Text_show, Tag[String => String])
                 case Builtin.Time             => result(Tag[LocalTime], Tag[Tag[LocalTime]])
                 case Builtin.TimeShow         => result(Time_show, Tag[LocalTime => String])

@@ -59,7 +59,7 @@ val tenFactorial: Expression = factorial(ten)
 assert(tenFactorial.betaNormalized.asScala[BigInt] == BigInt(3628800))
 ```
 
-In this example, we skipped type-checking since we know that our expression is well-typed.
+In this example, we skipped type-checking since we know that the Dhall factorial expression is well-typed.
 However, Dhall only guarantees correct evaluation for well-typed expressions.
 An ill-typed expression may fail to evaluate or even cause an infinite loop:
 
@@ -77,6 +77,22 @@ assert(bad.typeCheckAndBetaNormalize().isValid == false)
 
 // If we try evaluating `bad` without type-checking, we will get an infinite loop.
 bad.betaNormalized // java.lang.StackOverflowError
+```
+
+The Dhall factorial function can be also converted directly to a Scala function:
+
+```scala
+import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+
+val factorial: BigInt => BigInt =  """
+                                     |\(x: Natural) ->
+                                     |  let t = {acc: Natural, count: Natural}
+                                     |  let result = Natural/fold x t (\(x: t) -> {acc = x.acc * x.count, count = x.count + 1} ) {acc = 1, count = 1}
+                                     |    in result.acc
+        """.stripMargin.dhall.betaNormalized.asScala[BigInt => BigInt]
+
+assert(factorial(BigInt(10)) == BigInt(3628800))
 ```
 
 ## Goals of the project

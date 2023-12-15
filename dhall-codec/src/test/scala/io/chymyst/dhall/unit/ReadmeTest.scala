@@ -64,4 +64,18 @@ class ReadmeTest extends FunSuite {
       }
     expect(result == "java.lang.StackOverflowError")
   }
+
+  test("Scala factorial example from readme") {
+    import io.chymyst.dhall.Parser.StringAsDhallExpression
+    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+
+    val factorial: BigInt => BigInt =  """
+                                         |\(x: Natural) ->
+                                         |  let t = {acc: Natural, count: Natural}
+                                         |  let result = Natural/fold x t (\(x: t) -> {acc = x.acc * x.count, count = x.count + 1} ) {acc = 1, count = 1}
+                                         |    in result.acc
+        """.stripMargin.dhall.betaNormalized.asScala[BigInt => BigInt]
+
+    assert(factorial(BigInt(10)) == BigInt(3628800))
+  }
 }

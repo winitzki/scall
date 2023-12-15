@@ -8,6 +8,8 @@ import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
 import io.chymyst.dhall.SyntaxConstants.VarName
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
 
+import scala.util.Try
+
 class SimpleSemanticsTest extends DhallTest {
 
   test("substitute in a variable") {
@@ -39,6 +41,17 @@ class SimpleSemanticsTest extends DhallTest {
     val dhall = "./import1 ? ./import2"
     val expr  = Parser.parseDhall(dhall).get.value.value
     expect(expr.print == "./import1 ? ./import2")
+  }
+
+  test("alpha-normalization and beta-normalization should refuse imports") {
+    expect(Try("./import1".dhall.alphaNormalized).failed.get.getMessage contains "Unresolved imports cannot be alpha-normalized")
+    expect(Try("./import1".dhall.betaNormalized).failed.get.getMessage contains "Unresolved import in ./import1 cannot be beta-normalized")
+    expect(Try("./import1 ? ./import2".dhall.alphaNormalized).failed.get.getMessage contains "Unresolved imports cannot be alpha-normalized")
+    expect(
+      Try(
+        "./import1 ? ./import2".dhall.betaNormalized
+      ).failed.get.getMessage contains "Unresolved import alternative in ./import1 ? ./import2 cannot be beta-normalized"
+    )
   }
 
   test("beta-normalize with unique subexpressions") {
@@ -234,5 +247,27 @@ class SimpleSemanticsTest extends DhallTest {
       input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold _ (List {}) (λ(_ : List {}) → ([{=}]) # _) ([] : List {}))) (List Natural) (λ(_ : { index : Natural, value : {} }) → λ(_ : List Natural) → ([_@1.index]) # _) ([] : List Natural)) 10"""
     )
     expect(input.alphaNormalized.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
+  }
+
+  test("beta-normalization for appended lists") {
+    Map(
+      """\(x: List Bool) -> List/length Bool ([ True ] # x)"""       -> "λ(x : List Bool) → 1 + List/length Bool x",
+      """\(x: List Bool) -> List/head Bool ([ True ] # x)"""         -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "λ(x : List Bool) → List/head Bool x",
+      """\(x: List Bool) -> List/last Bool (x # [ True ])"""         -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))"""   -> "λ(x : List Bool) → List/last Bool x",
+    ).foreach { case (input, output) =>
+      val normalized = input.dhall.betaNormalized
+      expect(normalized.print == output)
+      expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet == normalized)
+    }
+
+  }
+
+  test("invalid field name is an error") {
+    expect(Try("{x = 1}.y".dhall.betaNormalized).failed.get.getMessage contains "Record access in { x = 1 }.y has invalid field name (y), which should be one of the record literal's fields: (x)")
+    expect(Try("{x = 1}.y".dhall.typeCheckAndBetaNormalize().unsafeGet).failed.get.getMessage == "Type-checking failed with errors: List(In field selection, the record type with field names (x) does not contain field name (y), type inference context = {})")
+    expect(Try("{x : Bool}.y".dhall.betaNormalized).failed.get.getMessage contains "Record access in { x : Bool }.y has invalid field name (y), which should be one of the record type's fields: (x)")
+    expect(Try("{x : Bool}.y".dhall.typeCheckAndBetaNormalize().unsafeGet).failed.get.getMessage == "Type-checking failed with errors: List(Record type with field names (x) does not contain field name (y), type inference context = {})")
   }
 }

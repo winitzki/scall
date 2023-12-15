@@ -468,7 +468,7 @@ object TypeCheck {
           case Expression(r @ RecordType(defs))                                                                                            =>
             r.lookup(name) match {
               case Some(tipe) => tipe
-              case None       => typeError(s"RecordType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+              case None       => typeError(s"In field selection, the record type with field names (${defs.map(_._1.name).mkString(", ")}) does not contain field name (${name.name})")
             }
           /*
 
@@ -495,7 +495,7 @@ object TypeCheck {
               case r @ RecordType(defs) =>
                 r.lookup(name) match {
                   case Some(tipe) => tipe.inferTypeWith(gamma)
-                  case None       => typeError(s"RecordType with field names ${defs.map(_._1.name).mkString(", ")} does not contain $name")
+                  case None       => typeError(s"Record type with field names (${defs.map(_._1.name).mkString(", ")}) does not contain field name (${name.name})")
                 }
 
               case other => typeError(s"Field selection is possible only from record type or union type but found ${other.print}")
