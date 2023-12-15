@@ -34,8 +34,8 @@ object Applicative {
   def seqSeq[F[_]: Applicative, A](fas: Seq[F[A]]): F[Seq[A]] =
     fas.foldLeft(Applicative[F].pure(Seq[A]())) { (prev, fa) => (prev zip fa).map { case (prevSeq, a) => prevSeq :+ a } }
 
-  def apply[F[_]: Applicative]: Applicative[F] = implicitly[Applicative[F]]
-
+  def apply[F[_]: Applicative]: Applicative[F]                               = implicitly[Applicative[F]]
+  /*
   implicit val ApplicativeTry: Applicative[Try] = new Applicative[Try] {
     override def zip[A, B](fa: Try[A], fb: Try[B]): Try[(A, B)] = fa.flatMap { a => fb.map((a, _)) }
 
@@ -43,7 +43,7 @@ object Applicative {
 
     override def pure[A](a: A): Try[A] = Success(a)
   }
-
+   */
   implicit def eitherMonoidApplicative[E: Monoid]: Applicative[Either[E, *]] = new Applicative[Either[E, *]] {
     override def zip[A, B](fa: Either[E, A], fb: Either[E, B]): Either[E, (A, B)] = (fa, fb) match {
       case (Right(a), Right(b)) => Right((a, b))
@@ -85,7 +85,7 @@ object Monoid {
 
   def apply[M: Monoid]: Monoid[M] = implicitly[Monoid[M]]
 }
-
+/*
 final case class State[S, A](run: S => (S, A))
 
 object State {
@@ -101,3 +101,4 @@ object State {
     override def pure[A](a: A): State[S, A] = implement
   }
 }
+ */
