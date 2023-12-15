@@ -53,8 +53,8 @@ class ReadmeTest extends FunSuite {
 
     val bad = illTyped(argument)
     // These expressions fail type-checking.
-    expect(illTyped.typeCheckAndBetaNormalize().isValid == false)
-    expect(bad.typeCheckAndBetaNormalize().isValid == false)
+    expect(illTyped.inferType.isValid == false)
+    expect(bad.inferType.isValid == false)
 
     // If we try evaluating `bad` without type-checking, we will get an infinite loop.
     val result =

@@ -72,8 +72,8 @@ val argument = """\(x: Bool) -> x""".dhall
 val bad = illTyped(argument)
 
 // These expressions fail type-checking.
-assert(illTyped.typeCheckAndBetaNormalize().isValid == false)
-assert(bad.typeCheckAndBetaNormalize().isValid == false)
+assert(illTyped.inferType.isValid == false)
+assert(bad.inferType.isValid == false)
 
 // If we try evaluating `bad` without type-checking, we will get an infinite loop.
 bad.betaNormalized // java.lang.StackOverflowError
