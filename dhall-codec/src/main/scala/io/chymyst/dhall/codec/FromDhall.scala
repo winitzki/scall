@@ -60,10 +60,10 @@ object DhallBuiltinFunctions {
     loop(currentResult = init, counter = BigInt(0))
   }
 
-  val Time_show: LocalTime => String = _.toString
-  val Text_show: String => String = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.print
-val Text_replace: String => String=>String => String = find => replace => source => source.replace(find, replace)
-  val TimeZone_show: ZoneOffset => String = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
+  val Time_show: LocalTime => String                     = _.toString
+  val Text_show: String => String                        = x => (~TextShow)(TextLiteral.ofString(x)).betaNormalized.print
+  val Text_replace: String => String => String => String = find => replace => source => source.replace(find, replace)
+  val TimeZone_show: ZoneOffset => String                = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
 
 final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])]) extends Dynamic {
@@ -335,11 +335,11 @@ object FromDhall {
                 case Builtin.List             => result(TagK[List], Tag[TagK[List]])
                 case Builtin.ListBuild        => ???
                 case Builtin.ListFold         => ???
-                case Builtin.ListHead         => ??? //result (List_head, Tag[  Tag[_] => List[_] => Option[_]])
-                case Builtin.ListIndexed      => ??? //result(List_indexed, Tag[{ def apply[A]: List[A] => List[{ def index: Natural; def value: A }]}])
-                case Builtin.ListLast         => ??? //result(List_last, Tag[{ def apply[A]: List[A] => Option[A]}])
-                case Builtin.ListLength       => ??? //result(List_length, Tag[{ def apply[A]: List[A] => Natural}])
-                case Builtin.ListReverse      => ??? //result(List_reverse, Tag[{ def apply[A]: List[A] => Natural}])
+                case Builtin.ListHead         => ??? // result (List_head, Tag[  Tag[_] => List[_] => Option[_]])
+                case Builtin.ListIndexed      => ??? // result(List_indexed, Tag[{ def apply[A]: List[A] => List[{ def index: Natural; def value: A }]}])
+                case Builtin.ListLast         => ??? // result(List_last, Tag[{ def apply[A]: List[A] => Option[A]}])
+                case Builtin.ListLength       => ??? // result(List_length, Tag[{ def apply[A]: List[A] => Natural}])
+                case Builtin.ListReverse      => ??? // result(List_reverse, Tag[{ def apply[A]: List[A] => Natural}])
                 case Builtin.Natural          => result(Tag[Natural], Tag[Tag[Natural]])
                 case Builtin.NaturalBuild     => result(Natural_build, Tag[{ def apply[A]: (A => A) => A => A } => Natural])
                 case Builtin.NaturalEven      => result(Natural_even, Tag[Natural => Boolean])

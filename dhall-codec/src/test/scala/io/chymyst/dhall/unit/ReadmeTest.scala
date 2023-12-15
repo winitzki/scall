@@ -69,7 +69,7 @@ class ReadmeTest extends FunSuite {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
     import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
 
-    val factorial: BigInt => BigInt =  """
+    val factorial: BigInt => BigInt = """
                                          |\(x: Natural) ->
                                          |  let t = {acc: Natural, count: Natural}
                                          |  let result = Natural/fold x t (\(x: t) -> {acc = x.acc * x.count, count = x.count + 1} ) {acc = 1, count = 1}

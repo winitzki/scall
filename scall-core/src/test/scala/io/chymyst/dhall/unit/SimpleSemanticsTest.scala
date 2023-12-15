@@ -255,7 +255,7 @@ class SimpleSemanticsTest extends DhallTest {
       """\(x: List Bool) -> List/head Bool ([ True ] # x)"""         -> "λ(x : List Bool) → Some True",
       """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "λ(x : List Bool) → List/head Bool x",
       """\(x: List Bool) -> List/last Bool (x # [ True ])"""         -> "λ(x : List Bool) → Some True",
-      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))"""   -> "λ(x : List Bool) → List/last Bool x",
+      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "λ(x : List Bool) → List/last Bool x",
     ).foreach { case (input, output) =>
       val normalized = input.dhall.betaNormalized
       expect(normalized.print == output)
@@ -265,9 +265,25 @@ class SimpleSemanticsTest extends DhallTest {
   }
 
   test("invalid field name is an error") {
-    expect(Try("{x = 1}.y".dhall.betaNormalized).failed.get.getMessage contains "Record access in { x = 1 }.y has invalid field name (y), which should be one of the record literal's fields: (x)")
-    expect(Try("{x = 1}.y".dhall.typeCheckAndBetaNormalize().unsafeGet).failed.get.getMessage == "Type-checking failed with errors: List(In field selection, the record type with field names (x) does not contain field name (y), type inference context = {})")
-    expect(Try("{x : Bool}.y".dhall.betaNormalized).failed.get.getMessage contains "Record access in { x : Bool }.y has invalid field name (y), which should be one of the record type's fields: (x)")
-    expect(Try("{x : Bool}.y".dhall.typeCheckAndBetaNormalize().unsafeGet).failed.get.getMessage == "Type-checking failed with errors: List(Record type with field names (x) does not contain field name (y), type inference context = {})")
+    expect(
+      Try(
+        "{x = 1}.y".dhall.betaNormalized
+      ).failed.get.getMessage contains "Record access in { x = 1 }.y has invalid field name (y), which should be one of the record literal's fields: (x)"
+    )
+    expect(
+      Try(
+        "{x = 1}.y".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage == "Type-checking failed with errors: List(In field selection, the record type with field names (x) does not contain field name (y), type inference context = {})"
+    )
+    expect(
+      Try(
+        "{x : Bool}.y".dhall.betaNormalized
+      ).failed.get.getMessage contains "Record access in { x : Bool }.y has invalid field name (y), which should be one of the record type's fields: (x)"
+    )
+    expect(
+      Try(
+        "{x : Bool}.y".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage == "Type-checking failed with errors: List(Record type with field names (x) does not contain field name (y), type inference context = {})"
+    )
   }
 }

@@ -468,7 +468,10 @@ object TypeCheck {
           case Expression(r @ RecordType(defs))                                                                                            =>
             r.lookup(name) match {
               case Some(tipe) => tipe
-              case None       => typeError(s"In field selection, the record type with field names (${defs.map(_._1.name).mkString(", ")}) does not contain field name (${name.name})")
+              case None       =>
+                typeError(
+                  s"In field selection, the record type with field names (${defs.map(_._1.name).mkString(", ")}) does not contain field name (${name.name})"
+                )
             }
           /*
 
