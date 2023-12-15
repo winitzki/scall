@@ -754,10 +754,7 @@ object Syntax {
         override def combine(a: Int, b: Int): Int = a + b
       }
       implicit val monoidConst            = Monoid.trivialApplicative[Int]
-      traverseRecursive[Monoid.Const[Int, *]] { a =>
-        println(s"DEBUG exprCount looking at $a")
-        1
-      }
+      traverseRecursive[Monoid.Const[Int, *]] { a => 1 }
     }
 
     def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =
