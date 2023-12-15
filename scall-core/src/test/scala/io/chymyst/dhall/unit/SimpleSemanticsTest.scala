@@ -261,7 +261,21 @@ class SimpleSemanticsTest extends DhallTest {
       expect(normalized.print == output)
       expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet == normalized)
     }
+  }
 
+  test("Text/replace various cases") {
+    Map(
+      """ Text/replace "abc" "def" "abcxyzabc" """           -> """"defxyzdef"""",
+      """ Text/replace "abc" "def" "xyzabc" """              -> """"xyzdef"""",
+      """ Text/replace "abc" "def" "abcxyz" """              -> """"defxyz"""",
+      """ Text/replace "abc" "def" "abc" """                 -> """"def"""",
+      """ Text/replace "abc" "def" "xyz" """                 -> """"xyz"""",
+      """ Text/replace "" "def" "xyzabc" """                 -> """"xyzabc"""",
+      """\(x: Text) -> \(y: Text) -> Text/replace "" x y """ -> """λ(x : Text) → λ(y : Text) → y""",
+      """\(x: Text) -> \(y: Text) -> Text/replace x y "" """ -> """λ(x : Text) → λ(y : Text) → """"",
+    ).foreach { case (input, output) =>
+      expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet.print == output)
+    }
   }
 
   test("invalid field name is an error") {
