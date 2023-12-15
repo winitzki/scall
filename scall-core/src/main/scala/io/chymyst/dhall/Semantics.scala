@@ -677,7 +677,7 @@ object FreeVars {
     override def pure[A](a: A): FreeVars[A] = FreeVars(Set())
   }
 }
-
+/*
 // We need to define this as an applicative functor, but actually we will use this only with A = Expression.
 final case class UniqueReferences[A](run: mutable.Set[Expression] => (A, mutable.Set[Expression]))
 
@@ -710,3 +710,4 @@ object UniqueReferences {
     override def pure[A](a: A): UniqueReferences[A] = UniqueReferences(prev => (a, prev))
   }
 }
+ */
