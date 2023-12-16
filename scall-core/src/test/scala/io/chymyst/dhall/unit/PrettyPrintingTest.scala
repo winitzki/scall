@@ -70,7 +70,26 @@ class PrettyPrintingTest extends DhallTest {
   }
 
   test("print with the new tail-recursive function print1") {
-    expect(Syntax.print1("1 + 1".dhall) == "")
+    expect(Syntax.print1("1 + 1".dhall) == "1 + 1")
+    expect(Syntax.print1("1 + (1 + 1)".dhall) == "1 + 1 + 1")
+  }
+
+  test("print1 long expressions without stack overflow, without parentheses") {
+    // TODO fix the stack overflow while printing and/or while parsing
+    // "1 + 1 + 1 + 1 + ... + 1"
+    def assocPlus(n: Int): String = "1" + " + 1" * n
+
+    expect(assocPlus(1) == "1 + 1")
+    expect(assocPlus(3) == "1 + 1 + 1 + 1")
+
+    (1 to 3000 by 50).foreach { n =>
+      val (parsed, elapsedParsing)   = elapsedNanos(assocPlus(n).dhall)
+      println(f"Iteration $n, parsing elapsed ${elapsedParsing / 1000000000.0}%.2f s")
+      val (printed, elapsedPrinting) = elapsedNanos(Syntax.print1(parsed))
+      println(f"Iteration $n, printed elapsed ${elapsedPrinting / 1000000000.0}%.2f s")
+      expect(elapsedParsing < 3 * 1000L * 1000L * 1000L) // Parsing must take less than 3 seconds.
+      expect(printed.length == 4 * n + 1)
+    }
   }
 
 }

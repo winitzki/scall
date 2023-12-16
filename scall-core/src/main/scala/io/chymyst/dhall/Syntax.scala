@@ -280,7 +280,6 @@ object Syntax {
     pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]],
     results: Map[Int, String],
   ): String = {
-    println(s"DEBUG dhallForm1($freshIndex, $pending, $results")
     pending.lastOption match {
       case Some(last) =>
         val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]], newResults: Map[Int, String]) =
@@ -292,7 +291,7 @@ object Syntax {
                 val newPendingSteps                                                          = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
                 val storageStep: Right[Nothing, (Int, Map[Int, String] => (String, Set[Int]))] =
                   Right((indexToStore, m => (storeResult(i => m(freshIndex + i)), (freshIndex to freshIndex + steps.length).toSet)))
-                (freshIndex + steps.length + 1, newPendingSteps :+ storageStep, results)
+                (freshIndex + steps.length + 1, storageStep +: newPendingSteps  , results)
               }
 
               val p    = expr.scheme.precedence
@@ -407,7 +406,7 @@ object Syntax {
 
             case Right((newIndex, storeResult)) =>
               val (newString, toDelete) = storeResult(results)
-              (Nil, results.removedAll(toDelete).updated(newIndex, newString))
+              (freshIndex + 1, IndexedSeq(), results.removedAll(toDelete).updated(newIndex, newString))
 
           }
         dhallForm1(newFresh, pending.init ++ newPending, newResults)
