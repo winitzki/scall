@@ -282,16 +282,20 @@ object Syntax {
   ): String = {
     pending.lastOption match {
       case Some(last) =>
-        val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]], newResults: Map[Int, String]) =
+        val (
+          newFresh: Int,
+          newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]],
+          newResults: Map[Int, String],
+        ) =
           last match {
             case Left((indexToStore, expr, outerPrec)) =>
               // Helper functions to reduce boilerplate.
               def result(r: String)                                                       = (freshIndex + 1, IndexedSeq(), results.updated(indexToStore, inPrecedence(r, expr.scheme.precedence, outerPrec)))
               def more(storeResult: (Int => String) => String)(steps: (Expression, Int)*) = {
-                val newPendingSteps                                                          = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
+                val newPendingSteps                                                            = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
                 val storageStep: Right[Nothing, (Int, Map[Int, String] => (String, Set[Int]))] =
                   Right((indexToStore, m => (storeResult(i => m(freshIndex + i)), (freshIndex to freshIndex + steps.length).toSet)))
-                (freshIndex + steps.length + 1, storageStep +: newPendingSteps  , results)
+                (freshIndex + steps.length + 1, storageStep +: newPendingSteps, results)
               }
 
               val p    = expr.scheme.precedence
