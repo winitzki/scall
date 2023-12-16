@@ -13,6 +13,7 @@ import io.chymyst.tc.{Applicative, Monoid}
 
 import java.nio.file.Paths
 import java.time.{LocalDate, LocalTime, ZoneOffset}
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
@@ -174,7 +175,7 @@ object SyntaxConstants {
 
     def remoteOrigin: Option[(Scheme, String)] = None
 
-    def hasUserHeaders: Boolean = false
+    def userHeaders: Option[E] = None
   }
 
   object ImportType {
@@ -187,7 +188,7 @@ object SyntaxConstants {
 
       override def remoteOrigin: Option[(Scheme, String)] = Some(url.scheme, url.authority)
 
-      override def hasUserHeaders: Boolean = headers.nonEmpty
+      override def userHeaders: Option[E] = headers
     }
 
     final case class ImportPath(filePrefix: FilePrefix, file: FilePath) extends ImportType[Nothing] {
@@ -270,6 +271,151 @@ object SyntaxConstants {
 }
 
 object Syntax {
+  def print1(expr: Expression): String = dhallForm1(0, IndexedSeq(Left((0, expr, TermPrecedence.min))), Map())
+
+  private def inPrecedence(exprDhallForm: String, innerPrec: Int, outerPrec: Int): String = if (innerPrec < outerPrec) s"($exprDhallForm)" else exprDhallForm
+
+  @tailrec private def dhallForm1(
+    freshIndex: Int,
+    pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]],
+    results: Map[Int, String],
+  ): String = {
+    println(s"DEBUG dhallForm1($freshIndex, $pending, $results")
+    pending.lastOption match {
+      case Some(last) =>
+        val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]], newResults: Map[Int, String]) =
+          last match {
+            case Left((indexToStore, expr, outerPrec)) =>
+              // Helper functions to reduce boilerplate.
+              def result(r: String)                                                       = (freshIndex + 1, IndexedSeq(), results.updated(indexToStore, inPrecedence(r, expr.scheme.precedence, outerPrec)))
+              def more(storeResult: (Int => String) => String)(steps: (Expression, Int)*) = {
+                val newPendingSteps                                                          = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
+                val storageStep: Right[Nothing, (Int, Map[Int, String] => (String, Set[Int]))] =
+                  Right((indexToStore, m => (storeResult(i => m(freshIndex + i)), (freshIndex to freshIndex + steps.length).toSet)))
+                (freshIndex + steps.length + 1, newPendingSteps :+ storageStep, results)
+              }
+
+              val p    = expr.scheme.precedence
+              val minP = TermPrecedence.min
+              val appP = TermPrecedence.applicationPrecedence
+              expr.scheme match {
+                case Variable(name, index)                  => result(s"${name.escape}${if (index > 0) "@" + index.toString(10) else ""}")
+                case Lambda(name, tipe, body)               =>
+                  more(m => s"λ(${name.escape} : ${m(0)}) → ${m(1)}")((tipe, p), (body, p))
+                case Forall(name, tipe, body)               =>
+                  more(m => s"∀(${name.escape} : ${m(0)}) → ${m(1)}")((tipe, p), (body, p))
+                case Let(name, tipe, subst, body)           =>
+                  tipe match {
+                    case Some(t) => more(m => s"let ${name.escape} : ${m(0)} = ${m(1)}\nin ${m(2)}")((t, p), (subst, p), (body, p))
+                    case None    => more(m => s"let ${name.escape} = ${m(0)}\nin ${m(1)}")((subst, p), (body, p))
+                  }
+                case If(cond, ifTrue, ifFalse)              => more(m => s"if ${m(0)} then ${m(1)} else ${m(2)}")((cond, p), (ifTrue, p), (ifFalse, p))
+                case Merge(record, update, tipe)            =>
+                  tipe match {
+                    case Some(t) => more(m => s"merge ${m(0)} ${m(1)} : ${m(2)}")((record, appP), (update, appP), (t, minP))
+                    case None    => more(m => s"merge ${m(0)} ${m(1)}")((record, appP), (update, appP))
+                  } // TODO: verify precedence of merge a b c where (merge a b) returns a function.
+                case ToMap(data, tipe)                      =>
+                  tipe match {
+                    case Some(t) => more(m => s"toMap ${m(0)} : ${m(1)}")((data, appP), (t, minP))
+                    case None    => more(m => s"toMap ${m(0)}")((data, appP))
+                  }
+                case EmptyList(tipe)                        => more(m => s"[] : ${m(0)}")((tipe, p))
+                case NonEmptyList(exprs)                    => more(m => (exprs.indices).map(i => m(i)).mkString("[", ", ", "]"))(exprs.map(e => (e, p)): _*)
+                case Annotation(data, tipe)                 => more(m => s"${m(0)} : ${m(1)}")((data, p), (tipe, p - 1))
+                case ExprOperator(lop, op, rop)             => more(m => s"${m(0)} ${op.name} ${m(1)}")((lop, p), (rop, p))
+                case Application(func, arg)                 =>
+                  more(m => s"${m(0)} ${m(1)}")((func, p), (arg, p + 1)) // Application of Application must be in parentheses.
+                case Field(base, name)                      => more(m => m(0) + "." + name.name)((base, p))
+                case ProjectByLabels(base, labels)          => more(m => m(0) + "." + "{" + labels.map(_.name).mkString(", ") + "}")((base, p))
+                case ProjectByType(base, by)                => more(m => m(0) + "." + "(" + m(1) + ")")((base, p), (by, p))
+                case Completion(base, target)               => more(m => m(0) + " :: " + m(1))((base, p), (target, p))
+                case Assert(assertion)                      => more(m => s"assert : ${m(0)}")((assertion, p))
+                case With(data, pathComponents, body)       =>
+                  more(m =>
+                    m(0) + " with " + pathComponents
+                      .map {
+                        case PathComponent.Label(name)     => name.name
+                        case PathComponent.DescendOptional => "?"
+                      }.mkString(".") + " = " + m(1)
+                  )((data, p), (body, p))
+                case DoubleLiteral(value)                   => result(value.toString)
+                case NaturalLiteral(value)                  => result(value.toString(10))
+                case IntegerLiteral(value)                  => result((if (value >= 0) "+" else "") + value.toString(10))
+                case TextLiteral(interpolations, trailing)  =>
+                  more(m =>
+                    "\"" + interpolations.toIndexedSeq.zipWithIndex.map { case ((prefix, _), i) => prefix + "${" + m(i) + "}" }.mkString + trailing + "\""
+                  )(interpolations.map { case (_, expr) => (expr, p) }: _*)
+                case BytesLiteral(hex)                      => result(s"0x\"$hex\"")
+                case DateLiteral(year, month, day)          => result(f"$year%04d-$month%02d-$day%02d")
+                case t @ TimeLiteral(_, _, _, _)            => result(t.toString)
+                case t @ TimeZoneLiteral(_)                 => result(f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d")
+                case r @ RecordType(_)                      =>
+                  if (r.defs.isEmpty) result("{}") // Special case.
+                  else
+                    more(m => r.sorted.defs.toIndexedSeq.zipWithIndex.map { case ((name, _), i) => name.name + " : " + m(i) }.mkString("{ ", ", ", " }"))(
+                      r.sorted.defs.map { case (_, expr) => (expr, TermPrecedence.min) }: _*
+                    )
+                case r @ RecordLiteral(_)                   =>
+                  if (r.defs.isEmpty) result("{=}") // Special case.
+                  else
+                    more(m => r.sorted.defs.toIndexedSeq.zipWithIndex.map { case ((name, _), i) => name.name + " = " + m(i) }.mkString("{ ", ", ", " }"))(
+                      r.sorted.defs.map { case (_, expr) => (expr, TermPrecedence.min) }: _*
+                    )
+                case u @ UnionType(_)                       =>
+                  if (u.defs.isEmpty) result("<>") // Special case.
+                  else
+                    more {
+                      val indicesToBeUsed = u.sorted.defs.toIndexedSeq.map(_._2).zipWithIndex.map { case (o, i) => o.map(_ => i) }
+                      m =>
+                        u.sorted.defs.toIndexedSeq
+                          .zip(indicesToBeUsed)
+                          .map { case ((name, _), oi) => name.name + oi.map(i => " : " + m(i)).getOrElse("") }.mkString("< ", " | ", " > ")
+                    }(u.sorted.defs.flatMap(_._2).map {
+                      (_, TermPrecedence.min)
+                    }: _*)
+                case ShowConstructor(data)                  => more(m => "showConstructor " + m(0))((data, p))
+                case Import(importType, importMode, digest) =>
+                  val maybeHeaders = importType.userHeaders match {
+                    case Some(value) => Seq((value, TermPrecedence.min))
+                    case None        => Seq()
+                  }
+                  more { m =>
+                    val digestString     = digest.map(b => " sha256:" + b.hex.toLowerCase).getOrElse("")
+                    val importModeString = importMode match {
+                      case ImportMode.Code     => ""
+                      case ImportMode.RawBytes => " as Bytes"
+                      case ImportMode.RawText  => " as Text"
+                      case ImportMode.Location => " as Location"
+                    }
+                    val importTypeString = importType match {
+                      case ImportType.Missing              => "missing"
+                      case ImportType.Remote(url, headers) =>
+                        url.toString + (headers match {
+                          case Some(value) => " using " + m(0)
+                          case None        => ""
+                        })
+                      case p @ ImportType.ImportPath(_, _) => p.toString
+                      case ImportType.Env(envVarName)      => "env:" + envVarName
+                    }
+                    importTypeString + digestString + importModeString
+                  }(maybeHeaders: _*)
+                case KeywordSome(data)                      => more(m => s"Some ${m(0)}")((data, p))
+                case ExprBuiltin(builtin)                   => result(builtin.entryName)
+                case ExprConstant(constant)                 => result(constant.entryName)
+              }
+
+            case Right((newIndex, storeResult)) =>
+              val (newString, toDelete) = storeResult(results)
+              (Nil, results.removedAll(toDelete).updated(newIndex, newString))
+
+          }
+        dhallForm1(newFresh, pending.init ++ newPending, newResults)
+
+      case None => results(0) // The final result is always stored at key = 0.
+    }
+  }
+
   final case class DhallFile(shebangs: Seq[String], value: Expression)
 
   type Natural = BigInt
@@ -813,7 +959,7 @@ object Syntax {
     /** Print `this` to Dhall syntax.
       *
       * @return
-      *   A string representation of `this` expression in (approximately) Dhall syntax.
+      *   A string representation of `this` expression in (valid but only approximately standard) Dhall syntax.
       */
     lazy val print: String = inPrecedence(TermPrecedence.min)
 
@@ -822,9 +968,9 @@ object Syntax {
       if (result.length > 256) result.take(256) + s" ... (${result.length - 256} characters omitted)" else result
     }
 
-    private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
+    @inline private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
-    private def dhallForm: String = {
+    private lazy val dhallForm: String = {
       val p    = scheme.precedence
       val minP = TermPrecedence.min
       val appP = TermPrecedence.applicationPrecedence

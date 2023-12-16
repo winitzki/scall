@@ -5,6 +5,7 @@ import fastparse._
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
 import io.chymyst.dhall.{Semantics, SyntaxConstants, TypeCheck}
+import io.chymyst.test.TestTimings
 import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 
@@ -108,4 +109,4 @@ object TestUtils {
 
 }
 
-trait DhallTest extends FunSuite
+trait DhallTest extends FunSuite with TestTimings // Add more options here by mixing other traits.
