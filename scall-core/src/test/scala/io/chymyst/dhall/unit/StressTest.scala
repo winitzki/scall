@@ -8,15 +8,14 @@ class StressTest extends DhallTest {
 
   def measure(generate: Int => String, max: Int, by: Int) = {
     (1 to max by by).foreach { n =>
-      val (parsed, elapsedParsing) = elapsedNanos(generate(n).dhall)
+      val (parsed, elapsedParsing)         = elapsedNanos(generate(n).dhall)
       println(f"Iteration $n\tparsing elapsed ${elapsedParsing / 1000000000.0}%.2f s")
-      val (printed, elapsedPrinting) = elapsedNanos(parsed.print)
+      val (printed, elapsedPrinting)       = elapsedNanos(parsed.print)
       println(f"Iteration $n\t\tprinted elapsed ${elapsedPrinting / 1000000000.0}%.2f s")
       val (normalized, elapsedNormalizing) = elapsedNanos(parsed.betaNormalized)
       println(f"Iteration $n\t\t\tnormalized elapsed ${elapsedNormalizing / 1000000000.0}%.2f s")
     }
   }
-
 
   test("print long expressions without stack overflow, without parentheses") {
 
@@ -26,7 +25,7 @@ class StressTest extends DhallTest {
     expect(assocPlus(1) == "1 + 1")
     expect(assocPlus(3) == "1 + 1 + 1 + 1")
 
-   measure(assocPlus, 3000, 50)
+    measure(assocPlus, 3000, 50)
   }
 
   test("print long expressions without stack overflow, with parentheses") {
@@ -69,44 +68,43 @@ class StressTest extends DhallTest {
     measure(assocPlus, 3500, 100) // Stack overflow in beta-normalizing due to murmurhash, unless we use smaller step than 200.
   }
 
-  test("deeply nested lists"){
-    val generate =  { n: Int => "[" * n + "1" + "]" * n}
+  test("deeply nested lists") {
+    val generate = { n: Int => "[" * n + "1" + "]" * n }
     expect(generate(1) == "[1]")
     expect(generate(3) == "[[[1]]]")
     measure(generate, 12, 2)
   }
 
-  test("deeply nested records"){
-    val generate =  { n: Int => "{x = " * n + "1" + "}" * n}
+  test("deeply nested records") {
+    val generate = { n: Int => "{x = " * n + "1" + "}" * n }
     expect(generate(1) == "{x = 1}")
     expect(generate(3) == "{x = {x = {x = 1}}}")
     measure(generate, 12, 2)
   }
 
-  test("deeply nested record types"){
-    val generate =  { n: Int => "{x : " * n + "Bool" + "}" * n}
+  test("deeply nested record types") {
+    val generate = { n: Int => "{x : " * n + "Bool" + "}" * n }
     expect(generate(1) == "{x : Bool}")
     expect(generate(3) == "{x : {x : {x : Bool}}}")
     measure(generate, 12, 2)
   }
 
-  test("deeply nested applications"){
-    val generate =  { n: Int => "List " + "(List " * (n-1) + "Bool" + ")" * (n-1)}
+  test("deeply nested applications") {
+    val generate = { n: Int => "List " + "(List " * (n - 1) + "Bool" + ")" * (n - 1) }
     expect(generate(1) == "List Bool")
     expect(generate(3) == "List (List (List Bool))")
     measure(generate, 12, 2)
   }
 
-
-  test("deeply nested applications under lambda"){
-    val generate =  { n: Int => "\\(x: Bool -> Bool) -> x " + "(x " * (n-1) + "True" + ")" * (n-1)}
+  test("deeply nested applications under lambda") {
+    val generate = { n: Int => "\\(x: Bool -> Bool) -> x " + "(x " * (n - 1) + "True" + ")" * (n - 1) }
     expect(generate(1) == "\\(x: Bool -> Bool) -> x True")
     expect(generate(3) == "\\(x: Bool -> Bool) -> x (x (x True))")
     measure(generate, 12, 2)
   }
 
-  test("deeply nested lambdas"){
-    val generate =  { n: Int =>  "\\(x: Bool) -> " * n + "x"}
+  test("deeply nested lambdas") {
+    val generate = { n: Int => "\\(x: Bool) -> " * n + "x" }
     expect(generate(1) == "\\(x: Bool) -> x")
     expect(generate(3) == "\\(x: Bool) -> \\(x: Bool) -> \\(x: Bool) -> x")
     measure(generate, 12, 2)
