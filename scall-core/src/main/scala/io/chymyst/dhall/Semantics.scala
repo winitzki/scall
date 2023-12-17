@@ -473,8 +473,8 @@ object Semantics {
               // Simplify a List/head(lop # rop) when (List/head lop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
                 matchOrNormalize((~Builtin.ListHead)(tipe)(lop)) {
-                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(tipe)(rop.pipe(bn)).pipe(bn)
-                  case KeywordSome(r)                                        => KeywordSome(r)
+                  // case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(tipe)(rop).pipe(bn) // This will never occur because we already normalized `arg`, and [] # x normalizes to just x.
+                  case KeywordSome(r) => KeywordSome(r)
                 }
             }
 
@@ -487,8 +487,8 @@ object Semantics {
               // Simplify a List/last(lop # rop) when (List/last rop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
                 matchOrNormalize((~Builtin.ListLast)(tipe)(rop)) {
-                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListLast)(tipe)(lop).pipe(bn)
-                  case KeywordSome(r)                                        => KeywordSome(r)
+                  // case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListLast)(tipe)(lop).pipe(bn) // This will never occur.
+                  case KeywordSome(r) => KeywordSome(r)
                 }
             }
 
