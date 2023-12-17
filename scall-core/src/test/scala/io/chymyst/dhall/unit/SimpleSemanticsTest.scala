@@ -300,4 +300,14 @@ class SimpleSemanticsTest extends DhallTest {
       ).failed.get.getMessage == "Type-checking failed with errors: List(Record type with field names (x) does not contain field name (y), type inference context = {})"
     )
   }
+
+  test("record types field access") {
+    expect("{a: Bool, b: Integer}.a".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "Bool")
+    expect("{a: Bool, b: Integer}.{a}".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "{ a : Bool }")
+    expect(
+      Try(
+        "{a: Bool, b: Integer}.({a : Text})".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage contains "ProjectByType is invalid because the base expression has type Type instead of RecordType"
+    )
+  }
 }

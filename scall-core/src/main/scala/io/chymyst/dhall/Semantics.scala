@@ -614,7 +614,7 @@ object Semantics {
                     val e1 = Expression(With(Expression(RecordLiteral(Seq())), tail, body)).pipe(bn)
                     RecordLiteral((defs.toMap ++ Map(head -> e1)).toSeq)
                 }
-              case _                                => normalizeArgs
+//              case _                                => normalizeArgs // This case will never occur because pathComponents is an empty list.
             }
           case none @ Application(Expression(ExprBuiltin(Builtin.None)), _) if pathComponents.head.isOptionalLabel => none
           case KeywordSome(_) if pathComponents.length == 1 && pathComponents.head.isOptionalLabel                 => KeywordSome(body.pipe(bn))
