@@ -461,9 +461,7 @@ object Semantics {
               case EmptyList(_)                                => NaturalLiteral(0)
               case NonEmptyList(exprs)                         => NaturalLiteral(exprs.length)
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                (~ListLength)(tipe)(lop.pipe(bn))
-                  .pipe(bn)
-                  .op(Operator.Plus)((~ListLength)(tipe)(rop.pipe(bn)).pipe(bn)).pipe(bn) // TODO: report issue to add this reduction rule to the standard?
+                (~ListLength)(tipe)(lop).op(Operator.Plus)((~ListLength)(tipe)(rop)).pipe(bn) // TODO: report issue to add this reduction rule to the standard?
             }
 
           case Application(Expression(ExprBuiltin(Builtin.ListHead)), tipe) =>
@@ -474,9 +472,9 @@ object Semantics {
               // TODO: report issue to add this reduction rule to the standard?
               // Simplify a List/head(lop # rop) when (List/head lop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                matchOrNormalize((~Builtin.ListHead)(tipe)(lop.pipe(bn))) {
+                matchOrNormalize((~Builtin.ListHead)(tipe)(lop)) {
                   case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListHead)(tipe)(rop.pipe(bn)).pipe(bn)
-                  case KeywordSome(r)                                        => KeywordSome(r.pipe(bn))
+                  case KeywordSome(r)                                        => KeywordSome(r)
                 }
             }
 
@@ -488,9 +486,9 @@ object Semantics {
               // TODO: report issue to add this reduction rule to the standard?
               // Simplify a List/last(lop # rop) when (List/last rop) evaluates to something concrete.
               case ExprOperator(lop, Operator.ListAppend, rop) =>
-                matchOrNormalize((~Builtin.ListLast)(tipe)(rop.pipe(bn))) {
-                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListLast)(tipe)(lop.pipe(bn)).pipe(bn)
-                  case KeywordSome(r)                                        => KeywordSome(r.pipe(bn))
+                matchOrNormalize((~Builtin.ListLast)(tipe)(rop)) {
+                  case Application(Expression(ExprBuiltin(Builtin.None)), _) => (~Builtin.ListLast)(tipe)(lop).pipe(bn)
+                  case KeywordSome(r)                                        => KeywordSome(r)
                 }
             }
 
