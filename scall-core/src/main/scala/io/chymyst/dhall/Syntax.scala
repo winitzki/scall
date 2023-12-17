@@ -280,7 +280,7 @@ object Syntax {
     pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]],
     results: Map[Int, String],
   ): String = {
-    println(s"DEBUG: dhallForm1($freshIndex, $pending, $results)")
+    // println(s"DEBUG: dhallForm1($freshIndex, $pending, $results)")
     pending.lastOption match {
       case Some(last) =>
         val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]], newResults: Map[Int, String]) =

@@ -244,7 +244,7 @@ class SimpleSemanticsTest extends DhallTest {
       """(λ(n : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold n (List {}) (λ(`as` : List {}) → ([{=}]) # `as`) ([] : List {}))) (List Natural) (λ(x : { index : Natural, value : {} }) → λ(`as` : List Natural) → ([x.index]) # `as`) ([] : List Natural)) 10""".dhall
     expect(input.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
     expect(
-      input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold _ (List {}) (λ(_ : List {}) → ([{=}]) # _) ([] : List {}))) (List Natural) (λ(_ : { index : Natural, value : {} }) → λ(_ : List Natural) → ([_@1.index]) # _) ([] : List Natural)) 10"""
+      input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold _ (List {}) (λ(_ : List {}) → [{=}] # _) ([] : List {}))) (List Natural) (λ(_ : { index : Natural, value : {} }) → λ(_ : List Natural) → [_@1.index] # _) ([] : List Natural)) 10"""
     )
     expect(input.alphaNormalized.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
   }
