@@ -964,7 +964,7 @@ object Syntax {
       * @return
       *   A string representation of `this` expression in (valid but only approximately standard) Dhall syntax.
       */
-    lazy val print: String = inPrecedence(TermPrecedence.min)
+    lazy val print: String = Syntax.print1(this) // inPrecedence(TermPrecedence.min)
 
     override def toString: String = {
       val result = print

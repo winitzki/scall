@@ -229,8 +229,8 @@ object Grammar {
   def double_quote_chunk[$: P]: P[Either[TextLiteral[Expression], TextLiteralNoInterp]] = P( // text literal with or without interpolations
     interpolation.map(TextLiteral.ofExpression).map(Left.apply)
       // '\'    Beginning of escape sequence
-      | ("\\" ~/ double_quote_escaped).map(TextLiteralNoInterp).map(Right.apply)
-      | double_quote_char.!.map(TextLiteralNoInterp).map(Right.apply)
+      | ("\\" ~/ double_quote_escaped).map(TextLiteralNoInterp.apply).map(Right.apply)
+      | double_quote_char.!.map(TextLiteralNoInterp.apply).map(Right.apply)
   )
 
   def double_quote_escaped[$: P]: P[String] = P(
