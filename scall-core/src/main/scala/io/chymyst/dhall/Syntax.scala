@@ -280,7 +280,6 @@ object Syntax {
     pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]],
     results: Map[Int, String],
   ): String = {
-    // println(s"DEBUG: dhallForm1($freshIndex, $pending, $results)")
     pending.lastOption match {
       case Some(last) =>
         val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]], newResults: Map[Int, String]) =
@@ -965,15 +964,13 @@ object Syntax {
       * @return
       *   A string representation of `this` expression in (valid but only approximately standard) Dhall syntax.
       */
-    lazy val print0: String           = inPrecedence(TermPrecedence.min)
-    lazy val print: String            = Syntax.print1(this)
-    def toStringAsCaseClasses: String = super.toString
+    lazy val print: String = Syntax.print1(this)
 
     override def toString: String = {
-      val result = print0
+      val result = print
       if (result.length > 256) result.take(256) + s" ... (${result.length - 256} characters omitted)" else result
     }
-
+    /*
     @inline private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
     private lazy val dhallForm: String = {
@@ -1057,6 +1054,7 @@ object Syntax {
         case ExprConstant(constant)                 => constant.entryName
       }
     }
+     */
 
     // Construct Dhall terms more easily.
 
