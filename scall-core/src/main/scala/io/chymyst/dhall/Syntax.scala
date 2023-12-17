@@ -277,24 +277,27 @@ object Syntax {
 
   @tailrec private def dhallForm1(
     freshIndex: Int,
-    pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]],
+    pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]],
     results: Map[Int, String],
   ): String = {
     pending.lastOption match {
       case Some(last) =>
-        val (
-          newFresh: Int,
-          newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Map[Int, String] => (String, Set[Int]))]],
-          newResults: Map[Int, String],
-        ) =
+        val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]], newResults: Map[Int, String]) =
           last match {
             case Left((indexToStore, expr, outerPrec)) =>
               // Helper functions to reduce boilerplate.
-              def result(r: String)                                                       = (freshIndex + 1, IndexedSeq(), results.updated(indexToStore, inPrecedence(r, expr.scheme.precedence, outerPrec)))
+              def result(r: String) = (freshIndex + 1, IndexedSeq(), results.updated(indexToStore, inPrecedence(r, expr.scheme.precedence, outerPrec)))
+
               def more(storeResult: (Int => String) => String)(steps: (Expression, Int)*) = {
-                val newPendingSteps                                                            = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
-                val storageStep: Right[Nothing, (Int, Map[Int, String] => (String, Set[Int]))] =
-                  Right((indexToStore, m => (storeResult(i => m(freshIndex + i)), (freshIndex to freshIndex + steps.length).toSet)))
+                val newPendingSteps                                                          = steps.toIndexedSeq.zipWithIndex.map { case ((e, p), i) => Left((freshIndex + i, e, p)) }
+                val storageStep: Right[Nothing, (Int, Set[Int], Map[Int, String] => String)] =
+                  Right(
+                    (
+                      indexToStore,
+                      (freshIndex to freshIndex + steps.length).toSet,
+                      m => inPrecedence(storeResult(i => m(freshIndex + i)), expr.precedence, outerPrec),
+                    )
+                  )
                 (freshIndex + steps.length + 1, storageStep +: newPendingSteps, results)
               }
 
@@ -324,7 +327,7 @@ object Syntax {
                     case None    => more(m => s"toMap ${m(0)}")((data, appP))
                   }
                 case EmptyList(tipe)                        => more(m => s"[] : ${m(0)}")((tipe, p))
-                case NonEmptyList(exprs)                    => more(m => (exprs.indices).map(i => m(i)).mkString("[", ", ", "]"))(exprs.map(e => (e, p)): _*)
+                case NonEmptyList(exprs)                    => more(m => (exprs.indices).map(i => m(i)).mkString("[", ", ", "]"))(exprs.map(e => (e, TermPrecedence.min)): _*)
                 case Annotation(data, tipe)                 => more(m => s"${m(0)} : ${m(1)}")((data, p), (tipe, p - 1))
                 case ExprOperator(lop, op, rop)             => more(m => s"${m(0)} ${op.name} ${m(1)}")((lop, p), (rop, p))
                 case Application(func, arg)                 =>
@@ -408,8 +411,8 @@ object Syntax {
                 case ExprConstant(constant)                 => result(constant.entryName)
               }
 
-            case Right((newIndex, storeResult)) =>
-              val (newString, toDelete) = storeResult(results)
+            case Right((newIndex, toDelete, storeResult)) =>
+              val newString = storeResult(results)
               (freshIndex + 1, IndexedSeq(), results.removedAll(toDelete).updated(newIndex, newString))
 
           }
@@ -578,7 +581,7 @@ object Syntax {
     final case class Merge[E](record: E, update: E, tipe: Option[E])               extends ExpressionScheme[E] with ApplicationPrecedence
     final case class ToMap[E](data: E, tipe: Option[E])                            extends ExpressionScheme[E] with ApplicationPrecedence
     final case class EmptyList[E](tipe: E)                                         extends ExpressionScheme[E] with MinPrecedence
-    final case class NonEmptyList[E](exprs: Seq[E])                                extends ExpressionScheme[E] with MinPrecedence       {
+    final case class NonEmptyList[E](exprs: Seq[E])                                extends ExpressionScheme[E] with HighPrecedence      {
       require(exprs.nonEmpty)
     }
     final case class Annotation[E](data: E, tipe: E)                               extends ExpressionScheme[E] with MinPrecedence
@@ -970,7 +973,7 @@ object Syntax {
       val result = print
       if (result.length > 256) result.take(256) + s" ... (${result.length - 256} characters omitted)" else result
     }
-
+    /*
     @inline private def inPrecedence(level: Int) = if (scheme.precedence < level) "(" + dhallForm + ")" else dhallForm
 
     private lazy val dhallForm: String = {
@@ -1054,7 +1057,7 @@ object Syntax {
         case ExprConstant(constant)                 => constant.entryName
       }
     }
-
+     */
     // Construct Dhall terms more easily.
 
     // Natural numbers.
