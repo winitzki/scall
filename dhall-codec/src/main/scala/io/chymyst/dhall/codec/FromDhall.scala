@@ -149,7 +149,7 @@ object FromDhall {
     if (expr.scheme == ExprConstant(SyntaxConstants.Constant.Sort)) {
       Right(new AsScalaVal(DhallKinds.Sort, Invalid(Seq("Expression(ExprConstant(Sort)) is not well-typed because it is the top universe")), Tag[DhallKinds]))
     } else {
-      println(s"DEBUG $expr.asScala, variables = $variables, typing context = $dhallVars")
+      // println(s"DEBUG $expr.asScala, variables = $variables, typing context = $dhallVars")
       expr.inferTypeWith(dhallVars) match {
         case errors @ TypecheckResult.Invalid(_)     => AsScalaError(expr, errors)
         case validType @ TypecheckResult.Valid(tipe) =>
@@ -257,7 +257,7 @@ object FromDhall {
                 functionHead      <- valueAndType(func, variables, dhallVars)
                 functionResult    <- functionHead.inferredType.unsafeGet.scheme match {
                                        case ExpressionScheme.Forall(tvar, _, resultType: Expression) =>
-                                         Right(resultType) // TODO: fix this: resultType may have a free type variable bound as `tvar` here.
+                                         Right(resultType) // TODO fix this: resultType may have a free type variable bound as `tvar` here.
                                      }
                 functionResultTag <- valueAndType(functionResult, variables, dhallVars)
                 argument          <- valueAndType(arg, variables, dhallVars)

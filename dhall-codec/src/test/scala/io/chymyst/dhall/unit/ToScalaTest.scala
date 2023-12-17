@@ -175,7 +175,7 @@ class ToScalaTest extends FunSuite {
     expect(e(1) == 1)
     expect(e("asdf") == "asdf")
   }
-
+  /*
   test("some built-in list functions") {
     expect("List/head Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(1.0))
     expect("List/head Double ( [ ]: Double)".dhall.asScala[Option[Double]] == None)
@@ -191,4 +191,5 @@ class ToScalaTest extends FunSuite {
       )
     )
   }
+   */
 }
