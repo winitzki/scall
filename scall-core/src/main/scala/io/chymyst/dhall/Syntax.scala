@@ -280,7 +280,7 @@ object Syntax {
     pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]],
     results: Map[Int, String],
   ): String = {
-    // println(s"DEBUG: dhallForm1($freshIndex, $pending, $results)")
+    println(s"DEBUG: dhallForm1($freshIndex, $pending, $results)")
     pending.lastOption match {
       case Some(last) =>
         val (newFresh: Int, newPending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]], newResults: Map[Int, String]) =
@@ -371,16 +371,13 @@ object Syntax {
                     )
                 case u @ UnionType(_)                       =>
                   if (u.defs.isEmpty) result("<>") // Special case.
-                  else
-                    more {
-                      val indicesToBeUsed = u.sorted.defs.toIndexedSeq.map(_._2).zipWithIndex.map { case (o, i) => o.map(_ => i) }
-                      m =>
-                        u.sorted.defs.toIndexedSeq
-                          .zip(indicesToBeUsed)
-                          .map { case ((name, _), oi) => name.name + oi.map(i => " : " + m(i)).getOrElse("") }.mkString("< ", " | ", " > ")
-                    }(u.sorted.defs.flatMap(_._2).map {
-                      (_, TermPrecedence.min)
-                    }: _*)
+                  else {
+                    more { m =>
+                      u.sorted.defs.toIndexedSeq.zipWithIndex
+                        .map { case ((name, otipe), i) => name.name + otipe.map(_ => " : " + m(i)).getOrElse("") }.mkString("< ", " | ", " > ")
+                    }(u.sorted.defs.map(_._2.getOrElse(Expression(ExprConstant(SyntaxConstants.Constant.Sort)))).map((_, TermPrecedence.min)): _*)
+                    // The "Sort" will never be actually used but we don't have a NO-OP code in this mini-language.
+                  }
                 case ShowConstructor(data)                  => more(m => "showConstructor " + m(0))((data, p))
                 case Import(importType, importMode, digest) =>
                   val maybeHeaders = importType.userHeaders match {
