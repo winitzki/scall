@@ -44,8 +44,30 @@ class SimpleImportResolutionTest extends DhallTest {
   }
 
   test("no loops in importing") {
-    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath.toString
-    expect(file.dhall.resolveImports(Paths.get(file).getParent.resolve("package.dhall")).isInstanceOf[Expression])
+    val file = resourceAsFile("dhall-lang/Prelude/Map/map.dhall").get.toPath
+    expect(file.toString.dhall.resolveImports(file.getParent.resolve("package.dhall")).isInstanceOf[Expression])
+  }
+
+  test("alpha-normalize and beta-normalize imported file") {
+    val file     = resourceAsFile("dhall-lang/tests/semantic-hash/success/prelude/Natural/enumerate/0A.dhall").get.toPath
+    val resolved = TestUtils.readToString(file).dhall.resolveImports(file)
+    println(s"Resolving imports gives:\n${resolved.print}")
+    val alpha    = resolved.alphaNormalized
+    println(s"Alpha-normalized:\n${alpha.print}")
+    val beta     = alpha.betaNormalized
+    println(s"Beta-normalized:\n${beta.print}\nCBOR model:\n${beta.toCBORmodel}")
+  }
+
+  test("exponential blowup in normal form") { // See https://github.com/dhall-lang/dhall-lang/issues/1286
+    val input   = """let drop = https://prelude.dhall-lang.org/List/drop
+                  |let generate = https://prelude.dhall-lang.org/List/generate
+                  |let f = \(g : Natural) -> generate g Natural (\(x : Natural) -> x)
+                  |in \(g : Natural) -> \(n : Natural) -> drop n Natural (f g)
+                  |""".stripMargin.dhall.resolveImports().typeCheckAndBetaNormalize().unsafeGet
+    // `input` is a function applied to 2 natural numbers (x, y) and gives Scala's (0 to x).drop(y),
+    // but the normal form of partially applied `input n` is of size 2^n.
+    val results = (1 to 15).map { i => input(NaturalLiteral(i)).betaNormalized.exprCount }
+    expect(results.forall(_ < 300000)) // With full optimization, this should be all < 200
   }
 
   test("import alternatives inside expressions") {

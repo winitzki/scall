@@ -2,7 +2,6 @@ package io.chymyst.dhall
 
 import fastparse.NoWhitespace._
 import fastparse._
-import io.chymyst.abnf.ABNFGrammar.{ALPHA, BIT, DIGIT}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, PathComponent, RawRecordLiteral}
 import io.chymyst.dhall.SyntaxConstants.{ConstructorName, FieldName, ImportType, VarName}
@@ -12,6 +11,18 @@ import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
 
 object Grammar {
+
+  def ALPHA[$: P] = P(
+    CharIn("\u0041-\u005A", "\u0061-\u007A") //  A_Z | a_z
+  )
+
+  def BIT[$: P] = P(CharIn("01"))
+
+
+  def DIGIT[$: P] = P(
+    CharIn("0-9")
+    //  0_9
+  )
 
   def end_of_line[$: P] = P("\n" | "\r\n")
 
@@ -218,8 +229,8 @@ object Grammar {
   def double_quote_chunk[$: P]: P[Either[TextLiteral[Expression], TextLiteralNoInterp]] = P( // text literal with or without interpolations
     interpolation.map(TextLiteral.ofExpression).map(Left.apply)
       // '\'    Beginning of escape sequence
-      | ("\\" ~/ double_quote_escaped).map(TextLiteralNoInterp).map(Right.apply)
-      | double_quote_char.!.map(TextLiteralNoInterp).map(Right.apply)
+      | ("\\" ~/ double_quote_escaped).map(TextLiteralNoInterp.apply).map(Right.apply)
+      | double_quote_char.!.map(TextLiteralNoInterp.apply).map(Right.apply)
   )
 
   def double_quote_escaped[$: P]: P[String] = P(
@@ -836,7 +847,7 @@ object Grammar {
   )
 
   def hash[$: P] = P(
-    "sha256:" ~/ hexdigitAnyCase.rep(exactly = 64).! // "sha256:XXX...XXX"
+    "sha256:" ~/ hexdigitAnyCase.rep(exactly = 64).!./ // "sha256:XXX...XXX"
   )
 
   def import_hashed[$: P]: P[(ImportType[Expression], Option[String])] = P(
@@ -857,7 +868,7 @@ object Grammar {
 
   // The ABNF spec does not define those sub-rules. They are created only to help with debugging.
 
-  def expression_lambda[$: P]: P[Expression] = P(lambda ~ whsp ~/ "(" ~ whsp ~/ nonreserved_label ~ whsp ~ ":" ~ whsp1 ~/ expression ~ whsp ~ ")" ~ whsp ~ arrow ~/
+  def expression_lambda[$: P]: P[Expression] = P(lambda ~ whsp ~/ "(" ~ whsp ~/ nonreserved_label ~ whsp ~ ":" ~ whsp1 ~/ expression ~ whsp ~ ")" ~ whsp ~/ arrow ~/
     whsp ~ expression)
     .map { case (name, tipe, body) => Lambda(name, tipe, body) }
 
@@ -877,7 +888,7 @@ object Grammar {
   def expression_as_in[$: P]: P[Expression] = P(
     requireKeyword("as") ~ whsp1 ~/ application_expression ~ whsp ~
       requireKeyword("in") ~ whsp1 ~/ expression ~ whsp ~
-      with_binding.rep ~ requireKeyword("then") ~ whsp1 ~ expression
+      with_binding.rep ~ requireKeyword("then") ~ whsp1 ~/ expression
   ).map { case (Expression(Application(typeConstructor, typeArg)), bind, withBindings, thenResult) =>
     // Desugar according to https://discourse.dhall-lang.org/t/proposal-do-notation-syntax/99
     //    as (M A) in bind ... with x : B in q <rest>
@@ -922,24 +933,24 @@ object Grammar {
 
   def expression[$: P]: P[Expression] = P(
     //  "\(x : a) -> b"
-    expression_lambda
+    expression_lambda./
       //
       //  "if a then b else c"
-      |  expression_if_then_else
+      |  expression_if_then_else./
       //
       //  "let x : t = e1 in e2"
       //  "let x     = e1 in e2"
       //  We allow dropping the `in` between adjacent let_expressions; the following are equivalent:
       //  "let x = e1 let y = e2 in e3"
       //  "let x = e1 in let y = e2 in e3"
-      |  expression_let_binding
+      |  expression_let_binding./
       //
       //  "forall (x : a) -> b"
-      |  expression_forall
+      |  expression_forall./
       //
       // Experimental: "do notation"
       //  "as (M A) in bind with x : B in p with y : C in q then z"
-      |  expression_as_in
+      |  expression_as_in./
       //
       //  "a -> b"
       //
@@ -971,10 +982,10 @@ object Grammar {
       | NoCut(expression_toMap)
       //
       //  "assert : Natural/even 1 === False"
-      | expression_assert
+      | expression_assert./
       //
       //  "x : t"
-      | annotated_expression
+      | annotated_expression./
   )
 
   def annotated_expression[$: P]: P[Expression] = P(

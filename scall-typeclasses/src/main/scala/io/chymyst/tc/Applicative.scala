@@ -1,6 +1,7 @@
-package io.chymyst.dhall
+package io.chymyst.tc
 
-import io.chymyst.dhall.Monoid.MonoidSyntax
+import io.chymyst.ch.implement
+import io.chymyst.tc.Monoid.MonoidSyntax
 
 import scala.util.{Success, Try}
 
@@ -33,8 +34,8 @@ object Applicative {
   def seqSeq[F[_]: Applicative, A](fas: Seq[F[A]]): F[Seq[A]] =
     fas.foldLeft(Applicative[F].pure(Seq[A]())) { (prev, fa) => (prev zip fa).map { case (prevSeq, a) => prevSeq :+ a } }
 
-  def apply[F[_]: Applicative]: Applicative[F] = implicitly[Applicative[F]]
-
+  def apply[F[_]: Applicative]: Applicative[F]                               = implicitly[Applicative[F]]
+  /*
   implicit val ApplicativeTry: Applicative[Try] = new Applicative[Try] {
     override def zip[A, B](fa: Try[A], fb: Try[B]): Try[(A, B)] = fa.flatMap { a => fb.map((a, _)) }
 
@@ -42,7 +43,7 @@ object Applicative {
 
     override def pure[A](a: A): Try[A] = Success(a)
   }
-
+   */
   implicit def eitherMonoidApplicative[E: Monoid]: Applicative[Either[E, *]] = new Applicative[Either[E, *]] {
     override def zip[A, B](fa: Either[E, A], fb: Either[E, B]): Either[E, (A, B)] = (fa, fb) match {
       case (Right(a), Right(b)) => Right((a, b))
@@ -51,18 +52,27 @@ object Applicative {
       case (Left(ea), Left(eb)) => Left(ea ++ eb)
     }
 
-    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = fa map f
+    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = implement
 
     override def pure[A](a: A): Either[E, A] = Right(a)
   }
 }
 
-sealed trait Monoid[M] {
+trait Monoid[M] {
   def empty: M
   def combine(a: M, b: M): M
 }
 
 object Monoid {
+  type Const[M, A] = M
+  implicit def trivialApplicative[M: Monoid]: Applicative[Const[M, *]] = new Applicative[Const[M, *]] {
+    override def zip[A, B](fa: Const[M, A], fb: Const[M, B]): Const[M, (A, B)] = fa ++ fb
+
+    override def map[A, B](f: A => B)(fa: Const[M, A]): Const[M, B] = implement
+
+    override def pure[A](a: A): Const[M, A] = Monoid[M].empty
+  }
+
   implicit class MonoidSyntax[M: Monoid](m: M) {
     def ++(other: M): M = implicitly[Monoid[M]].combine(m, other)
   }
@@ -75,3 +85,20 @@ object Monoid {
 
   def apply[M: Monoid]: Monoid[M] = implicitly[Monoid[M]]
 }
+/*
+final case class State[S, A](run: S => (S, A))
+
+object State {
+  implicit def applicativeState[S]: Applicative[State[S, *]] = new Applicative[State[S, *]] {
+    override def zip[A, B](fa: State[S, A], fb: State[S, B]): State[S, (A, B)] = State { s =>
+      val (s1, a) = fa.run(s)
+      val (s2, b) = fb.run(s1)
+      (s2, (a, b))
+    }
+
+    override def map[A, B](f: A => B)(fa: State[S, A]): State[S, B] = implement
+
+    override def pure[A](a: A): State[S, A] = implement
+  }
+}
+ */

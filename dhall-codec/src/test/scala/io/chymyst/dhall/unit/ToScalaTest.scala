@@ -1,13 +1,14 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.sun.org.apache.xpath.internal.operations.Bool
 import io.chymyst.dhall.Parser.StringAsDhallExpression
-import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
+import io.chymyst.dhall.Syntax.{Expression, Natural}
+import io.chymyst.dhall.SyntaxConstants.FieldName
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
 import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
+import izumi.reflect.macrortti.{LTag, LightTypeTag}
 import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
 
@@ -168,20 +169,27 @@ class ToScalaTest extends FunSuite {
     expect(f(BigInt(10)) == BigInt(22))
   }
 
-  test("wip convert generic functions to Scala generic functions") {
-    object TestObj  {
-      def a[A](x: A): A = x
-    }
-    trait TestTrait {
-      def a[A](x: A): A = x
-    }
-    class TestClass {
-      def a[A](x: A): A = x
-    }
-    val tag1 = Tag[TestObj.type]
-    val tag2 = Tag[TestTrait]
-    val tag3 = Tag[TestClass]
-    val tag4 = Tag[{ def a[A]: A }]
-    val d    = "\\(A: Type) -> \\(x : A) -> x".dhall
+  test("convert generic functions to Scala generic functions") {
+    val d = "\\(A: Type) -> \\(x: A) -> x".dhall // TODO: enable .asScala[{ def apply[A]: A => A }] or something like that.
+    val e = new { def apply[A](x: A): A = x }
+    expect(e(1) == 1)
+    expect(e("asdf") == "asdf")
   }
+  /*
+  test("some built-in list functions") {
+    expect("List/head Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(1.0))
+    expect("List/head Double ( [ ]: Double)".dhall.asScala[Option[Double]] == None)
+    expect("List/last Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(3.0))
+    expect("List/last Double ( [ ]: Double)".dhall.asScala[Option[Double]] == None)
+    expect("List/length Double [1.0, 2.0, 3.0]".dhall.asScala[BigInt] == BigInt(3))
+    expect("List/reverse Double [1.0, 2.0, 3.0]".dhall.asScala[List[Double]] == List(3.0, 2.0, 1.0))
+    expect("List/head Double ( [ ]: Double)".dhall.asScala[Option[Double]] == None)
+    expect(
+      "List/indexed Bool [True, False]".dhall.asScala[List[DhallRecordValue]] == List(
+        DhallRecordValue(Map(FieldName("index") -> (BigInt(0), Tag[BigInt]), FieldName("value") -> (true, Tag[Boolean]))),
+        DhallRecordValue(Map(FieldName("index") -> (BigInt(1), Tag[BigInt]), FieldName("value") -> (false, Tag[Boolean]))),
+      )
+    )
+  }
+   */
 }

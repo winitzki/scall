@@ -22,7 +22,7 @@ class DhallSemanticsSuite extends DhallTest {
         val x                                                 = ourResult.alphaNormalized
         val y                                                 = validationResult.alphaNormalized
         //  println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.print}, after alpha-normalization ${x.print}")
-        expect(x.print == y.print && x == y)
+        expect(x.print == y.print, x == y)
         file.getName
       }
       if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
@@ -50,7 +50,7 @@ class DhallSemanticsSuite extends DhallTest {
             s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.print}\n\t\tafter beta-normalization:\n${x.print}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
           )
 
-        expect(x.print == y.print && x == y)
+        expect(x.print == y.print, x == y)
         file.getName
       }
       if (result.isFailure)

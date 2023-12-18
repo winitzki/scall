@@ -5,8 +5,10 @@ import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.Expression._
 import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.{Builtin, VarName}
+import io.chymyst.dhall.SyntaxConstants.VarName
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
+
+import scala.util.Try
 
 class SimpleSemanticsTest extends DhallTest {
 
@@ -41,6 +43,17 @@ class SimpleSemanticsTest extends DhallTest {
     expect(expr.print == "./import1 ? ./import2")
   }
 
+  test("alpha-normalization and beta-normalization should refuse imports") {
+    expect(Try("./import1".dhall.alphaNormalized).failed.get.getMessage contains "Unresolved imports cannot be alpha-normalized")
+    expect(Try("./import1".dhall.betaNormalized).failed.get.getMessage contains "Unresolved import in ./import1 cannot be beta-normalized")
+    expect(Try("./import1 ? ./import2".dhall.alphaNormalized).failed.get.getMessage contains "Unresolved imports cannot be alpha-normalized")
+    expect(
+      Try(
+        "./import1 ? ./import2".dhall.betaNormalized
+      ).failed.get.getMessage contains "Unresolved import alternative in ./import1 ? ./import2 cannot be beta-normalized"
+    )
+  }
+
   test("beta-normalize with unique subexpressions") {
     """let enumerate
        |    : Natural → List Natural
@@ -70,12 +83,42 @@ class SimpleSemanticsTest extends DhallTest {
        |let example1 = assert : enumerate 0 ≡ ([] : List Natural)
        |
        |in  enumerate
-       |""".stripMargin.dhall.betaNormalized
+       |""".stripMargin.dhall.typeCheckAndBetaNormalize()
   }
 
-  test("foldWhile performance test with bitLength") { // TODO: this should work with iterations = 1000. Try optimizing foldWhile and try implementing a lazy evaluation strategy.
+  test("shortcut in Natural/fold if the result no longer changes") {
+    val result = """
+                   |( \(y: Natural) -> Natural/fold y Natural (\(x: Natural) -> x) 0 ) 500000000000000000
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "0")
+  }
+
+  test("shortcut in Natural/fold if the result no longer changes, with symbolic lambda") {
+    val result = """
+                   |( \(x: Natural) -> \(y: Natural) -> Natural/fold x Natural (\(x: Natural) -> x) y ) 50000000000000000000000000
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "λ(y : Natural) → y")
+  }
+
+  test("avoid expanding Natural/fold when the result grows as a symbolic expression") {
+    val result = """
+                   |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
+                   |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print contains "Natural/fold 9999999999999999999999999501 Natural")
+//    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) y")
+  }
+
+  test("compute expression count") {
+    expect("1".dhall.exprCount == 1)
+    expect("1 + 1".dhall.exprCount == 2)
+    expect("""\(y: Natural) -> Natural/fold 10 Natural (\(x: Natural) -> x + 1) y""".dhall.exprCount == 8)
+  }
+
+  test("foldWhile performance test with bitLength") {
     val result = """
       |-- Helpers from Prelude/Natural.
+      |let iterations = 1000 -- Should not be slow even with many iterations.
+      |
       |let Natural/lessThanEqual
       |    : Natural → Natural → Bool
       |    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
@@ -104,8 +147,7 @@ class SimpleSemanticsTest extends DhallTest {
       |    result.current
       |
       |-- Subtract 1 from 5 until the result is below 3. Max 6 iterations. This becomes very slow at >= 8 iterations.
-      |let example = let iterations = 6
-      |    in assert : foldWhile iterations Natural (\(x: Natural) -> if Natural/lessThan x 3 then None Natural else Some (Natural/subtract 1 x)) 5 === 2
+      |let example = assert : foldWhile iterations Natural (\(x: Natural) -> if Natural/lessThan x 3 then None Natural else Some (Natural/subtract 1 x)) 5 === 2
       |
       |-- Compute 1 + ceil(log2(n)) by counting how many times we need to multiply by 2 so that the result is >= n.
       |let log2 = \(n: Natural) ->
@@ -197,4 +239,75 @@ class SimpleSemanticsTest extends DhallTest {
     })
   }
 
+  test("beta-normalization with Natural/fold and shortcut") {
+    val input =
+      """(λ(n : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold n (List {}) (λ(`as` : List {}) → ([{=}]) # `as`) ([] : List {}))) (List Natural) (λ(x : { index : Natural, value : {} }) → λ(`as` : List Natural) → ([x.index]) # `as`) ([] : List Natural)) 10""".dhall
+    expect(input.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
+    expect(
+      input.alphaNormalized.print == """(λ(_ : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold _ (List {}) (λ(_ : List {}) → [{=}] # _) ([] : List {}))) (List Natural) (λ(_ : { index : Natural, value : {} }) → λ(_ : List Natural) → [_@1.index] # _) ([] : List Natural)) 10"""
+    )
+    expect(input.alphaNormalized.betaNormalized.print == "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]")
+  }
+
+  test("beta-normalization for appended lists") {
+    Seq(
+      """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "λ(x : List Bool) → List/head Bool x",
+      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "λ(x : List Bool) → List/last Bool x",
+      """\(x: List Bool) -> List/length Bool ([ True ] # x)"""       -> "λ(x : List Bool) → 1 + List/length Bool x",
+      """\(x: List Bool) -> List/head Bool ([ True ] # x)"""         -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/last Bool (x # [ True ])"""         -> "λ(x : List Bool) → Some True",
+    ).foreach { case (input, output) =>
+      val normalized = input.dhall.betaNormalized
+      expect(normalized.print == output)
+      expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet == normalized)
+    }
+  }
+
+  test("Text/replace various cases") {
+    Map(
+      """ Text/replace "abc" "def" "abcxyzabc" """           -> """"defxyzdef"""",
+      """ Text/replace "abc" "def" "xyzabc" """              -> """"xyzdef"""",
+      """ Text/replace "abc" "def" "abcxyz" """              -> """"defxyz"""",
+      """ Text/replace "abc" "def" "abc" """                 -> """"def"""",
+      """ Text/replace "abc" "def" "xyz" """                 -> """"xyz"""",
+      """ Text/replace "" "def" "xyzabc" """                 -> """"xyzabc"""",
+      """\(x: Text) -> \(y: Text) -> Text/replace "" x y """ -> """λ(x : Text) → λ(y : Text) → y""",
+      """\(x: Text) -> \(y: Text) -> Text/replace x y "" """ -> """λ(x : Text) → λ(y : Text) → """"",
+    ).foreach { case (input, output) =>
+      expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet.print == output)
+    }
+  }
+
+  test("invalid field name is an error") {
+    expect(
+      Try(
+        "{x = 1}.y".dhall.betaNormalized
+      ).failed.get.getMessage contains "Record access in { x = 1 }.y has invalid field name (y), which should be one of the record literal's fields: (x)"
+    )
+    expect(
+      Try(
+        "{x = 1}.y".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage == "Type-checking failed with errors: List(In field selection, the record type with field names (x) does not contain field name (y), type inference context = {})"
+    )
+    expect(
+      Try(
+        "{x : Bool}.y".dhall.betaNormalized
+      ).failed.get.getMessage contains "Record access in { x : Bool }.y has invalid field name (y), which should be one of the record type's fields: (x)"
+    )
+    expect(
+      Try(
+        "{x : Bool}.y".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage == "Type-checking failed with errors: List(Record type with field names (x) does not contain field name (y), type inference context = {})"
+    )
+  }
+
+  test("record types field access") {
+    expect("{a: Bool, b: Integer}.a".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "Bool")
+    expect("{a: Bool, b: Integer}.{a}".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "{ a : Bool }")
+    expect(
+      Try(
+        "{a: Bool, b: Integer}.({a : Text})".dhall.typeCheckAndBetaNormalize().unsafeGet
+      ).failed.get.getMessage contains "ProjectByType is invalid because the base expression has type Type instead of RecordType"
+    )
+  }
 }

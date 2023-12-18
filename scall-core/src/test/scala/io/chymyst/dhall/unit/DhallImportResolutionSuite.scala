@@ -71,7 +71,7 @@ class DhallImportResolutionSuite extends DhallTest with OverrideEnvironment with
                 s"DEBUG: ${file.getName}: The expressions differ. Our parser gives:\n${ourResult.print}\n\t\tafter beta-normalization:\n${x.print}\n\t\tDhall texts are equal but expressions differ: our normalized expression is:\n$x\n\t\tThe expected correct expression is:\n$y\n"
               )
 
-            expect(x.print == y.print && x == y)
+            expect(x.print == y.print, x == y)
             file.getName
           }
           if (result.isFailure)

@@ -13,6 +13,7 @@ import io.chymyst.dhall.SyntaxConstants.ImportMode.Location
 import io.chymyst.dhall.SyntaxConstants.ImportType.{ImportPath, Remote}
 import io.chymyst.dhall.SyntaxConstants.Operator.Alternative
 import io.chymyst.dhall.SyntaxConstants._
+import io.chymyst.tc.Applicative
 
 import java.nio.file
 import java.nio.file.{Files, Paths}
