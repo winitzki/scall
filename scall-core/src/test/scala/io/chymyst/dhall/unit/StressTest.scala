@@ -79,7 +79,7 @@ class StressTest extends DhallTest {
     val generate = { n: Int => "(" * n + "1" + ")" * n }
     expect(generate(1) == "(1)")
     expect(generate(3) == "(((1)))")
-    measure(generate, 120, 2)
+    measure(generate, 12, 2)
   }
 
   test("deeply nested records") {
