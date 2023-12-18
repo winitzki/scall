@@ -58,27 +58,30 @@ class ParserStressTest extends DhallTest {
     import fastparse.NoWhitespace._
     import fastparse._
 
-    def program[$: P] = P(xexpression ~ End)
+    def program[$: P]: P[Int] = P(expr ~ End)
+    def expr[$: P]: P[Int]    = P(x_minus | x_plus)
+    def x_minus[$: P]         = P(x_times ~ "-" ~ expr).map { case (x, y) => x - y }
+    def x_plus[$: P]          = P(x_times ~ ("+" ~ expr).rep).map { case (i, is) => i + is.sum }
+    def x_times[$: P]         = P(x_other ~ ("*" ~ x_other).rep).map { case (i, is) => i * is.product }
+    def x_other[$: P]         = P(number | ("(" ~ expr ~ ")"))
+    def number[$: P]          = P(CharIn("0-9").rep(1)).!.map(_.toInt)
 
-    def xexpression[$: P]: P[Unit] = P(x_minus | x_plus)
+    expect(parse("123", program(_)).get.value == 123)
+    expect(parse("123+1", program(_)).get.value == 124)
+    expect(parse("123*2", program(_)).get.value == 246)
+    expect(parse("123*(1+1)", program(_)).get.value == 246)
+    expect(parse("123*1+1", program(_)).get.value == 124)
+    expect(parse("123*1-1", program(_)).get.value == 122)
+    expect(parse("123*(1-1)", program(_)).get.value == 0)
+    expect(parse("1+2*3-(4-5)*6", program(_)).get.value == 1 + 2 * 3 - (4 - 5) * 6)
 
-    def x_minus[$: P] = P(x_times ~ "-" ~/ xexpression)
-
-    def x_plus[$: P] = P(x_times ~ ("+" ~/ xexpression).?)
-
-    def x_times[$: P] = P(xprimitive_expression ~ ("*" ~/ xprimitive_expression).rep)
-
-    def xprimitive_expression[$: P] = P(number | ("(" ~ xexpression ~ ")"))
-
-    def number[$: P] = P(CharIn("0-9").rep(1))
-
-    (10 to 24).foreach { n =>
+    (10 to 22).foreach { n =>
       val (_, elapsed) = elapsedNanos {
-        parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value
-//        parse("1+ " + "(1+ " * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value
+        expect(parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == 1)
+        expect(parse("1+" + "(1+" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == n + 1)
       }
-
       println(f"Expression length = $n, elapsed = ${elapsed / 1000.0 / 1000000}%.2f")
     }
+
   }
 }
