@@ -29,13 +29,21 @@ class ParserStressTest extends DhallTest {
     import fastparse.NoWhitespace._
     import fastparse._
 
+//    def program[$: P]: P[Int] = P(expr ~ End)
+//
+//    def expr[$: P]: P[Int] = P(plus | ("(" ~ expr ~ ")"))
+//
+//    def number[$: P]: P[Int] = P(CharIn("0-9").rep(1).!.map(_.toInt))
+//
+//    def plus[$: P]: P[Int] = P(number | (expr ~ ("+" ~ expr).rep).map { case (i, is) => i + is.sum })
+
     def program[$: P]: P[Int] = P(plus ~ End)
 
     def plus[$: P]: P[Int] = P(not_plus ~ ("+" ~ not_plus).rep).map { case (i, is) => i + is.sum }
 
     def not_plus[$: P]: P[Int] = P(number | ("(" ~ plus ~ ")"))
 
-    def number[$: P]: P[Int] = P(CharIn("0-9").rep(1).!.map(_.toInt))./
+    def number[$: P]: P[Int] = P(CharIn("0-9").rep(1).!.map(_.toInt))
 
     expect(parse("123", program(_)).get.value == 123)
     expect(parse("(123)", program(_)).get.value == 123)
@@ -43,5 +51,6 @@ class ParserStressTest extends DhallTest {
     expect(parse("1+(1+1)", program(_)).get.value == 3)
     val n = 500
     expect(parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == 1)
+    expect(parse("1+" + "(1+" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == n + 1)
   }
 }
