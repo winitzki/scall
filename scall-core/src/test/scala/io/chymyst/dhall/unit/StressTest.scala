@@ -75,6 +75,13 @@ class StressTest extends DhallTest {
     measure(generate, 12, 2)
   }
 
+  test("deeply nested parentheses") {
+    val generate = { n: Int => "(" * n + "1" + ")" * n }
+    expect(generate(1) == "(1)")
+    expect(generate(3) == "(((1)))")
+    measure(generate, 120, 2)
+  }
+
   test("deeply nested records") {
     val generate = { n: Int => "{x = " * n + "1" + "}" * n }
     expect(generate(1) == "{x = 1}")

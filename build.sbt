@@ -16,7 +16,7 @@ val curryhoward       = "io.chymyst"           %% "curryhoward"    % "0.3.8"
 val kindProjector     = "org.typelevel"         % "kind-projector" % "0.13.2" cross CrossVersion.full
 val jnr_posix         = "com.github.jnr"        % "jnr-posix"      % "3.1.18"
 val cbor1             = "co.nstant.in"          % "cbor"           % "0.9"
-val cbor2             = "com.upokecenter"       % "cbor"           % "4.5.2"
+val cbor2             = "com.upokecenter"       % "cbor"           % "4.5.3"
 val cbor3             = "io.bullet"            %% "borer-core"     % "1.8.0"
 
 val kindProjectorPlugin = compilerPlugin(kindProjector)

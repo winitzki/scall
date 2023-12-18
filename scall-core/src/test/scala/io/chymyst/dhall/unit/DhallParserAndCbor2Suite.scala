@@ -41,7 +41,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
   }
 
   test("parse standard examples for failed parsing") {
-    val results  = testFilesForFailure.map { file =>
+    val results   = testFilesForFailure.map { file =>
       val result = Try {
         val Parsed.Success(result, _) = Parser.parseDhallStream(new FileInputStream(file))
         result
@@ -50,9 +50,10 @@ class DhallParserAndCbor2Suite extends DhallTest {
       if (result.isSuccess) println(s"Parsing file ${file.getName} expecting failure. Result: unexpected success:\n\t\t\t${result.get}\n")
       result
     }
-    val failures = results.count(_.isSuccess) // We expect that all examples fail to parse here.
+    val failures  = results.count(_.isSuccess) // We expect that all examples fail to parse here.
+    val successes = results.count(_.isFailure)
     println(s"Success count: ${results.count(_.isFailure)}\nFailure count: $failures")
-    expect(failures == 0)
+    expect(failures == 0, successes == 94)
   }
 
   test("convert standard examples for successful parsing into CBOR") {
@@ -102,7 +103,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
     val failures      = results.count(_.isFailure)
     val modelFailures = results.filter(_.isFailure).count(_.failed.get.getMessage.contains("model differs"))
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: $failures\nCBOR model mismatch count: $modelFailures")
-    expect(failures <= 2 && modelFailures == 0) // Two failures are due to a bug in CBOR-Java. PR was already merged to fix that bug.
+    expect(failures <= 0 && modelFailures == 0)
   }
 
   test("validate CBOR reading for standard examples") {
@@ -144,7 +145,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results
         .count(_.isFailure)}\nCBOR expression mismatch count: ${results.filter(_.isFailure).count(_.failed.get.getMessage.contains("expression differs"))}")
     results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
-    TestUtils.requireSuccessAtLeast(284, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("validate binary decoding/success") {
