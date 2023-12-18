@@ -25,7 +25,7 @@ class ParserStressTest extends DhallTest {
     )
   }
 
-  test("simple grammar with exponential slowness") {
+  test("simple grammar with no exponential slowness") {
     import fastparse.NoWhitespace._
     import fastparse._
 
@@ -39,9 +39,9 @@ class ParserStressTest extends DhallTest {
 
     def program[$: P]: P[Int] = P(plus ~ End)
 
-    def plus[$: P]: P[Int] = P(not_plus ~ ("+" ~ not_plus).rep).map { case (i, is) => i + is.sum }
+    def plus[$: P]: P[Int] = P(xprimitive_expression ~ ("+" ~ xprimitive_expression).rep).map { case (i, is) => i + is.sum }
 
-    def not_plus[$: P]: P[Int] = P(number | ("(" ~ plus ~ ")"))
+    def xprimitive_expression[$: P]: P[Int] = P(number | ("(" ~ plus ~ ")"))
 
     def number[$: P]: P[Int] = P(CharIn("0-9").rep(1).!.map(_.toInt))
 
@@ -52,5 +52,33 @@ class ParserStressTest extends DhallTest {
     val n = 500
     expect(parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == 1)
     expect(parse("1+" + "(1+" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == n + 1)
+  }
+
+  test("simple grammar with exponential slowness") {
+    import fastparse.NoWhitespace._
+    import fastparse._
+
+    def program[$: P] = P(xexpression ~ End)
+
+    def xexpression[$: P]: P[Unit] = P(x_minus | x_plus)
+
+    def x_minus[$: P] = P(x_times ~ "-" ~/ xexpression)
+
+    def x_plus[$: P] = P(x_times ~ ("+" ~/ xexpression).?)
+
+    def x_times[$: P] = P(xprimitive_expression ~ ("*" ~/ xprimitive_expression).rep)
+
+    def xprimitive_expression[$: P] = P(number | ("(" ~ xexpression ~ ")"))
+
+    def number[$: P] = P(CharIn("0-9").rep(1))
+
+    (10 to 24).foreach { n =>
+      val (_, elapsed) = elapsedNanos {
+        parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value
+//        parse("1+ " + "(1+ " * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value
+      }
+
+      println(f"Expression length = $n, elapsed = ${elapsed / 1000.0 / 1000000}%.2f")
+    }
   }
 }
