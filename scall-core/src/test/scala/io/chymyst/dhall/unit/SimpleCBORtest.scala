@@ -45,12 +45,12 @@ class CBORtest extends DhallTest {
     }
   }
 
-  test("CBOR roundtrips for half-precision float") {
+  test("CBOR roundtrips for half-precision floats") {
     expect(CBORObject.FromObject(1.0).EncodeToBytes().length == 3)
-    expect(CBORObject.FromObject(0.0f).EncodeToBytes().length == 5)
-    expect(CBORObject.FromObject(-0.0f).EncodeToBytes().length == 5)
-    expect(CBORObject.FromObject(0.0).EncodeToBytes().length == 5)
-    expect(CBORObject.FromObject(-0.0).EncodeToBytes().length == 5)
+    expect(CBORObject.FromObject(0.0f).EncodeToBytes().length == 3)
+    expect(CBORObject.FromObject(-0.0f).EncodeToBytes().length == 3)
+    expect(CBORObject.FromObject(0.0).EncodeToBytes().length == 3)
+    expect(CBORObject.FromObject(-0.0).EncodeToBytes().length == 3)
   }
 
   test("CBOR roundtrips for half-precision double") {
