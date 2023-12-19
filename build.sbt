@@ -4,11 +4,14 @@ val scalaV  = scala2V
 
 def munitFramework = new TestFramework("munit.Framework")
 
-val munitTest         = "org.scalameta"        %% "munit"          % "0.7.29" % Test
-val fastparse         = "com.lihaoyi"          %% "fastparse"      % "3.0.2"
+val munitTest = "org.scalameta" %% "munit" % "0.7.29" % Test
+val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"        % "0.16.0" % Test
+
+val fastparse = "com.lihaoyi" %% "fastparse"      % "3.0.2"
+val antlr4    = "org.antlr"    % "antlr4-runtime" % "4.13.1"
+
 val os_lib            = "com.lihaoyi"          %% "os-lib"         % "0.9.2"
 val httpRequest       = "com.lihaoyi"          %% "requests"       % "0.8.0"
-val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty"        % "0.16.0" % Test
 val enumeratum        = "com.beachape"         %% "enumeratum"     % "1.7.3"
 val flatlaf           = "com.formdev"           % "flatlaf"        % "3.2.2"
 val izumi_reflect     = "dev.zio"              %% "izumi-reflect"  % "2.3.8"
@@ -56,6 +59,7 @@ lazy val scall_core = (project in file("scall-core"))
       }),
     libraryDependencies ++= Seq(
       fastparse,
+      antlr4,
       munitTest,
       assertVerboseTest,
       enumeratum,
