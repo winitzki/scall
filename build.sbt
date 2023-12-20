@@ -7,8 +7,9 @@ def munitFramework = new TestFramework("munit.Framework")
 val munitTest         = "org.scalameta"        %% "munit"   % "0.7.29" % Test
 val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty" % "0.16.0" % Test
 
-val fastparse = "com.lihaoyi" %% "fastparse"      % "3.0.2"
-val antlr4    = "org.antlr"    % "antlr4-runtime" % "4.13.1"
+val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.0.2"
+val antlr4           = "org.antlr"                  % "antlr4-runtime"              % "4.13.1"
+val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalone" % "1.2.1" % Compile
 
 val os_lib        = "com.lihaoyi"    %% "os-lib"         % "0.9.2"
 val httpRequest   = "com.lihaoyi"    %% "requests"       % "0.8.0"
@@ -60,6 +61,7 @@ lazy val scall_core = (project in file("scall-core"))
     libraryDependencies ++= Seq(
       fastparse,
       antlr4,
+      anltr4_formatter,
       munitTest,
       assertVerboseTest,
       enumeratum,
