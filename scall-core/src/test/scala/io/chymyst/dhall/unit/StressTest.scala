@@ -9,11 +9,11 @@ class StressTest extends DhallTest {
   def measure(generate: Int => String, max: Int, by: Int) = {
     (1 to max by by).foreach { n =>
       val (parsed, elapsedParsing)         = elapsedNanos(generate(n).dhall)
-      println(f"Iteration $n\tparsing elapsed ${elapsedParsing / 1000000000.0}%.2f s")
+      println(f"Expression length = $n\tparsing elapsed ${elapsedParsing / 1000000000.0}%.2f s")
       val (printed, elapsedPrinting)       = elapsedNanos(parsed.print)
-      println(f"Iteration $n\t\tprinted elapsed ${elapsedPrinting / 1000000000.0}%.2f s")
+      println(f"Expression length = $n\t\tprinted elapsed ${elapsedPrinting / 1000000000.0}%.2f s")
       val (normalized, elapsedNormalizing) = elapsedNanos(parsed.betaNormalized)
-      println(f"Iteration $n\t\t\tnormalized elapsed ${elapsedNormalizing / 1000000000.0}%.2f s")
+      println(f"Expression length = $n\t\t\tnormalized elapsed ${elapsedNormalizing / 1000000000.0}%.2f s")
     }
   }
 
