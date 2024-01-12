@@ -93,7 +93,7 @@ class ParserStressTest extends DhallTest {
 
     type R = Int // BigInt
 
-    final case class PRun(
+    final case class PRunData(
       terminalMsgs: Msgs,
       aggregateMsgs: Msgs,
       shortMsg: Msgs,
@@ -108,29 +108,29 @@ class ParserStressTest extends DhallTest {
       noDropBuffer: Boolean,
       misc: collection.mutable.Map[Any, Any],
     ) {
-      override def toString: String                   = {
+      override def toString: String                               = {
         s"ParsingRun(index=$index, isSuccess = $isSuccess, successValue = $successValue)"
       }
-      def assign[T](to: ParsingRun[T]): ParsingRun[T] = {
-        to.terminalMsgs = terminalMsgs
-        to.aggregateMsgs = aggregateMsgs
-        to.shortMsg = shortMsg
-        to.lastFailureMsg = lastFailureMsg
-        to.failureStack = failureStack
-        to.isSuccess = isSuccess
-        to.logDepth = logDepth
-        to.index = index
-        to.cut = cut
-        to.successValue = successValue
-        to.verboseFailures = verboseFailures
-        to.noDropBuffer = noDropBuffer
-        misc.foreach { case (k, v) => to.misc.put(k, v) }
-        to
+      def assignToParsingRun[T](pr: ParsingRun[T]): ParsingRun[T] = { // Assign the mutable data to a given ParsingRun value.
+        pr.terminalMsgs = terminalMsgs
+        pr.aggregateMsgs = aggregateMsgs
+        pr.shortMsg = shortMsg
+        pr.lastFailureMsg = lastFailureMsg
+        pr.failureStack = failureStack
+        pr.isSuccess = isSuccess
+        pr.logDepth = logDepth
+        pr.index = index
+        pr.cut = cut
+        pr.successValue = successValue
+        pr.verboseFailures = verboseFailures
+        pr.noDropBuffer = noDropBuffer
+        misc.foreach { case (k, v) => pr.misc.put(k, v) }
+        pr
       }
     }
 
-    object PRun {
-      def ofP[T](pr: ParsingRun[T]): PRun = PRun(
+    object PRunData {
+      def ofParsingRun[T](pr: ParsingRun[T]): PRunData = PRunData(
         pr.terminalMsgs,
         pr.aggregateMsgs,
         pr.shortMsg,
@@ -147,23 +147,31 @@ class ParserStressTest extends DhallTest {
       )
     }
 
-    def cacheGrammar[$, T](cache: mutable.Map[Int, PRun], parser: => P[T])(implicit p: P[$]): P[T] = {
+    def cacheGrammar[R](cache: mutable.Map[Int, PRunData], parser: => P[_])(implicit p: P[_]): P[R] = {
+      // The `parser` has not yet been run! And it is mutable. Do not run it twice!
+      val cachedData: PRunData = cache.getOrElseUpdate(p.index, PRunData.ofParsingRun(parser))
+      // After the `parser` has been run on `p`, the value of `p` changes and becomes equal to the result of running the parser.
+      // If the result was cached, we need to assign it to the current value of `p`. This will imitate the side effect of running the parser again.
+      cachedData.assignToParsingRun(p).asInstanceOf[P[R]]
+    }
+
+    def cacheGrammar0[R](cache: mutable.Map[Int, PRunData], parser: => P[_])(implicit p: P[_]): P[R] = {
       // The `parser` has not yet been run! And it is mutable. Do not run it twice!
       // After the `parser` has been run on `p`, the value of `p` changes and becomes equal to the result of running the parser.
       val initIndex = p.index
-      cache.get(initIndex) match {
+      (cache.get(initIndex) match {
         case Some(cachedPRun) =>
-          cachedPRun.assign(p).asInstanceOf[P[T]]
+          cachedPRun.assignToParsingRun(p)
         case None             =>
           val result = parser // Evaluate this only once!
-          cache.put(initIndex, PRun.ofP(result))
+          cache.put(initIndex, PRunData.ofParsingRun(result))
           result
-      }
+      }).asInstanceOf[P[R]]
     }
 
     val cache_minus = mutable.Map[Int, P[R]]()
     val cache_plus  = mutable.Map[Int, P[R]]()
-    val cache_other = mutable.Map[Int, PRun]()
+    val cache_other = mutable.Map[Int, PRunData]()
 
     def clearCaches() = {
       cache_minus.clear()
@@ -179,7 +187,7 @@ class ParserStressTest extends DhallTest {
     def x_plus_cached[$](implicit p: P[$]): P[R]  = cache_plus.getOrElseUpdate(p.index, x_plus[$])
     def x_times[$: P]: P[R]                       = P(x_other_cached ~ ("*" ~ x_other_cached).rep).map { case (i, is) => i * is.product }
     def x_other[$: P]: P[R]                       = P(number | ("(" ~ expr ~ ")"))
-    def x_other_cached[$](implicit p: P[$]): P[R] = cacheGrammar(cache_other, x_other[$])  // cache_other.getOrElseUpdate(p.index, x_other[$])
+    def x_other_cached[$](implicit p: P[$]): P[R] = cacheGrammar(cache_other, x_other)
     def number[$: P]: P[R]                        = P(CharIn("0-9").rep(1)).!.map(_.toInt) // .map(x => BigInt(x))
 
     clearCaches()
@@ -205,7 +213,7 @@ class ParserStressTest extends DhallTest {
     expect(parse("1+2*3-(4-5)*6", program(_)).get.value == 1 + 2 * 3 - (4 - 5) * 6)
     clearCaches()
 
-    (1 to 200).foreach { n => // Without memoization, this gets very slow around 20.
+    (1 to 500).foreach { n => // Without memoization, this gets very slow around 20.
       val (_, elapsed) = elapsedNanos {
         clearCaches()
         expect(parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == 1)
