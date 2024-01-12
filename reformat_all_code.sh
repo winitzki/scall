@@ -1,4 +1,4 @@
-#sbt scalafmtAll scalafmtSbt
+sbt scalafmtAll scalafmtSbt
 dhall format github-scala-build-and-test.dhall
 
 # Find the antlr4 formatter.
