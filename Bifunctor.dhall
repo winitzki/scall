@@ -41,6 +41,16 @@ let Bizip
         S b q →
           S (Pair a b) (Pair p q)
 
+let BizipK
+    : Bifunctor → Functor → Type
+    = λ(S : Bifunctor) →
+      λ(C : Functor) →
+        ∀(a : Type) →
+        ∀(b : Type) →
+        S a (C a) →
+        S b (C b) →
+          S (Pair a b) (Pair (C a) (C b))
+
 let Traverse
     : Functor → Functor → Type
     = λ(L : Functor) →
@@ -77,5 +87,6 @@ in  { Functor
     , Pure
     , Zip
     , Bizip
+    , BizipK
     , Map
     }

@@ -1,5 +1,7 @@
 let Ch = ./Church.dhall
 
+let B = ./Bifunctor.dhall
+
 let ChurchNatural = (./ChurchNaturals.dhall).ChurchNatural
 
 let HyloInt =
@@ -31,19 +33,41 @@ let mkPair =
       λ(y : b) →
         { _1 = x, _2 = y } : Pair a b
 
-let Hylo1Int =
-      λ(S : Type → Type → Type) →
-      λ ( fmapS2
-        : ∀(c : Type) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → S c a → S c b
-        ) →
+let Hylo1Int
+    : ∀(S : B.Bifunctor) →
+      B.Bimap S →
+      ∀(limit : ∀(r : Type) → r → (r → r) → r) →
+      ∀(a : Type) →
+      ∀(p : Type) →
+      ∀(coalg : p → S a p) →
+      ∀(x : p) →
+      ∀(r : Type) →
+      ∀(alg : S a r → r) →
+      ∀(default : r) →
+        r
+    = λ(S : B.Bifunctor) →
+      λ(bimapS : B.Bimap S) →
       λ(limit : ChurchNatural) →
       λ(a : Type) →
       λ(p : Type) →
       λ(coalg : p → S a p) →
+      λ(x : p) →
       λ(r : Type) →
       λ(alg : S a r → r) →
       λ(default : r) →
-      λ(x : p) →
+        let fmapS2
+            : ∀(c : Type) →
+              ∀(a : Type) →
+              ∀(b : Type) →
+              ∀(f : a → b) →
+              S c a →
+                S c b
+            = λ(c : Type) →
+              λ(a : Type) →
+              λ(b : Type) →
+              λ(f : a → b) →
+                bimapS c a c b (λ(x : c) → x) f
+
         let result
             : r
             = let loop
@@ -55,7 +79,7 @@ let Hylo1Int =
         in  result
 
 let Hylo1Ch
-    : ∀(S : Type → Type → Type) →
+    : ∀(S : B.Bifunctor) →
       ∀ ( bimapS
         : ∀(a : Type) →
           ∀(b : Type) →
@@ -150,4 +174,4 @@ let Hylo1Ch
 
         in  result
 
-in  { HyloInt, Hylo1Int, Hylo1Ch }
+in  { HyloInt, Hylo1Int, Hylo1Ch, Pair, mkPair }
