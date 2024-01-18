@@ -85,6 +85,7 @@ let BizipK
     : Bifunctor → Functor → Type
     = λ(S : Bifunctor) →
       λ(C : Functor) →
+        ∀(fmapC : Map C) →
         ∀(a : Type) →
         ∀(b : Type) →
         S a (C a) →

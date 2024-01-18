@@ -27,12 +27,15 @@ let mkTriple = B.mkTriple
 
 let S_list = λ(a : Type) → λ(r : Type) → Either {} (Pair a r)
 
+let C_list =  Ch.T1 S_list
+
 let S_nonempty_list = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
 
+let C_nonempty_list =  Ch.T1 S_nonempty_list
 let S_nonempty_tree = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
-
+let C_nonempty_tree =  Ch.T1 S_nonempty_tree
 let S_branch_data_tree = λ(a : Type) → λ(r : Type) → Either {} (Triple a r r)
-
+let C_branch_data_tree =  Ch.T1 S_branch_data_tree
 let bimap_S_list
     : B.Bimap S_list
     = let S = S_list
@@ -474,6 +477,42 @@ let bizip_S_branch_data_tree
                     }
                     sap
                   : Sabpq
+-- define bizipK_S_list via bizip_S_list and also for branch_data_tree because there is no other implementation.
+let bizipK_S_list
+    : B.BizipK S_list 
+    = let S = S_list
+
+      in  
+       λ(C : B.Functor) →
+        \(fmapC : B.Map C) →
+        \(a : Type) →
+        \(b : Type) →
+        let Sab = S (Pair a b) (Pair (C a) (C b))
+        in \(saca: S a (C a)) →
+        \(sbcb: S b (C b)) →
+                merge
+                    { Left = λ(x : {}) → Sab.Left x
+                    , Right =
+                        λ(pair_a : Pair a p) →
+                          merge
+                            { Left = λ(x : {}) → Sabpq.Left x
+                            , Right =
+                                λ(pair_b : Pair b q) →
+                                  Sabpq.Right
+                                    ( mkPair
+                                        (Pair a b)
+                                        (mkPair a pair_a._1 b pair_b._1)
+                                        (Pair p q)
+                                        (mkPair p pair_a._2 q pair_b._2)
+                                    )
+                            }
+                            sbq
+                    }
+                    sap
+            
+           : Sab
+            --       : Sabpq
+
 
 in  { S_list
     , S_nonempty_list
