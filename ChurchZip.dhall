@@ -16,6 +16,27 @@ let mkPair = Hylo.mkPair
 
 let Pair = B.Pair
 
+let zip0 =
+      λ(S : B.Bifunctor) →
+        let C = Ch.T1 S
+
+        in  λ(bizip0 : B.Zip0 S) →
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(ca : C a) →
+            λ(cb : C b) →
+              let result
+                  : C (Pair a b)
+                  = λ(r : Type) →
+                    λ(sabrr : S (Pair a b) r → r) →
+                      ca
+                        r
+                        ( λ(sar : S a r) →
+                            cb r (λ(sbr : S b r) → sabrr (bizip0 a b r sar sbr))
+                        )
+
+              in  result
+
 let zipCoalg
     : ∀(S : B.Bifunctor) →
       B.Bimap S →
@@ -44,7 +65,7 @@ let zipCoalg
 
               in  bizipKS a b sca scb
 
-let zip
+let zip1
     : ∀(S : B.Bifunctor) →
         let C = Ch.T1 S
 
@@ -117,4 +138,34 @@ let zip
                     alg
                     default
 
-in  True
+let zip2 =
+      λ(S : B.Bifunctor) →
+        let C = Ch.T1 S
+
+        in  λ(bimapS : B.Bimap S) →
+            λ(bizipS : B.Bizip S) →
+            λ(bizipKS : B.BizipK S C) →
+            λ(limit : C {}) →
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(ca : C a) →
+            λ(cb : C b) →
+              let zipCo
+                  : Pair (C a) (C b) → S (Pair a b) (Pair (C a) (C b))
+                  = zipCoalg S bimapS bizipKS a b
+
+              let result
+                  : C (Pair a b)
+                  = Hylo.Hylo1Ch
+                      S
+                      bimapS
+                      bizipS
+                      limit
+                      (Pair a b)
+                      (Pair (C a) (C b))
+                      zipCo
+                      (mkPair (C a) ca (C b) cb)
+
+              in  result
+
+in  { zip1, zipCoalg, zip0, zip2 }

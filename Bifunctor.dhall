@@ -30,6 +30,11 @@ let Bimap
         S a b →
           S c d
 
+let Zip0
+    : Bifunctor → Type
+    = λ(S : Bifunctor) →
+        ∀(a : Type) → ∀(b : Type) → ∀(r : Type) → S a r → S b r → S (Pair a b) r
+
 let Bizip
     : Bifunctor → Type
     = λ(S : Bifunctor) →
@@ -86,6 +91,7 @@ in  { Functor
     , Bitraverse
     , Pure
     , Zip
+    , Zip0
     , Bizip
     , BizipK
     , Map
