@@ -24,14 +24,9 @@ let HyloInt =
 
         in  result
 
-let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+let Pair = B.Pair
 
-let mkPair =
-      λ(a : Type) →
-      λ(x : a) →
-      λ(b : Type) →
-      λ(y : b) →
-        { _1 = x, _2 = y } : Pair a b
+let mkPair = B.mkPair
 
 let Hylo1Int
     : ∀(S : B.Bifunctor) →
@@ -174,4 +169,4 @@ let Hylo1Ch
 
         in  result
 
-in  { HyloInt, Hylo1Int, Hylo1Ch, Pair, mkPair }
+in  { HyloInt, Hylo1Int, Hylo1Ch }

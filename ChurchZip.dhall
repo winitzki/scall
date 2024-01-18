@@ -1,7 +1,5 @@
 let Ch = ./Church.dhall
 
-let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
-
 let ChurchNaturals = ./ChurchNaturals.dhall
 
 let ChurchNatural = ChurchNaturals.ChurchNatural
@@ -12,7 +10,9 @@ let Hylo = ./ChurchHylo.dhall
 
 let B = ./Bifunctor.dhall
 
-let mkPair = Hylo.mkPair
+let Either = B.Either
+
+let mkPair = B.mkPair
 
 let Pair = B.Pair
 
@@ -71,7 +71,7 @@ let zip1
 
         in  B.Bimap S →
             B.BizipK S C →
-            ∀(depth : ∀(a : Type) → C a → Natural) →
+            B.Depth S →
             ∀(a : Type) →
             ∀(b : Type) →
             C a →
@@ -83,7 +83,7 @@ let zip1
 
         in  λ(bimapS : B.Bimap S) →
             λ(bizipKS : B.BizipK S C) →
-            λ(depth : ∀(a : Type) → C a → Natural) →
+            λ(depth : B.Depth S) →
             λ(a : Type) →
             λ(b : Type) →
             λ(ca : C a) →
@@ -92,7 +92,10 @@ let zip1
               let max_depth
                   : ChurchNatural
                   = ChurchNaturals.NaturalToChurch
-                      (Natural/max (depth a ca) (depth b cb))
+                      ( Natural/max
+                          (ca Natural (depth a))
+                          (cb Natural (depth b))
+                      )
 
               let zipCo
                   : Pair (C a) (C b) → S (Pair a b) (Pair (C a) (C b))
@@ -154,9 +157,7 @@ let zip2 =
                   : Pair (C a) (C b) → S (Pair a b) (Pair (C a) (C b))
                   = zipCoalg S bimapS bizipKS a b
 
-              let result
-                  : C (Pair a b)
-                  = Hylo.Hylo1Ch
+              in    Hylo.Hylo1Ch
                       S
                       bimapS
                       bizipS
@@ -165,7 +166,6 @@ let zip2 =
                       (Pair (C a) (C b))
                       zipCo
                       (mkPair (C a) ca (C b) cb)
-
-              in  result
+                  : C (Pair a b)
 
 in  { zip1, zipCoalg, zip0, zip2 }

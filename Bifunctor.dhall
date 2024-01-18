@@ -1,10 +1,45 @@
 let Bifunctor = Type → Type → Type
 
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+
+let inLeft =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(x : a) →
+        (Either a b).Left x : < Left : a | Right : b >
+
+let inRight =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(y : b) →
+        (Either a b).Right y : < Left : a | Right : b >
+
 let Pair
     : Bifunctor
     = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 
+let mkPair =
+      λ(a : Type) →
+      λ(x : a) →
+      λ(b : Type) →
+      λ(y : b) →
+        { _1 = x, _2 = y } : Pair a b
+
+let Triple =
+      λ(a : Type) → λ(b : Type) → λ(c : Type) → { _1 : a, _2 : b, _3 : c }
+
+let mkTriple =
+      λ(a : Type) →
+      λ(x : a) →
+      λ(b : Type) →
+      λ(y : b) →
+      λ(c : Type) →
+      λ(z : c) →
+        { _1 = x, _2 = y, _3 = z } : Triple a b c
+
 let Functor = Type → Type
+
+let Depth = λ(S : Bifunctor) → ∀(a : Type) → S a Natural → Natural
 
 let Map
     : Functor → Type
@@ -86,7 +121,14 @@ let Bitraverse
 in  { Functor
     , Bifunctor
     , Bimap
+    , Either
+    , inRight
+    , inLeft
     , Pair
+    , mkPair
+    , Triple
+    , mkTriple
+    , Depth
     , Traverse
     , Bitraverse
     , Pure
