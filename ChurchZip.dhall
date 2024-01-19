@@ -42,7 +42,7 @@ let zipCoalg
       B.Bimap S →
         let C = Ch.T1 S
 
-        in  B.BizipK S C →
+        in  B.BizipK S →
             ∀(a : Type) →
             ∀(b : Type) →
             Pair (C a) (C b) →
@@ -51,7 +51,7 @@ let zipCoalg
       λ(bimapS : B.Bimap S) →
         let C = Ch.T1 S
 
-        in  λ(bizipKS : B.BizipK S C) →
+        in  λ(bizipKS : B.BizipK S) →
             λ(a : Type) →
             λ(b : Type) →
             λ(cacb : Pair (C a) (C b)) →
@@ -63,14 +63,14 @@ let zipCoalg
                   : S b (C b)
                   = Ch.unfixT1 S bimapS b cacb._2
 
-              in  bizipKS a b sca scb
+              in  bizipKS C (Ch.mapT1 S bimapS) a b sca scb
 
 let zip1
     : ∀(S : B.Bifunctor) →
         let C = Ch.T1 S
 
         in  B.Bimap S →
-            B.BizipK S C →
+            B.BizipK S →
             B.Depth S →
             ∀(a : Type) →
             ∀(b : Type) →
@@ -82,7 +82,7 @@ let zip1
         let C = Ch.T1 S
 
         in  λ(bimapS : B.Bimap S) →
-            λ(bizipKS : B.BizipK S C) →
+            λ(bizipKS : B.BizipK S) →
             λ(depth : B.Depth S) →
             λ(a : Type) →
             λ(b : Type) →
@@ -147,7 +147,7 @@ let zip2 =
 
         in  λ(bimapS : B.Bimap S) →
             λ(bizipS : B.Bizip S) →
-            λ(bizipKS : B.BizipK S C) →
+            λ(bizipKS : B.BizipK S) →
             λ(limit : C {}) →
             λ(a : Type) →
             λ(b : Type) →

@@ -5,6 +5,8 @@ let ChurchNaturals = ./ChurchNaturals.dhall
 
 let ChurchNatural = ChurchNaturals.ChurchNatural
 
+let ChurchZip = ./ChurchZip.dhall
+
 let Natural/max = https://prelude.dhall-lang.org/Natural/max
 
 let Hylo = ./ChurchHylo.dhall
@@ -681,7 +683,7 @@ let list_example_1_2
 
 let list_example_1
     : C_list Natural
-    = list_cons Natural 1 ( list_nil Natural)
+    = list_cons Natural 1 (list_nil Natural)
 
 let list_example_1_2_3_4
     : C_list Natural
@@ -694,10 +696,17 @@ let list_example_1_2_3_4
             (list_cons Natural 3 (list_cons Natural 4 (list_nil Natural)))
         )
 
-let test = assert: print_C_list Natural Natural/show (list_nil Natural) === "[]"
-let test = assert: print_C_list Natural Natural/show list_example_1 === "[1, ]"
-let test = assert: print_C_list Natural Natural/show list_example_1_2 === "[1, 2, ]"
-let test = assert: print_C_list Natural Natural/show list_example_1_2_3_4 === "[1, 2, 3, 4, ]"
+let test = assert : print_C_list Natural Natural/show (list_nil Natural) ≡ "[]"
+
+let test = assert : print_C_list Natural Natural/show list_example_1 ≡ "[1, ]"
+
+let test =
+      assert : print_C_list Natural Natural/show list_example_1_2 ≡ "[1, 2, ]"
+
+let test =
+        assert
+      :   print_C_list Natural Natural/show list_example_1_2_3_4
+        ≡ "[1, 2, 3, 4, ]"
 
 let nonempty_tree_build
     : ∀(a : Type) → S_nonempty_tree a (C_nonempty_tree a) → C_nonempty_tree a
@@ -709,6 +718,87 @@ let nonempty_tree_leaf
       λ(x : a) →
         nonempty_tree_build a ((S_nonempty_tree a (C_nonempty_tree a)).Left x)
 
+let nonempty_tree_branch
+    : ∀(a : Type) → C_nonempty_tree a → C_nonempty_tree a → C_nonempty_tree a
+    = λ(a : Type) →
+      λ(left : C_nonempty_tree a) →
+      λ(right : C_nonempty_tree a) →
+        nonempty_tree_build
+          a
+          ( (S_nonempty_tree a (C_nonempty_tree a)).Right
+              (mkPair (C_nonempty_tree a) left (C_nonempty_tree a) right)
+          )
+
+let print_C_nonempty_tree
+    : ∀(a : Type) → (a → Text) → C_nonempty_tree a → Text
+    = λ(a : Type) →
+      λ(show : a → Text) →
+      λ(c : C_nonempty_tree a) →
+        let items =
+              c
+                Text
+                ( λ(frr : S_nonempty_tree a Text) →
+                    merge
+                      { Left = λ(x : a) → show x
+                      , Right = λ(p : Pair Text Text) → "[${p._1} ${p._2}]"
+                      }
+                      frr
+                )
+
+        in  "[${items}]"
+
+let nonempty_tree_123 =
+      nonempty_tree_branch
+        Natural
+        (nonempty_tree_leaf Natural 1)
+        ( nonempty_tree_branch
+            Natural
+            (nonempty_tree_leaf Natural 2)
+            (nonempty_tree_leaf Natural 3)
+        )
+
+let test =
+        assert
+      :   print_C_nonempty_tree Natural Natural/show nonempty_tree_123
+        ≡ "[[1 [2 3]]]"
+
+let nonempty_tree_1234 =
+      nonempty_tree_branch
+        Natural
+        ( nonempty_tree_branch
+            Natural
+            (nonempty_tree_leaf Natural 1)
+            ( nonempty_tree_branch
+                Natural
+                (nonempty_tree_leaf Natural 2)
+                (nonempty_tree_leaf Natural 3)
+            )
+        )
+        (nonempty_tree_leaf Natural 4)
+
+let test =
+        assert
+      :   print_C_nonempty_tree Natural Natural/show nonempty_tree_1234
+        ≡ "[[[1 [2 3]] 4]]"
+
+let print_C_nonempty_list
+    : ∀(a : Type) → (a → Text) → C_nonempty_list a → Text
+    = λ(a : Type) →
+      λ(show : a → Text) →
+      λ(c : C_nonempty_list a) →
+        let items =
+              c
+                Text
+                ( λ(frr : S_nonempty_list a Text) →
+                    merge
+                      { Left = λ(x : a) → show x
+                      , Right = λ(p : Pair a Text) → "${show p._1}, ${p._2}"
+                      }
+                      frr
+                )
+
+        in  "[${items}]"
+
 let nonempty_list_build
     : ∀(a : Type) → S_nonempty_list a (C_nonempty_list a) → C_nonempty_list a
     = Ch.fixT1 S_nonempty_list bimap_S_nonempty_list
@@ -718,6 +808,54 @@ let nonempty_list_leaf
     = λ(a : Type) →
       λ(x : a) →
         nonempty_list_build a ((S_nonempty_list a (C_nonempty_list a)).Left x)
+
+let nonempty_list_cons
+    : ∀(a : Type) → a → C_nonempty_list a → C_nonempty_list a
+    = λ(a : Type) →
+      λ(x : a) →
+      λ(c : C_nonempty_list a) →
+        nonempty_list_build
+          a
+          ( (S_nonempty_list a (C_nonempty_list a)).Right
+              (mkPair a x (C_nonempty_list a) c)
+          )
+
+let nonempty_list_example_1_2
+    : C_nonempty_list Natural
+    = nonempty_list_cons Natural 1 (nonempty_list_leaf Natural 2)
+
+let nonempty_list_example_1
+    : C_nonempty_list Natural
+    = nonempty_list_leaf Natural 1
+
+let nonempty_list_example_1_2_3_4
+    : C_nonempty_list Natural
+    = nonempty_list_cons
+        Natural
+        1
+        ( nonempty_list_cons
+            Natural
+            2
+            (nonempty_list_cons Natural 3 (nonempty_list_leaf Natural 4))
+        )
+
+let test =
+        assert
+      :   print_C_nonempty_list Natural Natural/show nonempty_list_example_1
+        ≡ "[1]"
+
+let test =
+        assert
+      :   print_C_nonempty_list Natural Natural/show nonempty_list_example_1_2
+        ≡ "[1, 2]"
+
+let test =
+        assert
+      :   print_C_nonempty_list
+            Natural
+            Natural/show
+            nonempty_list_example_1_2_3_4
+        ≡ "[1, 2, 3, 4]"
 
 let branch_data_tree_build
     : ∀(a : Type) →
@@ -731,6 +869,176 @@ let branch_data_tree_nil
         branch_data_tree_build
           a
           ((S_branch_data_tree a (C_branch_data_tree a)).Left {=})
+
+let branch_data_tree_branch
+    : ∀(a : Type) →
+      a →
+      C_branch_data_tree a →
+      C_branch_data_tree a →
+        C_branch_data_tree a
+    = λ(a : Type) →
+      λ(x : a) →
+      λ(left : C_branch_data_tree a) →
+      λ(right : C_branch_data_tree a) →
+        branch_data_tree_build
+          a
+          ( (S_branch_data_tree a (C_branch_data_tree a)).Right
+              ( mkTriple
+                  a
+                  x
+                  (C_branch_data_tree a)
+                  left
+                  (C_branch_data_tree a)
+                  right
+              )
+          )
+
+let print_branch_data_tree
+    : ∀(a : Type) → (a → Text) → C_branch_data_tree a → Text
+    = λ(a : Type) →
+      λ(show : a → Text) →
+      λ(c : C_branch_data_tree a) →
+        let items =
+              c
+                Text
+                ( λ(frr : S_branch_data_tree a Text) →
+                    merge
+                      { Left = λ(x : {}) → "*"
+                      , Right =
+                          λ(p : Triple a Text Text) →
+                            "${show p._1}[${p._2} ${p._3}]"
+                      }
+                      frr
+                )
+
+        in  "[" ++ items ++ "]"
+
+let branch_data_tree_one =
+      λ(a : Type) →
+      λ(x : a) →
+        branch_data_tree_branch
+          a
+          x
+          (branch_data_tree_nil a)
+          (branch_data_tree_nil a)
+
+let branch_data_tree_1_2_3
+    : C_branch_data_tree Natural
+    = let nil = branch_data_tree_nil Natural
+
+      in  branch_data_tree_branch
+            Natural
+            1
+            nil
+            ( branch_data_tree_branch
+                Natural
+                2
+                (branch_data_tree_nil Natural)
+                (branch_data_tree_one Natural 3)
+            )
+
+let branch_data_tree_1_2_3_4_5
+    : C_branch_data_tree Natural
+    = let nil = branch_data_tree_nil Natural
+
+      in  branch_data_tree_branch
+            Natural
+            1
+            ( branch_data_tree_branch
+                Natural
+                2
+                nil
+                ( branch_data_tree_branch
+                    Natural
+                    3
+                    (branch_data_tree_one Natural 4)
+                    nil
+                )
+            )
+            (branch_data_tree_one Natural 5)
+
+let test =
+        assert
+      :   print_branch_data_tree
+            Natural
+            Natural/show
+            (branch_data_tree_nil Natural)
+        ≡ "[*]"
+
+let test =
+        assert
+      :   print_branch_data_tree
+            Natural
+            Natural/show
+            (branch_data_tree_one Natural 1)
+        ≡ "[1[* *]]"
+
+let test =
+        assert
+      :   print_branch_data_tree Natural Natural/show branch_data_tree_1_2_3
+        ≡ "[1[* 2[* 3[* *]]]]"
+
+let test =
+        assert
+      :   print_branch_data_tree Natural Natural/show branch_data_tree_1_2_3_4_5
+        ≡ "[1[2[* 3[4[* *] *]] 5[* *]]]"
+
+let list_zip0 =
+      λ(a : Type) →
+      λ(left : C_list a) →
+      λ(b : Type) →
+      λ(right : C_list b) →
+        ChurchZip.zip0 S_list zip0_S_list a b left right : C_list (Pair a b)
+
+let test =
+        assert
+      :   print_C_list
+            (Pair Natural Natural)
+            ( λ(p : Pair Natural Natural) →
+                "(${Natural/show p._1}, ${Natural/show p._2})"
+            )
+            (list_zip0 Natural list_example_1_2 Natural list_example_1_2)
+        ≡ "[(1, 1), (2, 1), ]"
+
+let test =
+        assert
+      :   print_C_list
+            (Pair Natural Natural)
+            ( λ(p : Pair Natural Natural) →
+                "(${Natural/show p._1}, ${Natural/show p._2})"
+            )
+            (list_zip0 Natural list_example_1_2 Natural list_example_1_2_3_4)
+        ≡ "[(1, 1), (2, 1), ]"
+
+let test_zip0_does_not_recurse_on_second_list_at_all =
+        assert
+      :   print_C_list
+            (Pair Natural Natural)
+            ( λ(p : Pair Natural Natural) →
+                "(${Natural/show p._1}, ${Natural/show p._2})"
+            )
+            (list_zip0 Natural list_example_1_2_3_4 Natural list_example_1_2)
+        ≡ "[(1, 1), (2, 1), (3, 1), (4, 1), ]"
+
+let test =
+        assert
+      :   print_C_list
+            (Pair Natural Natural)
+            ( λ(p : Pair Natural Natural) →
+                "(${Natural/show p._1}, ${Natural/show p._2})"
+            )
+            (list_zip0 Natural (list_nil Natural) Natural list_example_1_2)
+        ≡ "[]"
+
+let test =
+        assert
+      :   print_C_list
+            (Pair Natural Natural)
+            ( λ(p : Pair Natural Natural) →
+                "(${Natural/show p._1}, ${Natural/show p._2})"
+            )
+            (list_zip0 Natural list_example_1_2 Natural (list_nil Natural))
+        ≡ "[]"
 
 in  { S_list
     , S_nonempty_list
@@ -757,12 +1065,21 @@ in  { S_list
     , bizipK_S_branch_data_tree
     , bizipK_via_bizip
     , bizipK_S_nonempty_list_padding
-    , bizipK_S_nonempty_tree,
-    list_build, list_nil, list_cons, list_example_1,list_example_1_2, list_example_1_2_3_4,print_C_list,
-    nonempty_list_build,
-    nonempty_list_leaf,
-    nonempty_tree_build,
-    nonempty_tree_leaf,
-    branch_data_tree_nil,
-    branch_data_tree_build
+    , bizipK_S_nonempty_tree
+    , list_build
+    , list_nil
+    , list_cons
+    , list_example_1
+    , list_example_1_2
+    , list_example_1_2_3_4
+    , print_C_list
+    , nonempty_list_build
+    , nonempty_list_leaf
+    , nonempty_tree_build
+    , nonempty_tree_leaf
+    , branch_data_tree_nil
+    , branch_data_tree_build
+    , print_branch_data_tree
+    , print_C_nonempty_list
+    , print_C_nonempty_tree
     }
