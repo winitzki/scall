@@ -990,55 +990,77 @@ let list_zip0 =
       λ(right : C_list b) →
         ChurchZip.zip0 S_list zip0_S_list a b left right : C_list (Pair a b)
 
+let tprint_list =
+      λ(zipped : C_list (Pair Natural Natural)) →
+        print_C_list
+          (Pair Natural Natural)
+          ( λ(p : Pair Natural Natural) →
+              "(${Natural/show p._1}, ${Natural/show p._2})"
+          )
+          zipped
+
 let test =
         assert
-      :   print_C_list
-            (Pair Natural Natural)
-            ( λ(p : Pair Natural Natural) →
-                "(${Natural/show p._1}, ${Natural/show p._2})"
-            )
+      :   tprint_list
             (list_zip0 Natural list_example_1_2 Natural list_example_1_2)
         ≡ "[(1, 1), (2, 1), ]"
 
 let test =
         assert
-      :   print_C_list
-            (Pair Natural Natural)
-            ( λ(p : Pair Natural Natural) →
-                "(${Natural/show p._1}, ${Natural/show p._2})"
-            )
+      :   tprint_list
             (list_zip0 Natural list_example_1_2 Natural list_example_1_2_3_4)
         ≡ "[(1, 1), (2, 1), ]"
 
 let test_zip0_does_not_recurse_on_second_list_at_all =
         assert
-      :   print_C_list
-            (Pair Natural Natural)
-            ( λ(p : Pair Natural Natural) →
-                "(${Natural/show p._1}, ${Natural/show p._2})"
-            )
+      :   tprint_list
             (list_zip0 Natural list_example_1_2_3_4 Natural list_example_1_2)
         ≡ "[(1, 1), (2, 1), (3, 1), (4, 1), ]"
 
 let test =
         assert
-      :   print_C_list
-            (Pair Natural Natural)
-            ( λ(p : Pair Natural Natural) →
-                "(${Natural/show p._1}, ${Natural/show p._2})"
-            )
+      :   tprint_list
             (list_zip0 Natural (list_nil Natural) Natural list_example_1_2)
         ≡ "[]"
 
 let test =
         assert
-      :   print_C_list
-            (Pair Natural Natural)
-            ( λ(p : Pair Natural Natural) →
-                "(${Natural/show p._1}, ${Natural/show p._2})"
-            )
+      :   tprint_list
             (list_zip0 Natural list_example_1_2 Natural (list_nil Natural))
         ≡ "[]"
+
+let list_zip1 =
+      λ(a : Type) →
+      λ(left : C_list a) →
+      λ(b : Type) →
+      λ(right : C_list b) →
+      λ(eab : Either a b) →
+          ChurchZip.zip1
+            S_list
+            bimap_S_list
+            bizipK_S_list
+            depth_S_list
+            a
+            b
+            left
+            right
+            eab
+        : C_list (Pair a b)
+
+let list_zip1_Natural =
+      λ(left : C_list Natural) →
+      λ(right : C_list Natural) →
+          list_zip1
+            Natural
+            left
+            Natural
+            right
+            ((Either Natural Natural).Left 1000)
+        : C_list (Pair Natural Natural)
+
+let test = assert : tprint_list (list_zip1_Natural list_example_1_2 list_example_1_2_3_4) === "[(1, 1), (2, 2), ]"
+let test = assert : tprint_list (list_zip1_Natural list_example_1_2_3_4 list_example_1_2) === "[(1, 1), (2, 2), ]"
+let test = assert : tprint_list (list_zip1_Natural list_example_1_2_3_4 (list_nil Natural)) === "[]"
 
 in  { S_list
     , S_nonempty_list
