@@ -1,0 +1,17 @@
+Features that are good to have in IDE support for a functional language:
+
+- Collapse/expand code:  "let" definitions, lists, records, if/then/else
+- Go to definition, go to usages for any variable
+- Load imported files and navigate in them, although they are read-only
+- Tooltip: hover on a variable to see its type
+- Type error: say where and what types were expected and what types were found instead
+- Autocomplete possible arguments for curried functions
+- Autocomplete defined variables, record field names, union constructor names
+- Autocomplete lambdas after type annotation is given
+- Do not autocomplete the name that is being defined (no recursion in Dhall)
+- Fill in the inferred type for let bindings or lambda arguments or any other values
+- Reduce to normal form and replace expression
+- Freeze / unfreeze imports
+- Rename variables with correct scope
+- Suggest edits when typechecking fails or when variables are undefined
+

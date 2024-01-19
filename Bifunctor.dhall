@@ -82,9 +82,9 @@ let Bizip
           S (Pair a b) (Pair p q)
 
 let BizipK
-    : Bifunctor → Functor → Type
+    : Bifunctor → Type
     = λ(S : Bifunctor) →
-      λ(C : Functor) →
+        ∀(C : Functor) →
         ∀(fmapC : Map C) →
         ∀(a : Type) →
         ∀(b : Type) →

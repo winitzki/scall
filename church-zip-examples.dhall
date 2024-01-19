@@ -27,15 +27,20 @@ let mkTriple = B.mkTriple
 
 let S_list = λ(a : Type) → λ(r : Type) → Either {} (Pair a r)
 
-let C_list =  Ch.T1 S_list
+let C_list = Ch.T1 S_list
 
 let S_nonempty_list = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
 
-let C_nonempty_list =  Ch.T1 S_nonempty_list
+let C_nonempty_list = Ch.T1 S_nonempty_list
+
 let S_nonempty_tree = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
-let C_nonempty_tree =  Ch.T1 S_nonempty_tree
+
+let C_nonempty_tree = Ch.T1 S_nonempty_tree
+
 let S_branch_data_tree = λ(a : Type) → λ(r : Type) → Either {} (Triple a r r)
-let C_branch_data_tree =  Ch.T1 S_branch_data_tree
+
+let C_branch_data_tree = Ch.T1 S_branch_data_tree
+
 let bimap_S_list
     : B.Bimap S_list
     = let S = S_list
@@ -477,42 +482,255 @@ let bizip_S_branch_data_tree
                     }
                     sap
                   : Sabpq
--- define bizipK_S_list via bizip_S_list and also for branch_data_tree because there is no other implementation.
-let bizipK_S_list
-    : B.BizipK S_list 
-    = let S = S_list
 
-      in  
-       λ(C : B.Functor) →
-        \(fmapC : B.Map C) →
-        \(a : Type) →
-        \(b : Type) →
+let bizipK_via_bizip =
+      λ(S : B.Bifunctor) →
+      λ(bizip : B.Bizip S) →
+      λ(C : B.Functor) →
+      λ(fmapC : B.Map C) →
+      λ(a : Type) →
+      λ(b : Type) →
         let Sab = S (Pair a b) (Pair (C a) (C b))
-        in \(saca: S a (C a)) →
-        \(sbcb: S b (C b)) →
-                merge
-                    { Left = λ(x : {}) → Sab.Left x
-                    , Right =
-                        λ(pair_a : Pair a p) →
+
+        in  λ(saca : S a (C a)) →
+            λ(sbcb : S b (C b)) →
+              bizip a b (C a) (C b) saca sbcb : Sab
+
+let bizipK_S_list
+    : B.BizipK S_list
+    = bizipK_via_bizip S_list bizip_S_list
+
+let bizipK_S_nonempty_list_truncating
+    : B.BizipK S_nonempty_list
+    = bizipK_via_bizip S_nonempty_list bizip_S_nonempty_list
+
+let bizipK_S_branch_data_tree
+    : B.BizipK S_branch_data_tree
+    = bizipK_via_bizip S_branch_data_tree bizip_S_branch_data_tree
+
+let bizipK_S_nonempty_list_padding
+    : B.BizipK S_nonempty_list
+    = let S = S_nonempty_list
+
+      in  λ(C : B.Functor) →
+          λ(fmapC : B.Map C) →
+          λ(a : Type) →
+          λ(b : Type) →
+            let Sab = S (Pair a b) (Pair (C a) (C b))
+
+            in  λ(saca : S a (C a)) →
+                λ(sbcb : S b (C b)) →
+                  merge
+                    { Left =
+                        λ(x : a) →
                           merge
-                            { Left = λ(x : {}) → Sabpq.Left x
+                            { Left = λ(y : b) → Sab.Left (mkPair a x b y)
                             , Right =
-                                λ(pair_b : Pair b q) →
-                                  Sabpq.Right
+                                λ(pair_b : Pair b (C b)) →
+                                  let ca
+                                      : C a
+                                      = fmapC b a (λ(_ : b) → x) pair_b._2
+
+                                  in  Sab.Right
+                                        ( mkPair
+                                            (Pair a b)
+                                            (mkPair a x b pair_b._1)
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) ca (C b) pair_b._2)
+                                        )
+                            }
+                            sbcb
+                    , Right =
+                        λ(pair_a : Pair a (C a)) →
+                          merge
+                            { Left =
+                                λ(y : b) →
+                                  let cb
+                                      : C b
+                                      = fmapC a b (λ(_ : a) → y) pair_a._2
+
+                                  in  Sab.Right
+                                        ( mkPair
+                                            (Pair a b)
+                                            (mkPair a pair_a._1 b y)
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) pair_a._2 (C b) cb)
+                                        )
+                            , Right =
+                                λ(pair_b : Pair b (C b)) →
+                                  Sab.Right
                                     ( mkPair
                                         (Pair a b)
                                         (mkPair a pair_a._1 b pair_b._1)
-                                        (Pair p q)
-                                        (mkPair p pair_a._2 q pair_b._2)
+                                        (Pair (C a) (C b))
+                                        (mkPair (C a) pair_a._2 (C b) pair_b._2)
                                     )
                             }
-                            sbq
+                            sbcb
                     }
-                    sap
-            
-           : Sab
-            --       : Sabpq
+                    saca
+                  : Sab
 
+let bizipK_S_nonempty_tree
+    : B.BizipK S_nonempty_tree
+    = let S = S_nonempty_tree
+
+      in  λ(C : B.Functor) →
+          λ(fmapC : B.Map C) →
+          λ(a : Type) →
+          λ(b : Type) →
+            let Sab = S (Pair a b) (Pair (C a) (C b))
+
+            in  λ(saca : S a (C a)) →
+                λ(sbcb : S b (C b)) →
+                  merge
+                    { Left =
+                        λ(x : a) →
+                          merge
+                            { Left = λ(y : b) → Sab.Left (mkPair a x b y)
+                            , Right =
+                                λ(pair_b : Pair (C b) (C b)) →
+                                  let ca1
+                                      : C a
+                                      = fmapC b a (λ(_ : b) → x) pair_b._1
+
+                                  let ca2
+                                      : C a
+                                      = fmapC b a (λ(_ : b) → x) pair_b._2
+
+                                  in  Sab.Right
+                                        ( mkPair
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) ca1 (C b) pair_b._1)
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) ca2 (C b) pair_b._2)
+                                        )
+                            }
+                            sbcb
+                    , Right =
+                        λ(pair_a : Pair (C a) (C a)) →
+                          merge
+                            { Left =
+                                λ(y : b) →
+                                  let cb1
+                                      : C b
+                                      = fmapC a b (λ(_ : a) → y) pair_a._1
+
+                                  let cb2
+                                      : C b
+                                      = fmapC a b (λ(_ : a) → y) pair_a._2
+
+                                  in  Sab.Right
+                                        ( mkPair
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) pair_a._1 (C b) cb1)
+                                            (Pair (C a) (C b))
+                                            (mkPair (C a) pair_a._2 (C b) cb2)
+                                        )
+                            , Right =
+                                λ(pair_b : Pair (C b) (C b)) →
+                                  Sab.Right
+                                    ( mkPair
+                                        (Pair (C a) (C b))
+                                        (mkPair (C a) pair_a._1 (C b) pair_b._1)
+                                        (Pair (C a) (C b))
+                                        (mkPair (C a) pair_a._2 (C b) pair_b._2)
+                                    )
+                            }
+                            sbcb
+                    }
+                    saca
+                  : Sab
+
+let print_C_list
+    : ∀(a : Type) → (a → Text) → C_list a → Text
+    = λ(a : Type) →
+      λ(show : a → Text) →
+      λ(c : C_list a) →
+        let items =
+              c
+                Text
+                ( λ(frr : S_list a Text) →
+                    merge
+                      { Left = λ(x : {}) → ""
+                      , Right = λ(p : Pair a Text) → show p._1 ++ ", " ++ p._2
+                      }
+                      frr
+                )
+
+        in  "[" ++ items ++ "]"
+
+let list_build
+    : ∀(a : Type) → S_list a (C_list a) → C_list a
+    = Ch.fixT1 S_list bimap_S_list
+
+let list_nil
+    : ∀(a : Type) → C_list a
+    = λ(a : Type) → list_build a ((S_list a (C_list a)).Left {=})
+
+let list_cons
+    : ∀(a : Type) → a → C_list a → C_list a
+    = λ(a : Type) →
+      λ(x : a) →
+      λ(c : C_list a) →
+        list_build a ((S_list a (C_list a)).Right (mkPair a x (C_list a) c))
+
+let list_example_1_2
+    : C_list Natural
+    = list_cons Natural 1 (list_cons Natural 2 (list_nil Natural))
+
+let list_example_1
+    : C_list Natural
+    = list_cons Natural 1 ( list_nil Natural)
+
+let list_example_1_2_3_4
+    : C_list Natural
+    = list_cons
+        Natural
+        1
+        ( list_cons
+            Natural
+            2
+            (list_cons Natural 3 (list_cons Natural 4 (list_nil Natural)))
+        )
+
+let test = assert: print_C_list Natural Natural/show (list_nil Natural) === "[]"
+let test = assert: print_C_list Natural Natural/show list_example_1 === "[1, ]"
+let test = assert: print_C_list Natural Natural/show list_example_1_2 === "[1, 2, ]"
+let test = assert: print_C_list Natural Natural/show list_example_1_2_3_4 === "[1, 2, 3, 4, ]"
+
+let nonempty_tree_build
+    : ∀(a : Type) → S_nonempty_tree a (C_nonempty_tree a) → C_nonempty_tree a
+    = Ch.fixT1 S_nonempty_tree bimap_S_nonempty_tree
+
+let nonempty_tree_leaf
+    : ∀(a : Type) → ∀(x : a) → C_nonempty_tree a
+    = λ(a : Type) →
+      λ(x : a) →
+        nonempty_tree_build a ((S_nonempty_tree a (C_nonempty_tree a)).Left x)
+
+let nonempty_list_build
+    : ∀(a : Type) → S_nonempty_list a (C_nonempty_list a) → C_nonempty_list a
+    = Ch.fixT1 S_nonempty_list bimap_S_nonempty_list
+
+let nonempty_list_leaf
+    : ∀(a : Type) → ∀(x : a) → C_nonempty_list a
+    = λ(a : Type) →
+      λ(x : a) →
+        nonempty_list_build a ((S_nonempty_list a (C_nonempty_list a)).Left x)
+
+let branch_data_tree_build
+    : ∀(a : Type) →
+      S_branch_data_tree a (C_branch_data_tree a) →
+        C_branch_data_tree a
+    = Ch.fixT1 S_branch_data_tree bimap_S_branch_data_tree
+
+let branch_data_tree_nil
+    : ∀(a : Type) → C_branch_data_tree a
+    = λ(a : Type) →
+        branch_data_tree_build
+          a
+          ((S_branch_data_tree a (C_branch_data_tree a)).Left {=})
 
 in  { S_list
     , S_nonempty_list
@@ -534,4 +752,17 @@ in  { S_list
     , bizip_S_list
     , bizip_S_nonempty_list
     , bizip_S_branch_data_tree
+    , bizipK_S_list
+    , bizipK_S_nonempty_list_truncating
+    , bizipK_S_branch_data_tree
+    , bizipK_via_bizip
+    , bizipK_S_nonempty_list_padding
+    , bizipK_S_nonempty_tree,
+    list_build, list_nil, list_cons, list_example_1,list_example_1_2, list_example_1_2_3_4,print_C_list,
+    nonempty_list_build,
+    nonempty_list_leaf,
+    nonempty_tree_build,
+    nonempty_tree_leaf,
+    branch_data_tree_nil,
+    branch_data_tree_build
     }
