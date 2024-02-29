@@ -78,7 +78,7 @@ List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
 
 A polymorphic identity function can be written as `λ(A : Type) → λ(x : A) → x`.
 
-The type of polymorphic `map` functions may be written as:
+The type of polymorphic `fmap` functions may be written as:
 
 ```dhall
 ∀(F : Type → Type) → ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B
@@ -244,8 +244,8 @@ So, the type expression `∀(A : Type) → A → A` is equivalent to `∀(A : Ty
 The corresponding Haskell code is:
 
 ```haskell
-identity :: a -> a
-identity = \x -> x
+identity :: a → a
+identity = \x → x
 ```
 
 The corresponding Scala code is:
@@ -270,31 +270,36 @@ This property of the void type can be expressed formally via the function called
 That function can compute a value of an arbitrary type `A` given a value of type `< >`:
 
 ```dhall
-let absurd : ∀(A : Type) -> < > -> A
+let absurd : ∀(A : Type) → < > → A
   = λ(A : Type) → λ(x : < >) → (merge {=} x) : A 
 ```
 
 The type signature of `absurd` can be rewritten equivalently as:
 
 ```dhall
-let absurd : < > -> ∀(A : Type) -> A
+let absurd : < > → ∀(A : Type) → A
   = λ(x : < >) → λ(A : Type) → (merge {=} x) : A 
 ```
 
-This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) -> A`.
+This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
 
-Indeed, the type `∀(A : Type) -> A` is void (this can be proved via parametricity arguments).
-So, the type expression `∀(A : Type) -> A` is equivalent to the simpler `< >` and can be used equally well to denote the void type.
+Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametricity arguments).
+So, the type expression `∀(A : Type) → A` is equivalent to the simpler `< >` and can be used equally well to denote the void type.
 
 Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
 
-As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) -> A -> A`.
+For instance, a Dhall function cannot take a parameter `λ(A : Type)` and then check whether `A` is equal to `Natural`, say.
+It is not possible in Dhall to compare types as values.
+For this reason, any Dhall function of the form `λ(A : Type) → ...` must work in the same way for all types `A`.
+
+As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) → A → A`.
 
 ## Arithmetic with `Natural` numbers
 
 The Dhall prelude supports a limited number of operations for `Natural` numbers.
 It can add, subtract, multiply, compare, and test them for being even or odd.
 However, division and other arithmetic operations are not directly supported.
+We will now show how to implement some of those operations.
 
 ### Using `Natural/fold`
 
@@ -346,15 +351,8 @@ The code is:
 
 ```dhall
 -- unsafeDiv x y means x / y but it will return wrong results when y = 0.
-let unsafeDiv : Natural -> Natural -> Natural =
-
-  let Natural/lessThanEqual
-    : Natural → Natural → Bool
-    = λ(x : Natural) → λ(y : Natural) → Natural/isZero (Natural/subtract y x)
-  let Natural/lessThan
-    : Natural → Natural → Bool
-    = λ(a : Natural) → λ(b : Natural) → Natural/lessThanEqual a b && Natural/lessThanEqual b a == False
-
+let unsafeDiv : Natural → Natural → Natural =
+  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
   let Accum = {result: Natural, sub: Natural, done: Bool}
     in λ(x: Natural) → λ(y: Natural) →
          let r: Accum = Natural/fold x Accum (λ(acc: Accum) →
@@ -376,7 +374,7 @@ Although the type system of Dhall is limited, it has enough facilities to ensure
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero, and unit otherwise:
 
 ```dhall
-let Nonzero: Natural -> Type = λ(y: Natural) → if Natural/isZero y then < > else {}
+let Nonzero: Natural → Type = λ(y: Natural) → if Natural/isZero y then < > else {}
 ```
 
 This is a type function that returns one or another type given a `Natural` value.
@@ -408,7 +406,7 @@ Any usage of `safeDiv x y` will require us somehow to obtain a value of type `No
 That value serves as a witness that the number `y` is not zero.
 Any function that uses `saveDiv` for dividing by an unknown value `y` will have to require an additional witness argument of type `Nonzero y`.
 
-The advantage of using this technique is that we will guarantee, at compile time, that we never divide by zero.
+The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
 ### Integer square root
 
@@ -437,7 +435,72 @@ There are faster algorithms of computing the square root, but those algorithms r
 Our implementation of division already includes a slow iteration.
 So, we will not pursue further optimizations.
 
+### Binary logarithm
+
+The "binary logarithm" (`log2`) of a natural number `n` is the smallest number of binary bits needed to represent `n`.
+For example, `log2 3` is `2` because `3` is represented as two binary bits: `0b11`, while `log2 4` is `3` because `4` is `0b100` and requires 3 bits.
+
+To compute this function, we find the smallest natural number `b` such that `2` to the power `b` is larger than `n`. We start with `b = 1` and multiply `b` by `2` as many times as needed until we get a value larger than `n`.
+
+As before, we need to supply an upper bound on the iteration count.
+We supply `n` as that bound and make sure that the final result remains constant once we reach it, even if we perform further iterations.
+
+The code is:
+
+```dhall
+let log2 : Natural → Natural = λ(n: Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Accum = { b : Natural, log2 : Natural }
+  let acc0 = { b = 1, log2 = 0 } -- At all times, b == pow(2, log2).
+  let update = λ(acc: Accum) →
+     if lessThanEqual n acc.b
+     then { b = acc.b * 2, log2 = acc.log2 + 1 }
+     else acc 
+  let result : Accum = Natural/fold n Accum update acc0
+    in result.log2 
+```
+
 ## Functors, contrafunctors, profunctors
+
+A functor (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function.
+A simple example is a record with two values of type `A` and a value of a fixed type `Bool`.
+
+In Haskell, that type constructor and its `fmap` function are defined by:
+
+```haskell
+data F a = F a a Bool
+fmap :: (a → b) → F a → F b
+fmap f (F x y t) = F (f x) (F y) t 
+```
+
+In Scala:
+
+```scala
+final case class F[A](x: A, y: A, t: Boolean)
+
+def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
+  F(f(fa.x), f(fa.y), fa.t)
+```
+
+The corresponding Dhall code is:
+
+```dhall
+let F : Type → Type
+  = λ(A: Type) → { x: A, y: A, t: Bool }
+let fmap
+  : ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B
+  = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+```
+
+To test:
+
+```dhall
+let example : F Natural = { x = 1, y = 2, t = True }
+let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
+let test = assert : after_fmap === { x = "odd", y = "even", t = True }
+```
+
 
 ## Typeclasses
 
