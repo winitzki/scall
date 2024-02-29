@@ -1,18 +1,22 @@
-Features that are good to have in IDE support for a functional language:
+Features that are good to have in IDE support for Dhall:
 
 - Display typechecking and syntax errors
-- Collapse/expand code:  "let" definitions, lists, records, if/then/else
-- Go to definition, go to usages for any variable
-- Load imported files and navigate in them, although they are read-only
-- Tooltip: hover on a variable to see its type
+- Collapse/expand code regions:  "let" definitions, lists, records, if/then/else
+- Go to definition of any variable, go to usages for any variable
+- Load imported files and navigate in them, keeping them read-only
+- Tooltip: hover on a variable to see its type, or display its type on Command-hover or otherwise
 - Type error: say where and what types were expected and what types were found instead
 - Autocomplete possible arguments for curried functions
 - Autocomplete defined variables, record field names, union constructor names
 - Autocomplete lambdas after type annotation is given
 - Do not autocomplete the name that is being defined (no recursion in Dhall)
-- Fill in the inferred type for let bindings or lambda arguments or any other values
-- Reduce to normal form and replace expression
+- Fill in the inferred type for let bindings or lambda arguments or any other terms
+- Reduce to normal form and replace selected expression
 - Freeze / unfreeze imports
-- Rename variables with correct scope
+- Rename variables within their definition's scope
 - Suggest edits when typechecking fails or when variables are undefined
-- When assert fails, show asserted values
+- When assert fails, show the two unequal asserted values in normal form
+- Autocomplete available symbols that can be imported from known already imported files or from the standard prelude
+- Autocomplete available functions that may be left-applied to a given value
+- Autoformat the Dhall code, even if it does not typecheck
+

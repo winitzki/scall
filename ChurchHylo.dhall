@@ -6,7 +6,7 @@ let ChurchNatural = (./ChurchNaturals.dhall).ChurchNatural
 
 let HyloInt =
       λ(S : Type → Type) →
-      λ(fmapS : ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → S a → S b) →
+      λ(fmapS : B.Map S) →
       λ(limit : ChurchNatural) →
       λ(p : Type) →
       λ(coalg : p → S p) →
@@ -75,25 +75,8 @@ let Hylo1Int
 
 let Hylo1Ch
     : ∀(S : B.Bifunctor) →
-      ∀ ( bimapS
-        : ∀(a : Type) →
-          ∀(b : Type) →
-          ∀(c : Type) →
-          ∀(d : Type) →
-          ∀(f : a → c) →
-          ∀(g : b → d) →
-          S a b →
-            S c d
-        ) →
-      ∀ ( bizipS
-        : ∀(a : Type) →
-          ∀(b : Type) →
-          ∀(p : Type) →
-          ∀(q : Type) →
-          S a p →
-          S b q →
-            S (Pair a b) (Pair p q)
-        ) →
+      ∀(bimapS : B.Bimap S) →
+      ∀(bizipS : B.Bizip S) →
       Ch.T1 S {} →
       ∀(a : Type) →
       ∀(p : Type) →
@@ -101,25 +84,8 @@ let Hylo1Ch
       p →
         Ch.T1 S a
     = λ(S : Type → Type → Type) →
-      λ ( bimapS
-        : ∀(a : Type) →
-          ∀(b : Type) →
-          ∀(c : Type) →
-          ∀(d : Type) →
-          ∀(f : a → c) →
-          ∀(g : b → d) →
-          S a b →
-            S c d
-        ) →
-      λ ( bizipS
-        : ∀(a : Type) →
-          ∀(b : Type) →
-          ∀(p : Type) →
-          ∀(q : Type) →
-          S a p →
-          S b q →
-            S (Pair a b) (Pair p q)
-        ) →
+      λ(bimapS : B.Bimap S) →
+      λ(bizipS : B.Bizip S) →
       λ(limit : Ch.T1 S {}) →
       λ(a : Type) →
       λ(p : Type) →
@@ -159,11 +125,7 @@ let Hylo1Ch
                           : S a Ca
                           = forgetfulZip (coalg x) spca
 
-                      let xc
-                          : Ca
-                          = Ch.fixT1 S bimapS a saca
-
-                      in  xc
+                      in  Ch.fixT1 S bimapS a saca
 
               in  limit (p → Ca) fix
 
