@@ -48,10 +48,11 @@ There are some syntactic differences between Dhall and most other FP languages:
 
 - Integers must have a sign (`+1` or `-1`)
 - Identifiers may contain a slash character (`List/map`)
-- Product types are implemented via records. Co-product types are implemented via tagged unions. That is, product and co-product types are unnamed (anonymous) but _must_ have named parts. Examples: the record `{ x = 1, y = True }` has type `{ x : Natural, y : Bool }`. The union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
+- Product types are implemented via records. Co-product types are implemented via tagged unions. That is, product and co-product types are unnamed (anonymous) but _must_ have named parts. Examples: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`. The union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y` and the type of both those values is `< X : Natural | Y >`.
 - The empty record type `{ }` has only one value, written as `{=}`, and can be used as the unit type.
 - The empty union type `< >` has _no_ values and can be used as the void type.
 - Pattern matching on union types is implemented via the `merge` function.
+- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and types of variables may be omitted. For example: `let a = 1 let b = 2 in a + b`
 - All function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
 
 Dhall does not support the Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and types are inferred automatically.
@@ -96,34 +97,7 @@ The user may specify literal values of those types but can do little else with t
 - `Natural` numbers can be added, multiplied, and compared for equality.
 - The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
 - `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
-- `Text` strings may be concatenated and support a search/replace operation. But Dhall cannot compare them for equality or compute the length of a `Text` string. (Neither can Dhall compare `Double` or other types with each other.)
-
-For types other than `Bool` and `Natural`, equality testing is not available as a function.
-However, literal values of those types can be tested for equality via Dhall's `assert` feature.
-That feature may be used for basic sanity checks:
-
-```dhall
-let x : Text = "123"
-let _ = assert : x === "123"
-  in x ++ "1"
-    -- Returns "1231".
-```
-
-The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
-The Dhall typechecker will raise a type error if the two sides of an `assert` are not evaluated to the same normal form, _at typechecking time_.
-
-This means `assert` can only be used on literal values or on expressions that statically evaluate to literal values.
-One cannot use `assert` for implementing comparisons between, say, two arbitrary `Text` values.
-Try writing this code:
-
-```dhall
-let compareTextValues : Text → Text → Bool
-  = λ(a : Text) → λ(b : Text) → 
-    let _ = assert : a === b
-      in True
-```
-
-This code will fail to typecheck because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and these two symbols are not equal.
+- `Text` strings may be concatenated and support a search/replace operation. But Dhall cannot compare them for equality or compute the length of a `Text` string. Neither can Dhall compare `Double` or other types with each other. Comparison functions are only available for `Bool` and `Natural` types.
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
 The only recursive type directly supported by Dhall is the built-in type `List`, and its functionality is intentionally limited, so that Dhall's termination guarantees remain in force.
@@ -131,7 +105,7 @@ The only recursive type directly supported by Dhall is the built-in type `List`,
 User-defined recursive types and functions must be encoded in a non-recursive way. Later chapters in this book will show how to use the Church encoding for that purpose. In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot have a termination guarantee).
 
-Another feature is that Dhall is a purely functional language with no side effects.
+Dhall is a purely functional language with no side effects.
 There are no mutable values, no exceptions, no multithreading, no writing to disk, etc.
 A Dhall program is a single expression that evaluates to a normal form, and that's that.
 The resulting normal form can be used via imports in another Dhall program, or converted to JSON, YAML, and other formats.
@@ -177,6 +151,66 @@ $ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program. See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
 ## Some features of the Dhall type system
+
+### The assert keyword and equality types
+
+For types other than `Bool` and `Natural`, equality testing is not available as a function.
+However, values of any types may be tested for equality via Dhall's `assert` feature.
+That feature may be used for basic sanity checks:
+
+```dhall
+let x : Text = "123"
+let _ = assert : x === "123"
+  in x ++ "1"
+    -- Returns "1231".
+```
+
+The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
+
+The Dhall expression `a === b` is a type.
+That type has no values (is void) if the normal forms of `a` and `b` are different.
+For example, the types `1 === 2` and `λ(a : Text) → a === True` are void. 
+
+If `a` and `b` evaluate to the same normal form, the type `a === b` is not void, and there exists a value of that type.
+However, that value cannot be written explicitly; the only way to refer to that value is by using the `assert` keyword.
+
+The syntax is `assert : a === b`.
+This expression evaluates to a value of type `a === b` if the two sides are equal after reducing them to their normal forms.
+
+We can assign that value to a variable if we'd like:
+
+```dhall
+let t = assert : 1 + 2 === 0 + 3
+```
+
+In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value that we assigned to `t`.
+
+The Dhall typechecker will raise a type error if the two sides of an `assert` are not evaluated to the same normal form, _at typechecking time_.
+
+This means `assert` can only be used on literal values or on expressions that statically evaluate to literal values.
+One cannot use `assert` for implementing a function comparing, say, two arbitrary `Text` values given as arguments.
+Try writing this code:
+
+```dhall
+let compareTextValues : Text → Text → Bool
+  = λ(a : Text) → λ(b : Text) → 
+    let _ = assert : a === b
+      in True
+```
+
+This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and these two symbols are not equal.
+
+The `assert` keyword is often used for unit tests.
+In that case, we do not need to keep the values of the equality type.
+We just need to verify that the equality type is not void.
+So, we may write unit tests like this:
+
+```dhall
+let f = λ(a : Text) → "(" ++ a ++ ")"
+let _ = assert : f "x" === "(x)"
+let _ = assert : f "" === "()"
+  in ... -- Further code.
+```
 
 ### The universal type quantifier
 
@@ -253,6 +287,8 @@ Indeed, the type `∀(A : Type) -> A` is void (this can be proved via parametric
 So, the type expression `∀(A : Type) -> A` is equivalent to the simpler `< >` and can be used equally well to denote the void type.
 
 Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
+
+As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) -> A -> A`.
 
 ## Arithmetic with `Natural` numbers
 
