@@ -1,4 +1,4 @@
-# Programming Dhall
+# Advanced functional programming in Dhall
 
 This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
@@ -28,8 +28,7 @@ The result is a powerful, purely functional programming language that can be use
 
 Currently, Dhall has no type inference: all types must be specified explicitly.
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax, which may help in learning some of the more advanced concepts of FP.
-
-In this tutorial, we will focus on conceptual clarity. Programs will not be optimized for speed.
+This is the primary focus of the present book.
 
 ## Differences between Dhall and other FP languages
 
@@ -341,11 +340,11 @@ Although the type system of Dhall is limited, it has enough facilities to ensure
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero, and unit otherwise:
 
 ```dhall
-let Nonzero: Natural -> Type = λ(y: Natural) → if Natural/isZero y then < > else { }
+let Nonzero: Natural -> Type = λ(y: Natural) → if Natural/isZero y then < > else {}
 ```
 
 This is a type function that returns one or another type given a `Natural` value.
-For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{ }`.
+For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated quite similarly in Dhall.
 
 We will use that function to implement safe division:
@@ -356,7 +355,7 @@ let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeD
 
 To use `safeDiv`, we need to specify a third argument of the unit type (denoted by `{}` in Dhall).
 
-That argument can have only one value, namely, `{=}`.
+That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
 
 If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values. Passing an argument of any other type will raise a type error.
 
@@ -372,6 +371,8 @@ So, we cannot simply use `safeDiv` inside a function that takes an argument `y :
 Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
 That value serves as a witness that the number `y` is not zero.
 Any function that uses `saveDiv` for dividing by an unknown value `y` will have to require an additional witness argument of type `Nonzero y`.
+
+The advantage of using this technique is that we will guarantee, at compile time, that we never divide by zero.
 
 ### Integer square root
 
