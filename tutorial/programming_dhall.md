@@ -509,8 +509,9 @@ let log2 : Natural → Natural = λ(n: Natural) →
 
 ## Functors, contrafunctors, profunctors
 
-A functor (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function.
-A simple example is a record with two values of type `A` and a value of a fixed type `Bool`.
+A functor (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+
+A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
 
 In Haskell, that type constructor and its `fmap` function are defined by:
 
