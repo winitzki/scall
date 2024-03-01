@@ -212,16 +212,63 @@ let _ = assert : f "" === "()"
   in ... -- Further code.
 ```
 
-### The universal type quantifier
+### Type constructors
 
-Dhall uses the universal type quantifier (`∀` or equivalently `forall`) to denote _types_ of generic functions.
-So, any expression of the form `∀(x : something1) → something2` is a _type_.
-That expression can be used, for instance, as a type annotation for some value.
+Type constructors in Dhall are written as functions from `Type` to `Type`.
 
-This should not be confused with the symbol `λ` (equivalently the backslash, `\`) that denotes _functions themselves_, that is, _values_ of some function type.
-Any expression of the form `λ(x : something1) → something2` is a function that can be applied to any `x` of type `something1` and will compute a result.
+For example, a type constructor that would be written in Haskell or Scala as `type P a = (a, a)` must be encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
 
-Now, that result may be itself a type or a value.
+Because Dhall does not have nameless tuples, we will use a record with field names `_1` and `_2`:
+
+```dhall
+let P = λ(a : Type) → { _1 : a, _2 : a }
+```
+
+The output of the `λ` function is a record type `{ _1 : a, _2 : a }`.
+
+The type of `P` itself is `Type → Type`.
+
+Type constructors involving more than one type parameter are usually written as curried functions.
+
+Here is an example of how we could define a type constructor similar to Haskell's and Scala's `Either`:
+
+```dhall
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+```
+
+The type of `Either` is `Type → Type → Type`.
+
+
+### The universal type quantifier `∀` vs. the function symbol `λ`
+
+Dhall uses the universal type quantifier (`∀` or equivalently `forall`) to denote _types_ of functions.
+So, any expression of the form `∀(x : something1) → something2` is a _type_ expression: it is something that always means a type.
+That type can be used, for instance, as a type annotation for some function.
+
+For example, the function that appends "..." to a string argument is written like this:
+
+```dhall
+let f = λ(x : Text) → "${x}..."
+```
+
+The type of `f` can be written as `∀(x : Text) → Text`.
+This type does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
+But Dhall will internally rewrite that to the longer form `∀(_ : Text) → Text`.
+
+If we want, we may write the definition of `f` together with a type annotation:
+
+```dhall
+let f : ∀(x : Text) → Text
+  = λ(x : Text) → "${x}..."
+```
+
+Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → "${x}..."`.
+Dhall will reject that expression with the error message `"Invalid function output"`.
+The expression `∀(x : Text) → something2` must be a type of a function, and `something2` must be the output type of that function. So, `something2` must be a type, not a `Text` value.
+
+While the symbol `∀` denotes types, the symbol `λ` (equivalently the backslash, `\`) denotes _functions themselves_, that is, _values_ of some function type.
+
+An expression of the form `λ(x : something1) → something2` is a function that can be applied to any `x` of type `something1` and will compute a result, `something2`. (That result could itself be a value or a type.)
 
 The polymorphic identity function is an example that helps remember the difference between `∀` and `λ`.
 
