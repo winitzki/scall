@@ -509,7 +509,12 @@ let log2 : Natural → Natural = λ(n: Natural) →
 
 ## Functors, contrafunctors, profunctors
 
+### Functors and `fmap`
+
 A functor (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+
+Those type constructors are also called "covariant functors".
+For type constructors, "covariant" means "has a lawful `fmap` method".
 
 A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
 
@@ -534,7 +539,7 @@ The corresponding Dhall code is:
 
 ```dhall
 let F : Type → Type
-  = λ(A: Type) → { x: A, y: A, t: Bool }
+  = λ(A : Type) → { x : A, y : A, t : Bool }
 let fmap
   : ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B
   = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
@@ -547,6 +552,27 @@ To test:
 let example : F Natural = { x = 1, y = 2, t = True }
 let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
+```
+
+### Bifunctors and `bimap`
+
+Bifunctors are type constructors with two type parameters that are covariant in both type parameters.
+For example, `type P a b = (a, a, b, Int)` is a bifunctor.
+
+Dhall encodes bifunctors as functions with two curried arguments:
+
+```dhall
+let P : Type → Type → Type
+  = λ(A : Type) → λ(B : Type) → { x : A, y : A, z : B, t : Integer }
+```
+
+Bifunctors have a `bimap` method:
+
+```dhall
+let bimap
+  : ∀(A : Type) → ∀(B : Type) → ∀(C : Type) → ∀(D : Type) → (A → C) → (B → D) → P A B → P C D
+  = λ(A : Type) → λ(B : Type) → λ(C : Type) → λ(D : Type) → λ(f : A → C) → λ(g : B → D) → λ(pab : P A B) →
+    { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
 
 
