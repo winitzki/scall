@@ -152,7 +152,7 @@ The Dhall import system implements strict limitations on what can be imported to
 
 ## Some features of the Dhall type system
 
-### The assert keyword and equality types
+### The `assert` keyword and equality types
 
 For types other than `Bool` and `Natural`, equality testing is not available as a function.
 However, values of any types may be tested for equality via Dhall's `assert` feature.
@@ -238,6 +238,101 @@ let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 
 The type of `Either` is `Type → Type → Type`.
 
+
+### Types, kinds, sorts
+
+The Dhall type system is a "pure type system", meaning that types and values are treated largely in the same way.
+For instance, we may write `let a : Bool = True` to define a variable of type `Bool`, and we may also write `let b = Bool` to define a variable whose value is the type `Bool` itself.
+Then the type of `b` will be `Type`.
+
+To see the type of an expression, one can write `:type` in the Dhall interpreter:
+
+```dhall
+$ dhall repl
+Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+⊢ :type True
+
+Bool
+
+⊢ :type Bool
+
+Type
+```
+
+Dhall defines functions with the `λ` syntax:
+
+```dhall
+λ(t : Natural) → t + 1
+```
+
+The same syntax works if `t` were a type parameter (a variable of type `Type`):
+
+```dhall
+λ(t : Type) → λ(x : t) → { first = x, second = x }
+```
+
+Records and union types may contain types as well as values:
+
+
+```dhall
+⊢ :type { a = 1, b = Bool }
+
+{ a : Natural, b : Type } 
+
+⊢ :type < A : Bool | B : Type >.B Text
+
+< A : Bool | B : Type >
+```
+
+The symbol `Type` is itself treated as a special value whose type is `Kind`.
+Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
+
+For instance, any function that returns something containing `Type` will itself have the output type `Kind`:
+
+```dhall
+⊢ :type λ(t : Bool) → if t then Type else Type → Type
+
+∀(t : Bool) → Kind
+```
+
+In turn, the symbol `Kind` is a special value of type `Sort`.
+Other type expressions involving `Kind` are also of type `Sort`:
+
+```dhall
+⊢ :type Kind
+
+Sort
+
+⊢ :type Kind → Kind → Type
+
+Sort
+```
+
+However, the symbol `Sort` _does not_ itself have a type.
+It is a type error to use `Sort` in Dhall code.
+
+This important design decision prevents Dhall from having to define an infinite hierarchy of "type universes".
+The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over kinds or other type universes.
+
+Because of this, Dhall does not support any code that operates on `Kind` values ("kind polymorphism").
+Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
+One can define variables having those values, but that's about it.
+
+For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
+
+```dhall
+⊢ :let a = Kind
+
+a : Sort
+
+⊢ λ(_: Kind) → a
+
+Error: ❰Sort❱ has no type, kind, or sort
+
+1│ λ(_: Kind) →  a
+```
+
+There was at one time an effort to add full "kind polymorphism" to Dhall, but it was discovered that it would break the consistency of Dhall's type system.
 
 ### The universal type quantifier `∀` vs. the function symbol `λ`
 
@@ -479,7 +574,7 @@ let sqrt = λ(n: Natural) →
 ```
 
 There are faster algorithms of computing the square root, but those algorithms require division.
-Our implementation of division already includes a slow iteration.
+Our implementation of division already requires a slow iteration.
 So, we will not pursue further optimizations.
 
 ### Binary logarithm
