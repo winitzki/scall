@@ -96,7 +96,13 @@ List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
    -- Returns [2, 3, 4].
 ```
 
-A polymorphic identity function can be written as `λ(A : Type) → λ(x : A) → x`.
+A polymorphic identity function can be written (with a complete type annotation) as:
+
+```dhall
+let identity
+  : ∀(A : Type) → ∀(x : A) → A 
+  = λ(A : Type) → λ(x : A) → x
+```
 
 The type of polymorphic `fmap` functions may be written as:
 
@@ -629,7 +635,7 @@ let log2 : Natural → Natural = λ(n: Natural) →
     in result.log2 
 ```
 
-## Functors, contrafunctors, profunctors
+## Functors and bifunctors
 
 ### Functors and `fmap`
 
@@ -688,7 +694,7 @@ let P : Type → Type → Type
   = λ(A : Type) → λ(B : Type) → { x : A, y : A, z : B, t : Integer }
 ```
 
-Bifunctors have a `bimap` method:
+Bifunctors have a `bimap` method that transforms both type parameters at once:
 
 ```dhall
 let bimap
@@ -697,6 +703,24 @@ let bimap
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
 
+Given `bimap`, one can then define two `fmap` methods that work only on the first or on the second of `P`'s type parameters.
+
+```dhall
+let fmap1
+  : ∀(A : Type) → ∀(C : Type) → ∀(D : Type) → (A → C) → P A D → P C D
+  = λ(A : Type) → λ(C : Type) → λ(D : Type) → λ(f : A → C) →
+    bimap A D C D f (identity D)
+let fmap2
+  : ∀(A : Type) → ∀(B : Type) → ∀(D : Type) → (A → C) → P A B → P A D
+  = λ(A : Type) → λ(B : Type) → λ(D : Type) → λ(g : B → D) →
+    bimap A B A D (identity A) g
+```
+
+Here, we have used the polymorphic identity function defined earlier.
+
+The code for `fmap` and `bimap` can be derived mechanically from the type definition of a functor or a bifunctor.
+For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
+But Dhall does not have any code generation facilities.
 
 ## Typeclasses
 
