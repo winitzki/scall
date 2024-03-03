@@ -49,9 +49,29 @@ There are some syntactic differences between Dhall and most other FP languages:
 - Integers must have a sign (`+1` or `-1`)
 - Identifiers may contain a slash character (`List/map`)
 - Product types are implemented via records. Co-product types are implemented via tagged unions. That is, product and co-product types are unnamed (anonymous) but _must_ have named parts. Examples: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`. The union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y` and the type of both those values is `< X : Natural | Y >`.
+- There is no built-in tuple type, such as Haskell's and Scala's `(Int, String)`.
+Records with names must be used instead.
+For instance, the tuple type `(Int, String)` may be translated to Dhall as `{ _1 : Int, _2 : String }`.
+- The only built-in type constructors are `Optional` and `List`.
 - The empty record type `{ }` has only one value, written as `{=}`, and can be used as the unit type.
 - The empty union type `< >` has _no_ values and can be used as the void type.
 - Pattern matching on union types is implemented via the `merge` function.
+For example, a `zip` function for `Optional` types is implemented as:
+
+```dhall
+let zip
+  : ∀(a : Type) → Optional a → ∀(b : Type) → Optional b → Optional { _1 : a, _2 : b }
+  = λ(a : Type) → λ(oa : Optional a) → λ(b : Type) → λ(ob : Optional b) →
+    let Pair = { _1 : a, _2 : b }
+    in
+        merge { None = None Pair
+              , Some = λ(x : a) →
+                 merge { None = None Pair
+                       , Some = λ(y : b) → Some { _1 = x, _2 = y }
+                       } ob 
+              } oa
+```
+
 - Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and types of variables may be omitted. For example: `let a = 1 let b = 2 in a + b`
 - All function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
 
@@ -98,6 +118,9 @@ The user may specify literal values of those types but can do little else with t
 - The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
 - `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
 - `Text` strings may be concatenated and support a search/replace operation. But Dhall cannot compare them for equality or compute the length of a `Text` string. Neither can Dhall compare `Double` or other types with each other. Comparison functions are only available for `Bool` and `Natural` types.
+
+All well-typed functions in Dhall are total (not partial).
+A pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
 The only recursive type directly supported by Dhall is the built-in type `List`, and its functionality is intentionally limited, so that Dhall's termination guarantees remain in force.
@@ -332,7 +355,11 @@ Error: ❰Sort❱ has no type, kind, or sort
 1│ λ(_: Kind) →  a
 ```
 
-There was at one time an effort to add full "kind polymorphism" to Dhall, but it was discovered that it would break the consistency of Dhall's type system.
+This is because the symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a type, while Dhall requires a valid function type to itself have a type.
+
+There was at one time an effort to add full "kind polymorphism" to Dhall, which would allow functions to manipulate `Kind` values.
+But that effort was abandoned after it was discovered that it would break the consistency of Dhall's type system.
+For more details, see the discussion around this PR comment: https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106
 
 ### The universal type quantifier `∀` vs. the function symbol `λ`
 
