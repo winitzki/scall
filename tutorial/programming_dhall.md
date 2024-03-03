@@ -107,8 +107,10 @@ let identity
 The type of polymorphic `fmap` functions may be written as:
 
 ```dhall
-∀(F : Type → Type) → ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B
+∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
 ```
+
+In Dhall, types and type parameters are not required to be capitalized.
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
@@ -682,6 +684,25 @@ let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
 ```
 
+As another example, let us define `fmap` for a type constructor that involves a union type:
+
+```dhall
+let G : Type → Type
+  = λ(A : Type) → < Left : Text | Right : A >
+let fmap
+  : ∀(A : Type) → ∀(B : Type) → (A → B) → G A → G B
+  = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
+    merge { Left = λ(t : Text) → (G B).Left t
+          , Right = λ(x : A) → (G B).Right (f x)
+          } ga
+```
+
+Dhall requires the union type's constructors to be explicitly derived from the full union type.
+In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
+But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : B >.Left t` and `< Left : Text | Right : B >.Right (f x)` in order to specify the complete union type being constructed.
+
+In the code shown above, we were able to shorten those constructors to `(G B).Left` and `(G B).Right`.
+
 ### Bifunctors and `bimap`
 
 Bifunctors are type constructors with two type parameters that are covariant in both type parameters.
@@ -724,7 +745,114 @@ But Dhall does not have any code generation facilities.
 
 ## Typeclasses
 
+Typeclasses can be implemented in Dhall via evidence values used as explicit function arguments.
+
+### `Monoid`
+
+The `Monoid` typeclass is defined in Haskell as:
+
+```haskell
+class Monoid m where
+  mempty :: m
+  mappend :: m → m → m
+```
+
+An evidence value needs to contain a value of type `m` and a function of type `m → m → m`.
+A Dhall record type containing these values would be `{ mempty : m, mappend : m → m → m }`.
+A value of that type provides evidence that the type `m` has the required methods for a monoid.
+
+To use the typeclass more easily, it is convenient to define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
+
+```dhall
+let Monoid = λ(m : Type) → { mempty : m, mappend : m → m → m }
+```
+
+With this definition, `Monoid Bool` is the type `{ mempty : Bool, mappend : Bool → Bool → Bool }`.
+Values of that type are evidence values for a monoid structure in the type `Bool`.
+
+Now we can create evidence values for specific types and use them in programs.
+
+Let us implement some `Monoid` evidence values for the types `Bool`, `Natural`, `Text`, and `List`:
+
+```dhall
+let monoidBool : Monoid Bool = { mempty = True, mappend = λ(x : Bool) → λ(y : Bool) → x && y }
+let monoidNatural : Monoid Natural = { mempty = 0, mappend = λ(x : Natural) → λ(y : Natural) → x + y }
+let monoidText : Monoid Text = { mempty = "", mappend = λ(x : Text) → λ(y : Text) → x ++ y }
+let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { mempty = [] : List a, mappend = λ(x : List a) → λ(y : List a) → x # y }
+```
+
+We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
+An example is a function `foldMap` for `List`, written in the Haskell syntax as:
+
+```haskell
+foldMap :: Monoid m => (a -> m) -> List a -> m
+foldMap f as = foldr (\a -> \b -> mappend (fa) b) mempty as
+```
+
+The corresponding Dhall code is:
+
+```dhall
+let foldMap
+  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
+  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(as : List a) →
+    List/fold a as m (λ(x : a) → λ(y : m) → monoid_m.mappend (f x) y) monoid_m.mempty
+```
+
+### `Functor`
+
+The `Functor` typeclass is a constraint for a _type constructor_.
+So, the type parameter of `Functor` must be of the kind `Type → Type`.
+
+The required data for an evidence value is a polymorphic `fmap` function for that type constructor.
+Let us now package that information into a `Functor` typeclass similarly to how we did with `Monoid`.
+
+Define the type constructor for evidence values:
+
+```dhall
+let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+```
+
+Let us write the evidence values for the type constructors `F` and `G` shown in the section "Functors and bifunctors":
+
+```dhall
+let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+  }
+let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
+    merge { Left = λ(t : Text) → (G B).Left t
+          , Right = λ(x : A) → (G B).Right (f x)
+          } ga  
+  }
+```
+
+### `Monad`
+
+The `Monad` typeclass may be defined via the methods `pure` and `bind`.
+
+Define the type constructor for evidence values:
+
+```dhall
+let Monad = λ(F : Type → Type) →
+  { pure : ∀(a : Type) → a → F a
+  , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+  }
+```
+
+As an example, let us define a `Monad` evidence value for `List`:
+
+```dhall
+let monadList : Monad List =
+  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+  in
+  { pure = λ(a : Type) → λ(x : a) → [x]
+  , bind : λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+    List/concatMap a b f fa
+  }
+```
+
 ## Church encoding for recursive types and type constructors
+
+## Constructing functors from parts
 
 ## Filterable functors and contrafunctors
 
