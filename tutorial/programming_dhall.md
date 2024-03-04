@@ -15,7 +15,15 @@ Evaluation of a well-typed Dhall program will never create infinite loops or thr
 Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
 The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
 
-Dhall adopts a hard-core FP approach and implements a pure type system F-omega with a few additional features, using a Haskell-like syntax. Example:
+Dhall implements a pure type system Fω with a few additional features, using a Haskell-like syntax.
+
+For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+
+- https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md
+- https://gallium.inria.fr/~remy/mpri/
+- https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf
+
+Here is an example of a Dhall program:
 
 ```dhall
 let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
@@ -956,6 +964,19 @@ let monadList : Monad List =
 
 ## Church encoding for recursive types and type constructors
 
+Dhall does not directly support defining recursive types or recursive functions.
+The only supported recursive type is a built-int `List` type. 
+However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
+
+A beginner's tutorial about Church encoding is part of the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
+
+
+## Church encoding of existential types
+
+## Co-Church encoding of co-inductive types
+
+## Church encodings of nested types and GADTs
+
 ## Constructing functors and contrafunctors from parts
 
 ## Filterable functors and contrafunctors
@@ -965,10 +986,6 @@ let monadList : Monad List =
 ## Monads
 
 ## Traversable functors
-
-## Church encoding of existential types
-
-## Church encoding of GADTs
 
 ## Free monads
 
