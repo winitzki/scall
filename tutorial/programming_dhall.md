@@ -80,11 +80,22 @@ let zip
               } oa
 ```
 
-- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and types of variables may be omitted. For example: `let a = 1 let b = 2 in a + b`
 - All function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
 
+- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and types of variables may be omitted.
+For example:
+
+```dhall
+let a = 1
+let b = 2
+  in a + b  -- This evaluates to 3.
+```
+
+Because of this feature, we will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
+It is implied that the `let` declarations are part of a larger Dhall program.
+
 Dhall does not support the Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and types are inferred automatically.
-Instead, that function needs to be written as:
+Dhall functions need to be written via a `λ` symbol with an explicit type annotation:
 
 ```dhall
 let f = λ(x : Natural) → x + 1
@@ -96,8 +107,7 @@ In Dhall, the standard `map` function for `List` values has the type signature:
 List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
 ```
 
-When applying this function,
-the code must specify both type parameters:
+When applying this function, the code must specify both type parameters `a`, `b`:
 
 ```dhall
 List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
@@ -118,7 +128,8 @@ The type of polymorphic `fmap` functions may be written as:
 ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
 ```
 
-In Dhall, types and type parameters are not required to be capitalized.
+Dhall does not require capitalizing the names of types and type parameters.
+In this tutorial, we will usually capitalize type constructors (such as `List`).
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
