@@ -749,7 +749,7 @@ Typeclasses can be implemented in Dhall via evidence values used as explicit fun
 
 ### `Monoid`
 
-The `Monoid` typeclass is defined in Haskell as:
+The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
 class Monoid m where
@@ -757,17 +757,26 @@ class Monoid m where
   mappend :: m → m → m
 ```
 
+In Scala, a corresponding definition is:
+
+```scala
+trait Monoid[M] {
+ def empty: M
+ def combine: (M, M) => M 
+}
+```
+
 An evidence value needs to contain a value of type `m` and a function of type `m → m → m`.
-A Dhall record type containing these values would be `{ mempty : m, mappend : m → m → m }`.
+A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
 A value of that type provides evidence that the type `m` has the required methods for a monoid.
 
 To use the typeclass more easily, it is convenient to define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
 
 ```dhall
-let Monoid = λ(m : Type) → { mempty : m, mappend : m → m → m }
+let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
 
-With this definition, `Monoid Bool` is the type `{ mempty : Bool, mappend : Bool → Bool → Bool }`.
+With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values for a monoid structure in the type `Bool`.
 
 Now we can create evidence values for specific types and use them in programs.
@@ -775,10 +784,10 @@ Now we can create evidence values for specific types and use them in programs.
 Let us implement some `Monoid` evidence values for the types `Bool`, `Natural`, `Text`, and `List`:
 
 ```dhall
-let monoidBool : Monoid Bool = { mempty = True, mappend = λ(x : Bool) → λ(y : Bool) → x && y }
-let monoidNatural : Monoid Natural = { mempty = 0, mappend = λ(x : Natural) → λ(y : Natural) → x + y }
-let monoidText : Monoid Text = { mempty = "", mappend = λ(x : Text) → λ(y : Text) → x ++ y }
-let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { mempty = [] : List a, mappend = λ(x : List a) → λ(y : List a) → x # y }
+let monoidBool : Monoid Bool = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+let monoidNatural : Monoid Natural = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
+let monoidText : Monoid Text = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
+let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
 ```
 
 We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
@@ -786,7 +795,7 @@ An example is a function `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
 foldMap :: Monoid m => (a -> m) -> List a -> m
-foldMap f as = foldr (\a -> \b -> mappend (fa) b) mempty as
+foldMap f as = foldr (\a -> \b -> append (fa) b) mempty as
 ```
 
 The corresponding Dhall code is:
@@ -795,7 +804,7 @@ The corresponding Dhall code is:
 let foldMap
   : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(as : List a) →
-    List/fold a as m (λ(x : a) → λ(y : m) → monoid_m.mappend (f x) y) monoid_m.mempty
+    List/fold a as m (λ(x : a) → λ(y : m) → monoid_m.append (f x) y) monoid_m.empty
 ```
 
 ### `Functor`
@@ -812,7 +821,13 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
 ```
 
-Let us write the evidence values for the type constructors `F` and `G` shown in the section "Functors and bifunctors":
+Here is a `Functor` evidence value for `List`. The `fmap` function is already available in the Dhall standard prelude:
+
+```dhall
+let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
+```
+
+As another example, let us write the evidence values for the type constructors `F` and `G` shown in the section "Functors and bifunctors":
 
 ```dhall
 let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
@@ -850,9 +865,98 @@ let monadList : Monad List =
   }
 ```
 
+We have defined the `Monad` typeclass via the `pure` and `bind` methods.
+Let us implement a function that provides the `join` method for any member of `Monad`.
+
+In Haskell, we would define `join` via `bind` as:
+
+```haskell
+monadJoin :: Monad F => F (F a) -> F a
+monadJoin ffa = bind ffa id
+```
+
+In this Haskell code, `id` is an identity function of type `F a → F a`.
+
+The corresponding Dhall code is analogous, except we need to write out all type parameters:
+
+```dhall
+let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) → λ(ffa : F (F a)) →
+  monadF.bind (F a) ffa a (identity (F a))  
+```
+
+We can use this function to obtain a `join` method for `List` like this:
+
+```dhall
+let List/join
+  : ∀(a : Type) → List (List a) → List a
+  = monadJoin List monadList 
+```
+
+### Inheritance of typeclasses
+
+Sometimes one typeclass includes methods from another.
+For example, `Semigroup` is similar to `Monoid`: it has the `append` method but no `empty` method.
+We could say that the `Monoid` typeclass inherits `append` from `Semigroup` and adds the `empty` method.
+
+To express this kind of inheritance in Dhall, we can use Dhall's record-updating features.
+Dhall has the operator `//\\` that combines all fields from two record types into one larger record type.
+The corresponding operator `/\` combines fields from two record values.
+For example:
+
+```dhall
+⊢ { a : Text, b : Bool } //\\ { c : Natural }
+
+{ a : Text, b : Bool, c : Natural }
+
+⊢ { a = 1 } /\ { b = True }
+
+{ a = 1, b = True }
+```
+
+In these cases, the field names must be different (otherwise it is a type error).
+
+We can use these operators for making typeclass definitions and evidence values shorter.
+
+Consider this Dhall code for the `Semigroup` typeclass:
+
+```dhall
+let Semigroup = λ(m : Type) → { append : m → m → m }
+let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ y }
+```
+
+We can use this definition to rewrite the `Monoid` typeclass via "record-based inheritance".
+Then the `Semigroup` evidence value for the type `Text` is written as:
+
+```dhall
+let Monoid = λ(m : Type) → Semigroup m //\\ { empty : m }
+let monoidText : Monoid Text = semigroupText /\ { empty = "" } 
+```
+
+Similarly, we may rewrite the `Monad` typeclass to make it more clear that any monad is also a (covariant) functor:
+
+```dhall
+let Monad = λ(F : Type → Type) →
+  Functor F //\\
+      { pure : ∀(a : Type) → a → F a
+      , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+      }
+```
+
+As an example, let us define a `Monad` evidence value for `List`:
+
+```dhall
+let monadList : Monad List =
+  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+  in functorList /\
+      { pure = λ(a : Type) → λ(x : a) → [x]
+      , bind : λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+        List/concatMap a b f fa
+      }
+```
+
 ## Church encoding for recursive types and type constructors
 
-## Constructing functors from parts
+## Constructing functors and contrafunctors from parts
 
 ## Filterable functors and contrafunctors
 
