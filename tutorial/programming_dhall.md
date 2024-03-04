@@ -52,18 +52,59 @@ The program cannot return a `Natural` value that will be computed "later", or an
 
 ### Syntactic differences
 
-There are some syntactic differences between Dhall and most other FP languages:
+Although Dhall broadly resembles Haskell, there are some minor syntactic differences between Dhall and most other FP languages.
 
-- Integers must have a sign (`+1` or `-1`)
-- Identifiers may contain a slash character (`List/map`)
-- Product types are implemented via records. Co-product types are implemented via tagged unions. That is, product and co-product types are unnamed (anonymous) but _must_ have named parts. Examples: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`. The union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y` and the type of both those values is `< X : Natural | Y >`.
-- There is no built-in tuple type, such as Haskell's and Scala's `(Int, String)`.
+#### Identifiers
+
+Identifiers may contain slash characters; for example, `List/map` is a valid name.
+
+#### Integers and natural numbers
+
+Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign
+
+#### Product types
+
+Product types are implemented only through records. For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
+
+Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
+
+There is no built-in tuple type, such as Haskell's and Scala's `(Int, String)`.
 Records with names must be used instead.
-For instance, the tuple type `(Int, String)` may be translated to Dhall as `{ _1 : Int, _2 : String }`.
-- The only built-in type constructors are `Optional` and `List`.
-- The empty record type `{ }` has only one value, written as `{=}`, and can be used as the unit type.
-- The empty union type `< >` has _no_ values and can be used as the void type.
-- Pattern matching on union types is implemented via the `merge` function.
+For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Int, _2 : String }`.
+
+Record types are "structural": two record types are distinguished only via their field names and types.
+There is no way of assigning a permanent name to the record type itself, as it is done in other languages, in order to distinguish that type from other record types.
+
+For example, the values `x` and `y` have the same type in the following Dhall code:
+
+```dhall
+let RecordType1 = { a : Natural, b : Bool }
+let x : RecordType1 = { a = 1, b = True }
+let RecordType2 = { b : Bool, a : Natural }
+let y : RecordType2 = { a = 2, b = False }
+```
+
+#### Co-product types
+
+Co-product types are implemented via tagged unions, for example, `< X : Natural | Y : Bool >`.
+Here `X` and `Y` are constructor names for the union type.
+
+Values of co-product types are created via constructor functions.
+Constructor functions are written using record-like access notation.
+For example, `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`. 
+Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`.
+
+Union types can have empty constructors.
+For example, the union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y` and the type of both those values is `< X : Natural | Y >`.
+
+Union types are "structural": two union types are distinguished only via their constructor names and types.
+There is no way of assigning a permanent name to the union type itself, as it is done in other languages, in order to distinguish that type from other union types.
+
+#### Pattern matching
+
+The only built-in type constructors are `Optional` and `List`.
+
+Pattern matching on union types is implemented via the `merge` function.
 For example, a `zip` function for `Optional` types is implemented as:
 
 ```dhall
@@ -79,6 +120,14 @@ let zip
                        } ob 
               } oa
 ```
+
+#### Unit type and void type
+
+The empty record type `{ }` can be used as the unit type. It has only one value, written as `{=}`.
+
+The empty union type `< >` has _no_ values and can be used as the void type.
+
+#### Miscellaneous features
 
 - All function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
 
@@ -994,11 +1043,63 @@ let monadList : Monad List =
 ## Church encoding for recursive types and type constructors
 
 Dhall does not directly support defining recursive types or recursive functions.
-The only supported recursive type is a built-int `List` type. 
+The only supported recursive type is a built-in `List` type. 
 However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
 
-A beginner's tutorial about Church encoding is part of the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
+A beginner's tutorial about Church encoding is in the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
+Here we will summarize that technique more briefly.
 
+In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
+That is, one writes definitions of the form `T = F T` where `F` is some type constructor and `T` is the type being defined.
+
+For example, suppose `T` is the type of lists with integer values.
+A recursive definition of `T` in Haskell could look like this:
+
+```haskell
+data T = Nil | Cons Int T
+```
+
+This definition of `T` has the form of a "type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by: 
+
+```haskell
+type F a = Nil | Cons Int a
+```
+
+The type constructor `F` is called the **recursion scheme** for the definition of `T`.
+
+Dhall does not accept recursive type equations, but it will accept the definition of `F` (as it is non-recursive).
+The definition of `F` is written in Dhall as:
+
+```dhall
+let F = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
+```
+
+Then the Church encoding of `T` is written in Dhall as:
+
+```dhall
+let C = ∀(r : Type) → (F r → r) → r 
+```
+
+The type `C` is still non-recursive, so Dhall will accept this definition.
+
+Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`.
+The type `C` is not a type constructor; it is a type of a function with a type parameter.
+When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
+
+### Simple recursive types
+
+The Church encoding construction works generally for any recursion scheme `F`.
+Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type) → (F r → r) → r`.
+The type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
+
+It is far from obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+More precisely, the type `∀(r : Type) → (F r → r) → r` is equivalent to the _least fixed point_ of the type equation `T = F T`.
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
+In this book, we will focus on the practical uses of Church encoding.
+
+### Mutually recursive types
+
+### Recursive type constructors
 
 ## Church encoding of existential types
 
