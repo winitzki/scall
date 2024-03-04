@@ -337,7 +337,25 @@ Records and union types may contain types as well as values:
 The symbol `Type` is itself treated as a special value whose type is `Kind`.
 Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
-For instance, any function that returns something containing `Type` will itself have the output type `Kind`:
+```dhall
+⊢ :type (Type → Type) → Type
+
+Kind
+
+⊢ :type { a : Type }
+
+Kind
+```
+
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`. The type of _that_ is `Kind`:
+
+```dhall
+⊢ :type { a : Natural, b : Type }
+
+Kind
+```
+
+Any function that returns something containing `Type` will itself have the output type `Kind`:
 
 ```dhall
 ⊢ :type λ(t : Bool) → if t then Type else Type → Type
