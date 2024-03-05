@@ -1156,27 +1156,32 @@ The type `C` is a fixed point of the type equation `C = F C`.
 This means we should have two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 These two functions implement an isomorphism between `C` and `F C`.
 
-Because this is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding `C`:
+Because this is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C`.
 
-```dhall
-let fix : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
-    let c2r : C → r = λ(c : C) → c r frr
-    let fr : F r = fmapF C r c2r fc
-        in frr fr
-
-let fmapFix : F (F C) → F C = fmapF (F C) C fix
-
-let unfix : C → F C = λ(c : C) → c (F C) fmapFix
-```
-
-This code illustrates the primary way of working with values of type `C` directly.
-A value `c : C` is a curried function with two arguments: a type parameter `r` and a function of type `F r → r`.
+The basic technique of working directly with any Church-encoded data `c : C` is to use `c` as a curried higher-order function.
+That function has two arguments: a type parameter `r` and a function of type `F r → r`.
 If we need to compute a value of some other type `D` out of `c`, we specify `D` as the type parameter to `c` and then provide a function of type `F D → D` as the second argument.
+As long as we are able to provide a function of type `F D → D`, we can convert `c` into a value of type `D`:
 
 ```dhall
 let d : D =
     let fdd : F D → D = ...
         in c D fdd
+```
+
+We will use this technique to implement `fix` and `unfix`.
+For clarity, we split the code into smaller chunks annotated by their types:
+
+```dhall
+let fix : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
+    let c2r : C → r = λ(c : C) → c r frr
+    let fmap_c2r : F C → F r = fmapF C r c2r
+    let fr : F r = fmap_c2r fc
+        in frr fr
+
+let fmap_fix : F (F C) → F C = fmapF (F C) C fix
+
+let unfix : C → F C = λ(c : C) → c (F C) fmap_fix
 ```
 
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other.
