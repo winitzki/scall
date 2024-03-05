@@ -613,6 +613,40 @@ For this reason, any Dhall function of the form `λ(A : Type) → ...` must work
 
 As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) → A → A`.
 
+## Function combinators
+
+The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
+
+Implementing them in Dhall is straightforward.
+Instead of pairs, we use the record type `{ _1 : a, _2 : b }`. 
+
+```dhall
+let before
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
+    g(f(x)) 
+
+let after
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
+    f(g(x)) 
+
+let flip
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(x : b) → λ(y : a) →
+    f y x
+
+let curry
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
+    f { _1 = x, _2 = y }
+
+let uncurry
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
+    f p._1 p._2
+```
+
 ## Arithmetic with `Natural` numbers
 
 The Dhall prelude supports a limited number of operations for `Natural` numbers.
@@ -1315,7 +1349,42 @@ with the type signature of the `foldRight` function for the type `List Integer`:
 foldRight : ∀(r : Type) → (List Integer) → r → (Integer → r → r) → r
 ```
 
-So, fold-like operation
+So, implementing `foldRight` for the Church-encoded type `ListInt` is simple:
+
+```dhall
+let foldRight
+  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+  = λ(r : Type) → λ(p : ListInt) → λ(init : r) → λ(update : Integer → r → r) →
+    p r init update
+```
+
+or even shorter:
+
+```dhall
+let foldRight
+  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+  = λ(r : Type) → λ(p : ListInt) → p r
+```
+
+The similarity between the types of `foldRight` and `ListInt` becomes more apparent if we flip the curried arguments of `foldRight`:
+
+
+```dhall
+flip_foldRight
+  : ListInt → ∀(r : Type) → r → (Integer → r → r) → r
+  = λ(p : ListInt) → p
+```
+
+This is just an identity function of type `ListInt → ListInt`.
+
+We note that `foldRight` is a non-recursive function.
+In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
+
+
+### Where did the recursion go?
+
+The technique of Church encoding may be perplexing. If we are actually working with recursive types and recursive functions, why do we no longer
+see any recursion in the code? In `foldRight`, why is there no code that iterates over a list of integers in a loop?
 
 ## Church encodings for more complicated types
 
