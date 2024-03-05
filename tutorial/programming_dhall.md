@@ -706,12 +706,14 @@ The code is:
 -- unsafeDiv x y means x / y but it will return wrong results when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
   let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-  let Accum = {result: Natural, sub: Natural, done: Bool}
-    in λ(x: Natural) → λ(y: Natural) →
-         let r: Accum = Natural/fold x Accum (λ(acc: Accum) →
+  let Accum = {result : Natural, sub : Natural, done : Bool}
+    in λ(x : Natural) → λ(y : Natural) →
+         let init : Accum = {result = 0, sub = x, done = False}
+         let update : Accum → Accum = λ(acc: Accum) →
              if acc.done then acc
              else if Natural/lessThan acc.sub y then acc // {done = True}
-             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}) {result = 0, sub = x, done = False}
+             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
+         let r : Accum = Natural/fold x Accum update init
          in r.result
 in
   assert : unsafeDiv 3 2 === 1
@@ -727,7 +729,7 @@ Although the type system of Dhall is limited, it has enough facilities to ensure
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero, and unit otherwise:
 
 ```dhall
-let Nonzero: Natural → Type = λ(y: Natural) → if Natural/isZero y then < > else {}
+let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
 ```
 
 This is a type function that returns one or another type given a `Natural` value.
@@ -778,7 +780,7 @@ The code is:
 ```dhall
 let sqrt = λ(n: Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
-  let stepDown = λ(r: Natural) → if (lessThanEqual (r * r) n) then r else Natural/subtract 1 r 
+  let stepDown = λ(r : Natural) → if (lessThanEqual (r * r) n) then r else Natural/subtract 1 r 
     in Natural/fold n Natural stepDown n 
   in 
     assert : sqrt 25 === 5
@@ -801,16 +803,45 @@ We supply `n` as that bound and make sure that the final result remains constant
 The code is:
 
 ```dhall
-let log2 : Natural → Natural = λ(n: Natural) →
+let log2 : Natural → Natural = λ(n : Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
   let Accum = { b : Natural, log2 : Natural }
-  let acc0 = { b = 1, log2 = 0 } -- At all times, b == pow(2, log2).
+  let init = { b = 1, log2 = 0 } -- At all times, b == pow(2, log2).
   let update = λ(acc: Accum) →
      if lessThanEqual n acc.b
      then { b = acc.b * 2, log2 = acc.log2 + 1 }
      else acc 
-  let result : Accum = Natural/fold n Accum update acc0
+  let result : Accum = Natural/fold n Accum update init
     in result.log2 
+```
+
+### Greatest common divisor (`gcd`)
+
+The greatest common divisor (`gcd x y`) is computed by a simple algorithm using subtraction.
+
+When `x` and `y` are equal, we have `gcd x x = x`.
+Otherwise, one of `x` and `y` is larger; say, `x`. Then we define recursively `gcd x y = gcd (x - y) y`.
+
+To implement this in Dhall, we supply the larger of `x` and `y` as an upper bound on the iteration count.
+The iteration will keep the pair `x, y` sorted so that `x` is always greater or equal to `y`.
+At each step, a pair `x, y` is replaced by `x - y, y` and sorted again.
+Eventually, `y` becomes equal to `0`.
+After that, the value `x` is equal to the required value of `gcd`.
+
+```dhall
+let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Pair = { x : Natural, y : Natural }
+  let swap : Pair → Pair = λ(currentPair : Pair) → { x = currentPair.y, y = currentPair.x }
+  let sortPair : Pair → Pair = λ(currentPair : Pair) →
+    if lessThanEqual currentPair.y currentPair.x then currentPair else swap currentPair
+  let step : Pair → Pair = λ(currentPair : Pair) →
+    currentPair // { x = Natural/subtract currentPair.y currentPair.x }
+  let update : Pair → Pair = λ(currentPair : Pair) → sortPair (step currentPair)
+  let init = sortPair { x = x, y = y }
+  let max_iter = init.x
+  let result : Pair = Natural/fold max_iter Pair update init
+    in result.x
 ```
 
 ## Functors and bifunctors
