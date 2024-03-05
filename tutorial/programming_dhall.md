@@ -123,9 +123,14 @@ let zip
 
 #### Unit type and void type
 
+The empty union type `< >` has _no_ values and can be used as the void type.
+
 The empty record type `{ }` can be used as the unit type. It has only one value, written as `{=}`.
 
-The empty union type `< >` has _no_ values and can be used as the void type.
+An equivalent way of denoting the unit type is by a union type with a single constructor, for example `< One >` or with any other name instead of "One".
+The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
+
+In this way, one can define differently named unit types.
 
 #### Miscellaneous features
 
@@ -480,7 +485,7 @@ let f : ∀(x : Text) → Text
 
 Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → "${x}..."`.
 Dhall will reject that expression with the error message `"Invalid function output"`.
-The expression `∀(x : Text) → something2` must be a type of a function, and `something2` must be the output type of that function. So, `something2` must be a type, not a `Text` value.
+The expression `∀(x : Text) → something2` must be a type of a function, and `something2` must be the output type of that function. So, `something2` must be a type and cannot be a `Text` value.
 
 While the symbol `∀` denotes types, the symbol `λ` (equivalently the backslash, `\`) denotes _functions themselves_, that is, _values_ of some function type.
 
@@ -521,6 +526,57 @@ In Dhall, the type parameter must be specified explicitly both in the type expre
 
 This makes code more verbose, but also helps remove "magic" from the syntax.
 All type parameters and all value parameters are always written explicitly.
+
+### Dependent types
+
+Curried functions types support dependence between an argument type and any previously given argument values.
+
+For example, consider the following function type:
+
+```dhall
+∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
+```
+
+In that type, the argument `x` has type `A`, which is given by a previous argument.
+The output type `F A` depends on the first two arguments.
+
+Since Dhall is a "pure type system", types and values are treated similarly in many ways.
+So, one can define functions from values to types in the same way as one defines any other functions:
+
+```dhall
+let f
+  : ∀(x : Bool) → Type
+  = λ(x : Bool) → if x then Natural else Text 
+```
+
+The result of evaluating `f False` is the type `Text`.
+
+Such functions can be used in type signatures to create functions of dependent types (that is, functions whose types depend on the values of their input arguments):
+
+```dhall
+∀(x : Bool) → ∀(y : f x) → Text
+```
+
+Here, the type of the argument `y` must be `Natural` or `Text` depending on the _value_ of the argument `x`.
+
+For an example of using dependent types for implementing safe division, see below in the section about arithmetic operations.
+
+One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
+
+The following example shows that Dhall does not recognize that a value of a dependent type is well-typed inside an `if` branch.
+
+```dhall
+⊢ :let g : ∀(x : Bool) → f x → Text = λ(x : Bool) → λ(y : f x) → if x then "" else y
+
+Error: ❰if❱ branches must have matching types
+```
+
+The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
+If we are in the `if/then` branch, we return a `Text` value (an empty string).
+If we are in the `if/else` branch, the value `x` is `False` and so `y` must have type `f False = Text`.
+But Dhall does not implement this logic and cannot see that the branches will have matching types.
+
+Because of this and other limitations, one can make only an occasional use of dependent types in Dhall. 
 
 ### The void type
 
@@ -1108,17 +1164,64 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
-The type `TreeInt` (a binary tree with integer leaf values):
+We can use certain type equivalence identities to rewrite the type `ListInt` in a form more convenient for practical applications.
+
+The first type equivalence is that a function from a union type is equivalent to a product of functions.
+So, the type `F r → r`, written in full as:
+
+```dhall
+< Nil | Cons : { head : Integer, tail : r } > → r
+```
+
+is equivalent to a pair of functions of types `< Nil > → r` and `{ head : Integer, tail : r } → r`.
+
+The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
+
+The second type equivalence is that a function from a record type is equivalent to a curried function.
+For instance, the type:
+
+```dhall
+{ head : Integer, tail : r } → r
+```
+
+is equivalent to `Integer → r → r`.
+
+Using these type equivalences, we may rewrite the type `ListInt` as:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+```
+
+It is now less apparent that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
+However, working with curried functions needs shorter code than working with union types and record types.
+
+The type `TreeInt` (a binary tree with integer leaf values) is defined in Dhall by:
 
 ```dhall
 let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
 let TreeInt = ∀(r : Type) → (F r → r) → r
 ```
 
+Since `F r` is a union type with two parts, the type of functions `F r → r` can be replaced by a pair of functions.
+
+We can also replace functions from a record type by curried functions.
+
+Then we obtain an equivalent definition of `TreeInt` that is easier to work with:
+
+```dhall
+let TreeInt = ∀(r : Type) → (Integer → r) → (r → r → r) → r
+```
+
+These examples show that any type constructor `F` defined via products (records) and co-products (union types) will give rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+
+We will call that the **curried form** of the Church encoding.
+The curried form is more convenient for practical programming.
+But when we are looking for general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
+
 ## Working with Church-encoded data
 
-A Church-encoded data type is always of the form `∀(r : Type) → (F r → r) → r`, that is, a higher-order function with a type parameter.
-A value `x` of that type is a function whose code needs to be written as:
+A Church-encoded data type is always of the form `∀(r : Type) → ... → r`, that is, a curried higher-order function with a type parameter.
+A value `x` of that type is a function whose code may be written like this:
 
 ```dhall
 let x
@@ -1197,6 +1300,22 @@ The function `fix` (sometimes also called `build`) provides a general way of cre
 The function `unfix` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of type `C`.
 
 ### Aggregations ("folds")
+
+The type `C` itself is the type of fold-like functions.
+
+To see the similarity, compare the curried form of the `ListInt` type:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+```
+
+with the type signature of the `foldRight` function for the type `List Integer`:
+
+```dhall
+foldRight : ∀(r : Type) → (List Integer) → r → (Integer → r → r) → r
+```
+
+So, fold-like operation
 
 ## Church encodings for more complicated types
 
