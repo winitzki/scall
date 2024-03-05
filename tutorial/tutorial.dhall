@@ -264,9 +264,18 @@ let Monad = λ(F : Type → Type) →
       , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
         List/concatMap a b f fa
       }
-      
+
     in True
 
+let _church_encoding_examples =
 
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
+    let foldRight
+  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+  = λ(r : Type) → λ(p : ListInt) → λ(init : r) → λ(update : Integer → r → r) →
+    p r init update
+
+    in True
 
 in True
