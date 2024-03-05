@@ -1412,9 +1412,36 @@ This is just an identity function of type `ListInt → ListInt`.
 We note that `foldRight` is a non-recursive function.
 In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
 
+For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
+We will see some examples of aggregations in the next subsections.
+
+### Pretty-printing a binary tree
+
+Consider the curried form of the Church encoding for binary trees with `Text`-valued leaves:
+
+```dhall
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+```
+
+The task is to print a text representation of the tree.
+
+
+
 ### Computing the size of a recursive data structure
 
+Consider the curried Church encoding for binary trees with `Natural`-valued leaves:
 
+```dhall
+let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
+```
+
+The task is to compute various numerical measures of the size of the tree.
+
+We can consider three possible size computations:
+
+- The sum of all natural numbers stored in the tree.
+- The total number of leaves in the tree.
+- The maximum depth of leaves.
 
 ### Where did the recursion go?
 
