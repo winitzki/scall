@@ -1042,6 +1042,8 @@ let monadList : Monad List =
 
 ## Church encoding for recursive types and type constructors
 
+### Recursion scheme
+
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
 However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
@@ -1067,7 +1069,7 @@ type F a = Nil | Cons Int a
 
 The type constructor `F` is called the **recursion scheme** for the definition of `T`.
 
-Dhall does not accept recursive type equations, but it will accept the definition of `F` (as it is non-recursive).
+Dhall does not accept recursive type equations, but it will accept the definition of `F` (because it is non-recursive).
 The definition of `F` is written in Dhall as:
 
 ```dhall
@@ -1090,22 +1092,139 @@ When we define `F` as above, it turns out that the type `C` equivalent to the ty
 
 The Church encoding construction works generally for any recursion scheme `F`.
 Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type) → (F r → r) → r`.
-The type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
+Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
 It is far from obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `∀(r : Type) → (F r → r) → r` is equivalent to the _least fixed point_ of the type equation `T = F T`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
 
+Here are some examples of Church encoding for simple recursive types.
+
+The type `ListInt` (a list with integer values):
+
+```dhall
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = ∀(r : Type) → (F r → r) → r
+```
+
+The type `TreeInt` (a binary tree with integer leaf values):
+
+```dhall
+let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
+let TreeInt = ∀(r : Type) → (F r → r) → r
+```
+
+## Practical use of Church encoding
+
+## Church encodings for more complicated types
+
 ### Mutually recursive types
+
+If two or more types are defined recursively through each other, one needs a separate recursion scheme and a separate the Church encoding for each of the types.
+
+As an example, consider this Haskell definition:
+
+```haskell
+data Layer = Name String | OneLayer Layer | TwoLayers Layer2 Layer2
+data Layer2 = Name2 String | ManyLayers [ Layer ]   
+```
+
+The type `Layer` is defined via itself and `Layer2`, while `Layer2` is defined via `Layer`.
+
+We need two recursion schemes (`F` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
+
+```haskell
+data Layer = Layer (F Layer Layer2)
+data Layer2 = Layer2 (F2 Layer Layer2)
+```
+
+We will achieve this formulation if we define `F` and `F2` (still in Haskell) by:
+
+```haskell
+data F a b = Name String |  OneLayer a | TwoLayers b b
+data F2 a b = Name2 String | ManyLayers [ a ]
+```
+
+The recursion schemes `F` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
+
+```dhall
+let F = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
+```
+
+Then we define the types `Layer` and `Layer2` in Dhall via the Church encodings:
+
+```dhall
+let Layer  = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → a
+let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → b
+```
+
+The definitions appear very similar, except for the output types of the functions.
+But that difference is crucial.
 
 ### Recursive type constructors
 
-## Church encoding of existential types
+A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
-## Co-Church encoding of co-inductive types
+For this to work, the recursion scheme `F` must have one more type parameter than `T`.
 
-## Church encodings of nested types and GADTs
+For example, take the Haskell definition of a binary tree with leaves of type `a`:
+
+```haskell
+data Tree a = Leaf a | Branch (Tree a) (Tree a)
+```
+
+The corresponding recursion scheme `F` is:
+
+```haskell
+data F a r = Leaf a | Branch r r
+```
+
+The Dhall code for `F` is:
+
+```dhall
+let F = λ(a : Type) → λ(r : Type) →
+   < Leaf : a | Branch : { left : r, right : r } >
+```
+
+The Church encoding for `Tree` looks like this:
+
+```dhall
+let Tree = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+```
+
+It is important that the type parameter `a` is used with `λ`.
+This makes `Tree` a type constructor.
+
+The quantified type `∀(r : Type)` is not a type parameter of `Tree`; it is part of the definition of the type of `Tree`.
+
+The code is written similarly in case of more type parameters.
+Consider a Haskell definition of a binary tree with two type parameters and two different kinds of leaf:
+
+```haskell
+data TreeAB a b = LeafA a | LeafB b | Branch (TreeAB a b) (TreeAB a b)
+```
+
+The corresponding recursion scheme is:
+
+```haskell
+data F a b r = LeafA a | LeafB b | Branch r r
+```
+
+The Dhall code for this example is:
+
+```dhall
+let F = λ(a : Type) → λ(b : Type) → λ(r : Type) →
+   < LeafA : a | LeafB : b | Branch : { left : r, right : r } >
+let TreeAB = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (F a b r → r) → r
+```
+
+### Existential types
+
+### Co-Church encoding of co-inductive types
+
+### Church encodings of nested types and GADTs
 
 ## Constructing functors and contrafunctors from parts
 
