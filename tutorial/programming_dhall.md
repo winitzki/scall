@@ -164,7 +164,8 @@ List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
 When applying this function, the code must specify both type parameters `a`, `b`:
 
 ```dhall
-List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
+let List/map = https://prelude.dhall-lang.org/List/map
+in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
    -- Returns [2, 3, 4].
 ```
 
@@ -325,12 +326,12 @@ For example, a type constructor that would be written in Haskell or Scala as `ty
 Because Dhall does not have nameless tuples, we will use a record with field names `_1` and `_2`:
 
 ```dhall
-let P = λ(a : Type) → { _1 : a, _2 : a }
+let PairAA = λ(a : Type) → { _1 : a, _2 : a }
 ```
 
 The output of the `λ` function is a record type `{ _1 : a, _2 : a }`.
 
-The type of `P` itself is `Type → Type`.
+The type of `PairAA` itself is `Type → Type`.
 
 Type constructors involving more than one type parameter are usually written as curried functions.
 
@@ -597,7 +598,7 @@ The type signature of `absurd` can be rewritten equivalently as:
 
 ```dhall
 let absurd : < > → ∀(A : Type) → A
-  = λ(x : < >) → λ(A : Type) → (merge {=} x) : A 
+  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
 ```
 
 This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
@@ -624,12 +625,12 @@ Instead of pairs, we use the record type `{ _1 : a, _2 : b }`.
 let before
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
-    g(f(x)) 
+    g (f (x))
 
 let after
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
-    f(g(x)) 
+    f( g (x)) 
 
 let flip
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
@@ -706,10 +707,10 @@ The code is:
 -- unsafeDiv x y means x / y but it will return wrong results when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
   let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-  let Accum = {result : Natural, sub : Natural, done : Bool}
+  let Accum = { result : Natural, sub : Natural, done : Bool }
     in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = {result = 0, sub = x, done = False}
-         let update : Accum → Accum = λ(acc: Accum) →
+         let update : Accum → Accum = λ(acc : Accum) →
              if acc.done then acc
              else if Natural/lessThan acc.sub y then acc // {done = True}
              else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
@@ -807,8 +808,8 @@ let log2 : Natural → Natural = λ(n : Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
   let Accum = { b : Natural, log2 : Natural }
   let init = { b = 1, log2 = 0 } -- At all times, b == pow(2, log2).
-  let update = λ(acc: Accum) →
-     if lessThanEqual n acc.b
+  let update = λ(acc : Accum) →
+     if lessThanEqual acc.b n
      then { b = acc.b * 2, log2 = acc.log2 + 1 }
      else acc 
   let result : Accum = Natural/fold n Accum update init
@@ -938,8 +939,9 @@ let fmap1
   : ∀(A : Type) → ∀(C : Type) → ∀(D : Type) → (A → C) → P A D → P C D
   = λ(A : Type) → λ(C : Type) → λ(D : Type) → λ(f : A → C) →
     bimap A D C D f (identity D)
+
 let fmap2
-  : ∀(A : Type) → ∀(B : Type) → ∀(D : Type) → (A → C) → P A B → P A D
+  : ∀(A : Type) → ∀(B : Type) → ∀(D : Type) → (B → D) → P A B → P A D
   = λ(A : Type) → λ(B : Type) → λ(D : Type) → λ(g : B → D) →
     bimap A B A D (identity A) g
 ```
@@ -1010,8 +1012,8 @@ The corresponding Dhall code is:
 ```dhall
 let foldMap
   : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
-  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(as : List a) →
-    List/fold a as m (λ(x : a) → λ(y : m) → monoid_m.append (f x) y) monoid_m.empty
+  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
+    List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append (f x) y) monoid_m.empty
 ```
 
 ### `Functor`
@@ -1066,8 +1068,8 @@ As an example, let us define a `Monad` evidence value for `List`:
 let monadList : Monad List =
   let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
   in
-  { pure = λ(a : Type) → λ(x : a) → [x]
-  , bind : λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+  { pure = λ(a : Type) → λ(x : a) → [ x ]
+  , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
     List/concatMap a b f fa
   }
 ```
@@ -1155,8 +1157,8 @@ As an example, let us define a `Monad` evidence value for `List`:
 let monadList : Monad List =
   let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
   in functorList /\
-      { pure = λ(a : Type) → λ(x : a) → [x]
-      , bind : λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+      { pure = λ(a : Type) → λ(x : a) → [ x ]
+      , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
         List/concatMap a b f fa
       }
 ```
@@ -1263,7 +1265,7 @@ However, working with curried functions needs shorter code than working with uni
 The type `TreeInt` (a binary tree with integer leaf values) is defined in Dhall by:
 
 ```dhall
-let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
+let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
 let TreeInt = ∀(r : Type) → (F r → r) → r
 ```
 
