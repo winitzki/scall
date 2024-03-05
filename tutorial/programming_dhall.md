@@ -1164,16 +1164,34 @@ let fix : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
     let fr : F r = fmapF C r c2r fc
         in frr fr
 
-let unfix : C → F C =
-    let fmapFix : F (F C) → F C = fmapF (F C) C fix
-        in λ(c : C) → c (F C) fmapFix
+let fmapFix : F (F C) → F C = fmapF (F C) C fix
+
+let unfix : C → F C = λ(c : C) → c (F C) fmapFix
+```
+
+This code illustrates the primary way of working with values of type `C` directly.
+A value `c : C` is a curried function with two arguments: a type parameter `r` and a function of type `F r → r`.
+If we need to compute a value of some other type `D` out of `c`, we specify `D` as the type parameter to `c` and then provide a function of type `F D → D` as the second argument.
+
+```dhall
+let d : D =
+    let fdd : F D → D = ...
+        in c D fdd
 ```
 
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other.
 
+Another property proved in that paper is the identity `c C fix = c` for all `c : C`.
+
 ### Constructors
 
 The function `fix` (sometimes also called `build`) provides a general way of creating values of type `C`.
+
+### Pattern matching
+
+The function `unfix` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of type `C`.
+
+### Aggregations ("folds")
 
 ## Church encodings for more complicated types
 
