@@ -1118,8 +1118,18 @@ let TreeInt = ∀(r : Type) → (F r → r) → r
 ## Working with Church-encoded data
 
 A Church-encoded data type is always of the form `∀(r : Type) → (F r → r) → r`, that is, a higher-order function with a type parameter.
-Working with data encoded in this way is not always straightforward.
-It takes some work to figure out how to create values of those types and to work with them more conveniently.
+A value `x` of that type is a function whose code needs to be written as:
+
+```dhall
+let x
+  : ∀(r : Type) → (F r → r) → r
+  = λ(r : Type) → λ(frr : F r → r) →
+     let y : r = ... -- Need to insert some code here.
+        in y
+```
+
+Working with data encoded in this way is not straightforward.
+It takes some work to figure out convenient ways of creating values of those types and of working with them.
 
 We will now show how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to implement pattern matching.
 
@@ -1130,33 +1140,40 @@ An important requirement is that the recursion scheme `F` should be a _covariant
 If this is not so, Church encoding does not work as expected.
 
 We will assume that `F` has a known and lawful `fmap` function that we denote by `fmapF`.
-So, all code below assumes a given set of definitions of this form:
+So, all Dhall code below assumes a given set of definitions of this form:
 
 ```dhall
 let F : Type → Type = ...
+
 let C = ∀(r : Type) → (F r → r) → r
+
 let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
 ```
 
 ### The isomorphism `C = F C`: the functions `fix` and `unfix` 
 
 The type `C` is a fixed point of the type equation `C = F C`.
-This means we have two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
+This means we should have two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 These two functions implement an isomorphism between `C` and `F C`.
 
-Because this is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all `F` and `C`:
+Because this is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding `C`:
 
 ```dhall
 let fix : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
     let c2r : C → r = λ(c : C) → c r frr
     let fr : F r = fmapF C r c2r fc
         in frr fr
+
 let unfix : C → F C =
     let fmapFix : F (F C) → F C = fmapF (F C) C fix
         in λ(c : C) → c (F C) fmapFix
 ```
 
+The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other.
+
 ### Constructors
+
+The function `fix` (sometimes also called `build`) provides a general way of creating values of type `C`.
 
 ## Church encodings for more complicated types
 
