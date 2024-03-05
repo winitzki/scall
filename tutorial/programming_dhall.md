@@ -1391,7 +1391,7 @@ let foldRight
     p r init update
 ```
 
-or even shorter:
+The code can be made even shorter:
 
 ```dhall
 let foldRight
@@ -1400,7 +1400,6 @@ let foldRight
 ```
 
 The similarity between the types of `foldRight` and `ListInt` becomes more apparent if we flip the curried arguments of `foldRight`:
-
 
 ```dhall
 flip_foldRight
@@ -1413,11 +1412,15 @@ This is just an identity function of type `ListInt → ListInt`.
 We note that `foldRight` is a non-recursive function.
 In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
 
+### Computing the size of a recursive data structure
+
+
 
 ### Where did the recursion go?
 
-The technique of Church encoding may be perplexing. If we are actually working with recursive types and recursive functions, why do we no longer
-see any recursion in the code? In `foldRight`, why is there no code that iterates over a list of integers in a loop?
+The technique of Church encoding may be perplexing.
+If we are actually working with recursive types and recursive functions, why do we no longer see any recursion in the code?
+In `foldRight`, why is there no code that iterates over a list of integers in a loop?
 
 ## Church encodings for more complicated types
 
