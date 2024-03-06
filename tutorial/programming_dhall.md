@@ -1492,7 +1492,7 @@ let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 
 ### Pattern matching
 
-The function `unfix` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of type `C`.
+The function `unfix` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of Church-encoded types.
 
 ### Aggregations ("folds")
 
