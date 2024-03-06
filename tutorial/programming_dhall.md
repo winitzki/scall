@@ -582,10 +582,15 @@ The corresponding Scala code is:
 def identity[A]: A => A  = { x => x }
 ```
 
-In Dhall, the type parameter must be specified explicitly both in the type expression and in the function expression.
+In Dhall, the type parameters must be specified explicitly, both when defining a function and when calling it:
 
-This makes code more verbose, but also helps remove "magic" from the syntax.
-All type parameters and all value parameters are always written explicitly.
+```dhall
+let identity = λ(A : Type) → λ(x : A) → x
+let x = identity Natural 123  -- Writing just `identity 123` is a type error.
+```
+
+All type parameters and all value parameters need to be written explicitly.
+This makes Dhall code more verbose, but also helps remove "magic" from the syntax.
 
 ### Dependent types
 
