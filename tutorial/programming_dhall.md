@@ -253,7 +253,53 @@ $ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
 3
 ```
 
-The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program. See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+Although a Dhall file has only one value, that value may be a record with many fields.
+Record fields may contain values and/or types.
+One can implement Dhall modules that export a number of values and/or types to other Dhall modules:
+
+```dhall
+-- This file is called SimpleModule.dhall
+let UserName = Text
+let UserId = Natural
+let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${id}]"
+
+let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
+let test = assert : validate === True   -- Cannot import this module unless `validate` is `True`.
+
+in {
+  UserName,
+  UserId,
+  printUser,
+}
+```
+
+When this Dhall file is evaluated, the resulting value is a record of type `{ UserName : Type, UserId : Type, printUser : Text → Natural → Text }`.
+So, this module exports two types (`UserName`, `UserId`) and a function `printUser`.
+
+We can use this module in another Dhall file like this:
+
+```dhall
+-- This file is called UseSimpleModule.dhall
+let S = ./SimpleModule.dhall
+let name : S.UserName = "first_user"
+let id : S.UserId = 1001
+let printed : Text = S.printUser name id
+... -- Continue writing code.
+```
+
+In the file `UseSimpleModule.dhall`, we use the types and the values exported from `SimpleModule.dhall`.
+The code will not compile unless all types match.
+
+Note that all fields of a Dhall record are always public.
+To make values in a Dhall module private, we simply do not put them into the final exported record.
+Values declared using `let x = ...` inside a Dhall module will not be exported automatically.
+
+In this example, the file `SimpleModule.dhall` defined the values `test` and `validate`.
+Those values are type-checked and computed inside the module but not exported.
+In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
+
+The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
+See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
 ## Some features of the Dhall type system
 
