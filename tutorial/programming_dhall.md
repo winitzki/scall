@@ -306,7 +306,7 @@ See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantee
 ### The `assert` keyword and equality types
 
 For types other than `Bool` and `Natural`, equality testing is not available as a function.
-However, values of any types may be tested for equality via Dhall's `assert` feature.
+However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
 That feature may be used for basic sanity checks:
 
 ```dhall
@@ -319,7 +319,7 @@ let _ = assert : x === "123"
 The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
 
 The Dhall expression `a === b` is a type.
-That type has no values (is void) if the normal forms of `a` and `b` are different.
+That type has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
 For example, the types `1 === 2` and `λ(a : Text) → a === True` are void. 
 
 If `a` and `b` evaluate to the same normal form, the type `a === b` is not void, and there exists a value of that type.
@@ -331,15 +331,28 @@ This expression evaluates to a value of type `a === b` if the two sides are equa
 We can assign that value to a variable if we'd like:
 
 ```dhall
-let t = assert : 1 + 2 === 0 + 3
+let test1 = assert : 1 + 2 === 0 + 3
 ```
 
-In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value that we assigned to `t`.
+In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value that we assigned to `test1`.
 
-The Dhall typechecker will raise a type error if the two sides of an `assert` are not evaluated to the same normal form, _at typechecking time_.
+The Dhall typechecker will raise a type error unless the two sides of an `assert` are evaluated to the same normal form, _at typechecking time_.
 
-This means `assert` can only be used on literal values or on expressions that statically evaluate to literal values.
-One cannot use `assert` for implementing a function comparing, say, two arbitrary `Text` values given as arguments.
+Some examples:
+
+```dhall
+let x = 1
+let y = 2
+let _ = assert : x + 1 === y  -- OK.
+let print = λ(n : Natural) → λ(prefix : Text) → prefix ++ Natural/show n
+let _ = assert : print (x + 1) === print y  -- OK
+```
+
+In the last line, the `assert` expression was used to compare two partially evaluated functions, `print (x + 1)` and `print y`.
+The assertion is valid because the normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) → prefix ++ "2"`.
+The normal form of `print y` is the same Dhall expression.
+
+Because `assert` expressions are checked at compile time, they cannot be used for implementing a _function_ comparing, say, two arbitrary `Text` values given as arguments.
 Try writing this code:
 
 ```dhall
@@ -349,9 +362,9 @@ let compareTextValues : Text → Text → Bool
       in True
 ```
 
-This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and these two symbols are not equal.
+This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and those two symbols are not equal.
 
-The `assert` keyword is often used for unit tests.
+The `assert` keyword is often used to implement unit tests.
 In that case, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
 So, we may write unit tests like this:
