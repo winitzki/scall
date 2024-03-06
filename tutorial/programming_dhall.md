@@ -1317,7 +1317,7 @@ For instance, the type:
 
 is equivalent to `Integer → r → r`.
 
-Using these type equivalences, we may rewrite the type `ListInt` as:
+Using these type equivalences, we may rewrite the type `ListInt` in the **curried form** as:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -1326,21 +1326,21 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 It is now less apparent that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
 However, working with curried functions needs shorter code than working with union types and record types.
 
-The type `TreeInt` (a binary tree with integer leaf values) is defined in Dhall by:
+The type `TreeText` (a binary tree with string-valued leaves) is defined in Dhall by:
 
 ```dhall
-let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
-let TreeInt = ∀(r : Type) → (F r → r) → r
+let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (F r → r) → r
 ```
 
 Since `F r` is a union type with two parts, the type of functions `F r → r` can be replaced by a pair of functions.
 
 We can also replace functions from a record type by curried functions.
 
-Then we obtain an equivalent definition of `TreeInt` that is easier to work with:
+Then we obtain an equivalent definition of `TreeText` that is easier to work with:
 
 ```dhall
-let TreeInt = ∀(r : Type) → (Integer → r) → (r → r → r) → r
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
 These examples show that any type constructor `F` defined via products (records) and co-products (union types) will give rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
@@ -1424,7 +1424,53 @@ Another property proved in that paper is the identity `c C fix = c` for all `c :
 
 ### Constructors
 
-The function `fix` (sometimes also called `build`) provides a general way of creating values of type `C`.
+The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values, or from scratch.
+
+As the type `F C` is almost always a union type, it is convenient to rewrite the function type `F C → C` as a product of simpler functions.
+
+`F C → C  ≅  (F1 C → C) × (F2 C → C) × ... `
+
+where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, and so on.
+
+Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) can be named for convenience.
+In this way, we replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
+
+To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
+
+Begin with the curried Church encoding of those types:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+```
+
+From these types, we can simply read the types of the constructor functions:
+
+```dhall
+let nil : ListInt = ...
+let cons : Integer → ListInt → ListInt = ...
+
+let leaf : Text → TreeText = ...
+let branch: TreeText → TreeText → TreeText = ...
+```
+
+In principle, the code for the constructors can be derived from the general code of `fix`.
+But in most cases it is easier to write the code manually, by implementing the required type signatures guided by the types.
+
+Each of the constructor functions needs to return a value of the Church-encoded type, and we write out it type signature.
+Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
+
+```dhall
+let nil : ListInt
+   = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a1
+let cons : Integer → ListInt → ListInt
+   = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a2 n (c a1 a2)
+
+let leaf : Text → TreeText
+   = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) → a1 t
+let branch: TreeText → TreeText → TreeText
+   = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) → a2 (left a1 a2) (right a1 a2)
+```
 
 ### Pattern matching
 
