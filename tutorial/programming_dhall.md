@@ -1441,10 +1441,11 @@ Begin with the curried Church encoding of those types:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-From these types, we can simply read the types of the constructor functions:
+From this, we can simply read off the types of the constructor functions:
 
 ```dhall
 let nil : ListInt = ...
@@ -1457,19 +1458,36 @@ let branch: TreeText → TreeText → TreeText = ...
 In principle, the code for the constructors can be derived from the general code of `fix`.
 But in most cases it is easier to write the code manually, by implementing the required type signatures guided by the types.
 
-Each of the constructor functions needs to return a value of the Church-encoded type, and we write out it type signature.
+Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
 Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
 
 ```dhall
 let nil : ListInt
-   = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a1
+   = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
+     a1
 let cons : Integer → ListInt → ListInt
-   = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a2 n (c a1 a2)
+   = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
+     a2 n (c a1 a2)
 
 let leaf : Text → TreeText
-   = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) → a1 t
+   = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
+     a1 t
 let branch: TreeText → TreeText → TreeText
-   = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) → a2 (left a1 a2) (right a1 a2)
+   = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
+     a2 (left a1 a2) (right a1 a2)
+```
+
+Now we can create values of Church-encoded types by writing nested constructor calls:
+
+```dhall
+-- The list [+123, -456, +789]
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+
+{- The tree    /\
+              /\ c
+             a  b
+-}
+let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 ```
 
 ### Pattern matching
