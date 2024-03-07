@@ -1418,6 +1418,8 @@ let fmap_fix : F (F C) → F C = fmapF (F C) C fix
 let unfix : C → F C = λ(c : C) → c (F C) fmap_fix
 ```
 
+The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
+
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other.
 
 Another property proved in that paper is the identity `c C fix = c` for all `c : C`.
@@ -1427,12 +1429,13 @@ Another property proved in that paper is the identity `c C fix = c` for all `c :
 The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values, or from scratch.
 
 As the type `F C` is almost always a union type, it is convenient to rewrite the function type `F C → C` as a product of simpler functions.
+We can write this in a mathematical notation:
 
 `F C → C  ≅  (F1 C → C) × (F2 C → C) × ... `
 
-where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, and so on.
+where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, etc.
 
-Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) can be named for convenience.
+Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we can assign a name for convenience.
 In this way, we replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
 
 To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
@@ -1455,7 +1458,7 @@ let leaf : Text → TreeText = ...
 let branch: TreeText → TreeText → TreeText = ...
 ```
 
-In principle, the code for the constructors can be derived from the general code of `fix`.
+In principle, the code for the constructors can be derived mechanically from the general code of `fix`.
 But in most cases it is easier to write the code manually, by implementing the required type signatures guided by the types.
 
 Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
@@ -1489,10 +1492,6 @@ let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 -}
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 ```
-
-### Pattern matching
-
-The function `unfix` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of Church-encoded types.
 
 ### Aggregations ("folds")
 
@@ -1541,7 +1540,7 @@ We note that `foldRight` is a non-recursive function.
 In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
 
 For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
-We will see some examples of aggregations in the next subsections.
+We will show some examples of aggregations in the next subsections.
 
 ### Pretty-printing a binary tree
 
@@ -1553,11 +1552,12 @@ let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 
 The task is to print a text representation of the tree.
 
+***
 
 
 ### Computing the size of a recursive data structure
 
-Consider the curried Church encoding for binary trees with `Natural`-valued leaves:
+The curried Church encoding for binary trees with `Natural`-valued leaves is:
 
 ```dhall
 let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
@@ -1565,18 +1565,85 @@ let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
 
 The task is to compute various numerical measures of the size of the tree.
 
-We can consider three possible size computations:
+We will consider three possible size computations:
 
-- The sum of all natural numbers stored in the tree.
-- The total number of leaves in the tree.
-- The maximum depth of leaves.
+- The sum of all natural numbers stored in the tree. (`treeSum`)
+- The total number of leaves in the tree. (`treeCount`)
+- The maximum depth of leaves. (`treeDepth`)
+
+***
 
 ### Where did the recursion go?
 
 The technique of Church encoding may be perplexing.
-If we are actually working with recursive types and recursive functions, why do we no longer see any recursion in the code?
-In `foldRight`, why is there no code that iterates over a list of integers in a loop?
+If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion in the code?
+In `foldRight` or `treeSum`, why is there no code that iterates over the data in a loop or via recursion?
 
+***
+
+### Pattern matching
+
+The function `unfix : C → F C` (sometimes also called `unroll` or `unfold`) provides a general way of pattern matching on values of Church-encoded types.
+Given a value `c : C` of a Church-encoded type, we first compute `unfix c`.
+That will be a value of type `F C`, which is typically a union type.
+We can then use the ordinary pattern-matching facility (Dhall's `merge`) on that union type.
+
+For curried forms of Church encoding, we can implement pattern-matching functions more directly.
+Consider the type `ListInt` defined by:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+```
+
+A general pattern match on a `ListInt` value returns one of two cases: either the list is empty, or there is a `head : Integer` and a `tail : ListInt`.
+Suppose the result of pattern matching is a value of some target type `t`.
+For the empty-list case, we need to supply a value of type `t`.
+For the head-tail case, we need to supply a function of type `Integer → ListInt → t`.
+
+So, a general pattern-matching facility for `ListInt` is equivalent to a function `matchListInt` of the type:
+
+```dhall
+let matchListInt : ∀(t : Type) → ListInt → t → (Integer → ListInt → t) → t
+```
+
+This function returns a value of an arbitrary target type `t` by pattern matching on a given value of type `ListInt`.
+
+For a general Church-encoded type `C`, the pattern-matching function will have the type `matchC : ∀(t : Type) → C → (F C → t) → t`.
+We can implement `matchC` as a composition of `unfix` and the given function of type `F C → t`.
+
+```dhall
+let matchC : ∀(t : Type) → C → (F C → t) → t = λ(t : Type) → λ(c : C) → λ(m : F C → t) → m (unfix c)
+```
+
+Let us write out this code for `C = ListInt`:
+
+```dhall
+let matchListInt
+  : ∀(t : Type) → ListInt → t → (Integer → ListInt → t) → t
+  = λ(t : Type) → λ(xs : ListInt) → λ(nil : t) → λ(cons : Integer → ListInt → t) →
+    xs t nil (λ(i : Integer) → λ(k : t) → ***)
+```
+
+ ***
+
+As an example, let us implement a function `headOptional : ListInt → Optional Integer` that extracts the first element of the list.
+If the list is empty, `headOptional` will return `None Integer`.
+
+***
+
+#### Performance
+
+Note that `unfix` is implemented by applying the Church-encoded argument to some function.
+In practice, this means that `unfix` will to traverse the entire data structure.
+This may be counter-intuitive.
+For example, `headOptional` (as shown above) will need to traverse the entire list of type `ListInt` before
+it can determine whether the list is not empty.
+
+Church-encoded data are higher-order functions, and it is not possible to pattern match on them directly.
+The data traversal is necessary to enable pattern matching for Church-encoded types.
+
+As a result, the performance of programs will be often significantly slower when working with large Church-encoded data structures.
+For example, concatenating or reversing lists of type `ListInt` takes time quadratic in the list length.
 ## Church encodings for more complicated types
 
 ### Mutually recursive types
