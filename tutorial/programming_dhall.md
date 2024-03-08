@@ -1374,7 +1374,7 @@ It takes some work to figure out convenient ways of creating values of those typ
 We will now show how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to implement pattern matching.
 
 For simplicity, we now consider an ordinary Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a recursion scheme `F`.
-Later, we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
+Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
 
 An important requirement is that the recursion scheme `F` should be a _covariant_ type constructor.
 If this is not so, Church encoding does not work as expected.
@@ -1466,7 +1466,7 @@ let branch : TreeText → TreeText → TreeText = ...
 ```
 
 In principle, the code for the constructors can be derived mechanically from the general code of `fix`.
-But in most cases it is easier to write the code manually, by implementing the required type signatures guided by the types.
+But in most cases, it is easier to write the constructors manually, by implementing the required type signatures guided by the types.
 
 Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
 Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
@@ -1547,6 +1547,7 @@ We note that `foldRight` is a non-recursive function.
 In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
 
 For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
+In practice, it is easier to use the data type `C` itself as a "fold"-like function.
 We will show some examples of aggregations in the next subsections.
 
 ### Pretty-printing a binary tree
@@ -1559,8 +1560,35 @@ let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 
 The task is to print a text representation of the tree where branching is indicated via nested parentheses, such as `"((a b) c)"`.
 
-***
+```dhall
+let print : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) → ...
+```
 
+To use the curried-form Church-encoded `tree` for aggregation, we simply apply the value `tree` to some arguments.
+The first argument is the type `r` of the result value.
+Since the pretty-printing operation will return a `Text` value, we set the type parameter `r` to `Text`.
+
+Then it remains to supply two non-recursive functions of types `Text → r` and `r → r → r` (where `r = Text`).
+These two functions describe how to create the text representation for a larger tree either from a leaf or from the (already computed) text representations of two subtrees.
+A leaf is printed as just its `Text` value.
+For the two branches, we add parentheses and add a space between the two subtrees.
+The code is:
+
+```dhall
+let print : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) →
+  let printLeaf : Text → Text = λ(leaf : Text) → leaf
+  let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+    in tree Text printLeaf printBranches
+
+let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")    
+
+let test = assert : print example2 === "((a b) c)"
+```
+
+The pretty-printing function `print` is _not_ recursive.
+The possibility of iteration over the data stored in the tree is provided by the type `TreeText` itself.
+
+In a similar way, many recursive tree-processing functions can be reduced to fold-like operations and then implemented for Church-encoded trees non-recursively.
 
 ### Computing the size of a recursive data structure
 
@@ -1570,7 +1598,7 @@ The curried Church encoding for binary trees with `Natural`-valued leaves is:
 let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
 ```
 
-The task is to compute various numerical measures of the size of the tree.
+The task is to compute various numerical measures characterizing the tree's data.
 
 We will consider three possible size computations:
 
