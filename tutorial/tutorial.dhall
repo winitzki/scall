@@ -619,6 +619,16 @@ let _tree_aggregation_test =
 
       let _ = assert : printTree example2 ≡ "((a b) c)"
 
+      let show
+          : < X : Natural | Y : Bool | Z > → Text
+          = λ(x : < X : Natural | Y : Bool | Z >) →
+              merge
+                { X = λ(x : Natural) → "X ${Natural/show x}"
+                , Y = λ(y : Bool) → "Y ${if y then "True" else "False"}"
+                , Z = "Z"
+                }
+                x
+
       in  True
 
 in  True

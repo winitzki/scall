@@ -9,7 +9,8 @@ This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhal
 
 ## Overview
 
-Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable configuration formats.
+Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
+
 The Dhall type-checker and interpreter guarantee that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
 Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
@@ -32,23 +33,28 @@ let id = λ(A : Type) → λ(x : A) → x
     -- This evaluates to 32 of type Natural.
 ```
 
-The result is a powerful, purely functional programming language that can be used not only for flexible but strictly verified configuration files, and also for teaching and illustrating language-independent aspects of FP theory.
-
-Currently, Dhall has no type inference: all types must be specified explicitly.
-Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax, which may help in learning some of the more advanced concepts of FP.
-This is the primary focus of the present book.
+The result is a powerful, purely functional programming language that could have several applications:
+- a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
+- a high-level scripting DSL interfacing with a runtime that implements low-level details 
+- a System Fω interpreter for teaching and illustrating language-independent aspects of FP theory
 
 ## Differences between Dhall and other FP languages
 
 Mostly, Dhall follows the Haskell syntax and semantics.
 
+Currently, Dhall has no type inference: all types must be specified explicitly.
+Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax, which may help in learning some of the more advanced concepts of FP.
+
 Because the Dhall language is not Turing-complete and always evaluates all well-typed terms to a normal form, there is no analog of Haskell's "bottom" (undefined) value.
-So, there is no difference between strict and lazy values in Dhall.
+For the same reason, there is no difference between strict and lazy values in Dhall.
 One can equally well imagine that all Dhall values are lazy, or that they are all strict.
 
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
 This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
-The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a "random" `Natural` value, or anything like that. 
+
+In addition, if that Dhall program is self-contained (has no external imports), it will always return the same `Natural` value.
+The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that. 
+
 
 ### Syntactic differences
 
@@ -60,20 +66,21 @@ Identifiers may contain slash characters; for example, `List/map` is a valid nam
 
 #### Integers and natural numbers
 
-Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign
+Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign.
 
 #### Product types
 
-Product types are implemented only through records. For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
+Product types are implemented only through records.
+For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
 
-Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
-
-There is no built-in tuple type, such as Haskell's and Scala's `(Int, String)`.
+There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`.
 Records with names must be used instead.
 For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Int, _2 : String }`.
 
-Record types are "structural": two record types are distinguished only via their field names and types.
-There is no way of assigning a permanent name to the record type itself, as it is done in other languages, in order to distinguish that type from other record types.
+Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
+
+Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
+There is no way of assigning a permanent name to the record type itself, as it is done in other languages in order to distinguish one record type from another.
 
 For example, the values `x` and `y` have the same type in the following Dhall code:
 
@@ -86,26 +93,67 @@ let y : RecordType2 = { a = 2, b = False }
 
 #### Co-product types
 
-Co-product types are implemented via tagged unions, for example, `< X : Natural | Y : Bool >`.
-Here `X` and `Y` are constructor names for the union type.
+Co-product types are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
+Here `X` and `Y` are **constructor names** for the given union type.
 
 Values of co-product types are created via constructor functions.
 Constructor functions are written using record-like access notation.
+
 For example, `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`. 
-Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`.
+Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`:
+
+```dhall
+let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
+```
 
 Union types can have empty constructors.
-For example, the union type `< X : Natural | Y >` has values written as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y` and the type of both those values is `< X : Natural | Y >`.
+For example, the union type `< X : Natural | Y >` has values written either as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
+Both these values have type `< X : Natural | Y >`.
 
-Union types are "structural": two union types are distinguished only via their constructor names and types.
-There is no way of assigning a permanent name to the union type itself, as it is done in other languages, in order to distinguish that type from other union types.
+Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
+There is no way of assigning a permanent name to the union type itself, as it is done in other languages in order to distinguish that union type from others.
 
 #### Pattern matching
 
-The only built-in type constructors are `Optional` and `List`.
+Pattern matching is available for union types as well as for the built-in `Optional` types.
+Dhall implements pattern matching via `merge` expressions.
+The `merge` expressions are similar to `case` expressions in Haskell and `match/case` expressions in Scala.
 
-Pattern matching on union types is implemented via the `merge` function.
-For example, a `zip` function for `Optional` types is implemented as:
+One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation.
+
+As an example, consider a union type defined in Haskell by:
+
+```haskell
+data P = X Int | Y Bool | Z
+```
+
+A function `toString` that prints a value of that type can be written in Haskell as:
+
+```haskell
+toString :: P -> String
+toString x = case x of
+  X x -> "X " ++ show x
+  Y y -> "Y " ++ show y
+  Z -> "Z"
+```
+
+The corresponding type is defined in Dhall by:
+
+```dhall
+let P = < X : Natural | Y : Bool | Z >
+```
+
+Here is the Dhall code for a function `toText : < X : Natural | Y : Bool | Z > → Text` that prints a value of type `P`:
+
+```dhall
+let toText : P → Text = λ(x : P) →
+  merge { X = λ(x : Natural) → "X " ++ Natural/show x
+        , Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False")
+        , Z = "Z"
+        } x
+```
+
+Another example of using Dhall's `merge` is when implementing a `zip` function for `Optional` types:
 
 ```dhall
 let zip
@@ -1754,7 +1802,26 @@ We will consider three possible size computations:
 - The total number of leaves in the tree. (`treeCount`)
 - The maximum depth of leaves. (`treeDepth`)
 
-***
+Each computation is a fold-like aggregation, so we will implement all of them via similar-looking code:
+
+```dhall
+let treeSum : TreeNat → Natural =
+   let leafSum = ???
+   let branchSum = ???
+     in ∀(tree : TreeNat) → tree Natural leafSum branchSum
+
+let treeCount : TreeNat → Natural =
+   let leafCount = ???
+   let branchCount = ???
+     in ∀(tree : TreeNat) → tree Natural leafCount branchCount
+
+let treeDepth : TreeNat → Natural =
+   let leafDepth = ???
+   let branchDepth = ???
+     in ∀(tree : TreeNat) → tree Natural leafDepth branchDepth
+```
+
+The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
 
 ### Pattern matching
 
