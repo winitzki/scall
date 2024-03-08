@@ -542,4 +542,83 @@ let _church_defs =
 
         in  True
 
+let _list_aggregation_test =
+      let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
+      let nil
+          : ListInt
+          = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a1
+
+      let cons
+          : Integer → ListInt → ListInt
+          = λ(n : Integer) →
+            λ(c : ListInt) →
+            λ(r : Type) →
+            λ(a1 : r) →
+            λ(a2 : Integer → r → r) →
+              a2 n (c r a1 a2)
+
+      let example1
+          : ListInt
+          = cons +123 (cons -456 (cons +789 nil))
+
+      let abs = https://prelude.dhall-lang.org/Integer/abs
+
+      let init
+          : Natural
+          = 0
+
+      let update
+          : Integer → Natural → Natural
+          = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+
+      let sumListInt
+          : ListInt → Natural
+          = λ(list : ListInt) → list Natural init update
+
+      let _ = assert : sumListInt example1 ≡ 1368
+
+      in  True
+
+let _tree_aggregation_test =
+      let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+
+      let leaf
+          : Text → TreeText
+          = λ(t : Text) →
+            λ(r : Type) →
+            λ(a1 : Text → r) →
+            λ(a2 : r → r → r) →
+              a1 t
+
+      let branch
+          : TreeText → TreeText → TreeText
+          = λ(left : TreeText) →
+            λ(right : TreeText) →
+            λ(r : Type) →
+            λ(a1 : Text → r) →
+            λ(a2 : r → r → r) →
+              a2 (left r a1 a2) (right r a1 a2)
+
+      let example2
+          : TreeText
+          = branch (branch (leaf "a") (leaf "b")) (leaf "c")
+
+      let printLeaf
+          : Text → Text
+          = λ(leaf : Text) → leaf
+
+      let printBranches
+          : Text → Text → Text
+          = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+
+      let printTree
+          : TreeText → Text
+          = λ(tree : ∀(r : Type) → (Text → r) → (r → r → r) → r) →
+              tree Text printLeaf printBranches
+
+      let _ = assert : printTree example2 ≡ "((a b) c)"
+
+      in  True
+
 in  True

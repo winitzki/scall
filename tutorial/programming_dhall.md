@@ -1477,14 +1477,14 @@ let nil : ListInt
      a1
 let cons : Integer → ListInt → ListInt
    = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
-     a2 n (c a1 a2)
+     a2 n (c r a1 a2)
 
 let leaf : Text → TreeText
    = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
      a1 t
 let branch: TreeText → TreeText → TreeText
    = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
-     a2 (left a1 a2) (right a1 a2)
+     a2 (left r a1 a2) (right r a1 a2)
 ```
 
 Now we can create values of Church-encoded types by writing nested constructor calls:
@@ -1550,6 +1550,71 @@ For an arbitrary Church-encoded data type `C`, the "fold" function is the identi
 In practice, it is easier to use the data type `C` itself as a "fold"-like function.
 We will show some examples of aggregations in the next subsections.
 
+### Sum of values in a `ListInt`
+
+Suppose we have a value `list` in the curried-form Church encoding of `ListInt`:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
+let list : ListInt = ...
+```
+
+The task is to compute the sum of the absolute values of all integers in `list`.
+So, we need to implement a function `sumListInt : ListInt → Natural`.
+An example test could be:
+
+```dhall
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+let _ = assert : sumListInt example1 === 1368
+```
+
+The function `sumListInt` is a "fold-like" aggregation operation.
+**"Fold-like" aggregations** iterate over the data with some sort of accumulator value being updated at each step.
+The result value of the aggregation is the last computed value of the accumulator.
+
+The main trick is to notice that an aggregation over a `ListInt` can be implemented simply to applying the value `list` to some arguments.
+
+The type of `list` is a curried function with three arguments.
+
+The first argument must be the type `r` of the result value; in our case, we need to set `r = Natural`.
+
+The second argument is of type `r` and the third argument of type `Integer → r → r`.
+In our case, these types become `Natural` and `Integer → Natural → Natural`.
+
+So, it remains to supply those arguments that we will call `init : Natural` and `update : Integer → Natural → Natural`.
+The code of `sumListInt` will look like this:
+
+```dhall
+let init : Natural = ...
+let update : Integer → Natural → Natural = ...
+let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init update
+```
+
+The meaning of `init` is the result of `sumListInt` when the list is empty.
+The meaning of `update` is the next accumulator value (of type Natural) computed from a current element from the list (of type `Integer`) and a value of type `Natural` that has been accumulated so far (by aggregating the tail of the list).
+
+In our case, it is natural to set `init` is zero.
+The `update` function is implemented via the standard Prelude function `Integer/abs`:
+
+```dhall
+let abs = https://prelude.dhall-lang.org/Integer/abs
+let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+```
+
+The complete test code is:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let init : Natural = 0
+let abs = https://prelude.dhall-lang.org/Integer/abs
+let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init update
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+
+let _ = assert : sumListInt example1 === 1368
+```
+
 ### Pretty-printing a binary tree
 
 Consider the curried form of the Church encoding for binary trees with `Text`-valued leaves:
@@ -1559,45 +1624,119 @@ let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
 The task is to print a text representation of the tree where branching is indicated via nested parentheses, such as `"((a b) c)"`.
+The result will be a function `printTree` whose code needs to begin like this:
 
 ```dhall
-let print : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) → ...
+let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) → ...
 ```
 
-To use the curried-form Church-encoded `tree` for aggregation, we simply apply the value `tree` to some arguments.
-The first argument is the type `r` of the result value.
+The pretty-printing operation is "fold-like" because a pretty-printed tree can be aggregated from pretty-printed subtrees.
+
+We implement a fold-like operation simply by applying the value `tree` to some arguments.
+
+The first argument must be the type `r` of the result value.
 Since the pretty-printing operation will return a `Text` value, we set the type parameter `r` to `Text`.
 
-Then it remains to supply two non-recursive functions of types `Text → r` and `r → r → r` (where `r = Text`).
-These two functions describe how to create the text representation for a larger tree either from a leaf or from the (already computed) text representations of two subtrees.
-A leaf is printed as just its `Text` value.
-For the two branches, we add parentheses and add a space between the two subtrees.
-The code is:
+Then it remains to supply two functions of types `Text → r` and `r → r → r` (where `r = Text`).
+Let us call those functions `printLeaf : Text → Text` and `printBraches : Text → Text → Text`.
+These two functions describe how to create the text representation for a larger tree either from a leaf or from the _already computed_ text representations of two subtrees.
+
+A leaf is printed as just its `Text` value:
 
 ```dhall
-let print : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) →
-  let printLeaf : Text → Text = λ(leaf : Text) → leaf
-  let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
-    in tree Text printLeaf printBranches
+let printLeaf : Text → Text = λ(leaf : Text) → leaf
+```
+
+For the two branches, we add parentheses and add a space between the two subtrees:
+
+```dhall
+let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+```
+
+Note that the functions `printLeaf` and `printBranches` are non-recursive.
+
+The complete code of `printTree` is:
+
+```dhall
+let printLeaf : Text → Text = λ(leaf : Text) → leaf
+
+let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+
+let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) →
+    tree Text printLeaf printBranches
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")    
 
-let test = assert : print example2 === "((a b) c)"
+let test = assert : printTree example2 === "((a b) c)"
 ```
+
+In a similar way, many recursive functions can be reduced to fold-like operations and then implemented for Church-encoded data non-recursively.
 
 ### Where did the recursion go?
 
 The technique of Church encoding may be perplexing.
-If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion in the code?
+If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion or iteration in the code?
 
-In the code of `print`, where is the part that iterates over the tree's data?
+In the code of `sumListInt` and `printTree`, where are the parts that iterate over the data?
 
-In fact, the pretty-printing function `print` is _not_ recursive.
-The possibility of iteration over the data stored in the tree is provided by the type `TreeText` itself.
+In fact, the functions `sumListInt` and `printTree` are _not_ recursive.
+The possibility of iteration over the data stored in the list or in the tree is provided by the types `ListInt` and `TreeText` themselves.
+But the iteration is not provided via loops or recursion.
+Instead, it is hard-coded in the values `list : ListInt` and `tree: TreeText`.
 
-***
+To see how, consider the value `example1` shown above:
 
-In a similar way, many recursive tree-processing functions can be reduced to fold-like operations and then implemented for Church-encoded trees non-recursively.
+```dhall
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+```
+
+The value `example1` corresponds to a list with three elements: `[+123, -456, +789]`.
+
+When we expand the constructors `cons` and `nil`, we will find that `example1` is a higher-order function.
+The Dhall interpreter can print that function's normal form for us:
+
+```dhall
+⊢ example1
+
+λ(r : Type) →
+λ(a1 : r) →
+λ(a2 : Integer → r → r) →
+  a2 +123 (a2 -456 (a2 +789 a1))
+```
+
+The function `example1` includes nested calls to `a1` and `a2`, that correspond to the two constructors (`nil` and `cons`) of `ListInt`.
+The code of `example1` applies the function `a2` three times, which corresponds to having three elements in the list.
+But there is no loop in `example1`.
+It is just hard-coded in the expression `example1` that `a2` needs to be applied three times to some arguments.
+
+When we compute an aggregation such as `sumListInt example1`, we apply `example1` to three arguments.
+The last of those arguments is a certain function that we called `update`.
+When we apply `example1` to its arguments, the code of `example1` will call `update` three times.
+This is how the Church encoding actually performs iteration.
+
+Similarly, consider the value `example2` shown above.
+When we expand the constructors `branch` and `leaf`, we will find that `example2` is a higher-order function:
+
+```dhall
+⊢ example2
+
+λ(r : Type) →
+λ(a1 : Text → r) →
+λ(a2 : r → r → r) →
+  a2 (a2 (a1 "a") (a1 "b")) (a1 "c")
+```
+
+The code of `example2` includes nested calls to `a1` and `a2`, which correspond to the constructors `leaf` and `branch`.
+There are three calls to `a1` and two calls to `a2`, meaning that the tree has three leaf values and two branch points.
+It's hard-coded in `example2` to make exactly that many calls to the arguments `a1` and `a2`.
+When we apply `example2` to arguments `r`, `leaf`, and `branch`, the code of `example2` will call `leaf` three times and `branch` two times.
+
+This explains how the Church encoding replaces iterative computations by non-recursive code.
+A data structure that contains, say, 1000 data values is Church-encoded into a certain higher-order function.
+That function will be hard-coded to call its arguments 1000 times.
+
+In this way, it is guaranteed that all recursive structures will be finite and all operations on those structures will terminate.
+That's why Dhall is able to accept Church encodings of recursive types without compromising any safety guarantees.
 
 ### Computing the size of a recursive data structure
 
