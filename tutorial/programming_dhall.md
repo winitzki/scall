@@ -1585,8 +1585,17 @@ let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 let test = assert : print example2 === "((a b) c)"
 ```
 
-The pretty-printing function `print` is _not_ recursive.
+### Where did the recursion go?
+
+The technique of Church encoding may be perplexing.
+If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion in the code?
+
+In the code of `print`, where is the part that iterates over the tree's data?
+
+In fact, the pretty-printing function `print` is _not_ recursive.
 The possibility of iteration over the data stored in the tree is provided by the type `TreeText` itself.
+
+***
 
 In a similar way, many recursive tree-processing functions can be reduced to fold-like operations and then implemented for Church-encoded trees non-recursively.
 
@@ -1605,14 +1614,6 @@ We will consider three possible size computations:
 - The sum of all natural numbers stored in the tree. (`treeSum`)
 - The total number of leaves in the tree. (`treeCount`)
 - The maximum depth of leaves. (`treeDepth`)
-
-***
-
-### Where did the recursion go?
-
-The technique of Church encoding may be perplexing.
-If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion in the code?
-In `foldRight` or `treeSum`, why is there no code that iterates over the data in a loop or via recursion?
 
 ***
 
