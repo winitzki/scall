@@ -1295,6 +1295,8 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
+### Church encoding in the curried form
+
 We can use certain type equivalence identities to rewrite the type `ListInt` in a form more convenient for practical applications.
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
@@ -1323,8 +1325,8 @@ Using these type equivalences, we may rewrite the type `ListInt` in the **currie
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
 
-It is now less apparent that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
-However, working with curried functions needs shorter code than working with union types and record types.
+It is now less clear that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
+However, working with curried functions often needs shorter code than working with union types and record types.
 
 The type `TreeText` (a binary tree with string-valued leaves) is defined in Dhall by:
 
@@ -1343,11 +1345,15 @@ Then we obtain an equivalent definition of `TreeText` that is easier to work wit
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-These examples show that any type constructor `F` defined via products (records) and co-products (union types) will give rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+These examples show how any type constructor `F` defined via products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
 
 We will call that the **curried form** of the Church encoding.
+
 The curried form is more convenient for practical programming.
-But when we are looking for general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
+But when we are studying general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
+
+Historical note: The curried form of the Church encoding is known as the Boehm-Berarducci encoding.
+See the discussion by O. Kiselyov (https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 ## Working with Church-encoded data
 
@@ -1368,7 +1374,7 @@ It takes some work to figure out convenient ways of creating values of those typ
 We will now show how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to implement pattern matching.
 
 For simplicity, we now consider an ordinary Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a recursion scheme `F`.
-Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
+Later, we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
 
 An important requirement is that the recursion scheme `F` should be a _covariant_ type constructor.
 If this is not so, Church encoding does not work as expected.
@@ -1389,8 +1395,9 @@ let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
 The type `C` is a fixed point of the type equation `C = F C`.
 This means we should have two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 These two functions implement an isomorphism between `C` and `F C`.
+This isomorphism shows that the types `C` and `F C` are equivalent, which is one way of understanding why `C` is a fixed point of the type equation `C = F C`.
 
-Because this is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C`.
+Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C`.
 
 The basic technique of working directly with any Church-encoded data `c : C` is to use `c` as a curried higher-order function.
 That function has two arguments: a type parameter `r` and a function of type `F r → r`.
@@ -1440,7 +1447,7 @@ In this way, we replace a single function `fix` by a product of constructors tha
 
 To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
 
-Begin with the curried Church encoding of those types:
+Begin with the curried Church encodings of those types:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -1448,14 +1455,14 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-From this, we can simply read off the types of the constructor functions:
+From this, we can simply read off the types of the constructor functions (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors):
 
 ```dhall
 let nil : ListInt = ...
 let cons : Integer → ListInt → ListInt = ...
 
 let leaf : Text → TreeText = ...
-let branch: TreeText → TreeText → TreeText = ...
+let branch : TreeText → TreeText → TreeText = ...
 ```
 
 In principle, the code for the constructors can be derived mechanically from the general code of `fix`.
@@ -1550,7 +1557,7 @@ Consider the curried form of the Church encoding for binary trees with `Text`-va
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-The task is to print a text representation of the tree.
+The task is to print a text representation of the tree where branching is indicated via nested parentheses, such as `"((a b) c)"`.
 
 ***
 
