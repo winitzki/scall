@@ -1284,7 +1284,7 @@ The only supported recursive type is a built-in `List` type.
 However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
 
 A beginner's tutorial about Church encoding is in the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
-Here we will summarize that technique more briefly.
+Here, we summarize that technique more briefly.
 
 In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
 That is, one writes definitions of the form `T = F T` where `F` is some type constructor and `T` is the type being defined.
@@ -1311,7 +1311,7 @@ The definition of `F` is written in Dhall as:
 let F = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
 ```
 
-Then the Church encoding of `T` is written in Dhall as:
+The **Church encoding** of `T` is written in Dhall as the following type expression:
 
 ```dhall
 let C = ∀(r : Type) → (F r → r) → r 
@@ -1323,16 +1323,16 @@ Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`
 The type `C` is not a type constructor; it is a type of a function with a type parameter.
 When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
 
-### Simple recursive types
-
 The Church encoding construction works generally for any recursion scheme `F`.
 Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type) → (F r → r) → r`.
 Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
-It is far from obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+It is not obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `∀(r : Type) → (F r → r) → r` is equivalent to the _least fixed point_ of the type equation `T = F T`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
+
+### Simple recursive types
 
 Here are some examples of Church encoding for simple recursive types.
 
@@ -1342,6 +1342,53 @@ The type `ListInt` (a list with integer values):
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
+
+### Church encoding of non-recursive types. Yoneda identities
+
+If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the recursion scheme unchanged.
+
+For example, consider this recursion scheme:
+
+```dhall
+let F = λ(t : Type) → { x : Text, y : Boolean }
+```
+
+Then the type `F t` does not actually depend on `t`.
+
+The corresponding Church encoding gives the type:
+
+```dhall
+let C = ∀(r : Type) → ({ x : Text, y : Boolean } → r) → r
+```
+
+The general properties of the Church encoding still enforce that `C` is a fixed point of the type equation `C = F C`.
+However, now we have `F C = { x : Text, y : Boolean }` independently of `C`.
+The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Boolean }`.
+
+More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`.
+
+This is a special case of the so-called "covariant Yoneda identity":
+
+```dhall
+∀(r : Type) → (p → r) → G r  ≅  G p
+```
+
+where it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
+
+Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Yoneda identity does not allow that dependence.
+
+A generalized "Church-Yoneda identity" that combines both forms of types looks like this:
+
+```dhall
+∀(r : Type) → (F r → r) → G r  ≅  G C
+```
+
+where `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
+
+(This is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78, "proposition 1" in the paper by T. Uustalu.)
+
+To conclude, we see that Church encodings generally do not bring any advantages for simple, non-recursive types.
 
 ### Church encoding in the curried form
 
@@ -2229,15 +2276,105 @@ let depthF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natu
    } fa)
 ```
 
-Here, the functions `Natural/max` and `Natural/subtract` come from the standard Dhall prelude.
+Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's standard prelude.
 
 ### Existential types
 
-### Co-Church encoding of co-inductive types
+Existential type quantifiers (denoted by ∃) are not directly supported by Dhall.
+They have to be Church-encoded in a special way, as we will now show.
 
-### Church encodings of nested types and GADTs
+By definition, a value `x` has type `∃ t. P t` (where `P` is a type constructor) if `x` is a pair `(u, y)` where `u` is some type and `y` is a value of type `P u`.
 
-## Constructing functors and contrafunctors from parts
+An example is the following type definition in Haskell:
+
+```haskell
+data F a = forall t. Hidden (t -> Bool, t -> a)
+```
+
+The corresponding code in Scala is:
+
+```scala
+sealed trait F[_]
+final case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
+```
+
+The mathematical notation for the type of `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
+
+The type `F` is an example of the "free functor" construction that we will discuss later in this book.
+For now, we focus on the way the type parameter `t` is used in the Haskell code just shown. (In the Scala code, the corresponding type parameter is `T`.)
+
+The type parameter `t` is bound by the quantifier and is visible only inside the type expression.
+When we create a value `x` of type `F a`, we will need to supply two functions (of types `t → Bool` and `t → a` with a specific (somehow chosen) type `t`.
+But when working with a value `x : F a`, we will not directly see the type `t` anymore.
+The type parameter `t` still "exists" inside the value `x` but the type of `x` is `F a` and does not show what `t` is.
+This motivation helps us remember the meaning of the name "existential".
+
+Let us now derive the Church encoding of `F` in Dhall.
+
+We begin with this type expression:
+
+```dhall
+∀(r : Type) → (F a → r) → r
+```
+
+This type is equivalent to `F a` by the Yoneda identity.
+
+Now we look at the function type `F a → r` more closely.
+A value `x : F a` must be created as a pair of type `{ _1 : t → Bool, _2 : t → a }` with a chosen type `t`.
+A function `f : F a → r` must produce a result value of type `r` from any value `x`, regardless of `t`.
+
+In fact, `f` may not inspect the type `t` or make choices based on `t` because the type `t` is existentially quantified and is hidden inside `x`.
+So, the function `f` must work for all types `t` in the same way.
+
+It means that the function `f` must have `t` as a type parameter.
+The type of that function must be written as `f : ∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r`. 
+
+So, the final code for the Church encoding of `F` becomes:
+
+```dhall
+let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
+```
+
+To see an example of how to construct a value of type `F a`, let us set `a = Natural`.
+The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r`.
+We construct a value `x : F Natural` like this:
+
+```dhall
+let x
+  : ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r
+  = λ(r : Type) → λ(pack : ∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) →
+    pack Integer { _1 = λ(x : Integer) → Integer/greaterThan x 10, _2 = λ(x : Integer) → Integer/clamp x }
+```
+
+In this code, we apply the given argument `pack` of type `∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r` to some arguments.
+
+It is clear that we may produce a value `x : F Natural` given any specific type `t` and any value of type `{ _1 : t → Bool, _2 : t → Natural }`.  
+This exactly corresponds to the information contained within a value of an existentially quantified type `∃ t. (t → Bool) × (t → Natural)`.
+
+To generalize this example to arbitrary existentially quantified types, we replace the specific type `{ _1 : t → Bool, _2 : t → a }` by an arbitrary type constructor `P t`.
+It follows that the Church encoding of `∃ t. P t` is:
+
+```dhall
+let exists_t_in_P = ∀(r : Type) → (∀(t : Type) → P t → r) → r
+```
+
+To create a value of type `exists_t_in_P`, we just need to supply a specific type `t` together with a value of type `P t`.
+
+```dhall
+let our_type_t : Type = ...   -- Can be any specific type here.
+let our_value : P t = ...   -- Any specific value here.
+let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
+```
+
+Heuristically, the function application `pack X y` performs a "packing" of the given type `X` under the "existentially quantified wrapper".
+
+### Co-inductive types
+
+### Nested types and GADTs
+
+## Functors and contrafunctors
+
+### Constructing functors and contrafunctors from parts
 
 ## Filterable functors and contrafunctors
 
