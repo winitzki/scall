@@ -989,10 +989,10 @@ The corresponding Dhall code is:
 
 ```dhall
 let F : Type → Type
-  = λ(A : Type) → { x : A, y : A, t : Bool }
+  = λ(a : Type) → { x : a, y : a, t : Bool }
 let fmap
-  : ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B
-  = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
 
@@ -1008,20 +1008,20 @@ As another example, let us define `fmap` for a type constructor that involves a 
 
 ```dhall
 let G : Type → Type
-  = λ(A : Type) → < Left : Text | Right : A >
+  = λ(a : Type) → < Left : Text | Right : a >
 let fmap
-  : ∀(A : Type) → ∀(B : Type) → (A → B) → G A → G B
-  = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
-    merge { Left = λ(t : Text) → (G B).Left t
-          , Right = λ(x : A) → (G B).Right (f x)
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
+    merge { Left = λ(t : Text) → (G b).Left t
+          , Right = λ(x : a) → (G b).Right (f x)
           } ga
 ```
 
 Dhall requires the union type's constructors to be explicitly derived from the full union type.
 In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
-But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : B >.Left t` and `< Left : Text | Right : B >.Right (f x)` in order to specify the complete union type being constructed.
+But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
 
-In the code shown above, we were able to shorten those constructors to `(G B).Left` and `(G B).Right`.
+In the code shown above, we were able to shorten those constructors to `(G b).Left` and `(G b).Right`.
 
 ### Bifunctors and `bimap`
 
@@ -1032,15 +1032,15 @@ Dhall encodes bifunctors as functions with two curried arguments:
 
 ```dhall
 let P : Type → Type → Type
-  = λ(A : Type) → λ(B : Type) → { x : A, y : A, z : B, t : Integer }
+  = λ(a : Type) → λ(b : Type) → { x : a, y : a, z : b, t : Integer }
 ```
 
 Bifunctors have a `bimap` method that transforms both type parameters at once:
 
 ```dhall
 let bimap
-  : ∀(A : Type) → ∀(B : Type) → ∀(C : Type) → ∀(D : Type) → (A → C) → (B → D) → P A B → P C D
-  = λ(A : Type) → λ(B : Type) → λ(C : Type) → λ(D : Type) → λ(f : A → C) → λ(g : B → D) → λ(pab : P A B) →
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
 
@@ -1048,14 +1048,14 @@ Given `bimap`, one can then define two `fmap` methods that work only on the firs
 
 ```dhall
 let fmap1
-  : ∀(A : Type) → ∀(C : Type) → ∀(D : Type) → (A → C) → P A D → P C D
-  = λ(A : Type) → λ(C : Type) → λ(D : Type) → λ(f : A → C) →
-    bimap A D C D f (identity D)
+  : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
+    bimap a d c d f (identity d)
 
 let fmap2
-  : ∀(A : Type) → ∀(B : Type) → ∀(D : Type) → (B → D) → P A B → P A D
-  = λ(A : Type) → λ(B : Type) → λ(D : Type) → λ(g : B → D) →
-    bimap A B A D (identity A) g
+  : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
+    bimap a b a d (identity a) g
 ```
 
 Here, we have used the polymorphic identity function defined earlier.
@@ -1308,13 +1308,13 @@ Dhall does not accept recursive type equations, but it will accept the definitio
 The definition of `F` is written in Dhall as:
 
 ```dhall
-let F = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
+let F : Type → Type = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
 ```
 
-The **Church encoding** of `T` is written in Dhall as the following type expression:
+By definition, the **Church encoding** of `T` is the following type expression:
 
 ```dhall
-let C = ∀(r : Type) → (F r → r) → r 
+let C : Type = ∀(r : Type) → (F r → r) → r 
 ```
 
 The type `C` is still non-recursive, so Dhall will accept this definition.
@@ -1323,7 +1323,7 @@ Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`
 The type `C` is not a type constructor; it is a type of a function with a type parameter.
 When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
 
-The Church encoding construction works generally for any recursion scheme `F`.
+The Church encoding construction works in the same way for any recursion scheme `F`.
 Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type) → (F r → r) → r`.
 Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
@@ -1526,7 +1526,7 @@ The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/pap
 
 Another property proved in that paper is the identity `c C fix = c` for all `c : C`.
 
-### Constructors
+### Data constructors
 
 The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values, or from scratch.
 
@@ -2278,6 +2278,57 @@ let depthF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natu
 
 Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's standard prelude.
 
+
+### Example: implementing `fmap`
+
+A type constructor `F` is covariant if it admits an `fmap` function with the type signature:
+
+```dhall
+fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
+
+satisfying the appropriate laws (the identity and the composition laws).
+
+Type constructors such as lists and trees are covariant in their type arguments.
+
+As an example, let us implement the `fmap` method for the type constructor `Tree` in the curried Church encoding:
+
+```dhall
+let Tree = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
+let fmapTree
+   : ∀(a : Type) → ∀(b : Type) → (a → b) → Tree a → Tree b
+   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : Tree a) →
+     λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
+       let leafA : a → r = λ(x : a) → leafB (f x)
+         in treeA r leafA branch
+```
+
+This code only needs to convert a function argument of type `b → r` to a function of type `a → r`.
+All other arguments are just copied over.
+
+We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a recursion scheme `F`.
+We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
+This can be done if `F` is a covariant bifunctor with a known `bimap` function (`bimapF`).
+
+The code is:
+
+```dhall
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ... -- Define the recursion scheme.
+let bimapF
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
+  = ... -- Define the bimap function for F.
+let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+
+let fmapC
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
+    λ(r : Type) → λ(fbrr : F b r → r) →
+      let farr : F a r → r = λ(far : F a r) →
+        let fbr : F b r = bimapF a r b r f (identity r) far
+          in fbrr fbr
+            in ca r farr
+```
+
 ### Existential types
 
 Existential type quantifiers (denoted by ∃) are not directly supported by Dhall.
@@ -2321,12 +2372,12 @@ This type is equivalent to `F a` by the Yoneda identity.
 
 Now we look at the function type `F a → r` more closely.
 A value `x : F a` must be created as a pair of type `{ _1 : t → Bool, _2 : t → a }` with a chosen type `t`.
-A function `f : F a → r` must produce a result value of type `r` from any value `x`, regardless of `t`.
+A function `f : F a → r` must produce a result value of type `r` from any value `x`, for any type `t`.
 
 In fact, `f` may not inspect the type `t` or make choices based on `t` because the type `t` is existentially quantified and is hidden inside `x`.
 So, the function `f` must work for all types `t` in the same way.
 
-It means that the function `f` must have `t` as a type parameter.
+It means that the function `f` must have `t` as a _type parameter_.
 The type of that function must be written as `f : ∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r`. 
 
 So, the final code for the Church encoding of `F` becomes:
