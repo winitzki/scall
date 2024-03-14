@@ -2419,9 +2419,7 @@ let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) 
 
 Heuristically, the function application `pack X y` performs a "packing" of the given type `X` under the "existentially quantified wrapper".
 
-### Co-inductive types
-
-### Nested types and GADTs
+### Co-inductive ("infinite") types
 
 ## Functors and contrafunctors
 
@@ -2433,10 +2431,22 @@ Heuristically, the function application `pack X y` performs a "packing" of the g
 
 ## Monads
 
+## Monad transformers
+
 ## Traversable functors
 
 ## Free monads
 
-## Free applicative functors
+## Free instances of other typeclasses
+
+### Free semigroup and free monoid
+
+### Free functor
+
+### Free filterable
+
+### Free applicative
+
+### Nested types and GADTs
 
 ## Dhall as a scripting DSL
