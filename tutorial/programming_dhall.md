@@ -873,9 +873,12 @@ safeDiv 4 2 {=}  -- Returns 2.
 safeDiv 4 0 {=}  -- Raises a type error. 
 ```
 
-The main limitation of this `safeDiv` is that it can work only for literal values of the second argument.
-This is so because the situation `y == 0` is excluded at type-checking time.
-So, we cannot simply use `safeDiv` inside a function that takes an argument `y : Natural` and then divides by `y`.
+The main limitation of this `safeDiv` is that it can divide only by a literal `Natural` value.
+This is so because the check `y == 0` is done at type-checking time.
+So, we cannot use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`.
+
+We also cannot divide by a number that we imported from a different Dhall file.
+
 Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
 That value serves as a witness that the number `y` is not zero.
 Any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
@@ -2428,6 +2431,8 @@ Heuristically, the function application `pack X y` performs a "packing" of the g
 ### Co-inductive ("infinite") types
 
 ## Functors and contrafunctors
+
+### Typeclass instances
 
 ### Constructing functors and contrafunctors from parts
 
