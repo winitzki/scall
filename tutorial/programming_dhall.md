@@ -762,10 +762,13 @@ let uncurry
 
 ## Arithmetic with `Natural` numbers
 
-The Dhall prelude supports a limited number of operations for `Natural` numbers.
-It can add, subtract, multiply, compare, and test them for being even or odd.
-However, division and other arithmetic operations are not directly supported.
-We will now show how to implement some of those operations.
+Dhall's `Natural` numbers have arbitrary precision but support a limited number of operations.
+The standard prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
+
+We will now show how to implement other arithmetic operations for `Natural` numbers such as division or logarithm.
+In an ordinary programming language, we would use loops to implement those operations.
+But Dhall will only accept loops that are guaranteed in advance to terminate.
+So, we will need to know in advance how many iterations are needed for any given computation.
 
 ### Using `Natural/fold`
 
@@ -794,23 +797,26 @@ $ dhall repl
 ```
 
 This facility can be used in Dhall to encode many arithmetic operations for natural numbers that are usually implemented via loops.
-However, `Natural/fold` is not a `while`-loop: it cannot iterate until some condition holds.
-The number of iterations must be specified in advance (as the first argument of `Natural/fold`).
+However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
+The number of iterations must be specified as the first argument of `Natural/fold`.
 
-When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run more iterations than necessary without changing the result. 
+Also, `Natural/fold` cannot stop early: it will always carry out the specified number of iterations.
+
+When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run more iterations than necessary without changing the result.
+(Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.)
 
 ### Integer division
 
-For example, let us implement division for natural numbers.
+Let us implement division for natural numbers.
 
 A simple iterative algorithm that uses only subtraction runs like this. Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative. The value `x div y` is the number of times we subtracted.
 
-This algorithm can be directly implemented in Dhall only if we specify, in advance, the maximum required number of iterations.
+This algorithm can be directly implemented in Dhall, but we need to specify in advance the maximum required number of iterations.
 A safe upper bound is the value `x` itself.
 So, we have to perform the iteration using the function call `Natural/fold x ...`.
 
 In most cases, the actual required number of iterations will be smaller than `x`.
-We maintain a boolean flag `done` and set it to `True` once we reach the final result.
+For clarity, we will maintain a boolean flag `done` and set it to `True` once we reach the final result.
 Then we write code to ensure that any further iterations will not modify the final result. 
 
 The code is:
@@ -872,7 +878,7 @@ This is so because the situation `y == 0` is excluded at type-checking time.
 So, we cannot simply use `safeDiv` inside a function that takes an argument `y : Natural` and then divides by `y`.
 Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
 That value serves as a witness that the number `y` is not zero.
-Any function that uses `saveDiv` for dividing by an unknown value `y` will have to require an additional witness argument of type `Nonzero y`.
+Any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
