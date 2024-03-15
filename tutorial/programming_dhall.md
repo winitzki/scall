@@ -2052,7 +2052,7 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
-### Recursive type constructors
+### Type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
@@ -2317,13 +2317,13 @@ All other arguments are just copied over.
 
 We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a recursion scheme `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
-This can be done if `F` is a covariant bifunctor with a known `bimap` function (`bimapF`).
+This can be done if `F` is a covariant bifunctor with a known `bimap` function (`bimap_F`).
 
 The code is:
 
 ```dhall
 let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ... -- Define the recursion scheme.
-let bimapF
+let bimap_F
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
   = ... -- Define the bimap function for F.
 let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
@@ -2333,10 +2333,30 @@ let fmapC
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
     λ(r : Type) → λ(fbrr : F b r → r) →
       let farr : F a r → r = λ(far : F a r) →
-        let fbr : F b r = bimapF a r b r f (identity r) far
+        let fbr : F b r = bimap_F a r b r f (identity r) far
           in fbrr fbr
             in ca r farr
 ```
+
+### Generic Church encoding
+
+One can express the Church encoding type as a function of the recursion scheme.
+
+For simple types:
+
+```dhall
+let Church : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
+```
+
+For type constructors:
+
+```dhall
+let Church1 : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+```
+
+Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, `fmap` and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
 
 ### Existential types
 
@@ -2395,6 +2415,9 @@ So, the final code for the Church encoding of `F` becomes:
 let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
 ```
 
+It is important that the universal quantifier `∀(t : Type)` is _inside_ the type of an argument of `F`.
+Otherwise, the encoding will not work.
+
 To see an example of how to construct a value of type `F a`, let us set `a = Natural`.
 The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r`.
 We construct a value `x : F Natural` like this:
@@ -2428,7 +2451,42 @@ let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) 
 
 Heuristically, the function application `pack X y` performs a "packing" of the given type `X` under the "existentially quantified wrapper".
 
+To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
+The three functions are called `Exists`, `pack`, and `unpack`.
+
+The function call `Exists P` creates the type corresponding to the Church encoding of the type `∃ t. P t`.
+The argument of `Exists` is a type constructor `P`.
+
+```dhall
+let Exists : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+```
+
+The function `pack` creates a value of type `Exists P` from a type `t`, a type constructor `P`, and a value of type `P t`.
+
+```dhall
+let pack : ∀(P : Type → Type) → ∀(t : Type) → P t → Exists P
+  = λ(P : Type → Type) → λ(t : Type) → λ(pt : P t) →
+      λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt
+```
+
+The function `unpack` is intended to perform transformations of type `Exists P → r`, where `r` is some arbitrary result type.
+So, `unpack` needs to be able to convert a value of type `P t` into a value of type `r` regardless of the actual type `t` encapsulated inside `Exists P`.
+To achieve that, we make one of the arguments of `unpack` a function of type `∀(t : Type) → P t → r`.
+Other arguments of `unpack` are the type constructor `P`, a value of type `Exists P`, and the result type `r`.
+
+```dhall
+let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r 
+  = λ(P : Type → Type) → λ(ep : Exists P) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) →
+      ep r unpack_
+```
+
+We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
+This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
+
 ### Co-inductive ("infinite") types
+
+So far, we have seen Church encodings
 
 ## Functors and contrafunctors
 
