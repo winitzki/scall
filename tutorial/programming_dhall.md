@@ -46,8 +46,9 @@ Currently, Dhall has no type inference: all types must be specified explicitly.
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax, which may help in learning some of the more advanced concepts of FP.
 
 Because the Dhall language is not Turing-complete and always evaluates all well-typed terms to a normal form, there is no analog of Haskell's "bottom" (undefined) value.
-For the same reason, there is no difference between strict and lazy values in Dhall.
-One can equally well imagine that all Dhall values are lazy, or that they are all strict.
+For the same reason, there is no difference between eager ("strict") and lazy values in Dhall.
+One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
+The final result of evaluating a Dhall program will be the same. 
 
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
 This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
@@ -55,6 +56,8 @@ This is because there is no other normal form for `Natural` values, and a well-t
 In addition, if that Dhall program is self-contained (has no external imports), it will always return the same `Natural` value.
 The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that. 
 
+However, Dhall's _typechecking_ is eager.
+A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
 
 ### Syntactic differences
 
@@ -2462,6 +2465,8 @@ let Exists : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
 ```
 
+The function `Exists` replaces the mathematical notation `∃ t. P t` by a similar formula: `Exists (λ(t : Type) → P t)`. 
+
 The function `pack` creates a value of type `Exists P` from a type `t`, a type constructor `P`, and a value of type `P t`.
 
 ```dhall
@@ -2486,7 +2491,50 @@ This is so because `unpack P` is the same as the identity function of type `Exis
 
 ### Co-inductive ("infinite") types
 
-So far, we have seen Church encodings
+Recursive types are usually specified via type equations of the form `T = F T`.
+So far, we have used the Church encoding technique for representing recursive types in Dhall.
+But Church encodings always give the **least fixed points** of such type equations, also known as "inductive types".
+Another useful kind of fixed points are **greatest fixed points**, or "co-inductive" types.
+
+Intuitively, the least fixed point is the smallest data type `T` that satisfies `T = F T`.
+The greatest fixed point is the largest possible data type that satisfies the same equation.
+
+Least fixed points are always _finite_ structures.
+Iteration over the data stored in those structures will always terminate.
+
+Greatest fixed points are, as a rule, lazily evaluated data structures that imitate infinite recursion.
+Iteration over those data structures is not expected to terminate.
+Those data structures are used only in ways that do not involve a full traversal of all data.
+It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
+
+As an example, consider the recursion scheme `F` for the data type `List Text`.
+The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is `let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >`.
+Indeed, the type `List Text` is the least fixed point of `T = F T`.
+A data structure of type `List Text` always stores a finite number of `Text` strings (although the list's length is not bounded in advance).
+
+The greatest fixed point of `T = F T` is a potentially infinite "stream" of `Text` values.
+The stream could terminate after a finite number of strings, but it could also go on indefinitely.
+
+Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
+One way of implementing such streams is by giving an initial value of some type `r` and a function that computes the next string on demand.
+In the present example, this function will have type `r → 1 + Text × r`.
+When this function is called, it will decide whether to stop the stream at the current place.
+The type `r` represents some internal state of the decision process and may be different for different streams.
+However, the type `r` is not visible to the code outside the stream type.
+
+This motivates the following implementation of the greatest fixed point of `T = F T` in the general case.
+We take some unknown type `r` and implement a pair of types `r` and `r → F r`.
+To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
+
+So, the mathematical notation for the greatest fixed point of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
+The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section:
+
+```dhall
+let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { init : r, step : r → F r })
+```
+
+A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the paper "Recursive types for free".
+We will here focus on the practical usage of those types.
 
 ## Functors and contrafunctors
 
