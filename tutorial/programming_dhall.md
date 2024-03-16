@@ -973,13 +973,13 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
 
 ### Functors and `fmap`
 
-A functor (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+A **functor** (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
 
 Those type constructors are also called "covariant functors".
 For type constructors, "covariant" means "has a lawful `fmap` method".
+(Note that this definition of "covariant" does not mention subtyping. Dhall does not support subtyping, but it can support the notion of covariant type constructors.)
 
 A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
-
 In Haskell, that type constructor and its `fmap` function are defined by:
 
 ```haskell
@@ -988,7 +988,7 @@ fmap :: (a → b) → F a → F b
 fmap f (F x y t) = F (f x) (F y) t 
 ```
 
-In Scala:
+In Scala, the equivalent code is:
 
 ```scala
 final case class F[A](x: A, y: A, t: Boolean)
@@ -2293,7 +2293,7 @@ Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's stand
 
 ### Example: implementing `fmap`
 
-A type constructor `F` is covariant if it admits an `fmap` function with the type signature:
+A type constructor `F` is **covariant** if it admits an `fmap` function with the type signature:
 
 ```dhall
 fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
@@ -2320,7 +2320,7 @@ All other arguments are just copied over.
 
 We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a recursion scheme `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
-This can be done if `F` is a covariant bifunctor with a known `bimap` function (`bimap_F`).
+This can be done if `F` is a covariant bifunctor with a known `bimap` function (which we call `bimap_F`).
 
 The code is:
 
@@ -2343,7 +2343,7 @@ let fmapC
 
 ### Generic Church encoding
 
-One can express the Church encoding type as a function of the recursion scheme.
+Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of the recursion scheme.
 
 For simple types:
 
@@ -2534,11 +2534,41 @@ let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { init : r, step :
 ```
 
 A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the paper "Recursive types for free".
-We will here focus on the practical usage of those types.
+Hre, we will focus on the practical usage of those types.
+
+***
 
 ## Functors and contrafunctors
 
-### Typeclass instances
+In the jargon of functional programmers, a **functor** is just a covariant type constructor.
+We can define a typeclass `Functor` that carries the required `fmap` method: 
+
+```dhall
+let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+```
+
+The other kind of type constructors are contravariant: they cannot have a lawful `fmap` method.
+Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
+
+```dhall
+cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
+```
+
+We will call contravariant type constructors **contrafunctors** for short.
+The corresponding typeclass is defined by:
+
+```dhall
+let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+```
+
+A simple example of a contrafunctor is the type constructor `a → Text`.
+Let us show its definition and the code for a contrafunctor typeclass instance:
+
+```dhall
+let F = λ(a : Type) → a → Text
+let contrafunctorF : Contrafunctor F
+  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → λ(x : a) → fb (f x) } 
+```
 
 ### Constructing functors and contrafunctors from parts
 
