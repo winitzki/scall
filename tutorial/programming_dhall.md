@@ -2552,14 +2552,14 @@ To create values of type `GFix F`, we use the function called `pack` (see the se
 
 ## Functors and contrafunctors
 
-In the jargon of functional programmers, a **functor** is just a covariant type constructor.
+In the jargon of functional programmers, a **functor** is just a covariant type constructor with `fmap`.
 We can define a typeclass `Functor` that carries the required `fmap` method: 
 
 ```dhall
 let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
 ```
 
-The other kind of type constructors are contravariant: they cannot have a lawful `fmap` method.
+The complementary kind of type constructors are contravariant: they cannot have a lawful `fmap` method.
 Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
 
 ```dhall
