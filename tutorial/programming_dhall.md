@@ -2364,12 +2364,12 @@ let Church1 : (Type → Type → Type) → Type
 
 Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, `fmap` and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
 
-### Existential types
+### Existentially quantified types
 
-Existential type quantifiers (denoted by ∃) are not directly supported by Dhall.
-They have to be Church-encoded in a special way, as we will now show.
+The existential type quantifier (denoted by `∃`) is not directly supported by Dhall.
+Types using `∃` have to be Church-encoded in a special way, as we will now show.
 
-By definition, a value `x` has type `∃ t. P t` (where `P` is a type constructor) if `x` is a pair `(u, y)` where `u` is some type and `y` is a value of type `P u`.
+By definition, a value `x` has an **existentially quantified** type `∃ t. P t` (where `P` is a type constructor) if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
 
 An example is the following type definition in Haskell:
 
@@ -2386,13 +2386,15 @@ final case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A
 
 The mathematical notation for the type of `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
 
-The type `F` is an example of the "free functor" construction that we will discuss later in this book.
+As we will discuss later in this book, the type `F` is an example of the "free functor" construction.
 For now, we focus on the way the type parameter `t` is used in the Haskell code just shown. (In the Scala code, the corresponding type parameter is `T`.)
 
-The type parameter `t` is bound by the quantifier and is visible only inside the type expression.
-When we create a value `x` of type `F a`, we will need to supply two functions (of types `t → Bool` and `t → a` with a specific (somehow chosen) type `t`.
+The type parameter `t` is bound by the quantifier and is visible only inside the type expression `∃ t. (t → Bool) × (t → a)`.
+To create a value `x` of type `F a`, we will need to supply two functions, of types `t → Bool` and `t → a`, with a specific (somehow chosen) type `t`.
 But when working with a value `x : F a`, we will not directly see the type `t` anymore.
-The type parameter `t` still "exists" inside the value `x` but the type of `x` is `F a` and does not show what `t` is.
+The type of `x` is `F a` and does not show what `t` is.
+(The type `t` is not a type parameter of `F a`.)
+However, the type parameter `t` still "exists" inside the value `x`.
 This motivation helps us remember the meaning of the name "existential".
 
 Let us now derive the Church encoding of `F` in Dhall.
@@ -2403,7 +2405,7 @@ We begin with this type expression:
 ∀(r : Type) → (F a → r) → r
 ```
 
-This type is equivalent to `F a` by the Yoneda identity.
+This type is equivalent to `F a` by the covariant Yoneda identity.
 
 Now we look at the function type `F a → r` more closely.
 A value `x : F a` must be created as a pair of type `{ _1 : t → Bool, _2 : t → a }` with a chosen type `t`.
@@ -2547,7 +2549,15 @@ Hre, we will focus on the practical usage of the greatest fixed points.
 
 ### Data constructors
 
-To create values of type `GFix F`, we use the function called `pack` (see the section about existential types).
+To create values of type `GFix F`, we will now implement a function called `makeGFix`.
+The code of that function uses the generic `pack` function (see the section about existential types) to create values of type `∃ r. r × (r → F r)`.
+
+```dhall
+let makeGFix = λ(F : Type → Type) →
+  let P = λ(r : Type) → { init : r, step : r → F r } 
+    in λ(r : Type) → λ(x : r) → λ(rfr : r → F r) → pack P r { init = x, step = rfr } 
+```
+
 ***
 
 ## Functors and contrafunctors
