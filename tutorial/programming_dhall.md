@@ -235,7 +235,7 @@ The type of polymorphic `fmap` functions may be written as:
 ```
 
 Dhall does not require capitalizing the names of types and type parameters.
-In this tutorial, we will usually capitalize type constructors (such as `List`).
+In this book, we will usually capitalize type constructors (such as `List`).
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
@@ -1075,6 +1075,7 @@ Here, we have used the polymorphic identity function defined earlier.
 The code for `fmap` and `bimap` can be derived mechanically from the type definition of a functor or a bifunctor.
 For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
 But Dhall does not have any code generation facilities.
+The code of those methods must be written in Dhall programs that need to use functors or bifunctors.
 
 ## Typeclasses
 
@@ -1295,7 +1296,7 @@ Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
 However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
 
-A beginner's tutorial about Church encoding is in the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
+A beginner's tutorial on Church encoding is found in the Dhall documentation: https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html
 Here, we summarize that technique more briefly.
 
 In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
@@ -1355,7 +1356,7 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
-### Church encoding of non-recursive types. Yoneda identities
+### Church encoding of non-recursive types
 
 If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the recursion scheme unchanged.
 
@@ -1379,28 +1380,30 @@ The type equation `C = F C` is non-recursive and simply says that `C = { x : Tex
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`.
 
-This is a special case of the so-called "covariant Yoneda identity":
+We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
+
+### The Yoneda and Church-Yoneda identities
+
+The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case of the **covariant Yoneda identity**:
 
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
 
-where it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
+Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identity does not allow that dependence.
+The Yoneda identity does not apply to types of that form.
 
-A generalized "Church-Yoneda identity" that combines both forms of types looks like this:
+There is a generalized **Church-Yoneda identity** that combines both forms of types:
 
 ```dhall
 ∀(r : Type) → (F r → r) → G r  ≅  G C
 ```
 
-where `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
+Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
 
-(This is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78, "proposition 1" in the paper by T. Uustalu.)
-
-To conclude, we see that Church encodings generally do not bring any advantages for simple, non-recursive types.
+(This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.)
 
 ### Church encoding in the curried form
 
@@ -2489,12 +2492,15 @@ let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : 
 We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 
-### Co-inductive ("infinite") types
+## Co-inductive ("infinite") types
+
+### Greatest fixed points: Motivation
 
 Recursive types are usually specified via type equations of the form `T = F T`.
-So far, we have used the Church encoding technique for representing recursive types in Dhall.
-But Church encodings always give the **least fixed points** of such type equations, also known as "inductive types".
-Another useful kind of fixed points are **greatest fixed points**, or "co-inductive" types.
+So far, we have used the Church encoding technique for representing such recursive types in Dhall.
+But Church encodings always give the **least fixed points** of type equations.
+The least fixed points give types that are also known as "inductive types".
+Another useful kind of fixed points are **greatest fixed points**, also known as "co-inductive" types.
 
 Intuitively, the least fixed point is the smallest data type `T` that satisfies `T = F T`.
 The greatest fixed point is the largest possible data type that satisfies the same equation.
@@ -2522,20 +2528,26 @@ When this function is called, it will decide whether to stop the stream at the c
 The type `r` represents some internal state of the decision process and may be different for different streams.
 However, the type `r` is not visible to the code outside the stream type.
 
-This motivates the following implementation of the greatest fixed point of `T = F T` in the general case.
-We take some unknown type `r` and implement a pair of types `r` and `r → F r`.
+### Encoding of greatest fixed points with existential types
+
+This motivates the following implementation of the greatest fixed point of `T = F T` in the general case:
+
+We take some unknown type `r` and implement `T` as a pair of types `r` and `r → F r`.
 To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
 
-So, the mathematical notation for the greatest fixed point of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
+So, the mathematical notation for the greatest fixed point of `T = F T` is `T = ∃ r. r × (r → F r)`.
 The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section:
 
 ```dhall
 let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { init : r, step : r → F r })
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the paper "Recursive types for free".
-Hre, we will focus on the practical usage of those types.
+A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the already mentioned paper "Recursive types for free".
+Hre, we will focus on the practical usage of the greatest fixed points.
 
+### Data constructors
+
+To create values of type `GFix F`, we use the function called `pack` (see the section about existential types).
 ***
 
 ## Functors and contrafunctors
@@ -2562,7 +2574,7 @@ let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b :
 ```
 
 A simple example of a contrafunctor is the type constructor `a → Text`.
-Let us show its definition and the code for a contrafunctor typeclass instance:
+Here is its definition and the code for a contrafunctor typeclass instance:
 
 ```dhall
 let F = λ(a : Type) → a → Text
@@ -2570,7 +2582,33 @@ let contrafunctorF : Contrafunctor F
   = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → λ(x : a) → fb (f x) } 
 ```
 
+If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
+For example, the type constructor `F` defined by:
+
+```dhall
+let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+```
+
+is covariant in `a` and contravariant in `b`.
+
+In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
+
+To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` functions separately with respect to each type parameter.
+It turns out that one can combine the `fmap` and `cmap` methods into a single method that works at once on all type parameters.
+For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
+
+The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+
+```dhall
+let Bifunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+let Profunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+```
+
 ### Constructing functors and contrafunctors from parts
+
+***
 
 ## Filterable functors and contrafunctors
 
