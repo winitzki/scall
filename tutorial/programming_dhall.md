@@ -2544,6 +2544,15 @@ The corresponding Dhall code uses the type constructor `Exists` that we defined 
 let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { seed : r, step : r → F r })
 ```
 
+We can expand that definition using Dhall's REPL:
+
+```dhall
+⊢ GFix
+
+λ(F : Type → Type) →
+  ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
+```
+
 A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the already mentioned paper "Recursive types for free".
 Hre, we will focus on the practical usage of the greatest fixed points.
 
@@ -2567,12 +2576,46 @@ As an example, consider the greatest fixed point of the recursion scheme for `Li
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
+let Stream = λ(a : Type) → GFix (F a)
 ```
 
-The greatest fixed point of `F` is heuristically understood as a potentially infinite stream of values of type `a`.
-We can retrieve more values by running the "step" function as many times as needed, or until it returns `Nil` (indicating the end of the stream). 
+Values of type `Stream a` are higher-order functions with quantified types.
+For more clarity about how to use values, let us expand the definition of `Stream` using Dhall's REPL:
 
-To create an empty list, we specify a "step" function that immediately returns `Nil` and ignores its argument.
+```dhall
+⊢ Stream
+
+λ(a : Type) →
+  ∀(r : Type) →
+  ( ∀(t : Type) →
+    { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > } → r
+  ) → r
+```
+
+***
+
+The greatest fixed point of `F` is heuristically understood as a potentially infinite stream of values of type `a`.
+Of course, we cannot store infinitely many values in memory.
+Values are retrieved one by one, by running the "step" function as many times as needed, or until "step" returns `Nil` (indicating the end of the stream).
+
+Given a value `s : GFix F`, how can we run the "step" function?
+By definition, 
+
+To visualize the values stored in a stream, let us implement a function that converts `Stream a` to `List a`, taking at most a given number of values.
+
+```dhall
+let streamToList : ∀(a : Type) → Stream a → Natural → List a
+ = λ(a : Type) → λ(as : Stream a) → λ(limit : Natural) →
+   let init = [] : List a
+   let update : List a → List a = λ(prev : List a) → ???
+     in Natural/fold limit (List a) init update 
+```
+
+***
+
+Let us now see how to create various finite or infinite streams of values.
+
+To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
 We still need to supply a "seed" value even though we will never use it.
 Let us supply a value of the `Unit` type (in Dhall, `{}`):
 
@@ -2584,6 +2627,8 @@ let nil : GFix F =
 ```
 
 How can we create a finite list, say, `[1, 2, 3]`?
+We need a
+
 
 ***
 
