@@ -2524,7 +2524,7 @@ The greatest fixed point of `T = F T` is a potentially infinite "stream" of `Tex
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
-One way of implementing such streams is by giving an initial value of some type `r` and a function that computes the next string on demand.
+One way of implementing such streams is by giving an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
 In the present example, this function will have type `r → 1 + Text × r`.
 When this function is called, it will decide whether to stop the stream at the current place.
 The type `r` represents some internal state of the decision process and may be different for different streams.
@@ -2541,7 +2541,7 @@ So, the mathematical notation for the greatest fixed point of `T = F T` is `T = 
 The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section:
 
 ```dhall
-let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { init : r, step : r → F r })
+let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { seed : r, step : r → F r })
 ```
 
 A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the already mentioned paper "Recursive types for free".
@@ -2553,10 +2553,37 @@ To create values of type `GFix F`, we will now implement a function called `make
 The code of that function uses the generic `pack` function (see the section about existential types) to create values of type `∃ r. r × (r → F r)`.
 
 ```dhall
-let makeGFix = λ(F : Type → Type) →
-  let P = λ(r : Type) → { init : r, step : r → F r } 
-    in λ(r : Type) → λ(x : r) → λ(rfr : r → F r) → pack P r { init = x, step = rfr } 
+let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
+  let P = λ(r : Type) → { seed : r, step : r → F r }
+    in pack P r { init = x, step = rfr } 
 ```
+
+Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
+We imagine that we may run the "step" function as many times as needed, in order to retrieve more values from the data structure.
+
+The required reasoning is quite different from that of creating values of the least fixed point types.
+
+As an example, consider the greatest fixed point of the recursion scheme for `List`.
+
+```dhall
+let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
+```
+
+The greatest fixed point of `F` is heuristically understood as a potentially infinite stream of values of type `a`.
+We can retrieve more values by running the "step" function as many times as needed, or until it returns `Nil` (indicating the end of the stream). 
+
+To create an empty list, we specify a "step" function that immediately returns `Nil` and ignores its argument.
+We still need to supply a "seed" value even though we will never use it.
+Let us supply a value of the `Unit` type (in Dhall, `{}`):
+
+```dhall
+let nil : GFix F =
+  let r = {}
+  let seed : r = {=}
+    in mageGFix F r seed (λ(_ : r) → (F r).Nil)
+```
+
+How can we create a finite list, say, `[1, 2, 3]`?
 
 ***
 
