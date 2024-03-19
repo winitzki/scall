@@ -117,6 +117,22 @@ let headTailOption
 
         in  s (Optional ResultT) unpack_
 
+let nil
+    : ∀(a : Type) → Stream a
+    = λ(a : Type) →
+        let r = {}
+
+        let seed
+            : r
+            = {=}
+
+        in  makeStream a r seed (λ(_ : r) → (F a r).Nil)
+
+let _ =
+        assert
+      :   headTailOption Text (nil Text)
+        ≡ None { head : Text, tail : Stream Text }
+
 let streamToList
     : ∀(a : Type) → Stream a → Natural → List a
     = λ(a : Type) →
@@ -135,7 +151,7 @@ let streamToList
                     : Optional { head : a, tail : Stream a }
                     = merge
                         { None = None { head : a, tail : Stream a }
-                        , Some = λ(str : Stream a) → headTailOption a s
+                        , Some = λ(str : Stream a) → headTailOption a str
                         }
                         prev.stream
 
@@ -150,17 +166,6 @@ let streamToList
                       headTail
 
         in  (Natural/fold limit Accum update init).list
-
-let nil
-    : ∀(a : Type) → Stream a
-    = λ(a : Type) →
-        let r = {}
-
-        let seed
-            : r
-            = {=}
-
-        in  makeStream a r seed (λ(_ : r) → (F a r).Nil)
 
 let listToStream
     : ∀(a : Type) → List a → Stream a
@@ -182,7 +187,16 @@ let listToStream
         in  makeStream a (List a) list step
 
 let example0 = streamToList Text (listToStream Text [ "a", "b", "c", "d" ]) 5
+
+let _ = assert : example0 ≡ [ "a", "b", "c", "d" ]
+
 let example1 = streamToList Text (listToStream Text [ "a", "b", "c", "d" ]) 3
+
+let example1a = streamToList Text (listToStream Text [ "a", "b", "c", "d" ]) 4
+
+let _ = assert : example1 ≡ [ "a", "b", "c" ]
+
+let _ = assert : example1a ≡ [ "a", "b", "c", "d" ]
 
 let streamFunction
     : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
@@ -200,4 +214,6 @@ let streamFunction
 let example2 =
       streamToList Natural (streamFunction Natural 0 (λ(x : Natural) → x + 1)) 4
 
-in  example2
+let _ = assert : example2 ≡ [ 0, 1, 2, 3 ]
+
+in  True
