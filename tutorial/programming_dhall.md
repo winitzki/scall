@@ -2480,9 +2480,9 @@ let pack : ∀(P : Type → Type) → ∀(t : Type) → P t → Exists P
       λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt
 ```
 
-The function `unpack` is intended to perform transformations of type `Exists P → r`, where `r` is some arbitrary result type.
+The function `unpack` performs transformations of type `Exists P → r`, where `r` is some arbitrary result type.
 So, `unpack` needs to be able to convert a value of type `P t` into a value of type `r` regardless of the actual type `t` encapsulated inside `Exists P`.
-To achieve that, we make one of the arguments of `unpack` a function of type `∀(t : Type) → P t → r`.
+To achieve that, one of the arguments of `unpack` will be a function of type `∀(t : Type) → P t → r`.
 Other arguments of `unpack` are the type constructor `P`, a value of type `Exists P`, and the result type `r`.
 
 ```dhall
@@ -2493,6 +2493,40 @@ let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : 
 
 We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
+
+The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
+The type `t` used within the value `ep` and may be different for different such values.
+This is because the only way to construct a value `ep` is to call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
+
+But the specific type `t` used while constructing `ep` will no longer be exposed to the code outside of `ep`.
+One could say that the type `t` "exists inside the scope of `ep`" and is hidden (or encapsulated) within that scope.
+
+This behavior is quite different from how we work with values of a universally quantified type.
+For example, the polymorphic `identity` function has type `identity : ∀(t : Type) → t → t`.
+When we apply `identity` to a specific type, we get a value such as:
+
+```dhall
+let idText : Text → Text = identity Text
+```
+
+When constructing `idText`, we used the type `Text` as the type parameter.
+After that, the type `Text` is exposed to the outside code because it is part of the type of `idText`.
+
+When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or other type).
+But that type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.  
+
+It is actually not hidden that `ep` _has_ a type parameter `t` inside.
+The hidden information is the actual value of `t` used while constructing `ep`.
+Let us clarify how that works.
+
+Code that uses `ep` must use `unpack` with an argument function `unpack_ : ∀(t : Type) → P t → r`.
+We must implement `unpack_` ourselves.
+Most often, `P t` will be a data type that stores some values of type `t`.
+Because the code of `unpack_` receives `t` and `P t` as arguments, we will be able to extract some values of type `t` and to pass those values around (while computing the result value of some type `r`).
+For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
+But all such functions are constrained to work _in the same way_ for all types `t`.
+Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
+In this sense, type quantifiers provide the encapsulation of the type `t` inside `ep`.
 
 ## Co-inductive ("infinite") types
 
@@ -2525,10 +2559,15 @@ The stream could terminate after a finite number of strings, but it could also g
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
 One way of implementing such streams is by giving an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
-In the present example, this function will have type `r → 1 + Text × r`.
-When this function is called, it will decide whether to stop the stream at the current place.
-The type `r` represents some internal state of the decision process and may be different for different streams.
-However, the type `r` is not visible to the code outside the stream type.
+In the present example, that function will have type `r → < Nil | Cons { head : Text, tail : r } >`.
+When that function is applied to a value of type `r`, the function will decide either to return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new value of type `r`.
+
+The type `r` represents the internal state of the stream's decision process and may be different for different streams.
+However, the type `r` is not visible to the code outside the stream.
+That code can only extract values of type `r` and pass those values around without being able to do anything else with them.
+This is enforced by the type quantifiers:
+To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
+That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
 
 ### Encoding of greatest fixed points with existential types
 
@@ -2556,6 +2595,26 @@ We can expand that definition using Dhall's REPL:
 A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the already mentioned paper "Recursive types for free".
 Hre, we will focus on the practical usage of the greatest fixed points.
 
+### The fixed point isomorphisms
+
+To show that `GFix F` is a fixed point of `T = F T`, we write two functions, `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
+(This is proved in the paper "Recursive types for free".)
+
+To implement these functions, we need to assume that `F` has a known `fmap` method:
+
+```dhall
+let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
+```
+
+We begin by implementing `unfix`.
+
+```dhall
+unfix : (GFix F) → F (GFix F)
+ = 
+```
+
+
+
 ### Data constructors
 
 To create values of type `GFix F`, we will now implement a function called `makeGFix`.
@@ -2580,7 +2639,7 @@ let Stream = λ(a : Type) → GFix (F a)
 ```
 
 Values of type `Stream a` are higher-order functions with quantified types.
-For more clarity about how to use values, let us expand the definition of `Stream` using Dhall's REPL:
+For more clarity about how to use values of type `Stream a`, let us expand the definition of `Stream` using Dhall's REPL:
 
 ```dhall
 ⊢ Stream
@@ -2592,16 +2651,33 @@ For more clarity about how to use values, let us expand the definition of `Strea
   ) → r
 ```
 
-***
-
-The greatest fixed point of `F` is heuristically understood as a potentially infinite stream of values of type `a`.
+The type `Stream a` is heuristically understood as a potentially infinite stream of values of type `a`.
 Of course, we cannot store infinitely many values in memory.
 Values are retrieved one by one, by running the "step" function as many times as needed, or until "step" returns `Nil` (indicating the end of the stream).
 
-Given a value `s : GFix F`, how can we run the "step" function?
-By definition, 
+Given a value `s : Stream a`, how can we run the "step" function?
+We need to apply `s` (which is a function) to an argument of the following type:
 
-To visualize the values stored in a stream, let us implement a function that converts `Stream a` to `List a`, taking at most a given number of values.
+```dhall
+∀(t : Type) → { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > } → r
+```
+
+So, we need to provide a function of that type.
+That function's code will be of the form:
+
+```dhall
+λ(t : Type) → λ(stream : { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > }) → ...
+```
+
+and the code can apply `stream.step` to values of type `t`.
+One value of type `t` is already given as `stream.seed`.
+Other such values can be obtained after calling `stream.step` one or more times.
+
+As a first example, let us implement a function `streamToList` that converts `Stream a` to `List a`.
+That function will be used to extract the values stored in a stream, taking at most a given number of values.
+The limit length must be specified as an additional argument.
+Since streams may be infinite, it is not possible to convert a `Stream` to a `List` without limiting the length of the resulting list in advance.
+So, the type signature of `streamToList` must be of the form `Stream a → Natural → List a`.
 
 ```dhall
 let streamToList : ∀(a : Type) → Stream a → Natural → List a
