@@ -2493,6 +2493,7 @@ let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : 
 
 We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
+So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
 
 The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
 The type `t` used within the value `ep` and may be different for different such values.
@@ -2628,7 +2629,7 @@ The second argument of `g` is a function of type `∀(t : Type) → { seed : t, 
 If we could produce such a function `f`, we would complete the code of `unfix`:
 
 ```dhall
-unfix : GFix F → F (GFix F)
+let unfix : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f
       : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
@@ -2648,7 +2649,7 @@ let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
 Then we will apply `fmap_F` to that function, which will give us a function of type `F t → F (GFix F)`.
 
 ```dhall
-let fk : F t → F GFix F = fmap_F k
+let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 ```
 
 Finally, we apply the function `fk` to `p.step p.seed`, which is a value of type `F t`.
@@ -2657,13 +2658,13 @@ The result is a value of type `F (GFix F)` as required.
 The complete Dhall code is:
 
 ```dhall
-unfix : GFix F → F (GFix F)
+let unfix : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f
       : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
-        let fk : F t → F GFix F = fmap_F k
+        let fk : F t → F (GFix F) = fmap_F t (GFix F) k
           in fk (p.step p.seed)
             in g (F (GFix F)) f
 ```
@@ -2675,7 +2676,7 @@ Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`:
 ```dhall
 let fix : F (GFix F) → GFix F
   = λ(fg : F (GFix F)) →
-    let fmap_unfix : F (GFix F) → F (F (GFix F)) = fmap_F unfix
+    let fmap_unfix : F (GFix F) → F (F (GFix F)) = fmap_F (GFix F) (F (GFix F)) unfix
       in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
 ```
 
@@ -2691,7 +2692,7 @@ let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr :
 ```
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
-We imagine that we may run the "step" function as many times as needed, in order to retrieve more values from the data structure.
+We imagine that the code will run the "step" function as many times as needed, in order to retrieve more values from the data structure.
 
 The required reasoning is quite different from that of creating values of the least fixed point types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
@@ -2700,11 +2701,14 @@ As an example, consider the greatest fixed point of the recursion scheme for `Li
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
+let fmap_F = 
 let Stream = λ(a : Type) → GFix (F a)
+let makeStream = makeGFix F
 ```
 
 Values of type `Stream a` are higher-order functions with quantified types.
-For more clarity about how to use values of type `Stream a`, let us expand the definition of `Stream` using Dhall's REPL:
+
+For more clarity about how to create and use values of type `Stream a`, let us expand the definitions of `Stream` and `makeStream` using Dhall's REPL:
 
 ```dhall
 ⊢ Stream
@@ -2714,7 +2718,29 @@ For more clarity about how to use values of type `Stream a`, let us expand the d
   ( ∀(t : Type) →
     { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > } → r
   ) → r
+
+⊢ makeStream
+
+λ(a : Type) → λ(r : Type) → λ(x : r) →
+λ(rfr : r → < Cons : { head : a, tail : r } | Nil >) →
+λ(res : Type) →
+λ ( pack_
+  : ∀(t_ : Type) →
+    { seed : t_, step : t_ → < Cons : { head : a, tail : t_ } | Nil > } →
+      res
+  ) →
+  pack_ r { seed = x, step = rfr }
 ```
+
+The type of `makeStream` can be simplified to:
+
+```dhall
+makeStream : λ(a : Type) → λ(r : Type) →
+  λ(x : r) → λ(rfr : r → < Cons : { head : a, tail : r } | Nil > )
+    → Stream a
+```
+
+The function `makeStream` constructs a value of type `Stream a` out of an arbitrary type `a`, a type `r` (the internal state of the stream), an initial "seed" value of type `r`, and a "step" function of type `r → < Cons : { head : a, tail : r } | Nil >`.
 
 The type `Stream a` is heuristically understood as a potentially infinite stream of values of type `a`.
 Of course, we cannot store infinitely many values in memory.
@@ -2734,43 +2760,102 @@ That function's code will be of the form:
 λ(t : Type) → λ(stream : { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > }) → ...
 ```
 
-and the code can apply `stream.step` to values of type `t`.
+and the code may apply `stream.step` to values of type `t`.
 One value of type `t` is already given as `stream.seed`.
 Other such values can be obtained after calling `stream.step` one or more times.
 
-As a first example, let us implement a function `streamToList` that converts `Stream a` to `List a`.
+As first examples, consider the tasks of extracting the "head" and the "tail" of a stream.
+
+The "head" is either empty (if the stream is empty) or a value of type `a`.
+We implement a function (`headTailOption`) that applies `stream.step` to `stream.seed` and performs pattern-matching on the resulting value of type `< Cons : { head : a, tail : t } | Nil >`.
+If that value is non-empty, the function returns the corresponding values `head` and `tail` wrapped into the type `Optional { head : a, tail : Stream a }`.
+Otherwise the function returns `None` of that type.
+
+```dhall
+let headTailOption
+  : ∀(a : Type) → Stream a → Optional { head : a, tail : Stream a }
+  = λ(a : Type) → λ(s : Stream a) →
+    let headTail = λ(h : Type) → λ(t : Type) → { head : h, tail : t }
+    let ResultT = headTail a (Stream a)
+    let unpack_ = λ(t : Type) → λ(state : { seed : t, step : t → < Cons : headTail a t | Nil > }) → 
+      merge {
+         Cons = λ(cons : headTail a t) →
+           Some { head = cons.head
+                , tail = makeStream a t cons.tail state.step
+                }
+         , Nil = None ResultT
+      } (state.step state.seed)
+        in s (Optional ResultT) unpack_
+```
+
+Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further elements of the stream, or to discover that the stream has finished.
+
+Let us now implement a function `streamToList` that converts `Stream a` to `List a`.
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
 The limit length must be specified as an additional argument.
-Since streams may be infinite, it is not possible to convert a `Stream` to a `List` without limiting the length of the resulting list in advance.
-So, the type signature of `streamToList` must be of the form `Stream a → Natural → List a`.
+Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
+So, the type signature of `streamToList` must be something like `Stream a → Natural → List a`.
 
 ```dhall
 let streamToList : ∀(a : Type) → Stream a → Natural → List a
- = λ(a : Type) → λ(as : Stream a) → λ(limit : Natural) →
-   let init = [] : List a
-   let update : List a → List a = λ(prev : List a) → ???
-     in Natural/fold limit (List a) init update 
+ = λ(a : Type) → λ(s : Stream a) → λ(limit : Natural) →
+   let Accum = { list : List a, stream : Optional (Stream a) }
+   let init : Accum = { list = [] : List a, stream = Some s }
+   let update : Accum → Accum = λ(prev : Accum) →
+     let headTail : Optional { head : a, tail : Stream a } = merge { None = None { head : a, tail : Stream a }
+                                                                   , Some = λ(str : Stream a) → headTailOption a s
+                                                                   } prev.stream
+       in merge { None = prev // { stream = None (Stream a) }
+                , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail } } headTail
+         in (Natural/fold limit Accum update init).list
 ```
 
-***
-
-Let us now see how to create various finite or infinite streams of values.
+Let us now see how to create finite or infinite streams.
 
 To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
-We still need to supply a "seed" value even though we will never use it.
+We still need to supply a "seed" value, even though we will never use it.
 Let us supply a value of the `Unit` type (in Dhall, `{}`):
 
 ```dhall
-let nil : GFix F =
-  let r = {}
-  let seed : r = {=}
-    in mageGFix F r seed (λ(_ : r) → (F r).Nil)
+let nil : ∀(a : Type) → Stream a
+  = λ(a : Type) → 
+    let r = {}
+    let seed : r = {=}
+      in makeStream a r seed (λ(_ : r) → (F a r).Nil)
 ```
 
-How can we create a finite list, say, `[1, 2, 3]`?
-We need a
+How can we create a finite stream, say, `[1, 2, 3]`?
+We need a "seed" value that has enough information for the "step" function to produce all the subsequent elements of the stream.
+So, it appears natural to use the list `[1, 2, 3]` itself (of type `List Natural`) as the "seed" value.
+The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
 
+For convenience, we implement a general function of type `List a → Stream a`.
 
+```dhall
+let listToStream : ∀(a : Type) → List a → Stream a
+  = λ(a : Type) → λ(list : List a) →
+    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
+    let FA = < Cons : { head : a, tail : List a } | Nil >
+    let step
+      : List a → FA
+      = λ(prev : List a) → merge { None = FA.Nil
+                                 , Some = λ(h : a) → FA.Cons { head = h, tail = getTail prev }
+                                 } (List/head a prev)
+        in makeStream a (List a) list step
+```
+
+Creating an infinite stream involves deciding how the next elements should be computed.
+A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r`.
+The "step" function will never return `Nil`, which will make the stream unbounded.
+
+```dhall
+let streamFunction
+  : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
+  = λ(a : Type) → λ(seed : a) → λ(f : a → a) →
+    let FA = < Cons : { head : a, tail : a } | Nil >
+    let step : a → FA = λ(x : a) → FA.Cons { head = x, tail = f x }
+      in makeStream a a seed step
+```
 ***
 
 ## Functors and contrafunctors
