@@ -2760,7 +2760,7 @@ That function's code will be of the form:
 λ(t : Type) → λ(stream : { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > }) → ...
 ```
 
-and the code may apply `stream.step` to values of type `t`.
+So, the code may apply `stream.step` to values of type `t`.
 One value of type `t` is already given as `stream.seed`.
 Other such values can be obtained after calling `stream.step` one or more times.
 
@@ -2803,7 +2803,7 @@ let streamToList : ∀(a : Type) → Stream a → Natural → List a
    let init : Accum = { list = [] : List a, stream = Some s }
    let update : Accum → Accum = λ(prev : Accum) →
      let headTail : Optional { head : a, tail : Stream a } = merge { None = None { head : a, tail : Stream a }
-                                                                   , Some = λ(str : Stream a) → headTailOption a s
+                                                                   , Some = λ(str : Stream a) → headTailOption a str
                                                                    } prev.stream
        in merge { None = prev // { stream = None (Stream a) }
                 , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail } } headTail
@@ -2856,7 +2856,18 @@ let streamFunction
     let step : a → FA = λ(x : a) → FA.Cons { head = x, tail = f x }
       in makeStream a a seed step
 ```
-***
+
+We can compute a finite prefix of this infinite stream:
+
+```dhall
+⊢ streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
+
+[ 1, 2, 4, 8, 16]
+```
+
+### Size-limited aggregations
+
+### Converting between the least and the greatest fixed points
 
 ## Functors and contrafunctors
 

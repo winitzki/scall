@@ -216,4 +216,6 @@ let example2 =
 
 let _ = assert : example2 ≡ [ 0, 1, 2, 3 ]
 
+let _ = assert : streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5 === [ 1, 2, 4, 8, 16]
+
 in  True
