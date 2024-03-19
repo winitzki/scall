@@ -2577,13 +2577,17 @@ We take some unknown type `r` and implement `T` as a pair of types `r` and `r �
 To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
 
 So, the mathematical notation for the greatest fixed point of `T = F T` is `T = ∃ r. r × (r → F r)`.
-The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section:
+The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
+
+To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)`.
+We will call that type constructor `GF_T` and use it to define `GFix`:
 
 ```dhall
-let GFix = λ(F : Type → Type) → Exists (λ(r : Type) → { seed : r, step : r → F r })
+let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F r }
+let GFix = λ(F : Type → Type) → Exists (GF_T F)
 ```
 
-We can expand that definition using Dhall's REPL:
+To see `GFix` as a higher-order function, we expand that definition in Dhall's REPL:
 
 ```dhall
 ⊢ GFix
@@ -2592,8 +2596,8 @@ We can expand that definition using Dhall's REPL:
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the already mentioned paper "Recursive types for free".
-Hre, we will focus on the practical usage of the greatest fixed points.
+A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the paper "Recursive types for free".
+Hre, we will focus on the practical use of the greatest fixed points.
 
 ### The fixed point isomorphisms
 
@@ -2606,30 +2610,91 @@ To implement these functions, we need to assume that `F` has a known `fmap` meth
 let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
 ```
 
-We begin by implementing `unfix`.
+We begin by implementing `unfix : GFix F → F (GFix F) = λ(g : GFix F) → ...` (that function is called `out` in the paper "Recursive types for free").
+
+Let us write the type of `g` in detail:
 
 ```dhall
-unfix : (GFix F) → F (GFix F)
- = 
+g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
+One way of consuming such a value is by applying the function `g` to some arguments.
 
+We need to return a value of type `F (GFix F)` as the final result of `unfix g`.
+The return type of `g` is an arbitrary type `r` (which is the first argument of `g`).
+Because we need to return a value of type `F (GFix F)`, we set `r = F (GFix F)`.
+
+The second argument of `g` is a function of type `∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)`.
+If we could produce such a function `f`, we would complete the code of `unfix`:
+
+```dhall
+unfix : GFix F → F (GFix F)
+  = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
+    let f
+      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
+        in g (F (GFix F)) f
+```
+
+Within the body of `f`, we have a type `t` and two values `p.seed : t` and `p.step : t → F t`.
+So, we can create a value of type `GFix F` using that data as `pack (GF_T F) t p`.
+However, `f` is required to return a value of type `F (GFix F)` instead.
+To achieve that, we use a trick: we first create a function of type `t → GFix F`.
+
+```dhall
+let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+```
+
+Then we will apply `fmap_F` to that function, which will give us a function of type `F t → F (GFix F)`.
+
+```dhall
+let fk : F t → F GFix F = fmap_F k
+```
+
+Finally, we apply the function `fk` to `p.step p.seed`, which is a value of type `F t`.
+The result is a value of type `F (GFix F)` as required.
+
+The complete Dhall code is:
+
+```dhall
+unfix : GFix F → F (GFix F)
+  = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
+    let f
+      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
+        let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+        let fk : F t → F GFix F = fmap_F k
+          in fk (p.step p.seed)
+            in g (F (GFix F)) f
+```
+
+Implementing the function `fix : F (GFix F) → GFix F` is simpler, once we have `unfix`.
+We first compute `fmap_F unfix : F (GFix F) → F (F (GFix F))`.
+Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`: 
+
+```dhall
+let fix : F (GFix F) → GFix F
+  = λ(fg : F (GFix F)) →
+    let fmap_unfix : F (GFix F) → F (F (GFix F)) = fmap_F unfix
+      in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
+```
 
 ### Data constructors
 
-To create values of type `GFix F`, we will now implement a function called `makeGFix`.
+To create values of type `GFix F` more conveniently, we will now implement a function called `makeGFix`.
 The code of that function uses the generic `pack` function (see the section about existential types) to create values of type `∃ r. r × (r → F r)`.
 
 ```dhall
 let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
   let P = λ(r : Type) → { seed : r, step : r → F r }
-    in pack P r { init = x, step = rfr } 
+    in pack (GF_T F) r { init = x, step = rfr } 
 ```
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
 We imagine that we may run the "step" function as many times as needed, in order to retrieve more values from the data structure.
 
 The required reasoning is quite different from that of creating values of the least fixed point types.
+The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
 As an example, consider the greatest fixed point of the recursion scheme for `List`.
 
