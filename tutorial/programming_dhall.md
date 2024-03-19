@@ -2865,7 +2865,9 @@ We can compute a finite prefix of this infinite stream:
 [ 1, 2, 4, 8, 16]
 ```
 
-### Size-limited aggregations
+### Size-limited aggregation
+
+### Sliding-window aggregation
 
 ### Converting between the least and the greatest fixed points
 
