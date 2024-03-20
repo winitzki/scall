@@ -1,0 +1,37 @@
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+
+let ListInt = ∀(r : Type) → (F r → r) → r
+
+let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b =
+    λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+      Nil = (F b).Nil,
+      Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
+    } fa
+
+let C = ∀(r : Type) → (F r → r) → r
+
+let build : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
+    let c2r : C → r = λ(c : C) → c r frr
+    let fr : F r = fmapF C r c2r fc
+    in frr fr
+
+let unroll : C → F C =
+  let fmapBuild : F (F C) → F C = fmapF (F C) C build -- Use the definition of `build` above.
+    in λ(c : C) → c (F C) fmapBuild
+
+let nil : ListInt = λ(r : Type) → λ(frr : F r → r) →
+    frr (F r).Nil
+
+let cons: Integer → ListInt → ListInt = λ(head : Integer) → λ(tail : ListInt) →
+    λ(r : Type) → λ(frr : F r → r) →
+        let fr = (F r).Cons { head = head, tail = tail r frr }
+            in frr fr
+
+let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
+    merge {
+      Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.head),
+      Nil = None Integer
+    } (unroll c)
+
+    in headOptional (cons -456 (cons +123 nil))
+

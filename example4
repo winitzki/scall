@@ -1,0 +1,24 @@
+
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+
+let ListInt = ∀(r : Type) → (F r → r) → r
+
+let nil : ListInt = λ(r : Type) → λ(frr : F r → r) →
+    frr (F r).Nil
+
+let cons: Integer → ListInt → ListInt = λ(head : Integer) → λ(tail : ListInt) →
+    λ(r : Type) → λ(frr : F r → r) →
+        let fr = (F r).Cons { head = head, tail = tail r frr }
+            in frr fr
+
+let foldLeft : ∀(r : Type) → ∀(init : r) → ∀(update : r → Integer → r) → ListInt → r =
+  λ(r : Type) → λ(init : r) → λ(update : r → Integer → r) → λ(list : ListInt) →
+    let consR : { head : Integer, tail : r } → r = λ(fr : { head : Integer, tail : r }) → update fr.tail fr.head
+    let frr : F r → r = λ(fr : F r) → merge { Nil = init, Cons = consR } fr
+        in list r frr
+
+let toList : ListInt → List Integer = λ(list : ListInt) →
+    foldLeft (List Integer) ([]: List Integer) (λ(r : List Integer) → λ(x: Integer) → r # [ x ]) list
+
+    in toList (cons +456 (cons -123 nil))
+
