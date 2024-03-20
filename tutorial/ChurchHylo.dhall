@@ -38,7 +38,7 @@ let Hylo1Int
       ∀(x : p) →
       ∀(r : Type) →
       ∀(alg : S a r → r) →
-      ∀(default : r) →
+      ∀(default : p → r) →
         r
     = λ(S : B.Bifunctor) →
       λ(bimapS : B.Bimap S) →
@@ -49,7 +49,7 @@ let Hylo1Int
       λ(x : p) →
       λ(r : Type) →
       λ(alg : S a r → r) →
-      λ(default : r) →
+      λ(default : p → r) →
         let fmapS2
             : ∀(c : Type) →
               ∀(a : Type) →
@@ -69,7 +69,7 @@ let Hylo1Int
                   : (p → r) → p → r
                   = λ(f : p → r) → λ(x : p) → alg (fmapS2 a p r f (coalg x))
 
-              in  limit (p → r) (λ(_ : p) → default) loop x
+              in  limit (p → r) default loop x
 
         in  result
 

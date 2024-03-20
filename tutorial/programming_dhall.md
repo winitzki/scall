@@ -2821,7 +2821,21 @@ We imagine that the code will run the "step" function as many times as needed, i
 The required reasoning is quite different from that of creating values of the least fixed point types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
-As an example, consider the greatest fixed point of the recursion scheme for `List`:
+Because the type `T = GFix F` is a fixed point of `T = F T`, we always have the function `fix : F T → T`.
+That function, similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
+Those constructors are "finite": they cannot create an infinite data structure.
+For that, we need the general constructor `makeGFix`.
+
+We can also apply `unfix` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
+We can then perform pattern-matching directly on that value, since `F` is typically a union type.
+
+So, similarly to the case of Church encodings, `fix` provides constructors and `unfix` provides pattern-matching for co-inductive types.
+
+To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
+
+#### Example of a co-inductive type: Streams
+
+Consider the greatest fixed point of the recursion scheme for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -2898,7 +2912,7 @@ As we step through the stream, the seed values (of type `t`) are changing but th
 
 #### Pattern-matching on streams
 
-As first examples, consider the tasks of extracting the "head" and the "tail" of a stream.
+Consider the tasks of extracting the "head" and the "tail" of a stream.
 
 The "head" is either empty (if the stream is empty) or a value of type `a`.
 We implement a function (`headTailOption`) that applies `stream.step` to `stream.seed` and performs pattern-matching on the resulting value of type `< Cons : { head : a, tail : t } | Nil >`.
@@ -2956,7 +2970,7 @@ We still need to supply a "seed" value, even though we will never use it.
 Let us supply a value of the `Unit` type (in Dhall, `{}`):
 
 ```dhall
-let nil : ∀(a : Type) → Stream a
+let Stream/nil : ∀(a : Type) → Stream a
   = λ(a : Type) → 
     let r = {}
     let seed : r = {=}
@@ -3024,7 +3038,7 @@ let repeatForever : ∀(a : Type) → List a → Stream a
         } (List/head a prev)
         in makeStream a (List a) list step
     -- Check whether `list` is empty. If so, return an empty stream.
-      in merge { Nil = nil a
+      in merge { Nil = Stream/nil a
                , Cons = λ(h : { head : a, tail : List a }) → mkStream h
                } (headTail a list)
 
@@ -3061,6 +3075,37 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
       } state
         in makeStream a State (State.InFirst first) step
 ```
+
+#### The `cons` constructor for streams. Performance issues
+
+The `cons` operation for lists will prepend a single value to a list.
+The analogous operation for streams can be implemented as a special case of concatenating streams:
+
+```dhall
+let Stream/cons : ∀(a : Type) → a → Stream a → Stream a
+ = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (listToStream a [ a ]) stream
+```
+
+We may use `Stream/nil` and `Stream/cons` to create finite streams, similar to how the constructors `nil` and `cons` create lists.
+
+Are finite streams better than (Church-encoded) lists?
+
+We have seen that the performance of Church-encoded data is slow when doing pattern-matching or concatenation.
+For instance, pattern-matching a Church-encoded list will take time `O(N)`, where `N` is the size of the list.
+Even just finding out whether a Church-encoded list is empty will still need to traverse the entire list.
+
+The situation for streams is different but not "better".
+Since streams may be infinite, no operation on a stream could ever require traversing the entire data structure.
+At most, an operation may step the stream once.
+So, all stream operations like pattern-matching or concatenating are not iterative and, _at first sight_, take `O(1)` time.
+
+However, streams are higher-order functions operating with complicated types.
+We need to consider the complexity of code that represents a stream.
+For instance, the `Stream/cons` operation creates a new stream whose state type is a union of two stream types.
+So, if we use the `Stream/cons` constructor many times, we will obtain a stream with a "large" state type (a deeply nested union type).
+Pattern-matching operations with that type will take `O(N)` time in the Dhall interpreter.
+
+The result is a stream where _every_ operation (even just finding the next element) takes `O(N)` time.
 
 ### Size-limited aggregation
 
