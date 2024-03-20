@@ -422,7 +422,7 @@ For this reason, the hash does not depend on adding comments, reformatting the f
 
 For types other than `Bool` and `Natural`, equality testing is not available as a function.
 However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
-That feature may be used for basic sanity checks:
+That feature is designed for basic sanity checks:
 
 ```dhall
 let x : Text = "123"
@@ -433,34 +433,37 @@ let _ = assert : x === "123"
 
 The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
 
-The Dhall expression `a === b` is a type.
+In other words, the Dhall expression `a === b` is a special sort of type.
 That type has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
 For example, the types `1 === 2` and `λ(a : Text) → a === True` are void. 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is not void, and there exists a value of that type.
-However, that value cannot be written explicitly; the only way to refer to that value is by using the `assert` keyword.
+If `a` and `b` evaluate to the same normal form, the type `a === b` is not void.
+That is, there exists a value of that type.
+However, that value cannot be written explicitly in Dhall.
+The only way to refer to that value is by using the `assert` keyword.
 
-The syntax is `assert : a === b`.
+The syntax is: `assert : a === b`.
 This expression evaluates to a value of type `a === b` if the two sides are equal after reducing them to their normal forms.
+If the two sides are not equal, this expression _fails to type-check_, meaning that the `assert` value is not valid.
 
-We can assign that value to a variable if we'd like:
+When an `assert` value is valid, we can assign that value to a variable if we'd like:
 
 ```dhall
 let test1 = assert : 1 + 2 === 0 + 3
 ```
 
-In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value that we assigned to `test1`.
+In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value assigned to `test1`.
 
-The Dhall typechecker will raise a type error unless the two sides of an `assert` are evaluated to the same normal form, _at typechecking time_.
+The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
 Some examples:
 
 ```dhall
 let x = 1
 let y = 2
-let _ = assert : x + 1 === y  -- OK.
+let _ = assert : x + 1 === y     -- OK.
 let print = λ(n : Natural) → λ(prefix : Text) → prefix ++ Natural/show n
-let _ = assert : print (x + 1) === print y  -- OK
+let _ = assert : print (x + 1) === print y    -- OK
 ```
 
 In the last line, the `assert` expression was used to compare two partially evaluated functions, `print (x + 1)` and `print y`.
@@ -473,21 +476,22 @@ Try writing this code:
 ```dhall
 let compareTextValues : Text → Text → Bool
   = λ(a : Text) → λ(b : Text) → 
-    let _ = assert : a === b
+    let _ = assert : a === b    -- Error: the two sides are not equal.
       in True
 ```
 
 This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and those two symbols are not equal.
+Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
-The `assert` keyword is often used to implement unit tests.
+The `assert` keyword is most often used to implement unit tests.
 In that case, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
 So, we may write unit tests like this:
 
 ```dhall
 let f = λ(a : Text) → "(" ++ a ++ ")"
-let _ = assert : f "x" === "(x)"
-let _ = assert : f "" === "()"
+let _ = assert : f "x" === "(x)"    -- OK.
+let _ = assert : f "" === "()"    -- OK.
   in ... -- Further code.
 ```
 
@@ -495,17 +499,23 @@ let _ = assert : f "" === "()"
 
 Type constructors in Dhall are written as functions from `Type` to `Type`.
 
-For example, a type constructor that would be written in Haskell or Scala as `type P a = (a, a)` must be encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
+For example, one can define a type constructor in Haskell or Scala as `type PairAAInt a = (a, a, Int)`.
+The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
 
-Because Dhall does not have nameless tuples, we will use a record with field names `_1` and `_2`:
+Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
 
 ```dhall
-let PairAA = λ(a : Type) → { _1 : a, _2 : a }
+let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
 
-The output of the `λ` function is a record type `{ _1 : a, _2 : a }`.
+The output of the `λ` function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
 
-The type of `PairAA` itself is `Type → Type`.
+The type of `PairAAInt` itself is `Type → Type`.
+For more clarity, we may write that as a type annotation:
+
+```dhall
+let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+```
 
 Type constructors involving more than one type parameter are usually written as curried functions.
 
@@ -522,7 +532,9 @@ The type of `Either` is `Type → Type → Type`.
 
 The Dhall type system is a "pure type system", meaning that types and values are treated largely in the same way.
 For instance, we may write `let a : Bool = True` to define a variable of type `Bool`, and we may also write `let b = Bool` to define a variable whose value is the type `Bool` itself.
-Then the type of `b` will be `Type`.
+
+Then we may use `b` in typechecking expressions such as `True : b`.
+The type of `b` itself will be `Type`.
 
 To see the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -609,9 +621,13 @@ However, the symbol `Sort` _does not_ itself have a type.
 It is a type error to use `Sort` in Dhall code.
 
 This important design decision prevents Dhall from having to define an infinite hierarchy of "type universes".
-The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over kinds or other type universes.
+(This is done in fully dependently-typed languages such as Agda and Idris.
+In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
+Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.)
 
-Because of this, Dhall does not support any code that operates on `Kind` values ("kind polymorphism").
+The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over infinitely many type universes.
+
+Because of this design, Dhall does not support any code that operates on `Kind` values ("kind polymorphism").
 Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
 One can define variables having those values, but that's about it.
 
@@ -629,9 +645,11 @@ Error: ❰Sort❱ has no type, kind, or sort
 1│ λ(_: Kind) →  a
 ```
 
-This is because the symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a type, while Dhall requires a valid function type to itself have a type.
+This is because Dhall requires a valid function type itself to have a type.
+The symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a type.
 
-There was at one time an effort to add full "kind polymorphism" to Dhall, which would allow functions to manipulate `Kind` values.
+There was at one time an effort to implement full "kind polymorphism" in Dhall.
+That would allow functions to manipulate `Kind` values.
 But that effort was abandoned after it was discovered that it would break the consistency of Dhall's type system.
 For more details, see the discussion around this PR comment: https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106
 
@@ -858,14 +876,14 @@ The application of `s` will be repeated `n` times, evaluating `s(s(...(s(z))...)
 For example:
 ```bash
 $ dhall repl
-⊢ let succ = λ(a : Text) → a ++ "1230" in Natural/fold 4 Text succ "x" 
+⊢ let succ = λ(a : Text) → a ++ "1230" in Natural/fold 4 Text succ "Q" 
 
-"x1230123012301230"
+"Q1230123012301230"
 ```
 
-This facility can be used in Dhall to encode many arithmetic operations for natural numbers that are usually implemented via loops.
+In this way, Dhall can perform many arithmetic operations for natural numbers that are usually implemented via loops.
 However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
-The number of iterations must be specified as the first argument of `Natural/fold`.
+The number of iterations must be specified in advance, given as the first argument of `Natural/fold`.
 
 Also, `Natural/fold` cannot stop early: it will always carry out the specified number of iterations.
 
@@ -876,7 +894,9 @@ When the exact number of iterations is not known in advance, one must estimate t
 
 Let us implement division for natural numbers.
 
-A simple iterative algorithm that uses only subtraction runs like this. Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative. The value `x div y` is the number of times we subtracted.
+A simple iterative algorithm that uses only subtraction runs like this.
+Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative.
+The value `x div y` is the number of times we subtracted.
 
 This algorithm can be directly implemented in Dhall, but we need to specify in advance the maximum required number of iterations.
 A safe upper bound is the value `x` itself.
@@ -3038,12 +3058,13 @@ We have seen the function `streamToList` that extracts at most a given number of
 This function can be seen as an example of a **size-limited aggregation**: a function that somehow aggregates data from the stream but reads no more than a given number of values.
 
 We will now generalize size-limited aggregations from lists to arbitrary greatest fixed point types.
-The result will be a `fold` function whose recursion depth is limited in advance.
+The result will be a `fold`-like function whose recursion depth is limited in advance.
 This limit is necessary in Dhall, to ensure that all computations terminate.
 
 ```dhall
 let fold
-  = λ(limit : Natural) → λ(g : GFix F) → 
+  : Natural → GFix F → ∀(r : Type) → (F r → r) → r
+  = λ(limit : Natural) → λ(g : GFix F) → λ(r : Type) → λ(reduce : F r → r) → 
 ```
 
 ***
