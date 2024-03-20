@@ -1,0 +1,5 @@
+./polyfunctor
+(Type -> Type)
+Type
+(λ(a : Type → Type) → λ(b : Type → Type) → ∀(i : Type) → a i → b i)
+(λ(a : Type) → λ(b : Type) → a → b)

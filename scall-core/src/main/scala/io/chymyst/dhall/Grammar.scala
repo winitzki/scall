@@ -972,7 +972,7 @@ object Grammar {
       //
       //  NOTE: Backtrack if parsing this alternative fails since we can't tell
       //  from the opening bracket whether or not this will be an empty list or
-      //  a non_empty list
+      //  a non-empty list
       | NoCut(empty_list_literal)
       //
       //  "toMap e : t"
