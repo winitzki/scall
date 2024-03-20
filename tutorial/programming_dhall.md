@@ -811,6 +811,18 @@ For this reason, any Dhall function of the form `λ(A : Type) → ...` must work
 
 As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) → A → A`.
 
+### The unit type
+
+Dhall's empty record type `{}` is a natural way of defining a unit type.
+The type `{}` has only one value, written as `{=}` (an empty record with no fields).
+
+A unit type may be also defined as union type with a single constructor and no data, for example: `< Unit >`.
+That type also has only one value, written as `< Unit >.Unit`.
+
+An equivalent definition is the function type `∀(A : Type) → A → A`.
+The only way of implementing a function with that type is `λ(A : Type) → λ(x : A) → x`.
+Because all polymorphic Dhall functions are always fully parametric, there is no other, inequivalent Dhall code that could implement a different function of that type.
+
 ## Function combinators
 
 The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
@@ -2448,9 +2460,9 @@ let fmapC
             in ca r farr
 ```
 
-### Generic Church encoding
+### Generic forms of Church encoding
 
-Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of the recursion scheme.
+Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
 
 For simple types:
 
@@ -2470,10 +2482,7 @@ Implementations of several standard functions in Church encoding (such as `fix`,
 
 ### Existentially quantified types
 
-The existential type quantifier (denoted by `∃`) is not directly supported by Dhall.
-Types using `∃` have to be Church-encoded in a special way, as we will now show.
-
-By definition, a value `x` has an **existentially quantified** type `∃ t. P t` (where `P` is a type constructor) if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
+By definition, a value `x` has an **existentially quantified** type, denoted mathematically by `∃ t. P t`, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
 
 An example is the following type definition in Haskell:
 
@@ -2501,7 +2510,8 @@ The type of `x` is `F a` and does not show what `t` is.
 However, the type parameter `t` still "exists" inside the value `x`.
 This motivation helps us remember the meaning of the name "existential".
 
-Let us now derive the Church encoding of `F` in Dhall.
+Existential type quantifiers is not directly supported by Dhall.
+Types using `∃` have to be Church-encoded in a special way, as we will now show.
 
 We begin with this type expression:
 
@@ -3061,10 +3071,24 @@ We will now generalize size-limited aggregations from lists to arbitrary greates
 The result will be a `fold`-like function whose recursion depth is limited in advance.
 This limit is necessary in Dhall, to ensure that all computations terminate.
 
+
+The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
+We have seen its type signature when we considered fold-like aggregations for Church-encoded data:
+
 ```dhall
+fold : Church F → ∀(r : Type) → (F r → r) → r
+```
+
+For Church encodings, `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
+For greatest fixpoints (`GFix F`), `fold` is no longer an identity function and needs a size limit.
+
+
+```dhall
+
 let fold
   : Natural → GFix F → ∀(r : Type) → (F r → r) → r
-  = λ(limit : Natural) → λ(g : GFix F) → λ(r : Type) → λ(reduce : F r → r) → 
+  = λ(limit : Natural) → λ(g : GFix F) → λ(r : Type) → λ(reduce : F r → r) →
+
 ```
 
 ***
