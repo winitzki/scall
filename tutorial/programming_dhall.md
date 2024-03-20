@@ -16,13 +16,15 @@ Evaluation of a well-typed Dhall program will never create infinite loops or thr
 Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
 The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
 
-Dhall implements a pure type system Fω with a few additional features, using a Haskell-like syntax.
+From the point of view of programming language theory, Dhall implements a pure type system Fω with a few additional features, using a Haskell-like syntax.
 
 For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
 
 - https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md
 - https://gallium.inria.fr/~remy/mpri/
 - https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf
+
+That theory is beyond the scope of this book, which focuses on issues arising in practical programming.
 
 Here is an example of a Dhall program:
 
@@ -36,27 +38,35 @@ let id = λ(A : Type) → λ(x : A) → x
 The result is a powerful, purely functional programming language that could have several applications:
 - a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
 - a high-level scripting DSL interfacing with a runtime that implements low-level details 
-- a System Fω interpreter for teaching and illustrating language-independent aspects of FP theory
+- an industry-strength System Fω interpreter for studying various language-independent aspects of FP theory and practice
+
+The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
+This book focuses on other applications of Dhall.
 
 ## Differences between Dhall and other FP languages
 
 Mostly, Dhall follows the Haskell syntax and semantics.
 
 Currently, Dhall has no type inference: all types must be specified explicitly.
-Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax, which may help in learning some of the more advanced concepts of FP.
+Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
+In particular, Dhall requires us to write out all type parameters and type quantifiers.
+This may help in learning some of the more advanced concepts of FP.
 
-Because the Dhall language is not Turing-complete and always evaluates all well-typed terms to a normal form, there is no analog of Haskell's "bottom" (undefined) value.
-For the same reason, there is no difference between eager ("strict") and lazy values in Dhall.
+The Dhall language always typechecks all terms and evaluates all well-typed terms to a normal form.
+There is no analog of Haskell's "bottom" (or "undefined") value, no "null" values, no exceptions or other run-time errors.
+All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
+
+For this reason, there is no difference between eager ("strict") and lazy ("non-strict") values in Dhall.
 One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
 The final result of evaluating a Dhall program will be the same. 
 
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
 This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
 
-In addition, if that Dhall program is self-contained (has no external imports), it will always return the same `Natural` value.
+In addition, if that Dhall program is self-contained (has no external imports), it will always return _the same_ `Natural` value.
 The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that. 
 
-However, Dhall's _typechecking_ is eager.
+However, it is important that Dhall's _typechecking_ is eager.
 A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
 
 ### Syntactic differences
@@ -67,9 +77,19 @@ Although Dhall broadly resembles Haskell, there are some minor syntactic differe
 
 Identifiers may contain slash characters; for example, `List/map` is a valid name.
 
-#### Integers and natural numbers
+This is helpful when organizing library functions into modules.
+One can have suggestive names such as `List/map`, `Optional/map`, etc.
 
-Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign.
+#### Number types
+
+Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
+
+Values of types `Natural` and `Integer` have unbounded size.
+There is no overflow.
+Dhall does not support 32-bit or 64-bit integers with overflow, as is common in other programming languages.
+
+Dhall supports other numeric types, such as `Double` or `Time`, but there is very little one can do with those values other than print them.
+For instance, Dhall does not directly support floating-point arithmetic on `Double` values.
 
 #### Product types
 
@@ -243,14 +263,20 @@ The [Dhall standard prelude](https://store.dhall-lang.org/Prelude-v23.0.0/) defi
 
 ### Semantic differences
 
-The main semantic difference is that most primitive types (`Text`, `Double`, `Bytes`, `Date`, etc.) are almost completely opaque to the user.
+The main semantic difference is that most primitive types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
 The user may specify literal values of those types but can do little else with those values.
 
 - `Bool` values support the boolean algebra operations and can be used in `if` expressions.
 - `Natural` numbers can be added, multiplied, and compared for equality.
 - The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
 - `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
-- `Text` strings may be concatenated and support a search/replace operation. But Dhall cannot compare them for equality or compute the length of a `Text` string. Neither can Dhall compare `Double` or other types with each other. Comparison functions are only available for `Bool` and `Natural` types.
+- `Text` strings may be concatenated and support a search/replace operation.
+
+
+Dhall cannot compare `Text` strings for equality or compute the length of a `Text` string.
+Neither can Dhall compare `Double` or the date / time types with each other.
+Comparison functions are only available for `Bool` and `Natural` types.
+(Comparison functions for `Integer` is defined in the standard prelude.)
 
 All well-typed functions in Dhall are total (not partial).
 A pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
@@ -259,11 +285,12 @@ Another difference from most other FP languages is that Dhall does not support r
 The only recursive type directly supported by Dhall is the built-in type `List`, and its functionality is intentionally limited, so that Dhall's termination guarantees remain in force.
 
 User-defined recursive types and functions must be encoded in a non-recursive way. Later chapters in this book will show how to use the Church encoding for that purpose. In practice, this means the user is limited to finite data structures and fold-like functions on them.
-General recursion is not possible (because it cannot have a termination guarantee).
+General recursion is not possible (because it cannot guarantee termination).
 
 Dhall is a purely functional language with no side effects.
 There are no mutable values, no exceptions, no multithreading, no writing to disk, etc.
-A Dhall program is a single expression that evaluates to a normal form, and that's that.
+
+A Dhall program may contain only a single expression that evaluates to a normal form.
 The resulting normal form can be used via imports in another Dhall program, or converted to JSON, YAML, and other formats.
 
 ### Modules and imports
@@ -351,6 +378,43 @@ In this way, sanity checks or unit tests included within the module will be vali
 
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
 See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+
+#### Frozen imports and caching
+
+Imports from files, from Internet URLs, and from environment variables constitutes a limited form of "read-only" side effects in Dhall.
+
+For example, the web site https://test.dhall-lang.org/random-string is a test-only server that returns a new random string each time it is called.
+So, the Dhall program:
+
+```dhall
+https://test.dhall-lang.org/random-string as Text
+```
+
+will return a different value each time it is evaluated.
+
+If it is important to eliminate dependency on the external data, Dhall provides a feature where an import's SHA256 hash value is computed and fixed in the program code.
+Such imports are called "frozen".
+
+For example, one of the standard tests for Dhall includes the following file called `simple.dhall` that contains just the number `3`:
+
+```dhall
+-- simple.dhall
+3
+```
+
+That file may be imported via the following "frozen import":
+
+```dhall
+./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
+```
+
+This import expression is protected by the SHA256 hash value corresponding to the Dhall expression `3`.
+If the user modifies the file `simple.dhall` to contain a different value, the hash will be different and the import will fail.
+
+Generally, Dhall will fail to proceed with evaluation if an import's SHA256 hash differs from the specified hash.
+
+The hash is computed from the normal form of the Dhall expression after type-checking.
+For this reason, the hash does not depend on adding comments, reformatting the file, renaming local variables in the file, or refactoring the program in any other way as long as the final evaluated expression remains the same.
 
 ## Some features of the Dhall type system
 
@@ -1125,16 +1189,24 @@ let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = 
 ```
 
 We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
-An example is a function `foldMap` for `List`, written in the Haskell syntax as:
+Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
+reduce :: Monoid m => List m -> m
+reduce as = foldr (\a -> \b -> mappend a b) mempty as
+
 foldMap :: Monoid m => (a -> m) -> List a -> m
-foldMap f as = foldr (\a -> \b -> append (fa) b) mempty as
+foldMap f as = foldr (\a -> \b -> mappend (f a) b) mempty as
 ```
 
 The corresponding Dhall code is:
 
 ```dhall
+let reduce
+  : ∀(m : Type) → Monoid m → List m → m
+  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(xs : List m) →
+    List/fold m xs m (λ(x : m) → λ(y : m) → monoid_m.append x y) monoid_m.empty
+
 let foldMap
   : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
@@ -1290,7 +1362,7 @@ let monadList : Monad List =
 
 ## Church encoding for recursive types and type constructors
 
-### Recursion scheme
+### Recursion schemes
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
@@ -1356,6 +1428,13 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
+The type `TreeText` (a binary tree with `Text` strings in leaves):
+
+```dhall
+let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (F r → r) → r
+```
+
 ### Church encoding of non-recursive types
 
 If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the recursion scheme unchanged.
@@ -1374,11 +1453,12 @@ The corresponding Church encoding gives the type:
 let C = ∀(r : Type) → ({ x : Text, y : Boolean } → r) → r
 ```
 
-The general properties of the Church encoding still enforce that `C` is a fixed point of the type equation `C = F C`.
-However, now we have `F C = { x : Text, y : Boolean }` independently of `C`.
+The general properties of the Church encoding always enforce that `C` is a fixed point of the type equation `C = F C`.
+This remains true even when `F` does not depend on its type parameter.
+So, now we have `F C = { x : Text, y : Boolean }` independently of `C`.
 The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Boolean }`.
 
-More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`.
+More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
 We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
 
@@ -1403,7 +1483,11 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 
 Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
 
-(This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.)
+This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.
+A proof is also given in the book "Science of Functional Programming" by the same author.
+
+The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
+For instance, one use that identity to prove the Church encoding formula for mutually recursive types (which we will show later in this book).
 
 ### Church encoding in the curried form
 
@@ -2551,11 +2635,16 @@ Those data structures are used only in ways that do not involve a full traversal
 It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
 
 As an example, consider the recursion scheme `F` for the data type `List Text`.
-The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is `let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >`.
-Indeed, the type `List Text` is the least fixed point of `T = F T`.
+The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
+
+```dhall
+let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >
+```
+
+The type `List Text` is the least fixed point of `T = F T`.
 A data structure of type `List Text` always stores a finite number of `Text` strings (although the list's length is not bounded in advance).
 
-The greatest fixed point of `T = F T` is a potentially infinite "stream" of `Text` values.
+The greatest fixed point of `T = F T` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
@@ -2587,6 +2676,11 @@ We will call that type constructor `GF_T` and use it to define `GFix`:
 let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F r }
 let GFix = λ(F : Type → Type) → Exists (GF_T F)
 ```
+
+Note that the "step" function is non-recursive.
+It advances the stream by only one step.
+So, the entire definition `GFix` is non-recursive and will be accepted by Dhall.
+Nevertheless, `GFix F` is equivalent to a recursive type.
 
 To see `GFix` as a higher-order function, we expand that definition in Dhall's REPL:
 
@@ -2697,11 +2791,17 @@ We imagine that the code will run the "step" function as many times as needed, i
 The required reasoning is quite different from that of creating values of the least fixed point types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
-As an example, consider the greatest fixed point of the recursion scheme for `List`.
+As an example, consider the greatest fixed point of the recursion scheme for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
-let fmap_F = 
+let fmap_F
+  : ∀(x : Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F x a → F x b
+  = λ(x : Type) → λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F x a) →
+    merge { Nil = (F x b).Nil
+          , Cons = λ(cons : { head : x, tail : a }) →
+            (F x b).Cons { head = cons.head, tail = f cons.tail }
+          } fa
 let Stream = λ(a : Type) → GFix (F a)
 let makeStream = makeGFix F
 ```
@@ -2740,7 +2840,7 @@ makeStream : λ(a : Type) → λ(r : Type) →
     → Stream a
 ```
 
-The function `makeStream` constructs a value of type `Stream a` out of an arbitrary type `a`, a type `r` (the internal state of the stream), an initial "seed" value of type `r`, and a "step" function of type `r → < Cons : { head : a, tail : r } | Nil >`.
+We see that `makeStream` constructs a value of type `Stream a` out of an arbitrary type `a`, a type `r` (the internal state of the stream), an initial "seed" value of type `r`, and a "step" function of type `r → < Cons : { head : a, tail : r } | Nil >`.
 
 The type `Stream a` is heuristically understood as a potentially infinite stream of values of type `a`.
 Of course, we cannot store infinitely many values in memory.
@@ -2763,6 +2863,10 @@ That function's code will be of the form:
 So, the code may apply `stream.step` to values of type `t`.
 One value of type `t` is already given as `stream.seed`.
 Other such values can be obtained after calling `stream.step` one or more times.
+
+As we step through the stream, the seed values (of type `t`) are changing but the "step" function always remains the same.
+
+#### Pattern-matching on streams
 
 As first examples, consider the tasks of extracting the "head" and the "tail" of a stream.
 
@@ -2790,6 +2894,8 @@ let headTailOption
 
 Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further elements of the stream, or to discover that the stream has finished.
 
+#### Converting a stream to a list
+
 Let us now implement a function `streamToList` that converts `Stream a` to `List a`.
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
 The limit length must be specified as an additional argument.
@@ -2810,7 +2916,10 @@ let streamToList : ∀(a : Type) → Stream a → Natural → List a
          in (Natural/fold limit Accum update init).list
 ```
 
-Let us now see how to create finite or infinite streams.
+#### Creating finite streams
+
+Let us now see how to create streams.
+We begin with finite streams.
 
 To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
 We still need to supply a "seed" value, even though we will never use it.
@@ -2829,20 +2938,24 @@ We need a "seed" value that has enough information for the "step" function to pr
 So, it appears natural to use the list `[1, 2, 3]` itself (of type `List Natural`) as the "seed" value.
 The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
 
-For convenience, we implement a general function of type `List a → Stream a`.
+Let us we implement a general function of type `List a → Stream a` that converts a finite list into a finite stream.
+We will need a helper function `headTail` that computes the head and the tail of a `List` if it is non-empty.
 
 ```dhall
-let listToStream : ∀(a : Type) → List a → Stream a
+let HeadTailT = λ(a : Type) → < Cons : { head : a, tail : List a } | Nil >
+
+let headTail : ∀(a : Type) → List a → HeadTailT a
   = λ(a : Type) → λ(list : List a) →
     let getTail = https://prelude.dhall-lang.org/List/drop 1 a
-    let FA = < Cons : { head : a, tail : List a } | Nil >
-    let step
-      : List a → FA
-      = λ(prev : List a) → merge { None = FA.Nil
-                                 , Some = λ(h : a) → FA.Cons { head = h, tail = getTail prev }
-                                 } (List/head a prev)
-        in makeStream a (List a) list step
+      in merge { None = (HeadTailT a).Nil
+               , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = getTail list }
+      } (List/head a list)
+
+let listToStream : ∀(a : Type) → List a → Stream a
+  = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
 ```
+
+#### Creating infinite streams
 
 Creating an infinite stream involves deciding how the next elements should be computed.
 A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r`.
@@ -2857,15 +2970,83 @@ let streamFunction
       in makeStream a a seed step
 ```
 
-We can compute a finite prefix of this infinite stream:
+We can compute a finite prefix of an infinite stream:
 
 ```dhall
 ⊢ streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
 
-[ 1, 2, 4, 8, 16]
+[ 1, 2, 4, 8, 16 ]
+```
+
+One can also implement streams that repeat a certain sequence infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
+For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `listToStream`.
+The initial "seed" value is the list `[ 1, 2, 3 ]`.
+Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
+
+```dhall
+let repeatForever : ∀(a : Type) → List a → Stream a
+  = λ(a : Type) → λ(list : List a) →
+    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
+    let mkStream = λ(h : { head : a, tail : List a }) → 
+      let step : List a → HeadTailT a = λ(prev : List a) →
+        merge { None = (HeadTailT a).Cons { head = h.head, tail = h.tail }
+              , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = getTail prev }
+        } (List/head a prev)
+        in makeStream a (List a) list step
+    -- Check whether `list` is empty. If so, return an empty stream.
+      in merge { Nil = nil a
+               , Cons = λ(h : { head : a, tail : List a }) → mkStream h
+               } (headTail a list)
+
+let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
+        ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
+```
+
+#### Concatenating streams
+
+The standard Dhall function for concatenating lists is `List/concat`.
+Let us now implement an analogous function for concatenating streams.
+The function `Stream/concat` will take two streams and will return a new stream that works by first letting the first stream run.
+If the first stream ever finishes, the second stream will start (otherwise the first stream will continue running forever).
+
+We can implement this behavior if the seed type of the new stream is a union type showing which stream is now running.
+As the internal state of the new stream, we just store the first or the second stream.
+
+```dhall
+let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
+  = λ(a : Type) → λ(first : Stream a) → λ(second : Stream a) →
+    let State = < InFirst : Stream a | InSecond : Stream a >
+    let StepT = < Cons : { head : a, tail : State } | Nil >
+    let stepSecond = λ(str : Stream a) → merge {
+              None = StepT.Nil
+            , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InSecond ht.tail }
+          } (headTailOption a str)
+    let step : State → StepT = λ(state : State) →
+      merge {
+          InFirst = λ(str : Stream a) → merge {
+              None = stepSecond second    -- The first stream is finished. Switch to the second stream.
+            , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InFirst ht.tail }
+          } (headTailOption a str) 
+        , InSecond = stepSecond
+      } state
+        in makeStream a State (State.InFirst first) step
 ```
 
 ### Size-limited aggregation
+
+We have seen the function `streamToList` that extracts at most a given number of values from the stream.
+This function can be seen as an example of a **size-limited aggregation**: a function that somehow aggregates data from the stream but reads no more than a given number of values.
+
+We will now generalize size-limited aggregations from lists to arbitrary greatest fixed point types.
+The result will be a `fold` function whose recursion depth is limited in advance.
+This limit is necessary in Dhall, to ensure that all computations terminate.
+
+```dhall
+let fold
+  = λ(limit : Natural) → λ(g : GFix F) → 
+```
+
+***
 
 ### Sliding-window aggregation
 

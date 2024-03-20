@@ -376,6 +376,18 @@ let _typeclasses_examples =
               , append = λ(x : List a) → λ(y : List a) → x # y
               }
 
+      let reduce
+          : ∀(m : Type) → Monoid m → List m → m
+          = λ(m : Type) →
+            λ(monoid_m : Monoid m) →
+            λ(xs : List m) →
+              List/fold
+                m
+                xs
+                m
+                (λ(x : m) → λ(y : m) → monoid_m.append x y)
+                monoid_m.empty
+
       let foldMap
           : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
           = λ(m : Type) →

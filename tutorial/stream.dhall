@@ -36,7 +36,7 @@ let fmap_F
           { Nil = (F x b).Nil
           , Cons =
               λ(cons : { head : x, tail : a }) →
-                (F x b).Cons (cons ⫽ { tail = f cons.tail })
+                (F x b).Cons { head = cons.head, tail = f cons.tail }
           }
           fa
 
@@ -167,24 +167,25 @@ let streamToList
 
         in  (Natural/fold limit Accum update init).list
 
-let listToStream
-    : ∀(a : Type) → List a → Stream a
+let HeadTailT = λ(a : Type) → < Cons : { head : a, tail : List a } | Nil >
+
+let headTail
+    : ∀(a : Type) → List a → HeadTailT a
     = λ(a : Type) →
       λ(list : List a) →
         let getTail = https://prelude.dhall-lang.org/List/drop 1 a
 
-        let FA = < Cons : { head : a, tail : List a } | Nil >
+        in  merge
+              { None = (HeadTailT a).Nil
+              , Some =
+                  λ(h : a) →
+                    (HeadTailT a).Cons { head = h, tail = getTail list }
+              }
+              (List/head a list)
 
-        let step
-            : List a → FA
-            = λ(prev : List a) →
-                merge
-                  { None = FA.Nil
-                  , Some = λ(h : a) → FA.Cons { head = h, tail = getTail prev }
-                  }
-                  (List/head a prev)
-
-        in  makeStream a (List a) list step
+let listToStream
+    : ∀(a : Type) → List a → Stream a
+    = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
 
 let example0 = streamToList Text (listToStream Text [ "a", "b", "c", "d" ]) 5
 
@@ -216,6 +217,113 @@ let example2 =
 
 let _ = assert : example2 ≡ [ 0, 1, 2, 3 ]
 
-let _ = assert : streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5 === [ 1, 2, 4, 8, 16]
+let _ =
+        assert
+      :   streamToList
+            Natural
+            (streamFunction Natural 1 (λ(x : Natural) → x * 2))
+            5
+        ≡ [ 1, 2, 4, 8, 16 ]
+
+let repeatForever
+    : ∀(a : Type) → List a → Stream a
+    = λ(a : Type) →
+      λ(list : List a) →
+        let getTail = https://prelude.dhall-lang.org/List/drop 1 a
+
+        let mkStream =
+              λ(h : { head : a, tail : List a }) →
+                let step
+                    : List a → HeadTailT a
+                    = λ(prev : List a) →
+                        merge
+                          { None =
+                              (HeadTailT a).Cons
+                                { head = h.head, tail = h.tail }
+                          , Some =
+                              λ(x : a) →
+                                (HeadTailT a).Cons
+                                  { head = x, tail = getTail prev }
+                          }
+                          (List/head a prev)
+
+                in  makeStream a (List a) list step
+
+        in  merge
+              { Nil = nil a
+              , Cons = λ(h : { head : a, tail : List a }) → mkStream h
+              }
+              (headTail a list)
+
+let _ =
+        assert
+      :   streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
+        ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
+
+let Stream/concat
+    : ∀(a : Type) → Stream a → Stream a → Stream a
+    = λ(a : Type) →
+      λ(first : Stream a) →
+      λ(second : Stream a) →
+        let State = < InFirst : Stream a | InSecond : Stream a >
+
+        let StepT = < Cons : { head : a, tail : State } | Nil >
+
+        let stepSecond =
+              λ(str : Stream a) →
+                merge
+                  { None = StepT.Nil
+                  , Some =
+                      λ(ht : { head : a, tail : Stream a }) →
+                        StepT.Cons
+                          { head = ht.head, tail = State.InSecond ht.tail }
+                  }
+                  (headTailOption a str)
+
+        let step
+            : State → StepT
+            = λ(state : State) →
+                merge
+                  { InFirst =
+                      λ(str : Stream a) →
+                        merge
+                          { None = stepSecond second
+                          , Some =
+                              λ(ht : { head : a, tail : Stream a }) →
+                                StepT.Cons
+                                  { head = ht.head
+                                  , tail = State.InFirst ht.tail
+                                  }
+                          }
+                          (headTailOption a str)
+                  , InSecond = stepSecond
+                  }
+                  state
+
+        in  makeStream a State (State.InFirst first) step
+
+let _ =
+        assert
+      :   streamToList
+            Text
+            ( Stream/concat
+                Text
+                (listToStream Text example0)
+                (listToStream Text example1)
+            )
+            10
+        ≡ [ "a", "b", "c", "d", "a", "b", "c" ]
+
+let _ =
+        assert
+      :   streamToList
+            Natural
+            ( Stream/concat
+                Natural
+                (repeatForever Natural [ 1, 2, 3 ])
+                (listToStream Natural [ 10, 20 ])
+            )
+            6
+        ≡ [ 1, 2, 3, 1, 2, 3 ]
 
 in  True
