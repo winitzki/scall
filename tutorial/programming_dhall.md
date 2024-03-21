@@ -2611,14 +2611,81 @@ We notice that `unpack` does nothing more than rearrange the curried arguments a
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
 
+#### Functions from existential types
+
 The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
-To see how, let us rewrite the type of `unpack P` by swapping some curried arguments:
+To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by swapping some curried arguments.
+We will denote the resulting function by `inE`:
 
 ```dhall
-unpack : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+  = λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
+    ep r unpack_
 ```
 
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
+Let us demonstrate this type equivalence more rigorously.
+
+The function `inE` shown above is one side of the isomorphism.
+The other is the function `outE`:
+
+```dhall
+outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+  = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
+    let ep : Exists P = pack P t pt
+      in consume ep
+```
+
+To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
+The first direction is when we apply `inE` and then `outE`.
+Take an arbitrary `k : ∀(t : Type) → P t → r` and first apply `inE` to it, then `outE`:
+
+```dhall
+outE r (inE r k)
+  -- Use the definition of `inE`.
+  === outE r (λ(ep : Exists P) → ep r k)
+  -- Use the definition of `outE`.
+  === λ(t : Type) → λ(pt : P t) → (λ(ep : Exists P) → ep r k) (pack P t pt)
+```
+
+The result is a function of type `λ(t : Type) → λ(pt : P t) → r`.
+We need to show that this function is equal to `k`.
+To do that, apply that function to arbitrary values `t : Type` and `pt : P t`.
+The result should be equal to `k t pt`:
+
+```dhall
+outE r (inE r k) t pt
+  === (λ(ep : Exists P) → ep r k) (pack P t pt)
+  === (pack P t pt) r k
+  -- Use the definition of `pack`.
+  === (λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt) r k
+  === k t pt
+```
+
+This proves the first direction of the isomorphism.
+
+The other direction is when we apply `outE` and then `inE`.
+Take an arbitrary value `consume : Exists P → r` and first apply `outE` to it, then `inE`:
+
+```dhall
+inE r (outE r consume)
+  === inE r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+  === λ(ep : Exists P) → ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+```
+
+The result is a function of type `Exists P → r`.
+We need to show that this function is equal to `consume`.
+
+Apply that function to an arbitrary value `ep : Exists p`:
+
+```dhall
+inE r (outE r consume) ep
+  === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+```
+
+We would like to show that the last result is equal to `consume ep`.
+For that, we need to use the parametricity properties of `ep`.
+*** 
 
 ***
 
