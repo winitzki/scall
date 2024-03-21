@@ -2571,7 +2571,9 @@ let our_value : P t = ...   -- Any specific value here.
 let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
 ```
 
-Heuristically, the function application `pack X y` performs a "packing" of the given type `X` under the "existentially quantified wrapper".
+Heuristically, the function application `pack X y` will "pack" a given type `X` under the "existentially quantified wrapper" together with a value `y`.
+
+#### Constructors for existential types
 
 To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
@@ -2608,6 +2610,17 @@ let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : 
 We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
+
+The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
+To see how, let us rewrite the type of `unpack P` by swapping some curried arguments:
+
+```dhall
+unpack : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+```
+
+So, the function type `Exists P → r` is equivalent to the type `∀(t : Type) → P t → r`.
+
+#### Differences between existential and universal quantifiers
 
 The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
 The type `t` used within the value `ep` and may be different for different such values.
