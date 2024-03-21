@@ -2618,7 +2618,9 @@ To see how, let us rewrite the type of `unpack P` by swapping some curried argum
 unpack : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 ```
 
-So, the function type `Exists P → r` is equivalent to the type `∀(t : Type) → P t → r`.
+This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
+
+***
 
 #### Differences between existential and universal quantifiers
 
