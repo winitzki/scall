@@ -326,4 +326,43 @@ let _ =
             6
         ≡ [ 1, 2, 3, 1, 2, 3 ]
 
+let Stream/truncate
+    : ∀(a : Type) → Stream a → Natural → Stream a
+    = λ(a : Type) →
+      λ(stream : Stream a) →
+      λ(n : Natural) →
+        let State = { remaining : Natural, stream : Stream a }
+
+        let StepT = < Nil | Cons : { head : a, tail : State } >
+
+        let step
+            : State → StepT
+            = λ(state : State) →
+                if    Natural/isZero state.remaining
+                then  StepT.Nil
+                else  merge
+                        { None = StepT.Nil
+                        , Some =
+                            λ(ht : { head : a, tail : Stream a }) →
+                              StepT.Cons
+                                { head = ht.head
+                                , tail =
+                                  { remaining =
+                                      Natural/subtract 1 state.remaining
+                                  , stream = ht.tail
+                                  }
+                                }
+                        }
+                        (headTailOption a state.stream)
+
+        in  makeStream a State { remaining = n, stream } step
+
+let _ =
+        assert
+      :   streamToList
+            Natural
+            (Stream/truncate Natural (repeatForever Natural [ 1, 2, 3 ]) 5)
+            6
+        ≡ [ 1, 2, 3, 1, 2 ]
+
 in  True

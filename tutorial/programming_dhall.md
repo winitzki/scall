@@ -1824,7 +1824,7 @@ let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init 
 ```
 
 The meaning of `init` is the result of `sumListInt` when the list is empty.
-The meaning of `update` is the next accumulator value (of type Natural) computed from a current element from the list (of type `Integer`) and a value of type `Natural` that has been accumulated so far (by aggregating the tail of the list).
+The meaning of `update` is the next accumulator value (of type Natural) computed from a current item from the list (of type `Integer`) and a value of type `Natural` that has been accumulated so far (by aggregating the tail of the list).
 
 In our case, it is natural to set `init` is zero.
 The `update` function is implemented via the standard Prelude function `Integer/abs`:
@@ -1922,7 +1922,7 @@ To see how, consider the value `example1` shown above:
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 ```
 
-The value `example1` corresponds to a list with three elements: `[+123, -456, +789]`.
+The value `example1` corresponds to a list with three items: `[+123, -456, +789]`.
 
 When we expand the constructors `cons` and `nil`, we will find that `example1` is a higher-order function.
 The Dhall interpreter can print that function's normal form for us:
@@ -1937,7 +1937,7 @@ The Dhall interpreter can print that function's normal form for us:
 ```
 
 The function `example1` includes nested calls to `a1` and `a2`, that correspond to the two constructors (`nil` and `cons`) of `ListInt`.
-The code of `example1` applies the function `a2` three times, which corresponds to having three elements in the list.
+The code of `example1` applies the function `a2` three times, which corresponds to having three items in the list.
 But there is no loop in `example1`.
 It is just hard-coded in the expression `example1` that `a2` needs to be applied three times to some arguments.
 
@@ -2023,7 +2023,7 @@ isSingleLeaf t = case t of
     Branch _ _ -> false
 ```
 
-Another example is a Haskell function that checks whether the first element of a list exists:
+Another example is a Haskell function that returns the first value in the list if it exists:
 
 ```haskell
 headMaybe :: [a] -> Maybe a
@@ -2886,7 +2886,7 @@ makeStream : λ(a : Type) → λ(r : Type) →
 
 We see that `makeStream` constructs a value of type `Stream a` out of an arbitrary type `a`, a type `r` (the internal state of the stream), an initial "seed" value of type `r`, and a "step" function of type `r → < Cons : { head : a, tail : r } | Nil >`.
 
-The type `Stream a` is heuristically understood as a potentially infinite stream of values of type `a`.
+The type `Stream a` is heuristically understood as a potentially infinite stream of data items (values of type `a`).
 Of course, we cannot store infinitely many values in memory.
 Values are retrieved one by one, by running the "step" function as many times as needed, or until "step" returns `Nil` (indicating the end of the stream).
 
@@ -2936,7 +2936,7 @@ let headTailOption
         in s (Optional ResultT) unpack_
 ```
 
-Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further elements of the stream, or to discover that the stream has finished.
+Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further data items from the stream, or to discover that the stream has finished.
 
 #### Converting a stream to a list
 
@@ -2978,7 +2978,7 @@ let Stream/nil : ∀(a : Type) → Stream a
 ```
 
 How can we create a finite stream, say, `[1, 2, 3]`?
-We need a "seed" value that has enough information for the "step" function to produce all the subsequent elements of the stream.
+We need a "seed" value that has enough information for the "step" function to produce all the subsequent data items of the stream.
 So, it appears natural to use the list `[1, 2, 3]` itself (of type `List Natural`) as the "seed" value.
 The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
 
@@ -3001,7 +3001,7 @@ let listToStream : ∀(a : Type) → List a → Stream a
 
 #### Creating infinite streams
 
-Creating an infinite stream involves deciding how the next elements should be computed.
+Creating an infinite stream involves deciding how the next data item should be computed.
 A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r`.
 The "step" function will never return `Nil`, which will make the stream unbounded.
 
@@ -3076,6 +3076,27 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
         in makeStream a State (State.InFirst first) step
 ```
 
+#### Size-limited streams
+
+We can truncate an arbitrary stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
+
+```dhall
+let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
+ = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
+   let State = { remaining : Natural, stream : Stream a}    -- Internal state of the new stream.
+   let StepT = < Nil | Cons : { head : a, tail : State } >
+   let step : State → StepT = λ(state : State) →
+       if Natural/isZero state.remaining then StepT.Nil else merge {
+              None = StepT.Nil
+            , Some = λ(ht : { head : a, tail : Stream a }) → 
+             StepT.Cons { head = ht.head, tail = { remaining = Natural/subtract 1 state.remaining, stream =  ht.tail } }
+          } (headTailOption a state.stream) 
+         in makeStream a State { remaining = n, stream = stream } step
+```
+
+This is different from `streamToList` because we are not traversing the stream; we just need to modify the stream's seed and the step function.
+So, `Stream/truncate` is a `O(1)` operation.
+
 #### The `cons` constructor for streams. Performance issues
 
 The `cons` operation for lists will prepend a single value to a list.
@@ -3105,17 +3126,17 @@ For instance, the `Stream/cons` operation creates a new stream whose state type 
 So, if we use the `Stream/cons` constructor many times, we will obtain a stream with a "large" state type (a deeply nested union type).
 Pattern-matching operations with that type will take `O(N)` time in the Dhall interpreter.
 
-The result is a stream where _every_ operation (even just finding the next element) takes `O(N)` time.
+The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Size-limited aggregation
+### Size-limited aggregation. Adapting hylomorphisms to Church encoding
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
-This function can be seen as an example of a **size-limited aggregation**: a function that somehow aggregates data from the stream but reads no more than a given number of values.
+This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
+The size limit is important for guaranteeing termination.
 
 We will now generalize size-limited aggregations from lists to arbitrary greatest fixed point types.
 The result will be a `fold`-like function whose recursion depth is limited in advance.
-This limit is necessary in Dhall, to ensure that all computations terminate.
-
+That limitation will ensure that all computations terminate, as Dhall requires.
 
 The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
 We have seen its type signature when we considered fold-like aggregations for Church-encoded data:
@@ -3125,7 +3146,34 @@ fold : Church F → ∀(r : Type) → (F r → r) → r
 ```
 
 For Church encodings, `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
-For greatest fixpoints (`GFix F`), `fold` is no longer an identity function and needs a size limit.
+For greatest fixpoints (`GFix F`), the signature of `fold` in a different programming language would be:
+
+```dhall
+fold : GFix F → ∀(r : Type) → (F r → r) → r  -- Will not work in Dhall.
+```
+
+Expanding the existential type in `GFix F`, we find ***
+So, we obtain an equivalent type signature like this:
+
+```dhall
+fold : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+```
+
+Functions of this type are called **hylomorphisms**.
+See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
+
+We would like to implement a hylomorphism with that type signature that works in a uniform way for all recursion schemes `F`.
+This is possible only if we use general recursion and drop the termination guarantee.
+
+It turns out that hylomorphisms can be implemented in Dhall only if we modify the type signature shown above.
+Namely, we need to add explicit bounds on the depth of recursion as well as a "default" value that will be used in case the recursion bound is exceeded.
+
+***
+
+We would like to implement this function
+However, this function cannot work in a uniform way for 
+
+is no longer an identity function and needs a size limit.
 
 
 ```dhall
