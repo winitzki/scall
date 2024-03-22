@@ -1504,6 +1504,8 @@ The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case
 
 Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
+The Yoneda identity is proved via the parametricity theorem.
+
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identity does not apply to types of that form.
 
@@ -2685,6 +2687,8 @@ inE r (outE r consume) ep
 
 We would like to show that the last result is equal to `consume ep`.
 For that, we need to use the parametricity properties of `ep`.
+
+
 *** 
 
 ***
