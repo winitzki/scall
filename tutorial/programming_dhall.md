@@ -16,7 +16,7 @@ Evaluation of a well-typed Dhall program will never create infinite loops or thr
 Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
 The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
 
-From the point of view of programming language theory, Dhall implements a pure type system Fω with a few additional features, using a Haskell-like syntax.
+From the point of view of programming language theory, Dhall implements a pure type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
 For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
 
@@ -43,47 +43,20 @@ The result is a powerful, purely functional programming language that could have
 The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
 This book focuses on other applications of Dhall.
 
-## Differences between Dhall and other FP languages
+See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
-Mostly, Dhall follows the Haskell syntax and semantics.
+The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions.
 
-Currently, Dhall has almost no type inference.
-The only exception are the `let` bindings such as `let x = 1 in ...` where the type annotation for `x` may be omitted.
-Other than in `let` bindings, all types of bound variables must be written explicitly.
+## Differences from other FP languages
 
-Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
-In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
-This verbosity may help in learning some of the more advanced concepts of functional programming.
-
-The Dhall language always typechecks all terms and evaluates all well-typed terms to a normal form.
-There is no analog of Haskell's "bottom" (or "undefined") value, no "null" values, no exceptions or other run-time errors.
-All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
-
-For this reason, there is no difference between eager ("strict") and lazy ("non-strict") values in Dhall.
-One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
-The final result of evaluating a Dhall program will be the same. 
-
-For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
-This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
-
-In addition, if that Dhall program is self-contained (has no external imports), it will always return _the same_ `Natural` value.
-The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that. 
-
-However, it is important that Dhall's _typechecking_ is eager.
-A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
-
-### Differences from Haskell and Scala
-
-Although Dhall broadly resembles a subset of Haskell, there are some differences.
-
-#### Identifiers
+### Identifiers
 
 Identifiers may contain slash characters; for example, `List/map` is a valid name.
 
 This is helpful when organizing library functions into modules.
 One can have suggestive names such as `List/map`, `Optional/map`, etc.
 
-#### Number types
+### Number types
 
 Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
 
@@ -94,7 +67,7 @@ Dhall does not support 32-bit or 64-bit integers with overflow, as is common in 
 Dhall supports other numeric types, such as `Double` or `Time`, but there is very little one can do with those values other than print them.
 For instance, Dhall does not directly support floating-point arithmetic on `Double` values.
 
-#### Product types
+### Product types
 
 Product types are implemented only through records.
 For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
@@ -117,7 +90,7 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
-#### Co-product types
+### Co-product types
 
 Co-product types are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
 Here `X` and `Y` are **constructor names** for the given union type.
@@ -143,7 +116,7 @@ Both these values have type `< X : Natural | Y >`.
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
 There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
 
-#### Pattern matching
+### Pattern matching
 
 Pattern matching is available for union types as well as for the built-in `Optional` types.
 Dhall implements pattern matching via `merge` expressions.
@@ -305,7 +278,7 @@ let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 The type of `Either` is `Type → Type → Type`.
 
 
-#### Function types
+### Function types
 
 Function types are written as `∀(x : arg_t) → res_t`, where `arg_t` is the argument type and `res_t` is a type expression that describes the type of the result value.
 
@@ -379,7 +352,7 @@ We may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b
 This is the only type inference currently implemented in Dhall.
 For complicated type signatures, it helps to write type annotations because type errors will be detected earlier.
 
-#### Miscellaneous features
+## Miscellaneous features
 
 - Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and type annotations may be omitted.
 For example:
@@ -391,7 +364,18 @@ let b = 2
 ```
 
 Because of this feature, we will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
-It is implied that the `let` declarations are part of a larger Dhall program.
+It is implied that those `let` declarations are part of a larger Dhall program.
+
+We can also use a standalone `let` declaration in the Dhall interpreter (the syntax is `:let`).
+For instance, we may define the type constructor `Pair` shown above:
+
+```dhall
+$ dhall repl
+Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+⊢ :let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+
+Pair : ∀(a : Type) → ∀(b : Type) → Type
+```
 
 Dhall does not support the Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and types are inferred automatically.
 Dhall functions need to be written via a `λ` symbol with an explicit type annotation:
@@ -417,43 +401,66 @@ in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
 A polymorphic identity function can be written (with a complete type annotation) as:
 
 ```dhall
-let identity
-  : ∀(A : Type) → ∀(x : A) → A 
+let identity : ∀(A : Type) → ∀(x : A) → A 
   = λ(A : Type) → λ(x : A) → x
 ```
 
-The type of polymorphic `fmap` functions may be written as:
+The polymorphic type of the standard `fmap` function may be written as:
 
 ```dhall
 ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
 ```
 
 Dhall does not require capitalizing the names of types and type parameters.
-In this book, we will usually capitalize type constructors (such as `List`).
+In this book, we will usually capitalize type constructors (such as `List`) but not simple type parameters (`a`, `b`, etc.).
 
-See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
+### Type inference
 
-The [Dhall standard prelude](https://store.dhall-lang.org/Prelude-v23.0.0/) defines a number of general-purpose functions.
+Dhall has almost no type inference.
+The only exception are the `let` bindings such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
+Other than in `let` bindings, all types of bound variables must be written explicitly.
 
-### Semantic differences
+Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
+This verbosity may help in learning some of the more advanced concepts of functional programming.
 
-The main semantic difference is that most primitive types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
+### Strict / lazy evaluation
+
+All well-typed functions in Dhall are total (never partial).
+For instance, a pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
+
+The Dhall language always typechecks all terms and evaluates all well-typed terms to a normal form.
+There is no analog of Haskell's "bottom" (or "undefined") value, no "null" values, no exceptions or other run-time errors.
+All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
+
+For this reason, there is no difference between eager ("strict") and lazy ("non-strict") values in Dhall.
+One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
+The final result of evaluating a Dhall program will be the same. 
+
+For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
+This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
+
+In addition, if that Dhall program is self-contained (has no external imports), it will always return _the same_ `Natural` value.
+The program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that. 
+
+However, it is important that Dhall's _typechecking_ is eager.
+A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
+
+### No computation with custom data
+
+In Dhall, th emajority of built-in types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
 The user may specify literal values of those types but can do little else with those values.
 
-- `Bool` values support the boolean algebra operations and can be used in `if` expressions.
+- `Bool` values support the boolean operations and can be used in `if` expressions.
 - `Natural` numbers can be added, multiplied, and compared for equality.
-- The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
 - `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
 - `Text` strings may be concatenated and support a search/replace operation.
-
+- The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
 
 Dhall cannot compare `Text` strings for equality or compute the length of a `Text` string.
 Neither can Dhall compare `Double` or the date / time types with each other.
 Comparison functions are only available for `Bool` and `Natural` types.
 (Comparison functions for `Integer` is defined in the standard prelude.)
-
-All well-typed functions in Dhall are total (not partial).
-A pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
 The only recursive type directly supported by Dhall is the built-in type `List`, and its functionality is intentionally limited, so that Dhall's termination guarantees remain in force.
@@ -470,21 +477,20 @@ The resulting normal form can be used via imports in another Dhall program, or c
 ### Modules and imports
 
 Dhall has a simple file-based module system.
-Each Dhall file must contain the definition of a single Dhall value (usually in the form `let x = ... in ...`).
+Each Dhall file must contain the definition of a _single_ Dhall value (often in the form `let x = ... in ...`).
 That single value may be imported into another Dhall file by specifying the path to the first Dhall file.
-
 The second Dhall file can directly use that value as a sub-expression.
 For convenience, the imported value may be assigned to a variable with a meaningful name.
 
-Here is an example where the first file contains a list of numbers, and the second file contains code that computes the sum of those numbers:
+Here is an example: the first file contains a list of numbers, and the second file contains code that computes the sum of those numbers.
 
 ```dhall
--- This file is /tmp/first.dhall
+-- This file is `/tmp/first.dhall`.
 [1, 2, 3, 4]
 ```
 
 ```dhall
--- This file is /tmp/sum.dhall
+-- This file is `/tmp/sum.dhall`.
 let input_list = ./first.dhall  -- Import from relative path.
 let List/sum = https://prelude.dhall-lang.org/Natural/sum
   in List/sum input_list
@@ -507,10 +513,10 @@ $ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
 
 Although a Dhall file has only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
-One can implement Dhall modules that export a number of values and/or types to other Dhall modules:
+In that way, a Dhall module may export a number of values and/or types:
 
 ```dhall
--- This file is called SimpleModule.dhall
+-- This file is `/tmp/SimpleModule.dhall`.
 let UserName = Text
 let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${id}]"
@@ -531,8 +537,8 @@ So, this module exports two types (`UserName`, `UserId`) and a function `printUs
 We can use this module in another Dhall file like this:
 
 ```dhall
--- This file is called UseSimpleModule.dhall
-let S = ./SimpleModule.dhall
+-- This file is `/tmp/UseSimpleModule.dhall`.
+let S = ./SimpleModule.dhall -- Just call it S for short.
 let name : S.UserName = "first_user"
 let id : S.UserId = 1001
 let printed : Text = S.printUser name id
@@ -540,18 +546,18 @@ let printed : Text = S.printUser name id
 ```
 
 In the file `UseSimpleModule.dhall`, we use the types and the values exported from `SimpleModule.dhall`.
-The code will not compile unless all types match.
+The code will not compile unless all types match, including the imported values.
 
 Note that all fields of a Dhall record are always public.
 To make values in a Dhall module private, we simply do not put them into the final exported record.
-Values declared using `let x = ...` inside a Dhall module will not be exported automatically.
+Values declared using `let x = ...` inside a Dhall module will not be exported.
 
-In this example, the file `SimpleModule.dhall` defined the values `test` and `validate`.
+In the example just shown, the file `SimpleModule.dhall` defined the values `test` and `validate`.
 Those values are type-checked and computed inside the module but not exported.
 In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
 
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
-See [the documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+See [this documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
 #### Frozen imports and caching
 
@@ -564,10 +570,22 @@ So, the Dhall program:
 https://test.dhall-lang.org/random-string as Text
 ```
 
-will return a different value each time it is evaluated.
+will return a different result each time it is evaluated.
 
-If it is important to eliminate dependency on the external data, Dhall provides a feature where an import's SHA256 hash value is computed and fixed in the program code.
+```bash
+$ echo "https://test.dhall-lang.org/random-string as Text" | dhall
+''
+Gajnrpgc4cHWeoYEUaDvAx5qOHPxzSmy
+''
+scall (feature/tutorial) $ echo "https://test.dhall-lang.org/random-string as Text" | dhall
+''
+tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
+''
+```
+
+If a Dhall program needs to guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
 Such imports are called "frozen".
+Dhall will refuse to process a frozen import if the external resource has a different SHA256 hash value than specified in the Dhall code.
 
 For example, one of the standard tests for Dhall includes the following file called `simple.dhall` that contains just the number `3`:
 
@@ -576,19 +594,17 @@ For example, one of the standard tests for Dhall includes the following file cal
 3
 ```
 
-That file may be imported via the following "frozen import":
+That file may be imported via the following frozen import:
 
 ```dhall
 ./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
 ```
 
-This import expression is protected by the SHA256 hash value corresponding to the Dhall expression `3`.
-If the user modifies the file `simple.dhall` to contain a different value, the hash will be different and the import will fail.
+This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
+If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
 
-Generally, Dhall will fail to proceed with evaluation if an import's SHA256 hash differs from the specified hash.
-
-The hash is computed from the normal form of the Dhall expression after type-checking.
-For this reason, the hash does not depend on adding comments, reformatting the file, renaming local variables in the file, or refactoring the program in any other way as long as the final evaluated expression remains the same.
+The hash value is computed from the _normal form_ of a Dhall expression, and only after successful type-checking.
+For this reason, the hash value does not change after adding comments, reformatting the file, renaming local variables, or refactoring the program in any other way as long as the final evaluated expression in its normal form remains the same.
 
 ## Some features of the Dhall type system
 
@@ -1105,10 +1121,10 @@ There are faster algorithms of computing the square root, but those algorithms r
 Our implementation of division already requires a slow iteration.
 So, we will not pursue further optimizations.
 
-### Binary logarithm
+### Integer logarithm
 
-The "binary logarithm" (`log2`) of a natural number `n` is the smallest number of binary bits needed to represent `n`.
-For example, `log2 3` is `2` because `3` is represented as two binary bits: `0b11`, while `log2 4` is `3` because `4` is `0b100` and requires 3 bits.
+The "bit width" (`bitWidth`) of a natural number `n` is the smallest number of binary bits needed to represent `n`.
+For example, `bitWidth 3` is `2` because `3` is represented as two binary bits: `0b11`, while `bitWidth 4` is `3` because `4` is `0b100` and requires 3 bits.
 
 To compute this function, we find the smallest natural number `b` such that `2` to the power `b` is larger than `n`. We start with `b = 1` and multiply `b` by `2` as many times as needed until we get a value larger than `n`.
 
@@ -1118,16 +1134,32 @@ We supply `n` as that bound and make sure that the final result remains constant
 The code is:
 
 ```dhall
-let log2 : Natural → Natural = λ(n : Natural) →
+let bitWidth : Natural → Natural = λ(n : Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
-  let Accum = { b : Natural, log2 : Natural }
-  let init = { b = 1, log2 = 0 } -- At all times, b == pow(2, log2).
+  let Accum = { b : Natural, bitWidth : Natural }
+  let init = { b = 1, bitWidth = 0 } -- At all times, b == pow(2, bitWidth).
   let update = λ(acc : Accum) →
      if lessThanEqual acc.b n
-     then { b = acc.b * 2, log2 = acc.log2 + 1 }
+     then { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
      else acc 
   let result : Accum = Natural/fold n Accum update init
-    in result.log2 
+    in result.bitWidth 
+```
+
+The function `bitWidth` may be generalized to compute integer-valued logarithms with a natural base.
+We note that if we subtract `1` from the result of `bitWidth` we will obtain the integer part of the base-2 logarithm.
+
+```dhall
+let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Accum = { b : Natural, log : Natural }
+  let init = { b = 1, log = 0 } -- At all times, b == pow(base, log).
+  let update = λ(acc : Accum) →
+     if lessThanEqual acc.b n
+     then { b = acc.b * base, log = acc.log + 1 }
+     else acc 
+  let result : Accum = Natural/fold n Accum update init
+    in Natural/subtract 1 result.log
 ```
 
 ### Greatest common divisor (`gcd`)
@@ -1163,7 +1195,7 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
 
 ### Functors and `fmap`
 
-A **functor** (in the jargon of the functional programming community) is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
 
 Those type constructors are also called "covariant functors".
 For type constructors, "covariant" means "has a lawful `fmap` method".

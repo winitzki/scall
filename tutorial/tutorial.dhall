@@ -161,34 +161,70 @@ let unsafeDiv
 
 let _ = assert : unsafeDiv 3 2 ≡ 1
 
-let log2
+let bitWidth
     : Natural → Natural
     = λ(n : Natural) →
         let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 
-        let Accum = { b : Natural, log2 : Natural }
+        let Accum = { b : Natural, bitWidth : Natural }
 
-        let init = { b = 1, log2 = 0 }
+        let init = { b = 1, bitWidth = 0 }
 
         let update =
               λ(acc : Accum) →
                 if    lessThanEqual acc.b n
-                then  { b = acc.b * 2, log2 = acc.log2 + 1 }
+                then  { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
                 else  acc
 
         let result
             : Accum
             = Natural/fold n Accum update init
 
-        in  result.log2
+        in  result.bitWidth
 
-let _ = assert : log2 1 ≡ 1
+let _ = assert : bitWidth 1 ≡ 1
 
-let _ = assert : log2 2 ≡ 2
+let _ = assert : bitWidth 2 ≡ 2
 
-let _ = assert : log2 3 ≡ 2
+let _ = assert : bitWidth 3 ≡ 2
 
-let _ = assert : log2 4 ≡ 3
+let _ = assert : bitWidth 4 ≡ 3
+
+let log
+    : Natural → Natural → Natural
+    = λ(base : Natural) →
+      λ(n : Natural) →
+        let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+
+        let Accum = { b : Natural, log : Natural }
+
+        let init = { b = 1, log = 0 }
+
+        let update =
+              λ(acc : Accum) →
+                if    lessThanEqual acc.b n
+                then  { b = acc.b * base, log = acc.log + 1 }
+                else  acc
+
+        let result
+            : Accum
+            = Natural/fold n Accum update init
+
+        in  Natural/subtract 1 result.log
+
+let _ = assert : log 2 4 ≡ 2
+
+let _ = assert : log 10 0 ≡ 0
+
+let _ = assert : log 10 1 ≡ 0
+
+let _ = assert : log 10 10 ≡ 1
+
+let _ = assert : log 10 99 ≡ 1
+
+let _ = assert : log 10 100 ≡ 2
+
+let _ = assert : log 10 101 ≡ 2
 
 let gcd
     : Natural → Natural → Natural
