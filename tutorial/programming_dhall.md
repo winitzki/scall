@@ -47,10 +47,13 @@ This book focuses on other applications of Dhall.
 
 Mostly, Dhall follows the Haskell syntax and semantics.
 
-Currently, Dhall has no type inference: all types must be specified explicitly.
+Currently, Dhall has almost no type inference.
+The only exception are the `let` bindings such as `let x = 1 in ...` where the type annotation for `x` may be omitted.
+Other than in `let` bindings, all types of bound variables must be written explicitly.
+
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
-In particular, Dhall requires us to write out all type parameters and type quantifiers.
-This may help in learning some of the more advanced concepts of FP.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
+This verbosity may help in learning some of the more advanced concepts of functional programming.
 
 The Dhall language always typechecks all terms and evaluates all well-typed terms to a normal form.
 There is no analog of Haskell's "bottom" (or "undefined") value, no "null" values, no exceptions or other run-time errors.
@@ -69,9 +72,9 @@ The program cannot return a `Natural` value that will be computed "later", or an
 However, it is important that Dhall's _typechecking_ is eager.
 A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
 
-### Syntactic differences
+### Differences from Haskell and Scala
 
-Although Dhall broadly resembles Haskell, there are some minor syntactic differences between Dhall and most other FP languages.
+Although Dhall broadly resembles a subset of Haskell, there are some differences.
 
 #### Identifiers
 
@@ -103,7 +106,7 @@ For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
-There is no way of assigning a permanent name to the record type itself, as it is done in other languages in order to distinguish one record type from another.
+There is no way of assigning a permanent name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
 
 For example, the values `x` and `y` have the same type in the following Dhall code:
 
@@ -121,7 +124,6 @@ Here `X` and `Y` are **constructor names** for the given union type.
 
 Values of co-product types are created via constructor functions.
 Constructor functions are written using record-like access notation.
-
 For example, `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`. 
 Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`:
 
@@ -129,12 +131,17 @@ Applying that function to a value of type `Natural` will create a value of the u
 let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
 ```
 
+Constructors may have at most one argument.
+Constructors with multiple curried arguments (as in Haskell: `P1 Int Int | P2 Bool`) are not supported in Dhall.
+Record types must be used instead of multiple arguments.
+For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer }, P2 : Bool >`.
+
 Union types can have empty constructors.
 For example, the union type `< X : Natural | Y >` has values written either as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
 Both these values have type `< X : Natural | Y >`.
 
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
-There is no way of assigning a permanent name to the union type itself, as it is done in other languages in order to distinguish that union type from others.
+There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
 
 #### Pattern matching
 
@@ -192,22 +199,189 @@ let zip
               } oa
 ```
 
-#### Unit type and void type
+### The void type and its use
 
-The empty union type `< >` has _no_ values and can be used as the void type.
+Dhall's empty union type `< >` cannot have any values.
+Values of union types may be created only via constructors, but the type `< >` has no constructors.
+So, no value of type `< >` will ever exist in any Dhall program.
 
-The empty record type `{ }` can be used as the unit type. It has only one value, written as `{=}`.
+If a value of the void type existed, one would be able to derive from it a value of any other type.
+This property of the void type can be expressed formally via the function called `absurd`.
+That function can compute a value of an arbitrary type `A` given a value of type `< >`:
 
-An equivalent way of denoting the unit type is by a union type with a single constructor, for example `< One >` or with any other name instead of "One".
+```dhall
+let absurd : ∀(A : Type) → < > → A
+  = λ(A : Type) → λ(x : < >) → (merge {=} x) : A 
+```
+
+Of course, the function `absurd` will never be actually applied to an argument value in any program, because one cannot construct a value of type `< >`.
+Nevertheless, the existence of a function of type `∀(A : Type) → < > → A` is useful in some situations.
+
+The type signature of `absurd` can be rewritten equivalently as:
+
+```dhall
+let absurd : < > → ∀(A : Type) → A
+  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
+```
+
+This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
+
+Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametricity arguments).
+So, the type expression `∀(A : Type) → A` is equivalent to `< >` and can be used equally well to denote the void type.
+
+Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
+See the Appendix "Parametricity and Naturality" for more details.
+
+One use case for the void type is to provide a "TODO" functionality.
+While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
+However, we still need to satisfy Dhall's type checker and provide a value that appears to have the right type.
+
+To achieve that, we write our code as a function with an argument of the void type:
+
+```dhall
+let our_program = λ(void : < >) →  .... 
+```
+
+Now suppose we need a value `x` of any given type `X` in our code, but we do not yet know how to implement that value.
+Then we write `let x : X = absurd void X` in the body of `our_program`.
+The typechecker will accept this program.
+Of course, we can never supply a value for the `void : < >` argument.
+So, our program will not be evaluated until we replace the `absurd void X` by correct code computing a value of type `X`.
+
+So, we can shorten the code if we define `let TODO = absurd void`.
+We can then write `TODO X` and pretend to obtain a value of any type `X`.
+
+Note that the partially applied function `absurd void` is a value of type `∀(A : Type) → A`.
+So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` in our program:
+
+```dhall
+let our_program = λ(TODO : ∀(A : Type) → A) →  .... let x = TODO X in ....
+```
+
+### The unit type
+
+Dhall's empty record type `{}` is a natural way of defining a unit type.
+The type `{}` has only one value, written as `{=}` (an empty record with no fields).
+
+An equivalent way of denoting the unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
+In this way, one can define differently named unit types for convenience.
 
-In this way, one can define differently named unit types.
+An equivalent definition is the function type `∀(A : Type) → A → A`.
+This is another example of automatic parametricity in Dhall.
+The only way of implementing a function with that type is `λ(A : Type) → λ(x : A) → x`.
+There is no other, inequivalent Dhall code that could implement a different function of that type.
+
+### Type constructors
+
+Type constructors in Dhall are written as functions from `Type` to `Type`.
+
+For example, one can define a type constructor in Haskell or Scala as `type PairAAInt a = (a, a, Int)`.
+The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
+
+Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
+
+```dhall
+let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+```
+
+The output of the `λ` function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
+
+The type of `PairAAInt` itself is `Type → Type`.
+For more clarity, we may write that as a type annotation:
+
+```dhall
+let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+```
+
+Type constructors involving more than one type parameter are usually written as curried functions.
+
+Here is an example of how we could define a type constructor similar to Haskell's and Scala's `Either`:
+
+```dhall
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+```
+
+The type of `Either` is `Type → Type → Type`.
+
+
+#### Function types
+
+Function types are written as `∀(x : arg_t) → res_t`, where `arg_t` is the argument type and `res_t` is a type expression that describes the type of the result value.
+
+Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body (which must be of type `res_t`).
+
+Note that the type `res_t` may or may not use the bound variable `x`.
+In simple cases, `res_t` will not depend on `x`.
+Then the function type can be written in a simpler form: `arg_t → res_t`.
+
+For example, consider a function that adds `1` to a `Natural` argument:
+
+```dhall
+let inc = λ(x : Natural) → x + 1
+```
+
+We may write a type annotation to `inc` like this:
+
+```dhall
+let inc : Natural → Natural = λ(x : Natural) → x + 1
+```
+
+We may also write a fully detailed type annotation if we like:
+
+```dhall
+let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
+```
+
+All functions have one argument.
+To implement functions with more than one argument, one can use curried functions or record types.
+
+For example, a function that adds 3 numbers can be written in different ways according to convenience:
+
+```dhall
+let add3_curried : Natural → Natural → Natural → Natural
+  = λ(x : Natural) → λ(y : Natural) → λ(z : Natural) → x + y + z
+
+let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
+  = λ(record : { x : Natural, y : Natural, z : Natural }) → record.x + record.y + record.z
+```
+
+#### Functions with type parameters
+
+The most often used case where a function's result type depends on an argument is when functions have type parameters.
+
+For instance, consider a function that takes a pair of `Natural` numbers and swaps the order of numbers in the pair.
+We use a record type `{ _1 : Natural, _2 : Natural }` to represent a pair of `Natural` numbers.
+For brevity, we will define a value `Pair` to denote that type:
+
+```dhall
+let Pair : Type = { _1 : Natural, _2 : Natural }
+let swap : Pair → Pair = λ(p : Pair) → { _1 = p._2, _2 = p._1 }
+```
+
+Now we generalize `swap` to support two arbitrary types of values in the pair.
+The two types will become type parameters (`a` and `b`).
+The type parameters are given as additional curried arguments.
+The new implementation of `Pair` and `swap` becomes:
+
+```dhall
+let Pair : Type → Type → Type = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → { _1 = p._2, _2 = p._1 }
+```
+
+In this example, the type signature of `swap` has two type parameters (`a`, `b`) and the output type depends on those type parameters.
+
+In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
+
+However, a `let` binding does not necessarily require a type annotation.
+We may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
+This is the only type inference currently implemented in Dhall.
+For complicated type signatures, it helps to write type annotations because type errors will be detected earlier.
 
 #### Miscellaneous features
 
-- All function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
-
-- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and types of variables may be omitted.
+- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and type annotations may be omitted.
 For example:
 
 ```dhall
@@ -495,39 +669,6 @@ let _ = assert : f "" === "()"    -- OK.
   in ... -- Further code.
 ```
 
-### Type constructors
-
-Type constructors in Dhall are written as functions from `Type` to `Type`.
-
-For example, one can define a type constructor in Haskell or Scala as `type PairAAInt a = (a, a, Int)`.
-The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
-
-Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
-
-```dhall
-let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
-```
-
-The output of the `λ` function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
-
-The type of `PairAAInt` itself is `Type → Type`.
-For more clarity, we may write that as a type annotation:
-
-```dhall
-let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
-```
-
-Type constructors involving more than one type parameter are usually written as curried functions.
-
-Here is an example of how we could define a type constructor similar to Haskell's and Scala's `Either`:
-
-```dhall
-let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
-```
-
-The type of `Either` is `Type → Type → Type`.
-
-
 ### Types, kinds, sorts
 
 The Dhall type system is a "pure type system", meaning that types and values are treated largely in the same way.
@@ -775,53 +916,6 @@ If we are in the `if/else` branch, the value `x` is `False` and so `y` must have
 But Dhall does not implement this logic and cannot see that the branches will have matching types.
 
 Because of this and other limitations, one can make only an occasional use of dependent types in Dhall. 
-
-### The void type
-
-Dhall's empty union type `< >` cannot have any values.
-Values of union types may be created only via constructors, but the type `< >` has no constructors.
-So, no value of type `< >` will ever exist in any Dhall program.
-
-If a value of the void type existed, one would be able to derive from it a value of any other type.
-This property of the void type can be expressed formally via the function called `absurd`.
-That function can compute a value of an arbitrary type `A` given a value of type `< >`:
-
-```dhall
-let absurd : ∀(A : Type) → < > → A
-  = λ(A : Type) → λ(x : < >) → (merge {=} x) : A 
-```
-
-The type signature of `absurd` can be rewritten equivalently as:
-
-```dhall
-let absurd : < > → ∀(A : Type) → A
-  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
-```
-
-This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
-
-Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametricity arguments).
-So, the type expression `∀(A : Type) → A` is equivalent to the simpler `< >` and can be used equally well to denote the void type.
-
-Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
-
-For instance, a Dhall function cannot take a parameter `λ(A : Type)` and then check whether `A` is equal to `Natural`, say.
-It is not possible in Dhall to compare types as values.
-For this reason, any Dhall function of the form `λ(A : Type) → ...` must work in the same way for all types `A`.
-
-As another example of automatic parametricity, consider the unit type `{}` and its equivalent form `∀(A : Type) → A → A`.
-
-### The unit type
-
-Dhall's empty record type `{}` is a natural way of defining a unit type.
-The type `{}` has only one value, written as `{=}` (an empty record with no fields).
-
-A unit type may be also defined as union type with a single constructor and no data, for example: `< Unit >`.
-That type also has only one value, written as `< Unit >.Unit`.
-
-An equivalent definition is the function type `∀(A : Type) → A → A`.
-The only way of implementing a function with that type is `λ(A : Type) → λ(x : A) → x`.
-Because all polymorphic Dhall functions are always fully parametric, there is no other, inequivalent Dhall code that could implement a different function of that type.
 
 ## Function combinators
 
@@ -1521,7 +1615,7 @@ The Yoneda identity and the Church-Yoneda identity are proved via the so-called 
 See the Appendix "Parametricity and Naturality" for more details.
 
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
-For instance, one use that identity to prove the Church encoding formula for mutually recursive types (which we will study later in this book).
+In this book, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
 ### Church encoding in the curried form
 
@@ -2688,6 +2782,13 @@ inE r (outE r consume) ep
 We would like to show that the last result is equal to `consume ep`.
 For that, we need to use the parametricity properties of `ep`.
 
+The fully annotated type signature of `ep` is:
+
+```dhall
+ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
+```
+
+
 
 *** 
 
@@ -3365,3 +3466,9 @@ let Profunctor : (Type → Type) → Type
 # Appendixes
 
 ## Parametricity and naturality
+
+A Dhall function cannot take a parameter `λ(A : Type)` and then check whether `A` is equal to `Natural`, say.
+It is not possible in Dhall to compare types as values.
+For this reason, any Dhall function of the form `λ(A : Type) → ...` must work in the same way for all types `A`.
+
+***
