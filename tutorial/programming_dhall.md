@@ -1199,7 +1199,8 @@ In the jargon of the functional programming community, a **functor** is a type c
 
 Those type constructors are also called "covariant functors".
 For type constructors, "covariant" means "has a lawful `fmap` method".
-(Note that this definition of "covariant" does not mention subtyping. Dhall does not support subtyping, but it can support the notion of covariant type constructors.)
+
+Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
 
 A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
 In Haskell, that type constructor and its `fmap` function are defined by:
@@ -2821,7 +2822,6 @@ ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
 ```
 
 
-
 *** 
 
 ***
@@ -2829,13 +2829,13 @@ ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
 #### Differences between existential and universal quantifiers
 
 The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
-The type `t` used within the value `ep` and may be different for different such values.
+The type `t` is somehow set within the value `ep` and may be different for different such values.
 This is because the only way to construct a value `ep` is to call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
 
 But the specific type `t` used while constructing `ep` will no longer be exposed to the code outside of `ep`.
-One could say that the type `t` "exists inside the scope of `ep`" and is hidden (or encapsulated) within that scope.
+One could say that the type `t` "exists only inside" the scope of `ep` and is hidden (or encapsulated) within that scope.
 
-This behavior is quite different from how we work with values of a universally quantified type.
+This behavior is quite different from that of values of a universally quantified type.
 For example, the polymorphic `identity` function has type `identity : ∀(t : Type) → t → t`.
 When we apply `identity` to a specific type, we get a value such as:
 
