@@ -1504,8 +1504,6 @@ The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case
 
 Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
-The Yoneda identity is proved via the parametricity theorem.
-
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identity does not apply to types of that form.
 
@@ -1518,10 +1516,12 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
 
 This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.
-A proof is also given in the book "Science of Functional Programming" by the same author.
+
+The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
+See the Appendix "Parametricity and Naturality" for more details.
 
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
-For instance, one use that identity to prove the Church encoding formula for mutually recursive types (which we will show later in this book).
+For instance, one use that identity to prove the Church encoding formula for mutually recursive types (which we will study later in this book).
 
 ### Church encoding in the curried form
 
@@ -3361,3 +3361,7 @@ let Profunctor : (Type → Type) → Type
 ### Nested types and GADTs
 
 ## Dhall as a scripting DSL
+
+# Appendixes
+
+## Parametricity and naturality
