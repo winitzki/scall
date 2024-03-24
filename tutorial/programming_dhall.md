@@ -1572,7 +1572,7 @@ Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type
 Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
 It is not obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
-More precisely, the type `∀(r : Type) → (F r → r) → r` is equivalent to the _least fixed point_ of the type equation `T = F T`.
+More precisely, the type `∀(r : Type) → (F r → r) → r` is the "least fixpoint" of the type equation `T = F T`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
 
@@ -1612,7 +1612,7 @@ The corresponding Church encoding gives the type:
 let C = ∀(r : Type) → ({ x : Text, y : Boolean } → r) → r
 ```
 
-The general properties of the Church encoding always enforce that `C` is a fixed point of the type equation `C = F C`.
+The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = F C`.
 This remains true even when `F` does not depend on its type parameter.
 So, now we have `F C = { x : Text, y : Boolean }` independently of `C`.
 The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Boolean }`.
@@ -1640,7 +1640,7 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 ∀(r : Type) → (F r → r) → G r  ≅  G C
 ```
 
-Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixed point of `F`.
+Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
 
 This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.
 
@@ -1747,10 +1747,10 @@ let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
 
 ### The isomorphism `C = F C`: the functions `fix` and `unfix` 
 
-The Church-encoded type `C` is a fixed point of the type equation `C = F C`.
+The Church-encoded type `C` is a fixpoint of the type equation `C = F C`.
 This means we should have two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 These two functions implement an isomorphism between `C` and `F C`.
-This isomorphism shows that the types `C` and `F C` are equivalent, which is one way of understanding why `C` is a fixed point of the type equation `C = F C`.
+This isomorphism shows that the types `C` and `F C` are equivalent, which is one way of understanding why `C` is a fixpoint of the type equation `C = F C`.
 
 Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C`.
 
@@ -2812,8 +2812,8 @@ inE r (outE r consume) ep
   === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
 ```
 
-We would like to show that the last result is equal to `consume ep`.
-For that, we need to use the parametricity properties of `ep`.
+We  need to show that the last result is equal to `consume ep`.
+For that, we will use the parametricity properties of `ep`.
 
 The fully annotated type signature of `ep` is:
 
@@ -2864,21 +2864,21 @@ In this sense, type quantifiers provide the encapsulation of the type `t` inside
 
 ## Co-inductive ("infinite") types
 
-### Greatest fixed points: Motivation
+### Greatest fixpoints: Motivation
 
 Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
-But Church encodings always give the **least fixed points** of type equations.
-The least fixed points give types that are also known as "inductive types".
-Another useful kind of fixed points are **greatest fixed points**, also known as "co-inductive" types.
+But Church encodings always give the **least fixpoints** of type equations.
+The least fixpoints give types that are also known as "inductive types".
+Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive" types.
 
-Intuitively, the least fixed point is the smallest data type `T` that satisfies `T = F T`.
-The greatest fixed point is the largest possible data type that satisfies the same equation.
+Intuitively, the least fixpoint is the smallest data type `T` that satisfies `T = F T`.
+The greatest fixpoint is the largest possible data type that satisfies the same equation.
 
-Least fixed points are always _finite_ structures.
+Least fixpoints are always _finite_ structures.
 Iteration over the data stored in those structures will always terminate.
 
-Greatest fixed points are, as a rule, lazily evaluated data structures that imitate infinite recursion.
+Greatest fixpoints are, as a rule, lazily evaluated data structures that imitate infinite recursion.
 Iteration over those data structures is not expected to terminate.
 Those data structures are used only in ways that do not involve a full traversal of all data.
 It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
@@ -2890,10 +2890,10 @@ The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definiti
 let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >
 ```
 
-The type `List Text` is the least fixed point of `T = F T`.
+The type `List Text` is the least fixpoint of `T = F T`.
 A data structure of type `List Text` always stores a finite number of `Text` strings (although the list's length is not bounded in advance).
 
-The greatest fixed point of `T = F T` is a (potentially infinite) stream of `Text` values.
+The greatest fixpoint of `T = F T` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
@@ -2908,14 +2908,14 @@ This is enforced by the type quantifiers:
 To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
 That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
 
-### Encoding of greatest fixed points with existential types
+### Encoding of greatest fixpoints with existential types
 
-This motivates the following implementation of the greatest fixed point of `T = F T` in the general case:
+This motivates the following implementation of the greatest fixpoint of `T = F T` in the general case:
 
 We take some unknown type `r` and implement `T` as a pair of types `r` and `r → F r`.
 To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
 
-So, the mathematical notation for the greatest fixed point of `T = F T` is `T = ∃ r. r × (r → F r)`.
+So, the mathematical notation for the greatest fixpoint of `T = F T` is `T = ∃ r. r × (r → F r)`.
 The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
 
 To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)`.
@@ -2940,12 +2940,12 @@ To see `GFix` as a higher-order function, we expand that definition in Dhall's R
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixed point of `T = F T` is shown in the paper "Recursive types for free".
-Hre, we will focus on the practical use of the greatest fixed points.
+A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the paper "Recursive types for free".
+Hre, we will focus on the practical use of the greatest fixpoints.
 
-### The fixed point isomorphisms
+### The fixpoint isomorphisms
 
-To show that `GFix F` is a fixed point of `T = F T`, we write two functions, `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
+To show that `GFix F` is a fixpoint of `T = F T`, we write two functions, `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
 (This is proved in the paper "Recursive types for free".)
 
 To implement these functions, we need to assume that `F` has a known `fmap` method:
@@ -3037,10 +3037,10 @@ let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr :
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
 We imagine that the code will run the "step" function as many times as needed, in order to retrieve more values from the data structure.
 
-The required reasoning is quite different from that of creating values of the least fixed point types.
+The required reasoning is quite different from that of creating values of the least fixpoint types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
-Because the type `T = GFix F` is a fixed point of `T = F T`, we always have the function `fix : F T → T`.
+Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fix : F T → T`.
 That function, similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
 Those constructors are "finite": they cannot create an infinite data structure.
 For that, we need the general constructor `makeGFix`.
@@ -3054,7 +3054,7 @@ To build more intuition for working with co-inductive types, we will now impleme
 
 #### Example of a co-inductive type: Streams
 
-Consider the greatest fixed point of the recursion scheme for `List`:
+Consider the greatest fixpoint of the recursion scheme for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -3353,7 +3353,7 @@ We have seen the function `streamToList` that extracts at most a given number of
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 The size limit is important for guaranteeing termination.
 
-We will now generalize size-limited aggregations from lists to arbitrary greatest fixed point types.
+We will now generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
 The result will be a `fold`-like function whose recursion depth is limited in advance.
 That limitation will ensure that all computations terminate, as Dhall requires.
 
@@ -3407,7 +3407,7 @@ let fold
 
 ### Sliding-window aggregation
 
-### Converting between the least and the greatest fixed points
+### Converting between the least and the greatest fixpoints
 
 ## Functors and contrafunctors
 
