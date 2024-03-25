@@ -16,7 +16,7 @@ Evaluation of a well-typed Dhall program will never create infinite loops or thr
 Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
 The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
 
-From the point of view of programming language theory, Dhall implements a pure type system similar to System Fω with some additional features, using a Haskell-like syntax.
+From the point of view of programming language theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
 For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
 
@@ -687,7 +687,8 @@ let _ = assert : f "" === "()"    -- OK.
 
 ### Types, kinds, sorts
 
-The Dhall type system is a "pure type system", meaning that types and values are treated largely in the same way.
+Dhall treats types and values largely in the same way (except when typechecking, that is, when verifying that each value has the correct type).
+
 For instance, we may write `let a : Bool = True` to define a variable of type `Bool`, and we may also write `let b = Bool` to define a variable whose value is the type `Bool` itself.
 
 Then we may use `b` in typechecking expressions such as `True : b`.
@@ -884,19 +885,30 @@ This makes Dhall code more verbose, but also helps remove "magic" from the synta
 
 ### Dependent types
 
+Dependent types are, by definition, types that depend on _values_.
+
 Curried functions types support dependence between an argument type and any previously given argument values.
 
-For example, consider the following function type:
+For example, the type of the polymorphic identity function is:
 
 ```dhall
-∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
+let example1 = ∀(A : Type) → ∀(x : A) → A
 ```
 
-In that type, the argument `x` has type `A`, which is given by a previous argument.
+In this function type, the second curried argument (`x : A`) has a type that is given by the first curried argument (`A : Type`).
+
+As another example, consider the following function type:
+
+```dhall
+let example2 = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
+```
+
+In the type `example2`, the argument `x` has type `A`, which is given by a previous argument.
 The output type `F A` depends on the first two arguments.
 
-Since Dhall is a "pure type system", types and values are treated similarly in many ways.
-So, one can define functions from values to types in the same way as one defines any other functions:
+Both `example1` and `example2` are types that describe functions from types to values.
+
+In Dhall, one can also define functions from values to types in the same way as one defines any other functions:
 
 ```dhall
 let f
@@ -904,9 +916,10 @@ let f
   = λ(x : Bool) → if x then Natural else Text 
 ```
 
-The result of evaluating `f False` is the type `Text`.
+The result of evaluating `f False` is the _type_ `Text` itself.
+The type of `f` is an example of a "dependent type", that is, a type that depends on a value `x`.
 
-Such functions can be used in type signatures to create functions of dependent types (that is, functions whose types depend on the values of their input arguments):
+Such functions can be used in type signatures to create dependently-typed functions (that is, functions whose types depend on the values of their input arguments):
 
 ```dhall
 ∀(x : Bool) → ∀(y : f x) → Text
