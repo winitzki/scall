@@ -941,10 +941,13 @@ Error: ❰if❱ branches must have matching types
 
 The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
 If we are in the `if/then` branch, we return a `Text` value (an empty string).
-If we are in the `if/else` branch, the value `x` is `False` and so `y` must have type `f False = Text`.
-But Dhall does not implement this logic and cannot see that the branches will have matching types.
+If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
+That type depends on the value `x`.
+In the `else` branch, `x` is `False` because the `if/then/else` construction begins with `if x`.
+So, the `else` branch must have type `f False = Text`.
+But Dhall does not implement this logic and cannot see that both branches will have the same type `Text`.
 
-Because of this and other limitations, one can make only an occasional use of dependent types in Dhall. 
+Because of this and other limitations, dependent types in Dhall can be used only in sufficiently simple cases. 
 
 ## Function combinators
 
@@ -954,12 +957,12 @@ Implementing them in Dhall is straightforward.
 Instead of pairs, we use the record type `{ _1 : a, _2 : b }`. 
 
 ```dhall
-let before
+let compose_forward
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
     g (f (x))
 
-let after
+let compose_backward
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
     f( g (x)) 
@@ -1060,7 +1063,7 @@ in
   assert : unsafeDiv 3 2 === 1
 ```
 
-### Safe division with dependently-typed `assert`
+### Safe division with dependent types
 
 The function `unsafeDiv` works but produces nonsensical results when dividing by zero. For instance, `unsafeDiv 2 0` returns `2`.
 We would like to prevent using that function with zero values.
@@ -1075,7 +1078,7 @@ let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < 
 
 This is a type function that returns one or another type given a `Natural` value.
 For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
-This definition is straightforward because types and values are treated quite similarly in Dhall.
+This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
 
 We will use that function to implement safe division:
 
@@ -3360,7 +3363,7 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Size-limited aggregation. Adapting hylomorphisms to Church encoding
+### Size-limited aggregation. Hylomorphisms with recursion bounds
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
@@ -3397,23 +3400,18 @@ See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all recursion schemes `F`.
 This is possible only if we use general recursion and drop the termination guarantee.
 
-It turns out that hylomorphisms can be implemented in Dhall only if we modify the type signature shown above.
-Namely, we need to add explicit bounds on the depth of recursion as well as a "default" value that will be used in case the recursion bound is exceeded.
-
-***
-
-We would like to implement this function
-However, this function cannot work in a uniform way for 
-
-is no longer an identity function and needs a size limit.
-
+It turns out that hylomorphisms can be implemented in Dhall if we modify the type signature shown above.
+Namely, we need to add a bound on the depth of recursion as well as a "default" value (of type `t → r`).
+The default value will be used when the recursion bound is smaller than the recursion depth of the data.
+Otherwise, the result of the folding transformation is actually independent of the default value.
 
 ```dhall
-
 let fold
-  : Natural → GFix F → ∀(r : Type) → (F r → r) → r
-  = λ(limit : Natural) → λ(g : GFix F) → λ(r : Type) → λ(reduce : F r → r) →
-
+  : Natural → ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(limit : Natural) → λ(g : { seed : t, step : t → F t }) → λ(r : Type) → λ(reduce : F r → r) → λ(default : t → r) →
+    let update : (t → r) → t → r = λ(f : t → r) → compose_forward (g.step (compose_forward (fmap_F f) reduce))
+    let transform : t → r = Natural/fold limit (t → r) update default
+      in transform (g.seed)
 ```
 
 ***

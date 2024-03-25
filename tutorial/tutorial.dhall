@@ -287,6 +287,14 @@ let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) → unsa
 
 let _ = assert : safeDiv 4 2 {=} ≡ 2
 
+{-
+-- Try to avoid having an extra argument. Doesn't work.
+let NZ
+    : Natural → Type
+    = λ(y : Natural) → if Natural/isZero y then <> else Natural
+let sDiv = λ(y : Natural) → λ(x : NZ y) → unsafeDiv y x
+-}
+
 let sqrt =
       λ(n : Natural) →
         let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
