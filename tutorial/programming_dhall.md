@@ -3374,14 +3374,14 @@ The result will be a `fold`-like function whose recursion depth is limited in ad
 That limitation will ensure that all computations terminate, as Dhall requires.
 
 The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
-We have seen its type signature when we considered fold-like aggregations for Church-encoded data:
+We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
 
 ```dhall
 fold : Church F → ∀(r : Type) → (F r → r) → r
 ```
 
 For Church encodings, `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
-For greatest fixpoints (`GFix F`), the signature of `fold` in a different programming language would be:
+For greatest fixpoints (`GFix F`), the analogous signature of `fold` would be:
 
 ```dhall
 fold : GFix F → ∀(r : Type) → (F r → r) → r  -- Will not work in Dhall.
@@ -3391,17 +3391,30 @@ Expanding the existential type in `GFix F`, we find ***
 So, we obtain an equivalent type signature like this:
 
 ```dhall
-fold : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+fold : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
 ```
 
 Functions of this type are called **hylomorphisms**.
 See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
 
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all recursion schemes `F`.
-This is possible only if we use general recursion and drop the termination guarantee.
+This is possible only if we use general recursion.
+Here is Haskell code adapted from [https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
-It turns out that hylomorphisms can be implemented in Dhall if we modify the type signature shown above.
-Namely, we need to add a bound on the depth of recursion as well as a "default" value (of type `t → r`).
+```haskell
+hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
+hylo coalg alg = alg . fmap (hylo alg coalg) . coalg
+```
+
+To see how this code works, consider an example where `f` is a recursion scheme for a binary tree. ***
+
+***
+So, this code terminates only if the data structure stored in `t` is finite. 
+
+However, this code does not guarantee termination and is not acceptable in Dhall.
+
+Hylomorphisms can be implemented in Dhall if we modify the type signature shown above and explicitly ensure termination.
+One possibility is to add a `Natural`-valued bound on the depth of recursion and a "default" value (of type `t → r`).
 The default value will be used when the recursion bound is smaller than the recursion depth of the data.
 Otherwise, the result of the folding transformation is actually independent of the default value.
 
