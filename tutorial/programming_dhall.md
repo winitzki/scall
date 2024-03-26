@@ -2554,7 +2554,6 @@ let depthF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natu
 
 Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's standard prelude.
 
-
 ### Example: implementing `fmap`
 
 A type constructor `F` is **covariant** if it admits an `fmap` function with the type signature:
@@ -3363,7 +3362,7 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Size-limited aggregation. Hylomorphisms with recursion bounds
+### Size-limited aggregation. Hylomorphisms with bounded recursion depth
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
@@ -3394,29 +3393,143 @@ So, we obtain an equivalent type signature like this:
 fold : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
 ```
 
-Functions of this type are called **hylomorphisms**.
+We may equivalently rewrite that type by replacing a record by two curried arguments:
+
+```dhall
+fold : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+```
+
+Functions of that type are called **hylomorphisms**.
 See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
 
-We would like to implement a hylomorphism with that type signature that works in a uniform way for all recursion schemes `F`.
-This is possible only if we use general recursion.
+#### Example: why hylomorphisms terminate (in Haskell)
+
+For the purposes of this book, a hylomorphism is just the `fold` function adapted to the greatest fixpoint of a given recursion scheme `F`.
+We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
+This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
 hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
-hylo coalg alg = alg . fmap (hylo alg coalg) . coalg
+hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
-To see how this code works, consider an example where `f` is a recursion scheme for a binary tree. ***
+The code of `hylo` calls `hylo` recursively under `fmap`, and there seems to be no explicit termination for the recursion.
+To see how this code could ever terminate, we will consider a specific example.
+In that example, both `t` and `r` are the type of binary trees with string-valued leaves (we have denoted that type by `TreeText` before).
+The type constructor `f` will be the recursion scheme for `TreeText`.
 
-***
-So, this code terminates only if the data structure stored in `t` is finite. 
+Our Haskell definitions for `TreeText`, its recursion scheme `F`, and the `fmap` method for `F` are:
 
-However, this code does not guarantee termination and is not acceptable in Dhall.
+```haskell
+data TreeText = Leaf String | Branch TreeText TreeText
+
+data F r = FLeaf String | FBranch r r
+
+fmap :: (a -> b) -> F a -> F b
+fmap f (FLeaf t) = FLeaf t
+fmap f (FBranch x y) = FBranch (f x) (f y)
+```
+
+The type `TreeText` is the least fixpoint of `F` and has the standard methods `fix : F TreeText → TreeText` and `unfix : TreeText → F TreeText`.
+Haskell implementations of `fix` and `unfix` are little more than identity functions that reassign types:
+
+```haskell
+fix :: F TreeText -> TreeText
+fix FLeaf t -> Leaf t
+fix FBranch x y -> Branch x y
+
+unfix :: TreeText -> F TreeText
+unfix Leaf t -> FLeaf t
+unfix Branch x y -> FBranch x y
+```
+
+We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because the types match.
+The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
+Because `fix` and `unfix` leave data unchanged, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
+In this example of applying `hylo`, the trees remain unchanged because we are unpacking the tree's recursive type (`TreeText → F TreeText`) and then packing it back (`F TreeText → TreeText`) with no changes.
+(We are using this example only to understand how the recursion can terminate when applying `hylo`.)
+
+Choose some value `t0` of type `TreeText`:
+
+```haskell
+t0 :: TreeText
+t0 = Branch (Leaf "a") (Leaf "b")
+```
+
+Denote `hylo unfix fix` by just `h` for brevity.
+The recursive code of `h` is just `h = fix . fmap h . unfix`.
+Now we expand the recursive definition of `h` three times in the expression `h t0`:
+
+```haskell
+h t0
+  == (fix . fmap h . unfix) t0
+  == fix (fmap h (unfix t0))
+  == fix (fmap (fix . fmap h . unfix) (unfix t0))
+  == fix ( (fmap fix . fmap (fmap h) . fmap unfix) (unfix t0))
+  == fix (fmap fix (fmap (fmap h) (fmap unfix (unfix t0))))
+```
+
+The argument of `fmap (fmap h)` in the last line is `fmap unfix (unfix t0)`.
+This is a value of type `F (F TreeText)` that we may temporarily denote by `c0`.
+Then `h t0` is given by:
+
+```haskell
+h t0 == fix (fmap fix (fmap (fmap h) c0))
+```
+
+Let us compute `c0`:
+
+```haskell
+unfix t0 == FBranch (Leaf "a") (Leaf "b")
+
+c0 = fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
+```
+
+We note that each application of `unfix` replaces one layer of `TreeText`'s constructors by one layer of `F`'s constructors.
+All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0`.
+
+At that point, the value `c0` no longer contains any constructors of `TreeText`; it is built only with `F`'s constructors.
+For that reason, `c0` will _remains unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
+In other words:
+
+```haskell
+fmap (fmap f) c0 == c0
+```
+
+It follows that the computation `fmap (fmap f) c0` does not use the value `f`.
+
+Our code for `h t0` needs to compute `fmap (fmap h) c0`.
+Because that computation does not need the value `h`, Haskell will not perform any more recursive calls to `h`.
+This is where the recursion terminates in the computation `hylo unfix fix t0`.
+
+If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
+The required number of recursive calls is equal to the "depth" of the value `t0`.
+(The subsection "Example: Sizing a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
+
+We can now generalize this example to an arbitrary application of a hylomorphism.
+For brevity, we denote `h = hylo coalg alg`.
+The function `h : t -> r` is then defined by `h = alg . fmap h . coalg`.
+When we apply `h` to some value `t0 : t`, we get: `h t0 = alg (fmap h (coalg t0))`.
+
+The recursion will terminate if, at some recursion depth, the function call `fmap (fmap (... (fmap f)...)) c` does not actually need to use the function `f`.
+We will then have `fmap (fmap (... (fmap f)...)) c == c`.
+This will terminate the recursion.
+
+The type of `c` will be `f (f (... (f t)))`.
+It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
+These repeated applications generate a data structure of deeply nested type `f (f (... (f t)))`.
+The hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
+
+However, it is impossible to assure up front that the data structure is finite.
+So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
+
+#### Depth-limited hylomorphisms
 
 Hylomorphisms can be implemented in Dhall if we modify the type signature shown above and explicitly ensure termination.
 One possibility is to add a `Natural`-valued bound on the depth of recursion and a "default" value (of type `t → r`).
 The default value will be used when the recursion bound is smaller than the recursion depth of the data.
-Otherwise, the result of the folding transformation is actually independent of the default value.
+If the recursion bound is large enough, the hylomorphism will be actually independent of the default value.
 
 ```dhall
 let fold
