@@ -3379,32 +3379,39 @@ We have seen `fold`'s type signature when we considered fold-like aggregations f
 fold : Church F → ∀(r : Type) → (F r → r) → r
 ```
 
-For Church encodings, `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
-For greatest fixpoints (`GFix F`), the analogous signature of `fold` would be:
+We generalize the idea of a **fold-like aggregation** to mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
+The general type signature of a fold-like aggregation is `P → ∀(r : Type) → (F r → r) → r`.
+
+The implementation of `fold` will be different for each data structure `P`.
+If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
+If `P` is the greatest fixpoint (`GFix F`), the analogous signature of `P`'s `fold` would be:
 
 ```dhall
-fold : GFix F → ∀(r : Type) → (F r → r) → r  -- Will not work in Dhall.
+fold_GFix : GFix F → ∀(r : Type) → (F r → r) → r
 ```
 
 Expanding the existential type in `GFix F`, we find ***
 So, we obtain an equivalent type signature like this:
 
 ```dhall
-fold : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
+fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
 ```
 
 We may equivalently rewrite that type by replacing a record by two curried arguments:
 
 ```dhall
-fold : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+fold_GFix_curried : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
 ```
 
 Functions of that type are called **hylomorphisms**.
 See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
 
+The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
+Let us examine that problem is more detail.
+
 #### Example: why hylomorphisms terminate (in Haskell)
 
-For the purposes of this book, a hylomorphism is just the `fold` function adapted to the greatest fixpoint of a given recursion scheme `F`.
+For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
 This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
@@ -3501,7 +3508,7 @@ It follows that the computation `fmap (fmap f) c0` does not use the value `f`.
 
 Our code for `h t0` needs to compute `fmap (fmap h) c0`.
 Because that computation does not need the value `h`, Haskell will not perform any more recursive calls to `h`.
-This is where the recursion terminates in the computation `hylo unfix fix t0`.
+This is where the recursion terminates in the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
 The required number of recursive calls is equal to the "depth" of the value `t0`.
@@ -3523,28 +3530,52 @@ The hylomorphism terminates only if the data structure generated out of the init
 
 However, it is impossible to assure up front that the data structure is finite.
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
+(In fact, a function with that type signature cannot be implemented in Dhall.)
 
 #### Depth-limited hylomorphisms
 
-Hylomorphisms can be implemented in Dhall if we modify the type signature shown above and explicitly ensure termination.
+Implementing hylomorphisms in Dhall requires modifyig the type signature shown above, explicitly ensuring termination.
 One possibility is to add a `Natural`-valued bound on the depth of recursion and a "default" value (of type `t → r`).
 The default value will be used when the recursion bound is smaller than the recursion depth of the data.
 If the recursion bound is large enough, the hylomorphism will be actually independent of the default value.
 
-```dhall
-let fold
-  : Natural → ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → (t → r) → r
-  = λ(limit : Natural) → λ(g : { seed : t, step : t → F t }) → λ(r : Type) → λ(reduce : F r → r) → λ(default : t → r) →
-    let update : (t → r) → t → r = λ(f : t → r) → compose_forward (g.step (compose_forward (fmap_F f) reduce))
-    let transform : t → r = Natural/fold limit (t → r) update default
-      in transform (g.seed)
+To show how that works, we will first write Haskell code for the depth-limited hylomorphism.
+Then we will translate that code to Dhall.
+
+The idea of depth-limited hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
+To be able to do that, we begin by setting `h = default` as the initial value (where `default : t → r` is a given default value) and then expand the recursive definition repeatedly.
+For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
+
+```haskell
+h_0 = default 
+h_1 = alg . fmap h_0 . coalg
+h_2 = alg . fmap h_1 . coalg
+h_3 = alg . fmap h_2 . coalg
+...
 ```
 
-***
+All the intermediate values `h_1`, `h_2`, `h_3`, ..., are still of type `t → r`.
+After repeating this procedure `n` times (where `n` is a given natural number), we will obtain a function `h_n : t → r`.
+The example shown in the previous subsection explains that applying `h_n` to a value `t` will give a result (of type `r`) that does not depend on the `default` value, as long as the recursion depth `n` is large enough.
 
-### Sliding-window aggregation
+Let us now implement this logic in Dhall:
+
+```dhall
+let hylo_N
+  : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(limit : Natural) → λ(seed : t)  → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
+    let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
+    let transform : t → r = Natural/fold limit (t → r) update default
+      in transform seed
+```
+
+The function `hylo_N` is a general fold-like aggregation function that can be used with the greatest fixpoints of arbitrary recursion schemes `F`. 
+Termination is insured because we specify a limit for the recursion depth in advance.
+This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
 
 ### Converting between the least and the greatest fixpoints
+
+### Sliding-window aggregation (`scan`)
 
 ## Functors and contrafunctors
 
