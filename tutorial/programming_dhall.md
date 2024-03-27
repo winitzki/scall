@@ -1,30 +1,27 @@
 # Advanced functional programming in Dhall
 
+## Preface
+
 This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
-The official documentation and user guides for Dhall is found at https://docs.dhall-lang.org.
+Although most code examples are in Dhall, the material of the book has a wider applicability.
+It describes a certain flavor of purely functional programming (without side-effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
 
-This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
+Dhall is a powerful, purely functional programming language that has several applications:
+- a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
+- a high-level scripting DSL interfacing with a runtime that implements low-level details 
+- an industry-strength System Fω interpreter for studying various language-independent aspects of FP theory and practice
 
-## Overview
+This book focuses on the last two applications.
+
+## Overview of Dhall
 
 Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
 
-The Dhall type-checker and interpreter guarantee that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
-Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
-Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
-The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
+The official documentation and user guides for Dhall are found at https://docs.dhall-lang.org.
 
-From the point of view of programming language theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
-
-For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
-
-- https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md
-- https://gallium.inria.fr/~remy/mpri/
-- https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf
-
-That theory is beyond the scope of this book, which focuses on issues arising in practical programming.
+This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 
 Here is an example of a Dhall program:
 
@@ -35,17 +32,31 @@ let id = λ(A : Type) → λ(x : A) → x
     -- This evaluates to 32 of type Natural.
 ```
 
-The result is a powerful, purely functional programming language that could have several applications:
-- a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
-- a high-level scripting DSL interfacing with a runtime that implements low-level details 
-- an industry-strength System Fω interpreter for studying various language-independent aspects of FP theory and practice
-
 The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
 This book focuses on other applications of Dhall.
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
-The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions.
+The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions such as `Natural/lessThan` and `List/map`.
+
+The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
+Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
+
+Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
+(The type-checking itself is also guaranteed to terminate.)
+The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
+But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
+
+From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
+
+For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+
+- https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md
+- https://gallium.inria.fr/~remy/mpri/
+- https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf
+
+That theory is beyond the scope of this book.
+Instead, the book focuses on issues arising in practical programming.
 
 ## Differences from other FP languages
 
@@ -90,14 +101,18 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
+The names `RecordType1` and `RecordType2` are no more than type aliases.
+Dhall does not distinguish them from the literal type expression `{ a : Natural, b : Bool }`.
+(The order of record fields is not significant.) 
+
 ### Co-product types
 
 Co-product types are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
-Here `X` and `Y` are **constructor names** for the given union type.
+Here `X` and `Y` are **constructors** for the given union type.
 
 Values of co-product types are created via constructor functions.
 Constructor functions are written using record-like access notation.
-For example, `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`. 
+For example, the expression `< X : Natural | Y : Bool >.X` is viewed by Dhall as a function of type `Natural → < X : Natural | Y : Bool >`. 
 Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`:
 
 ```dhall
@@ -115,6 +130,17 @@ Both these values have type `< X : Natural | Y >`.
 
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
 There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
+
+For convenience, a Dhall program may define names for types, for example:
+
+```dhall
+let MyType1 = < X : Natural | Y : Bool >
+let x : MyType1 = MyType1.X 123
+```
+
+But the name `MyType1` is no more than a type alias.
+Dhall will consider `MyType1` to be the same as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`.
+(The order of a union type's constructors is not significant.) 
 
 ### Pattern matching
 
@@ -249,7 +275,7 @@ There is no other, inequivalent Dhall code that could implement a different func
 
 Type constructors in Dhall are written as functions from `Type` to `Type`.
 
-For example, one can define a type constructor in Haskell or Scala as `type PairAAInt a = (a, a, Int)`.
+In Haskell or Scala, one would define a type constructor as `type PairAAInt a = (a, a, Int)`.
 The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
 
 Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
@@ -277,6 +303,8 @@ let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 
 The type of `Either` is `Type → Type → Type`.
 
+As with all Dhall types, the type constructor names such as `PairAAInt` or `Either` are no more than type aliases.
+Dhall distinguishes types and type constructors not by assigned name but by their structure as defined.
 
 ### Function types
 
@@ -3607,9 +3635,9 @@ As long as the recursion scheme `F` is applicative, we will be able to implement
 ### Converting from the least fixpoint to the greatest fixpoint
 
 A hylomorphisms can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
-Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming.
+Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming style.
 
-The converse transformation (from the least fixpoint to the greatest fixpoint) does not require any adaptation for Dhall because the least fixpoint already limits recursion.
+The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, because the least fixpoint already limits recursion.
 ***
 
 
