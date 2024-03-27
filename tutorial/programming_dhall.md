@@ -3563,17 +3563,55 @@ Let us now implement this logic in Dhall:
 ```dhall
 let hylo_N
   : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
-  = λ(limit : Natural) → λ(seed : t)  → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
+  = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
     let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
     let transform : t → r = Natural/fold limit (t → r) update default
       in transform seed
 ```
 
 The function `hylo_N` is a general fold-like aggregation function that can be used with the greatest fixpoints of arbitrary recursion schemes `F`. 
-Termination is insured because we specify a limit for the recursion depth in advance.
+Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
 
-### Converting between the least and the greatest fixpoints
+#### Hylomorphisms driven by a Church-encoded template
+
+In the code for `hylo_N`, the total number of iterations was limited by a given natural number.
+To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
+
+Note that `Natural` is a recursive type whose `fold` method is a Dhall built-in.
+Could we drive iterations via the `fold` method for a different recursive type?
+
+Suppose we already have a value of the Church-encoded least fixpoint type (`Church F`).
+That value can serve as a "recursion template" that at the same time provides depth limits and all necessary default values.
+
+We will denote the template-driven hylomorphism by `hylo_T`.
+The type signature is `Church F → GFix F → Church F`.
+We will again expand the type signature and unpack the existential types into a curried argument.
+The Dhall code is:
+
+```dhall
+let hylo_T
+  : Church F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+  = λ(template : Church F) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) →
+    let F/ap : ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b = ... -- Implement this function for F.
+    let reduce : F (t → r) → t → r
+      = λ(ftr : F (t → r)) → λ(arg : t) → alg (F/ap t r ftr (coalg t))
+    let transform : t → r = template (t → r) reduce
+      in transform seed 
+```
+
+For this code, we need to have a function `F/ap` of type `F (a → b) → F a → F b`.
+This function is typical of applicative functors.
+As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
+
+### Converting from the least fixpoint to the greatest fixpoint
+
+A hylomorphisms can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming.
+
+The converse transformation (from the least fixpoint to the greatest fixpoint) does not require any adaptation for Dhall because the least fixpoint already limits recursion.
+***
+
 
 ### Sliding-window aggregation (`scan`)
 
