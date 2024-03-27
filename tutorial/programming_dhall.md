@@ -3600,8 +3600,8 @@ let hylo_T
       in transform seed 
 ```
 
-For this code, we need to have a function `F/ap` of type `F (a → b) → F a → F b`.
-This function is typical of applicative functors.
+For this code, we need to have a function `F/ap` with type `F (a → b) → F a → F b`.
+This function is typical of "applicative functors", which we will study later in this book.
 As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
 
 ### Converting from the least fixpoint to the greatest fixpoint
