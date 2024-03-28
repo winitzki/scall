@@ -303,8 +303,8 @@ let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 
 The type of `Either` is `Type → Type → Type`.
 
-As with all Dhall types, the type constructor names such as `PairAAInt` or `Either` are no more than type aliases.
-Dhall distinguishes types and type constructors not by assigned name but by their structure as defined.
+As with all Dhall types, type constructor names such as `PairAAInt` or `Either` are no more than type aliases.
+Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves.
 
 ### Function types
 
@@ -445,7 +445,7 @@ In this book, we will usually capitalize type constructors (such as `List`) but 
 ### Type inference
 
 Dhall has almost no type inference.
-The only exception are the `let` bindings such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
+The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
 Other than in `let` bindings, all types of bound variables must be written explicitly.
 
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
@@ -491,7 +491,7 @@ Comparison functions are only available for `Bool` and `Natural` types.
 (Comparison functions for `Integer` is defined in the standard prelude.)
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
-The only recursive type directly supported by Dhall is the built-in type `List`, and its functionality is intentionally limited, so that Dhall's termination guarantees remain in force.
+The only recursive type directly supported by Dhall is the built-in type `List`.
 
 User-defined recursive types and functions must be encoded in a non-recursive way. Later chapters in this book will show how to use the Church encoding for that purpose. In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
@@ -653,18 +653,16 @@ The `assert` construction is a special Dhall syntax that implements a limited fo
 
 In other words, the Dhall expression `a === b` is a special sort of type.
 That type has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
-For example, the types `1 === 2` and `λ(a : Text) → a === True` are void. 
+For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
+(We will never be able to create any values of those types.) 
 
 If `a` and `b` evaluate to the same normal form, the type `a === b` is not void.
-That is, there exists a value of that type.
-However, that value cannot be written explicitly in Dhall.
-The only way to refer to that value is by using the `assert` keyword.
-
-The syntax is: `assert : a === b`.
+That is, there exists a value of the type `a === b`.
+If we want to write that value explicitly, we need to use the `assert` keyword with the following syntax: `assert : a === b`.
 This expression evaluates to a value of type `a === b` if the two sides are equal after reducing them to their normal forms.
-If the two sides are not equal, this expression _fails to type-check_, meaning that the `assert` value is not valid.
+If the two sides are not equal, this expression _fails to type-check_, meaning that the entire program will fail to compile.
 
-When an `assert` value is valid, we can assign that value to a variable if we'd like:
+When an `assert` value is valid, we can assign that value to a variable:
 
 ```dhall
 let test1 = assert : 1 + 2 === 0 + 3
@@ -1091,12 +1089,13 @@ in
   assert : unsafeDiv 3 2 === 1
 ```
 
-### Safe division with dependent types
+### Safe division via dependently-typed evidence
 
-The function `unsafeDiv` works but produces nonsensical results when dividing by zero. For instance, `unsafeDiv 2 0` returns `2`.
-We would like to prevent using that function with zero values.
+The function `unsafeDiv` works but produces wrong results when dividing by zero.
+For instance, `unsafeDiv 2 0` returns `2`.
+We would like to prevent using that function when the second argument is zero.
 
-Although the type system of Dhall is limited, it has enough facilities to ensure that we never divide by zero.
+The type system of Dhall provides a facility to ensure that we never divide by zero.
 
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero, and unit otherwise:
 
@@ -1104,7 +1103,7 @@ The first step is to define a dependent type that will be void (with no values) 
 let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
 ```
 
-This is a type function that returns one or another type given a `Natural` value.
+This `Nonzero` is a type function that returns one or another type given a `Natural` value.
 For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
 
@@ -1115,10 +1114,10 @@ let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeD
 ```
 
 To use `safeDiv`, we need to specify a third argument of the unit type (denoted by `{}` in Dhall).
-
 That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
 
-If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values. Passing an argument of any other type will raise a type error.
+If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values.
+Passing an argument of any other type will raise a type error.
 
 ```dhall
 safeDiv 4 2 {=}  -- Returns 2.
@@ -1126,15 +1125,93 @@ safeDiv 4 2 {=}  -- Returns 2.
 safeDiv 4 0 {=}  -- Raises a type error. 
 ```
 
-The main limitation of this `safeDiv` is that it can divide only by a literal `Natural` value.
+The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
+Dependently-typed evidence values enforce value constraints at compile time.
+
+#### Better error messages for failed assertions
+
+If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has wrong type `{}`, expected type `<>`".
+This message is not particularly helpful.
+We can define the dependent type `Nonzero` in a different way, so that the error message clearly shows why the assertion failed.
+For that, we replace the void type `< >` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
+Those strings will be printed by Dhall as part of the error message.
+
+To implement this idea, let us replace the definition of `Nonzero` by this code:
+
+```dhall
+let Nonzero = λ(y : Natural) →
+  if Natural/isZero y
+  then "error" === "attempt to divide by zero"
+  else {}
+
+let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
+```
+
+When we evaluate `safeDiv 4 0 {=}`, we get a good error message:
+
+```
+Error: Wrong type of function argument
+
+- "error" ≡ "attempt to divide by zero"
+```
+
+Another example is an assertion that a natural number should be less than a given limit.
+We implement that assertion as a dependent type constructor `AssertLessThan`.
+The error message will be computed as a function of the given arguments:
+
+```dhall
+let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
+  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+  in
+  if Natural/lessThan x limit
+  then {}
+  else "error" === "the argument ${Natural/show x} must be less than ${Natural/show limit}"
+```
+
+To use this assertion, suppose we need a function that needs to constrain its natural argument to be below `100`.
+
+```dhall
+let myFunc = λ(x : Natural) → λ(_ : AssertLessThan x 100) → x -- Or other code.
+```
+
+If we call that function as `myFunc 1 {=}` or `myFunc 50 {=}`, there are no errors.
+But calling `myFunc 200 {=}` gives a type error:
+
+```
+myFunc 200 {=}
+
+Error: Wrong type of function argument
+
+- "error" ≡ "the argument 200 must be less than 100"
+```
+
+The error message clearly describes the problem.
+
+#### Limitations
+
+The main limitation of this assertion trick is that it can work only with literal values.
+
+For instance, `safeDiv x y` can divide only by a literal `Natural` values `y`.
 This is so because the check `y == 0` is done at type-checking time.
 So, we cannot use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`.
 
-We also cannot divide by a number that we imported from a different Dhall file.
+We also cannot test for `y == 0` at run time and then call `safeDiv` only when `y` is nonzero.
+Dhall will not accept code like this:
+
+```dhall
+-- Type error:
+λ(x : Natural) → if Natural/isZero x then None (Nonzero x) else (Some {=} : Optional (Nonzero x))
+```
+
+Dhall does not recognize that `Nonzero x` is the same as `{=}` within the `else` clause.
+The reason is that Dhall's typechecking is insufficiently powerful to handle the dependent types in full generality.
 
 Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
 That value serves as a witness that the number `y` is not zero.
 Any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
+
+We also cannot divide by a number `y` imported from a different Dhall file, unless that file also exports a witness value of type `Nonzero y`.
+And witness values may be obtained only for literal `Natural` values `y`.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
@@ -1148,15 +1225,15 @@ As before, Dhall requires is to specify an upper bound on the number of iteratio
 Let us specify `n` as the upper bound.
 
 We will begin with `n` and iterate applying a function `stepDown`.
-That function will decrement its argument `r` by `1` unless the condition `r * r <= n` is satisfied. 
+That function will increment its argument `r` by `1` while the condition `r * r <= n` is satisfied. 
 
 The code is:
 
 ```dhall
 let sqrt = λ(n: Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
-  let stepDown = λ(r : Natural) → if (lessThanEqual (r * r) n) then r else Natural/subtract 1 r 
-    in Natural/fold n Natural stepDown n 
+  let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r 
+    in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp n)
   in 
     assert : sqrt 25 === 5
 ```
@@ -1396,24 +1473,25 @@ Examples are the standard functions `reduce` and `foldMap` for `List`, written i
 
 ```haskell
 reduce :: Monoid m => List m -> m
-reduce as = foldr (\a -> \b -> mappend a b) mempty as
+reduce xs = foldr (\x -> \y -> mappend y x) mempty xs
 
 foldMap :: Monoid m => (a -> m) -> List a -> m
-foldMap f as = foldr (\a -> \b -> mappend (f a) b) mempty as
+foldMap f xs = foldr (\x -> \y -> mappend y (f x)) mempty xs
 ```
 
+Note that Dhall's `List/fold` implements a "right fold", similarly to Haskell's `foldr` and Scala's `foldRight`.
 The corresponding Dhall code is:
 
 ```dhall
 let reduce
   : ∀(m : Type) → Monoid m → List m → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(xs : List m) →
-    List/fold m xs m (λ(x : m) → λ(y : m) → monoid_m.append x y) monoid_m.empty
+    List/fold m xs m (λ(x : m) → λ(y : m) → monoid_m.append y x) monoid_m.empty
 
 let foldMap
   : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
-    List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append (f x) y) monoid_m.empty
+    List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
 ```
 
 ### `Functor`
@@ -3200,7 +3278,7 @@ let headTailOption
 
 Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further data items from the stream, or to discover that the stream has finished.
 
-#### Converting a stream to a list
+#### Converting a stream to a `List`
 
 Let us now implement a function `streamToList` that converts `Stream a` to `List a`.
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
@@ -3601,6 +3679,8 @@ The function `hylo_N` is a general fold-like aggregation function that can be us
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
 
+For now, let us see an example of using `hylo_N`. ***
+
 #### Hylomorphisms driven by a Church-encoded template
 
 In the code for `hylo_N`, the total number of iterations was limited by a given natural number.
@@ -3632,12 +3712,17 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 This function is typical of "applicative functors", which we will study later in this book.
 As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
 
+*** example of usage ***
+
 ### Converting from the least fixpoint to the greatest fixpoint
 
 A hylomorphisms can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
 Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming style.
 
-The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, because the least fixpoint already limits recursion.
+The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
+Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
+The least fixpoint type `Church F` already has that function (`unfix`).
+
 ***
 
 
@@ -3707,11 +3792,11 @@ let Profunctor : (Type → Type) → Type
 
 ## Applicative covariant and contravariant functors
 
+## Traversable functors
+
 ## Monads
 
 ## Monad transformers
-
-## Traversable functors
 
 ## Free monads
 
@@ -3733,8 +3818,10 @@ let Profunctor : (Type → Type) → Type
 
 ## Parametricity and naturality
 
-A Dhall function cannot take a parameter `λ(A : Type)` and then check whether `A` is equal to `Natural`, say.
-It is not possible in Dhall to compare types as values.
-For this reason, any Dhall function of the form `λ(A : Type) → ...` must work in the same way for all types `A`.
+It is not possible in Dhall to compare types.
+So, a Dhall function cannot take a parameter `λ(t : Type)` and then check whether `t` is equal to `Natural`, say.
+Any Dhall function of the form `λ(t : Type) → ...` must work in the same way for all types `t`.
+This ensures full polymorphic parametricity of all Dhall functions.
+Then the parametricity theorem applies to all Dhall values.
 
 ***

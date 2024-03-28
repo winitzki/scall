@@ -287,23 +287,14 @@ let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) → unsa
 
 let _ = assert : safeDiv 4 2 {=} ≡ 2
 
-{-
--- Try to avoid having an extra argument. Doesn't work.
-let NZ
-    : Natural → Type
-    = λ(y : Natural) → if Natural/isZero y then <> else Natural
-let sDiv = λ(y : Natural) → λ(x : NZ y) → unsafeDiv y x
--}
-
 let sqrt =
       λ(n : Natural) →
         let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 
-        let stepDown =
-              λ(r : Natural) →
-                if lessThanEqual (r * r) n then r else Natural/subtract 1 r
+        let stepUp =
+              λ(r : Natural) → if lessThanEqual (r * r) n then r + 1 else r
 
-        in  Natural/fold n Natural stepDown n
+        in  Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 0)
 
 let _ = assert : sqrt 25 ≡ 5
 
@@ -311,9 +302,17 @@ let _ = assert : sqrt 26 ≡ 5
 
 let _ = assert : sqrt 24 ≡ 4
 
-let _ = assert : sqrt 1 ≡ 1
+let _ = assert : sqrt 5 ≡ 2
+
+let _ = assert : sqrt 4 ≡ 2
+
+let _ = assert : sqrt 3 ≡ 1
+
+let _ = assert : sqrt 2 ≡ 1
 
 let _ = assert : sqrt 0 ≡ 0
+
+let _ = assert : sqrt 1 ≡ 1
 
 let _functors_examples =
       let F
