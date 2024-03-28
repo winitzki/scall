@@ -1135,7 +1135,7 @@ In this way, dependently-typed evidence values enforce value constraints at comp
 
 #### Better error messages for failed assertions
 
-If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has wrong type `{}`, expected type `<>`".
+If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has type `{}`, but we expected type `<>`".
 This message is not particularly helpful.
 We can define the dependent type `Nonzero` in a different way, so that the error message clearly shows why the assertion failed.
 For that, we replace the void type `< >` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
@@ -1152,9 +1152,11 @@ let Nonzero = λ(y : Natural) →
 let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
 ```
 
-When we evaluate `safeDiv 4 0 {=}`, we get a good error message:
+When we evaluate `safeDiv 4 0 {=}`, we now get a good error message:
 
 ```
+safeDiv 4 0 {=}
+
 Error: Wrong type of function argument
 
 - "error" ≡ "attempt to divide by zero"
@@ -1173,14 +1175,16 @@ let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
   else "error" === "the argument ${Natural/show x} must be less than ${Natural/show limit}"
 ```
 
-To use this assertion, suppose we need a function that needs to constrain its natural argument to be below `100`.
+Suppose we need a function that needs to constrain its natural argument to be below `100`.
+Then we require an evidence argument of type `AssertLessThan x 100`:
 
 ```dhall
-let myFunc = λ(x : Natural) → λ(_ : AssertLessThan x 100) → x -- Or other code.
+let myFunc = λ(x : Natural) → λ(_ : AssertLessThan x 100) →
+  x -- Or some other code.
 ```
 
-If we call that function as `myFunc 1 {=}` or `myFunc 50 {=}`, there are no errors.
-But calling `myFunc 200 {=}` gives a type error:
+There are no errors if we evaluate `myFunc 1 {=}` or `myFunc 50 {=}`.
+But writing `myFunc 200 {=}` gives a type error:
 
 ```
 myFunc 200 {=}
@@ -1194,7 +1198,7 @@ The error message clearly describes the problem.
 
 #### Limitations
 
-The main limitation of this assertion trick is that it can work only with literal values.
+The main limitation of this technique is that it can work only with literal values.
 
 For instance, `safeDiv x y` can divide only by a literal `Natural` values `y`.
 This is so because the check `y == 0` is done at type-checking time.
