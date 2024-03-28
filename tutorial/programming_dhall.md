@@ -474,12 +474,12 @@ The program cannot return a `Natural` value that will be computed "later", or an
 However, it is important that Dhall's _typechecking_ is eager.
 A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
 
-### No computation with custom data
+### No computations with custom data
 
-In Dhall, th emajority of built-in types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
+In Dhall, the majority of built-in types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
 The user may specify literal values of those types but can do little else with those values.
 
-- `Bool` values support the boolean operations and can be used in `if` expressions.
+- `Bool` values support the boolean operations and can be used as conditions in `if` expressions.
 - `Natural` numbers can be added, multiplied, and compared for equality.
 - `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
 - `Text` strings may be concatenated and support a search/replace operation.
@@ -492,8 +492,11 @@ Comparison functions are only available for `Bool` and `Natural` types.
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
 The only recursive type directly supported by Dhall is the built-in type `List`.
+The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them.
 
-User-defined recursive types and functions must be encoded in a non-recursive way. Later chapters in this book will show how to use the Church encoding for that purpose. In practice, this means the user is limited to finite data structures and fold-like functions on them.
+User-defined recursive types and functions must be encoded in a non-recursive way.
+Later chapters in this book will show how to use the Church encoding for that purpose.
+In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
 
 Dhall is a purely functional language with no side effects.
@@ -1019,7 +1022,7 @@ In an ordinary programming language, we would use loops to implement those opera
 But Dhall will only accept loops that are guaranteed in advance to terminate.
 So, we will need to know in advance how many iterations are needed for any given computation.
 
-### Using `Natural/fold`
+### Using `Natural/fold` to replace loops
 
 The function `Natural/fold` is a general facility for creating loops with a fixed number of iterations:
 
@@ -1095,9 +1098,9 @@ The function `unsafeDiv` works but produces wrong results when dividing by zero.
 For instance, `unsafeDiv 2 0` returns `2`.
 We would like to prevent using that function when the second argument is zero.
 
-The type system of Dhall provides a facility to ensure that we never divide by zero.
+To ensure that we never divide by zero, we may use a technique based on dependently-typed "evidence values".
 
-The first step is to define a dependent type that will be void (with no values) if a given natural number is zero, and unit otherwise:
+The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
 ```dhall
 let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
@@ -1107,14 +1110,17 @@ This `Nonzero` is a type function that returns one or another type given a `Natu
 For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
 
-We will use that function to implement safe division:
+We will use that function to implement safe division (`safeDiv`):
 
 ```dhall
 let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
 ```
 
-To use `safeDiv`, we need to specify a third argument of the unit type (denoted by `{}` in Dhall).
+The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
+
+When we use `safeDiv` for dividing by a nonzero value, we specify a third argument of type `{}`.
 That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
+So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
 If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values.
 Passing an argument of any other type will raise a type error.
@@ -1125,8 +1131,7 @@ safeDiv 4 2 {=}  -- Returns 2.
 safeDiv 4 0 {=}  -- Raises a type error. 
 ```
 
-The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
-Dependently-typed evidence values enforce value constraints at compile time.
+In this way, dependently-typed evidence values enforce value constraints at compile time.
 
 #### Better error messages for failed assertions
 
