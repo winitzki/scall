@@ -43,16 +43,16 @@ let unsafeDivMod
                 : Accum
                 = { div = 0, rem = x }
 
-            let invariant_is_div_times_y_plus_rem_equals_x = True
-
             let update
                 : Accum → Accum
                 = λ(acc : Accum) →
-                    if    Natural/lessThan acc.rem y
-                    then  acc
-                    else  { div = acc.div + 1
-                          , rem = Natural/subtract y acc.rem
-                          }
+                    let _ = "Loop invariant: x == div * y + rem"
+
+                    in  if    Natural/lessThan acc.rem y
+                        then  acc
+                        else  { div = acc.div + 1
+                              , rem = Natural/subtract y acc.rem
+                              }
 
             in  Natural/fold x Accum update init
 

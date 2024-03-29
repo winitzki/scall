@@ -1200,11 +1200,12 @@ The error message clearly describes the problem.
 
 The main limitation of this technique is that it can work only with literal values.
 
-For instance, `safeDiv x y` can divide only by a literal `Natural` values `y`.
-This is so because the check `y == 0` is done at type-checking time.
-So, we cannot use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`.
+For instance, `safeDiv x y {=}` can be type-checked only if `y` is a literal `Natural` values.
+This is so because the check `Natural/isZero y` is done at type-checking time.
+So, we cannot use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y {=}`.
 
 We also cannot test for `y == 0` at run time and then call `safeDiv` only when `y` is nonzero.
+Neither can we use the `Optional` type to create a value of type `Optional (Nonzero y)` that will be `None` when `y` equals zero.
 Dhall will not accept code like this:
 
 ```dhall
@@ -1212,8 +1213,9 @@ Dhall will not accept code like this:
 λ(x : Natural) → if Natural/isZero x then None (Nonzero x) else (Some {=} : Optional (Nonzero x))
 ```
 
-Dhall does not recognize that `Nonzero x` is the same as `{=}` within the `else` clause.
-The reason is that Dhall's typechecking is insufficiently powerful to handle the dependent types in full generality.
+Here, Dhall does not recognize that `Nonzero x` is the unit type (`{}`) within the `else` clause.
+To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
+But Dhall's typechecking is insufficiently powerful to handle dependent types in full generality.
 
 Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
 That value serves as a witness that the number `y` is not zero.
