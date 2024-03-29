@@ -382,7 +382,7 @@ For complicated type signatures, it helps to write type annotations because type
 
 ## Miscellaneous features
 
-- Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and type annotations may be omitted.
+Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and type annotations may be omitted.
 For example:
 
 ```dhall
