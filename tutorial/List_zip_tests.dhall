@@ -76,9 +76,13 @@ let Prelude1List/zip
         if    Natural/lessThan (List/length a xs) (List/length b ys)
         then  Prelude/List/zip a xs b (List/take (List/length a xs) b ys)
         else  Prelude/List/zip a (List/take (List/length b ys) a xs) b ys
+
 let small = env:small
 
 let large = env:large
+
+let _ =
+      "Example test command: time small=1000 large=5000 dhall < tutorial/List_zip_tests.dhall"
 
 let min = Natural/min small large
 
