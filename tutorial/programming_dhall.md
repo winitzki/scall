@@ -1200,29 +1200,35 @@ The error message clearly describes the problem.
 
 The main limitation of this technique is that it can work only with literal values.
 
-For instance, `safeDiv x y {=}` can be type-checked only if `y` is a literal `Natural` values.
+For instance, any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y` that is type-checked at compile time.
+That value serves as a witness that the number `y` is not zero.
+Values of type `Nonzero y` can be type-checked only if `y` is a literal `Natural` value.
 This is so because the check `Natural/isZero y` is done at type-checking time.
-So, we cannot use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y {=}`.
 
-We also cannot test for `y == 0` at run time and then call `safeDiv` only when `y` is nonzero.
+What if we need to use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`?
+That function cannot call `safeDiv x y {=}` because the witness value `{=}` needs to be type-checked at compile time.
+We also cannot test whether `y` is zero at run time and then call `safeDiv` only when `y` is nonzero.
+
+```dhall
+λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=}
+-- Type error: `{=}` is not of type `Nonzero y`
+```
+
 Neither can we use the `Optional` type to create a value of type `Optional (Nonzero y)` that will be `None` when `y` equals zero.
 Dhall will not accept code like this:
 
 ```dhall
 -- Type error:
-λ(x : Natural) → if Natural/isZero x then None (Nonzero x) else (Some {=} : Optional (Nonzero x))
+λ(y : Natural) → if Natural/isZero y then None (Nonzero y) else (Some {=} : Optional (Nonzero y))
 ```
 
-Here, Dhall does not recognize that `Nonzero x` is the unit type (`{}`) within the `else` clause.
+Here, Dhall does not recognize that `Nonzero y` is the unit type (`{}`) within the `else` clause.
 To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
 But Dhall's typechecking is insufficiently powerful to handle dependent types in full generality.
 
-Any usage of `safeDiv x y` will require us somehow to obtain a value of type `Nonzero y`.
-That value serves as a witness that the number `y` is not zero.
-Any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
+So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
 
 We also cannot divide by a number `y` imported from a different Dhall file, unless that file also exports a witness value of type `Nonzero y`.
-And witness values may be obtained only for literal `Natural` values `y`.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
