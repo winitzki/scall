@@ -13,6 +13,10 @@ let List/drop =
       https://prelude.dhall-lang.org/List/drop
         sha256:af983ba3ead494dd72beed05c0f3a17c36a4244adedf7ced502c6512196ed0cf
 
+let List/replicate =
+      https://prelude.dhall-lang.org/List/replicate
+        sha256:d4250b45278f2d692302489ac3e78280acb238d27541c837ce46911ff3baa347
+
 let Natural/lessThan =
       https://prelude.dhall-lang.org/Natural/lessThan
         sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
@@ -41,12 +45,12 @@ let Integer/abs =
       https://prelude.dhall-lang.org/Integer/abs
         sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
 
-let Float =
-      { mantissa : List Natural
-      , mantissaPositive : Bool
-      , exponent : Natural
-      , exponentPositive : Bool
-      }
+let FloatUnsignedNonzero =
+      { mantissa : List Natural, exponent : Natural, exponentPositive : Bool }
+
+let FloatSignedNonzero = FloatUnsignedNonzero ⩓ { mantissaPositive : Bool }
+
+let Float = < Zero | NZ : FloatSignedNonzero >
 
 let showSign = λ(x : Bool) → if x then "+" else "-"
 
@@ -95,11 +99,12 @@ let toDigits
                                 , remains = d.div
                                 }
 
-              let max_iterations_bogus_lambda =
-                    if Natural/isZero n then 1 else Digits + 2
+              let _ =
+                    "We introduce max_iterations as a function of n because if this expression is a compile-time constant then the normal form of toDigits is a few gigabytes in size"
 
-              in  ( Natural/fold max_iterations_bogus_lambda Accum update init
-                  ).digits
+              let max_iterations = if Natural/isZero n then 1 else Digits + 2
+
+              in  (Natural/fold max_iterations Accum update init).digits
 
 let _ = assert : toDigits 0 {=} ≡ [ 0 ]
 
@@ -113,6 +118,38 @@ let _ = assert : toDigits 12 {=} ≡ [ 1, 2 ]
 
 let _ = assert : toDigits 123 {=} ≡ [ 1, 2, 3 ]
 
+let Float/createNonzero
+    : ∀(mantissa : Integer) →
+      Integer →
+      AssertLessThan (Integer/abs mantissa) MaxNatural →
+        FloatSignedNonzero
+    = λ(mantissa : Integer) →
+      λ(exponent_orig : Integer) →
+      λ(ev : AssertLessThan (Integer/abs mantissa) MaxNatural) →
+        let absMantissa = Integer/abs mantissa
+
+        let digits = List/take Digits Natural (toDigits absMantissa ev)
+
+        let normalization = Natural/subtract 1 (List/length Natural digits)
+
+        let pad_digits =
+              List/replicate
+                (Natural/subtract (List/length Natural digits) Digits)
+                Natural
+                0
+
+        let exponent =
+              Integer/add exponent_orig (Natural/toInteger normalization)
+
+        let e = if Natural/isZero absMantissa then 0 else Integer/abs exponent
+
+        in  { mantissa = digits # pad_digits
+            , mantissaPositive =
+                Integer/positive mantissa || Natural/isZero absMantissa
+            , exponent = e
+            , exponentPositive = Integer/positive exponent || Natural/isZero e
+            }
+
 let Float/create
     : ∀(mantissa : Integer) →
       Integer →
@@ -121,25 +158,9 @@ let Float/create
     = λ(mantissa : Integer) →
       λ(exponent_orig : Integer) →
       λ(ev : AssertLessThan (Integer/abs mantissa) MaxNatural) →
-        let absMantissa = Integer/abs mantissa
-
-        in  let digits = List/take Digits Natural (toDigits absMantissa ev)
-
-            let normalization = Natural/subtract 1 (List/length Natural digits)
-
-            let exponent =
-                  Integer/add exponent_orig (Natural/toInteger normalization)
-
-            let e =
-                  if Natural/isZero absMantissa then 0 else Integer/abs exponent
-
-            in  { mantissa = digits
-                , mantissaPositive =
-                    Integer/positive mantissa || Natural/isZero absMantissa
-                , exponent = e
-                , exponentPositive =
-                    Integer/positive exponent || Natural/isZero e
-                }
+        if    Natural/isZero (Integer/abs mantissa)
+        then  Float.Zero
+        else  Float.NZ (Float/createNonzero mantissa exponent_orig ev)
 
 let printDigits
     : List Natural → Text
@@ -157,9 +178,9 @@ let _ = assert : printDigits [ 1 ] ≡ "1"
 
 let _ = assert : printDigits [ 1, 2, 3 ] ≡ "123"
 
-let Float/show
-    : Float → Text
-    = λ(x : Float) →
+let Float/showNonzero
+    : FloatSignedNonzero → Text
+    = λ(x : FloatSignedNonzero) →
         let extraZeros =
               Natural/subtract (List/length Natural x.mantissa) Digits
 
@@ -193,103 +214,140 @@ let Float/show
             ++  padding
             ++  showExp
 
-let example
-    : Float
-    = Float/create +1 +0 {=}
+let Float/show
+    : Float → Text
+    = λ(x : Float) →
+        merge
+          { Zero = "0.0", NZ = λ(f : FloatSignedNonzero) → Float/showNonzero f }
+          x
 
 let _ =
         assert
       :   Float/create +12 +0 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 1
-          , exponentPositive = True
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 1
+            , exponentPositive = True
+            }
 
 let _ =
         assert
       :   Float/create +12 +1 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 2
-          , exponentPositive = True
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 2
+            , exponentPositive = True
+            }
 
 let _ =
         assert
       :   Float/create +12 -0 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 1
-          , exponentPositive = True
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 1
+            , exponentPositive = True
+            }
 
 let _ =
         assert
       :   Float/create +12 -2 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 1
-          , exponentPositive = False
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 1
+            , exponentPositive = False
+            }
 
 let _ =
         assert
       :   Float/create +12 -3 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 2
-          , exponentPositive = False
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 2
+            , exponentPositive = False
+            }
+
+let _ =
+        assert
+      :   Float/create +1 +2 {=}
+        ≡ Float.NZ
+            { mantissa = [ 1, 0, 0 ]
+            , mantissaPositive = True
+            , exponent = 2
+            , exponentPositive = True
+            }
 
 let _ =
         assert
       :   Float/create +12 -1 {=}
-        ≡ { mantissa = [ 1, 2 ]
-          , mantissaPositive = True
-          , exponent = 0
-          , exponentPositive = True
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 0 ]
+            , mantissaPositive = True
+            , exponent = 0
+            , exponentPositive = True
+            }
 
 let _ =
         assert
       :   Float/create +123 -3 {=}
-        ≡ { mantissa = [ 1, 2, 3 ]
-          , mantissaPositive = True
-          , exponent = 1
-          , exponentPositive = False
-          }
+        ≡ Float.NZ
+            { mantissa = [ 1, 2, 3 ]
+            , mantissaPositive = True
+            , exponent = 1
+            , exponentPositive = False
+            }
 
-let _ = assert : Float/show example ≡ "+1.00"
+let example = Float/createNonzero +1 +0 {=}
 
-let _ = assert : Float/show (example ⫽ { mantissaPositive = False }) ≡ "-1.00"
+let _ = assert : Float/showNonzero example ≡ "+1.00"
 
-let _ = assert : Float/show (example ⫽ { exponentPositive = False }) ≡ "+1.00"
+let _ =
+        assert
+      : Float/showNonzero (example ⫽ { mantissaPositive = False }) ≡ "-1.00"
 
-let _ = assert : Float/show (Float/create +0 +10 {=}) ≡ "+0.00"
+let _ =
+        assert
+      : Float/showNonzero (example ⫽ { exponentPositive = False }) ≡ "+1.00"
 
-let _ = assert : Float/show (Float/create +0 -10 {=}) ≡ "+0.00"
+let _ = assert : Float/showNonzero (Float/createNonzero +0 +10 {=}) ≡ "+0.00"
 
-let _ = assert : Float/show (Float/create +2 +0 {=}) ≡ "+2.00"
+let _ = assert : Float/showNonzero (Float/createNonzero +0 -10 {=}) ≡ "+0.00"
 
-let _ = assert : Float/show (Float/create +2 -0 {=}) ≡ "+2.00"
+let _ = assert : Float/showNonzero (Float/createNonzero +2 +0 {=}) ≡ "+2.00"
 
-let _ = assert : Float/show (Float/create -2 -0 {=}) ≡ "-2.00"
+let _ = assert : Float/showNonzero (Float/createNonzero +2 -0 {=}) ≡ "+2.00"
 
-let _ = assert : Float/show (Float/create +12 +0 {=}) ≡ "+1.20e+1"
+let _ = assert : Float/showNonzero (Float/createNonzero -2 -0 {=}) ≡ "-2.00"
 
-let _ = assert : Float/show (Float/create +123 +0 {=}) ≡ "+1.23e+2"
+let _ = assert : Float/showNonzero (Float/createNonzero +12 +0 {=}) ≡ "+1.20e+1"
 
-let _ = assert : Float/show (Float/create +1234 +0 {=}) ≡ "+1.23e+2"
+let _ =
+      assert : Float/showNonzero (Float/createNonzero +123 +0 {=}) ≡ "+1.23e+2"
 
-let _ = assert : Float/show (Float/create +2 +1 {=}) ≡ "+2.00e+1"
+let _ =
+      assert : Float/showNonzero (Float/createNonzero +1234 +0 {=}) ≡ "+1.23e+2"
 
-let _ = assert : Float/show (Float/create -123 -0 {=}) ≡ "-1.23e+2"
+let _ = assert : Float/showNonzero (Float/createNonzero +2 +1 {=}) ≡ "+2.00e+1"
 
-let _ = assert : Float/show (Float/create +123 -1 {=}) ≡ "+1.23e+1"
+let _ =
+      assert : Float/showNonzero (Float/createNonzero -123 -0 {=}) ≡ "-1.23e+2"
+
+let _ =
+      assert : Float/showNonzero (Float/createNonzero +123 -1 {=}) ≡ "+1.23e+1"
+
+let _ = assert : Float/showNonzero (Float/createNonzero -123 -2 {=}) ≡ "-1.23"
+
+let _ =
+      assert : Float/showNonzero (Float/createNonzero +123 -3 {=}) ≡ "+1.23e-1"
 
 let _ = assert : Float/show (Float/create -123 -2 {=}) ≡ "-1.23"
 
 let _ = assert : Float/show (Float/create +123 -3 {=}) ≡ "+1.23e-1"
+
+let _ = assert : Float/show (Float/create +0 -10 {=}) ≡ "0.0"
 
 in  { T = Float, show = Float/show, create = Float/create, AssertLessThan }
