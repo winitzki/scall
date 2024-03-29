@@ -67,6 +67,15 @@ let List/zip
         then  zipEqualLength a xs b (List/take (List/length a xs) b ys)
         else  zipEqualLength a (List/take (List/length b ys) a xs) b ys
 
+let Prelude1List/zip
+    : ∀(a : Type) → List a → ∀(b : Type) → List b → List { _1 : a, _2 : b }
+    = λ(a : Type) →
+      λ(xs : List a) →
+      λ(b : Type) →
+      λ(ys : List b) →
+        if    Natural/lessThan (List/length a xs) (List/length b ys)
+        then  Prelude/List/zip a xs b (List/take (List/length a xs) b ys)
+        else  Prelude/List/zip a (List/take (List/length b ys) a xs) b ys
 let small = env:small
 
 let large = env:large
@@ -91,7 +100,7 @@ let _ =
         assert
       :   List/length
             { _1 : Natural, _2 : Natural }
-            (Prelude/List/zip Natural smallList Natural largeList)
+            (Prelude1List/zip Natural smallList Natural largeList)
         ≡ min
 
 in  min
