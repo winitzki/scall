@@ -114,6 +114,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
    higher-kinded types, and other Scala features as much as possible.
 3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a
    transparent replacement of the standard Dhall imports, as far as Scala is concerned.
+4. Optimize Dhall execution further. At the moment, all results of typechecking and beta-normalization are cached. For more optimization, perhaps rewrite the interpreter use HOAS, PHOAS, Normalization-By-Evaluation. Compute different parts of a record in parallel. Perform typechecking and beta normalization of different subexpressions in parallel. Make sure caching is thread-safe.
 
 ## Current status
 
