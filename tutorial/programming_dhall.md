@@ -229,7 +229,7 @@ Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametri
 So, the type expression `∀(A : Type) → A` is equivalent to `< >` and can be used equally well to denote the void type.
 
 Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
-See the Appendix "Parametricity and Naturality" for more details.
+See the Appendix "Naturality and parametricity" for more details.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -1735,7 +1735,7 @@ let TreeText = ∀(r : Type) → (F r → r) → r
 
 ### Church encoding of non-recursive types
 
-If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the recursion scheme unchanged.
+If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the type unchanged.
 
 For example, consider this recursion scheme:
 
@@ -1784,7 +1784,7 @@ Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint o
 This identity is mentioned in the proceedings https://hal.science/hal-00512377/document on page 78 as "proposition 1" in the paper by T. Uustalu.
 
 The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
-See the Appendix "Parametricity and Naturality" for more details.
+See the Appendix "Naturality and parametricity" for more details.
 
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
 In this book, we will use that identity to prove the Church encoding formula for mutually recursive types.
@@ -2786,9 +2786,11 @@ We begin with this type expression:
 ∀(r : Type) → (F a → r) → r
 ```
 
-This type is equivalent to `F a` by the covariant Yoneda identity.
+As `F a` does not depend on `r`, this Church encoding is simply equivalent to `F a` by the covariant Yoneda identity. (We discussed that above in the section "Church encoding of non-recursive types".)
 
+This is just the first step towards a useful encoding.
 Now we look at the function type `F a → r` more closely.
+
 A value `x : F a` must be created as a pair of type `{ _1 : t → Bool, _2 : t → a }` with a chosen type `t`.
 A function `f : F a → r` must produce a result value of type `r` from any value `x`, for any type `t`.
 
@@ -2805,7 +2807,7 @@ let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool,
 ```
 
 It is important that the universal quantifier `∀(t : Type)` is _inside_ the type of an argument of `F`.
-Otherwise, the encoding will not work.
+Otherwise, the encoding would not work.
 
 To see an example of how to construct a value of type `F a`, let us set `a = Natural`.
 The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r`.
@@ -2878,9 +2880,10 @@ We notice that `unpack` does nothing more than rearrange the curried arguments a
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
 
-#### Functions from existential types
+#### Functions of existential types
 
 The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
+
 To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by swapping some curried arguments.
 We will denote the resulting function by `inE`:
 
@@ -2891,8 +2894,8 @@ inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 ```
 
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
-Let us demonstrate this type equivalence more rigorously.
 
+Indeed, this type equivalence (an isomorphism) can be proved rigorously.
 The function `inE` shown above is one side of the isomorphism.
 The other is the function `outE`:
 
@@ -2903,77 +2906,22 @@ outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
       in consume ep
 ```
 
-To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
-The first direction is when we apply `inE` and then `outE`.
-Take an arbitrary `k : ∀(t : Type) → P t → r` and first apply `inE` to it, then `outE`:
+We will prove below that the functions `inE` and `outE` are inverses of each other (see the section "Naturality and parametricity").
 
-```dhall
-outE r (inE r k)
-  -- Use the definition of `inE`.
-  === outE r (λ(ep : Exists P) → ep r k)
-  -- Use the definition of `outE`.
-  === λ(t : Type) → λ(pt : P t) → (λ(ep : Exists P) → ep r k) (pack P t pt)
-```
-
-The result is a function of type `λ(t : Type) → λ(pt : P t) → r`.
-We need to show that this function is equal to `k`.
-To do that, apply that function to arbitrary values `t : Type` and `pt : P t`.
-The result should be equal to `k t pt`:
-
-```dhall
-outE r (inE r k) t pt
-  === (λ(ep : Exists P) → ep r k) (pack P t pt)
-  === (pack P t pt) r k
-  -- Use the definition of `pack`.
-  === (λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt) r k
-  === k t pt
-```
-
-This proves the first direction of the isomorphism.
-
-The other direction is when we apply `outE` and then `inE`.
-Take an arbitrary value `consume : Exists P → r` and first apply `outE` to it, then `inE`:
-
-```dhall
-inE r (outE r consume)
-  === inE r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
-  === λ(ep : Exists P) → ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
-```
-
-The result is a function of type `Exists P → r`.
-We need to show that this function is equal to `consume`.
-
-Apply that function to an arbitrary value `ep : Exists p`:
-
-```dhall
-inE r (outE r consume) ep
-  === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
-```
-
-We  need to show that the last result is equal to `consume ep`.
-For that, we will use the parametricity properties of `ep`.
-
-The fully annotated type signature of `ep` is:
-
-```dhall
-ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
-```
-
-
-*** 
-
-***
+Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
+Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
 
 #### Differences between existential and universal quantifiers
 
 The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
-The type `t` is somehow set within the value `ep` and may be different for different such values.
-This is because the only way to construct a value `ep` is to call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
+
+To create a value `ep`, we call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
+The type `t` is set when we create the value `ep` and may be different for different such values.
 
 But the specific type `t` used while constructing `ep` will no longer be exposed to the code outside of `ep`.
 One could say that the type `t` "exists only inside" the scope of `ep` and is hidden (or encapsulated) within that scope.
 
-This behavior is quite different from that of values of a universally quantified type.
+This behavior is quite different from that of values of universally quantified types.
 For example, the polymorphic `identity` function has type `identity : ∀(t : Type) → t → t`.
 When we apply `identity` to a specific type, we get a value such as:
 
@@ -2981,7 +2929,7 @@ When we apply `identity` to a specific type, we get a value such as:
 let idText : Text → Text = identity Text
 ```
 
-When constructing `idText`, we used the type `Text` as the type parameter.
+When constructing `idText`, we use the type `Text` as the type parameter.
 After that, the type `Text` is exposed to the outside code because it is part of the type of `idText`.
 
 When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or other type).
@@ -2998,7 +2946,7 @@ Because the code of `unpack_` receives `t` and `P t` as arguments, we will be ab
 For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
-In this sense, type quantifiers provide the encapsulation of the type `t` inside `ep`.
+In this sense, type quantifiers ensure encapsulation of the type `t` inside `ep`.
 
 ## Co-inductive ("infinite") types
 
@@ -3513,8 +3461,15 @@ If `P` is the greatest fixpoint (`GFix F`), the analogous signature of `P`'s `fo
 fold_GFix : GFix F → ∀(r : Type) → (F r → r) → r
 ```
 
-Expanding the existential type in `GFix F`, we find ***
-So, we obtain an equivalent type signature like this:
+Note that this type is a function from an existential type in `GFix F`.
+Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
+
+```dhall
+GFix F → Q  =  Exists (GF_T F) → Q
+  =  ∀(t : Type) → GF_T F → Q
+```
+
+We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and obtain this type signature:
 
 ```dhall
 fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
@@ -3754,7 +3709,7 @@ We can define a typeclass `Functor` that carries the required `fmap` method:
 let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
 ```
 
-The complementary kind of type constructors are contravariant: they cannot have a lawful `fmap` method.
+The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
 Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
 
 ```dhall
@@ -3833,12 +3788,72 @@ let Profunctor : (Type → Type) → Type
 
 # Appendixes
 
-## Parametricity and naturality
+## Naturality and parametricity
 
 It is not possible in Dhall to compare types.
 So, a Dhall function cannot take a parameter `λ(t : Type)` and then check whether `t` is equal to `Natural`, say.
 Any Dhall function of the form `λ(t : Type) → ...` must work in the same way for all types `t`.
 This ensures full polymorphic parametricity of all Dhall functions.
 Then the parametricity theorem applies to all Dhall values.
+
+### Equivalence of types for functions of existential type
+
+***
+
+To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
+The first direction is when we apply `inE` and then `outE`.
+Take an arbitrary `k : ∀(t : Type) → P t → r` and first apply `inE` to it, then `outE`:
+
+```dhall
+outE r (inE r k)
+  -- Use the definition of `inE`.
+  === outE r (λ(ep : Exists P) → ep r k)
+  -- Use the definition of `outE`.
+  === λ(t : Type) → λ(pt : P t) → (λ(ep : Exists P) → ep r k) (pack P t pt)
+```
+
+The result is a function of type `λ(t : Type) → λ(pt : P t) → r`.
+We need to show that this function is equal to `k`.
+To do that, apply that function to arbitrary values `t : Type` and `pt : P t`.
+The result should be equal to `k t pt`:
+
+```dhall
+outE r (inE r k) t pt
+  === (λ(ep : Exists P) → ep r k) (pack P t pt)
+  === (pack P t pt) r k
+  -- Use the definition of `pack`.
+  === (λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt) r k
+  === k t pt
+```
+
+This proves the first direction of the isomorphism.
+
+The other direction is when we apply `outE` and then `inE`.
+Take an arbitrary value `consume : Exists P → r` and first apply `outE` to it, then `inE`:
+
+```dhall
+inE r (outE r consume)
+  === inE r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+  === λ(ep : Exists P) → ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+```
+
+The result is a function of type `Exists P → r`.
+We need to show that this function is equal to `consume`.
+
+Apply that function to an arbitrary value `ep : Exists p`:
+
+```dhall
+inE r (outE r consume) ep
+  === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+```
+
+We  need to show that the last result is equal to `consume ep`.
+For that, we will use the parametricity properties of `ep`.
+
+The fully annotated type signature of `ep` is:
+
+```dhall
+ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
+```
 
 ***
