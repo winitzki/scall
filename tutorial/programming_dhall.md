@@ -1796,7 +1796,7 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 
 Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
 
-This identity is mentioned in the proceedings of the conference [Fixed Points in Computer Science 2010](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
 
 The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
 See the Appendix "Naturality and parametricity" for more details.
