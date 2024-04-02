@@ -1672,7 +1672,7 @@ let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
 
-### `Applicative`
+### `Applicative` functors and contrafunctors
 
 TODO use pointed
 
@@ -2991,7 +2991,9 @@ outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
       in consume ep
 ```
 
-We will prove below that the functions `inE` and `outE` are inverses of each other (see the section "Naturality and parametricity").
+We will prove below that the functions `inE` and `outE` are inverses of each other.
+We will also prove that `pack` and `unpack` are inverses in a certain sense.
+(See the section "Naturality and parametricity").
 
 Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
 Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
@@ -3883,9 +3885,40 @@ Any Dhall function of the form `λ(t : Type) → ...` must work in the same way 
 This ensures full polymorphic parametricity of all Dhall functions.
 Then the parametricity theorem applies to all Dhall values.
 
-### Equivalence of types for functions of existential type
+
+### Existential types: unpack and then pack is identity
+
+In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `Exists P`.
+
+Let us simplify the definitions of `pack` and `unpack` by assuming that `P` is always fixed:
+
+```dhall
+let ExistsP = ∀(r : Type) → (∀(t : Type) → P t → r) → r
+
+let unpackP : Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r 
+  = λ(ep : Exists P) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) →
+      ep r unpack_
+
+let packP : ∀(t : Type) → P t → Exists P
+  = λ(t : Type) → λ(pt : P t) →
+      λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt
+```
+
+Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
+
+In a certain sense, `packP` and `unpackP` are (one-sided) inverse functions:
+"Unpacking" a value `ep : Exists P` and then "packing" it back will recover the original value `ep`.
+
+```dhall
+let ep : ExistsP = ...  -- Create any value of type ExistsP. Then:
+
+unpackP ep packP === ep
+```
+
 
 TODO
+
+### Equivalence of types for functions of existential type
 
 To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
 The first direction is when we apply `inE` and then `outE`.
