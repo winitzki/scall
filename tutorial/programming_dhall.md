@@ -1369,7 +1369,7 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
     in result.x
 ```
 
-## Functors and bifunctors
+## Functors of various kinds
 
 ### Functors and `fmap`
 
@@ -1435,6 +1435,20 @@ In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let t
 But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
 
 In the code shown above, we were able to shorten those constructors to `(G b).Left` and `(G b).Right`.
+
+### Contravariant functors ("contrafunctors")
+
+
+The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
+Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
+
+```dhall
+cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
+```
+
+We will call contravariant type constructors **contrafunctors** for short.
+
+TODO examples
 
 ### Bifunctors and `bimap`
 
@@ -1587,6 +1601,16 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
   }
 ```
 
+### `Contrafunctor`
+
+The typeclass for contrafunctors is defined by:
+
+```dhall
+let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+```
+
+TODO examples
+
 ### `Monad`
 
 The `Monad` typeclass may be defined via the methods `pure` and `bind`.
@@ -1634,10 +1658,13 @@ let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) 
 We can use this function to obtain a `join` method for `List` like this:
 
 ```dhall
-let List/join
-  : ∀(a : Type) → List (List a) → List a
+let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
+
+### `Applicative`
+
+TODO example and traverse function
 
 ### Inheritance of typeclasses
 
