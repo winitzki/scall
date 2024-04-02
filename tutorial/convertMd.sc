@@ -154,7 +154,7 @@ def fencedCodeBlock[$: P]: P[CodeBlock] =
 def blankLine[$: P] = P((space.? ~ end_of_line).rep(1))
 
 def hyperlink[$: P]: P[Hyperlink] =
-  P("[" ~ space.? ~ (!"]" ~ not_end_of_line).rep.! ~ space.? ~ "]" ~ space.? ~ "(" ~ (!")" ~ not_end_of_line).rep.! ~ ")")
+  P("[" ~ space.? ~ (!"]" ~ not_end_of_line).rep.! ~ space.? ~ "]" ~ "(" ~ (!")" ~ not_end_of_line).rep.! ~ ")")
     .map { case (text, target) => Hyperlink(text, target) }
 
 def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
@@ -176,8 +176,12 @@ def textualToLatex: Textual => String = {
     case SpanKind.StrongEmphasis => s"\\textbf{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
-  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{$text}{$target}}"
+  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{${text.replaceAll("#", "\\#")}}{${target.replaceAll("#", "\\#")}}}"
 }
+
+def languageFix(str: String) =
+  val replaced = if str equalsIgnoreCase "dhall" then "haskell" else str
+  replaced.capitalize
 
 def toLatex: Markdown => String = {
   case Markdown.Heading(level, text) =>
@@ -193,7 +197,7 @@ def toLatex: Markdown => String = {
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
-  case Markdown.CodeBlock(language, content) => s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${language.capitalize}]" else ""}\n$content\\end{lstlisting}"
+  case Markdown.CodeBlock(language, content) => s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${languageFix(language)}]" else ""}\n$content\\end{lstlisting}"
   case Markdown.BlankLine => "\n"
 }
 
