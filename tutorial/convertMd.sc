@@ -162,8 +162,36 @@ def block[$: P]: P[Markdown] =
 
 def markdown[$: P]: P[Seq[Markdown]] = P(block.rep(1))
 
+def textualToLatex : Textual => String = {
+  case Textual.Span(kind, text) => kind match
+    case SpanKind.Emphasis =>  s"\\emph{$text}"
+    case SpanKind.StrongEmphasis => s"\\textbf{$text}"
+    case SpanKind.CodeSpan => s"\\lstinline!$text!"
+    case SpanKind.Regular => text
+  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{$text}{$target}}"
+}
+
+def toLatex: Markdown => String = {
+  case Markdown.Heading(level, text) =>
+    val heading = level match {
+      case 1 => "chapter"
+      case 2 => "section"
+      case 3 => "subsection"
+      case 4 => "subsubsection"
+      case 5 => "paragraph"
+      case _ => "relax"
+    }
+    s"\\$heading{${toLatex(text)}}"
+
+  case Markdown.Paragraph(contents) =>  contents.map(textualToLatex).mkString("")
+  case Markdown.BulletList(content) => content.mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
+  case Markdown.CodeBlock(language, content) =>  s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${language.capitalize}]" else ""}\n$content\\end{lstlisting}"
+  case Markdown.BlankLine => "\n"
+}
+
 def main(): Unit =
   val result = parse(System.in, markdown(_)).get.value
-  println(result)
+  println(result.map(toLatex).mkString("\n"))
+
 
 main()
