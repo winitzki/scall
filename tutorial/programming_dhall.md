@@ -1611,6 +1611,16 @@ let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b :
 
 TODO examples
 
+### `Pointed` functors and contrafunctors
+
+TODO
+
+examples:
+
+Pointed instances for Optional, for Pair (a, a), and for List
+
+Examples: pointed functor or pointed contrafunctor
+
 ### `Monad`
 
 The `Monad` typeclass may be defined via the methods `pure` and `bind`.
@@ -1664,15 +1674,20 @@ let List/join : ∀(a : Type) → List (List a) → List a
 
 ### `Applicative`
 
+TODO use pointed
+
 TODO example and traverse function
+
+TODO examples of contravariant or cross-variant applicatives
 
 ### Inheritance of typeclasses
 
 Sometimes one typeclass includes methods from another.
 For example, `Semigroup` is similar to `Monoid`: it has the `append` method but no `empty` method.
 We could say that the `Monoid` typeclass inherits `append` from `Semigroup` and adds the `empty` method.
+The `Monad` typeclass could inherit `fmap` from the `Functor` typeclass and `pure` from the `Pointed` typeclass.
 
-To express this kind of inheritance in Dhall, we can use Dhall's record-updating features.
+To express this kind of inheritance in Dhall, we can use Dhall's record-typing features.
 Dhall has the operator `//\\` that combines all fields from two record types into one larger record type.
 The corresponding operator `/\` combines fields from two record values.
 For example:
@@ -1698,25 +1713,25 @@ let Semigroup = λ(m : Type) → { append : m → m → m }
 let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ y }
 ```
 
-We can use this definition to rewrite the `Monoid` typeclass via "record-based inheritance".
-Then the `Semigroup` evidence value for the type `Text` is written as:
+We can use this definition to rewrite the `Monoid` typeclass using the record type from the `Semigroup` typeclass.
+Then the `Monoid` evidence value for the type `Text` is written as:
 
 ```dhall
 let Monoid = λ(m : Type) → Semigroup m //\\ { empty : m }
 let monoidText : Monoid Text = semigroupText /\ { empty = "" } 
 ```
 
-Similarly, we may rewrite the `Monad` typeclass to make it more clear that any monad is also a (covariant) functor:
+Similarly, we may rewrite the `Monad` typeclass to make it more clear that any monad is also a covariant and pointed functor:
 
 ```dhall
 let Monad = λ(F : Type → Type) →
-  Functor F //\\
-      { pure : ∀(a : Type) → a → F a
-      , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
-      }
+  Functor F //\\ Pointed F //\\
+      { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
 ```
 
 As an example, let us define a `Monad` evidence value for `List`:
+
+TODO make pointed instance for List
 
 ```dhall
 let monadList : Monad List =
