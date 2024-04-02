@@ -1755,21 +1755,21 @@ If a recursion scheme does not actually depend on its type parameter, the Church
 For example, consider this recursion scheme:
 
 ```dhall
-let F = λ(t : Type) → { x : Text, y : Boolean }
+let F = λ(t : Type) → { x : Text, y : Bool }
 ```
 
-Then the type `F t` does not actually depend on `t`.
+Here the type `F t` does not actually depend on `t`.
 
 The corresponding Church encoding gives the type:
 
 ```dhall
-let C = ∀(r : Type) → ({ x : Text, y : Boolean } → r) → r
+let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 ```
 
 The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = F C`.
 This remains true even when `F` does not depend on its type parameter.
-So, now we have `F C = { x : Text, y : Boolean }` independently of `C`.
-The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Boolean }`.
+So, now we have `F C = { x : Text, y : Bool }` independently of `C`.
+The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
@@ -1782,7 +1782,6 @@ The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
-
 Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
@@ -1793,7 +1792,6 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 ```dhall
 ∀(r : Type) → (F r → r) → G r  ≅  G C
 ```
-
 Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
 
 This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
@@ -1814,8 +1812,7 @@ So, the type `F r → r`, written in full as:
 ```dhall
 < Nil | Cons : { head : Integer, tail : r } > → r
 ```
-
-is equivalent to a pair of functions of types `< Nil > → r` and `{ head : Integer, tail : r } → r`.
+is equivalent to a pair of functions of types `{ head : Integer, tail : r } → r` and  `< Nil > → r`.
 
 The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
 
@@ -1825,7 +1822,6 @@ For instance, the type:
 ```dhall
 { head : Integer, tail : r } → r
 ```
-
 is equivalent to `Integer → r → r`.
 
 Using these type equivalences, we may rewrite the type `ListInt` in the **curried form** as:
