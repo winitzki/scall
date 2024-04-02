@@ -1722,10 +1722,14 @@ The type `C` is not a type constructor; it is a type of a function with a type p
 When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
 
 The Church encoding construction works in the same way for any recursion scheme `F`.
-Given a recursion scheme `F`, one defines a non-recursive type `C = ∀(r : Type) → (F r → r) → r`.
+Given a recursion scheme `F`, one defines a non-recursive type `C`:
+
+```dhall
+let C = ∀(r : Type) → (F r → r) → r
+```
 Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
-It is not obvious why a type of the form `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+It is not obvious why the type `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `∀(r : Type) → (F r → r) → r` is the "least fixpoint" of the type equation `T = F T`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
@@ -3503,7 +3507,7 @@ Let us examine that problem is more detail.
 For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
 This is possible if we use explicit recursion (which Dhall does not support).
-Here is Haskell code adapted from [Bartosz Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
+Here is Haskell code adapted from [B. Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
 hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
