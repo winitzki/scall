@@ -665,14 +665,17 @@ let _ = assert : x === "123"
 The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
 
 In other words, the Dhall expression `a === b` is a special sort of type.
-That type has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
+(The Unicode symbol `≡` may be used instead of `===`.)
+
+The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
 For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
 (We will never be able to create any values of those types.) 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is not void.
+If `a` and `b` evaluate to the same normal form, the type `a === b` is considered to be non-void.
 That is, there exists a value of the type `a === b`.
+
 If we want to write that value explicitly, we need to use the `assert` keyword with the following syntax: `assert : a === b`.
-This expression evaluates to a value of type `a === b` if the two sides are equal after reducing them to their normal forms.
+This expression is valid only if the two sides are equal after reducing them to their normal forms.
 If the two sides are not equal, this expression _fails to type-check_, meaning that the entire program will fail to compile.
 
 When an `assert` value is valid, we can assign that value to a variable:
@@ -681,7 +684,11 @@ When an `assert` value is valid, we can assign that value to a variable:
 let test1 = assert : 1 + 2 === 0 + 3
 ```
 
-In this example, the two sides of an `assert` are equal after reducing them to normal forms, so the type `1 === 1` is not void and has a value assigned to `test1`.
+In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after reducing them to normal forms.
+The resulting type `3 === 3` is non-void and has a value assigned to `test1`.
+
+It is not actually possible to print the value of type `3 === 3` or to examine it in any other way.
+We just know that that value exists (because the `assert` expression was accepted by Dhall).
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
