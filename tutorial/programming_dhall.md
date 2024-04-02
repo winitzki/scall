@@ -1249,15 +1249,15 @@ The advantage of using this technique is that we will guarantee, at typechecking
 
 ### Integer square root
 
-The "integer-valued square root" of a natural number `n` is the largest natural number `r` such that `r * r <= n`. 
+The integer-valued square root of a natural number `n` is the largest natural number `r` such that `r * r <= n`. 
 
-A simple algorithm for determining `r` is to subtract `1` from `n` repeatedly, until the result `r` satisfies `r * r <= n`.
+A simple algorithm for determining `r` is to start from `1` and increment repeatedly, until the result `r` satisfies `r * r > n`.
 
 As before, Dhall requires is to specify an upper bound on the number of iterations up front.
 Let us specify `n` as the upper bound.
 
-We will begin with `n` and iterate applying a function `stepDown`.
-That function will increment its argument `r` by `1` while the condition `r * r <= n` is satisfied. 
+We will begin with `n` and iterate applying a function `stepUp`.
+That function will increment its argument `r` by `1` while checking the condition `r * r <= n`. 
 
 The code is:
 
@@ -1272,7 +1272,7 @@ let sqrt = λ(n: Natural) →
 
 There are faster algorithms of computing the square root, but those algorithms require division.
 Our implementation of division already requires a slow iteration.
-So, we will not pursue further optimizations.
+So, we will not attempt to optimize the performance of this code.
 
 ### Integer logarithm
 
@@ -1300,7 +1300,8 @@ let bitWidth : Natural → Natural = λ(n : Natural) →
 ```
 
 The function `bitWidth` may be generalized to compute integer-valued logarithms with a natural base.
-We note that if we subtract `1` from the result of `bitWidth` we will obtain the integer part of the base-2 logarithm.
+We note that if we subtract `1` from the result of `bitWidth` then we will obtain the integer part of the base-2 logarithm.
+So, we replace the base 2 in `bitWidth` by an arbitrary base and obtain this code:
 
 ```dhall
 let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natural) →
@@ -1313,6 +1314,9 @@ let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natura
      else acc 
   let result : Accum = Natural/fold n Accum update init
     in Natural/subtract 1 result.log
+
+in 
+  assert : log 10 100 ≡ 2
 ```
 
 ### Greatest common divisor (`gcd`)
@@ -1761,7 +1765,6 @@ For example, consider this recursion scheme:
 ```dhall
 let F = λ(t : Type) → { x : Text, y : Bool }
 ```
-
 Here the type `F t` does not actually depend on `t`.
 
 The corresponding Church encoding gives the type:
@@ -1837,7 +1840,8 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 It is now less clear that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
 However, working with curried functions often needs shorter code than working with union types and record types.
 
-The type `TreeText` (a binary tree with string-valued leaves) is defined in Dhall by:
+As an example, let us rewrite the type `TreeText` defined above in a curried form.
+Begin with the definition already shown:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
