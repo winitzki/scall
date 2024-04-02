@@ -139,8 +139,8 @@ def strongEmphasis[$: P] = P("**" ~ textualContent.! ~ "**").map(Span(StrongEmph
 def line[$: P] = P(not_end_of_line.rep.! ~ end_of_line)
 
 def fencedCodeBlock[$: P]: P[CodeBlock] =
-  P("```" ~ CharIn("[a-z0-9]").rep.! ~ end_of_line ~ line.rep.! ~ "```" ~ end_of_line)
-    .map { case (language, content) => CodeBlock(language, content) }
+  P("```" ~ CharIn("a-z0-9").rep.! ~ end_of_line ~ line.rep ~ "```" ~ end_of_line)
+    .map { case (language, content) => CodeBlock(language, content.mkString("\n")) }
 
 def blankLine[$: P] = P((space.? ~ end_of_line).rep(1))
 
@@ -157,7 +157,7 @@ def paragraph[$: P]: P[Paragraph] =
     .map(Paragraph.apply)
 
 def block[$: P]: P[Markdown] =
-  P(anyHeading | fencedCodeBlock | bulletList | (paragraph ~ end_of_line) | blankLine.map(_ => BlankLine))
+  P(blankLine.map(_ => BlankLine) | anyHeading | fencedCodeBlock | bulletList | (paragraph ~ end_of_line))
 
 def markdown[$: P]: P[Seq[Markdown]] = P(block.rep(1))
 
