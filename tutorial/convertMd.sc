@@ -182,9 +182,10 @@ def textualToLatex: Textual => String = {
     s"$cleanedText\\footnote{\\texttt{\\url{$cleanedTarget}}}" // \\texttt{\\href{${text.replaceAll("#", "\\\\#")}}{${}}}"
 }
 
-def languageFix(str: String) =
+def languageOption(str: String): String =
   val replaced = if str equalsIgnoreCase "dhall" then "haskell" else str
-  replaced.capitalize
+  val capitalized = (if replaced equalsIgnoreCase "haskell" then "" else replaced).capitalize
+  if capitalized.isEmpty then "" else s"[language=$capitalized]"
 
 def toLatex: Markdown => String = {
   case Markdown.Heading(level, text) =>
@@ -201,7 +202,8 @@ def toLatex: Markdown => String = {
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
-  case Markdown.CodeBlock(language, content) => s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${languageFix(language)}]" else ""}\n$content\\end{lstlisting}"
+  case Markdown.CodeBlock(language, content) =>
+    s"\\begin{lstlisting}${languageOption(language)}\n$content\\end{lstlisting}"
   case Markdown.BlankLine => "\n"
 }
 

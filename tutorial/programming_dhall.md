@@ -599,7 +599,6 @@ This Dhall program:
 ```dhall
 https://test.dhall-lang.org/random-string as Text
 ```
-
 will return a different result each time it is evaluated.
 
 ```bash
@@ -623,13 +622,11 @@ For example, one of the standard tests for Dhall includes the following file cal
 -- simple.dhall
 3
 ```
-
 That file may be imported via the following frozen import:
 
 ```dhall
 ./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
 ```
-
 This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
 If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
 
@@ -685,8 +682,9 @@ let _ = assert : print (x + 1) === print y    -- OK
 ```
 
 In the last line, the `assert` expression was used to compare two partially evaluated functions, `print (x + 1)` and `print y`.
-The assertion is valid because the normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) → prefix ++ "2"`.
+The normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) → prefix ++ "2"`.
 The normal form of `print y` is the same Dhall expression.
+So, the assertion is valid.
 
 Because `assert` expressions are checked at compile time, they cannot be used for implementing a _function_ comparing, say, two arbitrary `Text` values given as arguments.
 Try writing this code:
