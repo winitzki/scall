@@ -639,9 +639,13 @@ The hash value will remain the same as long as the final evaluated expression in
 
 ### Working with records polymorphically
 
-"Polymorphic records" is a feature of some programming languages where, say, a record of type {
+"Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
+A function that requires its argument to have type `{ y : Bool }` will then accept an argument of type `{ x : Natural, y : Bool }`.
+(The value `x` will be simply ignored.)
 
-Dhall includes some limited forms of record polymorphism.
+In those languages, the record type `{ y : Bool }` is actually treated as the type of "any record having a Boolean field `y` and possibly other unknown fields that we will ignore".
+
+Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
 
 TODO
 
