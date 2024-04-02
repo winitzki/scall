@@ -1229,7 +1229,7 @@ Dhall will not accept code like this:
 
 Here, Dhall does not recognize that `Nonzero y` is the unit type (`{}`) within the `else` clause.
 To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
-But Dhall's typechecking is insufficiently powerful to handle dependent types in full generality.
+But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
 So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
 
