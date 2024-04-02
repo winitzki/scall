@@ -176,7 +176,10 @@ def textualToLatex: Textual => String = {
     case SpanKind.StrongEmphasis => s"\\textbf{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
-  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{${text.replaceAll("#", "\\\\#")}}{${target.replaceAll("#", "\\\\#")}}}"
+  case Textual.Hyperlink(text, target) =>
+    val cleanedText = text.replaceAll("#", "\\\\#")
+    val cleanedTarget = target.replaceAll("#", "\\\\#")
+    s"$cleanedText\\footnote{\\texttt{\\url{$cleanedTarget}}}" // \\texttt{\\href{${text.replaceAll("#", "\\\\#")}}{${}}}"
 }
 
 def languageFix(str: String) =

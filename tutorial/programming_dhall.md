@@ -2,13 +2,11 @@
 
 ## Preface
 
-This book is an advanced-level tutorial on Dhall for software engineers already familiar with the functional programming (FP) paradigm,
+This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
-The official Web site of the Dhall language is [https://dhall-lang.org](https://dhall-lang.org).
-
 Although most code examples are in Dhall, the material of the book has a wider applicability.
-It describes a certain flavor of purely functional programming (without side-effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
+It describes a certain flavor of purely functional programming (without side effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
 
 Dhall is a powerful, purely functional programming language that has several applications:
 - a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
@@ -21,9 +19,8 @@ This book focuses on the last two applications.
 
 Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
 
-The official documentation and user guides for Dhall are found at [https://docs.dhall-lang.org](https://docs.dhall-lang.org).
-
 This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
+For an introduction to Dhall, see [Dhall's official documentation](https://docs.dhall-lang.org).
 
 Here is an example of a Dhall program:
 
@@ -54,9 +51,8 @@ From the point of view of type theory, Dhall implements a type system similar to
 
 For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
 
-- [https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md](https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md)
-- [https://gallium.inria.fr/~remy/mpri/](https://gallium.inria.fr/~remy/mpri/)
-- [https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
+- [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
+- [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 That theory is beyond the scope of this book.
 Instead, the book focuses on issues arising in practical programming.
@@ -597,8 +593,8 @@ See [this documentation](https://docs.dhall-lang.org/discussions/Safety-guarante
 
 Imports from files, from Internet URLs, and from environment variables constitutes a limited form of "read-only" side effects in Dhall.
 
-For example, [https://test.dhall-lang.org/random-string](https://test.dhall-lang.org/random-string) is a test-only server that returns a new random string each time it is called.
-So, the Dhall program:
+For example, Dhall's tests use [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only server that returns a new random string each time it is called.
+This Dhall program:
 
 ```dhall
 https://test.dhall-lang.org/random-string as Text
@@ -840,8 +836,7 @@ The symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a t
 
 There was at one time an effort to implement full "kind polymorphism" in Dhall.
 That would allow functions to manipulate `Kind` values.
-But that effort was abandoned after it was discovered that it would break the consistency of Dhall's type system.
-For more details, see the discussion around this PR comment: [https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106)
+But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier `forall` vs. the function symbol `lambda`
 
@@ -1671,7 +1666,7 @@ Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
 However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
 
-A beginner's tutorial on Church encoding is found in the Dhall documentation: [https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html)
+Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
 Here, we summarize that technique more briefly.
 
 In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
@@ -1786,7 +1781,7 @@ There is a generalized **Church-Yoneda identity** that combines both forms of ty
 
 Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
 
-This identity is mentioned in the proceedings [https://hal.science/hal-00512377/document](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+This identity is mentioned in the proceedings of the conference [Fixed Points in Computer Science 2010](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
 
 The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
 See the Appendix "Naturality and parametricity" for more details.
@@ -1852,7 +1847,7 @@ The curried form is more convenient for practical programming.
 But when we are studying general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
 
 Historical note: The curried form of the Church encoding is known as the Boehm-Berarducci encoding.
-See the discussion by O. Kiselyov, [https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
+See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 ## Working with Church-encoded data
 
@@ -3487,7 +3482,7 @@ fold_GFix_curried : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F
 ```
 
 Functions of that type are called **hylomorphisms**.
-See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
+See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
 Let us examine that problem is more detail.
@@ -3497,7 +3492,7 @@ Let us examine that problem is more detail.
 For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
 This is possible if we use explicit recursion (which Dhall does not support).
-Here is Haskell code adapted from [https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
+Here is Haskell code adapted from [Bartosz Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
 hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
