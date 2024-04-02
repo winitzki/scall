@@ -4,3 +4,4877 @@
 \section{Preface}
 
 
+This book is an advanced-level tutorial on Dhall for software engineers already familiar with the functional programming (FP) paradigm,
+as practiced in languages such as OCaml, Haskell, Scala, and others.
+
+
+The official Web site of the Dhall language is [https://dhall-lang.org](https://dhall-lang.org).
+
+
+Although most code examples are in Dhall, the material of the book has a wider applicability.
+It describes a certain flavor of purely functional programming (without side-effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
+
+
+Dhall is a powerful, purely functional programming language that has several applications:
+\begin{itemize}
+\item{a generator for flexible, programmable, but strictly validated YAML and JSON configuration files}
+\item{a high-level scripting DSL interfacing with a runtime that implements low-level details }
+\item{an industry-strength System Fω interpreter for studying various language-independent aspects of FP theory and practice}
+\end{itemize}
+This book focuses on the last two applications.
+
+
+\section{Overview of Dhall}
+
+
+Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
+
+
+The official documentation and user guides for Dhall are found at [https://docs.dhall-lang.org](https://docs.dhall-lang.org).
+
+
+This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
+
+
+Here is an example of a Dhall program:
+
+
+\begin{lstlisting}[language=Dhall]
+let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
+let id = λ(A : Type) → λ(x : A) → x
+  in f 10 (id Natural 20)
+    -- This evaluates to 32 of type Natural.
+\end{lstlisting}
+
+
+The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
+This book focuses on other applications of Dhall.
+
+
+See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
+
+
+The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
+such as \lstinline!Natural/lessThan! and \lstinline!List/map!.
+
+
+The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
+Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
+
+
+Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
+(The type-checking itself is also guaranteed to terminate.)
+The price for those safety guarantees is that the Dhall language is \emph{not} Turing-complete.
+But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
+
+
+From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
+
+
+For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+
+
+\begin{itemize}
+\item{\texttt{\href{https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md}{https://github.com/sgillespie/lambda-calculus/blob/master/doc/system-f.md}}}
+\item{\texttt{\href{https://gallium.inria.fr/~remy/mpri/}{https://gallium.inria.fr/~remy/mpri/}}}
+\item{\texttt{\href{https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf}{https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf}}}
+\end{itemize}
+That theory is beyond the scope of this book.
+Instead, the book focuses on issues arising in practical programming.
+
+
+\section{Differences from other FP languages}
+
+
+\subsection{Identifiers}
+
+
+Identifiers may contain slash characters; for example, \lstinline!List/map! is a valid name.
+
+
+This is helpful when organizing library functions into modules.
+One can have suggestive names such as \lstinline!List/map!, \lstinline!Optional/map!, etc.
+
+
+\subsection{Number types}
+
+
+Integers must have a sign (\lstinline!+1! or \lstinline!-1!) while \lstinline!Natural! numbers may not have a sign (\lstinline!123!).
+
+
+Values of types \lstinline!Natural! and \lstinline!Integer! have unbounded size.
+There is no overflow.
+Dhall does not support 32-bit or 64-bit integers with overflow, as is common in other programming languages.
+
+
+Dhall supports other numeric types, such as \lstinline!Double! or \lstinline!Time!, but there is very little one can do with those values other than print them.
+For instance, Dhall does not directly support floating-point arithmetic on \lstinline!Double! values.
+
+
+\subsection{Product types}
+
+
+Product types are implemented only through records.
+For example, \lstinline!{ x = 1, y = True }! is a record value, and its type is \lstinline!{ x : Natural, y : Bool }! (a "record type").
+
+
+There are no built-in tuple types, such as Haskell's and Scala's \lstinline!(Int, String)!.
+Records with names must be used instead.
+For instance, the (Haskell / Scala) tuple type \lstinline!(Int, String)! may be translated to Dhall as the record type \lstinline!{ _1 : Int, _2 : String }!.
+
+
+Records can be nested: the record value \lstinline!{ x = 1, y = { z = True, t = "abc" } }! has type \lstinline!{ x : Natural, y : { z : Bool, t : Text } }!.
+
+
+Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
+There is no way of assigning a permanent name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
+
+
+For example, the values \lstinline!x! and \lstinline!y! have the same type in the following Dhall code:
+
+
+\begin{lstlisting}[language=Dhall]
+let RecordType1 = { a : Natural, b : Bool }
+let x : RecordType1 = { a = 1, b = True }
+let RecordType2 = { b : Bool, a : Natural }
+let y : RecordType2 = { a = 2, b = False }
+\end{lstlisting}
+
+
+The names \lstinline!RecordType1! and \lstinline!RecordType2! are no more than type aliases.
+Dhall does not distinguish them from the literal type expression \lstinline!{ a : Natural, b : Bool }!.
+(The order of record fields is not significant.) 
+
+
+\subsection{Co-product types}
+
+
+Co-product types are implemented via tagged unions, for example: \lstinline!< X : Natural | Y : Bool >!.
+Here \lstinline!X! and \lstinline!Y! are \textbf{constructors} for the given union type.
+
+
+Values of co-product types are created via constructor functions.
+Constructor functions are written using record-like access notation.
+For example, the expression \lstinline!< X : Natural | Y : Bool >.X! is viewed by Dhall as a function of type \lstinline!Natural → < X : Natural | Y : Bool >!. 
+Applying that function to a value of type \lstinline!Natural! will create a value of the union type \lstinline!< X : Natural | Y : Bool >!:
+
+
+\begin{lstlisting}[language=Dhall]
+let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
+\end{lstlisting}
+
+
+Constructors may have at most one argument.
+Constructors with multiple curried arguments (as in Haskell: \lstinline!P1 Int Int | P2 Bool!) are not supported in Dhall.
+Record types must be used instead of multiple arguments.
+For example, Haskell's union type \lstinline!P1 Int Int | P2 Bool! may be replaced by Dhall's union type \lstinline!< P1 : { _1 : Integer, _2 : Integer }, P2 : Bool >!.
+
+
+Union types can have empty constructors.
+For example, the union type \lstinline!< X : Natural | Y >! has values written either as \lstinline!< X : Natural | Y >.X 123! or \lstinline!< X : Natural | Y >.Y!.
+Both these values have type \lstinline!< X : Natural | Y >!.
+
+
+Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
+There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
+
+
+For convenience, a Dhall program may define names for types, for example:
+
+
+\begin{lstlisting}[language=Dhall]
+let MyType1 = < X : Natural | Y : Bool >
+let x : MyType1 = MyType1.X 123
+\end{lstlisting}
+
+
+But the name \lstinline!MyType1! is no more than a type alias.
+Dhall will consider \lstinline!MyType1! to be the same as the literal type expressions \lstinline!< X : Natural | Y : Bool >! and \lstinline!< Y : Bool | X : Natural >!.
+(The order of a union type's constructors is not significant.) 
+
+
+\subsection{Pattern matching}
+
+
+Pattern matching is available for union types as well as for the built-in \lstinline!Optional! types.
+Dhall implements pattern matching via \lstinline!merge! expressions.
+The \lstinline!merge! expressions are similar to \lstinline!case! expressions in Haskell and \lstinline!match/case! expressions in Scala.
+
+
+One difference is that each case of a \lstinline!merge! expression must specify an explicit function with a full type annotation.
+
+
+As an example, consider a union type defined in Haskell by:
+
+
+\begin{lstlisting}[language=Haskell]
+data P = X Int | Y Bool | Z
+\end{lstlisting}
+
+
+A function \lstinline!toString! that prints a value of that type can be written in Haskell as:
+
+
+\begin{lstlisting}[language=Haskell]
+toString :: P -> String
+toString x = case x of
+  X x -> "X " ++ show x
+  Y y -> "Y " ++ show y
+  Z -> "Z"
+\end{lstlisting}
+
+
+The corresponding type is defined in Dhall by:
+
+
+\begin{lstlisting}[language=Dhall]
+let P = < X : Natural | Y : Bool | Z >
+\end{lstlisting}
+
+
+Here is the Dhall code for a function \lstinline!toText : < X : Natural | Y : Bool | Z > → Text! that prints a value of type \lstinline!P!:
+
+
+\begin{lstlisting}[language=Dhall]
+let toText : P → Text = λ(x : P) →
+  merge { X = λ(x : Natural) → "X " ++ Natural/show x
+        , Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False")
+        , Z = "Z"
+        } x
+\end{lstlisting}
+
+
+Another example of using Dhall's \lstinline!merge! is when implementing a \lstinline!zip! function for \lstinline!Optional! types:
+
+
+\begin{lstlisting}[language=Dhall]
+let zip
+  : ∀(a : Type) → Optional a → ∀(b : Type) → Optional b → Optional { _1 : a, _2 : b }
+  = λ(a : Type) → λ(oa : Optional a) → λ(b : Type) → λ(ob : Optional b) →
+    let Pair = { _1 : a, _2 : b }
+    in
+        merge { None = None Pair
+              , Some = λ(x : a) →
+                 merge { None = None Pair
+                       , Some = λ(y : b) → Some { _1 = x, _2 = y }
+                       } ob 
+              } oa
+\end{lstlisting}
+
+
+\subsection{The void type and its use}
+
+
+Dhall's empty union type \lstinline!< >! cannot have any values.
+Values of union types may be created only via constructors, but the type \lstinline!< >! has no constructors.
+So, no value of type \lstinline!< >! will ever exist in any Dhall program.
+
+
+If a value of the void type existed, one would be able to derive from it a value of any other type.
+This property of the void type can be expressed formally via the function called \lstinline!absurd!.
+That function can compute a value of an arbitrary type \lstinline!A! given a value of type \lstinline!< >!:
+
+
+\begin{lstlisting}[language=Dhall]
+let absurd : ∀(A : Type) → < > → A
+  = λ(A : Type) → λ(x : < >) → (merge {=} x) : A 
+\end{lstlisting}
+
+
+Of course, the function \lstinline!absurd! will never be actually applied to an argument value in any program, because one cannot construct a value of type \lstinline!< >!.
+Nevertheless, the existence of a function of type \lstinline!∀(A : Type) → < > → A! is useful in some situations.
+
+
+The type signature of \lstinline!absurd! can be rewritten equivalently as:
+
+
+\begin{lstlisting}[language=Dhall]
+let absurd : < > → ∀(A : Type) → A
+  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
+\end{lstlisting}
+
+
+This type signature suggests a type equivalence between \lstinline!< >! and the function type \lstinline!∀(A : Type) → A!.
+
+
+Indeed, the type \lstinline!∀(A : Type) → A! is void (this can be proved via parametricity arguments).
+So, the type expression \lstinline!∀(A : Type) → A! is equivalent to \lstinline!< >! and can be used equally well to denote the void type.
+
+
+Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
+See the Appendix "Naturality and parametricity" for more details.
+
+
+One use case for the void type is to provide a "TODO" functionality.
+While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
+However, we still need to satisfy Dhall's type checker and provide a value that appears to have the right type.
+
+
+To achieve that, we write our code as a function with an argument of the void type:
+
+
+\begin{lstlisting}[language=Dhall]
+let our_program = λ(void : < >) →  .... 
+\end{lstlisting}
+
+
+Now suppose we need a value \lstinline!x! of any given type \lstinline!X! in our code, but we do not yet know how to implement that value.
+Then we write \lstinline!let x : X = absurd void X! in the body of \lstinline!our_program!.
+The typechecker will accept this program.
+Of course, we can never supply a value for the \lstinline!void : < >! argument.
+So, our program will not be evaluated until we replace the \lstinline!absurd void X! by correct code computing a value of type \lstinline!X!.
+
+
+So, we can shorten the code if we define \lstinline!let TODO = absurd void!.
+We can then write \lstinline!TODO X! and pretend to obtain a value of any type \lstinline!X!.
+
+
+Note that the partially applied function \lstinline!absurd void! is a value of type \lstinline!∀(A : Type) → A!.
+So, we may directly require \lstinline!TODO! as an argument of type \lstinline!∀(A : Type) → A! in our program:
+
+
+\begin{lstlisting}[language=Dhall]
+let our_program = λ(TODO : ∀(A : Type) → A) →  .... let x = TODO X in ....
+\end{lstlisting}
+
+
+\subsection{The unit type}
+
+
+Dhall's empty record type \lstinline!{}! is a natural way of defining a unit type.
+The type \lstinline!{}! has only one value, written as \lstinline!{=}! (an empty record with no fields).
+
+
+An equivalent way of denoting the unit type is via a union type with a single constructor, for example: \lstinline!< One >! (or with any other name instead of "One").
+The type \lstinline!< One >! has a single distinct value, denoted in Dhall by \lstinline!< One >.One!.
+In this way, one can define differently named unit types for convenience.
+
+
+An equivalent definition is the function type \lstinline!∀(A : Type) → A → A!.
+This is another example of automatic parametricity in Dhall.
+The only way of implementing a function with that type is \lstinline!λ(A : Type) → λ(x : A) → x!.
+There is no other, inequivalent Dhall code that could implement a different function of that type.
+
+
+\subsection{Type constructors}
+
+
+Type constructors in Dhall are written as functions from \lstinline!Type! to \lstinline!Type!.
+
+
+In Haskell or Scala, one would define a type constructor as \lstinline!type PairAAInt a = (a, a, Int)!.
+The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter \lstinline!a! of type \lstinline!Type! and returning another type.
+
+
+Because Dhall does not have nameless tuples, we will use a record with field names \lstinline!_1!, \lstinline!_2!, and \lstinline!_3!:
+
+
+\begin{lstlisting}[language=Dhall]
+let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+\end{lstlisting}
+
+
+The output of the \lstinline!λ! function is a record type \lstinline!{ _1 : a, _2 : a, _3 : Integer }!.
+
+
+The type of \lstinline!PairAAInt! itself is \lstinline!Type → Type!.
+For more clarity, we may write that as a type annotation:
+
+
+\begin{lstlisting}[language=Dhall]
+let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+\end{lstlisting}
+
+
+Type constructors involving more than one type parameter are usually written as curried functions.
+
+
+Here is an example of how we could define a type constructor similar to Haskell's and Scala's \lstinline!Either!:
+
+
+\begin{lstlisting}[language=Dhall]
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+\end{lstlisting}
+
+
+The type of \lstinline!Either! is \lstinline!Type → Type → Type!.
+
+
+As with all Dhall types, type constructor names such as \lstinline!PairAAInt! or \lstinline!Either! are no more than type aliases.
+Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves.
+
+
+\subsection{Function types}
+
+
+Function types are written as \lstinline!∀(x : arg_t) → res_t!, where \lstinline!arg_t! is the argument type and \lstinline!res_t! is a type expression that describes the type of the result value.
+
+
+Function \emph{values} corresponding to that function type are written like this: \lstinline!λ(x : arg_t) → expr!, where \lstinline!expr! is a function body (which must be of type \lstinline!res_t!).
+
+
+Note that the type \lstinline!res_t! may or may not use the bound variable \lstinline!x!.
+In simple cases, \lstinline!res_t! will not depend on \lstinline!x!.
+Then the function type can be written in a simpler form: \lstinline!arg_t → res_t!.
+
+
+For example, consider a function that adds \lstinline!1! to a \lstinline!Natural! argument:
+
+
+\begin{lstlisting}[language=Dhall]
+let inc = λ(x : Natural) → x + 1
+\end{lstlisting}
+
+
+We may write a type annotation to \lstinline!inc! like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let inc : Natural → Natural = λ(x : Natural) → x + 1
+\end{lstlisting}
+
+
+We may also write a fully detailed type annotation if we like:
+
+
+\begin{lstlisting}[language=Dhall]
+let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
+\end{lstlisting}
+
+
+All functions have one argument.
+To implement functions with more than one argument, one can use curried functions or record types.
+
+
+For example, a function that adds 3 numbers can be written in different ways according to convenience:
+
+
+\begin{lstlisting}[language=Dhall]
+let add3_curried : Natural → Natural → Natural → Natural
+  = λ(x : Natural) → λ(y : Natural) → λ(z : Natural) → x + y + z
+
+let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
+  = λ(record : { x : Natural, y : Natural, z : Natural }) → record.x + record.y + record.z
+\end{lstlisting}
+
+
+\subsubsection{Functions with type parameters}
+
+
+The most often used case where a function's result type depends on an argument is when functions have type parameters.
+
+
+For instance, consider a function that takes a pair of \lstinline!Natural! numbers and swaps the order of numbers in the pair.
+We use a record type \lstinline!{ _1 : Natural, _2 : Natural }! to represent a pair of \lstinline!Natural! numbers.
+For brevity, we will define a value \lstinline!Pair! to denote that type:
+
+
+\begin{lstlisting}[language=Dhall]
+let Pair : Type = { _1 : Natural, _2 : Natural }
+let swap : Pair → Pair = λ(p : Pair) → { _1 = p._2, _2 = p._1 }
+\end{lstlisting}
+
+
+Now we generalize \lstinline!swap! to support two arbitrary types of values in the pair.
+The two types will become type parameters (\lstinline!a! and \lstinline!b!).
+The type parameters are given as additional curried arguments.
+The new implementation of \lstinline!Pair! and \lstinline!swap! becomes:
+
+
+\begin{lstlisting}[language=Dhall]
+let Pair : Type → Type → Type = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → { _1 = p._2, _2 = p._1 }
+\end{lstlisting}
+
+
+In this example, the type signature of \lstinline!swap! has two type parameters (\lstinline!a!, \lstinline!b!) and the output type depends on those type parameters.
+
+
+In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the \lstinline!λ! syntax, with explicitly given types.
+
+
+However, a \lstinline!let! binding does not necessarily require a type annotation.
+We may just write \lstinline!let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }!.
+This is the only type inference currently implemented in Dhall.
+For complicated type signatures, it helps to write type annotations because type errors will be detected earlier.
+
+
+\section{Miscellaneous features}
+
+
+Multiple \lstinline!let x = y in z! bindings may be written next to each other without writing \lstinline!in!, and type annotations may be omitted.
+For example:
+
+
+\begin{lstlisting}[language=Dhall]
+let a = 1
+let b = 2
+  in a + b  -- This evaluates to 3.
+\end{lstlisting}
+
+
+Because of this feature, we will write snippets of Dhall code in the form \lstinline!let a = ...! without the trailing \lstinline!in!.
+It is implied that those \lstinline!let! declarations are part of a larger Dhall program.
+
+
+We can also use a standalone \lstinline!let! declaration in the Dhall interpreter (the syntax is \lstinline!:let!).
+For instance, we may define the type constructor \lstinline!Pair! shown above:
+
+
+\begin{lstlisting}[language=Dhall]
+$ dhall repl
+Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+⊢ :let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+
+Pair : ∀(a : Type) → ∀(b : Type) → Type
+\end{lstlisting}
+
+
+Dhall does not support the Haskell-like concise definition syntax such as  \lstinline!f x = x + 1!, where the argument is given on the left-hand side and types are inferred automatically.
+Dhall functions need to be written via a \lstinline!λ! symbol with an explicit type annotation:
+
+
+\begin{lstlisting}[language=Dhall]
+let f = λ(x : Natural) → x + 1
+\end{lstlisting}
+
+
+In Dhall, the standard \lstinline!map! function for \lstinline!List! values has the type signature:
+
+
+\begin{lstlisting}[language=Dhall]
+List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
+\end{lstlisting}
+
+
+When applying this function, the code must specify both type parameters \lstinline!a!, \lstinline!b!:
+
+
+\begin{lstlisting}[language=Dhall]
+let List/map = https://prelude.dhall-lang.org/List/map
+in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
+   -- Returns [2, 3, 4].
+\end{lstlisting}
+
+
+A polymorphic identity function can be written (with a complete type annotation) as:
+
+
+\begin{lstlisting}[language=Dhall]
+let identity : ∀(A : Type) → ∀(x : A) → A 
+  = λ(A : Type) → λ(x : A) → x
+\end{lstlisting}
+
+
+The polymorphic type of the standard \lstinline!fmap! function may be written as:
+
+
+\begin{lstlisting}[language=Dhall]
+∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+\end{lstlisting}
+
+
+Dhall does not require capitalizing the names of types and type parameters.
+In this book, we will usually capitalize type constructors (such as \lstinline!List!) but not simple type parameters (\lstinline!a!, \lstinline!b!, etc.).
+
+
+\subsection{Type inference}
+
+
+Dhall has almost no type inference.
+The only exception are the \lstinline!let! bindings, such as \lstinline!let x = 1 in ...!, where the type annotation for \lstinline!x! may be omitted.
+Other than in \lstinline!let! bindings, all types of bound variables must be written explicitly.
+
+
+Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between \lstinline!∀(x : A)! and \lstinline!λ(x : A)!.
+This verbosity may help in learning some of the more advanced concepts of functional programming.
+
+
+\subsection{Strict / lazy evaluation}
+
+
+All well-typed functions in Dhall are total (never partial).
+For instance, a pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
+
+
+The Dhall language always typechecks all terms and evaluates all well-typed terms to a normal form.
+There is no analog of Haskell's "bottom" (or "undefined") value, no "null" values, no exceptions or other run-time errors.
+All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
+
+
+For this reason, there is no difference between eager ("strict") and lazy ("non-strict") values in Dhall.
+One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
+The final result of evaluating a Dhall program will be the same. 
+
+
+For example, any well-typed Dhall program that returns a value of type \lstinline!Natural! will always return a \emph{literal} \lstinline!Natural! value.
+This is because there is no other normal form for \lstinline!Natural! values, and a well-typed Dhall program always evaluates to a normal form.
+
+
+In addition, if that Dhall program is self-contained (has no external imports), it will always return \emph{the same} \lstinline!Natural! value.
+The program cannot return a \lstinline!Natural! value that will be computed "later", or an "undefined" \lstinline!Natural! value, or a random \lstinline!Natural! value, or anything else like that. 
+
+
+However, it is important that Dhall's \emph{typechecking} is eager.
+A type error in defining a variable \lstinline!x! (for example, \lstinline!let x : Natural = "abc"!) will prevent the entire program from evaluating, even if that \lstinline!x! is never used.
+
+
+\subsection{No computations with custom data}
+
+
+In Dhall, the majority of built-in types (\lstinline!Text!, \lstinline!Double!, \lstinline!Bytes!, \lstinline!Date!, etc.) are completely opaque to the user.
+The user may specify literal values of those types but can do little else with those values.
+
+
+\begin{itemize}
+\item{\lstinline!Bool! values support the boolean operations and can be used as conditions in \lstinline!if! expressions.}
+\item{\lstinline!Natural! numbers can be added, multiplied, and compared for equality.}
+\item{\lstinline!List! values may be concatenated and support some other functions (\lstinline!List/map!, \lstinline!List/length! and so on).}
+\item{\lstinline!Text! strings may be concatenated and support a search/replace operation.}
+\item{The types \lstinline!Natural!, \lstinline!Integer!, \lstinline!Double!, \lstinline!Date!, \lstinline!Time!, \lstinline!TimeZone! may be converted to \lstinline!Text!.}
+\end{itemize}
+Dhall cannot compare \lstinline!Text! strings for equality or compute the length of a \lstinline!Text! string.
+Neither can Dhall compare \lstinline!Double! or the date / time types with each other.
+Comparison functions are only available for \lstinline!Bool! and \lstinline!Natural! types.
+(Comparison functions for \lstinline!Integer! is defined in the standard prelude.)
+
+
+Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
+The only recursive type directly supported by Dhall is the built-in type \lstinline!List!.
+The only way to write a loop is to use the built-in functions \lstinline!List/fold! and \lstinline!Natural/fold! and functions derived from them.
+
+
+User-defined recursive types and functions must be encoded in a non-recursive way.
+Later chapters in this book will show how to use the Church encoding for that purpose.
+In practice, this means the user is limited to finite data structures and fold-like functions on them.
+General recursion is not possible (because it cannot guarantee termination).
+
+
+Dhall is a purely functional language with no side effects.
+There are no mutable values, no exceptions, no multithreading, no writing to disk, etc.
+
+
+A Dhall program may contain only a single expression that evaluates to a normal form.
+The resulting normal form can be used via imports in another Dhall program, or converted to JSON, YAML, and other formats.
+
+
+\subsection{Modules and imports}
+
+
+Dhall has a simple file-based module system.
+Each Dhall file must contain the definition of a \emph{single} Dhall value (often in the form \lstinline!let x = ... in ...!).
+That single value may be imported into another Dhall file by specifying the path to the first Dhall file.
+The second Dhall file can directly use that value as a sub-expression.
+For convenience, the imported value may be assigned to a variable with a meaningful name.
+
+
+Here is an example: the first file contains a list of numbers, and the second file contains code that computes the sum of those numbers.
+
+
+\begin{lstlisting}[language=Dhall]
+-- This file is `/tmp/first.dhall`.
+[1, 2, 3, 4]
+\end{lstlisting}
+
+
+\begin{lstlisting}[language=Dhall]
+-- This file is `/tmp/sum.dhall`.
+let input_list = ./first.dhall  -- Import from relative path.
+let List/sum = https://prelude.dhall-lang.org/Natural/sum
+  in List/sum input_list
+\end{lstlisting}
+
+
+Running \lstinline!dhall! on the second file will compute and print the result:
+
+
+\begin{lstlisting}[language=Bash]
+$ dhall --file /tmp/sum.dhall
+10
+\end{lstlisting}
+
+
+One can import Dhall values from files, HTTP URLs, and environment variables.
+Here is an example of importing the Dhall list value \lstinline![1, 1, 1]! from an environment variable called \lstinline!XS!:
+
+
+\begin{lstlisting}[language=Bash]
+$ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
+3
+\end{lstlisting}
+
+
+Although a Dhall file has only one value, that value may be a record with many fields.
+Record fields may contain values and/or types.
+In that way, a Dhall module may export a number of values and/or types:
+
+
+\begin{lstlisting}[language=Dhall]
+-- This file is `/tmp/SimpleModule.dhall`.
+let UserName = Text
+let UserId = Natural
+let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${id}]"
+
+let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
+let test = assert : validate === True   -- Cannot import this module unless `validate` is `True`.
+
+in {
+  UserName,
+  UserId,
+  printUser,
+}
+\end{lstlisting}
+
+
+When this Dhall file is evaluated, the resulting value is a record of type \lstinline!{ UserName : Type, UserId : Type, printUser : Text → Natural → Text }!.
+So, this module exports two types (\lstinline!UserName!, \lstinline!UserId!) and a function \lstinline!printUser!.
+
+
+We can use this module in another Dhall file like this:
+
+
+\begin{lstlisting}[language=Dhall]
+-- This file is `/tmp/UseSimpleModule.dhall`.
+let S = ./SimpleModule.dhall -- Just call it S for short.
+let name : S.UserName = "first_user"
+let id : S.UserId = 1001
+let printed : Text = S.printUser name id
+... -- Continue writing code.
+\end{lstlisting}
+
+
+In the file \lstinline!UseSimpleModule.dhall!, we use the types and the values exported from \lstinline!SimpleModule.dhall!.
+The code will not compile unless all types match, including the imported values.
+
+
+Note that all fields of a Dhall record are always public.
+To make values in a Dhall module private, we simply do not put them into the final exported record.
+Values declared using \lstinline!let x = ...! inside a Dhall module will not be exported.
+
+
+In the example just shown, the file \lstinline!SimpleModule.dhall! defined the values \lstinline!test! and \lstinline!validate!.
+Those values are type-checked and computed inside the module but not exported.
+In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
+
+
+The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
+See [this documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+
+
+\subsubsection{Frozen imports and caching}
+
+
+Imports from files, from Internet URLs, and from environment variables constitutes a limited form of "read-only" side effects in Dhall.
+
+
+For example, [https://test.dhall-lang.org/random-string](https://test.dhall-lang.org/random-string) is a test-only server that returns a new random string each time it is called.
+So, the Dhall program:
+
+
+\begin{lstlisting}[language=Dhall]
+https://test.dhall-lang.org/random-string as Text
+\end{lstlisting}
+
+
+will return a different result each time it is evaluated.
+
+
+\begin{lstlisting}[language=Bash]
+$ echo "https://test.dhall-lang.org/random-string as Text" | dhall
+''
+Gajnrpgc4cHWeoYEUaDvAx5qOHPxzSmy
+''
+scall (feature/tutorial) $ echo "https://test.dhall-lang.org/random-string as Text" | dhall
+''
+tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
+''
+\end{lstlisting}
+
+
+If a Dhall program needs to guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
+Such imports are called "frozen".
+Dhall will refuse to process a frozen import if the external resource has a different SHA256 hash value than specified in the Dhall code.
+
+
+For example, one of the standard tests for Dhall includes the following file called \lstinline!simple.dhall! that contains just the number \lstinline!3!:
+
+
+\begin{lstlisting}[language=Dhall]
+-- simple.dhall
+3
+\end{lstlisting}
+
+
+That file may be imported via the following frozen import:
+
+
+\begin{lstlisting}[language=Dhall]
+./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
+\end{lstlisting}
+
+
+This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression \lstinline!3!.
+If the user modifies the file \lstinline!simple.dhall! to contain a Dhall expression that evaluates to something other than \lstinline!3!, the hash value will be different and the frozen import will fail.
+
+
+The hash value is computed from the \emph{normal form} of a Dhall expression, and only after successful type-checking.
+For this reason, the hash value does not change after adding comments, reformatting the file, renaming local variables, or refactoring the program in any other way as long as the final evaluated expression in its normal form remains the same.
+
+
+\section{Some features of the Dhall type system}
+
+
+\subsection{The \lstinline!assert! keyword and equality types}
+
+
+For types other than \lstinline!Bool! and \lstinline!Natural!, equality testing is not available as a function.
+However, values of any types may be tested for equality at compile time via Dhall's \lstinline!assert! feature.
+That feature is designed for basic sanity checks:
+
+
+\begin{lstlisting}[language=Dhall]
+let x : Text = "123"
+let _ = assert : x === "123"
+  in x ++ "1"
+    -- Returns "1231".
+\end{lstlisting}
+
+
+The \lstinline!assert! construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
+
+
+In other words, the Dhall expression \lstinline!a === b! is a special sort of type.
+That type has no values (is void) if \lstinline!a! and \lstinline!b! have different normal forms (as Dhall expressions).
+For example, the types \lstinline!1 === 2! and \lstinline!λ(a : Text) → a === True! are void.
+(We will never be able to create any values of those types.) 
+
+
+If \lstinline!a! and \lstinline!b! evaluate to the same normal form, the type \lstinline!a === b! is not void.
+That is, there exists a value of the type \lstinline!a === b!.
+If we want to write that value explicitly, we need to use the \lstinline!assert! keyword with the following syntax: \lstinline!assert : a === b!.
+This expression evaluates to a value of type \lstinline!a === b! if the two sides are equal after reducing them to their normal forms.
+If the two sides are not equal, this expression \emph{fails to type-check}, meaning that the entire program will fail to compile.
+
+
+When an \lstinline!assert! value is valid, we can assign that value to a variable:
+
+
+\begin{lstlisting}[language=Dhall]
+let test1 = assert : 1 + 2 === 0 + 3
+\end{lstlisting}
+
+
+In this example, the two sides of an \lstinline!assert! are equal after reducing them to normal forms, so the type \lstinline!1 === 1! is not void and has a value assigned to \lstinline!test1!.
+
+
+The Dhall typechecker will raise a type error \emph{at typechecking time} if the two sides of an \lstinline!assert! are not evaluated to the same normal forms.
+
+
+Some examples:
+
+
+\begin{lstlisting}[language=Dhall]
+let x = 1
+let y = 2
+let _ = assert : x + 1 === y     -- OK.
+let print = λ(n : Natural) → λ(prefix : Text) → prefix ++ Natural/show n
+let _ = assert : print (x + 1) === print y    -- OK
+\end{lstlisting}
+
+
+In the last line, the \lstinline!assert! expression was used to compare two partially evaluated functions, \lstinline!print (x + 1)! and \lstinline!print y!.
+The assertion is valid because the normal form of \lstinline!print (x + 1)! is the Dhall expression \lstinline!λ(prefix : Text) → prefix ++ "2"!.
+The normal form of \lstinline!print y! is the same Dhall expression.
+
+
+Because \lstinline!assert! expressions are checked at compile time, they cannot be used for implementing a \emph{function} comparing, say, two arbitrary \lstinline!Text! values given as arguments.
+Try writing this code:
+
+
+\begin{lstlisting}[language=Dhall]
+let compareTextValues : Text → Text → Bool
+  = λ(a : Text) → λ(b : Text) → 
+    let _ = assert : a === b    -- Error: the two sides are not equal.
+      in True
+\end{lstlisting}
+
+
+This code will \emph{fail to typecheck} because, within the definition of \lstinline!compareTextValues!, the normal forms of the function parameters \lstinline!a! and \lstinline!b! are just the symbols \lstinline!a! and \lstinline!b!, and those two symbols are not equal.
+Because this code fails to typecheck, we cannot use it to implement a function returning \lstinline!False! when two text strings are not equal.
+
+
+The \lstinline!assert! keyword is most often used to implement unit tests.
+In that case, we do not need to keep the values of the equality type.
+We just need to verify that the equality type is not void.
+So, we may write unit tests like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let f = λ(a : Text) → "(" ++ a ++ ")"
+let _ = assert : f "x" === "(x)"    -- OK.
+let _ = assert : f "" === "()"    -- OK.
+  in ... -- Further code.
+\end{lstlisting}
+
+
+\subsection{Types, kinds, sorts}
+
+
+Dhall treats types and values largely in the same way (except when typechecking, that is, when verifying that each value has the correct type).
+
+
+For instance, we may write \lstinline!let a : Bool = True! to define a variable of type \lstinline!Bool!, and we may also write \lstinline!let b = Bool! to define a variable whose value is the type \lstinline!Bool! itself.
+
+
+Then we may use \lstinline!b! in typechecking expressions such as \lstinline!True : b!.
+The type of \lstinline!b! itself will be \lstinline!Type!.
+
+
+To see the type of an expression, one can write \lstinline!:type! in the Dhall interpreter:
+
+
+\begin{lstlisting}[language=Dhall]
+$ dhall repl
+Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+⊢ :type True
+
+Bool
+
+⊢ :type Bool
+
+Type
+\end{lstlisting}
+
+
+Dhall defines functions with the \lstinline!λ! syntax:
+
+
+\begin{lstlisting}[language=Dhall]
+λ(t : Natural) → t + 1
+\end{lstlisting}
+
+
+The same syntax works if \lstinline!t! were a type parameter (a variable of type \lstinline!Type!):
+
+
+\begin{lstlisting}[language=Dhall]
+λ(t : Type) → λ(x : t) → { first = x, second = x }
+\end{lstlisting}
+
+
+Records and union types may contain types as well as values:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :type { a = 1, b = Bool }
+
+{ a : Natural, b : Type } 
+
+⊢ :type < A : Bool | B : Type >.B Text
+
+< A : Bool | B : Type >
+\end{lstlisting}
+
+
+The symbol \lstinline!Type! is itself treated as a special value whose type is \lstinline!Kind!.
+Other possible values of type \lstinline!Kind! are type constructor types, such as \lstinline!Type → Type!, as well as other type expressions involving the symbol \lstinline!Type!.
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :type (Type → Type) → Type
+
+Kind
+
+⊢ :type { a : Type }
+
+Kind
+\end{lstlisting}
+
+
+As we have just seen, the type of \lstinline!{ a = 1, b = Bool }! is the record type \lstinline!{ a : Natural, b : Type }!. The type of \emph{that} is \lstinline!Kind!:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :type { a : Natural, b : Type }
+
+Kind
+\end{lstlisting}
+
+
+Any function that returns something containing \lstinline!Type! will itself have the output type \lstinline!Kind!:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :type λ(t : Bool) → if t then Type else Type → Type
+
+∀(t : Bool) → Kind
+\end{lstlisting}
+
+
+In turn, the symbol \lstinline!Kind! is a special value of type \lstinline!Sort!.
+Other type expressions involving \lstinline!Kind! are also of type \lstinline!Sort!:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :type Kind
+
+Sort
+
+⊢ :type Kind → Kind → Type
+
+Sort
+\end{lstlisting}
+
+
+However, the symbol \lstinline!Sort! \emph{does not} itself have a type.
+It is a type error to use \lstinline!Sort! in Dhall code.
+
+
+This important design decision prevents Dhall from having to define an infinite hierarchy of "type universes".
+(This is done in fully dependently-typed languages such as Agda and Idris.
+In those languages, \lstinline!Type!'s type is denoted by \lstinline!Type 1!, the type of \lstinline!Type 1! is \lstinline!Type 2!, and so on to infinity.
+Dhall denotes \lstinline!Type 1! by \lstinline!Kind! and \lstinline!Type 2! by \lstinline!Sort!.)
+
+
+The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over infinitely many type universes.
+
+
+Because of this design, Dhall does not support any code that operates on \lstinline!Kind! values ("kind polymorphism").
+Very little can be done with Dhall expressions of type \lstinline!Sort!, such as \lstinline!Kind! or \lstinline!Kind → Kind!.
+One can define variables having those values, but that's about it.
+
+
+For instance, it is a type error to write a function that returns the symbol \lstinline!Kind! as its output value:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :let a = Kind
+
+a : Sort
+
+⊢ λ(_: Kind) → a
+
+Error: ❰Sort❱ has no type, kind, or sort
+
+1│ λ(_: Kind) →  a
+\end{lstlisting}
+
+
+This is because Dhall requires a valid function type itself to have a type.
+The symbol \lstinline!Kind! has type \lstinline!Sort! but the symbol \lstinline!Sort! itself does not have a type.
+
+
+There was at one time an effort to implement full "kind polymorphism" in Dhall.
+That would allow functions to manipulate \lstinline!Kind! values.
+But that effort was abandoned after it was discovered that it would break the consistency of Dhall's type system.
+For more details, see the discussion around this PR comment: [https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106)
+
+
+\subsection{The universal type quantifier \lstinline!∀! vs. the function symbol \lstinline!λ!}
+
+
+Dhall uses the universal type quantifier (\lstinline!∀! or equivalently \lstinline!forall!) to denote \emph{types} of functions.
+So, any expression of the form \lstinline!∀(x : something1) → something2! is a \emph{type} expression: it is something that always means a type.
+That type can be used, for instance, as a type annotation for some function.
+
+
+For example, the function that appends "..." to a string argument is written like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let f = λ(x : Text) → "${x}..."
+\end{lstlisting}
+
+
+The type of \lstinline!f! can be written as \lstinline!∀(x : Text) → Text!.
+This type does not need the name \lstinline!x! and can be also written in a shorter syntax as just \lstinline!Text → Text!.
+But Dhall will internally rewrite that to the longer form \lstinline!∀(_ : Text) → Text!.
+
+
+If we want, we may write the definition of \lstinline!f! together with a type annotation:
+
+
+\begin{lstlisting}[language=Dhall]
+let f : ∀(x : Text) → Text
+  = λ(x : Text) → "${x}..."
+\end{lstlisting}
+
+
+Another way to see that \lstinline!∀! always denotes types is to try writing an expression \lstinline!∀(x : Text) → "${x}..."!.
+Dhall will reject that expression with the error message \lstinline!"Invalid function output"!.
+The expression \lstinline!∀(x : Text) → something2! must be a type of a function, and \lstinline!something2! must be the output type of that function. So, \lstinline!something2! must be a type and cannot be a \lstinline!Text! value.
+
+
+While the symbol \lstinline!∀! denotes types, the symbol \lstinline!λ! (equivalently the backslash, \lstinline!\!) denotes \emph{functions themselves}, that is, \emph{values} of some function type.
+
+
+An expression of the form \lstinline!λ(x : something1) → something2! is a function that can be applied to any \lstinline!x! of type \lstinline!something1! and will compute a result, \lstinline!something2!. (That result could itself be a value or a type.)
+
+
+The polymorphic identity function is an example that helps remember the difference between \lstinline!∀! and \lstinline!λ!.
+
+
+The identity function takes a value \lstinline!x! of an arbitrary type and again returns the same value \lstinline!x!.
+
+
+\begin{lstlisting}[language=Dhall]
+let identity
+  : ∀(A : Type) → A → A
+  = λ(A : Type) → λ(x : A) → x
+\end{lstlisting}
+
+
+Here we denoted the type parameter by the capital \lstinline!A!. (Dhall does not require that types be capitalized.)
+
+
+Defined like this, \lstinline!identity! is a function of type \lstinline!∀(A : Type) → A → A!. The function itself is the expression \lstinline!λ(A : Type) → λ(x : A) → x!.
+
+
+In Dhall, a function type \lstinline!A → B! is equivalent to \lstinline!∀(x : A) → B!.
+
+
+So, the type expression \lstinline!∀(A : Type) → A → A! is equivalent to \lstinline!∀(A : Type) → ∀(x : A) → A!.
+
+
+The corresponding Haskell code is:
+
+
+\begin{lstlisting}[language=Haskell]
+identity :: a → a
+identity = \x → x
+\end{lstlisting}
+
+
+The corresponding Scala code is:
+
+
+\begin{lstlisting}[language=Scala]
+def identity[A]: A => A  = { x => x }
+\end{lstlisting}
+
+
+In Dhall, the type parameters must be specified explicitly, both when defining a function and when calling it:
+
+
+\begin{lstlisting}[language=Dhall]
+let identity = λ(A : Type) → λ(x : A) → x
+let x = identity Natural 123  -- Writing just `identity 123` is a type error.
+\end{lstlisting}
+
+
+All type parameters and all value parameters need to be written explicitly.
+This makes Dhall code more verbose, but also helps remove "magic" from the syntax.
+
+
+\subsection{Dependent types}
+
+
+Dependent types are, by definition, types that depend on \emph{values}.
+
+
+Curried functions types support dependence between an argument type and any previously given argument values.
+
+
+For example, the type of the polymorphic identity function is:
+
+
+\begin{lstlisting}[language=Dhall]
+let example1 = ∀(A : Type) → ∀(x : A) → A
+\end{lstlisting}
+
+
+In this function type, the second curried argument (\lstinline!x : A!) has a type that is given by the first curried argument (\lstinline!A : Type!).
+
+
+As another example, consider the following function type:
+
+
+\begin{lstlisting}[language=Dhall]
+let example2 = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
+\end{lstlisting}
+
+
+In the type \lstinline!example2!, the argument \lstinline!x! has type \lstinline!A!, which is given by a previous argument.
+The output type \lstinline!F A! depends on the first two arguments.
+
+
+Both \lstinline!example1! and \lstinline!example2! are types that describe functions from types to values.
+
+
+In Dhall, one can also define functions from values to types in the same way as one defines any other functions:
+
+
+\begin{lstlisting}[language=Dhall]
+let f
+  : ∀(x : Bool) → Type
+  = λ(x : Bool) → if x then Natural else Text 
+\end{lstlisting}
+
+
+The result of evaluating \lstinline!f False! is the \emph{type} \lstinline!Text! itself.
+The type of \lstinline!f! is an example of a "dependent type", that is, a type that depends on a value \lstinline!x!.
+
+
+Such functions can be used in type signatures to create dependently-typed functions (that is, functions whose types depend on the values of their input arguments):
+
+
+\begin{lstlisting}[language=Dhall]
+∀(x : Bool) → ∀(y : f x) → Text
+\end{lstlisting}
+
+
+Here, the type of the argument \lstinline!y! must be \lstinline!Natural! or \lstinline!Text! depending on the \emph{value} of the argument \lstinline!x!.
+
+
+For an example of using dependent types for implementing safe division, see below in the section about arithmetic operations.
+
+
+One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
+
+
+The following example shows that Dhall does not recognize that a value of a dependent type is well-typed inside an \lstinline!if! branch.
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ :let g : ∀(x : Bool) → f x → Text = λ(x : Bool) → λ(y : f x) → if x then "" else y
+
+Error: ❰if❱ branches must have matching types
+\end{lstlisting}
+
+
+The \lstinline!if/then/else! construction fails to typecheck even though we expect both \lstinline!if! branches to return \lstinline!Text! values.
+If we are in the \lstinline!if/then! branch, we return a \lstinline!Text! value (an empty string).
+If we are in the \lstinline!if/else! branch, we return a value of type \lstinline!if x then Natural else Text!.
+That type depends on the value \lstinline!x!.
+In the \lstinline!else! branch, \lstinline!x! is \lstinline!False! because the \lstinline!if/then/else! construction begins with \lstinline!if x!.
+So, the \lstinline!else! branch must have type \lstinline!f False = Text!.
+But Dhall does not implement this logic and cannot see that both branches will have the same type \lstinline!Text!.
+
+
+Because of this and other limitations, dependent types in Dhall can be used only in sufficiently simple cases. 
+
+
+\section{Function combinators}
+
+
+The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
+
+
+Implementing them in Dhall is straightforward.
+Instead of pairs, we use the record type \lstinline!{ _1 : a, _2 : b }!. 
+
+
+\begin{lstlisting}[language=Dhall]
+let compose_forward
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
+    g (f (x))
+
+let compose_backward
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
+    f( g (x)) 
+
+let flip
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(x : b) → λ(y : a) →
+    f y x
+
+let curry
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
+    f { _1 = x, _2 = y }
+
+let uncurry
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
+    f p._1 p._2
+\end{lstlisting}
+
+
+\section{Arithmetic with \lstinline!Natural! numbers}
+
+
+Dhall's \lstinline!Natural! numbers have arbitrary precision but support a limited number of operations.
+The standard prelude includes functions that can add, subtract, multiply, compare, and test \lstinline!Natural! numbers for being even or odd.
+
+
+We will now show how to implement other arithmetic operations for \lstinline!Natural! numbers such as division or logarithm.
+In an ordinary programming language, we would use loops to implement those operations.
+But Dhall will only accept loops that are guaranteed in advance to terminate.
+So, we will need to know in advance how many iterations are needed for any given computation.
+
+
+\subsection{Using \lstinline!Natural/fold! to replace loops}
+
+
+The function \lstinline!Natural/fold! is a general facility for creating loops with a fixed number of iterations:
+
+
+\begin{lstlisting}[language=Bash]
+$ dhall repl
+⊢ :type Natural/fold
+
+Natural →
+∀(natural : Type) →
+∀(succ : natural → natural) →
+∀(zero : natural) →
+  natural
+\end{lstlisting}
+
+
+Evaluating \lstinline!Natural/fold n A s z! will repeatedly apply the function \lstinline!s : A → A! to the initial value \lstinline!z : A!.
+The application of \lstinline!s! will be repeated \lstinline!n! times, evaluating \lstinline!s(s(...(s(z))...))!.
+
+
+For example:
+\begin{lstlisting}[language=Bash]
+$ dhall repl
+⊢ let succ = λ(a : Text) → a ++ "1230" in Natural/fold 4 Text succ "Q" 
+
+"Q1230123012301230"
+\end{lstlisting}
+
+
+In this way, Dhall can perform many arithmetic operations for natural numbers that are usually implemented via loops.
+However, \lstinline!Natural/fold! is not a \lstinline!while!-loop: it cannot iterate arbitrarily many times until some condition holds.
+The number of iterations must be specified in advance, given as the first argument of \lstinline!Natural/fold!.
+
+
+Also, \lstinline!Natural/fold! cannot stop early: it will always carry out the specified number of iterations.
+
+
+When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run more iterations than necessary without changing the result.
+(Implementations of Dhall may optimize \lstinline!Natural/fold! so that iterations stop when the result stops changing.)
+
+
+\subsection{Integer division}
+
+
+Let us implement division for natural numbers.
+
+
+A simple iterative algorithm that uses only subtraction runs like this.
+Given \lstinline!x : Natural! and \lstinline!y : Natural!, we subtract \lstinline!y! from \lstinline!x! as many times as needed until the result becomes negative.
+The value \lstinline!x div y! is the number of times we subtracted.
+
+
+This algorithm can be directly implemented in Dhall, but we need to specify in advance the maximum required number of iterations.
+A safe upper bound is the value \lstinline!x! itself.
+So, we have to perform the iteration using the function call \lstinline!Natural/fold x ...!.
+
+
+In most cases, the actual required number of iterations will be smaller than \lstinline!x!.
+For clarity, we will maintain a boolean flag \lstinline!done! and set it to \lstinline!True! once we reach the final result.
+Then we write code to ensure that any further iterations will not modify the final result. 
+
+
+The code is:
+
+
+\begin{lstlisting}[language=Dhall]
+-- unsafeDiv x y means x / y but it will return wrong results when y = 0.
+let unsafeDiv : Natural → Natural → Natural =
+  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+  let Accum = { result : Natural, sub : Natural, done : Bool }
+    in λ(x : Natural) → λ(y : Natural) →
+         let init : Accum = {result = 0, sub = x, done = False}
+         let update : Accum → Accum = λ(acc : Accum) →
+             if acc.done then acc
+             else if Natural/lessThan acc.sub y then acc // {done = True}
+             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
+         let r : Accum = Natural/fold x Accum update init
+         in r.result
+in
+  assert : unsafeDiv 3 2 === 1
+\end{lstlisting}
+
+
+\subsection{Safe division via dependently-typed evidence}
+
+
+The function \lstinline!unsafeDiv! works but produces wrong results when dividing by zero.
+For instance, \lstinline!unsafeDiv 2 0! returns \lstinline!2!.
+We would like to prevent using that function when the second argument is zero.
+
+
+To ensure that we never divide by zero, we may use a technique based on dependently-typed "evidence values".
+
+
+The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
+
+
+\begin{lstlisting}[language=Dhall]
+let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
+\end{lstlisting}
+
+
+This \lstinline!Nonzero! is a type function that returns one or another type given a \lstinline!Natural! value.
+For example, \lstinline!Nonzero 0! returns the void type \lstinline!< >!, but \lstinline!Nonzero 10! returns the unit type \lstinline!{}!.
+This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
+
+
+We will use that function to implement safe division (\lstinline!safeDiv!):
+
+
+\begin{lstlisting}[language=Dhall]
+let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
+\end{lstlisting}
+
+
+The required value of type \lstinline!Nonzero y! is an "evidence" that the first argument (\lstinline!y!) is nonzero.
+
+
+When we use \lstinline!safeDiv! for dividing by a nonzero value, we specify a third argument of type \lstinline!{}!.
+That argument can have only one value, namely, the empty record, denoted in Dhall by \lstinline!{=}!.
+So, instead of \lstinline!unsafeDiv 5 2! we now write \lstinline!safeDiv 5 2 {=}!.
+
+
+If we try dividing by zero, we will be obliged to pass a third argument of type \lstinline!< >!, but there are no such values.
+Passing an argument of any other type will raise a type error.
+
+
+\begin{lstlisting}[language=Dhall]
+safeDiv 4 2 {=}  -- Returns 2.
+
+safeDiv 4 0 {=}  -- Raises a type error. 
+\end{lstlisting}
+
+
+In this way, dependently-typed evidence values enforce value constraints at compile time.
+
+
+\subsubsection{Better error messages for failed assertions}
+
+
+If we write \lstinline!safeDiv 4 0 {=}!, we get a type error that says "the value \lstinline!{=}! has type \lstinline!{}!, but we expected type \lstinline!<>!".
+This message is not particularly helpful.
+We can define the dependent type \lstinline!Nonzero! in a different way, so that the error message clearly shows why the assertion failed.
+For that, we replace the void type \lstinline!< >! by the equivalent void type of the form \lstinline!"a" === "b"! where \lstinline!"a"! and \lstinline!"b"! are strings that are guaranteed to be different.
+Those strings will be printed by Dhall as part of the error message.
+
+
+To implement this idea, let us replace the definition of \lstinline!Nonzero! by this code:
+
+
+\begin{lstlisting}[language=Dhall]
+let Nonzero = λ(y : Natural) →
+  if Natural/isZero y
+  then "error" === "attempt to divide by zero"
+  else {}
+
+let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
+\end{lstlisting}
+
+
+When we evaluate \lstinline!safeDiv 4 0 {=}!, we now get a good error message:
+
+
+\begin{lstlisting}
+safeDiv 4 0 {=}
+
+Error: Wrong type of function argument
+
+- "error" ≡ "attempt to divide by zero"
+\end{lstlisting}
+
+
+Another example is an assertion that a natural number should be less than a given limit.
+We implement that assertion as a dependent type constructor \lstinline!AssertLessThan!.
+The error message will be computed as a function of the given arguments:
+
+
+\begin{lstlisting}[language=Dhall]
+let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
+  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+  in
+  if Natural/lessThan x limit
+  then {}
+  else "error" === "the argument ${Natural/show x} must be less than ${Natural/show limit}"
+\end{lstlisting}
+
+
+Suppose we need a function that needs to constrain its natural argument to be below \lstinline!100!.
+Then we require an evidence argument of type \lstinline!AssertLessThan x 100!:
+
+
+\begin{lstlisting}[language=Dhall]
+let myFunc = λ(x : Natural) → λ(_ : AssertLessThan x 100) →
+  x -- Or some other code.
+\end{lstlisting}
+
+
+There are no errors if we evaluate \lstinline!myFunc 1 {=}! or \lstinline!myFunc 50 {=}!.
+But writing \lstinline!myFunc 200 {=}! gives a type error:
+
+
+\begin{lstlisting}
+myFunc 200 {=}
+
+Error: Wrong type of function argument
+
+- "error" ≡ "the argument 200 must be less than 100"
+\end{lstlisting}
+
+
+The error message clearly describes the problem.
+
+
+\subsubsection{Limitations}
+
+
+The main limitation of this technique is that it can work only with literal values.
+
+
+For instance, any usage of \lstinline!safeDiv x y! will require us somehow to obtain a value of type \lstinline!Nonzero y! that is type-checked at compile time.
+That value serves as a witness that the number \lstinline!y! is not zero.
+Values of type \lstinline!Nonzero y! can be type-checked only if \lstinline!y! is a literal \lstinline!Natural! value.
+This is so because the check \lstinline!Natural/isZero y! is done at type-checking time.
+
+
+What if we need to use \lstinline!safeDiv! inside a function that takes an argument \lstinline!y : Natural! and then calls \lstinline!safeDiv x y!?
+That function cannot call \lstinline!safeDiv x y {=}! because the witness value \lstinline!{=}! needs to be type-checked at compile time.
+We also cannot test whether \lstinline!y! is zero at run time and then call \lstinline!safeDiv! only when \lstinline!y! is nonzero.
+
+
+\begin{lstlisting}[language=Dhall]
+λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=}
+-- Type error: `{=}` is not of type `Nonzero y`
+\end{lstlisting}
+
+
+Neither can we use the \lstinline!Optional! type to create a value of type \lstinline!Optional (Nonzero y)! that will be \lstinline!None! when \lstinline!y! equals zero.
+Dhall will not accept code like this:
+
+
+\begin{lstlisting}[language=Dhall]
+-- Type error:
+λ(y : Natural) → if Natural/isZero y then None (Nonzero y) else (Some {=} : Optional (Nonzero y))
+\end{lstlisting}
+
+
+Here, Dhall does not recognize that \lstinline!Nonzero y! is the unit type (\lstinline!{}!) within the \lstinline!else! clause.
+To recognize that, the interpreter would need to deduce that the condition under \lstinline!if! is the same as the condition defined in \lstinline!Nonzero!.
+But Dhall's typechecking is insufficiently powerful to handle dependent types in full generality.
+
+
+So, any function that uses \lstinline!saveDiv! for dividing by an unknown value \lstinline!y! will also require an additional witness argument of type \lstinline!Nonzero y!.
+
+
+We also cannot divide by a number \lstinline!y! imported from a different Dhall file, unless that file also exports a witness value of type \lstinline!Nonzero y!.
+
+
+The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
+
+
+\subsection{Integer square root}
+
+
+The "integer-valued square root" of a natural number \lstinline!n! is the largest natural number \lstinline!r! such that \lstinline!r * r <= n!. 
+
+
+A simple algorithm for determining \lstinline!r! is to subtract \lstinline!1! from \lstinline!n! repeatedly, until the result \lstinline!r! satisfies \lstinline!r * r <= n!.
+
+
+As before, Dhall requires is to specify an upper bound on the number of iterations up front.
+Let us specify \lstinline!n! as the upper bound.
+
+
+We will begin with \lstinline!n! and iterate applying a function \lstinline!stepDown!.
+That function will increment its argument \lstinline!r! by \lstinline!1! while the condition \lstinline!r * r <= n! is satisfied. 
+
+
+The code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let sqrt = λ(n: Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r 
+    in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp n)
+  in 
+    assert : sqrt 25 === 5
+\end{lstlisting}
+
+
+There are faster algorithms of computing the square root, but those algorithms require division.
+Our implementation of division already requires a slow iteration.
+So, we will not pursue further optimizations.
+
+
+\subsection{Integer logarithm}
+
+
+The "bit width" (\lstinline!bitWidth!) of a natural number \lstinline!n! is the smallest number of binary bits needed to represent \lstinline!n!.
+For example, \lstinline!bitWidth 3! is \lstinline!2! because \lstinline!3! is represented as two binary bits: \lstinline!0b11!, while \lstinline!bitWidth 4! is \lstinline!3! because \lstinline!4! is \lstinline!0b100! and requires 3 bits.
+
+
+To compute this function, we find the smallest natural number \lstinline!b! such that \lstinline!2! to the power \lstinline!b! is larger than \lstinline!n!. We start with \lstinline!b = 1! and multiply \lstinline!b! by \lstinline!2! as many times as needed until we get a value larger than \lstinline!n!.
+
+
+As before, we need to supply an upper bound on the iteration count.
+We supply \lstinline!n! as that bound and make sure that the final result remains constant once we reach it, even if we perform further iterations.
+
+
+The code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let bitWidth : Natural → Natural = λ(n : Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Accum = { b : Natural, bitWidth : Natural }
+  let init = { b = 1, bitWidth = 0 } -- At all times, b == pow(2, bitWidth).
+  let update = λ(acc : Accum) →
+     if lessThanEqual acc.b n
+     then { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
+     else acc 
+  let result : Accum = Natural/fold n Accum update init
+    in result.bitWidth 
+\end{lstlisting}
+
+
+The function \lstinline!bitWidth! may be generalized to compute integer-valued logarithms with a natural base.
+We note that if we subtract \lstinline!1! from the result of \lstinline!bitWidth! we will obtain the integer part of the base-2 logarithm.
+
+
+\begin{lstlisting}[language=Dhall]
+let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Accum = { b : Natural, log : Natural }
+  let init = { b = 1, log = 0 } -- At all times, b == pow(base, log).
+  let update = λ(acc : Accum) →
+     if lessThanEqual acc.b n
+     then { b = acc.b * base, log = acc.log + 1 }
+     else acc 
+  let result : Accum = Natural/fold n Accum update init
+    in Natural/subtract 1 result.log
+\end{lstlisting}
+
+
+\subsection{Greatest common divisor (\lstinline!gcd!)}
+
+
+The greatest common divisor (\lstinline!gcd x y!) is computed by a simple algorithm using subtraction.
+
+
+When \lstinline!x! and \lstinline!y! are equal, we have \lstinline!gcd x x = x!.
+Otherwise, one of \lstinline!x! and \lstinline!y! is larger; say, \lstinline!x!. Then we define recursively \lstinline!gcd x y = gcd (x - y) y!.
+
+
+To implement this in Dhall, we supply the larger of \lstinline!x! and \lstinline!y! as an upper bound on the iteration count.
+The iteration will keep the pair \lstinline!x, y! sorted so that \lstinline!x! is always greater or equal to \lstinline!y!.
+At each step, a pair \lstinline!x, y! is replaced by \lstinline!x - y, y! and sorted again.
+Eventually, \lstinline!y! becomes equal to \lstinline!0!.
+After that, the value \lstinline!x! is equal to the required value of \lstinline!gcd!.
+
+
+\begin{lstlisting}[language=Dhall]
+let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) →
+  let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+  let Pair = { x : Natural, y : Natural }
+  let swap : Pair → Pair = λ(currentPair : Pair) → { x = currentPair.y, y = currentPair.x }
+  let sortPair : Pair → Pair = λ(currentPair : Pair) →
+    if lessThanEqual currentPair.y currentPair.x then currentPair else swap currentPair
+  let step : Pair → Pair = λ(currentPair : Pair) →
+    currentPair // { x = Natural/subtract currentPair.y currentPair.x }
+  let update : Pair → Pair = λ(currentPair : Pair) → sortPair (step currentPair)
+  let init = sortPair { x = x, y = y }
+  let max_iter = init.x
+  let result : Pair = Natural/fold max_iter Pair update init
+    in result.x
+\end{lstlisting}
+
+
+\section{Functors and bifunctors}
+
+
+\subsection{Functors and \lstinline!fmap!}
+
+
+In the jargon of the functional programming community, a \textbf{functor} is a type constructor \lstinline!F! with an \lstinline!fmap! function having the standard type signature and obeying the functor laws.
+
+
+Those type constructors are also called "covariant functors".
+For type constructors, "covariant" means "has a lawful \lstinline!fmap! method".
+
+
+Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
+
+
+A simple example of a functor is a record with two values of type \lstinline!A! and a value of a fixed type \lstinline!Bool!.
+In Haskell, that type constructor and its \lstinline!fmap! function are defined by:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a = F a a Bool
+fmap :: (a → b) → F a → F b
+fmap f (F x y t) = F (f x) (F y) t 
+\end{lstlisting}
+
+
+In Scala, the equivalent code is:
+
+
+\begin{lstlisting}[language=Scala]
+final case class F[A](x: A, y: A, t: Boolean)
+
+def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
+  F(f(fa.x), f(fa.y), fa.t)
+\end{lstlisting}
+
+
+The corresponding Dhall code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
+let fmap
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+\end{lstlisting}
+
+
+To test:
+
+
+\begin{lstlisting}[language=Dhall]
+let example : F Natural = { x = 1, y = 2, t = True }
+let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
+let test = assert : after_fmap === { x = "odd", y = "even", t = True }
+\end{lstlisting}
+
+
+As another example, let us define \lstinline!fmap! for a type constructor that involves a union type:
+
+
+\begin{lstlisting}[language=Dhall]
+let G : Type → Type
+  = λ(a : Type) → < Left : Text | Right : a >
+let fmap
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
+    merge { Left = λ(t : Text) → (G b).Left t
+          , Right = λ(x : a) → (G b).Right (f x)
+          } ga
+\end{lstlisting}
+
+
+Dhall requires the union type's constructors to be explicitly derived from the full union type.
+In Haskell or Scala, we would simply write \lstinline!Left(t)! and \lstinline!Right(f(x))! and let the compiler fill in the type parameters.
+But Dhall requires us to write a complete type annotation such as \lstinline!< Left : Text | Right : b >.Left t! and \lstinline!< Left : Text | Right : b >.Right (f x)! in order to specify the complete union type being constructed.
+
+
+In the code shown above, we were able to shorten those constructors to \lstinline!(G b).Left! and \lstinline!(G b).Right!.
+
+
+\subsection{Bifunctors and \lstinline!bimap!}
+
+
+Bifunctors are type constructors with two type parameters that are covariant in both type parameters.
+For example, \lstinline!type P a b = (a, a, b, Int)! is a bifunctor.
+
+
+Dhall encodes bifunctors as functions with two curried arguments:
+
+
+\begin{lstlisting}[language=Dhall]
+let P : Type → Type → Type
+  = λ(a : Type) → λ(b : Type) → { x : a, y : a, z : b, t : Integer }
+\end{lstlisting}
+
+
+Bifunctors have a \lstinline!bimap! method that transforms both type parameters at once:
+
+
+\begin{lstlisting}[language=Dhall]
+let bimap
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
+    { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
+\end{lstlisting}
+
+
+Given \lstinline!bimap!, one can then define two \lstinline!fmap! methods that work only on the first or on the second of \lstinline!P!'s type parameters.
+
+
+\begin{lstlisting}[language=Dhall]
+let fmap1
+  : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
+    bimap a d c d f (identity d)
+
+let fmap2
+  : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
+    bimap a b a d (identity a) g
+\end{lstlisting}
+
+
+Here, we have used the polymorphic identity function defined earlier.
+
+
+The code for \lstinline!fmap! and \lstinline!bimap! can be derived mechanically from the type definition of a functor or a bifunctor.
+For instance, Haskell will do that if the programmer just writes \lstinline!deriving Functor! after the definition.
+But Dhall does not have any code generation facilities.
+The code of those methods must be written in Dhall programs that need to use functors or bifunctors.
+
+
+\section{Typeclasses}
+
+
+Typeclasses can be implemented in Dhall via evidence values used as explicit function arguments.
+
+
+\subsection{\lstinline!Monoid!}
+
+
+The \lstinline!Monoid! typeclass is usually defined in Haskell as:
+
+
+\begin{lstlisting}[language=Haskell]
+class Monoid m where
+  mempty :: m
+  mappend :: m → m → m
+\end{lstlisting}
+
+
+In Scala, a corresponding definition is:
+
+
+\begin{lstlisting}[language=Scala]
+trait Monoid[M] {
+ def empty: M
+ def combine: (M, M) => M 
+}
+\end{lstlisting}
+
+
+An evidence value needs to contain a value of type \lstinline!m! and a function of type \lstinline!m → m → m!.
+A Dhall record type containing values of those types could be \lstinline!{ empty : m, append : m → m → m }!.
+A value of that type provides evidence that the type \lstinline!m! has the required methods for a monoid.
+
+
+To use the typeclass more easily, it is convenient to define a type constructor \lstinline!Monoid! such that the above record type is obtained as \lstinline!Monoid m!:
+
+
+\begin{lstlisting}[language=Dhall]
+let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+\end{lstlisting}
+
+
+With this definition, \lstinline!Monoid Bool! is the type \lstinline!{ mempty : Bool, append : Bool → Bool → Bool }!.
+Values of that type are evidence values for a monoid structure in the type \lstinline!Bool!.
+
+
+Now we can create evidence values for specific types and use them in programs.
+
+
+Let us implement some \lstinline!Monoid! evidence values for the types \lstinline!Bool!, \lstinline!Natural!, \lstinline!Text!, and \lstinline!List!:
+
+
+\begin{lstlisting}[language=Dhall]
+let monoidBool : Monoid Bool = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+let monoidNatural : Monoid Natural = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
+let monoidText : Monoid Text = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
+let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
+\end{lstlisting}
+
+
+We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
+Examples are the standard functions \lstinline!reduce! and \lstinline!foldMap! for \lstinline!List!, written in the Haskell syntax as:
+
+
+\begin{lstlisting}[language=Haskell]
+reduce :: Monoid m => List m -> m
+reduce xs = foldr (\x -> \y -> mappend y x) mempty xs
+
+foldMap :: Monoid m => (a -> m) -> List a -> m
+foldMap f xs = foldr (\x -> \y -> mappend y (f x)) mempty xs
+\end{lstlisting}
+
+
+Note that Dhall's \lstinline!List/fold! implements a "right fold", similarly to Haskell's \lstinline!foldr! and Scala's \lstinline!foldRight!.
+The corresponding Dhall code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let reduce
+  : ∀(m : Type) → Monoid m → List m → m
+  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(xs : List m) →
+    List/fold m xs m (λ(x : m) → λ(y : m) → monoid_m.append y x) monoid_m.empty
+
+let foldMap
+  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
+  = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
+    List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
+\end{lstlisting}
+
+
+\subsection{\lstinline!Functor!}
+
+
+The \lstinline!Functor! typeclass is a constraint for a \emph{type constructor}.
+So, the type parameter of \lstinline!Functor! must be of the kind \lstinline!Type → Type!.
+
+
+The required data for an evidence value is a polymorphic \lstinline!fmap! function for that type constructor.
+Let us now package that information into a \lstinline!Functor! typeclass similarly to how we did with \lstinline!Monoid!.
+
+
+Define the type constructor for evidence values:
+
+
+\begin{lstlisting}[language=Dhall]
+let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+\end{lstlisting}
+
+
+Here is a \lstinline!Functor! evidence value for \lstinline!List!. The \lstinline!fmap! function is already available in the Dhall standard prelude:
+
+
+\begin{lstlisting}[language=Dhall]
+let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
+\end{lstlisting}
+
+
+As another example, let us write the evidence values for the type constructors \lstinline!F! and \lstinline!G! shown in the section "Functors and bifunctors":
+
+
+\begin{lstlisting}[language=Dhall]
+let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+  }
+let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
+    merge { Left = λ(t : Text) → (G B).Left t
+          , Right = λ(x : A) → (G B).Right (f x)
+          } ga  
+  }
+\end{lstlisting}
+
+
+\subsection{\lstinline!Monad!}
+
+
+The \lstinline!Monad! typeclass may be defined via the methods \lstinline!pure! and \lstinline!bind!.
+
+
+Define the type constructor for evidence values:
+
+
+\begin{lstlisting}[language=Dhall]
+let Monad = λ(F : Type → Type) →
+  { pure : ∀(a : Type) → a → F a
+  , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+  }
+\end{lstlisting}
+
+
+As an example, let us define a \lstinline!Monad! evidence value for \lstinline!List!:
+
+
+\begin{lstlisting}[language=Dhall]
+let monadList : Monad List =
+  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+  in
+  { pure = λ(a : Type) → λ(x : a) → [ x ]
+  , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+    List/concatMap a b f fa
+  }
+\end{lstlisting}
+
+
+We have defined the \lstinline!Monad! typeclass via the \lstinline!pure! and \lstinline!bind! methods.
+Let us implement a function that provides the \lstinline!join! method for any member of \lstinline!Monad!.
+
+
+In Haskell, we would define \lstinline!join! via \lstinline!bind! as:
+
+
+\begin{lstlisting}[language=Haskell]
+monadJoin :: Monad F => F (F a) -> F a
+monadJoin ffa = bind ffa id
+\end{lstlisting}
+
+
+In this Haskell code, \lstinline!id! is an identity function of type \lstinline!F a → F a!.
+
+
+The corresponding Dhall code is analogous, except we need to write out all type parameters:
+
+
+\begin{lstlisting}[language=Dhall]
+let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) → λ(ffa : F (F a)) →
+  monadF.bind (F a) ffa a (identity (F a))  
+\end{lstlisting}
+
+
+We can use this function to obtain a \lstinline!join! method for \lstinline!List! like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let List/join
+  : ∀(a : Type) → List (List a) → List a
+  = monadJoin List monadList 
+\end{lstlisting}
+
+
+\subsection{Inheritance of typeclasses}
+
+
+Sometimes one typeclass includes methods from another.
+For example, \lstinline!Semigroup! is similar to \lstinline!Monoid!: it has the \lstinline!append! method but no \lstinline!empty! method.
+We could say that the \lstinline!Monoid! typeclass inherits \lstinline!append! from \lstinline!Semigroup! and adds the \lstinline!empty! method.
+
+
+To express this kind of inheritance in Dhall, we can use Dhall's record-updating features.
+Dhall has the operator \lstinline!//\\! that combines all fields from two record types into one larger record type.
+The corresponding operator \lstinline!/\! combines fields from two record values.
+For example:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ { a : Text, b : Bool } //\\ { c : Natural }
+
+{ a : Text, b : Bool, c : Natural }
+
+⊢ { a = 1 } /\ { b = True }
+
+{ a = 1, b = True }
+\end{lstlisting}
+
+
+In these cases, the field names must be different (otherwise it is a type error).
+
+
+We can use these operators for making typeclass definitions and evidence values shorter.
+
+
+Consider this Dhall code for the \lstinline!Semigroup! typeclass:
+
+
+\begin{lstlisting}[language=Dhall]
+let Semigroup = λ(m : Type) → { append : m → m → m }
+let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ y }
+\end{lstlisting}
+
+
+We can use this definition to rewrite the \lstinline!Monoid! typeclass via "record-based inheritance".
+Then the \lstinline!Semigroup! evidence value for the type \lstinline!Text! is written as:
+
+
+\begin{lstlisting}[language=Dhall]
+let Monoid = λ(m : Type) → Semigroup m //\\ { empty : m }
+let monoidText : Monoid Text = semigroupText /\ { empty = "" } 
+\end{lstlisting}
+
+
+Similarly, we may rewrite the \lstinline!Monad! typeclass to make it more clear that any monad is also a (covariant) functor:
+
+
+\begin{lstlisting}[language=Dhall]
+let Monad = λ(F : Type → Type) →
+  Functor F //\\
+      { pure : ∀(a : Type) → a → F a
+      , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+      }
+\end{lstlisting}
+
+
+As an example, let us define a \lstinline!Monad! evidence value for \lstinline!List!:
+
+
+\begin{lstlisting}[language=Dhall]
+let monadList : Monad List =
+  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+  in functorList /\
+      { pure = λ(a : Type) → λ(x : a) → [ x ]
+      , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+        List/concatMap a b f fa
+      }
+\end{lstlisting}
+
+
+\section{Church encoding for recursive types and type constructors}
+
+
+\subsection{Recursion schemes}
+
+
+Dhall does not directly support defining recursive types or recursive functions.
+The only supported recursive type is a built-in \lstinline!List! type. 
+However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
+
+
+A beginner's tutorial on Church encoding is found in the Dhall documentation: [https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html)
+Here, we summarize that technique more briefly.
+
+
+In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
+That is, one writes definitions of the form \lstinline!T = F T! where \lstinline!F! is some type constructor and \lstinline!T! is the type being defined.
+
+
+For example, suppose \lstinline!T! is the type of lists with integer values.
+A recursive definition of \lstinline!T! in Haskell could look like this:
+
+
+\begin{lstlisting}[language=Haskell]
+data T = Nil | Cons Int T
+\end{lstlisting}
+
+
+This definition of \lstinline!T! has the form of a "type equation", \lstinline!T = F T!, where \lstinline!F! is a (non-recursive) type constructor defined by: 
+
+
+\begin{lstlisting}[language=Haskell]
+type F a = Nil | Cons Int a
+\end{lstlisting}
+
+
+The type constructor \lstinline!F! is called the \textbf{recursion scheme} for the definition of \lstinline!T!.
+
+
+Dhall does not accept recursive type equations, but it will accept the definition of \lstinline!F! (because it is non-recursive).
+The definition of \lstinline!F! is written in Dhall as:
+
+
+\begin{lstlisting}[language=Dhall]
+let F : Type → Type = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
+\end{lstlisting}
+
+
+By definition, the \textbf{Church encoding} of \lstinline!T! is the following type expression:
+
+
+\begin{lstlisting}[language=Dhall]
+let C : Type = ∀(r : Type) → (F r → r) → r 
+\end{lstlisting}
+
+
+The type \lstinline!C! is still non-recursive, so Dhall will accept this definition.
+
+
+Note that we are using \lstinline!∀(r : Type)! and not \lstinline!λ(r : Type)! when we define \lstinline!C!.
+The type \lstinline!C! is not a type constructor; it is a type of a function with a type parameter.
+When we define \lstinline!F! as above, it turns out that the type \lstinline!C! equivalent to the type of (finite) lists with integer values.
+
+
+The Church encoding construction works in the same way for any recursion scheme \lstinline!F!.
+Given a recursion scheme \lstinline!F!, one defines a non-recursive type \lstinline!C = ∀(r : Type) → (F r → r) → r!.
+Then the type \lstinline!C! is equivalent to the type \lstinline!T! that we would have defined by \lstinline!T = F T! in a language that supports recursively defined types.
+
+
+It is not obvious why a type of the form \lstinline!∀(r : Type) → (F r → r) → r! is equivalent to a type \lstinline!T! defined recursively by \lstinline!T = F T!.
+More precisely, the type \lstinline!∀(r : Type) → (F r → r) → r! is the "least fixpoint" of the type equation \lstinline!T = F T!.
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
+In this book, we will focus on the practical uses of Church encoding.
+
+
+\subsection{Simple recursive types}
+
+
+Here are some examples of Church encoding for simple recursive types.
+
+
+The type \lstinline!ListInt! (a list with integer values):
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+The type \lstinline!TreeText! (a binary tree with \lstinline!Text! strings in leaves):
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+\subsection{Church encoding of non-recursive types}
+
+
+If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the type unchanged.
+
+
+For example, consider this recursion scheme:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(t : Type) → { x : Text, y : Boolean }
+\end{lstlisting}
+
+
+Then the type \lstinline!F t! does not actually depend on \lstinline!t!.
+
+
+The corresponding Church encoding gives the type:
+
+
+\begin{lstlisting}[language=Dhall]
+let C = ∀(r : Type) → ({ x : Text, y : Boolean } → r) → r
+\end{lstlisting}
+
+
+The general properties of the Church encoding always enforce that \lstinline!C! is a fixpoint of the type equation \lstinline!C = F C!.
+This remains true even when \lstinline!F! does not depend on its type parameter.
+So, now we have \lstinline!F C = { x : Text, y : Boolean }! independently of \lstinline!C!.
+The type equation \lstinline!C = F C! is non-recursive and simply says that \lstinline!C = { x : Text, y : Boolean }!.
+
+
+More generally, the type \lstinline!∀(r : Type) → (p → r) → r! is equivalent to just \lstinline!p!, because it is the Church encoding of the type equation \lstinline!T = p!.
+
+
+We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
+
+
+\subsection{The Yoneda and Church-Yoneda identities}
+
+
+The type equivalence \lstinline!∀(r : Type) → (p → r) → r ≅ p! is a special case of the \textbf{covariant Yoneda identity}:
+
+
+\begin{lstlisting}[language=Dhall]
+∀(r : Type) → (p → r) → G r  ≅  G p
+\end{lstlisting}
+
+
+Here, it is assumed that \lstinline!G! is a covariant type constructor and \lstinline!p! is a fixed type (not depending on \lstinline!r!).
+
+
+Note that the Church encoding formula, \lstinline!∀(r : Type) → (F r → r) → r!, is not of the same form as the Yoneda identity because the function argument \lstinline!F r! depends on \lstinline!r!.
+The Yoneda identity does not apply to types of that form.
+
+
+There is a generalized \textbf{Church-Yoneda identity} that combines both forms of types:
+
+
+\begin{lstlisting}[language=Dhall]
+∀(r : Type) → (F r → r) → G r  ≅  G C
+\end{lstlisting}
+
+
+Here, \lstinline!C = ∀(r : Type) → (F r → r) → r! is the Church-encoded fixpoint of \lstinline!F!.
+
+
+This identity is mentioned in the proceedings [https://hal.science/hal-00512377/document](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+
+
+The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
+See the Appendix "Naturality and parametricity" for more details.
+
+
+The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
+In this book, we will use that identity to prove the Church encoding formula for mutually recursive types.
+
+
+\subsection{Church encoding in the curried form}
+
+
+We can use certain type equivalence identities to rewrite the type \lstinline!ListInt! in a form more convenient for practical applications.
+
+
+The first type equivalence is that a function from a union type is equivalent to a product of functions.
+So, the type \lstinline!F r → r!, written in full as:
+
+
+\begin{lstlisting}[language=Dhall]
+< Nil | Cons : { head : Integer, tail : r } > → r
+\end{lstlisting}
+
+
+is equivalent to a pair of functions of types \lstinline!< Nil > → r! and \lstinline!{ head : Integer, tail : r } → r!.
+
+
+The type \lstinline!< Nil >! is a named unit type, so \lstinline!< Nil > → r! is equivalent to just \lstinline!r!.
+
+
+The second type equivalence is that a function from a record type is equivalent to a curried function.
+For instance, the type:
+
+
+\begin{lstlisting}[language=Dhall]
+{ head : Integer, tail : r } → r
+\end{lstlisting}
+
+
+is equivalent to \lstinline!Integer → r → r!.
+
+
+Using these type equivalences, we may rewrite the type \lstinline!ListInt! in the \textbf{curried form} as:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+\end{lstlisting}
+
+
+It is now less clear that we are dealing with a type of the form \lstinline!∀(r : Type) → (F r → r) → r!.
+However, working with curried functions often needs shorter code than working with union types and record types.
+
+
+The type \lstinline!TreeText! (a binary tree with string-valued leaves) is defined in Dhall by:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+Since \lstinline!F r! is a union type with two parts, the type of functions \lstinline!F r → r! can be replaced by a pair of functions.
+
+
+We can also replace functions from a record type by curried functions.
+
+
+Then we obtain an equivalent definition of \lstinline!TreeText! that is easier to work with:
+
+
+\begin{lstlisting}[language=Dhall]
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+\end{lstlisting}
+
+
+These examples show how any type constructor \lstinline!F! defined via products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+
+
+We will call that the \textbf{curried form} of the Church encoding.
+
+
+The curried form is more convenient for practical programming.
+But when we are studying general properties of Church encodings, it is better to use the form \lstinline!∀(r : Type) → (F r → r) → r!.
+
+
+Historical note: The curried form of the Church encoding is known as the Boehm-Berarducci encoding.
+See the discussion by O. Kiselyov, [https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
+
+
+\section{Working with Church-encoded data}
+
+
+A Church-encoded data type is always of the form \lstinline!∀(r : Type) → ... → r!, that is, a curried higher-order function with a type parameter.
+A value \lstinline!x! of that type is a function whose code may be written like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let x
+  : ∀(r : Type) → (F r → r) → r
+  = λ(r : Type) → λ(frr : F r → r) →
+     let y : r = ... -- Need to insert some code here.
+        in y
+\end{lstlisting}
+
+
+Working with data encoded in this way is not straightforward.
+It takes some work to figure out convenient ways of creating values of those types and of working with them.
+
+
+We will now show how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to implement pattern matching.
+
+
+For simplicity, we now consider an ordinary Church-encoded type \lstinline!C = ∀(r : Type) → (F r → r) → r! defined via a recursion scheme \lstinline!F!.
+Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
+
+
+An important requirement is that the recursion scheme \lstinline!F! should be a \emph{covariant} type constructor.
+If this is not so, Church encoding does not work as expected.
+
+
+We will assume that \lstinline!F! has a known and lawful \lstinline!fmap! function that we denote by \lstinline!fmapF!.
+So, all Dhall code below assumes a given set of definitions of this form:
+
+
+\begin{lstlisting}[language=Dhall]
+let F : Type → Type = ...
+
+let C = ∀(r : Type) → (F r → r) → r
+
+let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
+\end{lstlisting}
+
+
+\subsection{The isomorphism \lstinline!C = F C!: the functions \lstinline!fix! and \lstinline!unfix! }
+
+
+The Church-encoded type \lstinline!C! is a fixpoint of the type equation \lstinline!C = F C!.
+This means we should have two functions, \lstinline!fix : F C → C! and \lstinline!unfix : C → F C!, that are inverses of each other.
+These two functions implement an isomorphism between \lstinline!C! and \lstinline!F C!.
+This isomorphism shows that the types \lstinline!C! and \lstinline!F C! are equivalent, which is one way of understanding why \lstinline!C! is a fixpoint of the type equation \lstinline!C = F C!.
+
+
+Because this isomorphism is a general property of all Church encodings, we can write the code for \lstinline!fix! and \lstinline!unfix! generally, for all recursion schemes \lstinline!F! and the corresponding types \lstinline!C!.
+
+
+The basic technique of working directly with any Church-encoded data \lstinline!c : C! is to use \lstinline!c! as a curried higher-order function.
+That function has two arguments: a type parameter \lstinline!r! and a function of type \lstinline!F r → r!.
+If we need to compute a value of some other type \lstinline!D! out of \lstinline!c!, we specify \lstinline!D! as the type parameter to \lstinline!c! and then provide a function of type \lstinline!F D → D! as the second argument.
+As long as we are able to provide a function of type \lstinline!F D → D!, we can convert \lstinline!c! into a value of type \lstinline!D!:
+
+
+\begin{lstlisting}[language=Dhall]
+let d : D =
+    let fdd : F D → D = ...
+        in c D fdd
+\end{lstlisting}
+
+
+We will use this technique to implement \lstinline!fix! and \lstinline!unfix!.
+For clarity, we split the code into smaller chunks annotated by their types:
+
+
+\begin{lstlisting}[language=Dhall]
+let fix : F C → C = λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
+    let c2r : C → r = λ(c : C) → c r frr
+    let fmap_c2r : F C → F r = fmapF C r c2r
+    let fr : F r = fmap_c2r fc
+        in frr fr
+
+let fmap_fix : F (F C) → F C = fmapF (F C) C fix
+
+let unfix : C → F C = λ(c : C) → c (F C) fmap_fix
+\end{lstlisting}
+
+
+The definitions of \lstinline!fix! and \lstinline!unfix! are non-recursive and are accepted by Dhall.
+
+
+The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that \lstinline!fix! and \lstinline!unfix! are inverses of each other.
+
+
+Another property proved in that paper is the identity \lstinline!c C fix = c! for all \lstinline!c : C!.
+
+
+\subsection{Data constructors}
+
+
+The function \lstinline!fix : F C → C! (sometimes also called \lstinline!build!) provides a general way of creating new values of type \lstinline!C! out of previously known values, or from scratch.
+
+
+As the type \lstinline!F C! is almost always a union type, it is convenient to rewrite the function type \lstinline!F C → C! as a product of simpler functions.
+We can write this in a mathematical notation:
+
+
+\lstinline!F C → C  ≅  (F1 C → C) × (F2 C → C) × ... !
+
+
+where each of \lstinline!F1 C!, \lstinline!F2 C!, etc., are product types such as \lstinline!C × C! or \lstinline!Text × C!, etc.
+
+
+Each of the simpler functions (\lstinline!F1 C → C!, \lstinline!F2 C → C!, etc.) is a specific constructor that we can assign a name for convenience.
+In this way, we replace a single function \lstinline!fix! by a product of constructors that can be used to create values the complicated type \lstinline!C! more easily.
+
+
+To illustrate this technique, consider two examples: \lstinline!ListInt! and \lstinline!TreeText!.
+
+
+Begin with the curried Church encodings of those types:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+\end{lstlisting}
+
+
+From this, we can simply read off the types of the constructor functions (which we will call \lstinline!nil!, \lstinline!cons!, \lstinline!leaf!, and \lstinline!branch! according to the often used names of those constructors):
+
+
+\begin{lstlisting}[language=Dhall]
+let nil : ListInt = ...
+let cons : Integer → ListInt → ListInt = ...
+
+let leaf : Text → TreeText = ...
+let branch : TreeText → TreeText → TreeText = ...
+\end{lstlisting}
+
+
+In principle, the code for the constructors can be derived mechanically from the general code of \lstinline!fix!.
+But in most cases, it is easier to write the constructors manually, by implementing the required type signatures guided by the types.
+
+
+Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
+Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
+
+
+\begin{lstlisting}[language=Dhall]
+let nil : ListInt
+   = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
+     a1
+let cons : Integer → ListInt → ListInt
+   = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
+     a2 n (c r a1 a2)
+
+let leaf : Text → TreeText
+   = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
+     a1 t
+let branch: TreeText → TreeText → TreeText
+   = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
+     a2 (left r a1 a2) (right r a1 a2)
+\end{lstlisting}
+
+
+Now we can create values of Church-encoded types by writing nested constructor calls:
+
+
+\begin{lstlisting}[language=Dhall]
+-- The list [+123, -456, +789]
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+
+{- The tree    /\
+              /\ c
+             a  b
+-}
+let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
+\end{lstlisting}
+
+
+\subsection{Aggregations ("folds")}
+
+
+The type \lstinline!C! itself is a type of fold-like functions.
+
+
+To see the similarity, compare the curried form of the \lstinline!ListInt! type:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+\end{lstlisting}
+
+
+with the type signature of the \lstinline!foldRight! function for the type \lstinline!List Integer!:
+
+
+\begin{lstlisting}[language=Dhall]
+foldRight : ∀(r : Type) → (List Integer) → r → (Integer → r → r) → r
+\end{lstlisting}
+
+
+So, implementing \lstinline!foldRight! for the Church-encoded type \lstinline!ListInt! is simple:
+
+
+\begin{lstlisting}[language=Dhall]
+let foldRight
+  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+  = λ(r : Type) → λ(p : ListInt) → λ(init : r) → λ(update : Integer → r → r) →
+    p r init update
+\end{lstlisting}
+
+
+The code can be made even shorter:
+
+
+\begin{lstlisting}[language=Dhall]
+let foldRight
+  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+  = λ(r : Type) → λ(p : ListInt) → p r
+\end{lstlisting}
+
+
+The similarity between the types of \lstinline!foldRight! and \lstinline!ListInt! becomes more apparent if we flip the curried arguments of \lstinline!foldRight!:
+
+
+\begin{lstlisting}[language=Dhall]
+flip_foldRight
+  : ListInt → ∀(r : Type) → r → (Integer → r → r) → r
+  = λ(p : ListInt) → p
+\end{lstlisting}
+
+
+This is just an identity function of type \lstinline!ListInt → ListInt!.
+
+
+We note that \lstinline!foldRight! is a non-recursive function.
+In this way, the Church encoding enables fold-like aggregations to be implemented without recursion.
+
+
+For an arbitrary Church-encoded data type \lstinline!C!, the "fold" function is the identity function of type \lstinline!C → C! with first two arguments flipped.
+In practice, it is easier to "inline" that identity function: that is, to use the data type \lstinline!C! itself as the "fold"-like function.
+
+
+Recursive data types such as lists and trees support certain useful operations such as \lstinline!map!, \lstinline!concat!, \lstinline!filter!, or \lstinline!traverse!.
+In most FP languages, those operations are implemented via recursive code.
+To use those operations in Dhall, we need to reformulate them as fold-like aggregations.
+
+
+\textbf{"Fold-like" aggregations} iterate over the data while some sort of accumulator value is updated at each step.
+The result value of the aggregation is the last computed value of the accumulator.
+
+
+Let us show some examples of how this is done.
+
+
+\subsection{Sum of values in a \lstinline!ListInt!}
+
+
+Suppose we have a value \lstinline!list! in the curried-form Church encoding of \lstinline!ListInt!:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+
+let list : ListInt = ...
+\end{lstlisting}
+
+
+The task is to compute the sum of the absolute values of all integers in \lstinline!list!.
+So, we need to implement a function \lstinline!sumListInt : ListInt → Natural!.
+An example test could be:
+
+
+\begin{lstlisting}[language=Dhall]
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+let _ = assert : sumListInt example1 === 1368
+\end{lstlisting}
+
+
+The function \lstinline!sumListInt! is a "fold-like" aggregation operation.
+To run the aggregation, we simply apply the value \lstinline!list! to some arguments.
+What are those arguments?
+
+
+The type \lstinline!ListInt! is a curried function with three arguments.
+
+
+The first argument must be the type \lstinline!r! of the result value; in our case, we need to set \lstinline!r = Natural!.
+
+
+The second argument is of type \lstinline!r! and the third argument of type \lstinline!Integer → r → r!.
+In our case, these types become \lstinline!Natural! and \lstinline!Integer → Natural → Natural!.
+
+
+So, it remains to supply those arguments that we will call \lstinline!init : Natural! and \lstinline!update : Integer → Natural → Natural!.
+The code of \lstinline!sumListInt! will look like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let init : Natural = ...
+let update : Integer → Natural → Natural = ...
+let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init update
+\end{lstlisting}
+
+
+The meaning of \lstinline!init! is the result of \lstinline!sumListInt! when the list is empty.
+The meaning of \lstinline!update! is the next accumulator value (of type Natural) computed from a current item from the list (of type \lstinline!Integer!) and a value of type \lstinline!Natural! that has been accumulated so far (by aggregating the tail of the list).
+
+
+In our case, it is natural to set \lstinline!init! is zero.
+The \lstinline!update! function is implemented via the standard Prelude function \lstinline!Integer/abs!:
+
+
+\begin{lstlisting}[language=Dhall]
+let abs = https://prelude.dhall-lang.org/Integer/abs
+let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+\end{lstlisting}
+
+
+The complete test code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let init : Natural = 0
+let abs = https://prelude.dhall-lang.org/Integer/abs
+let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init update
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+
+let _ = assert : sumListInt example1 === 1368
+\end{lstlisting}
+
+
+\subsection{Pretty-printing a binary tree}
+
+
+Consider the curried form of the Church encoding for binary trees with \lstinline!Text!-valued leaves:
+
+
+\begin{lstlisting}[language=Dhall]
+let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+\end{lstlisting}
+
+
+The task is to print a text representation of the tree where branching is indicated via nested parentheses, such as \lstinline!"((a b) c)"!.
+The result will be a function \lstinline!printTree! whose code needs to begin like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) → ...
+\end{lstlisting}
+
+
+The pretty-printing operation is "fold-like" because a pretty-printed tree can be aggregated from pretty-printed subtrees.
+
+
+We implement a fold-like operation simply by applying the value \lstinline!tree! to some arguments.
+
+
+The first argument must be the type \lstinline!r! of the result value.
+Since the pretty-printing operation will return a \lstinline!Text! value, we set the type parameter \lstinline!r! to \lstinline!Text!.
+
+
+Then it remains to supply two functions of types \lstinline!Text → r! and \lstinline!r → r → r! (where \lstinline!r = Text!).
+Let us call those functions \lstinline!printLeaf : Text → Text! and \lstinline!printBraches : Text → Text → Text!.
+These two functions describe how to create the text representation for a larger tree either from a leaf or from the \emph{already computed} text representations of two subtrees.
+
+
+A leaf is printed as just its \lstinline!Text! value:
+
+
+\begin{lstlisting}[language=Dhall]
+let printLeaf : Text → Text = λ(leaf : Text) → leaf
+\end{lstlisting}
+
+
+For the two branches, we add parentheses and add a space between the two subtrees:
+
+
+\begin{lstlisting}[language=Dhall]
+let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+\end{lstlisting}
+
+
+Note that the functions \lstinline!printLeaf! and \lstinline!printBranches! are non-recursive.
+
+
+The complete code of \lstinline!printTree! is:
+
+
+\begin{lstlisting}[language=Dhall]
+let printLeaf : Text → Text = λ(leaf : Text) → leaf
+
+let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+
+let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) →
+    tree Text printLeaf printBranches
+
+let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")    
+
+let test = assert : printTree example2 === "((a b) c)"
+\end{lstlisting}
+
+
+In a similar way, many recursive functions can be reduced to fold-like operations and then implemented for Church-encoded data non-recursively.
+
+
+\subsection{Where did the recursion go?}
+
+
+The technique of Church encoding may be perplexing.
+If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion or iteration in the code?
+
+
+In the code of \lstinline!sumListInt! and \lstinline!printTree!, where are the parts that iterate over the data?
+
+
+In fact, the functions \lstinline!sumListInt! and \lstinline!printTree! are \emph{not} recursive.
+The possibility of iteration over the data stored in the list or in the tree is provided by the types \lstinline!ListInt! and \lstinline!TreeText! themselves.
+But the iteration is not provided via loops or recursion.
+Instead, it is hard-coded in the values \lstinline!list : ListInt! and \lstinline!tree: TreeText!.
+
+
+To see how, consider the value \lstinline!example1! shown above:
+
+
+\begin{lstlisting}[language=Dhall]
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+\end{lstlisting}
+
+
+The value \lstinline!example1! corresponds to a list with three items: \lstinline![+123, -456, +789]!.
+
+
+When we expand the constructors \lstinline!cons! and \lstinline!nil!, we will find that \lstinline!example1! is a higher-order function.
+The Dhall interpreter can print that function's normal form for us:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ example1
+
+λ(r : Type) →
+λ(a1 : r) →
+λ(a2 : Integer → r → r) →
+  a2 +123 (a2 -456 (a2 +789 a1))
+\end{lstlisting}
+
+
+The function \lstinline!example1! includes nested calls to \lstinline!a1! and \lstinline!a2!, that correspond to the two constructors (\lstinline!nil! and \lstinline!cons!) of \lstinline!ListInt!.
+The code of \lstinline!example1! applies the function \lstinline!a2! three times, which corresponds to having three items in the list.
+But there is no loop in \lstinline!example1!.
+It is just hard-coded in the expression \lstinline!example1! that \lstinline!a2! needs to be applied three times to some arguments.
+
+
+When we compute an aggregation such as \lstinline!sumListInt example1!, we apply \lstinline!example1! to three arguments.
+The last of those arguments is a certain function that we called \lstinline!update!.
+When we apply \lstinline!example1! to its arguments, the code of \lstinline!example1! will call \lstinline!update! three times.
+This is how the Church encoding actually performs iteration.
+
+
+Similarly, consider the value \lstinline!example2! shown above.
+When we expand the constructors \lstinline!branch! and \lstinline!leaf!, we will find that \lstinline!example2! is a higher-order function:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ example2
+
+λ(r : Type) →
+λ(a1 : Text → r) →
+λ(a2 : r → r → r) →
+  a2 (a2 (a1 "a") (a1 "b")) (a1 "c")
+\end{lstlisting}
+
+
+The code of \lstinline!example2! includes nested calls to \lstinline!a1! and \lstinline!a2!, which correspond to the constructors \lstinline!leaf! and \lstinline!branch!.
+There are three calls to \lstinline!a1! and two calls to \lstinline!a2!, meaning that the tree has three leaf values and two branch points.
+It's hard-coded in \lstinline!example2! to make exactly that many calls to the arguments \lstinline!a1! and \lstinline!a2!.
+When we apply \lstinline!example2! to arguments \lstinline!r!, \lstinline!leaf!, and \lstinline!branch!, the code of \lstinline!example2! will call \lstinline!leaf! three times and \lstinline!branch! two times.
+
+
+This explains how the Church encoding replaces iterative computations by non-recursive code.
+A data structure that contains, say, 1000 data values is Church-encoded into a certain higher-order function.
+That function will be hard-coded to call its arguments 1000 times.
+
+
+In this way, it is guaranteed that all recursive structures will be finite and all operations on those structures will terminate.
+That's why Dhall is able to accept Church encodings of recursive types and perform iterative and recursive operations on Church-encoded data without compromising any safety guarantees.
+
+
+As another example, we will show how to compute the size of a Church-encoded data structure.
+
+
+\subsection{Computing the size of a recursive data structure}
+
+
+The curried Church encoding for binary trees with \lstinline!Natural!-valued leaves is:
+
+
+\begin{lstlisting}[language=Dhall]
+let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
+\end{lstlisting}
+
+
+The present task is to compute various numerical measures characterizing the tree's data.
+
+
+We will consider three possible size computations:
+
+
+\begin{itemize}
+\item{The sum of all natural numbers stored in the tree. (\lstinline!treeSum!)}
+\item{The total number of leaves in the tree. (\lstinline!treeCount!)}
+\item{The maximum depth of leaves. (\lstinline!treeDepth!)}
+\end{itemize}
+Each computation is a fold-like aggregation, so we will implement all of them via similar-looking code:
+
+
+\begin{lstlisting}[language=Dhall]
+let treeSum : TreeNat → Natural =
+   let leafSum = ???
+   let branchSum = ???
+     in ∀(tree : TreeNat) → tree Natural leafSum branchSum
+
+let treeCount : TreeNat → Natural =
+   let leafCount = ???
+   let branchCount = ???
+     in ∀(tree : TreeNat) → tree Natural leafCount branchCount
+
+let treeDepth : TreeNat → Natural =
+   let leafDepth = ???
+   let branchDepth = ???
+     in ∀(tree : TreeNat) → tree Natural leafDepth branchDepth
+\end{lstlisting}
+
+
+The difference is only in the definitions of the functions \lstinline!leafSum!, \lstinline!branchSum!, and so on.
+
+
+\subsection{Pattern matching}
+
+
+When working with recursive types in ordinary functional languages, one often uses pattern matching.
+For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
+
+
+\begin{lstlisting}[language=Haskell]
+data TreeInt = Leaf Int | Branch TreeInt TreeInt
+
+isSingleLeaf: TreeInt -> Bool
+isSingleLeaf t = case t of
+    Leaf _ -> true
+    Branch _ _ -> false
+\end{lstlisting}
+
+
+Another example is a Haskell function that returns the first value in the list if it exists:
+
+
+\begin{lstlisting}[language=Haskell]
+headMaybe :: [a] -> Maybe a
+headMaybe []     = Nothing
+headMaybe (x:xs) = Just x
+\end{lstlisting}
+
+
+The Dhall translation of \lstinline!TreeInt! and \lstinline!ListInt! are Church-encoded types:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
+let TreeInt = ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+and
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+Values of type \lstinline!TreeInt! and \lstinline!ListInt! are functions, so we cannot perform pattern matching on such values.
+How can we implement functions like \lstinline!isSingleLeaf! and \lstinline!headMaybe! in Dhall?
+
+
+The general method for translating pattern matching into Church-encoded types \lstinline!C! consists of two steps.
+The first step is to apply the standard function \lstinline!unfix! of type \lstinline!C → F C!.
+The function \lstinline!unfix! (sometimes also called \lstinline!unroll! or \lstinline!unfold!) is available for all Church-encoded types; we have shown its implementation above.
+
+
+Given a value \lstinline!c : C! of a Church-encoded type, the value \lstinline!unfix c! will have type \lstinline!F C!, which is typically a union type.
+The second step is to use the ordinary pattern-matching (Dhall's \lstinline!merge!) on that value.
+
+
+As an example, consider the type \lstinline!ListInt! defined by:
+
+
+\begin{lstlisting}[language=Dhall]
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+\end{lstlisting}
+
+
+This technique allows us to translate \lstinline!isSingleLeaf! and \lstinline!headMaybe! to Dhall. Let us look at some examples.
+
+
+For \lstinline!C = TreeInt!, the type \lstinline!F C! is the union type \lstinline!< Leaf: Integer | Branch : { left : TreeInt, right : TreeInt } >!. The function \lstinline!isSingleLeaf! is
+implemented via pattern matching on that type:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
+
+let TreeInt = ∀(r : Type) → (F r → r) → r
+
+let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b =
+    λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+      Leaf = (F b).Leaf,
+      Branch = λ(branch : { left : a, right : a }) → (F b).Branch { left = f branch.left, right = f branch.right }
+    } fa
+
+-- Assume the definition of `unfix` as shown above.
+
+let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
+    merge {
+      Leaf = λ(_ : Integer) → true,
+      Branch = λ(_ : { left : TreeInt, right : TreeInt }) → false
+    } (unfix c)
+  in isSingleLeaf
+\end{lstlisting}
+
+
+For \lstinline!C = ListInt!, the type \lstinline!F C! is the union type \lstinline!< Nil | Cons : { head : Integer, tail : ListInt } >!. The function \lstinline!headOptional! that replaces
+Haskell's \lstinline!headMaybe! is written in Dhall like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+
+let ListInt = ∀(r : Type) → (F r → r) → r
+
+let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b =
+    λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+      Nil = (F b).Nil,
+      Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
+    } fa
+
+-- Assume the definition of `unfix` as shown above.
+
+let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
+    merge {
+      Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.head),
+      Nil = None Integer
+    } (unfix c)
+  in headOptional (cons -456 (cons +123 nil))
+\end{lstlisting}
+
+
+The result is computed as \lstinline!Some -456!.
+
+
+\subsection{Performance}
+
+
+Note that \lstinline!unfix! is implemented by applying the Church-encoded argument to some function.
+In practice, this means that \lstinline!unfix! will to traverse the entire data structure.
+This may be counter-intuitive.
+For example, \lstinline!headOptional! (as shown above) will need to traverse the entire list of type \lstinline!ListInt! before
+it can determine whether the list is not empty.
+
+
+Church-encoded data are higher-order functions, and it is not possible to pattern match on them directly.
+The data traversal is necessary to enable pattern matching for Church-encoded types.
+
+
+As a result, the performance of programs will be often significantly slower when working with large Church-encoded data structures.
+For example, concatenating or reversing lists of type \lstinline!ListInt! takes time quadratic in the list length.
+
+
+\section{Church encodings for more complicated types}
+
+
+\subsection{Mutually recursive types}
+
+
+If two or more types are defined recursively through each other, one needs a separate recursion scheme and a separate the Church encoding for each of the types.
+
+
+As an example, consider this Haskell definition:
+
+
+\begin{lstlisting}[language=Haskell]
+data Layer = Name String | OneLayer Layer | TwoLayers Layer2 Layer2
+data Layer2 = Name2 String | ManyLayers [ Layer ]   
+\end{lstlisting}
+
+
+The type \lstinline!Layer! is defined via itself and \lstinline!Layer2!, while \lstinline!Layer2! is defined via \lstinline!Layer!.
+
+
+We need two recursion schemes (\lstinline!F! and \lstinline!F2!) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
+
+
+\begin{lstlisting}[language=Haskell]
+data Layer = Layer (F Layer Layer2)
+data Layer2 = Layer2 (F2 Layer Layer2)
+\end{lstlisting}
+
+
+We will achieve this formulation if we define \lstinline!F! and \lstinline!F2! (still in Haskell) by:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a b = Name String |  OneLayer a | TwoLayers b b
+data F2 a b = Name2 String | ManyLayers [ a ]
+\end{lstlisting}
+
+
+The recursion schemes \lstinline!F! and \lstinline!F2! are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
+\end{lstlisting}
+
+
+Then we define the types \lstinline!Layer! and \lstinline!Layer2! in Dhall via the Church encodings:
+
+
+\begin{lstlisting}[language=Dhall]
+let Layer  = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → a
+let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → b
+\end{lstlisting}
+
+
+The definitions appear very similar, except for the output types of the functions.
+But that difference is crucial.
+
+
+\subsection{Type constructors}
+
+
+A recursive definition of a type constructor is not of the form \lstinline!T = F T! but of the form \lstinline!T a = F (T a) a!, or \lstinline!T a b = F (T a b) a b!, etc., with extra type parameters.
+
+
+For this to work, the recursion scheme \lstinline!F! must have one more type parameter than \lstinline!T!.
+
+
+For example, take the Haskell definition of a binary tree with leaves of type \lstinline!a!:
+
+
+\begin{lstlisting}[language=Haskell]
+data Tree a = Leaf a | Branch (Tree a) (Tree a)
+\end{lstlisting}
+
+
+The corresponding recursion scheme \lstinline!F! is:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a r = Leaf a | Branch r r
+\end{lstlisting}
+
+
+The Dhall code for \lstinline!F! is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → λ(r : Type) →
+   < Leaf : a | Branch : { left : r, right : r } >
+\end{lstlisting}
+
+
+The Church encoding for \lstinline!Tree! looks like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let Tree = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+\end{lstlisting}
+
+
+It is important that the type parameter \lstinline!a! is used with \lstinline!λ!.
+This makes \lstinline!Tree! a type constructor.
+
+
+The quantified type \lstinline!∀(r : Type)! is not a type parameter of \lstinline!Tree!; it is part of the definition of the type of \lstinline!Tree!.
+
+
+The code is written similarly in case of more type parameters.
+Consider a Haskell definition of a binary tree with two type parameters and two different kinds of leaf:
+
+
+\begin{lstlisting}[language=Haskell]
+data TreeAB a b = LeafA a | LeafB b | Branch (TreeAB a b) (TreeAB a b)
+\end{lstlisting}
+
+
+The corresponding recursion scheme is:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a b r = LeafA a | LeafB b | Branch r r
+\end{lstlisting}
+
+
+The Dhall code for this example is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → λ(b : Type) → λ(r : Type) →
+   < LeafA : a | LeafB : b | Branch : { left : r, right : r } >
+let TreeAB = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (F a b r → r) → r
+\end{lstlisting}
+
+
+\subsection{Example: Concatenating and reversing non-empty lists}
+
+
+Dhall's \lstinline!List! data structure already has concatenation and reversal operations (\lstinline!List/concat! and \lstinline!List/reverse!).
+As an example, let us implement those operations for \emph{non-empty} lists using a Church encoding.
+
+
+Non-empty lists (\lstinline!NEL: Type → Type!) can be defined recursively as:
+
+
+\begin{lstlisting}[language=Haskell]
+data NEL a = One a | Cons a (NEL a)
+\end{lstlisting}
+
+
+The recursion scheme corresponding to this definition is:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a r = One a | Cons a r
+\end{lstlisting}
+
+
+Convert this definition to Dhall and write the corresponding Church encoding:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = ∀(a : Type) → ∀(r : Type) → < One : a |  Cons : { head : a, tail: r } >
+let NEL = ∀(a : Type) → ∀(r : Type) → (F a r → r) → r
+\end{lstlisting}
+
+
+It will be more convenient to rewrite the type \lstinline!NEL! without using union or record types. An equivalent definition is:
+
+
+\begin{lstlisting}[language=Dhall]
+let NEL = λ(a : Type) → ∀(r : Type) → (a → r) → (a → r → r) → r
+\end{lstlisting}
+
+
+The standard constructors for \lstinline!NEL! are:
+
+
+\begin{itemize}
+\item{a function (\lstinline!one!) that creates a list of one element}
+\item{a function (\lstinline!cons!) that prepends a given value of type \lstinline!a! to a list of type \lstinline!NEL a!}
+\end{itemize}
+Non-empty list values can be now built as \lstinline!cons Natural 1 (cons Natural 2 (one Natural 3))! and so on.
+
+
+\begin{lstlisting}[language=Dhall]
+let one : ∀(a : Type) → a → NEL a =
+    λ(a : Type) → λ(x : a) → λ(r : Type) → λ(ar : a → r) → λ(_ : a → r → r) → ar x
+let cons : ∀(a : Type) → a → NEL a → NEL a =
+    λ(a : Type) → λ(x : a) → λ(prev : NEL a) → λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) → arr x (prev r ar arr)
+let example1 : NEL Natural = cons Natural 1 (cons Natural 2 (one Natural 3))
+let example2 : NEL Natural = cons Natural 3 (cons Natural 2 (one Natural 1))
+\end{lstlisting}
+
+
+The folding function is just an identity function:
+
+
+\begin{lstlisting}[language=Dhall]
+let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r =
+    λ(a : Type) → λ(nel : NEL a) → nel
+\end{lstlisting}
+
+
+To see that this is a "right fold", apply \lstinline!foldNEL! to some functions \lstinline!ar : a → r! and \lstinline!arr : a → r → r! and a three-element list such as \lstinline!example1!. The result
+will be \lstinline!arr 1 (arr 2 (ar 3))!; the first function evaluation is at the right-most element of the list.
+
+
+Folding with \lstinline!one! and \lstinline!cons! gives again the initial list:
+
+
+\begin{lstlisting}[language=Dhall]
+assert : example1 === foldNEL Natural example1 (NEL Natural) (one Natural) (cons Natural)
+\end{lstlisting}
+
+
+To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
+
+
+\begin{lstlisting}[language=Dhall]
+let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a =
+    λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
+        foldNEL a nel1 (NEL a) (λ(x : a) → cons a x nel2) (cons a)
+let test = assert : concatNEL Natural example1 example2 === cons Natural 1 (cons Natural 2 (cons Natural 3 (cons Natural 3 (cons Natural 2 (one Natural 1)))))
+\end{lstlisting}
+
+
+To reverse a list, we right-fold over it and accumulate a new list by appending elements to it.
+
+
+So, we will need a new constructor (\lstinline!snoc!) that appends a given value of type \lstinline!a! to a list of type \lstinline!NEL a!, rather than prepending as \lstinline!cons! does.
+
+
+\begin{lstlisting}[language=Dhall]
+let snoc : ∀(a : Type) → a → NEL a → NEL a =
+    λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
+    foldNEL a prev (NEL a) (λ(y : a) → cons a y (one a x)) (cons a)
+let test = assert example1 === snoc Natural 3 (snoc Natural 2 (one Natural 1))
+\end{lstlisting}
+
+
+Now we can write the reversing function:
+
+
+\begin{lstlisting}[language=Dhall]
+let reverseNEL : ∀(a : Type) → NEL a → NEL a =
+    λ(a : Type) → λ(nel : NEL a) → foldNEL a nel (NEL a) (one a) (snoc a)
+let test = assert : reverseNEL Natural example1 === example2
+let test = assert : reverseNEL Natural example2 === example1
+\end{lstlisting}
+
+
+\subsection{Example: Sizing a Church-encoded type constructor}
+
+
+The functions \lstinline!concatNEL! and \lstinline!reverseNEL! shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
+
+
+We will now consider functions that can work with all Church-encoded type constructors.
+The first examples are functions that compute the total size and the maximum depth of a data structure.
+
+
+Suppose we are given an arbitrary recursion scheme \lstinline!F! with two type parameters. It defines a type constructor \lstinline!C! via Church encoding as:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = ∀(a : Type) → ∀(r : Type) → ...
+let C = ∀(a : Type) → ∀(r : Type) → (F a r → r) → r
+\end{lstlisting}
+
+
+We imagine that a value \lstinline!p : C a! is a data structure that stores zero or more values of type \lstinline!a!.
+
+
+The "total size" of \lstinline!p! is the number of the values of type \lstinline!a! that it stores. For example, if \lstinline!p! is a list of 5 elements then the size of \lstinline!p! is 5. The size
+of a \lstinline!TreeInt! value \lstinline!branch (branch (leaf +10) (leaf +20)) (leaf +30)! is 3 because it stores three numbers.
+
+
+The "maximum depth" of \lstinline!p! is the depth of nested recursion required to obtain that value. For example, if \lstinline!p! is a \lstinline!TreeInt!
+value \lstinline!branch (branch (leaf +10) (leaf +20)) (leaf +30)! then the depth of \lstinline!p! is 2. The depth of a single-leaf tree (such as \lstinline!leaf +10!) is 0.
+
+
+The goal is to implement these functions generically, for all Church-encoded data structures at once.
+
+
+Both of those functions need to traverse the entire data structure and to accumulate a \lstinline!Natural! value. Let us begin with \lstinline!size!:
+
+
+\begin{lstlisting}[language=Dhall]
+let size : ∀(a : Type) → ∀(ca : C a) → Natural =
+  λ(a : Type) → λ(ca : C a) →
+    let sizeF : F a Natural → Natural = ??? 
+    in ca Natural sizeF
+\end{lstlisting}
+
+
+The function \lstinline!sizeF! should count the number of data items stored in \lstinline!F a Natural!. The values of type \lstinline!Natural! inside \lstinline!F! represent the sizes of nested
+instances of \lstinline!C a!; those sizes have been already computed.
+
+
+It is clear that the function \lstinline!sizeF! will need to be different for each recursion scheme \lstinline!F!.
+For a given value \lstinline!fa : f a Natural!, the result of \lstinline!sizeF fa! will be equal to the number of values of type \lstinline!a! stored in \lstinline!fa! plus the sum of all natural
+numbers stored in \lstinline!fa!.
+
+
+For example, non-empty lists are described by \lstinline!F a r = < One : a | Cons : { head : a, tail: r } >!.
+The corresponding \lstinline!sizeF! function is:
+
+
+\begin{lstlisting}[language=Dhall]
+let sizeF : < One : a | Cons : { head : a, tail: Natural } > → Natural = λ(fa : < One : a | Cons : { head : a, tail: Natural } >) → merge {
+      One = λ(x : a) → 1,
+      Cons = λ(x : { head : a, tail: Natural }) → 1 + x.tail,
+   } fa
+\end{lstlisting}
+
+
+Binary trees are described by \lstinline!F a r = < Leaf : a | Branch : { left : r, right: r } >!.
+The corresponding \lstinline!sizeF! function is:
+
+
+\begin{lstlisting}[language=Dhall]
+let sizeF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural = λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → merge {
+      Leaf = λ(x : a) → 1,
+      Branch = λ(x : { left : Natural, right: Natural }) → x.left + x.right,
+   } fa
+\end{lstlisting}
+
+
+Having realized that \lstinline!sizeF! needs to be supplied for each recursion scheme \lstinline!F!, we can implement \lstinline!size! like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let size : ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → ∀(ca : C a) → Natural =
+  λ(a : Type) → λ(ca : C a) → λ(sizeF : ∀(b : Type) → F b Natural → Natural) →
+    ca Natural (sizeF a)
+\end{lstlisting}
+
+
+Turning now to the \lstinline!depth! function, we proceed similarly and realize that the only difference is in the \lstinline!sizeF! function.
+Instead of \lstinline!sizeF! described above, we need \lstinline!depthF! with the same type signature \lstinline!∀(b : Type) → F b Natural → Natural!.
+For the depth calculation, \lstinline!depthF! should return 1 plus the maximum of all values of type \lstinline!Natural! that are present. If no such values are present, it just
+returns 1.
+
+
+For non-empty lists (and also for empty lists), the \lstinline!depthF! function is the same as \lstinline!sizeF! (because the recursion depth is the same as the list size).
+
+
+For binary trees, the corresponding \lstinline!depthF! function is:
+
+
+\begin{lstlisting}[language=Dhall]
+let depthF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural = λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → Natural/subtract 1 (merge {
+      Leaf = λ(x : a) → 1,
+      Branch = λ(x : { left : Natural, right: Natural }) → 1 + Natural/max x.left x.right,
+   } fa)
+\end{lstlisting}
+
+
+Here, the functions \lstinline!Natural/max! and \lstinline!Natural/subtract! come from Dhall's standard prelude.
+
+
+\subsection{Example: implementing \lstinline!fmap!}
+
+
+A type constructor \lstinline!F! is \textbf{covariant} if it admits an \lstinline!fmap! function with the type signature:
+
+
+\begin{lstlisting}[language=Dhall]
+fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+\end{lstlisting}
+
+
+satisfying the appropriate laws (the identity and the composition laws).
+
+
+Type constructors such as lists and trees are covariant in their type arguments.
+
+
+As an example, let us implement the \lstinline!fmap! method for the type constructor \lstinline!Tree! in the curried Church encoding:
+
+
+\begin{lstlisting}[language=Dhall]
+let Tree = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
+let fmapTree
+   : ∀(a : Type) → ∀(b : Type) → (a → b) → Tree a → Tree b
+   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : Tree a) →
+     λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
+       let leafA : a → r = λ(x : a) → leafB (f x)
+         in treeA r leafA branch
+\end{lstlisting}
+
+
+This code only needs to convert a function argument of type \lstinline!b → r! to a function of type \lstinline!a → r!.
+All other arguments are just copied over.
+
+
+We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a recursion scheme \lstinline!F!.
+We need to convert a function argument of type \lstinline!F b r → r! to one of type \lstinline!F a r → r!.
+This can be done if \lstinline!F! is a covariant bifunctor with a known \lstinline!bimap! function (which we call \lstinline!bimap_F!).
+
+
+The code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ... -- Define the recursion scheme.
+let bimap_F
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
+  = ... -- Define the bimap function for F.
+let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+
+let fmapC
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
+    λ(r : Type) → λ(fbrr : F b r → r) →
+      let farr : F a r → r = λ(far : F a r) →
+        let fbr : F b r = bimap_F a r b r f (identity r) far
+          in fbrr fbr
+            in ca r farr
+\end{lstlisting}
+
+
+\subsection{Generic forms of Church encoding}
+
+
+Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
+
+
+For simple types:
+
+
+\begin{lstlisting}[language=Dhall]
+let Church : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+For type constructors:
+
+
+\begin{lstlisting}[language=Dhall]
+let Church1 : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+\end{lstlisting}
+
+
+Implementations of several standard functions in Church encoding (such as \lstinline!fix!, \lstinline!unfix!, \lstinline!fmap! and others) can be written once and for all, as functions of \lstinline!F! and methods such as \lstinline!fmap_F! or \lstinline!bimap_F!.
+
+
+\subsection{Existentially quantified types}
+
+
+By definition, a value \lstinline!x! has an \textbf{existentially quantified} type, denoted mathematically by \lstinline!∃ t. P t!, where \lstinline!P! is a type constructor, if \lstinline!x! is a pair \lstinline!(u, y)! where \lstinline!u! is some specific type and \lstinline!y! is a value of type \lstinline!P u!.
+
+
+An example is the following type definition in Haskell:
+
+
+\begin{lstlisting}[language=Haskell]
+data F a = forall t. Hidden (t -> Bool, t -> a)
+\end{lstlisting}
+
+
+The corresponding code in Scala is:
+
+
+\begin{lstlisting}[language=Scala]
+sealed trait F[_]
+final case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
+\end{lstlisting}
+
+
+The mathematical notation for the type of \lstinline!F! is \lstinline!F a = ∃ t. (t → Bool) × (t → a)!.
+
+
+As we will discuss later in this book, the type \lstinline!F! is an example of the "free functor" construction.
+For now, we focus on the way the type parameter \lstinline!t! is used in the Haskell code just shown. (In the Scala code, the corresponding type parameter is \lstinline!T!.)
+
+
+The type parameter \lstinline!t! is bound by the quantifier and is visible only inside the type expression \lstinline!∃ t. (t → Bool) × (t → a)!.
+To create a value \lstinline!x! of type \lstinline!F a!, we will need to supply two functions, of types \lstinline!t → Bool! and \lstinline!t → a!, with a specific (somehow chosen) type \lstinline!t!.
+But when working with a value \lstinline!x : F a!, we will not directly see the type \lstinline!t! anymore.
+The type of \lstinline!x! is \lstinline!F a! and does not show what \lstinline!t! is.
+(The type \lstinline!t! is not a type parameter of \lstinline!F a!.)
+However, the type parameter \lstinline!t! still "exists" inside the value \lstinline!x!.
+This motivation helps us remember the meaning of the name "existential".
+
+
+Existential type quantifiers is not directly supported by Dhall.
+Types using \lstinline!∃! have to be Church-encoded in a special way, as we will now show.
+
+
+We begin with this type expression:
+
+
+\begin{lstlisting}[language=Dhall]
+∀(r : Type) → (F a → r) → r
+\end{lstlisting}
+
+
+As \lstinline!F a! does not depend on \lstinline!r!, this Church encoding is simply equivalent to \lstinline!F a! by the covariant Yoneda identity. (We discussed that above in the section "Church encoding of non-recursive types".)
+
+
+This is just the first step towards a useful encoding.
+Now we look at the function type \lstinline!F a → r! more closely.
+
+
+A value \lstinline!x : F a! must be created as a pair of type \lstinline!{ _1 : t → Bool, _2 : t → a }! with a chosen type \lstinline!t!.
+A function \lstinline!f : F a → r! must produce a result value of type \lstinline!r! from any value \lstinline!x!, for any type \lstinline!t!.
+
+
+In fact, \lstinline!f! may not inspect the type \lstinline!t! or make choices based on \lstinline!t! because the type \lstinline!t! is existentially quantified and is hidden inside \lstinline!x!.
+So, the function \lstinline!f! must work for all types \lstinline!t! in the same way.
+
+
+It means that the function \lstinline!f! must have \lstinline!t! as a \emph{type parameter}.
+The type of that function must be written as \lstinline!f : ∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r!. 
+
+
+So, the final code for the Church encoding of \lstinline!F! becomes:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
+\end{lstlisting}
+
+
+It is important that the universal quantifier \lstinline!∀(t : Type)! is \emph{inside} the type of an argument of \lstinline!F!.
+Otherwise, the encoding would not work.
+
+
+To see an example of how to construct a value of type \lstinline!F a!, let us set \lstinline!a = Natural!.
+The type \lstinline!F Natural! then becomes \lstinline!∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r!.
+We construct a value \lstinline!x : F Natural! like this:
+
+
+\begin{lstlisting}[language=Dhall]
+let x
+  : ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r
+  = λ(r : Type) → λ(pack : ∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) →
+    pack Integer { _1 = λ(x : Integer) → Integer/greaterThan x 10, _2 = λ(x : Integer) → Integer/clamp x }
+\end{lstlisting}
+
+
+In this code, we apply the given argument \lstinline!pack! of type \lstinline!∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r! to some arguments.
+
+
+It is clear that we may produce a value \lstinline!x : F Natural! given any specific type \lstinline!t! and any value of type \lstinline!{ _1 : t → Bool, _2 : t → Natural }!.  
+This exactly corresponds to the information contained within a value of an existentially quantified type \lstinline!∃ t. (t → Bool) × (t → Natural)!.
+
+
+To generalize this example to arbitrary existentially quantified types, we replace the specific type \lstinline!{ _1 : t → Bool, _2 : t → a }! by an arbitrary type constructor \lstinline!P t!.
+It follows that the Church encoding of \lstinline!∃ t. P t! is:
+
+
+\begin{lstlisting}[language=Dhall]
+let exists_t_in_P = ∀(r : Type) → (∀(t : Type) → P t → r) → r
+\end{lstlisting}
+
+
+To create a value of type \lstinline!exists_t_in_P!, we just need to supply a specific type \lstinline!t! together with a value of type \lstinline!P t!.
+
+
+\begin{lstlisting}[language=Dhall]
+let our_type_t : Type = ...   -- Can be any specific type here.
+let our_value : P t = ...   -- Any specific value here.
+let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
+\end{lstlisting}
+
+
+Heuristically, the function application \lstinline!pack X y! will "pack" a given type \lstinline!X! under the "existentially quantified wrapper" together with a value \lstinline!y!.
+
+
+\subsubsection{Constructors for existential types}
+
+
+To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
+The three functions are called \lstinline!Exists!, \lstinline!pack!, and \lstinline!unpack!.
+
+
+The function call \lstinline!Exists P! creates the type corresponding to the Church encoding of the type \lstinline!∃ t. P t!.
+The argument of \lstinline!Exists! is a type constructor \lstinline!P!.
+
+
+\begin{lstlisting}[language=Dhall]
+let Exists : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+\end{lstlisting}
+
+
+The function \lstinline!Exists! replaces the mathematical notation \lstinline!∃ t. P t! by a similar formula: \lstinline!Exists (λ(t : Type) → P t)!. 
+
+
+The function \lstinline!pack! creates a value of type \lstinline!Exists P! from a type \lstinline!t!, a type constructor \lstinline!P!, and a value of type \lstinline!P t!.
+
+
+\begin{lstlisting}[language=Dhall]
+let pack : ∀(P : Type → Type) → ∀(t : Type) → P t → Exists P
+  = λ(P : Type → Type) → λ(t : Type) → λ(pt : P t) →
+      λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt
+\end{lstlisting}
+
+
+The function \lstinline!unpack! performs transformations of type \lstinline!Exists P → r!, where \lstinline!r! is some arbitrary result type.
+So, \lstinline!unpack! needs to be able to convert a value of type \lstinline!P t! into a value of type \lstinline!r! regardless of the actual type \lstinline!t! encapsulated inside \lstinline!Exists P!.
+To achieve that, one of the arguments of \lstinline!unpack! will be a function of type \lstinline!∀(t : Type) → P t → r!.
+Other arguments of \lstinline!unpack! are the type constructor \lstinline!P!, a value of type \lstinline!Exists P!, and the result type \lstinline!r!.
+
+
+\begin{lstlisting}[language=Dhall]
+let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r 
+  = λ(P : Type → Type) → λ(ep : Exists P) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) →
+      ep r unpack_
+\end{lstlisting}
+
+
+We notice that \lstinline!unpack! does nothing more than rearrange the curried arguments and substitute them into the function \lstinline!ep!.
+This is so because \lstinline!unpack P! is the same as the identity function of type \lstinline!Exists P → Exists P!.
+So, we can just use values of type \lstinline!Exists P! as functions, instead of using \lstinline!unpack!.
+
+
+\subsubsection{Functions of existential types}
+
+
+The fact that \lstinline!unpack! is an identity function allows us to simplify the function type \lstinline!Exists P → q!, where \lstinline!q! is some fixed type.
+
+
+To see how, let us consider \lstinline!P! as fixed and rewrite the type of \lstinline!unpack P! by swapping some curried arguments.
+We will denote the resulting function by \lstinline!inE!:
+
+
+\begin{lstlisting}[language=Dhall]
+inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+  = λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
+    ep r unpack_
+\end{lstlisting}
+
+
+This type signature suggests that the function type \lstinline!Exists P → r! (written in full as \lstinline!(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r!) is equivalent to a simpler type \lstinline!∀(t : Type) → P t → r!.
+
+
+Indeed, this type equivalence (an isomorphism) can be proved rigorously.
+The function \lstinline!inE! shown above is one side of the isomorphism.
+The other is the function \lstinline!outE!:
+
+
+\begin{lstlisting}[language=Dhall]
+outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+  = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
+    let ep : Exists P = pack P t pt
+      in consume ep
+\end{lstlisting}
+
+
+We will prove below that the functions \lstinline!inE! and \lstinline!outE! are inverses of each other (see the section "Naturality and parametricity").
+
+
+Because of this type isomorphism, it is not necessary to use a complicated type \lstinline!Exists P → r!.
+Instead, we may use the simpler and equivalent type \lstinline!∀(t : Type) → P t → r!.
+
+
+\subsubsection{Differences between existential and universal quantifiers}
+
+
+The only way of working with values of existentially quantified types, such as \lstinline!ep : Exists P!, is by using the functions \lstinline!pack! and \lstinline!unpack!.
+
+
+To create a value \lstinline!ep!, we call \lstinline!pack P t pt! with a specific type \lstinline!t! and a specific value \lstinline!pt : P t!.
+The type \lstinline!t! is set when we create the value \lstinline!ep! and may be different for different such values.
+
+
+But the specific type \lstinline!t! used while constructing \lstinline!ep! will no longer be exposed to the code outside of \lstinline!ep!.
+One could say that the type \lstinline!t! "exists only inside" the scope of \lstinline!ep! and is hidden (or encapsulated) within that scope.
+
+
+This behavior is quite different from that of values of universally quantified types.
+For example, the polymorphic \lstinline!identity! function has type \lstinline!identity : ∀(t : Type) → t → t!.
+When we apply \lstinline!identity! to a specific type, we get a value such as:
+
+
+\begin{lstlisting}[language=Dhall]
+let idText : Text → Text = identity Text
+\end{lstlisting}
+
+
+When constructing \lstinline!idText!, we use the type \lstinline!Text! as the type parameter.
+After that, the type \lstinline!Text! is exposed to the outside code because it is part of the type of \lstinline!idText!.
+
+
+When constructing a value \lstinline!ep : Exists P!, we also need to use a specific type as \lstinline!t! (say, \lstinline!t = Text! or other type).
+But that type is then hidden inside \lstinline!ep!, because the externally visible type of \lstinline!ep! is \lstinline!Exists P! and does not contain \lstinline!t! anymore.  
+
+
+It is actually not hidden that \lstinline!ep! \emph{has} a type parameter \lstinline!t! inside.
+The hidden information is the actual value of \lstinline!t! used while constructing \lstinline!ep!.
+Let us clarify how that works.
+
+
+Code that uses \lstinline!ep! must use \lstinline!unpack! with an argument function \lstinline!unpack_ : ∀(t : Type) → P t → r!.
+We must implement \lstinline!unpack_! ourselves.
+Most often, \lstinline!P t! will be a data type that stores some values of type \lstinline!t!.
+Because the code of \lstinline!unpack_! receives \lstinline!t! and \lstinline!P t! as arguments, we will be able to extract some values of type \lstinline!t! and to pass those values around (while computing the result value of some type \lstinline!r!).
+For instance, a value \lstinline!x! of type \lstinline!t! can be further substituted into a function of type \lstinline!∀(t : Type) → ∀(x : t) → ...! because that function can accept an argument \lstinline!x! of any type.
+But all such functions are constrained to work \emph{in the same way} for all types \lstinline!t!.
+Such functions will not be able to identify specific types \lstinline!t! or make decisions based on specific values \lstinline!x : t!.
+In this sense, type quantifiers ensure encapsulation of the type \lstinline!t! inside \lstinline!ep!.
+
+
+\section{Co-inductive ("infinite") types}
+
+
+\subsection{Greatest fixpoints: Motivation}
+
+
+Recursive types are usually specified via type equations of the form \lstinline!T = F T!.
+So far, we have used the Church encoding technique for representing such recursive types in Dhall.
+But Church encodings always give the \textbf{least fixpoints} of type equations.
+The least fixpoints give types that are also known as "inductive types".
+Another useful kind of fixpoints are \textbf{greatest fixpoints}, also known as "co-inductive" types.
+
+
+Intuitively, the least fixpoint is the smallest data type \lstinline!T! that satisfies \lstinline!T = F T!.
+The greatest fixpoint is the largest possible data type that satisfies the same equation.
+
+
+Least fixpoints are always \emph{finite} structures.
+Iteration over the data stored in those structures will always terminate.
+
+
+Greatest fixpoints are, as a rule, lazily evaluated data structures that imitate infinite recursion.
+Iteration over those data structures is not expected to terminate.
+Those data structures are used only in ways that do not involve a full traversal of all data.
+It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
+
+
+As an example, consider the recursion scheme \lstinline!F! for the data type \lstinline!List Text!.
+The mathematical notation for \lstinline!F! is \lstinline!F r = 1 + Text × r!, and a Dhall definition is:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >
+\end{lstlisting}
+
+
+The type \lstinline!List Text! is the least fixpoint of \lstinline!T = F T!.
+A data structure of type \lstinline!List Text! always stores a finite number of \lstinline!Text! strings (although the list's length is not bounded in advance).
+
+
+The greatest fixpoint of \lstinline!T = F T! is a (potentially infinite) stream of \lstinline!Text! values.
+The stream could terminate after a finite number of strings, but it could also go on indefinitely.
+
+
+Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
+One way of implementing such streams is by giving an initial value of some type \lstinline!r! (the "seed") and a function that computes the next string on demand (the "step").
+In the present example, that function will have type \lstinline!r → < Nil | Cons { head : Text, tail : r } >!.
+When that function is applied to a value of type \lstinline!r!, the function will decide either to return \lstinline!Nil! (i.e., decide to stop the stream) or to return a \lstinline!Text! string together with a new value of type \lstinline!r!.
+
+
+The type \lstinline!r! represents the internal state of the stream's decision process and may be different for different streams.
+However, the type \lstinline!r! is not visible to the code outside the stream.
+That code can only extract values of type \lstinline!r! and pass those values around without being able to do anything else with them.
+This is enforced by the type quantifiers:
+To operate on a stream, we will have to write code of the form \lstinline!λ(r : Type) → ...!.
+That code will have to work in the same way for all types \lstinline!r! and will not be able to inspect those types or values of those types.
+
+
+\subsection{Encoding of greatest fixpoints with existential types}
+
+
+This motivates the following implementation of the greatest fixpoint of \lstinline!T = F T! in the general case:
+
+
+We take some unknown type \lstinline!r! and implement \lstinline!T! as a pair of types \lstinline!r! and \lstinline!r → F r!.
+To hide the type \lstinline!r! from outside code, we need to impose an existential quantifier on \lstinline!r!.
+
+
+So, the mathematical notation for the greatest fixpoint of \lstinline!T = F T! is \lstinline!T = ∃ r. r × (r → F r)!.
+The corresponding Dhall code uses the type constructor \lstinline!Exists! that we defined in a previous section.
+
+
+To use \lstinline!Exists!, we need to supply a type constructor that creates the type expression \lstinline!r × (r → F r)!.
+We will call that type constructor \lstinline!GF_T! and use it to define \lstinline!GFix!:
+
+
+\begin{lstlisting}[language=Dhall]
+let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F r }
+let GFix = λ(F : Type → Type) → Exists (GF_T F)
+\end{lstlisting}
+
+
+Note that the "step" function is non-recursive.
+It advances the stream by only one step.
+So, the entire definition \lstinline!GFix! is non-recursive and will be accepted by Dhall.
+Nevertheless, \lstinline!GFix F! is equivalent to a recursive type.
+
+
+To see \lstinline!GFix! as a higher-order function, we expand that definition in Dhall's REPL:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ GFix
+
+λ(F : Type → Type) →
+  ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
+\end{lstlisting}
+
+
+A rigorous proof that \lstinline!GFix F! is indeed the greatest fixpoint of \lstinline!T = F T! is shown in the paper "Recursive types for free".
+Hre, we will focus on the practical use of the greatest fixpoints.
+
+
+\subsection{The fixpoint isomorphisms}
+
+
+To show that \lstinline!GFix F! is a fixpoint of \lstinline!T = F T!, we write two functions, \lstinline!fix : F T → T! and \lstinline!unfix : T → F T!, which are inverses of each other.
+(This is proved in the paper "Recursive types for free".)
+
+
+To implement these functions, we need to assume that \lstinline!F! has a known \lstinline!fmap! method:
+
+
+\begin{lstlisting}[language=Dhall]
+let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ...
+\end{lstlisting}
+
+
+We begin by implementing \lstinline!unfix : GFix F → F (GFix F) = λ(g : GFix F) → ...! (that function is called \lstinline!out! in the paper "Recursive types for free").
+
+
+Let us write the type of \lstinline!g! in detail:
+
+
+\begin{lstlisting}[language=Dhall]
+g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
+\end{lstlisting}
+
+
+One way of consuming such a value is by applying the function \lstinline!g! to some arguments.
+
+
+We need to return a value of type \lstinline!F (GFix F)! as the final result of \lstinline!unfix g!.
+The return type of \lstinline!g! is an arbitrary type \lstinline!r! (which is the first argument of \lstinline!g!).
+Because we need to return a value of type \lstinline!F (GFix F)!, we set \lstinline!r = F (GFix F)!.
+
+
+The second argument of \lstinline!g! is a function of type \lstinline!∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)!.
+If we could produce such a function \lstinline!f!, we would complete the code of \lstinline!unfix!:
+
+
+\begin{lstlisting}[language=Dhall]
+let unfix : GFix F → F (GFix F)
+  = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
+    let f
+      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
+        in g (F (GFix F)) f
+\end{lstlisting}
+
+
+Within the body of \lstinline!f!, we have a type \lstinline!t! and two values \lstinline!p.seed : t! and \lstinline!p.step : t → F t!.
+So, we can create a value of type \lstinline!GFix F! using that data as \lstinline!pack (GF_T F) t p!.
+However, \lstinline!f! is required to return a value of type \lstinline!F (GFix F)! instead.
+To achieve that, we use a trick: we first create a function of type \lstinline!t → GFix F!.
+
+
+\begin{lstlisting}[language=Dhall]
+let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+\end{lstlisting}
+
+
+Then we will apply \lstinline!fmap_F! to that function, which will give us a function of type \lstinline!F t → F (GFix F)!.
+
+
+\begin{lstlisting}[language=Dhall]
+let fk : F t → F (GFix F) = fmap_F t (GFix F) k
+\end{lstlisting}
+
+
+Finally, we apply the function \lstinline!fk! to \lstinline!p.step p.seed!, which is a value of type \lstinline!F t!.
+The result is a value of type \lstinline!F (GFix F)! as required.
+
+
+The complete Dhall code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let unfix : GFix F → F (GFix F)
+  = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
+    let f
+      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
+        let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+        let fk : F t → F (GFix F) = fmap_F t (GFix F) k
+          in fk (p.step p.seed)
+            in g (F (GFix F)) f
+\end{lstlisting}
+
+
+Implementing the function \lstinline!fix : F (GFix F) → GFix F! is simpler, once we have \lstinline!unfix!.
+We first compute \lstinline!fmap_F unfix : F (GFix F) → F (F (GFix F))!.
+Then we create a value of type \lstinline!GFix F! by using \lstinline!pack! with \lstinline!t = F (GFix F)!: 
+
+
+\begin{lstlisting}[language=Dhall]
+let fix : F (GFix F) → GFix F
+  = λ(fg : F (GFix F)) →
+    let fmap_unfix : F (GFix F) → F (F (GFix F)) = fmap_F (GFix F) (F (GFix F)) unfix
+      in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
+\end{lstlisting}
+
+
+\subsection{Data constructors}
+
+
+To create values of type \lstinline!GFix F! more conveniently, we will now implement a function called \lstinline!makeGFix!.
+The code of that function uses the generic \lstinline!pack! function (see the section about existential types) to create values of type \lstinline!∃ r. r × (r → F r)!.
+
+
+\begin{lstlisting}[language=Dhall]
+let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
+  let P = λ(r : Type) → { seed : r, step : r → F r }
+    in pack (GF_T F) r { init = x, step = rfr } 
+\end{lstlisting}
+
+
+Creating a value of type \lstinline!GFix F! requires an initial "seed" value and a "step" function.
+We imagine that the code will run the "step" function as many times as needed, in order to retrieve more values from the data structure.
+
+
+The required reasoning is quite different from that of creating values of the least fixpoint types.
+The main difference is that the \lstinline!seed! value needs to carry enough information for the \lstinline!step! function to decide which new data to create at any place in the data structure.
+
+
+Because the type \lstinline!T = GFix F! is a fixpoint of \lstinline!T = F T!, we always have the function \lstinline!fix : F T → T!.
+That function, similarly to the case of Church encodings, the function \lstinline!fix! provides a set of constructors for \lstinline!GFix F!.
+Those constructors are "finite": they cannot create an infinite data structure.
+For that, we need the general constructor \lstinline!makeGFix!.
+
+
+We can also apply \lstinline!unfix! to a value of type \lstinline!GFix F! and obtain a value of type \lstinline!F (GFix F)!.
+We can then perform pattern-matching directly on that value, since \lstinline!F! is typically a union type.
+
+
+So, similarly to the case of Church encodings, \lstinline!fix! provides constructors and \lstinline!unfix! provides pattern-matching for co-inductive types.
+
+
+To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
+
+
+\subsubsection{Example of a co-inductive type: Streams}
+
+
+Consider the greatest fixpoint of the recursion scheme for \lstinline!List!:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
+let fmap_F
+  : ∀(x : Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F x a → F x b
+  = λ(x : Type) → λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F x a) →
+    merge { Nil = (F x b).Nil
+          , Cons = λ(cons : { head : x, tail : a }) →
+            (F x b).Cons { head = cons.head, tail = f cons.tail }
+          } fa
+let Stream = λ(a : Type) → GFix (F a)
+let makeStream = makeGFix F
+\end{lstlisting}
+
+
+Values of type \lstinline!Stream a! are higher-order functions with quantified types.
+
+
+For more clarity about how to create and use values of type \lstinline!Stream a!, let us expand the definitions of \lstinline!Stream! and \lstinline!makeStream! using Dhall's REPL:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ Stream
+
+λ(a : Type) →
+  ∀(r : Type) →
+  ( ∀(t : Type) →
+    { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > } → r
+  ) → r
+
+⊢ makeStream
+
+λ(a : Type) → λ(r : Type) → λ(x : r) →
+λ(rfr : r → < Cons : { head : a, tail : r } | Nil >) →
+λ(res : Type) →
+λ ( pack_
+  : ∀(t_ : Type) →
+    { seed : t_, step : t_ → < Cons : { head : a, tail : t_ } | Nil > } →
+      res
+  ) →
+  pack_ r { seed = x, step = rfr }
+\end{lstlisting}
+
+
+The type of \lstinline!makeStream! can be simplified to:
+
+
+\begin{lstlisting}[language=Dhall]
+makeStream : λ(a : Type) → λ(r : Type) →
+  λ(x : r) → λ(rfr : r → < Cons : { head : a, tail : r } | Nil > )
+    → Stream a
+\end{lstlisting}
+
+
+We see that \lstinline!makeStream! constructs a value of type \lstinline!Stream a! out of an arbitrary type \lstinline!a!, a type \lstinline!r! (the internal state of the stream), an initial "seed" value of type \lstinline!r!, and a "step" function of type \lstinline!r → < Cons : { head : a, tail : r } | Nil >!.
+
+
+The type \lstinline!Stream a! is heuristically understood as a potentially infinite stream of data items (values of type \lstinline!a!).
+Of course, we cannot store infinitely many values in memory.
+Values are retrieved one by one, by running the "step" function as many times as needed, or until "step" returns \lstinline!Nil! (indicating the end of the stream).
+
+
+Given a value \lstinline!s : Stream a!, how can we run the "step" function?
+We need to apply \lstinline!s! (which is a function) to an argument of the following type:
+
+
+\begin{lstlisting}[language=Dhall]
+∀(t : Type) → { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > } → r
+\end{lstlisting}
+
+
+So, we need to provide a function of that type.
+That function's code will be of the form:
+
+
+\begin{lstlisting}[language=Dhall]
+λ(t : Type) → λ(stream : { seed : t, step : t → < Cons : { head : a, tail : t } | Nil > }) → ...
+\end{lstlisting}
+
+
+So, the code may apply \lstinline!stream.step! to values of type \lstinline!t!.
+One value of type \lstinline!t! is already given as \lstinline!stream.seed!.
+Other such values can be obtained after calling \lstinline!stream.step! one or more times.
+
+
+As we step through the stream, the seed values (of type \lstinline!t!) are changing but the "step" function always remains the same.
+
+
+\subsubsection{Pattern-matching on streams}
+
+
+Consider the tasks of extracting the "head" and the "tail" of a stream.
+
+
+The "head" is either empty (if the stream is empty) or a value of type \lstinline!a!.
+We implement a function (\lstinline!headTailOption!) that applies \lstinline!stream.step! to \lstinline!stream.seed! and performs pattern-matching on the resulting value of type \lstinline!< Cons : { head : a, tail : t } | Nil >!.
+If that value is non-empty, the function returns the corresponding values \lstinline!head! and \lstinline!tail! wrapped into the type \lstinline!Optional { head : a, tail : Stream a }!.
+Otherwise the function returns \lstinline!None! of that type.
+
+
+\begin{lstlisting}[language=Dhall]
+let headTailOption
+  : ∀(a : Type) → Stream a → Optional { head : a, tail : Stream a }
+  = λ(a : Type) → λ(s : Stream a) →
+    let headTail = λ(h : Type) → λ(t : Type) → { head : h, tail : t }
+    let ResultT = headTail a (Stream a)
+    let unpack_ = λ(t : Type) → λ(state : { seed : t, step : t → < Cons : headTail a t | Nil > }) → 
+      merge {
+         Cons = λ(cons : headTail a t) →
+           Some { head = cons.head
+                , tail = makeStream a t cons.tail state.step
+                }
+         , Nil = None ResultT
+      } (state.step state.seed)
+        in s (Optional ResultT) unpack_
+\end{lstlisting}
+
+
+Given a value of type \lstinline!Stream a!, we may apply \lstinline!headTailOption! several times to extract further data items from the stream, or to discover that the stream has finished.
+
+
+\subsubsection{Converting a stream to a \lstinline!List!}
+
+
+Let us now implement a function \lstinline!streamToList! that converts \lstinline!Stream a! to \lstinline!List a!.
+That function will be used to extract the values stored in a stream, taking at most a given number of values.
+The limit length must be specified as an additional argument.
+Since streams may be infinite, it is impossible to convert a \lstinline!Stream! to a \lstinline!List! without limiting the length of the resulting list.
+So, the type signature of \lstinline!streamToList! must be something like \lstinline!Stream a → Natural → List a!.
+
+
+\begin{lstlisting}[language=Dhall]
+let streamToList : ∀(a : Type) → Stream a → Natural → List a
+ = λ(a : Type) → λ(s : Stream a) → λ(limit : Natural) →
+   let Accum = { list : List a, stream : Optional (Stream a) }
+   let init : Accum = { list = [] : List a, stream = Some s }
+   let update : Accum → Accum = λ(prev : Accum) →
+     let headTail : Optional { head : a, tail : Stream a } = merge { None = None { head : a, tail : Stream a }
+                                                                   , Some = λ(str : Stream a) → headTailOption a str
+                                                                   } prev.stream
+       in merge { None = prev // { stream = None (Stream a) }
+                , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail } } headTail
+         in (Natural/fold limit Accum update init).list
+\end{lstlisting}
+
+
+\subsubsection{Creating finite streams}
+
+
+Let us now see how to create streams.
+We begin with finite streams.
+
+
+To create an empty stream, we specify a "step" function that immediately returns \lstinline!Nil! and ignores its argument.
+We still need to supply a "seed" value, even though we will never use it.
+Let us supply a value of the \lstinline!Unit! type (in Dhall, \lstinline!{}!):
+
+
+\begin{lstlisting}[language=Dhall]
+let Stream/nil : ∀(a : Type) → Stream a
+  = λ(a : Type) → 
+    let r = {}
+    let seed : r = {=}
+      in makeStream a r seed (λ(_ : r) → (F a r).Nil)
+\end{lstlisting}
+
+
+How can we create a finite stream, say, \lstinline![1, 2, 3]!?
+We need a "seed" value that has enough information for the "step" function to produce all the subsequent data items of the stream.
+So, it appears natural to use the list \lstinline![1, 2, 3]! itself (of type \lstinline!List Natural!) as the "seed" value.
+The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
+
+
+Let us we implement a general function of type \lstinline!List a → Stream a! that converts a finite list into a finite stream.
+We will need a helper function \lstinline!headTail! that computes the head and the tail of a \lstinline!List! if it is non-empty.
+
+
+\begin{lstlisting}[language=Dhall]
+let HeadTailT = λ(a : Type) → < Cons : { head : a, tail : List a } | Nil >
+
+let headTail : ∀(a : Type) → List a → HeadTailT a
+  = λ(a : Type) → λ(list : List a) →
+    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
+      in merge { None = (HeadTailT a).Nil
+               , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = getTail list }
+      } (List/head a list)
+
+let listToStream : ∀(a : Type) → List a → Stream a
+  = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
+\end{lstlisting}
+
+
+\subsubsection{Creating infinite streams}
+
+
+Creating an infinite stream involves deciding how the next data item should be computed.
+A simple example is an infinite stream generated from a seed value \lstinline!x : r! by applying a function \lstinline!f : r → r!.
+The "step" function will never return \lstinline!Nil!, which will make the stream unbounded.
+
+
+\begin{lstlisting}[language=Dhall]
+let streamFunction
+  : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
+  = λ(a : Type) → λ(seed : a) → λ(f : a → a) →
+    let FA = < Cons : { head : a, tail : a } | Nil >
+    let step : a → FA = λ(x : a) → FA.Cons { head = x, tail = f x }
+      in makeStream a a seed step
+\end{lstlisting}
+
+
+We can compute a finite prefix of an infinite stream:
+
+
+\begin{lstlisting}[language=Dhall]
+⊢ streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
+
+[ 1, 2, 4, 8, 16 ]
+\end{lstlisting}
+
+
+One can also implement streams that repeat a certain sequence infinitely many times: for example, \lstinline!1, 2, 3, 1, 2, 3, 1, !...
+For that, the "seed" type can be \lstinline!List Natural! and the "step" function can be similar to that in the code of \lstinline!listToStream!.
+The initial "seed" value is the list \lstinline![ 1, 2, 3 ]!.
+Whenever the "seed" value becomes an empty list, it is reset to the initial list \lstinline![ 1, 2, 3 ]!.
+
+
+\begin{lstlisting}[language=Dhall]
+let repeatForever : ∀(a : Type) → List a → Stream a
+  = λ(a : Type) → λ(list : List a) →
+    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
+    let mkStream = λ(h : { head : a, tail : List a }) → 
+      let step : List a → HeadTailT a = λ(prev : List a) →
+        merge { None = (HeadTailT a).Cons { head = h.head, tail = h.tail }
+              , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = getTail prev }
+        } (List/head a prev)
+        in makeStream a (List a) list step
+    -- Check whether `list` is empty. If so, return an empty stream.
+      in merge { Nil = Stream/nil a
+               , Cons = λ(h : { head : a, tail : List a }) → mkStream h
+               } (headTail a list)
+
+let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
+        ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
+\end{lstlisting}
+
+
+\subsubsection{Concatenating streams}
+
+
+The standard Dhall function for concatenating lists is \lstinline!List/concat!.
+Let us now implement an analogous function for concatenating streams.
+The function \lstinline!Stream/concat! will take two streams and will return a new stream that works by first letting the first stream run.
+If the first stream ever finishes, the second stream will start (otherwise the first stream will continue running forever).
+
+
+We can implement this behavior if the seed type of the new stream is a union type showing which stream is now running.
+As the internal state of the new stream, we just store the first or the second stream.
+
+
+\begin{lstlisting}[language=Dhall]
+let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
+  = λ(a : Type) → λ(first : Stream a) → λ(second : Stream a) →
+    let State = < InFirst : Stream a | InSecond : Stream a >
+    let StepT = < Cons : { head : a, tail : State } | Nil >
+    let stepSecond = λ(str : Stream a) → merge {
+              None = StepT.Nil
+            , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InSecond ht.tail }
+          } (headTailOption a str)
+    let step : State → StepT = λ(state : State) →
+      merge {
+          InFirst = λ(str : Stream a) → merge {
+              None = stepSecond second    -- The first stream is finished. Switch to the second stream.
+            , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InFirst ht.tail }
+          } (headTailOption a str) 
+        , InSecond = stepSecond
+      } state
+        in makeStream a State (State.InFirst first) step
+\end{lstlisting}
+
+
+\subsubsection{Size-limited streams}
+
+
+We can truncate an arbitrary stream after a given number \lstinline!n! of items, creating a new value of type \lstinline!Stream a! that has at most \lstinline!n! data items.
+
+
+\begin{lstlisting}[language=Dhall]
+let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
+ = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
+   let State = { remaining : Natural, stream : Stream a}    -- Internal state of the new stream.
+   let StepT = < Nil | Cons : { head : a, tail : State } >
+   let step : State → StepT = λ(state : State) →
+       if Natural/isZero state.remaining then StepT.Nil else merge {
+              None = StepT.Nil
+            , Some = λ(ht : { head : a, tail : Stream a }) → 
+             StepT.Cons { head = ht.head, tail = { remaining = Natural/subtract 1 state.remaining, stream =  ht.tail } }
+          } (headTailOption a state.stream) 
+         in makeStream a State { remaining = n, stream = stream } step
+\end{lstlisting}
+
+
+This is different from \lstinline!streamToList! because we are not traversing the stream; we just need to modify the stream's seed and the step function.
+So, \lstinline!Stream/truncate! is a \lstinline!O(1)! operation.
+
+
+\subsubsection{The \lstinline!cons! constructor for streams. Performance issues}
+
+
+The \lstinline!cons! operation for lists will prepend a single value to a list.
+The analogous operation for streams can be implemented as a special case of concatenating streams:
+
+
+\begin{lstlisting}[language=Dhall]
+let Stream/cons : ∀(a : Type) → a → Stream a → Stream a
+ = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (listToStream a [ a ]) stream
+\end{lstlisting}
+
+
+We may use \lstinline!Stream/nil! and \lstinline!Stream/cons! to create finite streams, similar to how the constructors \lstinline!nil! and \lstinline!cons! create lists.
+
+
+Are finite streams better than (Church-encoded) lists?
+
+
+We have seen that the performance of Church-encoded data is slow when doing pattern-matching or concatenation.
+For instance, pattern-matching a Church-encoded list will take time \lstinline!O(N)!, where \lstinline!N! is the size of the list.
+Even just finding out whether a Church-encoded list is empty will still need to traverse the entire list.
+
+
+The situation for streams is different but not "better".
+Since streams may be infinite, no operation on a stream could ever require traversing the entire data structure.
+At most, an operation may step the stream once.
+So, all stream operations like pattern-matching or concatenating are not iterative and, \emph{at first sight}, take \lstinline!O(1)! time.
+
+
+However, streams are higher-order functions operating with complicated types.
+We need to consider the complexity of code that represents a stream.
+For instance, the \lstinline!Stream/cons! operation creates a new stream whose state type is a union of two stream types.
+So, if we use the \lstinline!Stream/cons! constructor many times, we will obtain a stream with a "large" state type (a deeply nested union type).
+Pattern-matching operations with that type will take \lstinline!O(N)! time in the Dhall interpreter.
+
+
+The result is a stream where \emph{every} operation (even just producing the next item) takes \lstinline!O(N)! time.
+
+
+\subsection{Size-limited aggregation. Hylomorphisms with bounded recursion depth}
+
+
+We have seen the function \lstinline!streamToList! that extracts at most a given number of values from the stream.
+This function can be seen as an example of a \textbf{size-limited aggregation}: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
+The size limit is important for guaranteeing termination.
+
+
+We will now generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
+The result will be a \lstinline!fold!-like function whose recursion depth is limited in advance.
+That limitation will ensure that all computations terminate, as Dhall requires.
+
+
+The type signature of \lstinline!fold! is a generalization of \lstinline!List/fold! to arbitrary recursion schemes.
+We have seen \lstinline!fold!'s type signature when we considered fold-like aggregations for Church-encoded data:
+
+
+\begin{lstlisting}[language=Dhall]
+fold : Church F → ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+We generalize the idea of a \textbf{fold-like aggregation} to mean any function applied to some data type \lstinline!P! that iterates over the values stored in \lstinline!P! in some way.
+The general type signature of a fold-like aggregation is \lstinline!P → ∀(r : Type) → (F r → r) → r!.
+
+
+The implementation of \lstinline!fold! will be different for each data structure \lstinline!P!.
+If \lstinline!P! is the Church encoding of the least fixpoint of \lstinline!F! then \lstinline!P!'s \lstinline!fold! is an identity function because the type \lstinline!Church F! is the same as \lstinline!∀(r : Type) → (F r → r) → r!.
+If \lstinline!P! is the greatest fixpoint (\lstinline!GFix F!), the analogous signature of \lstinline!P!'s \lstinline!fold! would be:
+
+
+\begin{lstlisting}[language=Dhall]
+fold_GFix : GFix F → ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+Note that this type is a function from an existential type in \lstinline!GFix F!.
+Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
+
+
+\begin{lstlisting}[language=Dhall]
+GFix F → Q  =  Exists (GF_T F) → Q
+  =  ∀(t : Type) → GF_T F → Q
+\end{lstlisting}
+
+
+We use this equivalence with \lstinline!Q = ∀(r : Type) → (F r → r) → r! and obtain this type signature:
+
+
+\begin{lstlisting}[language=Dhall]
+fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+We may equivalently rewrite that type by replacing a record by two curried arguments:
+
+
+\begin{lstlisting}[language=Dhall]
+fold_GFix_curried : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+\end{lstlisting}
+
+
+Functions of that type are called \textbf{hylomorphisms}.
+See, for example, this tutorial: [https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html)
+
+
+The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
+Let us examine that problem is more detail.
+
+
+\subsubsection{Example: why hylomorphisms terminate (in Haskell)}
+
+
+For the purposes of this book, a hylomorphism is just the \lstinline!fold! function operating on the greatest fixpoint of a given recursion scheme \lstinline!F!.
+We would like to implement a hylomorphism with that type signature that works in a uniform way for all \lstinline!F!.
+This is possible if we use explicit recursion (which Dhall does not support).
+Here is Haskell code adapted from [https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
+
+
+\begin{lstlisting}[language=Haskell]
+hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
+hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
+\end{lstlisting}
+
+
+The code of \lstinline!hylo! calls \lstinline!hylo! recursively under \lstinline!fmap!, and there seems to be no explicit termination for the recursion.
+To see how this code could ever terminate, we will consider a specific example.
+In that example, both \lstinline!t! and \lstinline!r! are the type of binary trees with string-valued leaves (we have denoted that type by \lstinline!TreeText! before).
+The type constructor \lstinline!f! will be the recursion scheme for \lstinline!TreeText!.
+
+
+Our Haskell definitions for \lstinline!TreeText!, its recursion scheme \lstinline!F!, and the \lstinline!fmap! method for \lstinline!F! are:
+
+
+\begin{lstlisting}[language=Haskell]
+data TreeText = Leaf String | Branch TreeText TreeText
+
+data F r = FLeaf String | FBranch r r
+
+fmap :: (a -> b) -> F a -> F b
+fmap f (FLeaf t) = FLeaf t
+fmap f (FBranch x y) = FBranch (f x) (f y)
+\end{lstlisting}
+
+
+The type \lstinline!TreeText! is the least fixpoint of \lstinline!F! and has the standard methods \lstinline!fix : F TreeText → TreeText! and \lstinline!unfix : TreeText → F TreeText!.
+Haskell implementations of \lstinline!fix! and \lstinline!unfix! are little more than identity functions that reassign types:
+
+
+\begin{lstlisting}[language=Haskell]
+fix :: F TreeText -> TreeText
+fix FLeaf t -> Leaf t
+fix FBranch x y -> Branch x y
+
+unfix :: TreeText -> F TreeText
+unfix Leaf t -> FLeaf t
+unfix Branch x y -> FBranch x y
+\end{lstlisting}
+
+
+We may substutite \lstinline!fix! and \lstinline!unfix! as the \lstinline!alg! and \lstinline!coalg! arguments of \lstinline!hylo! as shown above, because the types match.
+The result (\lstinline!hylo unfix fix!) will be a function of type \lstinline!TreeText → TreeText!.
+Because \lstinline!fix! and \lstinline!unfix! leave data unchanged, the function \lstinline!hylo unfix fix! will be just an identity function of type \lstinline!TreeText → TreeText!.
+In this example of applying \lstinline!hylo!, the trees remain unchanged because we are unpacking the tree's recursive type (\lstinline!TreeText → F TreeText!) and then packing it back (\lstinline!F TreeText → TreeText!) with no changes.
+(We are using this example only to understand how the recursion can terminate when applying \lstinline!hylo!.)
+
+
+Choose some value \lstinline!t0! of type \lstinline!TreeText!:
+
+
+\begin{lstlisting}[language=Haskell]
+t0 :: TreeText
+t0 = Branch (Leaf "a") (Leaf "b")
+\end{lstlisting}
+
+
+Denote \lstinline!hylo unfix fix! by just \lstinline!h! for brevity.
+The recursive code of \lstinline!h! is just \lstinline!h = fix . fmap h . unfix!.
+Now we expand the recursive definition of \lstinline!h! three times in the expression \lstinline!h t0!:
+
+
+\begin{lstlisting}[language=Haskell]
+h t0
+  == (fix . fmap h . unfix) t0
+  == fix (fmap h (unfix t0))
+  == fix (fmap (fix . fmap h . unfix) (unfix t0))
+  == fix ( (fmap fix . fmap (fmap h) . fmap unfix) (unfix t0))
+  == fix (fmap fix (fmap (fmap h) (fmap unfix (unfix t0))))
+\end{lstlisting}
+
+
+The argument of \lstinline!fmap (fmap h)! in the last line is \lstinline!fmap unfix (unfix t0)!.
+This is a value of type \lstinline!F (F TreeText)! that we may temporarily denote by \lstinline!c0!.
+Then \lstinline!h t0! is given by:
+
+
+\begin{lstlisting}[language=Haskell]
+h t0 == fix (fmap fix (fmap (fmap h) c0))
+\end{lstlisting}
+
+
+Let us compute \lstinline!c0!:
+
+
+\begin{lstlisting}[language=Haskell]
+unfix t0 == FBranch (Leaf "a") (Leaf "b")
+
+c0 = fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
+\end{lstlisting}
+
+
+We note that each application of \lstinline!unfix! replaces one layer of \lstinline!TreeText!'s constructors by one layer of \lstinline!F!'s constructors.
+All constructors of \lstinline!TreeText! will be eliminated after applying \lstinline!unfix!, \lstinline!fmap unfix!, etc., as many times as the recursion depth of \lstinline!t0!.
+
+
+At that point, the value \lstinline!c0! no longer contains any constructors of \lstinline!TreeText!; it is built only with \lstinline!F!'s constructors.
+For that reason, \lstinline!c0! will \emph{remains unchanged} under application of \lstinline!fmap (fmap f)! with \emph{any} function \lstinline!f : TreeText → TreeText!.
+In other words:
+
+
+\begin{lstlisting}[language=Haskell]
+fmap (fmap f) c0 == c0
+\end{lstlisting}
+
+
+It follows that the computation \lstinline!fmap (fmap f) c0! does not use the value \lstinline!f!.
+
+
+Our code for \lstinline!h t0! needs to compute \lstinline!fmap (fmap h) c0!.
+Because that computation does not need the value \lstinline!h!, Haskell will not perform any more recursive calls to \lstinline!h!.
+This is where the recursion terminates in the computation \lstinline!h t0!.
+
+
+If the value \lstinline!t0! had been a more deeply nested tree, we would need to expand the recursive definition of \lstinline!h! more times.
+The required number of recursive calls is equal to the "depth" of the value \lstinline!t0!.
+(The subsection "Example: Sizing a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
+
+
+We can now generalize this example to an arbitrary application of a hylomorphism.
+For brevity, we denote \lstinline!h = hylo coalg alg!.
+The function \lstinline!h : t -> r! is then defined by \lstinline!h = alg . fmap h . coalg!.
+When we apply \lstinline!h! to some value \lstinline!t0 : t!, we get: \lstinline!h t0 = alg (fmap h (coalg t0))!.
+
+
+The recursion will terminate if, at some recursion depth, the function call \lstinline!fmap (fmap (... (fmap f)...)) c! does not actually need to use the function \lstinline!f!.
+We will then have \lstinline!fmap (fmap (... (fmap f)...)) c == c!.
+This will terminate the recursion.
+
+
+The type of \lstinline!c! will be \lstinline!f (f (... (f t)))!.
+It is a data structure generated by repeated applications of \lstinline!coalg!, \lstinline!fmap coalg!, \lstinline!fmap (fmap coalg)!, etc., to the initial value \lstinline!t0!.
+These repeated applications generate a data structure of deeply nested type \lstinline!f (f (... (f t)))!.
+The hylomorphism terminates only if the data structure generated out of the initial "seed" value \lstinline!t0! is finite. 
+
+
+However, it is impossible to assure up front that the data structure is finite.
+So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
+(In fact, a function with that type signature cannot be implemented in Dhall.)
+
+
+\subsubsection{Depth-limited hylomorphisms}
+
+
+Implementing hylomorphisms in Dhall requires modifyig the type signature shown above, explicitly ensuring termination.
+One possibility is to add a \lstinline!Natural!-valued bound on the depth of recursion and a "default" value (of type \lstinline!t → r!).
+The default value will be used when the recursion bound is smaller than the recursion depth of the data.
+If the recursion bound is large enough, the hylomorphism will be actually independent of the default value.
+
+
+To show how that works, we will first write Haskell code for the depth-limited hylomorphism.
+Then we will translate that code to Dhall.
+
+
+The idea of depth-limited hylomorphism is to expand the recursive definition (\lstinline!h = alg . fmap h . coalg!, where we denoted \lstinline!h = hylo coalg alg!) only a given number of times.
+To be able to do that, we begin by setting \lstinline!h = default! as the initial value (where \lstinline!default : t → r! is a given default value) and then expand the recursive definition repeatedly.
+For convenience, let us denote the intermediate results by \lstinline!h_1!, \lstinline!h_2!, \lstinline!h_3!, ...:
+
+
+\begin{lstlisting}[language=Haskell]
+h_0 = default 
+h_1 = alg . fmap h_0 . coalg
+h_2 = alg . fmap h_1 . coalg
+h_3 = alg . fmap h_2 . coalg
+...
+\end{lstlisting}
+
+
+All the intermediate values \lstinline!h_1!, \lstinline!h_2!, \lstinline!h_3!, ..., are still of type \lstinline!t → r!.
+After repeating this procedure \lstinline!n! times (where \lstinline!n! is a given natural number), we will obtain a function \lstinline!h_n : t → r!.
+The example shown in the previous subsection explains that applying \lstinline!h_n! to a value \lstinline!t! will give a result (of type \lstinline!r!) that does not depend on the \lstinline!default! value, as long as the recursion depth \lstinline!n! is large enough.
+
+
+Let us now implement this logic in Dhall:
+
+
+\begin{lstlisting}[language=Dhall]
+let hylo_N
+  : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
+    let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
+    let transform : t → r = Natural/fold limit (t → r) update default
+      in transform seed
+\end{lstlisting}
+
+
+The function \lstinline!hylo_N! is a general fold-like aggregation function that can be used with the greatest fixpoints of arbitrary recursion schemes \lstinline!F!. 
+Termination is assured because we specify a limit for the recursion depth in advance.
+This function will be used later in this book for implementing the \lstinline!zip! method for Church-encoded type constructors.
+
+
+For now, let us see an example of using \lstinline!hylo_N!.  TODO
+
+
+\subsubsection{Hylomorphisms driven by a Church-encoded template}
+
+
+In the code for \lstinline!hylo_N!, the total number of iterations was limited by a given natural number.
+To drive the iterations, we used the standard \lstinline!fold! method (\lstinline!Natural/fold!) for natural numbers.
+
+
+Note that \lstinline!Natural! is a recursive type whose \lstinline!fold! method is a Dhall built-in.
+Could we drive iterations via the \lstinline!fold! method for a different recursive type?
+
+
+Suppose we already have a value of the Church-encoded least fixpoint type (\lstinline!Church F!).
+That value can serve as a "recursion template" that at the same time provides depth limits and all necessary default values.
+
+
+We will denote the template-driven hylomorphism by \lstinline!hylo_T!.
+The type signature is \lstinline!Church F → GFix F → Church F!.
+We will again expand the type signature and unpack the existential types into a curried argument.
+The Dhall code is:
+
+
+\begin{lstlisting}[language=Dhall]
+let hylo_T
+  : Church F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+  = λ(template : Church F) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) →
+    let F/ap : ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b = ... -- Implement this function for F.
+    let reduce : F (t → r) → t → r
+      = λ(ftr : F (t → r)) → λ(arg : t) → alg (F/ap t r ftr (coalg t))
+    let transform : t → r = template (t → r) reduce
+      in transform seed 
+\end{lstlisting}
+
+
+For this code, we need to have a function \lstinline!F/ap! with type \lstinline!F (a → b) → F a → F b!.
+This function is typical of "applicative functors", which we will study later in this book.
+As long as the recursion scheme \lstinline!F! is applicative, we will be able to implement \lstinline!hylo_T! for \lstinline!F!.
+
+
+TODO example of usage
+
+
+\subsection{Converting from the least fixpoint to the greatest fixpoint}
+
+
+A hylomorphisms can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming style.
+
+
+The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
+Creating a value of the type \lstinline!GFix F! requires a value of some type \lstinline!t! and a function of type \lstinline!t → F t!.
+The least fixpoint type \lstinline!Church F! already has that function (\lstinline!unfix!).
+
+
+TODO
+
+
+\subsection{Sliding-window aggregation (\lstinline!scan!)}
+
+
+\section{Functors and contrafunctors}
+
+
+In the jargon of functional programmers, a \textbf{functor} is just a covariant type constructor with \lstinline!fmap!.
+We can define a typeclass \lstinline!Functor! that carries the required \lstinline!fmap! method: 
+
+
+\begin{lstlisting}[language=Dhall]
+let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+\end{lstlisting}
+
+
+The complementary kind of type constructors is contravariant functors: they cannot have a lawful \lstinline!fmap! method.
+Instead, they have a \lstinline!cmap! method with a type signature that flips one of the function arrows:
+
+
+\begin{lstlisting}[language=Dhall]
+cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
+\end{lstlisting}
+
+
+We will call contravariant type constructors \textbf{contrafunctors} for short.
+The corresponding typeclass is defined by:
+
+
+\begin{lstlisting}[language=Dhall]
+let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+\end{lstlisting}
+
+
+A simple example of a contrafunctor is the type constructor \lstinline!a → Text!.
+Here is its definition and the code for a contrafunctor typeclass instance:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → a → Text
+let contrafunctorF : Contrafunctor F
+  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → λ(x : a) → fb (f x) } 
+\end{lstlisting}
+
+
+If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
+For example, the type constructor \lstinline!F! defined by:
+
+
+\begin{lstlisting}[language=Dhall]
+let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+\end{lstlisting}
+
+
+is covariant in \lstinline!a! and contravariant in \lstinline!b!.
+
+
+In this book, we will need \textbf{bifunctors} (type constructors covariant in two type parameters) and \textbf{profunctors} (type constructors contravariant in the first type parameter and covariant in the second).
+
+
+To characterize such type constructors via a typeclass, we could specify \lstinline!fmap! and \lstinline!cmap! functions separately with respect to each type parameter.
+It turns out that one can combine the \lstinline!fmap! and \lstinline!cmap! methods into a single method that works at once on all type parameters.
+For bifunctors, that method is called \lstinline!bimap!, and for profunctors, \lstinline!xmap!.
+
+
+The corresponding Dhall definitions of the typeclasses \lstinline!Bifunctor! and \lstinline!Profunctor! are:
+
+
+\begin{lstlisting}[language=Dhall]
+let Bifunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+let Profunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+\end{lstlisting}
+
+
+\subsection{Constructing functors and contrafunctors from parts}
+
+
+TODO
+
+
+\section{Filterable functors and contrafunctors}
+
+
+\section{Applicative covariant and contravariant functors}
+
+
+\section{Traversable functors}
+
+
+\section{Monads}
+
+
+\section{Monad transformers}
+
+
+\section{Free monads}
+
+
+\section{Free instances of other typeclasses}
+
+
+\subsection{Free semigroup and free monoid}
+
+
+\subsection{Free functor}
+
+
+\subsection{Free filterable}
+
+
+\subsection{Free applicative}
+
+
+\subsection{Nested types and GADTs}
+
+
+\section{Dhall as a scripting DSL}
+
+
+\chapter{Appendixes}
+
+
+\section{Naturality and parametricity}
+
+
+It is not possible in Dhall to compare types.
+So, a Dhall function cannot take a parameter \lstinline!λ(t : Type)! and then check whether \lstinline!t! is equal to \lstinline!Natural!, say.
+Any Dhall function of the form \lstinline!λ(t : Type) → ...! must work in the same way for all types \lstinline!t!.
+This ensures full polymorphic parametricity of all Dhall functions.
+Then the parametricity theorem applies to all Dhall values.
+
+
+\subsection{Equivalence of types for functions of existential type}
+
+
+TODO
+
+
+To check that the functions \lstinline!inE r! and \lstinline!outE r! are inverses of each other (for any fixed \lstinline!P! and \lstinline!r!), we need to compute the composition of these functions in both directions.
+The first direction is when we apply \lstinline!inE! and then \lstinline!outE!.
+Take an arbitrary \lstinline!k : ∀(t : Type) → P t → r! and first apply \lstinline!inE! to it, then \lstinline!outE!:
+
+
+\begin{lstlisting}[language=Dhall]
+outE r (inE r k)
+  -- Use the definition of `inE`.
+  === outE r (λ(ep : Exists P) → ep r k)
+  -- Use the definition of `outE`.
+  === λ(t : Type) → λ(pt : P t) → (λ(ep : Exists P) → ep r k) (pack P t pt)
+\end{lstlisting}
+
+
+The result is a function of type \lstinline!λ(t : Type) → λ(pt : P t) → r!.
+We need to show that this function is equal to \lstinline!k!.
+To do that, apply that function to arbitrary values \lstinline!t : Type! and \lstinline!pt : P t!.
+The result should be equal to \lstinline!k t pt!:
+
+
+\begin{lstlisting}[language=Dhall]
+outE r (inE r k) t pt
+  === (λ(ep : Exists P) → ep r k) (pack P t pt)
+  === (pack P t pt) r k
+  -- Use the definition of `pack`.
+  === (λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt) r k
+  === k t pt
+\end{lstlisting}
+
+
+This proves the first direction of the isomorphism.
+
+
+The other direction is when we apply \lstinline!outE! and then \lstinline!inE!.
+Take an arbitrary value \lstinline!consume : Exists P → r! and first apply \lstinline!outE! to it, then \lstinline!inE!:
+
+
+\begin{lstlisting}[language=Dhall]
+inE r (outE r consume)
+  === inE r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+  === λ(ep : Exists P) → ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+\end{lstlisting}
+
+
+The result is a function of type \lstinline!Exists P → r!.
+We need to show that this function is equal to \lstinline!consume!.
+
+
+Apply that function to an arbitrary value \lstinline!ep : Exists p!:
+
+
+\begin{lstlisting}[language=Dhall]
+inE r (outE r consume) ep
+  === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+\end{lstlisting}
+
+
+We  need to show that the last result is equal to \lstinline!consume ep!.
+For that, we will use the parametricity properties of \lstinline!ep!.
+
+
+The fully annotated type signature of \lstinline!ep! is:
+
+
+\begin{lstlisting}[language=Dhall]
+ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
+\end{lstlisting}
+
+
+TODO
