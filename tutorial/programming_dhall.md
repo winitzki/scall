@@ -1,4 +1,4 @@
-## Advanced functional programming in Dhall
+# Advanced functional programming in Dhall
 
 ## Preface
 
