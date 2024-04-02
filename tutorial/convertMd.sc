@@ -13,6 +13,7 @@ def space[$: P] = P(CharIn(" \t").rep(1))
 def not_end_of_line[$: P] = P(
   CharIn("\u0020-\u007F") | valid_non_ascii | tab
 )
+
 def valid_non_ascii[$: P] = P(
   CharIn(
     "\u0080-\uD7FF",
@@ -115,7 +116,7 @@ enum Textual:
 import Textual.*
 
 enum Markdown:
-  case Heading(level: Int, text: String)
+  case Heading(level: Int, text: Paragraph)
   case Paragraph(contents: Seq[Textual])
   case BulletList(content: Seq[Paragraph])
   case CodeBlock(language: String, content: String)
@@ -123,37 +124,37 @@ enum Markdown:
 
 import Markdown.*
 
-def textualContent[$: P]: P[Span] = P(not_end_of_line.rep(1).!).map(Span(Regular, _))
+def regularText[$: P]: P[Span] = P((!CharIn("*_`[]") ~ not_end_of_line).rep(1).!).map(Span(Regular, _))
 
 def heading[$: P](level: Int): P[Heading] =
-  P(("#" * level) ~ space ~ textualContent.! ~ closingSequence).map(Heading(level, _))
+  P(("#" * level) ~ space ~ paragraph ~ closingSequence).map(Heading(level, _))
 
 def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5))
 
-def codeSpan[$: P]: P[Span] = P("`" ~ textualContent.! ~ "`").map(Span(CodeSpan, _))
+def codeSpan[$: P]: P[Span] = P("`" ~ regularText.! ~ "`").map(Span(CodeSpan, _))
 
-def emphasis[$: P] = P("*" ~ textualContent.! ~ "*").map(Span(Emphasis, _))
+def emphasis[$: P] = P(CharIn("*_") ~ regularText.! ~ "*").map(Span(Emphasis, _))
 
-def strongEmphasis[$: P] = P("**" ~ textualContent.! ~ "**").map(Span(StrongEmphasis, _))
-
-def line[$: P] = P(not_end_of_line.rep.! ~ end_of_line)
+def strongEmphasis[$: P] = P("**" ~ regularText.! ~ "**").map(Span(StrongEmphasis, _))
 
 def fencedCodeBlock[$: P]: P[CodeBlock] =
-  P("```" ~ CharIn("a-z0-9").rep.! ~ end_of_line ~ line.rep ~ "```" ~ end_of_line)
-    .map { case (language, content) => CodeBlock(language, content.mkString("\n")) }
+  P(
+    "```" ~ CharIn("A-Za-z0-9").rep.! ~ end_of_line ~
+      (!"```" ~ not_end_of_line.rep ~ end_of_line).rep.! ~ "```" ~ end_of_line)
+    .map { case (language, content) => CodeBlock(language, content) }
 
 def blankLine[$: P] = P((space.? ~ end_of_line).rep(1))
 
 def hyperlink[$: P]: P[Hyperlink] =
-  P("[" ~ space.? ~ not_end_of_line.! ~ space.? ~ "]" ~ space.? ~ "(" ~ not_end_of_line.! ~ ")")
+  P("[" ~ space.? ~ not_end_of_line.rep.! ~ space.? ~ "]" ~ space.? ~ "(" ~ not_end_of_line.rep.! ~ ")")
     .map { case (text, target) => Hyperlink(text, target) }
 
-def bulletListItem[$: P] : P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
+def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
 
 def bulletList[$: P]: P[BulletList] = P(bulletListItem.rep(1)).map(BulletList.apply)
 
 def paragraph[$: P]: P[Paragraph] =
-  P((emphasis | strongEmphasis | codeSpan | hyperlink | textualContent).rep)
+  P((emphasis | strongEmphasis | codeSpan | hyperlink | regularText).rep)
     .map(Paragraph.apply)
 
 def block[$: P]: P[Markdown] =
