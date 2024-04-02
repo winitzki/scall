@@ -3448,6 +3448,8 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
+### Sliding-window aggregation (`scan`)
+
 ### Size-limited aggregation. Hylomorphisms with bounded recursion depth
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
@@ -3696,7 +3698,9 @@ let hylo_T
 ```
 
 For this code, we need to have a function `F/ap` with type `F (a → b) → F a → F b`.
+In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
+
 As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
 
 TODO example of usage
@@ -3712,8 +3716,6 @@ The least fixpoint type `Church F` already has that function (`unfix`).
 
 TODO
 
-
-### Sliding-window aggregation (`scan`)
 
 ## Functors and contrafunctors
 
