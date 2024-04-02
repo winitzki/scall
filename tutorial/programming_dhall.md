@@ -1,4 +1,4 @@
-# Advanced functional programming in Dhall
+## Advanced functional programming in Dhall
 
 ## Preface
 
@@ -843,7 +843,7 @@ That would allow functions to manipulate `Kind` values.
 But that effort was abandoned after it was discovered that it would break the consistency of Dhall's type system.
 For more details, see the discussion around this PR comment: [https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106)
 
-### The universal type quantifier `∀` vs. the function symbol `λ`
+### The universal type quantifier `forall` vs. the function symbol `lambda`
 
 Dhall uses the universal type quantifier (`∀` or equivalently `forall`) to denote _types_ of functions.
 So, any expression of the form `∀(x : something1) → something2` is a _type_ expression: it is something that always means a type.
@@ -1211,11 +1211,13 @@ This is so because the check `Natural/isZero y` is done at type-checking time.
 What if we need to use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`?
 That function cannot call `safeDiv x y {=}` because the witness value `{=}` needs to be type-checked at compile time.
 We also cannot test whether `y` is zero at run time and then call `safeDiv` only when `y` is nonzero.
+This code:
 
 ```dhall
 λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=}
--- Type error: `{=}` is not of type `Nonzero y`
 ```
+
+will produce a type error because `{=}` is not of type `Nonzero y`.
 
 Neither can we use the `Optional` type to create a value of type `Optional (Nonzero y)` that will be `None` when `y` equals zero.
 Dhall will not accept code like this:

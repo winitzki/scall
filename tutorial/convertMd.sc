@@ -130,12 +130,12 @@ def regularText_no_backquote[$: P] = P((!"`" ~ not_end_of_line).rep(1))
 
 def regularText_no_underscore[$: P] = P((!"_" ~ not_end_of_line).rep(1))
 
-def regularText_no_markup[$: P]: P[Span] = P((!CharIn("*_`") ~ not_end_of_line).rep(1).!).map(Span(Regular, _))
+def regularText_no_markup[$: P]: P[Span] = P((!CharIn("*_`[") ~ not_end_of_line).rep(1).!).map(Span(Regular, _))
 
 def heading[$: P](level: Int): P[Heading] =
   P(("#" * level) ~ space ~ paragraph ~ closingSequence).map(Heading(level, _))
 
-def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5))
+def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5) | heading(6))
 
 def codeSpan[$: P]: P[Span] = P("`" ~ regularText_no_backquote.! ~ "`").map(Span(CodeSpan, _))
 
@@ -176,7 +176,7 @@ def textualToLatex: Textual => String = {
     case SpanKind.StrongEmphasis => s"\\textbf{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
-  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{${text.replaceAll("#", "\\#")}}{${target.replaceAll("#", "\\#")}}}"
+  case Textual.Hyperlink(text, target) => s"\\texttt{\\href{${text.replaceAll("#", "\\\\#")}}{${target.replaceAll("#", "\\\\#")}}}"
 }
 
 def languageFix(str: String) =
@@ -186,11 +186,12 @@ def languageFix(str: String) =
 def toLatex: Markdown => String = {
   case Markdown.Heading(level, text) =>
     val heading = level match {
-      case 1 => "chapter"
-      case 2 => "section"
-      case 3 => "subsection"
-      case 4 => "subsubsection"
-      case 5 => "paragraph"
+      case 1 => "part"
+      case 2 => "chapter"
+      case 3 => "section"
+      case 4 => "subsection"
+      case 5 => "subsubsection"
+      case 6 => "paragraph"
       case _ => "relax"
     }
     s"\\$heading{${toLatex(text)}}"

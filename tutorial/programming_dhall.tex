@@ -14,6 +14,9 @@
 \usepackage{array}
 \usepackage{relsize} % make math symbols larger or smaller; supports \smaller etc.
 
+%\usepackage[utopia]{mathdesign}
+%\usepackage[OMLmathrm]{isomath} % Does not work.
+
 \usepackage{verbatim}
 %\usepackage{refstyle}
 \usepackage{wrapfig}
@@ -83,7 +86,7 @@
     morekeywords={{with}},
     otherkeywords={=,=>,<-,<\%,<:,>:,<,>,λ,∀,\#,@,:,[,],.,???},
     keywordstyle={\color{scalakeyword}},
-    morekeywords={[2]{String,Short,Int,Long,Char,Boolean,Double,Float,BigDecimal,Seq,Map,Set,Option,Either,Future,Successful,LazyList,Vector,Range,IndexedSeq,true,false,None,List,Nil,Try,Success,Failure,Some,Left,Right,Nothing,Any,Array,Unit,Iterator,Stream,Throwable,Integer,Object}},
+    morekeywords={[2]{String,Short,Type,Kind,Sort,Bool,Double,Float,BigDecimal,Seq,Map,Set,Option,Either,Future,Successful,LazyList,Vector,Range,IndexedSeq,True,False,None,List,Nil,Try,Success,Failure,Some,Left,Right,Nothing,Any,Array,Unit,Iterator,Stream,Throwable,Integer,Object}},
     keywordstyle={[2]{\color{scalatype}}},
     frame=tb,
     aboveskip={1.5mm},
@@ -92,7 +95,6 @@
     columns=fullflexible,
     keepspaces=true,
     basicstyle={\smaller\ttfamily},
-    extendedchars=true,
     numbers=none,
     numberstyle={\tiny\color{gray}},
     commentstyle={\color{dkgreen}},
@@ -122,13 +124,18 @@
         {ü}{{\"u}}1
         {ä}{{\"a}}1
         {ö}{{\"o}}1
-        {λ}{{$\lambda$}}1
+        {λ}{{$\boldsymbol{\lambda}$}}1
         {→}{{$\to$}}1
         {∀}{{$\forall$}}1
         {⊢}{{$\vdash$}}1
         {❰}{{\textbf{<}}}1
         {❱}{{\textbf{>}}}1
         {│}{{|}}1
+        {≡}{{$\equiv$}}1
+        {≅}{{$\cong$}}1
+        {×}{{$\times$}}1
+        {--}{{$-$}}1
+        {∃}{{$\exists$}}1
 }
 
 \begin{document}
@@ -146,10 +153,8 @@
     \tableofcontents{}
 
     \mainmatter\pagenumbering{arabic}
-    \global\long\def\bef{\forwardcompose}%
     \global\long\def\bbnum#1{\custombb{#1}}%
-    \global\long\def\pplus{{\displaystyle }{+\negmedspace+}}%
 
-    \input{generated.tex}
+    \input{generated}
 
 \end{document}
