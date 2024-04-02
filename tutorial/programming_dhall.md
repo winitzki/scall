@@ -630,10 +630,20 @@ That file may be imported via the following frozen import:
 This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
 If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
 
-The hash value is computed from the _normal form_ of a Dhall expression, and only after successful type-checking.
-For this reason, the hash value does not change after adding comments, reformatting the file, renaming local variables, or refactoring the program in any other way as long as the final evaluated expression in its normal form remains the same.
+The hash value is computed from the _normal form_ of a Dhall expression, and the normal form is computed only after successful type-checking.
+For this reason, the hash value remains unchanged under refactoring.
+For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
+The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
 
 ## Some features of the Dhall type system
+
+### Working with records polymorphically
+
+"Polymorphic records" is a feature of some programming languages where, say, a record of type {
+
+Dhall includes some limited forms of record polymorphism.
+
+TODO
 
 ### The `assert` keyword and equality types
 
@@ -1516,7 +1526,8 @@ foldMap f xs = foldr (\x -> \y -> mappend y (f x)) mempty xs
 ```
 
 Note that Dhall's `List/fold` implements a "right fold", similarly to Haskell's `foldr` and Scala's `foldRight`.
-The corresponding Dhall code is:
+For this reason, the code shown above appends `y` to `x` and not `x` to `y`.
+The corresponding Dhall code for `reduce` and `foldMap` is:
 
 ```dhall
 let reduce
@@ -1529,6 +1540,8 @@ let foldMap
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
     List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
 ```
+
+This code shows how to implement typeclass constraints in Dhall.
 
 ### `Functor`
 
@@ -1589,7 +1602,7 @@ let monadList : Monad List =
 ```
 
 We have defined the `Monad` typeclass via the `pure` and `bind` methods.
-Let us implement a function that provides the `join` method for any member of `Monad`.
+Let us implement a function that provides the `join` method for any member of the `Monad` typeclass.
 
 In Haskell, we would define `join` via `bind` as:
 
@@ -1600,7 +1613,7 @@ monadJoin ffa = bind ffa id
 
 In this Haskell code, `id` is an identity function of type `F a → F a`.
 
-The corresponding Dhall code is analogous, except we need to write out all type parameters:
+The corresponding Dhall code is similar, except we need to write out all type parameters:
 
 ```dhall
 let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) → λ(ffa : F (F a)) →
