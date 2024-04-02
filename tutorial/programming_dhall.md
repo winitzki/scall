@@ -2,8 +2,10 @@
 
 ## Preface
 
-This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
+This book is an advanced-level tutorial on Dhall for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
+
+The official Web site of the Dhall language is [https://dhall-lang.org](https://dhall-lang.org).
 
 Although most code examples are in Dhall, the material of the book has a wider applicability.
 It describes a certain flavor of purely functional programming (without side-effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
@@ -19,7 +21,7 @@ This book focuses on the last two applications.
 
 Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
 
-The official documentation and user guides for Dhall are found at https://docs.dhall-lang.org.
+The official documentation and user guides for Dhall are found at [https://docs.dhall-lang.org](https://docs.dhall-lang.org).
 
 This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 
@@ -37,7 +39,8 @@ This book focuses on other applications of Dhall.
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
-The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions such as `Natural/lessThan` and `List/map`.
+The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
+such as `Natural/lessThan` and `List/map`.
 
 The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
@@ -3651,7 +3654,7 @@ The function `hylo_N` is a general fold-like aggregation function that can be us
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see an example of using `hylo_N`. ***
+For now, let us see an example of using `hylo_N`.  TODO
 
 #### Hylomorphisms driven by a Church-encoded template
 
@@ -3684,7 +3687,7 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 This function is typical of "applicative functors", which we will study later in this book.
 As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
 
-*** example of usage ***
+TODO example of usage
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
@@ -3695,7 +3698,7 @@ The converse transformation (from the least fixpoint to the greatest fixpoint) c
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
 The least fixpoint type `Church F` already has that function (`unfix`).
 
-***
+TODO
 
 
 ### Sliding-window aggregation (`scan`)
@@ -3758,7 +3761,7 @@ let Profunctor : (Type → Type) → Type
 
 ### Constructing functors and contrafunctors from parts
 
-***
+TODO
 
 ## Filterable functors and contrafunctors
 
@@ -3798,7 +3801,7 @@ Then the parametricity theorem applies to all Dhall values.
 
 ### Equivalence of types for functions of existential type
 
-***
+TODO
 
 To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
 The first direction is when we apply `inE` and then `outE`.
@@ -3856,4 +3859,4 @@ The fully annotated type signature of `ep` is:
 ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
 ```
 
-***
+TODO

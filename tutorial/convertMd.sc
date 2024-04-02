@@ -124,18 +124,26 @@ enum Markdown:
 
 import Markdown.*
 
-def regularText[$: P]: P[Span] = P((!CharIn("*_`[]") ~ not_end_of_line).rep(1).!).map(Span(Regular, _))
+def regularText_no_star[$: P] = P((!"*" ~ not_end_of_line).rep(1))
+
+def regularText_no_backquote[$: P] = P((!"`" ~ not_end_of_line).rep(1))
+
+def regularText_no_underscore[$: P] = P((!"_" ~ not_end_of_line).rep(1))
+
+def regularText_no_markup[$: P]: P[Span] = P((!CharIn("*_`") ~ not_end_of_line).rep(1).!).map(Span(Regular, _))
 
 def heading[$: P](level: Int): P[Heading] =
   P(("#" * level) ~ space ~ paragraph ~ closingSequence).map(Heading(level, _))
 
 def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5))
 
-def codeSpan[$: P]: P[Span] = P("`" ~ regularText.! ~ "`").map(Span(CodeSpan, _))
+def codeSpan[$: P]: P[Span] = P("`" ~ regularText_no_backquote.! ~ "`").map(Span(CodeSpan, _))
 
-def emphasis[$: P] = P(CharIn("*_") ~ regularText.! ~ "*").map(Span(Emphasis, _))
+def emphasis[$: P] = P(CharIn("*") ~ regularText_no_star.! ~ "*").map(Span(Emphasis, _))
 
-def strongEmphasis[$: P] = P("**" ~ regularText.! ~ "**").map(Span(StrongEmphasis, _))
+def emphasis_underscore[$: P] = P(CharIn("_") ~ regularText_no_underscore.! ~ "_").map(Span(Emphasis, _))
+
+def strongEmphasis[$: P] = P("**" ~ regularText_no_star.! ~ "**").map(Span(StrongEmphasis, _))
 
 def fencedCodeBlock[$: P]: P[CodeBlock] =
   P(
@@ -146,7 +154,7 @@ def fencedCodeBlock[$: P]: P[CodeBlock] =
 def blankLine[$: P] = P((space.? ~ end_of_line).rep(1))
 
 def hyperlink[$: P]: P[Hyperlink] =
-  P("[" ~ space.? ~ not_end_of_line.rep.! ~ space.? ~ "]" ~ space.? ~ "(" ~ not_end_of_line.rep.! ~ ")")
+  P("[" ~ space.? ~ (!"]" ~ not_end_of_line).rep.! ~ space.? ~ "]" ~ space.? ~ "(" ~ (!")" ~ not_end_of_line).rep.! ~ ")")
     .map { case (text, target) => Hyperlink(text, target) }
 
 def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
@@ -154,7 +162,7 @@ def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
 def bulletList[$: P]: P[BulletList] = P(bulletListItem.rep(1)).map(BulletList.apply)
 
 def paragraph[$: P]: P[Paragraph] =
-  P((emphasis | strongEmphasis | codeSpan | hyperlink | regularText).rep)
+  P((emphasis | emphasis_underscore | strongEmphasis | codeSpan | hyperlink | regularText_no_markup.!.map(Span(Regular, _))).rep)
     .map(Paragraph.apply)
 
 def block[$: P]: P[Markdown] =
@@ -162,9 +170,9 @@ def block[$: P]: P[Markdown] =
 
 def markdown[$: P]: P[Seq[Markdown]] = P(block.rep(1))
 
-def textualToLatex : Textual => String = {
+def textualToLatex: Textual => String = {
   case Textual.Span(kind, text) => kind match
-    case SpanKind.Emphasis =>  s"\\emph{$text}"
+    case SpanKind.Emphasis => s"\\emph{$text}"
     case SpanKind.StrongEmphasis => s"\\textbf{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
@@ -183,9 +191,9 @@ def toLatex: Markdown => String = {
     }
     s"\\$heading{${toLatex(text)}}"
 
-  case Markdown.Paragraph(contents) =>  contents.map(textualToLatex).mkString("")
-  case Markdown.BulletList(content) => content.mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
-  case Markdown.CodeBlock(language, content) =>  s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${language.capitalize}]" else ""}\n$content\\end{lstlisting}"
+  case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
+  case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
+  case Markdown.CodeBlock(language, content) => s"\\begin{lstlisting}${if (language.nonEmpty) s"[language=${language.capitalize}]" else ""}\n$content\\end{lstlisting}"
   case Markdown.BlankLine => "\n"
 }
 
