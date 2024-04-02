@@ -1729,8 +1729,8 @@ let C = ∀(r : Type) → (F r → r) → r
 ```
 Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
 
-It is not obvious why the type `∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
-More precisely, the type `∀(r : Type) → (F r → r) → r` is the "least fixpoint" of the type equation `T = F T`.
+It is not obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+More precisely, the type `C` is the "least fixpoint" of the type equation `C = F C`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
 
