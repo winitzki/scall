@@ -198,7 +198,8 @@ def toLatex: Markdown => String = {
       case 6 => "paragraph"
       case _ => "relax"
     }
-    s"\\$heading{${toLatex(text)}}"
+    // Disable book parts!
+    if level == 1 then "" else s"\\$heading{${toLatex(text)}}"
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")

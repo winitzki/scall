@@ -836,11 +836,15 @@ There was at one time an effort to implement full "kind polymorphism" in Dhall.
 That would allow functions to manipulate `Kind` values.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
-### The universal type quantifier `forall` vs. the function symbol `lambda`
+### The universal type quantifier (∀) vs. the function symbol (λ)
 
-Dhall uses the universal type quantifier (`∀` or equivalently `forall`) to denote _types_ of functions.
-So, any expression of the form `∀(x : something1) → something2` is a _type_ expression: it is something that always means a type.
-That type can be used, for instance, as a type annotation for some function.
+Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol ∀ (or equivalently the keyword `forall`) to denote _types_ of functions.
+
+An expression of the form `λ(x : sometype1) → something2` is a function: it is something that can be applied to an argument to compute a new value.
+
+An expression of the form `∀(x : sometype1) → sometype2` is a _type_: it is something that can be used as a type annotation for some values.
+
+Expressions of the form `∀(x : sometype1) → sometype2` are used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 
 For example, the function that appends "..." to a string argument is written like this:
 
@@ -849,23 +853,34 @@ let f = λ(x : Text) → "${x}..."
 ```
 
 The type of `f` can be written as `∀(x : Text) → Text`.
-This type does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
-But Dhall will internally rewrite that to the longer form `∀(_ : Text) → Text`.
-
-If we want, we may write the definition of `f` together with a type annotation:
+If we like, we may write the definition of `f` together with a type annotation:
 
 ```dhall
 let f : ∀(x : Text) → Text
   = λ(x : Text) → "${x}..."
 ```
 
-Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → "${x}..."`.
-Dhall will reject that expression with the error message `"Invalid function output"`.
-The expression `∀(x : Text) → something2` must be a type of a function, and `something2` must be the output type of that function. So, `something2` must be a type and cannot be a `Text` value.
+A side note: The type expression `∀(x : Text) → Text` does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
+But Dhall will internally rewrite that to the normal form `∀(_ : Text) → Text`.
 
-While the symbol `∀` denotes types, the symbol `λ` (equivalently the backslash, `\`) denotes _functions themselves_, that is, _values_ of some function type.
+An expression of the form `λ(x : sometype1) → something2` is a function that can be applied to any `x` of type `sometype1` and will compute a result, `something2`.
+(That result could itself be a value or a type.)
+The _type_ of the expression `λ(x : sometype1) → something2` is `∀(x : sometype1) → sometype2` where `sometype2` is the type of `something2`.
 
-An expression of the form `λ(x : something1) → something2` is a function that can be applied to any `x` of type `something1` and will compute a result, `something2`. (That result could itself be a value or a type.)
+Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → "abc"`.
+Dhall will reject that expression with the error message "Invalid function output".
+The expression `∀(x : Text) → something2` must be a _type_ of a function, and `something2` must be the output type of that function.
+So, `something2` must be a type and cannot be a value.
+But in the example `∀(x : Text) → "abc"`, the output type of the function is a text string `"abc"`, which is not a type.
+
+In Dhall, this requirement is expressed by saying that `something2` should have type `Type`, `Kind`, or `Sort`.
+
+As another example of the error "Invalid function output", consider code like `∀(x : Type) → λ(y : Type) → x` with .
+This code has the form `∀(x : Type) → something` where `something` is a lambda-expression, which is not a type.
+
+Valid code examples are `∀(x : Type) → ∀(y : Type) → x` and `λ(x : Type) → ∀(y : Type) → x`.
+
+The type of `λ(x : sometype1) → something2` is `∀(x : sometype1) → sometype2`, where `sometype2` is the type of the expression `something2`.
 
 The polymorphic identity function is an example that helps remember the difference between `∀` and `λ`.
 
@@ -873,17 +888,19 @@ The identity function takes a value `x` of an arbitrary type and again returns t
 
 ```dhall
 let identity
-  : ∀(A : Type) → A → A
+  : ∀(A : Type) → ∀(x : A) → A
   = λ(A : Type) → λ(x : A) → x
 ```
 
-Here we denoted the type parameter by the capital `A`. (Dhall does not require that types be capitalized.)
+Here we denoted the type parameter by the capital `A`.
+(Dhall does not require that types be capitalized.)
 
-Defined like this, `identity` is a function of type `∀(A : Type) → A → A`. The function itself is the expression `λ(A : Type) → λ(x : A) → x`.
+Defined like this, `identity` is a function of type `∀(A : Type) → A → A`.
+The function itself is the expression `λ(A : Type) → λ(x : A) → x`.
 
-In Dhall, a function type `A → B` is equivalent to `∀(x : A) → B`.
+A function type of the form `A → B` can be also written in a longer syntax as `∀(x : A) → B` if we like.
 
-So, the type expression `∀(A : Type) → A → A` is equivalent to `∀(A : Type) → ∀(x : A) → A`.
+Type expressions `∀(A : Type) → A → A` and `∀(A : Type) → ∀(x : A) → A` are equivalent.
 
 The corresponding Haskell code is:
 
