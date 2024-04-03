@@ -4051,7 +4051,7 @@ For more details, see ["The Science of Functional Programming" by the same autho
 
 ### Existential types: `unpack` and then `pack` is identity
 
-In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `Exists P`.
+In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP`.
 
 By assuming that `P` is always fixed, we may simplify the definitions of `pack` and `unpack`: 
 
@@ -4080,12 +4080,12 @@ unpackP ExistsP ep packP === ep
 ```
 
 Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP === ep`.
-We would like to prove that equation for arbitrary `ep : ExistsP`.
+We would like to prove that the above equation holds for arbitrary `ep : ExistsP`.
 
-To prove that equation, we use the naturality law of `ep`.
-([The author is grateful to Dan Doel for assistance with this proof](https://cstheory.stackexchange.com/questions/54124).)
+To prove that, we need to use the naturality law of `ep`.
+([The author is grateful to Dan Doel for assistance with the proof](https://cstheory.stackexchange.com/questions/54124).)
 
-We note that  `ExistsP` is the type of a covariant natural transformation with respect to the type parameter `R`.
+We note that `ExistsP` is the type of a covariant natural transformation with respect to the type parameter `R`.
 So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
 The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
@@ -4166,7 +4166,7 @@ outE R (inE R k)
   -- Use the definition of `inE`.
   === outE R (λ(ep : ExistsP) → ep R k)
   -- Use the definition of `outE`.
-  === λ(T : Type) → λ(pt : P T) → (λ(ep : Exists P) → ep R k) (pack P T)
+  === λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
 The result is a function of type `λ(T : Type) → λ(pt : P T) → R`.
@@ -4176,9 +4176,9 @@ The result should be equal to `k T pt`:
 
 ```dhall
 outE R (inE R k) t pt
-  === (λ(ep : Exists P) → ep R k) (pack P T)
-  === (pack P T) R k
-  -- Use the definition of `pack`.
+  === (λ(ep : ExistsP) → ep R k) (packP T)
+  === (packP T) R k
+  -- Use the definition of `packP`.
   === (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
   === k t pt
 ```
@@ -4190,8 +4190,8 @@ Take an arbitrary value `consume : ExistsP → R` and first apply `outE` to it, 
 
 ```dhall
 inE R (outE R consume)
-  === inE R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
-  === λ(ep : Exists P) → ep R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
+  === inE R (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  === λ(ep : ExistsP) → ep R (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
 The result is a function of type `ExistsP → R`.
@@ -4201,16 +4201,11 @@ Apply that function to an arbitrary value `ep : ExistsP`:
 
 ```dhall
 inE R (outE R consume) ep
-  === ep R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
+  === ep R (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
-We  need to show that the last result is equal to `consume ep`.
-For that, we will use the parametricity properties of `ep`.
+We need to show that the last result is equal to `consume ep`.
+For that, we will use the naturality law of `ep`.
 
-The fully annotated type signature of `ep` is:
-
-```dhall
-ep : ∀(R : Type) → ∀(c : ∀(T : Type) → P T → R) → R
-```
 
 TODO
