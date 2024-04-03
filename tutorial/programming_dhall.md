@@ -1,4 +1,4 @@
-# Advanced functional programming in Dhall
+# Advanced Functional Programming in System Fω using Dhall
 
 ## Preface
 
@@ -10,14 +10,17 @@ It describes a certain flavor of purely functional programming (without side eff
 
 Dhall is a powerful, purely functional programming language that has several applications:
 - a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
+- an industry-strength System Fω interpreter for studying various language-independent aspects of functional programming
 - a high-level scripting DSL interfacing with a runtime that implements low-level details 
-- an industry-strength System Fω interpreter for studying various language-independent aspects of FP theory and practice
 
 This book focuses on the last two applications.
 
 ## Overview of Dhall
 
 Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
+
+The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
+This book focuses on other applications of Dhall.
 
 This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 For an introduction to Dhall, see [Dhall's official documentation](https://docs.dhall-lang.org).
@@ -31,13 +34,12 @@ let id = λ(A : Type) → λ(x : A) → x
     -- This evaluates to 32 of type Natural.
 ```
 
-The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
-This book focuses on other applications of Dhall.
-
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
 The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
 such as `Natural/lessThan` and `List/map`.
+
+### Safety guarantees
 
 The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
@@ -47,6 +49,8 @@ Invalid programs will be rejected at the type-checking phase (analogous to "comp
 The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
 But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
 
+### Dhall and System Fω
+
 From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
 For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
@@ -54,7 +58,7 @@ For a theoretical introduction to various forms of lambda calculus, System F, an
 - [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
-That theory is beyond the scope of this book.
+Most of that theory is beyond the scope of this book.
 Instead, the book focuses on issues arising in practical programming.
 
 ## Differences from other FP languages
@@ -4066,7 +4070,8 @@ let packP : ∀(T : Type) → P T → ExistsP
 Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
 
 In a certain sense, `packP` and `unpackP` are (one-sided) inverse functions:
-"Unpacking" a value `ep : ExistsP` and then "packing" it back will recover the original value `ep`.
+We expect that "unpacking" a value `ep : ExistsP` and then "packing" it back will recover the original value `ep`.
+We can write this expectation in Dhall as an equation for `ep`:
 
 ```dhall
 let ep : ExistsP = ...  -- Create any value of type ExistsP. Then:
@@ -4075,6 +4080,7 @@ unpackP ExistsP ep packP === ep
 ```
 
 Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP === ep`.
+We would like to prove that equation for arbitrary `ep : ExistsP`.
 
 To prove that equation, we use the naturality law of `ep`.
 ([The author is grateful to Dan Doel for assistance with this proof](https://cstheory.stackexchange.com/questions/54124).)
@@ -4131,11 +4137,23 @@ Because `u` is a function of type `∀(T : Type) → P T → U`, the code of `u`
 
 So, the function `λ(T : Type) → λ(pt : P T) → u T pt` is the same as just `u`.
 
-This concludes the proof.
+(This is a special case of the general fact that the expression `λ(x : A) → f x` is the same function as `f`.)
+
+Finally, we found what we needed:
+
+```dhall
+ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
+  === ep U (λ(T : Type) → λ(pt : P T) → u T pt)
+  === ep U u
+```
+
+This completes the proof that `ep ExistsP packP U u === ep U u`.
 
 ### Equivalence of types for functions of existential type
 
-We still keep `P` fixed in this section, to simplify the code.
+To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
+
+We will now show that the functions `inE` and `outE` defined in section "Functions of existential types" are inverses of each other.
 
 The functions `inE` and `outE` are defined by: TODO
 
@@ -4168,7 +4186,7 @@ outE R (inE R k) t pt
 This proves the first direction of the isomorphism.
 
 The other direction is when we apply `outE` and then `inE`.
-Take an arbitrary value `consume : Exists P → R` and first apply `outE` to it, then `inE`:
+Take an arbitrary value `consume : ExistsP → R` and first apply `outE` to it, then `inE`:
 
 ```dhall
 inE R (outE R consume)
@@ -4176,10 +4194,10 @@ inE R (outE R consume)
   === λ(ep : Exists P) → ep R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
 ```
 
-The result is a function of type `Exists P → R`.
+The result is a function of type `ExistsP → R`.
 We need to show that this function is equal to `consume`.
 
-Apply that function to an arbitrary value `ep : Exists p`:
+Apply that function to an arbitrary value `ep : ExistsP`:
 
 ```dhall
 inE R (outE R consume) ep
