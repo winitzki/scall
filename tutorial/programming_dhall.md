@@ -250,7 +250,7 @@ The typechecker will accept this program.
 Of course, we can never supply a value for the `void : < >` argument.
 So, our program will not be evaluated until we replace the `absurd void X` by correct code computing a value of type `X`.
 
-So, we can shorten the code if we define `let TODO = absurd void`.
+To shorten the code, define `let TODO = absurd void`.
 We can then write `TODO X` and pretend to obtain a value of any type `X`.
 
 Note that the partially applied function `absurd void` is a value of type `∀(A : Type) → A`.
