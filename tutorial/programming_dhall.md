@@ -3580,13 +3580,13 @@ We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T
 Then we obtain the type signature:
 
 ```dhall
-fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
+  fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
 ```
 
-We may equivalently rewrite that type by replacing the record by two curried arguments:
+Rewrite that type by replacing the record by two curried arguments:
 
 ```dhall
-fold_GFix_curried : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+  fold_GFix : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
 ```
 
 Functions of that type are called **hylomorphisms**.
