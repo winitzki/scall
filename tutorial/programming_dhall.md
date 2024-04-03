@@ -315,9 +315,11 @@ Function types are written as `∀(x : arg_t) → res_t`, where `arg_t` is the a
 
 Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body (which must be of type `res_t`).
 
-Note that the type `res_t` may or may not use the bound variable `x`.
+Usually, the function body is an expression that uses the bound variable `x`.
+However, the type `res_t` itself might also depend on `x`.
+
 In simple cases, `res_t` will not depend on `x`.
-Then the function type can be written in a simpler form: `arg_t → res_t`.
+Then the function's type can be written in a simpler form: `arg_t → res_t`.
 
 For example, consider a function that adds `1` to a `Natural` argument:
 
@@ -325,7 +327,7 @@ For example, consider a function that adds `1` to a `Natural` argument:
 let inc = λ(x : Natural) → x + 1
 ```
 
-We may write a type annotation to `inc` like this:
+We may write the code of `inc` with a type annotation like this:
 
 ```dhall
 let inc : Natural → Natural = λ(x : Natural) → x + 1
@@ -337,7 +339,9 @@ We may also write a fully detailed type annotation if we like:
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
 
-All functions have one argument.
+#### Curried functions
+
+All Dhall functions have one argument.
 To implement functions with more than one argument, one can use curried functions or record types.
 
 For example, a function that adds 3 numbers can be written in different ways according to convenience:
@@ -349,6 +353,9 @@ let add3_curried : Natural → Natural → Natural → Natural
 let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
   = λ(record : { x : Natural, y : Natural, z : Natural }) → record.x + record.y + record.z
 ```
+
+Most functions in the Dhall standard library are curried.
+Currying allows function types to depend on some of the previous curried arguments, as we will see next.
 
 #### Functions with type parameters
 
@@ -380,8 +387,9 @@ In Dhall, all function arguments (including all type parameters) must be introdu
 
 However, a `let` binding does not necessarily require a type annotation.
 We may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
+
 This is the only type inference currently implemented in Dhall.
-For complicated type signatures, it helps to write type annotations because type errors will be detected earlier.
+For complicated type signatures, it still helps to write type annotations with `let`, because type errors will be detected earlier.
 
 ## Miscellaneous features
 
@@ -394,10 +402,12 @@ let b = 2
   in a + b  -- This evaluates to 3.
 ```
 
-Because of this feature, we will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
-It is implied that those `let` declarations are part of a larger Dhall program.
+Because of this syntax, we will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
+It is implied that all those `let` declarations are part of a larger Dhall program.
 
-We can also use a standalone `let` declaration in the Dhall interpreter (the syntax is `:let`).
+When we are working with the Dhall interpreter, we may write a standalone `let` declaration.
+The syntax is `:let`.
+
 For instance, we may define the type constructor `Pair` shown above:
 
 ```dhall
@@ -408,20 +418,21 @@ Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
 Pair : ∀(a : Type) → ∀(b : Type) → Type
 ```
 
-Dhall does not support the Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and types are inferred automatically.
-Dhall functions need to be written via a `λ` symbol with an explicit type annotation:
+Dhall does not support a Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and all types are inferred automatically.
+Dhall functions need to be written via `λ` symbols and explicit type annotations:
 
 ```dhall
 let f = λ(x : Natural) → x + 1
 ```
 
-In Dhall, the standard `map` function for `List` values has the type signature:
+As a further example, conider the standard `map` function for `List`.
+The type signature is:
 
 ```dhall
 List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
 ```
 
-When applying this function, the code must specify both type parameters `a`, `b`:
+When applying this function, the code must specify both type parameters (`a`, `b`):
 
 ```dhall
 let List/map = https://prelude.dhall-lang.org/List/map
@@ -436,14 +447,11 @@ let identity : ∀(A : Type) → ∀(x : A) → A
   = λ(A : Type) → λ(x : A) → x
 ```
 
-The polymorphic type of the standard `fmap` function may be written as:
-
-```dhall
-∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
-```
-
 Dhall does not require capitalizing the names of types and type parameters.
-In this book, we will usually capitalize type constructors (such as `List`) but not simple type parameters (`a`, `b`, etc.).
+In this book, we will capitalize all type constructors (such as `List`).
+Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.).
+
+For additional clarity, we will sometimes write type parameters `A`, `B`, etc.
 
 ### Type inference
 
@@ -498,21 +506,24 @@ The only recursive type directly supported by Dhall is the built-in type `List`.
 The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them.
 
 User-defined recursive types and functions must be encoded in a non-recursive way.
-Later chapters in this book will show how to use the Church encoding for that purpose.
+Later chapters in this book will show how to use the Church encoding or existential types for that purpose.
 In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
 
 Dhall is a purely functional language with no side effects.
-There are no mutable values, no exceptions, no multithreading, no writing to disk, etc.
+There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics or sound, etc.
 
 A Dhall program may contain only a single expression that evaluates to a normal form.
 The resulting normal form can be used via imports in another Dhall program, or converted to JSON, YAML, and other formats.
 
+The only Dhall feature that may be considered a side effect is value import.
+This feature is described in the next subsection.
+
 ### Modules and imports
 
 Dhall has a simple file-based module system.
-Each Dhall file must contain the definition of a _single_ Dhall value (often in the form `let x = ... in ...`).
-That single value may be imported into another Dhall file by specifying the path to the first Dhall file.
+Each Dhall file must contain the definition of a _single_ Dhall value (often in the form `let x = ... in ...` but it's still a single value).
+That value may be imported into another Dhall file by specifying the path to the first Dhall file.
 The second Dhall file can directly use that value as a sub-expression.
 For convenience, the imported value may be assigned to a variable with a meaningful name.
 
@@ -530,7 +541,7 @@ let List/sum = https://prelude.dhall-lang.org/Natural/sum
   in List/sum input_list
 ```
 
-Running `dhall` on the second file will compute and print the result:
+Running `dhall` on the second file will compute and show the result:
 
 ```bash
 $ dhall --file /tmp/sum.dhall
@@ -547,7 +558,7 @@ $ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
 
 Although a Dhall file has only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
-In that way, a Dhall module may export a number of values and/or types:
+In that way, we can implement program modules that export a number of values and/or types to other modules:
 
 ```dhall
 -- This file is `/tmp/SimpleModule.dhall`.
@@ -582,11 +593,11 @@ let printed : Text = S.printUser name id
 In the file `UseSimpleModule.dhall`, we use the types and the values exported from `SimpleModule.dhall`.
 The code will not compile unless all types match, including the imported values.
 
-Note that all fields of a Dhall record are always public.
-To make values in a Dhall module private, we simply do not put them into the final exported record.
-Values declared using `let x = ...` inside a Dhall module will not be exported.
+All fields of a Dhall record are always public.
+To make values in a Dhall module private, we should not put those values into the final exported record.
+Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are part of the final exported value).
 
-In the example just shown, the file `SimpleModule.dhall` defined the values `test` and `validate`.
+In the example just shown, the file `SimpleModule.dhall` defined the local values `test` and `validate`.
 Those values are type-checked and computed inside the module but not exported.
 In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
 
@@ -595,7 +606,9 @@ See [this documentation](https://docs.dhall-lang.org/discussions/Safety-guarante
 
 #### Frozen imports and caching
 
-Imports from files, from Internet URLs, and from environment variables constitutes a limited form of "read-only" side effects in Dhall.
+Imports from files, from Internet URLs, and from environment variables constitutes a form of "read-only" side effects in Dhall.
+
+So, some Dhall programs will not always produce the same results if we run those programs multiple times.
 
 For example, Dhall's tests use [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only server that returns a new random string each time it is called.
 This Dhall program:
@@ -610,7 +623,7 @@ $ echo "https://test.dhall-lang.org/random-string as Text" | dhall
 ''
 Gajnrpgc4cHWeoYEUaDvAx5qOHPxzSmy
 ''
-scall (feature/tutorial) $ echo "https://test.dhall-lang.org/random-string as Text" | dhall
+$ echo "https://test.dhall-lang.org/random-string as Text" | dhall
 ''
 tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 ''
@@ -618,9 +631,9 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 
 If a Dhall program needs to guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
 Such imports are called "frozen".
-Dhall will refuse to process a frozen import if the external resource has a different SHA256 hash value than specified in the Dhall code.
+Dhall will refuse to process a frozen import if the external resource gives an expression with a different SHA256 hash value than specified in the Dhall code.
 
-For example, one of the standard tests for Dhall includes the following file called `simple.dhall` that contains just the number `3`:
+For example, consider a file called `simple.dhall` that contains just the number `3`:
 
 ```dhall
 -- simple.dhall
@@ -635,11 +648,11 @@ This import expression is annotated by the SHA256 hash value corresponding to th
 If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
 
 The hash value is computed from the _normal form_ of a Dhall expression, and the normal form is computed only after successful type-checking.
-For this reason, the hash value remains unchanged under refactoring.
+For this reason, the hash value of a Dhall program remains unchanged under any refactoring.
 For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
 The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
 
-## Some features of the Dhall type system
+## Features of the Dhall type system
 
 ### Working with records polymorphically
 
@@ -3530,7 +3543,7 @@ The result is a stream where _every_ operation (even just producing the next ite
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
-The size limit is important for guaranteeing termination.
+(The size limit guarantees termination.)
 
 We will now generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
 The result will be a `fold`-like function whose recursion depth is limited in advance.
@@ -3543,7 +3556,7 @@ We have seen `fold`'s type signature when we considered fold-like aggregations f
 fold : Church F → ∀(r : Type) → (F r → r) → r
 ```
 
-We generalize the idea of a **fold-like aggregation** to mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
+By a **fold-like aggregation** we mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
 The general type signature of a fold-like aggregation is `P → ∀(r : Type) → (F r → r) → r`.
 
 The implementation of `fold` will be different for each data structure `P`.
@@ -3558,17 +3571,19 @@ Note that this type is a function from an existential type in `GFix F`.
 Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
 
 ```dhall
-GFix F → Q  =  Exists (GF_T F) → Q
-  =  ∀(t : Type) → GF_T F → Q
+GFix F → Q
+  =  Exists (GF_T F) → Q
+  =  ∀(t : Type) → GF_T F t → Q
 ```
 
-We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and obtain this type signature:
+We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T F t = { seed : t, step : t → F t }` as appropriate for streams.
+Then we obtain the type signature:
 
 ```dhall
 fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
 ```
 
-We may equivalently rewrite that type by replacing a record by two curried arguments:
+We may equivalently rewrite that type by replacing the record by two curried arguments:
 
 ```dhall
 fold_GFix_curried : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
@@ -3578,6 +3593,7 @@ Functions of that type are called **hylomorphisms**.
 See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
+So, Dhall does not support hylomorphisms as they are usually written.
 Let us examine that problem is more detail.
 
 #### Example: why hylomorphisms terminate (in Haskell)
@@ -3593,8 +3609,9 @@ hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
 The code of `hylo` calls `hylo` recursively under `fmap`, and there seems to be no explicit termination for the recursion.
-To see how this code could ever terminate, we will consider a specific example.
-In that example, both `t` and `r` are the type of binary trees with string-valued leaves (we have denoted that type by `TreeText` before).
+To see how this code could ever terminate, consider a specific example
+where both `t` and `r` are the type of binary trees with string-valued leaves.
+We have denoted that type by `TreeText` before.
 The type constructor `f` will be the recursion scheme for `TreeText`.
 
 Our Haskell definitions for `TreeText`, its recursion scheme `F`, and the `fmap` method for `F` are:
@@ -3622,11 +3639,11 @@ unfix Leaf t -> FLeaf t
 unfix Branch x y -> FBranch x y
 ```
 
-We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because the types match.
+We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
 Because `fix` and `unfix` leave data unchanged, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
 In this example of applying `hylo`, the trees remain unchanged because we are unpacking the tree's recursive type (`TreeText → F TreeText`) and then packing it back (`F TreeText → TreeText`) with no changes.
-(We are using this example only to understand how the recursion can terminate when applying `hylo`.)
+(We are using this artificial example only for understanding how the recursion can terminate in `hylo`.)
 
 Choose some value `t0` of type `TreeText`:
 
@@ -3637,7 +3654,7 @@ t0 = Branch (Leaf "a") (Leaf "b")
 
 Denote `hylo unfix fix` by just `h` for brevity.
 The recursive code of `h` is just `h = fix . fmap h . unfix`.
-Now we expand the recursive definition of `h` three times in the expression `h t0`:
+Now we expand the recursive definition of `h` three times, starting with the expression `h t0`:
 
 ```haskell
 h t0
@@ -3668,7 +3685,7 @@ We note that each application of `unfix` replaces one layer of `TreeText`'s cons
 All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0`.
 
 At that point, the value `c0` no longer contains any constructors of `TreeText`; it is built only with `F`'s constructors.
-For that reason, `c0` will _remains unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
+For that reason, `c0` will _remain unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
 In other words:
 
 ```haskell
@@ -3679,7 +3696,7 @@ It follows that the computation `fmap (fmap f) c0` does not use the value `f`.
 
 Our code for `h t0` needs to compute `fmap (fmap h) c0`.
 Because that computation does not need the value `h`, Haskell will not perform any more recursive calls to `h`.
-This is where the recursion terminates in the computation `h t0`.
+This is why the recursion terminates in the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
 The required number of recursive calls is equal to the "depth" of the value `t0`.
@@ -3690,31 +3707,32 @@ For brevity, we denote `h = hylo coalg alg`.
 The function `h : t -> r` is then defined by `h = alg . fmap h . coalg`.
 When we apply `h` to some value `t0 : t`, we get: `h t0 = alg (fmap h (coalg t0))`.
 
-The recursion will terminate if, at some recursion depth, the function call `fmap (fmap (... (fmap f)...)) c` does not actually need to use the function `f`.
+The recursion will terminate if, at some recursion depth, the expression `fmap (fmap (... (fmap f)...)) c` does not actually need to use the function `f`.
 We will then have `fmap (fmap (... (fmap f)...)) c == c`.
 This will terminate the recursion.
 
 The type of `c` will be `f (f (... (f t)))`.
 It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
-These repeated applications generate a data structure of deeply nested type `f (f (... (f t)))`.
-The hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
+These repeated applications create a data structure of a deeply nested type: `f (f (... (f t)))`.
 
-However, it is impossible to assure up front that the data structure is finite.
+We find that the hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
+
+However, it is impossible to assure up front that the data structure of type `GFix F` is finite.
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
 (In fact, a function with that type signature cannot be implemented in Dhall.)
 
 #### Depth-limited hylomorphisms
 
-Implementing hylomorphisms in Dhall requires modifyig the type signature shown above, explicitly ensuring termination.
-One possibility is to add a `Natural`-valued bound on the depth of recursion and a "default" value (of type `t → r`).
-The default value will be used when the recursion bound is smaller than the recursion depth of the data.
-If the recursion bound is large enough, the hylomorphism will be actually independent of the default value.
+Implementing hylomorphisms in Dhall requires modifying the type signature shown above, explicitly ensuring termination.
+One possibility is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value (of type `t → r`).
+The stop-gap value will be used when the recursion bound is smaller than the recursion depth of the data.
+If the recursion bound is large enough, the hylomorphism's output value will be actually independent of the stop-gap value.
 
 To show how that works, we will first write Haskell code for the depth-limited hylomorphism.
 Then we will translate that code to Dhall.
 
 The idea of depth-limited hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
-To be able to do that, we begin by setting `h = default` as the initial value (where `default : t → r` is a given default value) and then expand the recursive definition repeatedly.
+To be able to do that, we begin by setting `h = stopgap` as the initial value (where `default : t → r` is a given default value) and then expand the recursive definition repeatedly.
 For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
 ```haskell
@@ -3727,16 +3745,16 @@ h_3 = alg . fmap h_2 . coalg
 
 All the intermediate values `h_1`, `h_2`, `h_3`, ..., are still of type `t → r`.
 After repeating this procedure `n` times (where `n` is a given natural number), we will obtain a function `h_n : t → r`.
-The example shown in the previous subsection explains that applying `h_n` to a value `t` will give a result (of type `r`) that does not depend on the `default` value, as long as the recursion depth `n` is large enough.
+The example shown in the previous subsection explains that applying `h_n` to a value `t` will give a result (of type `r`) that does not depend on the `stopgap` value, as long as the recursion depth `n` is large enough.
 
 Let us now implement this logic in Dhall:
 
 ```dhall
 let hylo_N
  : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
-  = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
+  = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
     let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
-    let transform : t → r = Natural/fold limit (t → r) update default
+    let transform : t → r = Natural/fold limit (t → r) update stopgap
       in transform seed
 ```
 
@@ -3816,7 +3834,7 @@ The corresponding typeclass is defined by:
 let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
 ```
 
-A simple example of a contrafunctor is the type constructor `a → Text`.
+A simple example of a contrafunctor is the type constructor `F a = a → Text`.
 Here is its definition and the code for a contrafunctor typeclass instance:
 
 ```dhall
@@ -3831,7 +3849,6 @@ For example, the type constructor `F` defined by:
 ```dhall
 let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
 ```
-
 is covariant in `a` and contravariant in `b`.
 
 In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
