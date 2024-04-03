@@ -185,7 +185,7 @@ Another example of using Dhall's `merge` is when implementing a `zip` function f
 
 ```dhall
 let zip
-  : ∀(a : Type) → Optional a → ∀(b : Type) → Optional b → Optional { _1 : a, _2 : b }
+ : ∀(a : Type) → Optional a → ∀(b : Type) → Optional b → Optional { _1 : a, _2 : b }
   = λ(a : Type) → λ(oa : Optional a) → λ(b : Type) → λ(ob : Optional b) →
     let Pair = { _1 : a, _2 : b }
     in
@@ -909,7 +909,7 @@ The identity function takes a value `x` of an arbitrary type and again returns t
 
 ```dhall
 let identity
-  : ∀(A : Type) → ∀(x : A) → A
+ : ∀(A : Type) → ∀(x : A) → A
   = λ(A : Type) → λ(x : A) → x
 ```
 
@@ -975,7 +975,7 @@ In Dhall, one can also define functions from values to types in the same way as 
 
 ```dhall
 let f
-  : ∀(x : Bool) → Type
+ : ∀(x : Bool) → Type
   = λ(x : Bool) → if x then Natural else Text 
 ```
 
@@ -1021,27 +1021,27 @@ Instead of pairs, we use the record type `{ _1 : a, _2 : b }`.
 
 ```dhall
 let compose_forward
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
     g (f (x))
 
 let compose_backward
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
     f( g (x)) 
 
 let flip
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(x : b) → λ(y : a) →
     f y x
 
 let curry
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
     f { _1 = x, _2 = y }
 
 let uncurry
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
     f p._1 p._2
 ```
@@ -1404,7 +1404,7 @@ The corresponding Dhall code is:
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
 let fmap
-  : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+ : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
@@ -1423,7 +1423,7 @@ As another example, let us define `fmap` for a type constructor that involves a 
 let G : Type → Type
   = λ(a : Type) → < Left : Text | Right : a >
 let fmap
-  : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+ : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
     merge { Left = λ(t : Text) → (G b).Left t
           , Right = λ(x : a) → (G b).Right (f x)
@@ -1466,7 +1466,7 @@ Bifunctors have a `bimap` method that transforms both type parameters at once:
 
 ```dhall
 let bimap
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
@@ -1475,12 +1475,12 @@ Given `bimap`, one can then define two `fmap` methods that work only on the firs
 
 ```dhall
 let fmap1
-  : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
+ : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
   = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
     bimap a d c d f (identity d)
 
 let fmap2
-  : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
+ : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
   = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
     bimap a b a d (identity a) g
 ```
@@ -1556,12 +1556,12 @@ The corresponding Dhall code for `reduce` and `foldMap` is:
 
 ```dhall
 let reduce
-  : ∀(m : Type) → Monoid m → List m → m
+ : ∀(m : Type) → Monoid m → List m → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(xs : List m) →
     List/fold m xs m (λ(x : m) → λ(y : m) → monoid_m.append y x) monoid_m.empty
 
 let foldMap
-  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
+ : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
   = λ(m : Type) → λ(monoid_m : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(xs : List a) →
     List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
 ```
@@ -1941,7 +1941,7 @@ A value `x` of that type is a function whose code may be written like this:
 
 ```dhall
 let x
-  : ∀(r : Type) → (F r → r) → r
+ : ∀(r : Type) → (F r → r) → r
   = λ(r : Type) → λ(frr : F r → r) →
      let y : r = ... -- Need to insert some code here.
         in y
@@ -2099,7 +2099,7 @@ So, implementing `foldRight` for the Church-encoded type `ListInt` is simple:
 
 ```dhall
 let foldRight
-  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+ : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
   = λ(r : Type) → λ(p : ListInt) → λ(init : r) → λ(update : Integer → r → r) →
     p r init update
 ```
@@ -2108,7 +2108,7 @@ The code can be made even shorter:
 
 ```dhall
 let foldRight
-  : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
+ : ∀(r : Type) → ListInt → r → (Integer → r → r) → r
   = λ(r : Type) → λ(p : ListInt) → p r
 ```
 
@@ -2116,7 +2116,7 @@ The similarity between the types of `foldRight` and `ListInt` becomes more appar
 
 ```dhall
 flip_foldRight
-  : ListInt → ∀(r : Type) → r → (Integer → r → r) → r
+ : ListInt → ∀(r : Type) → r → (Integer → r → r) → r
   = λ(p : ListInt) → p
 ```
 
@@ -2779,7 +2779,7 @@ As an example, let us implement the `fmap` method for the type constructor `Tree
 ```dhall
 let Tree = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
 let fmapTree
-   : ∀(a : Type) → ∀(b : Type) → (a → b) → Tree a → Tree b
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → Tree a → Tree b
    = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : Tree a) →
      λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
        let leafA : a → r = λ(x : a) → leafB (f x)
@@ -2798,12 +2798,12 @@ The code is:
 ```dhall
 let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ... -- Define the recursion scheme.
 let bimap_F
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
   = ... -- Define the bimap function for F.
 let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 
 let fmapC
-  : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
+ : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
     λ(r : Type) → λ(fbrr : F b r → r) →
       let farr : F a r → r = λ(far : F a r) →
@@ -2900,7 +2900,7 @@ We construct a value `x : F Natural` like this:
 
 ```dhall
 let x
-  : ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r
+ : ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r
   = λ(r : Type) → λ(pack : ∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) →
     pack Integer { _1 = λ(x : Integer) → Integer/greaterThan x 10, _2 = λ(x : Integer) → Integer/clamp x }
 ```
@@ -3148,7 +3148,7 @@ If we could produce such a function `f`, we would complete the code of `unfix`:
 let unfix : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f
-      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+     : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
         in g (F (GFix F)) f
 ```
@@ -3177,7 +3177,7 @@ The complete Dhall code is:
 let unfix : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f
-      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+     : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
         let fk : F t → F (GFix F) = fmap_F t (GFix F) k
@@ -3232,7 +3232,7 @@ Consider the greatest fixpoint of the recursion scheme for `List`:
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
 let fmap_F
-  : ∀(x : Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F x a → F x b
+ : ∀(x : Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F x a → F x b
   = λ(x : Type) → λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F x a) →
     merge { Nil = (F x b).Nil
           , Cons = λ(cons : { head : x, tail : a }) →
@@ -3261,7 +3261,7 @@ For more clarity about how to create and use values of type `Stream a`, let us e
 λ(rfr : r → < Cons : { head : a, tail : r } | Nil >) →
 λ(res : Type) →
 λ ( pack_
-  : ∀(t_ : Type) →
+ : ∀(t_ : Type) →
     { seed : t_, step : t_ → < Cons : { head : a, tail : t_ } | Nil > } →
       res
   ) →
@@ -3313,7 +3313,7 @@ Otherwise the function returns `None` of that type.
 
 ```dhall
 let headTailOption
-  : ∀(a : Type) → Stream a → Optional { head : a, tail : Stream a }
+ : ∀(a : Type) → Stream a → Optional { head : a, tail : Stream a }
   = λ(a : Type) → λ(s : Stream a) →
     let headTail = λ(h : Type) → λ(t : Type) → { head : h, tail : t }
     let ResultT = headTail a (Stream a)
@@ -3399,7 +3399,7 @@ The "step" function will never return `Nil`, which will make the stream unbounde
 
 ```dhall
 let streamFunction
-  : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
+ : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
   = λ(a : Type) → λ(seed : a) → λ(f : a → a) →
     let FA = < Cons : { head : a, tail : a } | Nil >
     let step : a → FA = λ(x : a) → FA.Cons { head = x, tail = f x }
@@ -3729,7 +3729,7 @@ Let us now implement this logic in Dhall:
 
 ```dhall
 let hylo_N
-  : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+ : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
   = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(default : t → r) →
     let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
     let transform : t → r = Natural/fold limit (t → r) update default
@@ -3760,7 +3760,7 @@ The Dhall code is:
 
 ```dhall
 let hylo_T
-  : Church F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+ : Church F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
   = λ(template : Church F) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) →
     let F/ap : ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b = ... -- Implement this function for F.
     let reduce : F (t → r) → t → r
@@ -3875,96 +3875,315 @@ TODO
 
 ## Dhall as a scripting DSL
 
-# Appendixes
+## Appendix: Naturality and parametricity
 
-## Naturality and parametricity
+The properties known as "naturality" and "parametricity" are rigorous mathematical expressions of a programmer's intuition about functions with type parameters.
 
-It is not possible in Dhall to compare types.
-So, a Dhall function cannot take a parameter `λ(t : Type)` and then check whether `t` is equal to `Natural`, say.
-Any Dhall function of the form `λ(t : Type) → ...` must work in the same way for all types `t`.
-This ensures full polymorphic parametricity of all Dhall functions.
-Then the parametricity theorem applies to all Dhall values.
+This appendix will describe some results of the theory that studies those properties, applied to Dhall programs.
+
+To make the presentation easier to follow, we will denote all types by capital letters and all values by lowercase letters.
+
+### Natural transformations
+
+Type signatures of the form `∀(A : Type) → F A → G A`, where `F` and `G` are some type constructors, are often seen in practice.
+Examples are functions like `List/head`, `Optional/concat`, and many others.
+
+```dhall
+⊢ :type List/head
+
+∀(a : Type) → List a → Optional a
+
+⊢ :type https://prelude.dhall-lang.org/Optional/concat
+
+∀(a : Type) → ∀(x : Optional (Optional a)) → Optional a
+```
+In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F a = Optional (Optional a)` and set `G = Optional`. 
+
+Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant.
 
 
-### Existential types: unpack and then pack is identity
+If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
+
+To see how it works, consider the method `List/map` that has the following type signature:
+
+```dhall
+let List/map = https://prelude.dhall-lang.org/List/map
+  in List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B
+```
+
+To see that `List/map` is a natural transformation, we first fix the type parameter `B`.
+That is, we remove `∀(B : Type)` from the type signature and assume that the type `B` is defined and fixed.
+Then we rewrite the type signature of `List/map` as `∀(A : Type) → F A → G A`, where the type constructors `F` and `G` are defined by `F X = X → B` and `G X = List X → List B`.
+Both types `F X` and `G X` are _contravariant_ with respect to `X`.
+So, `List/map` is a (contravariant) natural transformation with respect to the type parameter `A`.
+
+Considering now the type parameter `B` as varying, we fix `A` and rewrite the type signature of `List/map` as `∀(B : Type) → K B → L B`, where `K` and `L` are defined by `K X = A → X` and `L X = List A → List X`.
+Both `K` and `L` are covariant.
+So, `List/map` is a (covariant) natural transformation with respect to the type parameter `B`.
+
+### Naturality laws
+
+Suppose both `F` and `G` are covariant functors and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
+
+Typically, a covariant functor represents a data structure, so that `F A` is a type that can store data of an arbitrary type `A`.
+One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for that data to be stored in `G A`.
+The function `t` may omit or duplicate or reorder some data items, but no data may be changed.
+This is because the function `t` does not know anything about the type `A`.
+The code of `t` can make decisions neither based on specific values `x : A` stored in `F A`, nor based on the type `A` itself.
+The function `t` must work in the same way for all types `A` and for all values of those types.
+
+The mathematical formulation of that property is called the **naturality law** of `t`.
+It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
+
+$$ t . fmap_F f  = fmap_G f . t  $$
+
+To represent this very concise mathematical formula in Dhall, we write the following definitions:
+
+```dhall
+-- Define the type constructor F and its fmap method:
+let F : Type → Type = ...
+let fmap_F : ∀(A : Type) → ∀(B : Type) → (A → B) → F A → F B = ... 
+-- Define the type constructor G and its fmap method:
+let G : Type → Type = ...
+let fmap_G : ∀(A : Type) → ∀(B : Type) → (A → B) → G A → G B = ... 
+-- Define the natural transformation t:
+let t : ∀(A : Type) → F A → G A = ...
+let naturality_law =
+  λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(p : F A) → 
+    assert : fmap_G A B f (t A p) === t B (fmap_F A B f p)
+```
+
+A naturality law of `t` describes what happens when we apply the transformation `t` to a data container.
+We can apply `t` to transform `F A → G A`, followed an `fmap`-based transformation (`G A → G B`).
+
+(An `fmap` function does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
+
+We can also first apply `fmap_F` to transform `F A → F B` and then apply `t` to transform `F B → G B`.
+The final results of type `G B` will be the same.
+
+So, naturality laws describe program refactorings where the programmer decides to change the order of function applications.
+(For example, first apply `List/map A B f` and then `List/head B`; or first apply `List/head A` and then `Optional/map A B f`.)
+Because the naturality law holds, the results of the program are guaranteed to remain the same after refactoring.
+
+If a natural transformation has several type parameters, there will be a separate naturality law with respect to each of the type parameters.
+To write that kind of naturality law, we need to fix all type parameters except one.
+
+As an example, consider the function `List/map` as a natural transformation with respect to the type parameter `A`.
+To write the naturality law, we keep `B` fixed and introduce arbitrary types `X`, `Y` and an arbitrary function `f : X → Y`:
+
+TODO
+
+### Fully parametric code
+
+As a motivation, consider a simple function with a type parameter:
+
+```dhall
+let f
+ : ∀(A : Type) → A → A → A
+  = λ(A : Type) → λ(x : A) → λ(y : A) → x
+```
+
+Because the type `A` is unknown, the function `f` cannot examine the values `x` and `y` and perform any nontrivial computation with them (cannot even check whether `x == y`).
+
+Neither can the code of `f` examine the type `A` itself and make decisions based on that.
+The code of `f` cannot check whether the type parameter `A` is equal to `Natural`, say.
+This is so because Dhall does not support comparing types or pattern-matching on type parameters.
+
+Here is an imaginary example of a function that does not work in the same way for all types:
+
+```dhall
+let f_strange  -- This cannot work in Dhall.
+ : ∀(A : Type) → A → A → A
+  = λ(A : Type) → λ(x : A) → λ(y : A) →
+    if A == Natural then x else y
+```
+This function implements a different logic for `A == Natural` as opposed to other types.
+This sort of code can be written in a language where types can be examined at run time.
+But Dhall does not support such functionality.
+
+For this reason, a Dhall function with a type parameter `A` must work in the same way for all `A`.
+This property is known as the "full polymorphic parametricity" of the function's code.
+We will call it "full parametricity" for short.
+
+The **parametricity theorem** says that any fully parametric function will automatically satisfy a certain mathematical law.
+The form of that law is determined by the type signature of the function.
+(So, all functions of that type will satisfy the same law.)
+
+For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
+
+So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
+
+For functions of more complicated type signatures, the parametricity theorem gives a law of a more complicated form than naturality laws.
+
+To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → A`, where `F` and `G` are both non-constant and covariant type constructors.
+This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `K A → L A` where `K` and `L` are either both covariant or both contravariant.
+
+For functions `t : ∀(A : Type) → (F A → G A) → A`, the parametricity theorem gives the following law:
+
+For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-compatible", we must have `f (t A p) === t B q`.
+
+Here, we need to define the special property of being "`f`-compatible" as follows: Functions `p` and `q` are "`f`-compatible" if, for any value `x : F A`, we have:
+
+```dhall
+fmap_G A B f (p x) === q (fmap_F A B f x)
+```
+This equation is similar to a naturality law except for using two different functions (`p` and `q`).
+It is important to note that this equation defines a _many-to-many relation_ between the functions `p` and `q`.
+This equation cannot be used to express `p` through `q` or `q` through `p` via a simple function.
+
+Because of this complication, the law of `t` does not have the form of a single equation.
+The law says that the equation `f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
+(We called that relation "`f`-compatible" just for the purposes of this example.)
+
+One may say that the parametricity theorem gives a "relational law" for functions `t`; the form of that law generalizes naturality laws for the complicated type signature of `t`.
+
+To summarize: the parametricity theorem applies to all Dhall values.
+For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
+
+The form of the law can be written in advance, without knowing the code of the Dhall function, because the law is determined by the type signature alone.
+
+The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
+For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a sub-language of Dhall.
+
+### Existential types: `unpack` and then `pack` is identity
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `Exists P`.
 
-Let us simplify the definitions of `pack` and `unpack` by assuming that `P` is always fixed:
+By assuming that `P` is always fixed, we may simplify the definitions of `pack` and `unpack`: 
 
 ```dhall
-let ExistsP = ∀(r : Type) → (∀(t : Type) → P t → r) → r
+let ExistsP = ∀(R : Type) → (∀(T : Type) → P T → R) → R
 
-let unpackP : Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r 
-  = λ(ep : Exists P) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) →
-      ep r unpack_
+let unpackP : ExistsP → ∀(R : Type) → (∀(T : Type) → P T → R) → R 
+  = λ(ep : ExistsP) → λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) →
+      ep R unpack_
 
-let packP : ∀(t : Type) → P t → Exists P
-  = λ(t : Type) → λ(pt : P t) →
-      λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt
+let packP : ∀(T : Type) → P T → ExistsP
+  = λ(T : Type) → λ(pt : P T) →
+      λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt
 ```
 
 Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
 
 In a certain sense, `packP` and `unpackP` are (one-sided) inverse functions:
-"Unpacking" a value `ep : Exists P` and then "packing" it back will recover the original value `ep`.
+"Unpacking" a value `ep : ExistsP` and then "packing" it back will recover the original value `ep`.
 
 ```dhall
 let ep : ExistsP = ...  -- Create any value of type ExistsP. Then:
 
-unpackP ep packP === ep
+unpackP ExistsP ep packP === ep
 ```
 
+Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP === ep`.
 
-TODO
+To prove that equation, we use the naturality law of `ep`.
+([The author is grateful to Dan Doel for assistance with this proof](https://cstheory.stackexchange.com/questions/54124).)
+
+We note that  `ExistsP` is the type of a covariant natural transformation with respect to the type parameter `R`.
+So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
+The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
+
+```dhall
+f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+```
+
+Both sides of the naturality law apply `ep` to some arguments, while we would like to prove an equation of the form `ep ExistsP packP === ep`.
+To make progress, we apply both sides of that equation to arbitrary arguments `U : Type` and `u : ∀(T : Type) → P T → U`.
+If `ep packP` is the same function as `ep` then `ep packP U u` will be always the same value as `ep U u`.
+Write the corresponding equation:
+
+```dhall
+ep ExistsP packP U u === ep U u
+```
+
+Our goal is to derive this equation as a consequence of the naturality law of `ep`.
+For that, we just need to choose suitable parameters `R`, `S`, `f`, and `g` in that law.
+We choose `R = ExistsP`, `S = U`, `f ep = ep U u`, and `g = packP`.
+Then the left-hand side of the naturality law becomes:
+
+```dhall
+f (ep R g) == ep R g U u = ep ExistsP packP U u
+```
+This is the left-hand side of the equation we need to prove.
+
+The right-hand side of the naturality law becomes:
+
+```dhall
+ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+  == ep U (λ(T : Type) → λ(pt : P T) → (g T pt) U u)
+  == ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
+```
+
+This will be equal to `ep U u` (the right-hand side of the equation we need to prove) if we could show that:
+
+```dhall
+λ(T : Type) → λ(pt : P T) → packP T pt U u  ===  u
+```
+
+Substitute the definition of `packP` and get:
+
+```dhall
+λ(T : Type) → λ(pt : P T) → packP T pt U u
+  = λ(T : Type) → λ(pt : P T) → u T pt
+```
+
+Because `u` is a function of type `∀(T : Type) → P T → U`, the code of `u` has the form `λ(T : Type) → λ(pt : P T) → ...`.
+
+So, the function `λ(T : Type) → λ(pt : P T) → u T pt` is the same as just `u`.
+
+This concludes the proof.
 
 ### Equivalence of types for functions of existential type
 
-To check that the functions `inE r` and `outE r` are inverses of each other (for any fixed `P` and `r`), we need to compute the composition of these functions in both directions.
+We still keep `P` fixed in this section, to simplify the code.
+
+The functions `inE` and `outE` are defined by: TODO
+
+To check that the functions `inE R` and `outE R` are inverses of each other (for fixed `P` and `R`), we need to compute the composition of these functions in both directions.
 The first direction is when we apply `inE` and then `outE`.
-Take an arbitrary `k : ∀(t : Type) → P t → r` and first apply `inE` to it, then `outE`:
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE` to it, then `outE`:
 
 ```dhall
-outE r (inE r k)
+outE R (inE R k)
   -- Use the definition of `inE`.
-  === outE r (λ(ep : Exists P) → ep r k)
+  === outE R (λ(ep : ExistsP) → ep R k)
   -- Use the definition of `outE`.
-  === λ(t : Type) → λ(pt : P t) → (λ(ep : Exists P) → ep r k) (pack P t pt)
+  === λ(T : Type) → λ(pt : P T) → (λ(ep : Exists P) → ep R k) (pack P T)
 ```
 
-The result is a function of type `λ(t : Type) → λ(pt : P t) → r`.
+The result is a function of type `λ(T : Type) → λ(pt : P T) → R`.
 We need to show that this function is equal to `k`.
-To do that, apply that function to arbitrary values `t : Type` and `pt : P t`.
-The result should be equal to `k t pt`:
+To do that, apply that function to arbitrary values `T : Type` and `pt : P T`.
+The result should be equal to `k T pt`:
 
 ```dhall
-outE r (inE r k) t pt
-  === (λ(ep : Exists P) → ep r k) (pack P t pt)
-  === (pack P t pt) r k
+outE R (inE R k) t pt
+  === (λ(ep : Exists P) → ep R k) (pack P T)
+  === (pack P T) R k
   -- Use the definition of `pack`.
-  === (λ(r : Type) → λ(pack_ : ∀(t_ : Type) → P t_ → r) → pack_ t pt) r k
+  === (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
   === k t pt
 ```
 
 This proves the first direction of the isomorphism.
 
 The other direction is when we apply `outE` and then `inE`.
-Take an arbitrary value `consume : Exists P → r` and first apply `outE` to it, then `inE`:
+Take an arbitrary value `consume : Exists P → R` and first apply `outE` to it, then `inE`:
 
 ```dhall
-inE r (outE r consume)
-  === inE r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
-  === λ(ep : Exists P) → ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+inE R (outE R consume)
+  === inE R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
+  === λ(ep : Exists P) → ep R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
 ```
 
-The result is a function of type `Exists P → r`.
+The result is a function of type `Exists P → R`.
 We need to show that this function is equal to `consume`.
 
 Apply that function to an arbitrary value `ep : Exists p`:
 
 ```dhall
-inE r (outE r consume) ep
-  === ep r (λ(t : Type) → λ(pt : P t) → consume (pack P t pt))
+inE R (outE R consume) ep
+  === ep R (λ(T : Type) → λ(pt : P T) → consume (pack P T))
 ```
 
 We  need to show that the last result is equal to `consume ep`.
@@ -3973,7 +4192,7 @@ For that, we will use the parametricity properties of `ep`.
 The fully annotated type signature of `ep` is:
 
 ```dhall
-ep : ∀(r : Type) → ∀(c : ∀(t : Type) → P t → r) → r
+ep : ∀(R : Type) → ∀(c : ∀(T : Type) → P T → R) → R
 ```
 
 TODO
