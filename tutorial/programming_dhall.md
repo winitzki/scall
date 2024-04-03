@@ -3526,7 +3526,7 @@ The result is a stream where _every_ operation (even just producing the next ite
 
 ### Sliding-window aggregation (`scan`)
 
-### Size-limited aggregation. Hylomorphisms with bounded recursion depth
+### Size-limited aggregation and bounded-recursion hylomorphisms
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
