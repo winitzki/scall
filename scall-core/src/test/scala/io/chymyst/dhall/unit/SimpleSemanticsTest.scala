@@ -310,4 +310,11 @@ class SimpleSemanticsTest extends DhallTest {
       ).failed.get.getMessage contains "ProjectByType is invalid because the base expression has type Type instead of RecordType"
     )
   }
+
+  test("no support for kind-polymorphic functions") {
+      Try(
+        "λ(a : Kind) → λ(b : a) → λ(x : b) → x".dhall.typeCheckAndBetaNormalize().unsafeGet.print
+      ).failed.get.getMessage contains "instead found input type a, output type a, expression under type inference: ∀(x : b) → b, type inference context = {a : Kind, b : a}"
+  }
+
 }

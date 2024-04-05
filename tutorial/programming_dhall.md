@@ -5,22 +5,34 @@
 This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
-Although most code examples are in Dhall, the material of the book has a wider applicability.
-It describes a certain flavor of purely functional programming (without side effects and with guaranteed termination) that can be implemented in any FP language that supports polymorphic types.
+Although most code examples are in Dhall, much of the material of the book has a wider applicability.
+It studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
+which is known in the academic literature as "System Fω".
 
-Dhall is a powerful, purely functional programming language that has several applications:
+Dhall was designed as an open-source language for programmable configuration files.
+From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
+
+For a more theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+
+- [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
+- [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
+
+Most of that theory is beyond the scope of this book.
+Instead, the book focuses on issues arising in practical programming.
+
+To summarize, Dhall is a powerful, purely functional programming language that has several applications:
 - a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
 - an industry-strength System Fω interpreter for studying various language-independent aspects of functional programming
-- a high-level scripting DSL interfacing with a runtime that implements low-level details 
+- a high-level scripting DSL interfacing with a runtime that implements side effects and low-level details
 
 This book focuses on the last two applications.
 
 ## Overview of Dhall
 
-Dhall is a language for programmable configuration files, primarily intended to replace templated JSON, templated YAML, and other programmable or templated configuration formats.
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
 
-The Dhall project documentation covers many aspects of using Dhall with YAML and JSON.
-This book focuses on other applications of Dhall.
+The Dhall project's documentation covers many aspects of using Dhall to produce YAML and JSON configuration files.
+This book focuses on other applications of Dhall, viewing it primarily as a vehicle for learning the patterns of advanced functional programming.
 
 This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 For an introduction to Dhall, see [Dhall's official documentation](https://docs.dhall-lang.org).
@@ -39,29 +51,17 @@ See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) 
 The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
 such as `Natural/lessThan` and `List/map`.
 
-### Safety guarantees
+### Guaranteed termination
 
 The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
-Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time.
+Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
 
-Invalid programs will be rejected at the type-checking phase (analogous to "compile time").
-(The type-checking itself is also guaranteed to terminate.)
-The price for those safety guarantees is that the Dhall language is _not_ Turing-complete.
+Invalid Dhall programs will be rejected at the type-checking phase.
+Any Dhall program that passes type-checking will be guaranteed to evaluate to a canonical (unique) normal form within finite time.
+The type-checking itself is also guaranteed to complete within finite time.
+
+The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
 But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
-
-### Dhall and System Fω
-
-From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
-
-For a theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
-
-- [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
-- [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
-
-Most of that theory is beyond the scope of this book.
-Instead, the book focuses on issues arising in practical programming.
-
-## Differences from other FP languages
 
 ### Identifiers
 
@@ -203,27 +203,30 @@ let zip
 
 ### The void type and its use
 
-Dhall's empty union type `< >` cannot have any values.
-Values of union types may be created only via constructors, but the type `< >` has no constructors.
-So, no value of type `< >` will ever exist in any Dhall program.
+The **void type** is a type that cannot have any values.
 
-If a value of the void type existed, one would be able to derive from it a value of any other type.
+Dhall's empty union type `< >` is an example of a void type.
+Values of union types may be created only via constructors, but the type `< >` has no constructors.
+So, no Dhall code will ever be able to create a value of type `< >`.
+
+If a value of the void type existed, one would be able to compute from it a value of _any other type_.
+This is absurd, but this is indeed an important property of the void type.
 This property of the void type can be expressed formally via the function called `absurd`.
-That function can compute a value of an arbitrary type `A` given a value of type `< >`:
+That function computes a value of an arbitrary type `A` given a value of the void type `< >`:
 
 ```dhall
 let absurd : ∀(A : Type) → < > → A
   = λ(A : Type) → λ(x : < >) → (merge {=} x) : A 
 ```
 
-Of course, the function `absurd` will never be actually applied to an argument value in any program, because one cannot construct a value of type `< >`.
-Nevertheless, the existence of a function of type `∀(A : Type) → < > → A` is useful in some situations.
+Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `< >`.
+Nevertheless, the existence of the void type and a function of type `∀(A : Type) → < > → A` is useful in some situations, as we will see below.
 
 The type signature of `absurd` can be rewritten equivalently as:
 
 ```dhall
 let absurd : < > → ∀(A : Type) → A
-  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
+  = λ(x : < >) → λ(A : Type) → (merge {=} x) : A 
 ```
 
 This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
@@ -262,23 +265,25 @@ let our_program = λ(TODO : ∀(A : Type) → A) →  .... let x = TODO X in ...
 
 ### The unit type
 
-Dhall's empty record type `{}` is a natural way of defining a unit type.
+A **unit type** is a type that has only one distinct value.
+
+Dhall's empty record type `{}` is a unit type.
 The type `{}` has only one value, written as `{=}` (an empty record with no fields).
 
-An equivalent way of denoting the unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
+Another way of denoting the unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
 In this way, one can define differently named unit types for convenience.
 
-An equivalent definition is the function type `∀(A : Type) → A → A`.
-This is another example of automatic parametricity in Dhall.
+Another equivalent definition of a unit type is via the function type `∀(A : Type) → A → A`.
 The only way of implementing a function with that type is `λ(A : Type) → λ(x : A) → x`.
 There is no other, inequivalent Dhall code that could implement a different function of that type.
+This is a consequence of parametricity.
 
 ### Type constructors
 
 Type constructors in Dhall are written as functions from `Type` to `Type`.
 
-In Haskell or Scala, one would define a type constructor as `type PairAAInt a = (a, a, Int)`.
+In Haskell or Scala, one would define a type constructor as (for example) `type PairAAInt a = (a, a, Int)`.
 The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
 
 Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
@@ -287,7 +292,8 @@ Because Dhall does not have nameless tuples, we will use a record with field nam
 let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
 
-The output of the `λ` function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
+Then `PairAAInt` is a function that takes an arbitrary type `a` as its argument.
+The output of the function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
 
 The type of `PairAAInt` itself is `Type → Type`.
 For more clarity, we may write that as a type annotation:
@@ -339,6 +345,13 @@ We may also write a fully detailed type annotation if we like:
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
 
+Dhall does not support a Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and all types are inferred automatically.
+Dhall functions need to be written via `λ` symbols and explicit type annotations:
+
+```dhall
+let f = λ(x : Natural) → x + 1
+```
+
 #### Curried functions
 
 All Dhall functions have one argument.
@@ -357,7 +370,7 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 Most functions in the Dhall standard library are curried.
 Currying allows function types to depend on some of the previous curried arguments, as we will see next.
 
-#### Functions with type parameters
+### Functions with type parameters
 
 The most often used case where a function's result type depends on an argument is when functions have type parameters.
 
@@ -383,15 +396,39 @@ let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
 
 In this example, the type signature of `swap` has two type parameters (`a`, `b`) and the output type depends on those type parameters.
 
-In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax, with explicitly given types.
+As a further example, conider the standard `map` function for `List`.
+The type signature is:
+
+```dhall
+List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
+```
+
+When applying this function, the code must specify both type parameters (`a`, `b`):
+
+```dhall
+let List/map = https://prelude.dhall-lang.org/List/map
+in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
+   -- Returns [2, 3, 4].
+```
+
+A polymorphic identity function can be written (with a complete type annotation) as:
+
+```dhall
+let identity : ∀(A : Type) → ∀(x : A) → A 
+  = λ(A : Type) → λ(x : A) → x
+```
+
+In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax.
+Each argument must have a type annotation, for example: `λ(x : Natural)`, `λ(a : Type)`, and so on.
 
 However, a `let` binding does not necessarily require a type annotation.
-We may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
+So, may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
 
-This is the only type inference currently implemented in Dhall.
+This is the only case where type inference is currently supported in Dhall.
+
 For complicated type signatures, it still helps to write type annotations with `let`, because type errors will be detected earlier.
 
-## Miscellaneous features
+### Miscellaneous features
 
 Multiple `let x = y in z` bindings may be written next to each other without writing `in`, and type annotations may be omitted.
 For example:
@@ -416,35 +453,6 @@ Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
 ⊢ :let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 
 Pair : ∀(a : Type) → ∀(b : Type) → Type
-```
-
-Dhall does not support a Haskell-like concise definition syntax such as  `f x = x + 1`, where the argument is given on the left-hand side and all types are inferred automatically.
-Dhall functions need to be written via `λ` symbols and explicit type annotations:
-
-```dhall
-let f = λ(x : Natural) → x + 1
-```
-
-As a further example, conider the standard `map` function for `List`.
-The type signature is:
-
-```dhall
-List/map: ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
-```
-
-When applying this function, the code must specify both type parameters (`a`, `b`):
-
-```dhall
-let List/map = https://prelude.dhall-lang.org/List/map
-in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
-   -- Returns [2, 3, 4].
-```
-
-A polymorphic identity function can be written (with a complete type annotation) as:
-
-```dhall
-let identity : ∀(A : Type) → ∀(x : A) → A 
-  = λ(A : Type) → λ(x : A) → x
 ```
 
 Dhall does not require capitalizing the names of types and type parameters.
@@ -511,13 +519,11 @@ In practice, this means the user is limited to finite data structures and fold-l
 General recursion is not possible (because it cannot guarantee termination).
 
 Dhall is a purely functional language with no side effects.
-There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics or sound, etc.
+There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound, etc.
 
-A Dhall program may contain only a single expression that evaluates to a normal form.
-The resulting normal form can be used via imports in another Dhall program, or converted to JSON, YAML, and other formats.
-
-The only Dhall feature that may be considered a side effect is value import.
-This feature is described in the next subsection.
+A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
+What happens with that normal form is up to the user.
+The user may just want to print that expression to the terminal, or convert it to JSON, YAML, and other formats.
 
 ### Modules and imports
 
@@ -548,7 +554,7 @@ $ dhall --file /tmp/sum.dhall
 10
 ```
 
-One can import Dhall values from files, HTTP URLs, and environment variables.
+One can import Dhall values from files, from HTTP URLs, and from environment variables.
 Here is an example of importing the Dhall list value `[1, 1, 1]` from an environment variable called `XS`:
 
 ```bash
@@ -602,21 +608,20 @@ Those values are type-checked and computed inside the module but not exported.
 In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
 
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
-See [this documentation](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
-#### Frozen imports and caching
+#### Frozen imports and hashing
 
-Imports from files, from Internet URLs, and from environment variables constitutes a form of "read-only" side effects in Dhall.
+Imports from files, from Internet URLs, and from environment variables may be a security problem if we do not ensure that the contents of the imports do not unexpectedly change.
+Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
-So, some Dhall programs will not always produce the same results if we run those programs multiple times.
-
-For example, Dhall's tests use [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only server that returns a new random string each time it is called.
-This Dhall program:
+As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only Web service that returns a new random string each time it is called.
+So, this Dhall program:
 
 ```dhall
 https://test.dhall-lang.org/random-string as Text
 ```
-will return a different result each time it is evaluated.
+will return a different result _each time_ it is evaluated:
 
 ```bash
 $ echo "https://test.dhall-lang.org/random-string as Text" | dhall
@@ -629,7 +634,7 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 ''
 ```
 
-If a Dhall program needs to guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
+To guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
 Such imports are called "frozen".
 Dhall will refuse to process a frozen import if the external resource gives an expression with a different SHA256 hash value than specified in the Dhall code.
 
@@ -1029,39 +1034,6 @@ But Dhall does not implement this logic and cannot see that both branches will h
 
 Because of this and other limitations, dependent types in Dhall can be used only in sufficiently simple cases. 
 
-## Function combinators
-
-The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
-
-Implementing them in Dhall is straightforward.
-Instead of pairs, we use the record type `{ _1 : a, _2 : b }`. 
-
-```dhall
-let compose_forward
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
-    g (f (x))
-
-let compose_backward
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
-    f( g (x)) 
-
-let flip
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(x : b) → λ(y : a) →
-    f y x
-
-let curry
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
-    f { _1 = x, _2 = y }
-
-let uncurry
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
-    f p._1 p._2
-```
 
 ## Arithmetic with `Natural` numbers
 
@@ -1385,6 +1357,109 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
   let result : Pair = Natural/fold max_iter Pair update init
     in result.x
 ```
+
+## Programming with functions
+
+### Identity functions
+
+We have already seen the code for a polymorphic identity function:
+
+```dhall
+let identity : ∀(a : Type) → a → a
+  = λ(a : Type) → λ(x : a) → x
+```
+
+We can use this function with ordinary values:
+
+```dhall
+⊢ identity Natural 123
+
+123
+```
+
+We can also apply `identity` to a function value:
+
+```dhall
+⊢ identity (Natural → Natural) (λ(x : Natural) → x + 1)
+
+λ(x : Natural) → x + 1
+```
+
+This works even if the argument has type parameters.
+For instance, we can apply `identity` to itself and get the same function as a result:
+
+```dhall
+⊢ identity (∀(a : Type) → a → a) identity
+
+λ(a : Type) → λ(x : a) → x
+```
+
+#### Identity functions for types and kinds
+
+What if we wanted the identity function to be able to work on _types_ themselves?
+We expect some code like `identityT Bool == Bool`.
+
+Note that the type of `Bool` is `Type`.
+So, a simple implementation of `identityT` is:
+
+```dhall
+let identityT = λ(t : Type) → t
+```
+
+This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the type of `List` is not `Type` but `Type → Type`.
+We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors.
+For instance, it should accept arguments of type `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
+
+The type of all those type expressions is `Kind`.
+So, we add an argument of type `Kind` to describe the type of all possible arguments.
+
+The Dhall code is:
+
+```dhall
+let identityK = λ(k : Kind) → λ(t : k) → t
+```
+Here, `t` is anything that has type `Kind`.
+
+#### No support for kind-polymorphic functions
+
+What if we wanted to implement an identity function that support arguments of arbitrary kind at once?
+
+TODO
+
+### Function combinators
+
+The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
+
+Implementing them in Dhall is straightforward.
+Instead of pairs, we use the record type `{ _1 : a, _2 : b }`. 
+
+```dhall
+let compose_forward
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
+    g (f (x))
+
+let compose_backward
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
+    f( g (x)) 
+
+let flip
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(x : b) → λ(y : a) →
+    f y x
+
+let curry
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
+    f { _1 = x, _2 = y }
+
+let uncurry
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
+    f p._1 p._2
+```
+
 
 ## Functors of various kinds
 
