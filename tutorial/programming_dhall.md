@@ -1418,11 +1418,78 @@ The Dhall code is:
 ```dhall
 let identityK = λ(k : Kind) → λ(t : k) → t
 ```
-Here, `t` is anything that has type `Kind`.
+Here, `t` is anything that has type `k`, and `k` could be `Type`, or `Type → Type`, etc., because the only constraint is `k : Kind`.
+
+Now we can test this function on various inputs:
+
+```dhall
+⊢ identityK Type Bool
+
+Bool
+
+⊢ identityK (Type → Type) List
+
+List
+```
 
 #### No support for kind-polymorphic functions
 
-What if we wanted to implement an identity function that support arguments of arbitrary kind at once?
+We implemented different functions (`identity`, `identityT`, `identityK`) that accept arguments of specific kinds.
+What if we wanted to implement an identity function that supports arguments of arbitrary kind at once?
+
+One attempt that does _not_ work is:
+
+```dhall
+let identityX = λ(k : Kind) → λ(t : k) → λ(x : t) → x
+```
+
+The error message is "Invalid function input, λ(x : t) → x".
+With the option `--explain`, Dhall gives some more detail:
+
+```dhall
+$ echo "λ(k : Kind) → λ(t : k) → λ(x : t) → x" | dhall --explain
+
+...
+You annotated a function input with the following expression:
+
+↳ t
+
+... which is neither a type nor a kind
+
+────────────────────────────────────────────────────────────────────────────────
+
+1│                                λ(x : t) → x
+```
+
+This error message still needs some explanation.
+Dhall requires any function's input type to itself be of type `Type`, `Kind`, or `Sort`.
+
+In our example, the function under typechecking is the inner function `λ(x : t) → x`.
+Its input `x` is annotated to have type `t`.
+So, the input type of that function is `t`,
+and
+Dhall requires `t` itself to have a well-defined type, which must be one of `Type`, `Kind`, or `Sort`.
+
+But all we know in our case is that `t` has type `k`.
+
+It is known that `k` has type `Kind`, but that's all we know.
+It is not guaranteed that `k` is `Type`.
+For example, `k` could be `Type → Type` while `t` could be `List`.
+This would be the case if we called `identityX` with the arguments:
+
+```dhall
+identityX (Type → Type) List  -- ???
+```
+
+Then the type annotations `k : Kind` and `t : k` would both match.
+(Recall that `List` is a type constructor and has type `Type → Type` in Dhall.)
+
+However, it will not be valid in that case to write `x : t`, that is, `x : List`,
+because `List` is a type constructor and not a type.
+We can write `x : List Bool` or `y : List Natural` but there are no `x` that would satisfy the type annotation `x : List`.
+
+So, the function `λ(x : List) → x` is invalid.
+Dhall indicates such situations by the error message "Invalid function input".
 
 TODO
 
