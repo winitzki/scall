@@ -595,7 +595,7 @@ object TypeCheck {
             assertion.betaNormalized.scheme match {
               case exprN @ ExprOperator(lop, Operator.Equivalent, rop) =>
                 if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
-                else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.print}")
+                else typeError(s"Expression `assert` failed: Unequal sides, ${lop.alphaNormalized.betaNormalized.print} =!= ${rop.alphaNormalized.betaNormalized.print}, in ${exprN.print}")
               case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.print}")
             }
           case errors   => errors

@@ -317,4 +317,9 @@ class SimpleSemanticsTest extends DhallTest {
       ).failed.get.getMessage contains "instead found input type a, output type a, expression under type inference: ∀(x : b) → b, type inference context = {a : Kind, b : a}"
   }
 
+  test("a function is equivalent to its eta expansion") {
+    val result = "λ(f : Bool → Bool) → assert : f === (λ(x : Bool) → f x)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
+    println(result)
+  }
+
 }

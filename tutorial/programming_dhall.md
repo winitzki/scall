@@ -1437,14 +1437,18 @@ List
 We implemented different functions (`identity`, `identityT`, `identityK`) that accept arguments of specific kinds.
 What if we wanted to implement an identity function that supports arguments of arbitrary kind at once?
 
-One attempt that does _not_ work is:
+Dhall does not support functions that take arguments whose type is of unknown kind.
+
+To see why this does _not_ work, consider this attempt to define a "fully general" function `identityX`:
 
 ```dhall
 let identityX = λ(k : Kind) → λ(t : k) → λ(x : t) → x
 ```
 
-The error message is "Invalid function input, λ(x : t) → x".
-With the option `--explain`, Dhall gives some more detail:
+We would like `identityX` to accept any `Kind`, `Type`, and value.
+But Dhall rejects this code with an error message: "Invalid function input, `λ(x : t) → x`".
+
+With the option `--explain`, Dhall gives some more detail about what is wrong:
 
 ```dhall
 $ echo "λ(k : Kind) → λ(t : k) → λ(x : t) → x" | dhall --explain
@@ -1475,7 +1479,7 @@ But all we know in our case is that `t` has type `k`.
 It is known that `k` has type `Kind`, but that's all we know.
 It is not guaranteed that `k` is `Type`.
 For example, `k` could be `Type → Type` while `t` could be `List`.
-This would be the case if we called `identityX` with the arguments:
+This would be the case if we applied `identityX` to these arguments:
 
 ```dhall
 identityX (Type → Type) List  -- ???
@@ -1485,13 +1489,13 @@ Then the type annotations `k : Kind` and `t : k` would both match.
 (Recall that `List` is a type constructor and has type `Type → Type` in Dhall.)
 
 However, it will not be valid in that case to write `x : t`, that is, `x : List`,
-because `List` is a type constructor and not a type.
-We can write `x : List Bool` or `y : List Natural` but there are no `x` that would satisfy the type annotation `x : List`.
+because `List` is a type _constructor_ and not a type.
+We may not use `List` for type annotations.
+We may write `x : List Bool` or `y : List Natural`, but it is not valid to write the type annotation `x : List`.
 
 So, the function `λ(x : List) → x` is invalid.
 Dhall indicates such situations by the error message "Invalid function input".
 
-TODO
 
 ### Function combinators
 
@@ -1509,7 +1513,7 @@ let compose_forward
 let compose_backward
  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
-    f( g (x)) 
+    f (g (x)) 
 
 let flip
  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (b → a → c)
@@ -1527,6 +1531,44 @@ let uncurry
     f p._1 p._2
 ```
 
+### Verifying laws symbolically
+
+The function combinators from the previous subsection obey a number of algebraic laws.
+In most programming languages, the laws may be verified only through random testing.
+Dhall's `assert` feature may be used to verify those laws _symbolically_.
+
+A simple example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice in a row, we recover the original function.
+
+
+The Dhall code for verifying the law is:
+
+```dhall
+let verify_flip_flip_law = λ(a : Type) → λ(b : Type) → λ(c : Type) →
+  λ(k : a → b → c) →
+    assert : flip b a c (flip a b c k) === k
+```
+
+When this code is type-checked Dhall verifies that both sides of the assertion are equal _after computing their normal forms_.
+The code says that the normal forms must be computed inside the function's body (that is, under several layers of λ).
+
+To validate the assertion, Dhall first computes the normal form of `flip a b c k`.
+In that scope, the parameters `a`, `b`, `c`, `k` are not yet assigned, so their normal forms are just those parameters themselves.
+So, the normal form of `flip a b c k` is the expression `λ(x : b) → λ(y : a) → k y x`.
+There is no further simplification that can be applied at that stage.
+
+Then Dhall computes the normal form of the left-hand side of the assertion:
+
+```dhall
+flip b a c (flip a b c k)
+  == flip b a c (λ(x : b) → λ(y : a) → k y x)
+  == λ(xx : a) → λ(yy : b) → (λ(x : b) → λ(y : a) → k y x) yy xx
+  == λ(xx : a) → λ(yy : b) → k xx yy
+```
+
+The right-hand side of the assertion is just `k`.
+
+TODO
+that the laws hold as symbolic expressions for  which is equivalent to a rigorous mathematical proof.
 
 ## Functors of various kinds
 
