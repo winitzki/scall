@@ -312,9 +312,9 @@ class SimpleSemanticsTest extends DhallTest {
   }
 
   test("no support for kind-polymorphic functions") {
-      Try(
-        "λ(a : Kind) → λ(b : a) → λ(x : b) → x".dhall.typeCheckAndBetaNormalize().unsafeGet.print
-      ).failed.get.getMessage contains "instead found input type a, output type a, expression under type inference: ∀(x : b) → b, type inference context = {a : Kind, b : a}"
+    Try(
+      "λ(a : Kind) → λ(b : a) → λ(x : b) → x".dhall.typeCheckAndBetaNormalize().unsafeGet.print
+    ).failed.get.getMessage contains "instead found input type a, output type a, expression under type inference: ∀(x : b) → b, type inference context = {a : Kind, b : a}"
   }
 
   test("a function is equivalent to its eta expansion") {
