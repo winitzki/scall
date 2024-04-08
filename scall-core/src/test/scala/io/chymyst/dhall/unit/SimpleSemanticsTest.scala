@@ -15,12 +15,12 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("substitute in a variable") {
     val variable = v("x")
-    val result = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
+    val result   = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
     expect(result.print == "_")
   }
 
   test("substitute in a lambda") {
-    val lam = (v("y") | ~Natural) -> v("x")
+    val lam    = (v("y") | ~Natural) -> v("x")
     val result = Semantics.substitute(lam, VarName("x"), 0, Variable(underscore, 0))
     expect(result.print == "λ(y : Natural) → _")
   }
@@ -33,14 +33,14 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("alpha-normalize record access") {
     val dhall = "{ x = \"foo\" }.x"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     val exprN = expr.betaNormalized
     expect(exprN.print == "\"foo\"")
   }
 
   test("correct precedence for imports with fallback") {
     val dhall = "./import1 ? ./import2"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     expect(expr.print == "./import1 ? ./import2")
   }
 
@@ -260,9 +260,9 @@ class SimpleSemanticsTest extends DhallTest {
     Seq(
       """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "List/head Bool",
       """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "List/last Bool",
-      """\(x: List Bool) -> List/length Bool ([ True ] # x)""" -> "λ(x : List Bool) → 1 + List/length Bool x",
-      """\(x: List Bool) -> List/head Bool ([ True ] # x)""" -> "λ(x : List Bool) → Some True",
-      """\(x: List Bool) -> List/last Bool (x # [ True ])""" -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/length Bool ([ True ] # x)"""       -> "λ(x : List Bool) → 1 + List/length Bool x",
+      """\(x: List Bool) -> List/head Bool ([ True ] # x)"""         -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/last Bool (x # [ True ])"""         -> "λ(x : List Bool) → Some True",
     ).foreach { case (input, output) =>
       val normalized = input.dhall.betaNormalized
       expect(normalized.print == output)
@@ -272,12 +272,12 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("Text/replace various cases") {
     Map(
-      """ Text/replace "abc" "def" "abcxyzabc" """ -> """"defxyzdef"""",
-      """ Text/replace "abc" "def" "xyzabc" """ -> """"xyzdef"""",
-      """ Text/replace "abc" "def" "abcxyz" """ -> """"defxyz"""",
-      """ Text/replace "abc" "def" "abc" """ -> """"def"""",
-      """ Text/replace "abc" "def" "xyz" """ -> """"xyz"""",
-      """ Text/replace "" "def" "xyzabc" """ -> """"xyzabc"""",
+      """ Text/replace "abc" "def" "abcxyzabc" """           -> """"defxyzdef"""",
+      """ Text/replace "abc" "def" "xyzabc" """              -> """"xyzdef"""",
+      """ Text/replace "abc" "def" "abcxyz" """              -> """"defxyz"""",
+      """ Text/replace "abc" "def" "abc" """                 -> """"def"""",
+      """ Text/replace "abc" "def" "xyz" """                 -> """"xyz"""",
+      """ Text/replace "" "def" "xyzabc" """                 -> """"xyzabc"""",
       """\(x: Text) -> \(y: Text) -> Text/replace "" y x """ -> """λ(x : Text) → λ(y : Text) → x""",
       """\(x: Text) -> \(y: Text) -> Text/replace x y "" """ -> """λ(x : Text) → λ(y : Text) → """"",
     ).foreach { case (input, output) =>
@@ -373,7 +373,8 @@ class SimpleSemanticsTest extends DhallTest {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
     println(failure)
     expect(failure match {
-      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Types of two sides of `===` are not equivalent: ∀(_ : Bool) → ∀(_ : Bool) → Bool and ∀(x : Bool) → Bool")
+      case TypecheckResult.Invalid(errors) =>
+        errors exists (_ contains "Types of two sides of `===` are not equivalent: ∀(_ : Bool) → ∀(_ : Bool) → Bool and ∀(x : Bool) → Bool")
     })
   }
 
