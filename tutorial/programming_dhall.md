@@ -1531,14 +1531,13 @@ let uncurry
     f p._1 p._2
 ```
 
-### Verifying laws symbolically
+### Verifying laws symbolically with `assert`
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, the laws may be verified only through random testing.
 Dhall's `assert` feature may be used to verify those laws _symbolically_.
 
 A simple example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice in a row, we recover the original function.
-
 
 The Dhall code for verifying the law is:
 
@@ -1565,10 +1564,36 @@ flip b a c (flip a b c k)
   == λ(xx : a) → λ(yy : b) → k xx yy
 ```
 
-The right-hand side of the assertion is just `k`.
+The right-hand side of the assertion is the function `k`.
+The expression `λ(xx : a) → λ(yy : b) → k xx yy` is just an expanded form of the same function `k`.
+So, both sides of the assertion are equal.
 
-TODO
-that the laws hold as symbolic expressions for  which is equivalent to a rigorous mathematical proof.
+Another example is verifying the associativity law of function composition:
+
+```dhall
+let compose_backward
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
+    f (g (x)) 
+in                -- Let's verify the associativity law. 
+   λ(a : Type) → λ(b : Type) →  λ(c : Type) → λ(d : Type) →
+      λ(f : a → b) → λ(g : b → c) → λ(h : c → d) →
+          assert : 
+              compose_backward a b d (compose_backward b c d h g) f
+              ≡ compose_backward a c d h (compose_backward a b c g f)
+```
+
+In the Haskell syntax, the associativity law looks like this:
+
+```haskell
+(h . g) . f == h . (g . f)
+```
+
+
+Note that Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
+We are not substituting any specific values of `xx` or `yy`, nor are we selecting a specific function `k` for this test.
+So, we are actually verifying that the laws hold as symbolic expressions, which is equivalent to a rigorous mathematical proof.
+
 
 ## Functors of various kinds
 

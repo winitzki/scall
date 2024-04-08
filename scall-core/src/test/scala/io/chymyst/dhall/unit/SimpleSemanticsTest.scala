@@ -98,18 +98,18 @@ class SimpleSemanticsTest extends DhallTest {
   test("shortcut in Natural/fold if the result no longer changes, with symbolic lambda") {
     val result =
       """
-        |( \(x: Natural) -> \(y: Natural) -> Natural/fold x Natural (\(x: Natural) -> x) y ) 50000000000000000000000000
+        |( \(x: Natural) -> \(y: Natural) -> Natural/fold x Natural (\(x: Natural) -> x) (y + 1) ) 50000000000000000000000000
         |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "λ(y : Natural) → y")
+    expect(result.unsafeGet.print == "λ(y : Natural) → y + 1")
   }
 
   test("avoid expanding Natural/fold when the result grows as a symbolic expression") {
     val result =
       """
-        |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) y )
+        |( \(y: Natural) -> Natural/fold 10000000000000000000000000000 Natural (\(x: Natural) -> x + 1) (y + 1) )
         |""".stripMargin.dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print contains "Natural/fold 9999999999999999999999999501 Natural")
-    //    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) y")
+    expect(result.unsafeGet.print contains "Natural/fold 9999999999999999999999999502 Natural")
+    //    expect(result.unsafeGet.print == "λ(y : Natural) → Natural/fold 10000000000000000000000000000 Natural (λ(x : Natural) → x + 1) (y + 1)")
   }
 
   test("compute expression count") {
@@ -278,7 +278,7 @@ class SimpleSemanticsTest extends DhallTest {
       """ Text/replace "abc" "def" "abc" """ -> """"def"""",
       """ Text/replace "abc" "def" "xyz" """ -> """"xyz"""",
       """ Text/replace "" "def" "xyzabc" """ -> """"xyzabc"""",
-      """\(x: Text) -> \(y: Text) -> Text/replace "" x y """ -> """λ(x : Text) → λ(y : Text) → y""",
+      """\(x: Text) -> \(y: Text) -> Text/replace "" y x """ -> """λ(x : Text) → λ(y : Text) → x""",
       """\(x: Text) -> \(y: Text) -> Text/replace x y "" """ -> """λ(x : Text) → λ(y : Text) → """"",
     ).foreach { case (input, output) =>
       expect(input.dhall.typeCheckAndBetaNormalize().unsafeGet.print == output)
@@ -335,20 +335,24 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("a function is equivalent to its eta expansion") {
     val result = "λ(f : Bool → Bool) → assert : f === (λ(x : Bool) → f x)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
-    expect(result == "")
+    expect(result == "λ(f : ∀(_ : Bool) → Bool) → assert : f ≡ f")
   }
 
   test("eta expansion with two curried arguments") {
-    val result = "λ(f : Bool → Bool → Bool) → assert : f === (λ(x : Bool) → λ(y : Bool) → f x y)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
-    expect(result == "")
+    val result = "λ(f : Bool → Bool → Bool) → (λ(x : Bool) → λ(y : Bool) → f x y)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
+    expect(result == "λ(f : ∀(_ : Bool) → ∀(_ : Bool) → Bool) → f")
+  }
 
+  test("assert with eta expansion with two curried arguments") {
+    val result = "λ(f : Bool → Bool → Bool) → assert : f === (λ(x : Bool) → λ(y : Bool) → f x y)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
+    expect(result == "λ(f : ∀(_ : Bool) → ∀(_ : Bool) → Bool) → assert : f ≡ (λ(x : Bool) → f x)")
   }
 
   test("failure in eta expansion with two curried arguments") {
     val failure = "λ(f : Bool → Bool → Bool) → assert : f === (λ(x : Bool) → λ(y : Bool) → f y x)".dhall.inferTypeWith(KnownVars.empty)
     println(failure)
     expect(failure match {
-      case TypecheckResult.Invalid(errors) => errors exists (_ contains "does not equal abcd")
+      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f does not equal λ(_ : Bool) → λ(_ : Bool) → f _ _@1")
     })
   }
 
