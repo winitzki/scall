@@ -392,6 +392,7 @@ object Semantics {
 
             loop(currentResult = argN, counter = BigInt(0))
 
+          // TODO: perhaps add a reduction rule for NaturalIsZero (1 + x) returning False, etc?
           case ExprBuiltin(Builtin.NaturalIsZero) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd) => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }

@@ -1596,7 +1596,7 @@ In the Haskell syntax, the associativity law looks like this:
 Using `assert` under a lambda with type parameters, we can verify a wide range of algebraic laws.
 
 
-## Functors of various kinds
+## Covariant and contravariant type constructors
 
 ### Functors and `fmap`
 
@@ -1619,7 +1619,7 @@ fmap f (F x y t) = F (f x) (F y) t
 In Scala, the equivalent code is:
 
 ```scala
-final case class F[A](x: A, y: A, t: Boolean)
+case class F[A](x: A, y: A, t: Boolean)
 
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
   F(f(fa.x), f(fa.y), fa.t)
@@ -3073,19 +3073,20 @@ The corresponding code in Scala is:
 
 ```scala
 sealed trait F[_]
-final case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
+case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
 
-The mathematical notation for the type of `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
+The mathematical notation for `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
 
 As we will discuss later in this book, the type `F` is an example of the "free functor" construction.
-For now, we focus on the way the type parameter `t` is used in the Haskell code just shown. (In the Scala code, the corresponding type parameter is `T`.)
+For now, we focus on the way the type parameter `t` is used in the Haskell code just shown.
+(In the Scala code, the corresponding type parameter is `T`.)
 
 The type parameter `t` is bound by the quantifier and is visible only inside the type expression `∃ t. (t → Bool) × (t → a)`.
 To create a value `x` of type `F a`, we will need to supply two functions, of types `t → Bool` and `t → a`, with a specific (somehow chosen) type `t`.
 But when working with a value `x : F a`, we will not directly see the type `t` anymore.
-The type of `x` is `F a` and does not show what `t` is.
-(The type `t` is not a type parameter of `F a`.)
+The type of `x` is `F a`; that type does not show what `t` is.
+(The type `t` is not a free type parameter in the expression `F a`.)
 However, the type parameter `t` still "exists" inside the value `x`.
 This motivation helps us remember the meaning of the name "existential".
 
