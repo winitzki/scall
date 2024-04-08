@@ -2710,7 +2710,7 @@ For example, concatenating or reversing lists of type `ListInt` takes time quadr
 
 ## Church encodings for more complicated types
 
-### Mutually recursive types
+### Encoding mutually recursive types
 
 If two or more types are defined recursively through each other, one needs a separate recursion scheme and a separate the Church encoding for each of the types.
 
@@ -2754,7 +2754,7 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
-### Type constructors
+### Encoding recursive type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
