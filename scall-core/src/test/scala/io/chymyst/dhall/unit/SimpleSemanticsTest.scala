@@ -378,4 +378,13 @@ class SimpleSemanticsTest extends DhallTest {
     })
   }
 
+  test("eta-reduction works regardless of types") {
+    expect("\\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(x : Bool) → f x x")
+    expect("\\(f: Bool) -> \\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(f : Bool) → λ(x : Bool) → f x x")
+  }
+
+  test("Text/replace eta-reduction") {
+    expect(""" assert : λ(x : Text) → Text/replace "" x  === "" """.dhall.typeCheckAndBetaNormalize().unsafeGet.print == "")
+  }
+
 }

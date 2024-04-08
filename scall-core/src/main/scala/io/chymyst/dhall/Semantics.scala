@@ -214,20 +214,22 @@ object Semantics {
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
 
       case Lambda(name, tipe, body)  =>
-        val bodyNotExpanded = bnStopExpanding(body)
+        val bodyNotExpanded                     = bnStopExpanding(body)
+        lazy val lambdaWithBetaReducedArguments = Lambda(name, bn(tipe), bodyNotExpanded)
         bodyNotExpanded.scheme match {
-          // TODO: report issue, document the new eta reduction rules in the Dhall standard.
+          // TODO: report issue, document the new eta-reduction rules in the Dhall standard.
           // Eta reduction: λ(x : Bool) → f x will be reduced to just f, downshifting free occurrences of x in f.
           // See discussion: https://github.com/dhall-lang/dhall-lang/issues/1376
           case Application(head, Expression(Variable(`name`, index))) if index == 0 =>
-            if (freeVars(head).names contains name) {
-              bodyNotExpanded
+            if (freeVars(head).names contains name) { // We may not eta-reduce if the head contains a free occurrence of the variable.
+              lambdaWithBetaReducedArguments
             } else {
               val headShifted = shift(positive = false, name, 1, head)
               bn(headShifted)
             }
+
           // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
-          case _                                                                    => Lambda(name, bn(tipe), bodyNotExpanded)
+          case _                                                                    => lambdaWithBetaReducedArguments
         }
       // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
       // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
