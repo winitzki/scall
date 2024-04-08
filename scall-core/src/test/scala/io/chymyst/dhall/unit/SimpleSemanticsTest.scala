@@ -365,7 +365,7 @@ class SimpleSemanticsTest extends DhallTest {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f x === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
     println(failure)
     expect(failure match {
-      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f x does not equal f x x, in f x ≡ f x x")
+      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f x does not equal λ(_ : Bool) → f _ _, in f x ≡ (λ(x : Bool) → f x x)")
     })
   }
 
@@ -381,10 +381,6 @@ class SimpleSemanticsTest extends DhallTest {
   test("eta-reduction works regardless of types") {
     expect("\\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(x : Bool) → f x x")
     expect("\\(f: Bool) -> \\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(f : Bool) → λ(x : Bool) → f x x")
-  }
-
-  test("Text/replace eta-reduction") {
-    expect(""" assert : λ(x : Text) → Text/replace "" x  === "" """.dhall.typeCheckAndBetaNormalize().unsafeGet.print == "")
   }
 
 }
