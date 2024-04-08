@@ -150,12 +150,21 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [ ] Converting Dhall values to Scala values: in progress.
 
-## Other features in the Scala implementation of Dhall
+### Experimental features and optimizations
 
 - [x] All alpha-normalization, beta-normalization, and type-checking results are cached in LRU caches of configurable
   size.
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
+
+- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (No change to normal forms!)
+
+- [x] Experimental feature: `assert : a === b` will perform alpha, beta, and eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
+
+- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing. (Breaking change to normal forms!)
+
+
+## Other features in the Scala implementation of Dhall
 
 - [x] Dhall values of function types are converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is
   converted into a Scala function equivalent to `{ x : BigInt => x + 1 }`, which has type `Function1[BigInt, BigInt]`.
@@ -163,7 +172,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 - [ ] Dhall values of type `Type` (for example, `Text`, `Bool`, or `Natural -> Natural`) are converted to Scala type
   tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
-- [x] Print Dhall values to the standard Dhall syntax.
+- [x] Print Dhall values using the standard Dhall syntax.
 
 ## Roadmap for future developments
 

@@ -4201,11 +4201,11 @@ If a natural transformation has several type parameters, there will be a separat
 To write that kind of naturality law, we need to fix all type parameters except one.
 
 As an example, consider the function `List/map` as a natural transformation with respect to the type parameter `A`.
-To write the naturality law, we keep `B` fixed and introduce arbitrary types `X`, `Y` and an arbitrary function `f : X → Y`:
+To write the corresponding naturality law, we keep `B` fixed and introduce arbitrary types `X`, `Y` and an arbitrary function `f : X → Y`:
 
 TODO
 
-### Fully parametric code
+### Fully parametric code. Parametricity theorem
 
 As a motivation, consider a simple function with a type parameter:
 
@@ -4235,11 +4235,14 @@ But Dhall does not support such functionality.
 
 For this reason, a Dhall function with a type parameter `A` must work in the same way for all `A`.
 This property is known as the "full polymorphic parametricity" of the function's code.
-We will call it "full parametricity" for short.
+We will call such code **fully parametric** for short.
 
 The **parametricity theorem** says that any fully parametric function will automatically satisfy a certain mathematical law.
-The form of that law is determined by the type signature of the function.
+The form of that law is determined by the type signature of the function and does not depend on its implementation.
 (So, all functions of that type will satisfy the same law.)
+
+The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
+For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a sub-language of Dhall.
 
 For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
 
@@ -4247,24 +4250,24 @@ So, the parametricity theorem guarantees that all Dhall functions of type `∀(A
 
 For functions of more complicated type signatures, the parametricity theorem gives a law of a more complicated form than naturality laws.
 
-To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → A`, where `F` and `G` are both non-constant and covariant type constructors.
+To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and H are arbitrary but covariant type constructors.
 This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `K A → L A` where `K` and `L` are either both covariant or both contravariant.
 
-For functions `t : ∀(A : Type) → (F A → G A) → A`, the parametricity theorem gives the following law:
+For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity theorem gives the following law:
 
-For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-compatible", we must have `f (t A p) === t B q`.
+For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-compatible", we must have `fmap_H f (t A p) === t B q`.
 
-Here, we need to define the special property of being "`f`-compatible" as follows: Functions `p` and `q` are "`f`-compatible" if, for any value `x : F A`, we have:
+Here, we need to define the special property of being "`f`-compatible" as follows: Functions `p` and `q` are "`f`-compatible" if for any value `x : F A` we have:
 
 ```dhall
 fmap_G A B f (p x) === q (fmap_F A B f x)
 ```
 This equation is similar to a naturality law except for using two different functions (`p` and `q`).
 It is important to note that this equation defines a _many-to-many relation_ between the functions `p` and `q`.
-This equation cannot be used to express `p` through `q` or `q` through `p` via a simple function.
+This equation cannot be used to express `p` through `q` or `q` through `p`.
 
 Because of this complication, the law of `t` does not have the form of a single equation.
-The law says that the equation `f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
+The law says that the equation `fmap_H f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
 (We called that relation "`f`-compatible" just for the purposes of this example.)
 
 One may say that the parametricity theorem gives a "relational law" for functions `t`; the form of that law generalizes naturality laws for the complicated type signature of `t`.
@@ -4272,12 +4275,10 @@ One may say that the parametricity theorem gives a "relational law" for function
 To summarize: the parametricity theorem applies to all Dhall values.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
 
-The form of the law can be written in advance, without knowing the code of the Dhall function, because the law is determined by the type signature alone.
+That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
 
-The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
-For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a sub-language of Dhall.
 
-### Existential types: `unpack` and then `pack` is identity
+### Existential types: `pack` is a left inverse of `unpack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP`.
 
@@ -4297,7 +4298,12 @@ let packP : ∀(T : Type) → P T → ExistsP
 
 Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
 
-In a certain sense, `packP` and `unpackP` are (one-sided) inverse functions:
+We will now prove the following property:
+
+When used with the type `ExistsP` itself, `packP` is a left inverse to `unpackP`.
+
+In mathematics, a function `f : A → B` is a **left inverse** to a function `g : B → A` if the composition `f(g(x))` is always equal to `x` for any `x : A`.
+
 We expect that "unpacking" a value `ep : ExistsP` and then "packing" it back will recover the original value `ep`.
 We can write this expectation in Dhall as an equation for `ep`:
 
@@ -4310,7 +4316,7 @@ unpackP ExistsP ep packP === ep
 Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP === ep`.
 We would like to prove that the above equation holds for arbitrary `ep : ExistsP`.
 
-To prove that, we need to use the naturality law of `ep`.
+For that, we need to use the naturality law of `ep`.
 ([The author is grateful to Dan Doel for assistance with the proof](https://cstheory.stackexchange.com/questions/54124).)
 
 We note that `ExistsP` is the type of a covariant natural transformation with respect to the type parameter `R`.
@@ -4377,7 +4383,7 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Equivalence of types for functions of existential type
+### Functions of existential type
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
@@ -4385,7 +4391,8 @@ We will now show that the functions `inE` and `outE` defined in section "Functio
 
 The functions `inE` and `outE` are defined by: TODO
 
-To check that the functions `inE R` and `outE R` are inverses of each other (for fixed `P` and `R`), we need to compute the composition of these functions in both directions.
+To check that the functions `inE R` and `outE R` are inverses of each other (for fixed `P` and `R`), we need to show that the composition of these functions in both directions are identity functions.
+
 The first direction is when we apply `inE` and then `outE`.
 Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE` to it, then `outE`:
 
@@ -4414,26 +4421,48 @@ outE R (inE R k) t pt
 This proves the first direction of the isomorphism.
 
 The other direction is when we apply `outE` and then `inE`.
-Take an arbitrary value `consume : ExistsP → R` and first apply `outE` to it, then `inE`:
+Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `inE S`:
 
 ```dhall
-inE R (outE R consume)
-  === inE R (λ(T : Type) → λ(pt : P T) → consume (packP T))
-  === λ(ep : ExistsP) → ep R (λ(T : Type) → λ(pt : P T) → consume (packP T))
+inE S (outE S consume)
+  === inE S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  === λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
-The result is a function of type `ExistsP → R`.
+The result is a function of type `ExistsP → S`.
 We need to show that this function is equal to `consume`.
 
 Apply that function to an arbitrary value `ep : ExistsP`:
 
 ```dhall
-inE R (outE R consume) ep
-  === ep R (λ(T : Type) → λ(pt : P T) → consume (packP T))
+inE S (outE S consume) ep
+  === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
-We need to show that the last result is equal to `consume ep`.
-For that, we will use the naturality law of `ep`.
+We need to show that the last line is equal to just `consume ep`.
+We will do that in two steps.
 
+The first step is apply the naturality law of `ep` shown in the previous subsection:
 
-TODO
+```dhall
+f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+```
+We assign `f = consume`, `R = ExistsP`, and `g = packP`.
+The naturality law becomes:
+
+```dhall
+consume (ep ExistsP packP)
+  === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
+```
+
+We wanted to show that the last line equals the expression `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
+
+The second step is to use the property proved in the previous section (`packP` is a right inverse to `unpackP`).
+That property was proved in this equivalent form:
+
+```dhall
+ep ExistsP packP === ep
+```
+
+It follows that `consume (ep ExistsP packP) === consume ep`.
+This concludes the proof in this subsection.
