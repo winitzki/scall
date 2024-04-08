@@ -602,7 +602,7 @@ object TypeCheck {
                 if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
                 else
                   typeError(
-                    s"Expression `assert` failed: Unequal sides, ${lop.alphaNormalized.betaNormalized.print} =!= ${rop.alphaNormalized.betaNormalized.print}, in ${exprN.print}"
+                    s"Expression `assert` failed: Unequal sides, ${lop.alphaNormalized.betaNormalized.print} does not equal ${rop.alphaNormalized.betaNormalized.print}, in ${exprN.print}"
                   )
               case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.print}")
             }

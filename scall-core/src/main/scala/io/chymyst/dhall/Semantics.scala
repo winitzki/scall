@@ -531,7 +531,7 @@ object Semantics {
         def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
           maybeExpression.getOrElse(
             throw new Exception(
-              s"Record access in $expr has invalid field name (${name.name}), which should be one of the $str's fields: (${defs.map(_._1.name).mkString(", ")})"
+              s"Record access has invalid field name (${name.name}), which should be one of the $str's fields: (${defs.map(_._1.name).mkString(", ")}), expression being evaluated: $expr"
             )
           )
 

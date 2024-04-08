@@ -19,4 +19,7 @@ Features that are good to have in IDE support for Dhall:
 - Autocomplete available symbols that can be imported from known already imported files or from the standard prelude
 - Autocomplete available functions that may be left-applied to a given value
 - Autoformat the Dhall code, even if it does not typecheck
+- Infer type for an expression and create a separate type value
+- Refactor a value from a subexpression into a local variable
+- Inline a local variable into places where it is used, eliminating the local variable
 
