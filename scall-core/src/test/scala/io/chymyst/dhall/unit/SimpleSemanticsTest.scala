@@ -258,8 +258,8 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("beta-normalization for appended lists") {
     Seq(
-      """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "λ(x : List Bool) → List/head Bool x",
-      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "λ(x : List Bool) → List/last Bool x",
+      """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "List/head Bool",
+      """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "List/last Bool",
       """\(x: List Bool) -> List/length Bool ([ True ] # x)""" -> "λ(x : List Bool) → 1 + List/length Bool x",
       """\(x: List Bool) -> List/head Bool ([ True ] # x)""" -> "λ(x : List Bool) → Some True",
       """\(x: List Bool) -> List/last Bool (x # [ True ])""" -> "λ(x : List Bool) → Some True",
@@ -345,7 +345,7 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("assert with eta expansion with two curried arguments") {
     val result = "λ(f : Bool → Bool → Bool) → assert : f === (λ(x : Bool) → λ(y : Bool) → f x y)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
-    expect(result == "λ(f : ∀(_ : Bool) → ∀(_ : Bool) → Bool) → assert : f ≡ (λ(x : Bool) → f x)")
+    expect(result == "λ(f : ∀(_ : Bool) → ∀(_ : Bool) → Bool) → assert : f ≡ f")
   }
 
   test("failure in eta expansion with two curried arguments") {
@@ -358,22 +358,22 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("eta expansion with free occurrences of external bound variable") {
     val result = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f x === (λ(x : Bool) → f x@1 x)".dhall.typeCheckAndBetaNormalize().unsafeGet.print
-    expect(result == "")
+    expect(result == "λ(f : ∀(_ : Bool) → ∀(_ : Bool) → Bool) → λ(x : Bool) → assert : f x ≡ f x")
   }
 
-  test("failure with f x in eta expansion with free occurrences of external bound variable") {
+  test("failure 1 with f x in eta expansion with free occurrences of external bound variable") {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f x === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
     println(failure)
     expect(failure match {
-      case TypecheckResult.Invalid(errors) => errors exists (_ contains "does not equal abcd")
+      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f x does not equal f x x, in f x ≡ f x x")
     })
   }
 
-  test("failure with f x in eta expansion with free occurrences of external bound variable") {
+  test("failure 2 with f x in eta expansion with free occurrences of external bound variable") {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
     println(failure)
     expect(failure match {
-      case TypecheckResult.Invalid(errors) => errors exists (_ contains "does not equal abcd")
+      case TypecheckResult.Invalid(errors) => errors exists (_ contains "Types of two sides of `===` are not equivalent: ∀(_ : Bool) → ∀(_ : Bool) → Bool and ∀(x : Bool) → Bool")
     })
   }
 

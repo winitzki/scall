@@ -1568,6 +1568,10 @@ The right-hand side of the assertion is the function `k`.
 The expression `λ(xx : a) → λ(yy : b) → k xx yy` is just an expanded form of the same function `k`.
 So, both sides of the assertion are equal.
 
+Note that Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
+This code does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k` for the `assert` test.
+The `assert` verifies that both sides are equal as symbolic expressions, which is equivalent to a rigorous mathematical proof that the law holds.
+
 Another example is verifying the associativity law of function composition:
 
 ```dhall
@@ -1589,10 +1593,7 @@ In the Haskell syntax, the associativity law looks like this:
 (h . g) . f == h . (g . f)
 ```
 
-
-Note that Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
-We are not substituting any specific values of `xx` or `yy`, nor are we selecting a specific function `k` for this test.
-So, we are actually verifying that the laws hold as symbolic expressions, which is equivalent to a rigorous mathematical proof.
+Using `assert` under a lambda with type parameters, we can verify a wide range of algebraic laws.
 
 
 ## Functors of various kinds
