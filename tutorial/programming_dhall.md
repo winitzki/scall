@@ -95,7 +95,7 @@ Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }`
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
 There is no way of assigning a permanent name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
 
-For example, the values `x` and `y` have the same type in the following Dhall code:
+For convenience, a Dhall program may define local names for types:
 
 ```dhall
 let RecordType1 = { a : Natural, b : Bool }
@@ -104,19 +104,21 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
-The names `RecordType1` and `RecordType2` are no more than type aliases.
-Dhall does not distinguish them from the literal type expression `{ a : Natural, b : Bool }`.
+But the names `RecordType1` and `RecordType2` are no more than type aliases.
+Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
 (The order of record fields is not significant.) 
+So, the values `x` and `y` actually have the same type in that code.
+
 
 ### Co-product types
 
 Co-product types are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
-Here `X` and `Y` are **constructors** for the given union type.
+Here `X` and `Y` are called the **constructors** of the given union type.
 
 Values of co-product types are created via constructor functions.
 Constructor functions are written using record-like access notation.
 For example, the expression `< X : Natural | Y : Bool >.X` is viewed by Dhall as a function of type `Natural → < X : Natural | Y : Bool >`. 
-Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`:
+Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`, as shown in this example:
 
 ```dhall
 let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
@@ -125,7 +127,7 @@ let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
 Constructors may have at most one argument.
 Constructors with multiple curried arguments (as in Haskell: `P1 Int Int | P2 Bool`) are not supported in Dhall.
 Record types must be used instead of multiple arguments.
-For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer }, P2 : Bool >`.
+For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer } | P2 : Bool >`.
 
 Union types can have empty constructors.
 For example, the union type `< X : Natural | Y >` has values written either as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
@@ -134,7 +136,7 @@ Both these values have type `< X : Natural | Y >`.
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
 There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
 
-For convenience, a Dhall program may define names for types, for example:
+For convenience, a Dhall program may define local names for types, for example:
 
 ```dhall
 let MyType1 = < X : Natural | Y : Bool >
@@ -147,7 +149,7 @@ Dhall will consider `MyType1` to be the same as the literal type expressions `< 
 
 ### Pattern matching
 
-Pattern matching is available for union types as well as for the built-in `Optional` types.
+Pattern matching is available for union types.
 Dhall implements pattern matching via `merge` expressions.
 The `merge` expressions are similar to `case` expressions in Haskell and `match/case` expressions in Scala.
 
@@ -185,7 +187,23 @@ let toText : P → Text = λ(x : P) →
         } x
 ```
 
-Another example of using Dhall's `merge` is when implementing a `zip` function for `Optional` types:
+### The `Optional` type
+
+The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined by this code:
+
+```dhall
+let MyOptional = λ(a : Type) → < MyNone | MySome : a >
+let x : MyOptional Natural = (MyOptional Natural).MySome 123
+let y : MyOptional Text = (MyOptional Text).None
+```
+
+The built-in `Optional` type is equivalent but less verbose.
+Instead of `(MyOptional Text).None` one writes `None Text`.
+Instead of `(MyOptional Natural).Some 123` one writes just `Some 123`.
+(The type parameter `Natural` is determined automatically by Dhall.)
+Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
+
+Here is an example of using Dhall's `merge` for implementing a `zip` function for `Optional` types:
 
 ```dhall
 let zip
@@ -1607,7 +1625,11 @@ For type constructors, "covariant" means "has a lawful `fmap` method".
 
 Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
 
-A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
+The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
+
+A simple example of a functor is a record with two values of type `a` and a value of a fixed type `Bool`.
+The `fmap` function transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
+
 In Haskell, that type constructor and its `fmap` function are defined by:
 
 ```haskell
@@ -1675,6 +1697,22 @@ cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
 
 We will call contravariant type constructors **contrafunctors** for short.
 
+The intuition behind contrafunctors is that they represent functions that _consume_ (zero or more) data items of any given type.
+The `cmap` function transforms data items (_before_ they are consumed) into data items of another type.
+
+A simple example of a contrafunctor is:
+
+```dhall
+let C = λ(a : Type) → a → Text
+```
+The corresponding `cmap` function is written as:
+
+```dhall
+let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
+    λ(x : a) → fb (f x)
+```
+
 TODO examples
 
 ### Bifunctors and `bimap`
@@ -1717,11 +1755,19 @@ Here, we have used the polymorphic identity function defined earlier.
 The code for `fmap` and `bimap` can be derived mechanically from the type definition of a functor or a bifunctor.
 For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
 But Dhall does not have any code generation facilities.
-The code of those methods must be written in Dhall programs that need to use functors or bifunctors.
+The code of those methods must be written in Dhall programs by hand.
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values used as explicit function arguments.
+Typeclasses can be implemented in Dhall via evidence values ("typeclass instance values") used as explicit function arguments.
+Functions that require a typeclass constraint will add an extra argument that accepts evidence values.
+
+This is somewhat similar to how Scala implements typeclasses.
+With that technique, one can define different typeclass instances if necessary.
+
+In addition, Dhall's `assert` feature may be used to verify the typeclass laws.
+
+To see how this works, let us implement some well-known typeclasses in Dhall.
 
 ### `Monoid`
 

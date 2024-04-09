@@ -8,10 +8,11 @@ Features that are good to have in IDE support for Dhall:
 - Type error: say where and what types were expected and what types were found instead
 - Autocomplete possible arguments for curried functions
 - Autocomplete defined variables, record field names, union constructor names
-- Autocomplete lambdas after type annotation is given
+- Autocomplete lambda blocks after type annotation is given
 - Do not autocomplete the name that is being defined (no recursion in Dhall)
 - Fill in the inferred type for let bindings or lambda arguments or any other terms
 - Reduce to normal form and replace selected expression
+- Alpha-normalize, beta-normalize, eta-reduce
 - Freeze / unfreeze imports
 - Rename variables within their definition's scope
 - Suggest edits when typechecking fails or when variables are undefined
@@ -22,4 +23,7 @@ Features that are good to have in IDE support for Dhall:
 - Infer type for an expression and create a separate type value
 - Refactor a value from a subexpression into a local variable
 - Inline a local variable into places where it is used, eliminating the local variable
+- Use `curryhoward` to generate code when possible; or "derive functor", etc.
+- Work with typed holes
+- Simplify arithmetic with Bool, Natural, Integer
 
