@@ -2446,9 +2446,9 @@ In practice, it is easier to "inline" that identity function: that is, to use th
 
 Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, or `traverse`.
 In most FP languages, those operations are implemented via recursive code.
-To use those operations in Dhall, we need to reformulate them as fold-like aggregations.
+To implement those operations in Dhall, we need to reformulate them as "fold-like aggregations".
 
-**"Fold-like" aggregations** iterate over the data while some sort of accumulator value is updated at each step.
+A **fold-like aggregation** iterates over the data while some sort of accumulator value is updated at each step.
 The result value of the aggregation is the last computed value of the accumulator.
 
 Let us show some examples of how this is done.

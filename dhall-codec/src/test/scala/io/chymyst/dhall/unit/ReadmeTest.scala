@@ -7,7 +7,7 @@ class ReadmeTest extends FunSuite {
 
   test("simple examples from readme") {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
-    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+    import io.chymyst.dhall.codec.Adapters.DhallExpressionAsScala
 
     val a = "Natural/odd 123".dhall.typeCheckAndBetaNormalize().unsafeGet.asScala[Boolean]
 
@@ -21,7 +21,7 @@ class ReadmeTest extends FunSuite {
   test("factorial example from readme") {
     import io.chymyst.dhall.Parser.StringAsDhallExpression
     import io.chymyst.dhall.Syntax.Expression
-    import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+    import io.chymyst.dhall.codec.Adapters.DhallExpressionAsScala
     val factorial: Expression =
       """
         |\(x: Natural) ->

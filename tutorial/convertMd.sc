@@ -173,7 +173,7 @@ def markdown[$: P]: P[Seq[Markdown]] = P(block.rep(1))
 def textualToLatex: Textual => String = {
   case Textual.Span(kind, text) => kind match
     case SpanKind.Emphasis => s"\\emph{$text}"
-    case SpanKind.StrongEmphasis => s"\\textbf{$text}\index{$text}"
+    case SpanKind.StrongEmphasis => s"\\textbf{$text}\\index{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
   case Textual.Hyperlink(text, target) =>
