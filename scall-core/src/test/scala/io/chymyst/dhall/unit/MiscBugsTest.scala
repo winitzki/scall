@@ -5,7 +5,7 @@ import fastparse.Parsed
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
-import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
+import io.chymyst.dhall.unit.SimpleCBORtest.cborRoundtrip
 import io.chymyst.dhall.{CBORmodel, Parser}
 import io.chymyst.test.ResourceFiles
 

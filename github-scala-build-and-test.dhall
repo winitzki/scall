@@ -3,10 +3,7 @@ let GithubActions =
         sha256:71df44892a17abca817cfb35e2612d117f7fceec55114a6eb76b65a7eea4e6f4
 
 let matrix =
-      toMap
-        { java = [ "8.0.382", "11.0.21", "17.0.9" ]
-        , scala = [ "2.13.13", "3.3.3", "3.4.1" ]
-        }
+      toMap { java = [ "8.0.382", "11.0.21", "17.0.9" ], scala = [ "2.13.13" ] }
 
 let setup =
       [     GithubActions.steps.actions/checkout

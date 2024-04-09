@@ -3,14 +3,14 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
-import io.chymyst.dhall.Syntax.ExpressionScheme.{TextLiteral, _}
+import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.Builtin
 import io.chymyst.dhall.SyntaxConstants.Constant.True
-import io.chymyst.dhall.unit.CBORtest.cborRoundtrip
+import io.chymyst.dhall.unit.SimpleCBORtest.cborRoundtrip
 import io.chymyst.dhall.{CBOR, CBORmodel, Grammar}
 
-object CBORtest {
+object SimpleCBORtest {
   def cborRoundtrip(expr: Expression) = {
     val aModel = CBOR.toCborModel(expr)
 
@@ -23,7 +23,7 @@ object CBORtest {
   }
 }
 
-class CBORtest extends DhallTest {
+class SimpleCBORtest extends DhallTest {
 
   test("CBOR roundtrips 1") {
     cborRoundtrip(ExpressionScheme.ExprConstant(True))
