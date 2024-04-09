@@ -39,7 +39,15 @@ object TypecheckResult {
       case Invalid(errors) => Invalid(errors)
     }
 
-    override def withFilter(p: A => Boolean): TypecheckResult[A] = if (p(expr)) this else typeError(s"Unexpected expression $expr")(KnownVars(Map()))
+    override def withFilter(p: A => Boolean): TypecheckResult[A] = if (p(expr)) this
+    else {
+      val expressionForError: Expression = expr match {
+        case scheme: ExpressionScheme[Expression] => Expression(scheme)
+        case expression: Expression               => expression
+        case _                                    => Expression(TextLiteral.ofString("unknown Dhall expression"))
+      }
+      typeError(s"Unexpected expression $expr under filter")(KnownVars(Map()), ExpressionUnderTypeInference(expressionForError))
+    }
   }
 
   final case class Invalid(errors: TypeCheck.TypeCheckErrors) extends TypecheckResult[Nothing] {
@@ -59,7 +67,11 @@ object TypecheckResult {
     override def withFilter(p: Nothing => Boolean): TypecheckResult[Nothing] = this
   }
 
-  def typeError(message: String)(implicit gamma: KnownVars): TypecheckResult[Nothing] = Invalid(Seq(message + s", type inference context = $gamma"))
+  final case class ExpressionUnderTypeInference(expr: Expression) extends AnyVal
+
+  def typeError(message: String)(implicit gamma: KnownVars, expr: ExpressionUnderTypeInference): TypecheckResult[Nothing] = Invalid(
+    Seq(message + s", expression under type inference: ${expr.expr.print}, type inference context = $gamma")
+  )
 
   implicit val ApplicativeTypeCheckResult: Applicative[TypecheckResult] = new Applicative[TypecheckResult] {
     override def zip[A, B](fa: TypecheckResult[A], fb: TypecheckResult[B]): TypecheckResult[(A, B)] = fa zip fb
@@ -120,13 +132,13 @@ object TypeCheck {
         if (Semantics.equivalent(tipe, inferredType))
           Valid(expr)
         else
-          typeError(s"Expression ${expr.print} has inferred type ${inferredType.print} and not the expected type ${tipe.print}")(gamma)
+          typeError(s"Inferred type ${inferredType.print} differs from the expected type ${tipe.print}")(gamma, ExpressionUnderTypeInference(expr))
 
       case error @ Invalid(_) => error
     }
   }
 
-  def required(cond: Boolean)(error: String)(implicit gamma: KnownVars): TypecheckResult[Unit] =
+  def required(cond: Boolean)(error: String)(implicit gamma: KnownVars, expr: ExpressionUnderTypeInference): TypecheckResult[Unit] =
     if (cond) Valid(()) else typeError(error)
 
   val _Type: Expression      = ExprConstant(Constant.Type)
@@ -142,6 +154,8 @@ object TypeCheck {
     implicit def fromBuiltin(builtin: Builtin): TypecheckResult[Expression] = Valid(~builtin)
 
     implicit val _gamma: KnownVars = gamma
+
+    implicit val exprUnderTypeInference: ExpressionUnderTypeInference = ExpressionUnderTypeInference(exprToInferTypeOf)
 
     def typeOfToMap(t: Expression): Expression = (~Builtin.List)(Expression(RecordType(Seq((FieldName("mapKey"), ~Builtin.Text), (FieldName("mapValue"), t)))))
 
@@ -194,7 +208,9 @@ object TypeCheck {
         tipe.inferTypeWith(gamma) zip body.inferTypeWith(updatedContext) flatMap {
           case (Expression(ExprConstant(inputType)), Expression(ExprConstant(outputType))) => Expression(ExprConstant(functionCheck(inputType, outputType)))
           case (other1, other2)                                                            =>
-            typeError(s"A function's input and output types must be one of Type, Kind, or Sort, but instead found ${other1.print} and ${other2.print}")
+            typeError(
+              s"A function type's input and output types must be one of Type, Kind, or Sort, but instead found input type ${other1.print}, output type ${other2.print}"
+            )
         }
 
       case Let(name, tipe, subst, body) =>
@@ -584,7 +600,10 @@ object TypeCheck {
             assertion.betaNormalized.scheme match {
               case exprN @ ExprOperator(lop, Operator.Equivalent, rop) =>
                 if (Semantics.equivalent(lop, rop)) Expression(exprN) // "The inferred type of an assertion is the same as the provided annotation."
-                else typeError(s"Expression `assert` failed: Unequal sides in ${exprN.print}")
+                else
+                  typeError(
+                    s"Expression `assert` failed: Unequal sides, ${lop.alphaNormalized.betaNormalized.print} does not equal ${rop.alphaNormalized.betaNormalized.print}, in ${exprN.print}"
+                  )
               case other                                               => typeError(s"An `assert` expression must have an equality type but has ${other.print}")
             }
           case errors   => errors

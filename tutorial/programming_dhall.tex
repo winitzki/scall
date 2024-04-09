@@ -1,0 +1,169 @@
+\documentclass[12pt,greek,english,openright,numbers=noenddot,index=totoc,bibliography=totoc,listof=totoc,fontsize=12pt]{scrbook}
+\usepackage{xurl}
+\usepackage{amsmath}
+\usepackage{mathpazo}
+\usepackage{helvet}
+\renewcommand{\ttdefault}{cmtt}
+\usepackage{newtxmath}
+\usepackage[T2A,T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[paperwidth=7.444in,paperheight=9.68in]{geometry}
+\geometry{verbose,tmargin=1.3cm,bmargin=1.5cm,lmargin=2.5cm,rmargin=1.3cm,headsep=0.5cm,footskip=0.8cm}
+\setcounter{secnumdepth}{3}
+\usepackage{xcolor}
+\usepackage{babel}
+\usepackage{array}
+\usepackage{relsize} % make math symbols larger or smaller; supports \smaller etc.
+
+%\usepackage[utopia]{mathdesign}
+%\usepackage[OMLmathrm]{isomath} % Does not work.
+
+\usepackage{verbatim}
+%\usepackage{refstyle}
+\usepackage{wrapfig}
+\usepackage{calc}
+\usepackage{textcomp}
+\usepackage{tipa}
+\usepackage{tipx}
+\usepackage{textalpha}
+\usepackage{mathdots}
+\usepackage{stmaryrd}
+\usepackage{makeidx}
+\makeindex
+\usepackage{graphicx}
+\usepackage{wasysym}
+\usepackage[all]{xy}
+\PassOptionsToPackage{normalem}{ulem}
+\usepackage{ulem}
+
+\PassOptionsToPackage{hyphens}{url}
+\usepackage[unicode=true,
+    bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
+    breaklinks=true,pdfborder={0 0 0},pdfborderstyle={},backref=page,colorlinks=true]
+{hyperref}
+\hypersetup{pdftitle={TAdvanced Functional Programming in System Fω using Dhall},
+    pdfauthor={Sergei Winitzki},
+    pdfsubject={Functional programming},
+    pdfkeywords={functional programming, Haskell, Dhall, System Fω, type theory, category theory, formal logic, programming languages, lambda calculus},
+    linkcolor=hlink}
+
+\usepackage{textgreek}
+
+% Cover picture on first page.
+\usepackage{wallpaper}
+% Custom commands for cover page.
+\usepackage[absolute,overlay]{textpos}
+
+% No page numbers on "Part" pages.
+\renewcommand*{\partpagestyle}{empty}
+
+
+% Make page headers and page numbers smaller
+\addtokomafont{pagehead}{\small}
+\addtokomafont{pagenumber}{\small}
+
+% Double-stroked fonts to replace the non-working \mathbb{1}.
+\usepackage{bbold}
+\DeclareMathAlphabet{\bbnumcustom}{U}{BOONDOX-ds}{m}{n} % Use BOONDOX-ds or bbold.
+\newcommand{\custombb}[1]{\bbnumcustom{#1}}
+% The LyX document will define a macro \bbnum{#1} that calls \custombb{#1}.
+
+
+% Color for PDF hyperlinks.
+\definecolor{hlink}{rgb}{0.06, 0.14, 0.48}
+
+% Better text quotes.
+\renewcommand\textquotedblleft{``}
+\renewcommand\textquotedblright{''}
+
+
+\definecolor{scalakeyword}{rgb}{0.16,0.07,0.5}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{aqua}{rgb}{0.9,0.96,0.999}
+\definecolor{scalatype}{rgb}{0.2,0.3,0.2}
+\definecolor{teal}{rgb}{0,0.6,0}
+
+\usepackage{listings}
+\lstset{language=Haskell,
+    morekeywords={{with,assert,merge}},
+    otherkeywords={=,=>,<-,<\%,<:,>:,<,>,λ,∀,\#,@,:,[,],.,???},
+    keywordstyle={\color{scalakeyword}},
+    morekeywords={[2]{Natural,Bytes,Location,Type,Kind,Sort,Bool,Double,Optional,True,False,None,List,Some,Left,Right,Either,Pair,Nothing,Any,Unit,Integer,Text}},
+    keywordstyle={[2]{\color{scalakeyword}}},
+    commentstyle=\color{dkgreen},
+    morecomment=[l][\color{dkgreen}]{--},
+    frame=tb,
+    aboveskip={1.5mm},
+    belowskip={0.5mm},
+    showstringspaces=false,
+    columns=fullflexible,
+    keepspaces=true,
+    basicstyle={\smaller\ttfamily},
+    numbers=none,
+    numberstyle={\tiny\color{gray}},
+    commentstyle={\color{dkgreen}},
+    stringstyle={\color{mauve}},
+    frame=single,
+    framerule={0.0mm},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=3,
+    framexleftmargin={0.5mm},
+    framexrightmargin={0.5mm},
+    xleftmargin={1.5mm},
+    xrightmargin={1.5mm},
+    framextopmargin={0.5mm},
+    framexbottommargin={0.5mm},
+    fillcolor={\color{aqua}},
+    rulecolor={\color{aqua}},
+    rulesepcolor={\color{aqua}},
+    backgroundcolor={\color{aqua}},
+    mathescape=false,
+    extendedchars=true,
+    literate=%
+        {Ö}{{\"O}}1
+        {Ä}{{\"A}}1
+        {Ü}{{\"U}}1
+        {ß}{{\ss}}2
+        {ü}{{\"u}}1
+        {ä}{{\"a}}1
+        {ö}{{\"o}}1
+        {λ}{{\textgreek{l}}}1
+        {→}{{$\to$}}1
+        {∀}{{$\mathrm{\forall}$}}1
+        {⊢}{{$\vdash$}}1
+        {❰}{{\textbf{<}}}1
+        {❱}{{\textbf{>}}}1
+        {│}{{|}}1
+        {≡}{{$\equiv$}}1
+        {≅}{{$\cong$}}1
+        {×}{{$\times$}}1
+        {--}{{$-$}}1
+        {∃}{{$\exists$}}1
+}
+% lambda is 03BB
+\DeclareUnicodeCharacter{2200}{$\forall$}
+\begin{document}
+    %\sloppy
+
+    %\input{afpd-cover-for-main-pdf}
+    \hfill{}\thispagestyle{empty}Advanced Functional Programming in System Fω using Dhall\hspace{1in}
+    \title{Advanced Functional Programming in System Fω using Dhall}
+    \author{by Sergei Winitzki, Ph.D.}
+    \date{Version of \today}
+    \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2024}
+    \maketitle
+    \frontmatter\pagenumbering{roman}
+
+    \tableofcontents{}
+
+    \mainmatter\pagenumbering{arabic}
+    \global\long\def\bbnum#1{\custombb{#1}}%
+
+    \input{generated}
+
+    %\input{afpd-back-cover-for-main-pdf}
+
+\end{document}
