@@ -48,7 +48,7 @@ lazy val scall_core = (project in file("scall-core"))
     Test / javaOptions ++= jdkModuleOptions,
     Compile / scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((3, _))       => Seq()
+        case Some((3, _))       => Seq("-Ydebug")
         case Some((2, 12 | 13)) => Seq("-Ypatmat-exhaust-depth", "10") // Cannot make it smaller than 10. Want to speed up compilation.
       }
     },
