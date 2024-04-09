@@ -383,4 +383,38 @@ class SimpleSemanticsTest extends DhallTest {
     expect("\\(f: Bool) -> \\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(f : Bool) → λ(x : Bool) → f x x")
   }
 
+  test("identity law of function composition") {
+    expect("""
+      | let identity
+      |    : ∀(A : Type) → ∀(x : A) → A
+      |    = λ(A : Type) → λ(x : A) → x
+      | let compose_forward : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
+      |    = λ(a : Type) →
+      |      λ(b : Type) →
+      |      λ(c : Type) →
+      |      λ(f : a → b) →
+      |      λ(g : b → c) →
+      |      λ(x : a) →
+      |        g (f x)
+      |  in
+      | λ(a : Type) →
+      |      λ(b : Type) →
+      |      λ(c : Type) →
+      |      λ(d : Type) →
+      |      λ(f : a → b) →
+      |      λ(g : b → c) →
+      |      λ(h : c → d) →
+      |      λ(k : a → b → c) →
+      |        { right_identity_law_forward =
+      |            assert : compose_forward a b b f (identity b) ≡ f
+      |        , left_identity_law_forward =
+      |            assert : compose_forward a a b (identity a) f ≡ f
+      |        , associativity_law_forward =
+      |              assert
+      |            :   compose_forward a b d f (compose_forward b c d g h)
+      |              ≡ compose_forward a c d (compose_forward a b c f g) h
+      |        }
+      |""".stripMargin.dhall.typeCheckAndBetaNormalize().isValid)
+  }
+
 }

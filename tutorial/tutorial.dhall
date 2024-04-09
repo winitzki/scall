@@ -431,6 +431,27 @@ let _typeclasses_examples =
                 (λ(x : m) → λ(y : m) → monoid_m.append x y)
                 monoid_m.empty
 
+      let monoidLaws =
+            λ(m : Type) →
+            λ(monoid_m : Monoid m) →
+            λ(x : m) →
+            λ(y : m) →
+            λ(z : m) →
+              let plus = monoid_m.append
+
+              let e = monoid_m.empty
+
+              in  { monoid_left_id_law = plus e x ≡ x
+                  , monoid_right_id_law = plus x e ≡ x
+                  , monoid_assoc_law = plus x (plus y z) ≡ plus (plus x y) z
+                  }
+
+      let check_monoidBool_left_id_law =
+            λ(x : Bool) →
+            λ(y : Bool) →
+            λ(z : Bool) →
+              assert : (monoidLaws Bool monoidBool x y z).monoid_left_id_law
+
       let foldMap
           : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
           = λ(m : Type) →

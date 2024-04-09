@@ -93,7 +93,8 @@ For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
-There is no way of assigning a permanent name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
+For instance, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
+There is no way of assigning a permanent unique name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
 
 For convenience, a Dhall program may define local names for types:
 
@@ -134,7 +135,8 @@ For example, the union type `< X : Natural | Y >` has values written either as `
 Both these values have type `< X : Natural | Y >`.
 
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
-There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
+For instance, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated.
+There is no way of assigning a permanent unique name to the union type itself, as it is done in Haskell and Scala to distinguish that union type from others.
 
 For convenience, a Dhall program may define local names for types, for example:
 
@@ -1846,11 +1848,38 @@ let foldMap
 
 This code shows how to implement typeclass constraints in Dhall.
 
-### Checking the laws of a typeclass
+### Checking the laws of monoids
 
 We may use Dhall's `assert` feature to verify typeclass laws symbolically.
 
 The `Monoid` typeclass has three laws: two identity laws and one associativity law.
+We can write `assert` expressions that verify those laws for any given evidence value of type `Monoid a`.
+
+First, we implement a function that creates the required equality types:
+
+```dhall
+let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
+  let plus = monoid_m.append
+  let e = monoid_m.empty
+    in {
+        monoid_left_id_law = plus e x === x,
+        monoid_right_id_law = plus x e === x,
+        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
+       }
+```
+Note that we do not write `assert` expressions here.
+If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to see whether the laws hold.
+For instance, the expressions `plus e x` and `x` are different within the body of that function.
+Those expressions will become the same only after we substitute a lawful implementation of a `Monoid` typeclass.
+
+We now check that the laws hold for the `Monoid` evidence values defined above:
+
+```dhall
+let check_monoidBool_left_id_law = assert : (monoidLaws Bool monoidBool).monoid_left_id.law
+let check_monoidNatural = monoidLaws Natural monoidNatural
+let check_monoidText = monoidLaws Text monoidText
+let check_monoidList = λ(a : Type) → monoidLaws (List a) (monoidList a)
+```
 
 ### `Functor`
 
