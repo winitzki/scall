@@ -1812,7 +1812,12 @@ let monoidText : Monoid Text = { empty = "", append = λ(x : Text) → λ(y : Te
 let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
 ```
 
-We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
+### Functions with typeclass constraints
+
+The main use of typeclasses is for implementing functions with a type parameter constrained to belong to a given typeclass.
+To implement such functions, we add an argument that requires a typeclass evidence value.
+ 
+Let us implement some functions with a type parameter required to belong to the `Monoid` typeclass.
 Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
@@ -1840,6 +1845,12 @@ let foldMap
 ```
 
 This code shows how to implement typeclass constraints in Dhall.
+
+### Checking the laws of a typeclass
+
+We may use Dhall's `assert` feature to verify typeclass laws symbolically.
+
+The `Monoid` typeclass has three laws: two identity laws and one associativity law.
 
 ### `Functor`
 
