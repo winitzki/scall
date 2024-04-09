@@ -1,6 +1,6 @@
-val scala2V = "2.13.12"
-val scala3V = "3.3.1"
-val scalaV  = scala2V
+val scala2V = "2.13.13"
+val scala3V = "3.3.3"
+val scalaV  = scala3V
 
 def munitFramework = new TestFramework("munit.Framework")
 
@@ -17,7 +17,7 @@ val enumeratum    = "com.beachape"   %% "enumeratum"     % "1.7.3"
 val flatlaf       = "com.formdev"     % "flatlaf"        % "3.2.2"
 val izumi_reflect = "dev.zio"        %% "izumi-reflect"  % "2.3.8"
 val curryhoward   = "io.chymyst"     %% "curryhoward"    % "0.3.8"
-val kindProjector = "org.typelevel"   % "kind-projector" % "0.13.2" cross CrossVersion.full
+val kindProjector = "org.typelevel"   % "kind-projector" % "0.13.3" cross CrossVersion.full
 val jnr_posix     = "com.github.jnr"  % "jnr-posix"      % "3.1.18"
 val cbor1         = "co.nstant.in"    % "cbor"           % "0.9"
 val cbor2         = "com.upokecenter" % "cbor"           % "4.5.3"
