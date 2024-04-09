@@ -686,4 +686,93 @@ let _tree_aggregation_test =
 
       in  True
 
+let compose_forward
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+      λ(x : a) →
+        g (f x)
+
+let compose_backward
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : b → c) →
+      λ(g : a → b) →
+      λ(x : a) →
+        f (g x)
+
+let flip
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → b → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b → c) →
+      λ(x : b) →
+      λ(y : a) →
+        f y x
+
+let curry
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      ∀(c : Type) →
+      ({ _1 : a, _2 : b } → c) →
+      a →
+      b →
+        c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : { _1 : a, _2 : b } → c) →
+      λ(x : a) →
+      λ(y : b) →
+        f { _1 = x, _2 = y }
+
+let uncurry
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      ∀(c : Type) →
+      (a → b → c) →
+      { _1 : a, _2 : b } →
+        c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b → c) →
+      λ(p : { _1 : a, _2 : b }) →
+        f p._1 p._2
+
+let _ =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+      λ(h : c → d) →
+      λ(k : a → b → c) →
+        { right_identity_law_forward =
+            assert : compose_forward a b b f (identity b) ≡ f
+        , left_identity_law_forward =
+            assert : compose_forward a a b (identity a) f ≡ f
+        , right_identity_law_backward =
+            assert : compose_backward a a b f (identity a) ≡ f
+        , left_identity_law_backward =
+            assert : compose_backward a b b (identity b) f ≡ f
+        , curry_uncurry = assert : curry a b c (uncurry a b c k) ≡ k
+        , associativity_law_forward =
+              assert
+            :   compose_forward a b d f (compose_forward b c d g h)
+              ≡ compose_forward a c d (compose_forward a b c f g) h
+        , associativity_law_backward =
+              assert
+            :   compose_backward a b d (compose_backward b c d h g) f
+              ≡ compose_backward a c d h (compose_backward a b c g f)
+        , flip_flip = assert : flip b a c (flip a b c k) ≡ k
+        }
+
 in  True

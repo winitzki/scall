@@ -14,7 +14,6 @@ import io.chymyst.tc.Applicative.ApplicativeOps
 import java.security.MessageDigest
 import java.util.regex.Pattern
 import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -151,7 +150,7 @@ object Semantics {
     operator: Operator,
     defs2: Seq[(FieldName, Expression)],
   ): Seq[(FieldName, Expression)] =
-    (defs1.toSeq ++ defs2.toSeq).groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r)).toSeq.sortBy(_._1.name)
+    (defs1 ++ defs2).groupMapReduce(_._1)(_._2)((l, r) => l.op(operator)(r)).toSeq.sortBy(_._1.name)
 
   val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
@@ -159,14 +158,17 @@ object Semantics {
 
   val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalizeAndExpand(expr: Expression): Expression = cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, stopExpanding = false).expr)
+  def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
+    cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, options).expr)
 
-  private def betaNormalizeOrUnexpand(expr: Expression, stopExpanding: Boolean): Expression = cacheBetaNormalize.get(expr) match {
+  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false)
+
+  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression = cacheBetaNormalize.get(expr) match {
     case Some(normalized) => normalized
     case None             =>
-      val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, stopExpanding)
+      val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
       if (didShortcut) {
-//        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
+        //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
         normalized
       } else cacheBetaNormalize.getOrElseUpdate(expr, normalized)
   }
@@ -177,7 +179,7 @@ object Semantics {
     lazy val oldLength = oldExpr.exprCount
     lazy val newLength = newExpr.exprCount
     // TODO: perhaps enable this optimization. See https://github.com/dhall-lang/dhall-lang/issues/1213#issuecomment-1855878600
-//    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
+    //    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
 
     val result = newLength >= oldLength && newLength > 500 // || hasFreeVars
     // if (result) println(s"DEBUG: shortcut detected with $oldExpr")
@@ -186,18 +188,18 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
-  private def betaNormalizeUncached(expr: Expression, stopExpanding: Boolean): BNResult = {
-//    if (expr.print contains " : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold ")
-//      println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = $stopExpanding)")
+  private def betaNormalizeUncached(expr: Expression, options: BetaNormalizingOptions): BNResult = {
+    //    if (expr.print contains " : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold ")
+    //      println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = $stopExpanding)")
     implicit def toBNResult(e: Expression): BNResult = BNResult(e)
 
     implicit def toBNResultFromScheme(e: ExpressionScheme[Expression]): BNResult = BNResult(e)
 
-    def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, stopExpanding)
+    def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, options)
 
-    def bnStopExpanding(e: Expression): Expression = betaNormalizeOrUnexpand(e, stopExpanding = true)
+    def bnStopExpanding(e: Expression): Expression = betaNormalizeOrUnexpand(e, options = options.copy(stopExpanding = true))
 
-    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, stopExpanding))
+    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, options))
 
     // if (stopExpanding) println(s"DEBUG beta-normalize $expr, stopExpanding = $stopExpanding")
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
@@ -214,9 +216,26 @@ object Semantics {
       // These expressions only need to normalize their arguments.
       case EmptyList(_) | NonEmptyList(_) | KeywordSome(_) | Forall(_, _, _) | Assert(_) => normalizeArgs // Lambda(_, _, _) |
 
-      // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
-      case Lambda(name, tipe, body) => Lambda(name, bn(tipe), bnStopExpanding(body))
+      case Lambda(name, tipe, body)  =>
+        val bodyNotExpanded                     = bnStopExpanding(body)
+        lazy val lambdaWithBetaReducedArguments = Lambda(name, bn(tipe), bodyNotExpanded)
+        if (options.etaReduce) {
+          bodyNotExpanded.scheme match {
+            // TODO: report issue, document the new eta-reduction rules in the Dhall standard.
+            // Eta reduction: λ(x : Bool) → f x will be reduced to just f, downshifting free occurrences of x in f.
+            // See discussion: https://github.com/dhall-lang/dhall-lang/issues/1376
+            case Application(head, Expression(Variable(`name`, index))) if index == 0 =>
+              if (freeVars(head).names contains name) { // We may not eta-reduce if the head contains a free occurrence of the variable.
+                lambdaWithBetaReducedArguments
+              } else {
+                val headShifted = shift(positive = false, name, 1, head)
+                bn(headShifted)
+              }
 
+            // Optimization: do not expand Natural/fold or List/fold under Lambda if the argument is growing.
+            case _                                                                    => lambdaWithBetaReducedArguments
+          }
+        } else lambdaWithBetaReducedArguments
       // `let name : A = subst in body` is equivalent to `(λ(name : A) → body) subst`
       // We use Natural as the type here, because betaNormalize of Application(Lambda(...),...) ignores the type annotation inside Lambda().
       case Let(name, _, subst, body) => ((v(name.name) | ~Natural) -> body)(subst) pipe bn
@@ -346,7 +365,7 @@ object Semantics {
         lazy val argN = arg.pipe(bn)
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
         bn(func).scheme match {
-          case ExprBuiltin(Builtin.NaturalBuild) => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
+          case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
           case Application(
                 Expression(Application(Expression(Application(Expression(ExprBuiltin(Builtin.NaturalFold)), Expression(NaturalLiteral(m)))), b)),
@@ -363,22 +382,24 @@ object Semantics {
                 if (newResult == currentResult) {
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   currentResult
-                } else if (stopExpanding && needShortcut(currentResult, newResult)) {
+                } else if (options.stopExpanding && needShortcut(currentResult, newResult)) {
                   // If the beta-normalized result grew in size, we return the unevaluated intermediate result:
                   // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
                   // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
                   // The remaining calculation is g(g(...g(currentResult)...)) with `m-counter` repetitions of `g`.
                   // In Dhall, this is `Natural/fold (m-counter) b g currentResult`.
                   val unevaluatedIntermediateResult = (~Builtin.NaturalFold)(NaturalLiteral(m - counter))(b)(g)(currentResult)
-//                  println(s"DEBUG detected shortcut stopExpanding = true for expression:\n${unevaluatedIntermediateResult.print}")
+                  //                  println(s"DEBUG detected shortcut stopExpanding = true for expression:\n${unevaluatedIntermediateResult.print}")
                   BNResult(unevaluatedIntermediateResult, didShortcut = true)
                 } else {
                   loop(newResult, counter + 1)
                 }
               }
             }
+
             loop(currentResult = argN, counter = BigInt(0))
 
+          // TODO: perhaps add a reduction rule for NaturalIsZero (1 + x) returning False, etc?
           case ExprBuiltin(Builtin.NaturalIsZero)                               => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalEven)                                 => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 == 0) ~True else ~False }
           case ExprBuiltin(Builtin.NaturalOdd)                                  => matchOrNormalize(arg) { case NaturalLiteral(a) => if (a % 2 != 0) ~True else ~False }
@@ -531,7 +552,7 @@ object Semantics {
         def lookupOrFailure(defs: Seq[(FieldName, _)], str: String, maybeExpression: Option[Expression]): Expression =
           maybeExpression.getOrElse(
             throw new Exception(
-              s"Record access in $expr has invalid field name (${name.name}), which should be one of the $str's fields: (${defs.map(_._1.name).mkString(", ")})"
+              s"Record access has invalid field name (${name.name}), which should be one of the $str's fields: (${defs.map(_._1.name).mkString(", ")}), expression being evaluated: $expr"
             )
           )
 
@@ -585,7 +606,7 @@ object Semantics {
           // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
           case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
 
-          case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, stopExpanding))
+          case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, options))
         }
 
       case ProjectByType(base, labels) =>
@@ -614,7 +635,7 @@ object Semantics {
                     val e1 = Expression(With(Expression(RecordLiteral(Seq())), tail, body)).pipe(bn)
                     RecordLiteral((defs.toMap ++ Map(head -> e1)).toSeq)
                 }
-//              case _                                => normalizeArgs // This case will never occur because pathComponents is an empty list.
+              //              case _                                => normalizeArgs // This case will never occur because pathComponents is an empty list.
             }
           case none @ Application(Expression(ExprBuiltin(Builtin.None)), _) if pathComponents.head.isOptionalLabel => none
           case KeywordSome(_) if pathComponents.length == 1 && pathComponents.head.isOptionalLabel                 => KeywordSome(body.pipe(bn))
@@ -657,8 +678,10 @@ object Semantics {
   }
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
+  // TODO: report issue, activate eta-reduction only when doing the equivalence check.
   def equivalent(x: Expression, y: Expression): Boolean =
-    x.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1 sameElements y.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+    betaNormalizeAndExpand(x.alphaNormalized, options = BetaNormalizingOptions(etaReduce = true)).toCBORmodel.encodeCbor1 sameElements
+      betaNormalizeAndExpand(y.alphaNormalized, options = BetaNormalizingOptions(etaReduce = true)).toCBORmodel.encodeCbor1
 
   def desugar(c: Completion[Expression]): Expression =
     Expression(ExprOperator(Field(c.base, FieldName("default")), Operator.Prefer, c.target)) | Field(c.base, FieldName("Type"))
@@ -675,6 +698,7 @@ object FreeVars {
     override def pure[A](a: A): FreeVars[A] = FreeVars(Set())
   }
 }
+
 /*
 // We need to define this as an applicative functor, but actually we will use this only with A = Expression.
 final case class UniqueReferences[A](run: mutable.Set[Expression] => (A, mutable.Set[Expression]))

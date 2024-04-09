@@ -134,7 +134,7 @@ class ToScalaTest extends FunSuite {
     expect(
       Try(
         "1 + Bool".dhall.asScala[Boolean]
-      ).failed.get.getMessage == "Error importing from Dhall: Expression 1 + Bool having type errors: List(Expression Bool has inferred type Type and not the expected type Natural, type inference context = {}) cannot be converted to the given Scala type None (None)"
+      ).failed.get.getMessage == "Error importing from Dhall: Expression 1 + Bool having type errors: List(Inferred type Type differs from the expected type Natural, expression under type inference: Bool, type inference context = {}) cannot be converted to the given Scala type None (None)"
     )
   }
 
@@ -142,7 +142,7 @@ class ToScalaTest extends FunSuite {
     expect(
       Try(
         "x : Bool".dhall.asScala[Boolean]
-      ).failed.get.getMessage == "Error importing from Dhall: Expression x : Bool having type errors: List(Variable x is not in type inference context, type inference context = {}) cannot be converted to the given Scala type None (None)"
+      ).failed.get.getMessage == "Error importing from Dhall: Expression x : Bool having type errors: List(Variable x is not in type inference context, expression under type inference: x, type inference context = {}) cannot be converted to the given Scala type None (None)"
     )
   }
 
