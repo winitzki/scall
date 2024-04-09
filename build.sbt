@@ -16,7 +16,6 @@ val httpRequest   = "com.lihaoyi"    %% "requests"       % "0.8.0"
 val enumeratum    = "com.beachape"   %% "enumeratum"     % "1.7.3"
 val flatlaf       = "com.formdev"     % "flatlaf"        % "3.2.2"
 val izumi_reflect = "dev.zio"        %% "izumi-reflect"  % "2.3.8"
-val curryhoward   = "io.chymyst"     %% "curryhoward"    % "0.3.8"
 val kindProjector = "org.typelevel"   % "kind-projector" % "0.13.3" cross CrossVersion.full
 val jnr_posix     = "com.github.jnr"  % "jnr-posix"      % "3.1.18"
 val cbor1         = "co.nstant.in"    % "cbor"           % "0.9"
@@ -68,7 +67,6 @@ lazy val scall_core = (project in file("scall-core"))
       cbor1,
       cbor2,
       //    cbor3,
-      //    curryhoward,
       httpRequest,
       os_lib % Test,
     ),
@@ -124,7 +122,7 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
   crossScalaVersions       := Seq(scala2V, scala3V),
   Test / parallelExecution := true,
   testFrameworks += munitFramework,
-  libraryDependencies ++= Seq(curryhoward, munitTest, assertVerboseTest),
+  libraryDependencies ++= Seq(munitTest, assertVerboseTest),
   libraryDependencies ++=
     (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, _)) => Seq(kindProjectorPlugin)

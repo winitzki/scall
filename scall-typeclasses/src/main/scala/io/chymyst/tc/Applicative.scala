@@ -1,9 +1,6 @@
 package io.chymyst.tc
 
-import io.chymyst.ch.implement
 import io.chymyst.tc.Monoid.MonoidSyntax
-
-import scala.util.{Success, Try}
 
 trait Applicative[F[_]] {
   def zip[A, B](fa: F[A], fb: F[B]): F[(A, B)]
@@ -52,7 +49,7 @@ object Applicative {
       case (Left(ea), Left(eb)) => Left(ea ++ eb)
     }
 
-    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = implement
+    override def map[A, B](f: A => B)(fa: Either[E, A]): Either[E, B] = fa map f
 
     override def pure[A](a: A): Either[E, A] = Right(a)
   }
@@ -68,7 +65,7 @@ object Monoid {
   implicit def trivialApplicative[M: Monoid]: Applicative[Const[M, *]] = new Applicative[Const[M, *]] {
     override def zip[A, B](fa: Const[M, A], fb: Const[M, B]): Const[M, (A, B)] = fa ++ fb
 
-    override def map[A, B](f: A => B)(fa: Const[M, A]): Const[M, B] = implement
+    override def map[A, B](f: A => B)(fa: Const[M, A]): Const[M, B] = fa
 
     override def pure[A](a: A): Const[M, A] = Monoid[M].empty
   }
@@ -96,9 +93,9 @@ object State {
       (s2, (a, b))
     }
 
-    override def map[A, B](f: A => B)(fa: State[S, A]): State[S, B] = implement
+    override def map[A, B](f: A => B)(fa: State[S, A]): State[S, B] = ...
 
-    override def pure[A](a: A): State[S, A] = implement
+    override def pure[A](a: A): State[S, A] = ...
   }
 }
  */

@@ -163,7 +163,7 @@ As an example, consider a union type defined in Haskell by:
 data P = X Int | Y Bool | Z
 ```
 
-A function `toString` that prints a value of that type can be written in Haskell as:
+A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
 
 ```haskell
 toString :: P -> String
@@ -179,19 +179,22 @@ The corresponding type is defined in Dhall by:
 let P = < X : Natural | Y : Bool | Z >
 ```
 
+Dhall's pattern matching is similar to the Haskell code, except for putting the value `x` after all the cases.
+
 Here is the Dhall code for a function `toText : < X : Natural | Y : Bool | Z > → Text` that prints a value of type `P`:
 
 ```dhall
 let toText : P → Text = λ(x : P) →
-  merge { X = λ(x : Natural) → "X " ++ Natural/show x
-        , Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False")
-        , Z = "Z"
+  merge {
+          X = λ(x : Natural) → "X " ++ Natural/show x,
+          Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False"),
+          Z = "Z",
         } x
 ```
 
 ### The `Optional` type
 
-The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined by this code:
+The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
