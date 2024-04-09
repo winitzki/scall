@@ -157,6 +157,18 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
+<<<<<<< Updated upstream
+=======
+- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (No change to normal forms!)
+
+- [x] Experimental feature: `assert : a === b` will additionally perform an eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
+
+- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing. (Breaking change to normal forms!)
+
+
+## Other features in the Scala implementation of Dhall
+
+>>>>>>> Stashed changes
 - [x] Dhall values of function types are converted to Scala functions. For example, `λ(x : Natural) -> x + 1` is
   converted into a Scala function equivalent to `{ x : BigInt => x + 1 }`, which has type `Function1[BigInt, BigInt]`.
 

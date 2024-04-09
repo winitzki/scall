@@ -638,6 +638,21 @@ The hash value is computed from the _normal form_ of a Dhall expression, and onl
 For this reason, the hash value does not change after adding comments, reformatting the file, renaming local variables, or refactoring the program in any other way as long as the final evaluated expression in its normal form remains the same.
 
 ## Some features of the Dhall type system
+<<<<<<< Updated upstream
+=======
+
+### Working with records polymorphically
+
+"Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
+A function that requires its argument to have type `{ y : Bool }` will then accept an argument of type `{ x : Natural, y : Bool }`.
+(The value `x` will be simply ignored.)
+
+In those languages, the record type `{ y : Bool }` is actually treated as the type of "any record having a Boolean field `y` and possibly other unknown fields that we will ignore".
+
+Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
+
+TODO
+>>>>>>> Stashed changes
 
 ### The `assert` keyword and equality types
 
