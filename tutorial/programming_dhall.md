@@ -657,13 +657,7 @@ For this reason, the hash value of a Dhall program remains unchanged under any r
 For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
 The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
 
-<<<<<<< HEAD
 ## Some features of the Dhall type system
-<<<<<<< Updated upstream
-=======
-=======
-## Features of the Dhall type system
->>>>>>> master
 
 ### Working with records polymorphically
 
@@ -676,10 +670,6 @@ In those languages, the record type `{ y : Bool }` is actually treated as the ty
 Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
 
 TODO
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> master
 
 ### The `assert` keyword and equality types
 
