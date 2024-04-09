@@ -47,6 +47,12 @@ lazy val scall_core = (project in file("scall-core"))
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
     Compile / scalacOptions ++= Seq("-Ypatmat-exhaust-depth", "10"), // Cannot make it smaller than 10. Want to speed up compilation.
+    ThisBuild / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ykind-projector") // Seq("-Ykind-projector:underscores")
+        case Some((2, 12 | 13)) => Seq()                   // Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
+      }
+    },
     // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
     // That base directory should contain `./dhall-lang` and all files below that.
     Test / baseDirectory := (Test / resourceDirectory).value,
