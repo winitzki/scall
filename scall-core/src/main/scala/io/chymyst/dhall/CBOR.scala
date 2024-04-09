@@ -357,7 +357,7 @@ object CBORmodel {
   private def sortRecordFields(data: Map[String, CBORmodel]): Seq[(FieldName, Expression)] =
     data.toSeq.map { case (name, expr) => (FieldName(name), expr.toScheme) }
 
-  final case object CNull extends CBORmodel {
+  case object CNull extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.Null
 
     override def toString: String = "null"
@@ -365,7 +365,7 @@ object CBORmodel {
     override def toCbor1: DataItem = SimpleValue.NULL
   }
 
-  final case object CTrue extends CBORmodel {
+  case object CTrue extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.True
 
     override def toString: String = "true"
@@ -373,7 +373,7 @@ object CBORmodel {
     override def toCbor1: DataItem = SimpleValue.TRUE
   }
 
-  final case object CFalse extends CBORmodel {
+  case object CFalse extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.False
 
     override def toString: String = "false"
@@ -428,7 +428,7 @@ object CBORmodel {
       case '\t'                               => "\\t"
       case '"'                                => "\\\""
       case '\\'                               => "\\\\"
-      case c if c.toInt > 255 || c.toInt < 20 => s"\\u${c.toHexString.toUpperCase}"
+      case c if c.toInt > 255 || c.toInt < 20 => s"\\u${c.toInt.toHexString.toUpperCase}"
       case c                                  => c.toString
     }
 

@@ -179,7 +179,7 @@ object SyntaxConstants {
   }
 
   object ImportType {
-    final case object Missing extends ImportType[Nothing] {
+    case object Missing extends ImportType[Nothing] {
       override def safetyLevelRequired: Int = 1 // The `Missing` import is always a failure and cannot import anything else.
     }
 
@@ -430,18 +430,19 @@ object Syntax {
     import ExpressionScheme._
 
     def map[H](f: E => H): ExpressionScheme[H] = {
-      implicit val ff: E => H                       = f
-      implicit val ffOption: Option[E] => Option[H] = _ map f
+      implicit def ff(e: E): H = f(e)
 
-      implicit def fseq[A]: Seq[E] => Seq[H] = _ map f
+      implicit def ffOption(e: Option[E]): Option[H] = e map f
 
-      implicit def fseqE[A]: Seq[(A, E)] => Seq[(A, H)] = _ map { case (a, b) => (a, b) }
+      implicit def fseq[A](e: Seq[E]): Seq[H] = e map f
 
-      implicit def fseqOption[A]: Seq[(A, Option[E])] => Seq[(A, Option[H])] = _ map { case (a, b) => (a, b) }
+      implicit def fseqE[A](e: Seq[(A, E)]): Seq[(A, H)] = e map { case (a, b) => (a, b) }
 
-      implicit def flist[A]: List[(A, E)] => List[(A, H)] = _ map { case (a, b) => (a, b) }
+      implicit def fseqOption[A](e: Seq[(A, Option[E])]): Seq[(A, Option[H])] = e map { case (a, b) => (a, b) }
 
-      implicit def fImport[A]: ImportType[E] => ImportType[H] = _ map f
+      implicit def flist[A](e: List[(A, E)]): List[(A, H)] = e map { case (a, b) => (a, b) }
+
+      implicit def fImport[A](e: ImportType[E]): ImportType[H] = e map f
 
       this match {
         case Lambda(name, tipe, body)               => Lambda(name, tipe, body)
@@ -602,7 +603,7 @@ object Syntax {
     }
     // TODO: report issue: hash codes of DoubleLiteral(-0.0) and DoubleLiteral(+0.0) are the same even though hash codes of -0.0 and +0.0 are different.
     // Workaround: copy the hash of the Double value into the case class.
-    final case class DoubleLiteral private (value: Double, hash: Int)              extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class DoubleLiteral(value: Double, hash: Int)                       extends ExpressionScheme[Nothing] with VarPrecedence {
       override def equals(other: Any): Boolean = other.isInstanceOf[DoubleLiteral] && {
         val otherValue = other.asInstanceOf[DoubleLiteral].value
         (value == otherValue) || (value.isNaN && otherValue.isNaN)
@@ -721,7 +722,7 @@ object Syntax {
     }
 
     // The hex string must be lowercase.
-    final case class BytesLiteral private (hex: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class BytesLiteral(hex: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       val bytes: Array[Byte] = hexStringToByteArray(hex)
     }
 
@@ -735,7 +736,7 @@ object Syntax {
       lazy val toLocalDate: LocalDate = LocalDate.of(year, month, day)
     }
 
-    final case class TimeLiteral private (hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
+    final case class TimeLiteral(hours: Int, minutes: Int, seconds: Int, nanosPrinted: String) extends ExpressionScheme[Nothing] with VarPrecedence {
       lazy val cborTotalSeconds: BigInt = BigInt(seconds.toString + nanosPrinted)
 
       // This is a negative number such that cborTotalSeconds * math.pow(10, cborPrecision) = seconds + math.pow(10, -9)*nanoSeconds
@@ -897,12 +898,12 @@ object Syntax {
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
     def exprCount: Int = {
-      implicit val monoidInt: Monoid[Int] = new Monoid[Int] {
+      implicit val monoidInt: Monoid[Int]                         = new Monoid[Int] {
         override def empty: Int = 1
 
         override def combine(a: Int, b: Int): Int = a + b
       }
-      implicit val monoidConst            = Monoid.trivialApplicative[Int]
+      implicit val monoidConst: Applicative[Monoid.Const[Int, *]] = Monoid.trivialApplicative[Int]
       traverseRecursive[Monoid.Const[Int, *]] { a => 1 }
     }
 
@@ -1094,7 +1095,7 @@ object Syntax {
   object PathComponent {
     final case class Label(fieldName: FieldName) extends PathComponent
 
-    final case object DescendOptional extends PathComponent {
+    case object DescendOptional extends PathComponent {
       override def isOptionalLabel: Boolean = true
     }
   }

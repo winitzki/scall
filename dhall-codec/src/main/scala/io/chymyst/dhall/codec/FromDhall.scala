@@ -18,34 +18,38 @@ import scala.language.{dynamics, implicitConversions, reflectiveCalls}
 sealed trait DhallKinds
 
 object DhallKinds {
-  final case object Type extends DhallKinds
-  final case object Kind extends DhallKinds
-  final case object Sort extends DhallKinds
+  case object Type extends DhallKinds
+  case object Kind extends DhallKinds
+  case object Sort extends DhallKinds
 }
 
 object DhallBuiltinFunctions {
-  val List_length: Tag[_] => List[Any] => Natural                    = _ => _.length
-  val List_reverse: Tag[_] => List[Any] => List[Any]                 = _ => _.reverse
-  val List_head: Tag[_] => List[Any] => Option[Any]                  = _ => _.headOption
-  val List_last: Tag[_] => List[Any] => Option[Any]                  = _ => _.lastOption
-  val List_indexed: Tag[_] => List[Any] => List[DhallRecordValue]    = tag =>
+  trait NaturalBuildArg {
+    def apply[A]: (A => A) => A => A
+  }
+
+  val List_length: Tag[_] => List[Any] => Natural                   = _ => _.length
+  val List_reverse: Tag[_] => List[Any] => List[Any]                = _ => _.reverse
+  val List_head: Tag[_] => List[Any] => Option[Any]                 = _ => _.headOption
+  val List_last: Tag[_] => List[Any] => Option[Any]                 = _ => _.lastOption
+  val List_indexed: Tag[_] => List[Any] => List[DhallRecordValue]   = tag =>
     _.zipWithIndex.map { case (a, i) => DhallRecordValue(Map(FieldName("index") -> (BigInt(i), Tag[Natural]), FieldName("value") -> (a, tag))) }
-  val Date_show: LocalDate => String                                 = _.toString
-  val Double_show: Double => String                                  = _.toString
-  val Integer_clamp: BigInt => Natural                               = x => if (x < 0) BigInt(0) else x
-  val Integer_negate: BigInt => BigInt                               = -_
-  val Integer_show: BigInt => String                                 = _.toString(10)
-  val Integer_toDouble: BigInt => Double                             = _.toDouble
-  val Natural_even: Natural => Boolean                               = _ % 2 == 0
-  val Natural_isZero: Natural => Boolean                             = _ == 0
-  val Natural_odd: Natural => Boolean                                = _ % 2 != 0
-  val Natural_show: Natural => String                                = _.toString(10)
-  val Natural_subtract: Natural => Natural => Natural                = x => y => y - x
-  val Natural_toInteger: Natural => BigInt                           = identity
-  val Natural_build: { def apply[A]: (A => A) => A => A } => Natural = { build =>
+  val Date_show: LocalDate => String                                = _.toString
+  val Double_show: Double => String                                 = _.toString
+  val Integer_clamp: BigInt => Natural                              = x => if (x < 0) BigInt(0) else x
+  val Integer_negate: BigInt => BigInt                              = -_
+  val Integer_show: BigInt => String                                = _.toString(10)
+  val Integer_toDouble: BigInt => Double                            = _.toDouble
+  val Natural_even: Natural => Boolean                              = _ % 2 == 0
+  val Natural_isZero: Natural => Boolean                            = _ == 0
+  val Natural_odd: Natural => Boolean                               = _ % 2 != 0
+  val Natural_show: Natural => String                               = _.toString(10)
+  val Natural_subtract: Natural => Natural => Natural               = x => y => y - x
+  val Natural_toInteger: Natural => BigInt                          = identity
+  val Natural_build: NaturalBuildArg => Natural                     = { build =>
     build.apply[Natural](x => x + 1)(BigInt(0))
   }
-  val Natural_fold: Natural => Tag[_] => (Any => Any) => Any => Any  = { m => _ => update => init =>
+  val Natural_fold: Natural => Tag[_] => (Any => Any) => Any => Any = { m => _ => update => init =>
     @tailrec
     def loop(currentResult: Any, counter: Natural): Any =
       if (counter >= m) currentResult
@@ -182,7 +186,7 @@ object FromDhall {
                 variables2   = variables1 ++ Map(ExpressionScheme.Variable(name, BigInt(0)) -> varX)
                 bodyAsScala <- valueAndType(body, variables2, dhallVars2)
               } yield {
-                val lambda = { x: Any =>
+                val lambda = { (x: Any) =>
                   varXValue = x
                   bodyAsScala.value
                 }
@@ -345,7 +349,7 @@ object FromDhall {
                 case Builtin.ListLength       => result(List_length, Tag[Tag[_] => List[Any] => Natural])
                 case Builtin.ListReverse      => result(List_reverse, Tag[Tag[_] => List[Any] => List[Any]])
                 case Builtin.Natural          => result(Tag[Natural], Tag[Tag[Natural]])
-                case Builtin.NaturalBuild     => result(Natural_build, Tag[{ def apply[A]: (A => A) => A => A } => Natural])
+                case Builtin.NaturalBuild     => result(Natural_build, Tag[NaturalBuildArg => Natural])
                 case Builtin.NaturalEven      => result(Natural_even, Tag[Natural => Boolean])
                 case Builtin.NaturalFold      => result(Natural_fold, Tag[Natural => Tag[_] => (Any => Any) => Any => Any])
                 case Builtin.NaturalIsZero    => result(Natural_isZero, Tag[Natural => Boolean])

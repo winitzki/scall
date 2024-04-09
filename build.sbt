@@ -46,7 +46,12 @@ lazy val scall_core = (project in file("scall-core"))
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    Compile / scalacOptions ++= Seq("-Ypatmat-exhaust-depth", "10"), // Cannot make it smaller than 10. Want to speed up compilation.
+    Compile / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq()
+        case Some((2, 12 | 13)) => Seq("-Ypatmat-exhaust-depth", "10") // Cannot make it smaller than 10. Want to speed up compilation.
+      }
+    },
     ThisBuild / scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((3, _))       => Seq("-Ykind-projector") // Seq("-Ykind-projector:underscores")
@@ -55,7 +60,7 @@ lazy val scall_core = (project in file("scall-core"))
     },
     // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
     // That base directory should contain `./dhall-lang` and all files below that.
-    Test / baseDirectory := (Test / resourceDirectory).value,
+    Test / baseDirectory     := (Test / resourceDirectory).value,
     // addCompilerPlugin is a shortcut for libraryDependencies += compilerPlugin(dependency)
     // See https://stackoverflow.com/questions/67579041
     libraryDependencies ++=

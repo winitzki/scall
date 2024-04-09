@@ -205,7 +205,7 @@ object Semantics {
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
       matcher: PartialFunction[ExpressionScheme[Expression], Expression]
     ): Expression =
-      matcher.applyOrElse(bn(expr).scheme, { _: ExpressionScheme[Expression] => default })
+      matcher.applyOrElse(bn(expr).scheme, { (_: ExpressionScheme[Expression]) => default })
 
     expr.scheme match {
       // These expression types are already in beta-normal form.
