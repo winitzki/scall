@@ -3330,6 +3330,7 @@ let fmapC
 ### Generic forms of Church encoding
 
 Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
+We will denote that function by `LFix`, following Wadler's paper "Recursive types for free".
 
 For simple types:
 
@@ -3338,14 +3339,22 @@ let LFix : (Type → Type) → Type
   = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
 ```
 
-For type constructors:
+For type constructors with one type parameter, we may also define a convenience method `LFixT`:
 
 ```dhall
 let LFixT : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
-Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, `fmap` and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
+This is the same Church encoding as before, and we can easily express `LFixT` through `LFix`:
+
+```dhall
+let LFixT : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → λ(a : Type) → LFix (F a)
+```
+
+Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
+We will show such implementations later in this book.
 
 ### Existentially quantified types
 
@@ -3363,6 +3372,9 @@ The corresponding code in Scala is:
 sealed trait F[_]
 case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
+
+From the point of view of the program code, an existentially quantified type parameter is one that is present in a specific data constructor but absent from the overall data type.
+In the Haskell code, it is the type parameter `t`, and in the Scala code, it is `T`.
 
 The mathematical notation for `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
 
@@ -3580,6 +3592,8 @@ But Church encodings always give the **least fixpoints** of type equations.
 The least fixpoints give types that are also known as "inductive types".
 Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive" types.
 
+In this book, we will denote by `LFix F` the least fixpoint and by `GFix F` the greatest fixpoint of the type equation `T = F T`.
+
 Intuitively, the least fixpoint is the smallest data type `T` that satisfies `T = F T`.
 The greatest fixpoint is the largest possible data type that satisfies the same equation.
 
@@ -3589,7 +3603,7 @@ Iteration over the data stored in those structures will always terminate.
 Greatest fixpoints are, as a rule, lazily evaluated data structures that imitate infinite recursion.
 Iteration over those data structures is not expected to terminate.
 Those data structures are used only in ways that do not involve a full traversal of all data.
-It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
+It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
 
 As an example, consider the recursion scheme `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
@@ -3599,9 +3613,10 @@ let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >
 ```
 
 The type `List Text` is the least fixpoint of `T = F T`.
+(So, we may write `LFix F = List Text`.)
 A data structure of type `List Text` always stores a finite number of `Text` strings (although the list's length is not bounded in advance).
 
-The greatest fixpoint of `T = F T` is a (potentially infinite) stream of `Text` values.
+The greatest fixpoint `GFix F` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
@@ -3623,9 +3638,9 @@ This motivates the following implementation of the greatest fixpoint of `T = F T
 We take some unknown type `r` and implement `T` as a pair of types `r` and `r → F r`.
 To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
 
-So, the mathematical notation for the greatest fixpoint of `T = F T` is `T = ∃ r. r × (r → F r)`.
-The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
+So, the mathematical notation for the greatest fixpoint of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
 
+The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
 To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)`.
 We will call that type constructor `GF_T` and use it to define `GFix`:
 
@@ -4625,22 +4640,22 @@ This type equivalence holds under two assumptions:
 
 Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
 
-The Yoneda identity shown above is called "covariant" because it assumes that `F` is a covariant functor.
+The Yoneda identity shown above requires `F` to be a covariant functor.
 There is a corresponding Yoneda identity for contrafunctors `C`:
 
 ```dhall
 C A ≅ ∀(B : Type) → (B → A) → C B
 ```
 
-The two Yoneda identities just shown apply to universally quantified function types of a specific form.
-
-Similar type identities exist for existentially quantified types:
+The two Yoneda identities just shown will apply to universally quantified function types of a certain form.
+Similar type identities exist for certain _existentially_ quantified types:
 
 ```dhall
 F B ≅ Exists (λ(A : Type) → { seed : F A, step : A → B })
 
 C B ≅ Exists (λ(A : Type) → { seed : C A, step : B → A })
 ```
+Here it is required that `F` be a covariant functor and `C` a contravariant functor ("contrafunctor").
 
 These type equivalences are sometimes called **co-Yoneda identities**.
 In a mathematical notation, they look like `F B ≅ ∃ A. (F A) × (A → B)` and `C B ≅ ∃ A. (C A) × (B → A)`.
@@ -4655,9 +4670,9 @@ The Yoneda identities cannot be used with types of that form.
 There is a generalized identity that combines both forms of types:
 
 ```dhall
-∀(r : Type) → (F r → r) → G r  ≅  G C
+∀(r : Type) → (F r → r) → G r  ≅  G (LFix F)
 ```
-Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
+Here, `LFix F = ∀(r : Type) → (F r → r) → r` is the Church-encoded least fixpoint of `F`.
 
 This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
 This book calls it the "Church-Yoneda" identity.
