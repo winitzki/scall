@@ -625,12 +625,12 @@ In the file `UseSimpleModule.dhall`, we use the types and the values exported fr
 The code will not compile unless all types match, including the imported values.
 
 All fields of a Dhall record are always public.
-To make values in a Dhall module private, we should not put those values into the final exported record.
+To make values in a Dhall module private, we simply do not include those values into the final exported record.
 Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are part of the final exported value).
 
 In the example just shown, the file `SimpleModule.dhall` defined the local values `test` and `validate`.
 Those values are type-checked and computed inside the module but not exported.
-In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
+In this way, sanity checks or unit tests included within a module will be validated but will remain invisible to other modules.
 
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
@@ -675,10 +675,10 @@ That file may be imported via the following frozen import:
 ./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
 ```
 This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
-If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
+If the user modifies the file `simple.dhall` so that it evaluates to anything other than `3`, the hash value will become different and the frozen import will fail.
 
-The hash value is computed from the _normal form_ of a Dhall expression, and the normal form is computed only after successful type-checking.
-For this reason, the hash value of a Dhall program remains unchanged under any refactoring.
+Hash values are computed from the _normal form_ of Dhall expressions, and the normal forms are computed only after successful type-checking.
+For this reason, the hash value of a Dhall program remains unchanged under any valid refactoring.
 For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
 The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
 
@@ -781,12 +781,16 @@ let _ = assert : f "" === "()"    -- OK.
 
 ### Types, kinds, sorts
 
-Dhall treats types and values largely in the same way (except when typechecking, that is, when verifying that each value has the correct type).
+Types are different from values because each value has an assigned type, which is verified during typechecking.
+Other than that, Dhall treats types and values in similar way.
+Types may be assigned to variables, stored in records, and passed as function parameters.
 
-For instance, we may write `let a : Bool = True` to define a variable of type `Bool`, and we may also write `let b = Bool` to define a variable whose value is the type `Bool` itself.
+For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
+Here we use the type `Bool` as a type annotation for the variable `x`.
+But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
 
-Then we may use `b` in typechecking expressions such as `True : b`.
-The type of `b` itself will be `Type`.
+Then we may use `y` in typechecking expressions such as `x : y`.
+The type of `y` itself will be `Type`.
 
 To see the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -814,7 +818,7 @@ The same syntax works if `t` were a type parameter (a variable of type `Type`):
 λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
 
-Records and union types may contain types as well as values:
+Records and union types may mix types as well as values within the same data type:
 
 
 ```dhall
@@ -827,7 +831,28 @@ Records and union types may contain types as well as values:
 < A : Bool | B : Type >
 ```
 
-The symbol `Type` is itself treated as a special value whose type is `Kind`.
+Note that the built-in type constructors `List` and `Optional` are limited to values; one cannot create a `List` of types in the same way as one creates a list of integers.
+
+```dhall
+⊢ :let a = [ 1, 2, 3 ]
+
+a : List Natural
+
+⊢ :let b = [ Bool, Natural, Text ]
+
+Error: Invalid type for ❰List❱
+```
+
+If a "list of types" is desired, such a data structure needs to be defined separately.
+
+The symbol `Type` is itself treated as a special value whose type is `Kind`:
+
+```dhall
+⊢ :let p = Type
+
+p : Kind
+```
+
 Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
 ```dhall
@@ -840,7 +865,8 @@ Kind
 Kind
 ```
 
-As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`. The type of _that_ is `Kind`:
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`.
+The type of _that_ is `Kind`:
 
 ```dhall
 ⊢ :type { a : Natural, b : Type }
@@ -856,6 +882,22 @@ Any function that returns something containing `Type` will itself have the outpu
 ∀(t : Bool) → Kind
 ```
 
+Functions with parameters of type `Kind` can be used for creating complicated higher-order types, for example:
+
+```dhall
+⊢ :let f = λ(a : Kind) → a → a
+
+f : ∀(a : Kind) → Kind
+
+⊢ f Type
+
+Type → Type
+
+⊢ f (Type → Type)
+
+(Type → Type) → Type → Type
+```
+
 In turn, the symbol `Kind` is a special value of type `Sort`.
 Other type expressions involving `Kind` are also of type `Sort`:
 
@@ -867,21 +909,39 @@ Sort
 ⊢ :type Kind → Kind → Type
 
 Sort
+
+⊢ :type λ(a : Kind) → a → a
+
+∀(a : Kind) → Kind
+
+⊢ :type ∀(a : Kind) → Kind
+
+Sort
 ```
 
-However, the symbol `Sort` _does not_ itself have a type.
-It is a type error to use `Sort` in Dhall code.
+The symbol `Sort` is special: it _does not_ itself have a type.
+Because of that, it is a type error to use `Sort` in Dhall code in any way:
 
-This important design decision prevents Dhall from having to define an infinite hierarchy of "type universes".
-(This is done in fully dependently-typed languages such as Agda and Idris.
+```dhall
+⊢ :let a = Sort
+
+Error: ❰Sort❱ has no type, kind, or sort
+
+⊢ λ(s : Sort) → 0
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+
+This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
+That is needed in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
-Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.)
+Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.
 
-The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over infinitely many type universes.
+As a result, Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
 
-Because of this design, Dhall does not support any code that operates on `Kind` values ("kind polymorphism").
+Because of this design, Dhall does not support operating on the symbol `Kind` itself.
 Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
-One can define variables having those values, but that's about it.
+One can assign such values to variables, but that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -890,18 +950,19 @@ For instance, it is a type error to write a function that returns the symbol `Ki
 
 a : Sort
 
-⊢ λ(_: Kind) → a
+⊢ :let f = λ(_: Natural) → a
 
 Error: ❰Sort❱ has no type, kind, or sort
-
-1│ λ(_: Kind) →  a
 ```
 
-This is because Dhall requires a valid function type itself to have a type.
-The symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a type.
+This is because Dhall requires a function's type itself to have a type.
+The symbol `Kind` has type `Sort`, 
+so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
+But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
+As the function `f`'s type does not _itself_ have a type, Dhall raises a type error.
 
-There was at one time an effort to implement full "kind polymorphism" in Dhall.
-That would allow functions to manipulate `Kind` values.
+There was at one time an effort to implement a form of "kind polymorphism" in Dhall.
+That would allow functions to manipulate `Kind` values more freely.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
