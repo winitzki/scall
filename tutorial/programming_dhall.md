@@ -1768,13 +1768,13 @@ The code of those methods must be written in Dhall programs by hand.
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values ("typeclass instance values") used as explicit function arguments.
-Functions that require a typeclass constraint will add an extra argument that accepts evidence values.
+Typeclasses can be implemented in Dhall via evidence values (also known as "typeclass instance values").
+Those values are used as explicit function arguments to implement functions that require a typeclass constraint.
 
 This is somewhat similar to how Scala implements typeclasses.
-With that technique, one can define different typeclass instances if necessary.
+With that technique, one can define different typeclass instances for the same type, if necessary.
 
-In addition, Dhall's `assert` feature may be used to verify the typeclass laws.
+In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
@@ -4204,8 +4204,9 @@ let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
 
 ### Identity functor
 
-The identity functor is the type constructor `Id` such that `Id a = a`.
-It is a functor:
+The **identity functor** is the type constructor `Id` such that `Id a = a`.
+
+The functor evidence value for `Id` can be implemented as:
 
 ```dhall
 let Id = λ(a : Type) → a
@@ -4214,6 +4215,22 @@ let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f :
 ```
 
 ### Functor composition
+
+If `F` and `G` are two functors then the functor composition `H a = F (G a)` is also one.
+We compute the type via the combinator called `Compose`, which is analogous to the function combinator `compose` defined earlier in this book.
+
+```dhall
+let Compose : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F (G a)
+```
+
+The `Functor` evidence for `Compose F G` can be constructed automatically if the evidence values for `F` and `G` are known:
+
+```dhall
+let FunctorCompose : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → }
+```
 
 TODO contrafunctors too
 

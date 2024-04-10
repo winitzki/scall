@@ -1,7 +1,7 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Syntax.Expression.v
+import io.chymyst.dhall.Syntax.Expression.{toExpressionScheme, v}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalSubtract}
@@ -698,9 +698,18 @@ object Semantics {
     }
   }
 
+  // Shortcut: identical JVM object references are equivalent.
+  // But do not use x == y here, because that would incorrectly judge -0.0 === 0.0, which we don't want.
+  private def simpleEquivalence(x: Expression, y: Expression): Boolean = x.eq(y) || {
+    x.scheme match {
+      case DoubleLiteral(value) => false
+      case _                    => x == y // Equivalent as case classes.
+    }
+  }
+
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
-  def equivalent(x: Expression, y: Expression): Boolean = (x `eq` y) || (x == y) || {
+  def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
     val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
     val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
     val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)
