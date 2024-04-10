@@ -17,12 +17,12 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("substitute in a variable") {
     val variable = v("x")
-    val result = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
+    val result   = Semantics.substitute(variable, VarName("x"), 0, Variable(underscore, 0))
     expect(result.print == "_")
   }
 
   test("substitute in a lambda") {
-    val lam = (v("y") | ~Natural) -> v("x")
+    val lam    = (v("y") | ~Natural) -> v("x")
     val result = Semantics.substitute(lam, VarName("x"), 0, Variable(underscore, 0))
     expect(result.print == "λ(y : Natural) → _")
   }
@@ -35,14 +35,14 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("alpha-normalize record access") {
     val dhall = "{ x = \"foo\" }.x"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     val exprN = expr.betaNormalized
     expect(exprN.print == "\"foo\"")
   }
 
   test("correct precedence for imports with fallback") {
     val dhall = "./import1 ? ./import2"
-    val expr = Parser.parseDhall(dhall).get.value.value
+    val expr  = Parser.parseDhall(dhall).get.value.value
     expect(expr.print == "./import1 ? ./import2")
   }
 
@@ -262,9 +262,9 @@ class SimpleSemanticsTest extends DhallTest {
     Seq(
       """\(x: List Bool) -> List/head Bool (([] : List Bool) # x)""" -> "λ(x : List Bool) → List/head Bool x",
       """\(x: List Bool) -> List/last Bool (x # ([] : List Bool))""" -> "λ(x : List Bool) → List/last Bool x",
-      """\(x: List Bool) -> List/length Bool ([ True ] # x)""" -> "λ(x : List Bool) → 1 + List/length Bool x",
-      """\(x: List Bool) -> List/head Bool ([ True ] # x)""" -> "λ(x : List Bool) → Some True",
-      """\(x: List Bool) -> List/last Bool (x # [ True ])""" -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/length Bool ([ True ] # x)"""       -> "λ(x : List Bool) → 1 + List/length Bool x",
+      """\(x: List Bool) -> List/head Bool ([ True ] # x)"""         -> "λ(x : List Bool) → Some True",
+      """\(x: List Bool) -> List/last Bool (x # [ True ])"""         -> "λ(x : List Bool) → Some True",
     ).foreach { case (input, output) =>
       val normalized = input.dhall.betaNormalized
       expect(normalized.print == output)
@@ -274,12 +274,12 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("Text/replace various cases") {
     Map(
-      """ Text/replace "abc" "def" "abcxyzabc" """ -> """"defxyzdef"""",
-      """ Text/replace "abc" "def" "xyzabc" """ -> """"xyzdef"""",
-      """ Text/replace "abc" "def" "abcxyz" """ -> """"defxyz"""",
-      """ Text/replace "abc" "def" "abc" """ -> """"def"""",
-      """ Text/replace "abc" "def" "xyz" """ -> """"xyz"""",
-      """ Text/replace "" "def" "xyzabc" """ -> """"xyzabc"""",
+      """ Text/replace "abc" "def" "abcxyzabc" """           -> """"defxyzdef"""",
+      """ Text/replace "abc" "def" "xyzabc" """              -> """"xyzdef"""",
+      """ Text/replace "abc" "def" "abcxyz" """              -> """"defxyz"""",
+      """ Text/replace "abc" "def" "abc" """                 -> """"def"""",
+      """ Text/replace "abc" "def" "xyz" """                 -> """"xyz"""",
+      """ Text/replace "" "def" "xyzabc" """                 -> """"xyzabc"""",
       """\(x: Text) -> \(y: Text) -> Text/replace "" y x """ -> """λ(x : Text) → λ(y : Text) → x""",
       """\(x: Text) -> \(y: Text) -> Text/replace x y "" """ -> """λ(x : Text) → λ(y : Text) → """"",
     ).foreach { case (input, output) =>
@@ -386,8 +386,7 @@ class SimpleSemanticsTest extends DhallTest {
   }
 
   test("identity law of function composition") {
-    expect(
-      """
+    expect("""
         | let identity
         |    : ∀(A : Type) → ∀(x : A) → A
         |    = λ(A : Type) → λ(x : A) → x
@@ -421,23 +420,22 @@ class SimpleSemanticsTest extends DhallTest {
   }
 
   test("associativity rewrite 1") {
-    val right = "x + (y + z)".dhall
+    val right          = "x + (y + z)".dhall
     val rightRewritten = Semantics.betaNormalizeAndExpand(right, BetaNormalizingOptions(rewriteAssociativity = true)).scheme
-    val leftScheme = ExprOperator(Expression(ExprOperator(v("x"), Operator.Plus, v("y"))), Operator.Plus, v("z"))
-    val rightScheme = ExprOperator(v("x"), Operator.Plus, Expression(ExprOperator(v("y"), Operator.Plus, v("z"))))
+    val leftScheme     = ExprOperator(Expression(ExprOperator(v("x"), Operator.Plus, v("y"))), Operator.Plus, v("z"))
+    val rightScheme    = ExprOperator(v("x"), Operator.Plus, Expression(ExprOperator(v("y"), Operator.Plus, v("z"))))
     expect(right.scheme == rightScheme)
     expect(rightRewritten.scheme == leftScheme)
   }
 
   test("associativity rewrite 2") {
-    val left = "(x && y) && z".dhall
+    val left  = "(x && y) && z".dhall
     val right = "x && (y && z)".dhall
     expect(Semantics.equivalent(left, right))
   }
 
   test("associativity law of monoids") {
-    expect(
-      """
+    expect("""
         |let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
         |
         |      let monoidBool

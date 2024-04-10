@@ -698,7 +698,7 @@ object Semantics {
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = (x == y) || {
-    val options = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
+    val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
     val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
     val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)
     normalizedX.toCBORmodel.encodeCbor1 sameElements normalizedY.toCBORmodel.encodeCbor1
