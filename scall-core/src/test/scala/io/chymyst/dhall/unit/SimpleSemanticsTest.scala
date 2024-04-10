@@ -472,7 +472,7 @@ class SimpleSemanticsTest extends DhallTest {
         |        monoid_right_id_law = plus x e === x,
         |        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
         |       }
-        |       
+        |
         |let check_monoidBool_assoc_law =
         |            λ(x : Bool) →
         |            λ(y : Bool) →
@@ -495,3 +495,86 @@ class SimpleSemanticsTest extends DhallTest {
   }
 
 }
+/*
+ let identity
+     : ∀(A : Type) → ∀(x : A) → A
+     = λ(A : Type) → λ(x : A) → x
+
+ let compose_forward
+     : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
+     = λ(a : Type) →
+       λ(b : Type) →
+       λ(c : Type) →
+       λ(f : a → b) →
+       λ(g : b → c) →
+       λ(x : a) →
+         g (f x)
+
+ let Functor =
+       λ(F : Type → Type) →
+         { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+
+ let F
+     : Type → Type
+     = λ(A : Type) → { x : A, y : A, t : Bool }
+
+ let G
+     : Type → Type
+     = λ(A : Type) → < Left : Text | Right : A >
+
+ let functorF
+     : Functor F
+     = { fmap =
+           λ(A : Type) →
+           λ(B : Type) →
+           λ(f : A → B) →
+           λ(fa : F A) →
+             { x = f fa.x, y = f fa.y, t = fa.t }
+       }
+
+ let functorG
+     : Functor G
+     = { fmap =
+           λ(A : Type) →
+           λ(B : Type) →
+           λ(f : A → B) →
+           λ(ga : G A) →
+             merge
+               { Left = λ(t : Text) → (G B).Left t
+               , Right = λ(x : A) → (G B).Right (f x)
+               }
+               ga
+       }
+
+let functorLaws =
+      λ(F : Type → Type) →
+      λ(functor_F : Functor F) →
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+        let fmap = functor_F.fmap
+
+        in  { functor_id_law = fmap a a (identity a) ≡ identity (F a)
+            , functor_comp_law =
+                let fg = compose_forward a b c f g
+
+                let fmap_f = fmap a b f
+
+                let fmap_g = fmap b c g
+
+                let fmapf_fmapg =
+                      compose_forward (F a) (F b) (F c) fmap_f fmap_g
+
+                in  fmap a c fg ≡ fmapf_fmapg
+            }
+
+ let functor_laws_of_F = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+       {
+         identity_law = assert : (functorLaws F functorF a b c f g).functor_id_law,
+         composition_law = assert : (functorLaws F functorF a b c f g).functor_comp_law,
+       }
+    in True
+
+ */

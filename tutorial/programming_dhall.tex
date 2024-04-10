@@ -90,7 +90,7 @@
     morekeywords={{with,assert,merge}},
     otherkeywords={=,=>,<-,<\%,<:,>:,<,>,λ,∀,\#,@,:,[,],.,???},
     keywordstyle={\color{scalakeyword}},
-    morekeywords={[2]{Natural,Bytes,Location,Type,Kind,Sort,Bool,Double,Optional,True,False,None,List,Some,Left,Right,Either,Pair,Nothing,Any,Unit,Integer,Text}},
+    morekeywords={[2]{Natural,Bytes,Date,DateTime,TimeZone,Location,Type,Kind,Sort,Bool,Double,Optional,True,False,None,List,Some,Left,Right,Either,Pair,Nothing,Any,Unit,Integer,Text}},
     keywordstyle={[2]{\color{scalakeyword}}},
     commentstyle=\color{dkgreen},
     morecomment=[l][\color{dkgreen}]{--},
@@ -145,6 +145,7 @@
 }
 % lambda is 03BB
 \DeclareUnicodeCharacter{2200}{$\forall$}
+
 \begin{document}
     %\sloppy
 
@@ -159,6 +160,7 @@
 
     \tableofcontents{}
 
+    \setcounter{chapter}{-1}
     \mainmatter\pagenumbering{arabic}
     \global\long\def\bbnum#1{\custombb{#1}}%
 

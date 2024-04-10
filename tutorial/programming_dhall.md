@@ -1855,9 +1855,9 @@ let foldMap
 
 This code shows how to implement typeclass constraints in Dhall.
 
-### Checking the laws of monoids
+### Verifying the laws of monoids
 
-We may use Dhall's `assert` feature to verify typeclass laws symbolically.
+In some cases, Dhall's `assert` feature is able to verify typeclass laws symbolically.
 
 The `Monoid` typeclass has three laws: two identity laws and one associativity law.
 We can write `assert` expressions that verify those laws for any given evidence value of type `Monoid a`.
@@ -1929,7 +1929,7 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
   }
 ```
 
-### Checking the laws of functors
+### Verifying the laws of functors
 
 A functor's `fmap` function must satisfy the identity and the composition laws.
 In the Haskell syntax, these laws are (informally) written as:
@@ -1939,17 +1939,127 @@ In the Haskell syntax, these laws are (informally) written as:
  fmap (f . g) == (fmap f) . (fmap g)   -- Composition law.
 ```
 
-Given a specific type constructor and its `Functor` typeclass evidence, we may verify these laws symbolically:
+Given a specific type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
 
 ```dhall
 let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
-  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c)
+  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
     let fmap = functor_F.fmap
       in {
           functor_id_law = fmap a a (identity a) === identity (F a),
-          functor_comp_law = ,
+          functor_comp_law =
+            let fg = compose_forward a b c f g
+            let fmap_f = fmap a b f
+            let fmap_g = fmap b c g
+            let fmapf_fmapg = compose_forward (F a) (F b) (F c) fmap_f fmap_g
+              in fmap a c fg === fmapf_fmapg,
          }
 ```
+
+To verify the functor laws for a specific type, we need to write `assert` expressions for each of the laws separately.
+
+As an example, consider the type constructor `F` from the previous section:
+
+```dhall
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
+let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+  }
+let functor_laws = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+    { 
+      identity_law = assert : (functorLaws F functorF a b c f g).functor_id_law,
+      composition_law = assert : (functorLaws F functorF a b c f g).functor_comp_law,
+    }
+```
+
+The composition law is verified successfully.
+However, the assertion in `identity_law` fails:
+
+```dhall
+
+You tried to assert that this expression:
+
+↳ λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
+
+... is the same as this other expression:
+
+↳ λ(x : { t : Bool, x : a, y : a }) → x
+
+... but they differ
+```
+
+Dhall's reduction to normal form does not recognize that the record `{ t = fa.t, x = fa.x, y = fa.y }` is the same as `fa`.
+
+To get around this limitation, write the identity law separately like this:
+
+```dhall
+let identity_law_of_F = λ(a : Type) →
+    let id_F = λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
+      in assert : functorF.fmap a a (identity a) === id_F
+```
+
+Let us also try verifying the functor laws for the type constructor `G` from the previous section:
+
+```dhall
+let functor_laws_of_G = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+  { identity_law = assert : (functorLaws G functorG a b c f g).functor_id_law
+  , composition_law = assert : (functorLaws G functorG a b c f g).functor_comp_law
+  }
+```
+
+This time, the laws cannot be verified. Trying to verify the identity law, we get this error message:
+
+```dhall
+You tried to assert that this expression:
+
+↳ λ(ga : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : a >.Left t
+      , Right = λ(x : a) → < Left : Text | Right : a >.Right x
+      }
+      ga
+
+... is the same as this other expression:
+
+↳ λ(x : < Left : Text | Right : a >) → x
+
+... but they differ
+```
+
+Trying to verify the composition law, we get:
+
+```dhall
+You tried to assert that this expression:
+
+↳ λ(ga : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : c >.Left t
+      , Right = λ(x : a) → < Left : Text | Right : c >.Right (g (f x))
+      }
+      ga
+
+... is the same as this other expression:
+
+↳ λ(x : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : c >.Left t
+      , Right = λ(x : b) → < Left : Text | Right : c >.Right (g x)
+      }
+      ( merge
+          { Left = λ(t : Text) → < Left : Text | Right : b >.Left t
+          , Right = λ(x : a) → < Left : Text | Right : b >.Right (f x)
+          }
+          x
+      )
+
+... but they differ
+```
+
+Dhall does not simplify `merge` expressions when they are applied to a symbolic variable `x`.
+As soon as we substitute a specific value, say, `x = (G Bool).Left "abc"`, Dhall will be able to verify that the functor laws hold for `G`.
+
+Keeping such limitations in mind, we will try verifying typeclass laws as much as it can be done with Dhall's functionality.
 
 ### `Contrafunctor`
 
@@ -1971,6 +2081,33 @@ The corresponding evidence value is written as:
 let contrafunctor_C : Contrafunctor C
   = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
         λ(x : a) → fb (f x)
+  }
+```
+
+The laws of contrafunctors are similar to those of functors:
+
+
+```dhall
+let contrafunctorLaws = λ(F : Type → Type) → λ(contrafunctor_F : Contrafunctor F) →
+  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+    let cmap = contrafunctor_F.cmap
+      in {
+          contrafunctor_id_law = cmap a a (identity a) === identity (F a),
+          contrafunctor_comp_law =
+            let gf = compose_backward a b c g f
+            let cmap_f = cmap a b f
+            let cmap_g = cmap b c g
+            let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
+              in cmap a c gf === cmapf_cmapg,
+         }
+```
+
+We can verify those laws symbolically for the contrafunctor `C` shown above:
+
+```dhall
+let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+  { identity_law = assert : (contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_id_law
+  , composition_law = assert: ( contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_comp_law
   }
 ```
 
@@ -2237,32 +2374,21 @@ More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to ju
 
 We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
 
-### The Yoneda and Church-Yoneda identities
+In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
-The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case of the **covariant Yoneda identity**:
+```dhall
+∀(r : Type) → (p → r) → r ≅ p
+```
+
+This type equivalence is a special case of one of the **Yoneda identities**:
 
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
 Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
-Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identity does not apply to types of that form.
-
-There is a generalized **Church-Yoneda identity** that combines both forms of types:
-
-```dhall
-∀(r : Type) → (F r → r) → G r  ≅  G C
-```
-Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
-
-This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
-
-The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
+The Yoneda identities can be proved via the parametricity theorem.
 See the Appendix "Naturality and parametricity" for more details.
-
-The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
-In this book, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
 ### Church encoding in the curried form
 
@@ -3208,14 +3334,14 @@ Dhall's type system is powerful enough to be able to express the Church encoding
 For simple types:
 
 ```dhall
-let Church : (Type → Type) → Type
+let LFix : (Type → Type) → Type
   = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
 ```
 
 For type constructors:
 
 ```dhall
-let Church1 : (Type → Type → Type) → Type
+let LFixT : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
@@ -3390,7 +3516,25 @@ Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r
 
 #### Differences between existential and universal quantifiers
 
-The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
+We have introduced the type constructor `Exists` that helps us create existential types.
+
+```dhall
+let Exists : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+```
+
+We could define a type constructor `Forall` similarly, to create universally quantified types:
+
+```dhall
+let Forall : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → P r
+```
+
+These definitions allow us to write types such as `Exists P` and `Forall P` more quickly.
+
+Despite this superficial similarity, existentially quantified types have a significantly different behavior from universally quantified ones.
+
+We can work with values of existentially quantified types, such as `ep : Exists P`, by using the functions `pack` and `unpack`.
 
 To create a value `ep`, we call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
 The type `t` is set when we create the value `ep` and may be different for different such values.
@@ -3408,6 +3552,7 @@ let idText : Text → Text = identity Text
 
 When constructing `idText`, we use the type `Text` as the type parameter.
 After that, the type `Text` is exposed to the outside code because it is part of the type of `idText`.
+The outside code needs to adapt to that type so that the types match.
 
 When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or other type).
 But that type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.  
@@ -3423,7 +3568,7 @@ Because the code of `unpack_` receives `t` and `P t` as arguments, we will be ab
 For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
-In this sense, type quantifiers ensure encapsulation of the type `t` inside `ep`.
+In this sense, type quantifiers ensure encapsulation of the type `t` inside the value `ep`.
 
 ## Co-inductive ("infinite") types
 
@@ -4428,7 +4573,7 @@ The form of that law is determined by the type signature of the function and doe
 (So, all functions of that type will satisfy the same law.)
 
 The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
-For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a sub-language of Dhall.
+For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
 
 For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
 
@@ -4463,6 +4608,72 @@ For any Dhall type signature that involves type parameters, the parametricity th
 
 That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
 
+### The four Yoneda identities
+
+One of the important applications of the parametricity theorem is the type equivalences known as the **Yoneda identities**.
+
+There are four different Yoneda identities.
+An example of a Yoneda identity is the following type equivalence:
+
+```dhall
+F A ≅ ∀(B : Type) → (A → B) → F B
+```
+This type equivalence holds under two assumptions:
+
+- `F` is a covariant functor with a lawful `fmap` method
+- all functions of the type `∀(B : Type) → (A → B) → F B` are natural transformations that satisfy the appropriate naturality law
+
+Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
+
+The Yoneda identity shown above is called "covariant" because it assumes that `F` is a covariant functor.
+There is a corresponding Yoneda identity for contrafunctors `C`:
+
+```dhall
+C A ≅ ∀(B : Type) → (B → A) → C B
+```
+
+The two Yoneda identities just shown apply to universally quantified function types of a specific form.
+
+Similar type identities exist for existentially quantified types:
+
+```dhall
+F B ≅ Exists (λ(A : Type) → { seed : F A, step : A → B })
+
+C B ≅ Exists (λ(A : Type) → { seed : C A, step : B → A })
+```
+
+These type equivalences are sometimes called **co-Yoneda identities**.
+In a mathematical notation, they look like `F B ≅ ∃ A. (F A) × (A → B)` and `C B ≅ ∃ A. (C A) × (B → A)`.
+
+TODO
+
+### The two Church-Yoneda identities
+
+Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Yoneda identities cannot be used with types of that form.
+
+There is a generalized identity that combines both forms of types:
+
+```dhall
+∀(r : Type) → (F r → r) → G r  ≅  G C
+```
+Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
+
+This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+This book calls it the "Church-Yoneda" identity.
+
+
+That form (`∀(B : Type) → (A → B) → F B`) is superficially similar to that of the Church encoding (`∀(B : Type) → (F B → B) → B`) except for 
+
+
+TODO
+
+The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
+In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
+
+### Church encoding of mutually recursive types
+
+TODO
 
 ### Existential types: `pack` is a left inverse of `unpack`
 
