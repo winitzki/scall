@@ -464,12 +464,25 @@ class SimpleSemanticsTest extends DhallTest {
         |        monoid_right_id_law = { _1 = plus x e, _2 = x },
         |        monoid_assoc_law = { _1 = plus x (plus y z), _2 = plus (plus x y) z },
         |       }
-        |
-        |let check_monoidBool_assoc_id_law =
+        |let monoidLaws_eq = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
+        |  let plus = monoid_m.append
+        |  let e = monoid_m.empty
+        |    in {
+        |        monoid_left_id_law = plus e x === x,
+        |        monoid_right_id_law = plus x e === x,
+        |        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
+        |       }
+        |       
+        |let check_monoidBool_assoc_law =
         |            λ(x : Bool) →
         |            λ(y : Bool) →
         |            λ(z : Bool) →
         |              assert : (monoidLaws Bool monoidBool x y z).monoid_assoc_law._1 === (monoidLaws Bool monoidBool x y z).monoid_assoc_law._2
+        |let check_monoidBool_assoc_law_eq =
+        |            λ(x : Bool) →
+        |            λ(y : Bool) →
+        |            λ(z : Bool) →
+        |              assert : (monoidLaws_eq Bool monoidBool x y z).monoid_assoc_law
         |in True
         |""".stripMargin.dhall.typeCheckAndBetaNormalize().isValid)
   }

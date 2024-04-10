@@ -1874,18 +1874,17 @@ let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y
         monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
        }
 ```
-Note that we do not write `assert` expressions here.
-If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to see whether the laws hold.
-For instance, the expressions `plus e x` and `x` are different within the body of that function.
+Note that we did not write `assert` expressions here.
+If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
+For instance, the expressions `plus e x` and `x` are always going to be different _within the body of that function_.
 Those expressions will become the same only after we substitute a lawful implementation of a `Monoid` typeclass.
 
-We now check that the laws hold for the `Monoid` evidence values defined above:
+So, to check the laws we will need to write `assert` values corresponding to each law and a given typeclass evidence value.
+
+As an example, here is how we may check that the laws hold for the `Monoid` evidence value `monoidBool` defined above:
 
 ```dhall
 let check_monoidBool_left_id_law = assert : (monoidLaws Bool monoidBool).monoid_left_id.law
-let check_monoidNatural = monoidLaws Natural monoidNatural
-let check_monoidText = monoidLaws Text monoidText
-let check_monoidList = λ(a : Type) → monoidLaws (List a) (monoidList a)
 ```
 
 Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
@@ -1912,12 +1911,17 @@ Here is a `Functor` evidence value for `List`. The `fmap` function is already av
 let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
 ```
 
-As another example, let us write the evidence values for the type constructors `F` and `G` shown in the section "Functors and bifunctors":
+As another example, let us write the evidence values for the type constructors `F` and `G` shown in the chapter "Covariant and contravariant type constructors":
 
 ```dhall
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
 let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
     { x = f fa.x, y = f fa.y, t = fa.t }
   }
+
+let G : Type → Type
+  = λ(a : Type) → < Left : Text | Right : a >
 let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
     merge { Left = λ(t : Text) → (G B).Left t
           , Right = λ(x : A) → (G B).Right (f x)
@@ -1927,7 +1931,25 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
 
 ### Checking the laws of functors
 
-TODO
+A functor's `fmap` function must satisfy the identity and the composition laws.
+In the Haskell syntax, these laws are (informally) written as:
+
+```haskell
+ fmap id == id    -- Identity law
+ fmap (f . g) == (fmap f) . (fmap g)   -- Composition law.
+```
+
+Given a specific type constructor and its `Functor` typeclass evidence, we may verify these laws symbolically:
+
+```dhall
+let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
+  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c)
+    let fmap = functor_F.fmap
+      in {
+          functor_id_law = fmap a a (identity a) === identity (F a),
+          functor_comp_law = ,
+         }
+```
 
 ### `Contrafunctor`
 
