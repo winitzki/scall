@@ -14,7 +14,7 @@ class MacrosTest extends FunSuite {
     }
     object TestTrait          {
       final case class Y1(x: String, y: Int) extends TestTrait[Int]
-      case object Y2                   extends TestTrait[Nothing]
+      case object Y2                         extends TestTrait[Nothing]
       // final case class Y3[X, XX](xx: XX, y: Boolean) extends TestTrait[X]
     }
     val subclasses = Macros.knownSubclasses[TestTrait[Double]]
@@ -22,7 +22,7 @@ class MacrosTest extends FunSuite {
     println(subclasses)
 
     sealed trait Tr[A]
-    case object X0                  extends Tr[Int]
+    case object X0                        extends Tr[Int]
     final case class X1[A](x: A)          extends Tr[A]
     final case class X2[B](x: Int)        extends Tr[Float]
     final case class X3[A, B](x: A, y: B) extends Tr[B] // whatever

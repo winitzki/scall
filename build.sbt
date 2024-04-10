@@ -1,6 +1,6 @@
 val scala2V = "2.13.13"
-val scala3V = "3.3.3"
-val scalaV  = scala3V
+val scala3V = "3.4.1"
+val scalaV  = scala2V
 
 def munitFramework = new TestFramework("munit.Framework")
 

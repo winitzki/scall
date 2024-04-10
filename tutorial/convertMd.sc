@@ -1,6 +1,6 @@
 //> using dep com.lihaoyi::fastparse:3.0.2
 
-//> using scala 3.3.3
+//> using scala 3.4.1
 
 import fastparse.*
 import fastparse.NoWhitespace.*
@@ -183,8 +183,8 @@ def textualToLatex: Textual => String = {
 }
 
 def languageOption(str: String): String =
-  val replaced = if str equalsIgnoreCase "dhall" then "haskell" else str
-  val capitalized = (if replaced equalsIgnoreCase "haskell" then "" else replaced).capitalize
+  val replaced = if str `equalsIgnoreCase` "dhall" then "haskell" else str
+  val capitalized = (if replaced `equalsIgnoreCase` "haskell" then "" else replaced).capitalize
   if capitalized.isEmpty then "" else s"[language=$capitalized]"
 
 def toLatex: Markdown => String = {
@@ -209,7 +209,7 @@ def toLatex: Markdown => String = {
 }
 
 def main(): Unit =
-  val result = parse(System.in, markdown(_)).get.value
+  val result = parse(System.in, markdown).get.value
   println(result.map(toLatex).mkString("\n"))
 
 

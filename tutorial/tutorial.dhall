@@ -506,6 +506,38 @@ let _typeclasses_examples =
                     ga
             }
 
+      let Const = λ(c : Type) → λ(a : Type) → c
+
+      let functorConst
+          : ∀(c : Type) → Functor (Const c)
+          = λ(c : Type) →
+              { fmap =
+                  λ(a : Type) →
+                  λ(b : Type) →
+                  λ(f : a → b) →
+                    identity (Const c a)
+              }
+
+      let Contrafunctor =
+            λ(F : Type → Type) →
+              { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+
+      let contrafunctorConst
+          : ∀(c : Type) → Contrafunctor (Const c)
+          = λ(c : Type) →
+              { cmap =
+                  λ(a : Type) →
+                  λ(b : Type) →
+                  λ(f : a → b) →
+                    identity (Const c a)
+              }
+
+      let Id = λ(a : Type) → a
+
+      let functor_Id
+          : Functor Id
+          = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
+
       let Monad =
             λ(F : Type → Type) →
               { pure : ∀(a : Type) → a → F a

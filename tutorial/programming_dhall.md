@@ -9,7 +9,9 @@ Although most code examples are in Dhall, much of the material of the book has a
 It studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
 which is known in the academic literature as "System Fω".
 
-Dhall was designed as an open-source language for programmable configuration files.
+Dhall is positioned as an open-source language for programmable configuration files.
+The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall. 
+
 From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
 For a more theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
@@ -926,6 +928,10 @@ let f : ∀(x : Text) → Text
   = λ(x : Text) → "${x}..."
 ```
 
+To summarize: `λ(x : a) → ...` is a function and can be applied to an argument.
+But `∀(x : a) → ...` is a type; it is not a function and cannot be applied to an argument.
+
+
 A side note: The type expression `∀(x : Text) → Text` does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
 But Dhall will internally rewrite that to the normal form `∀(_ : Text) → Text`.
 
@@ -988,10 +994,9 @@ let identity = λ(A : Type) → λ(x : A) → x
 let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 ```
 
-All type parameters and all value parameters need to be written explicitly.
 This makes Dhall code more verbose, but also helps remove "magic" from the syntax.
 
-### Dependent types
+### Dependent types in Dhall
 
 Dependent types are, by definition, types that depend on _values_.
 
@@ -1027,7 +1032,7 @@ let f
 The result of evaluating `f False` is the _type_ `Text` itself.
 The type of `f` is an example of a "dependent type", that is, a type that depends on a value `x`.
 
-Such functions can be used in type signatures to create dependently-typed functions (that is, functions whose types depend on the values of their input arguments):
+This `f` can be used as a type signature for a **dependently-typed function** (that is, a function whose output types depend on the values of the input arguments):
 
 ```dhall
 ∀(x : Bool) → ∀(y : f x) → Text
@@ -1038,6 +1043,7 @@ Here, the type of the argument `y` must be `Natural` or `Text` depending on the 
 For an example of using dependent types for implementing safe division, see below in the section about arithmetic operations.
 
 One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
+The main limitation is that Dhall cannot correctly infer types that depend on values in the `if/then/else` expressions or in pattern-matching expressions.
 
 The following example shows that Dhall does not recognize that a value of a dependent type is well-typed inside an `if` branch.
 
@@ -4180,51 +4186,56 @@ let functorConst : ∀(c : Type) → Functor (Const c)
   = λ(c : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
 
-The constant functor does not change under `fmap`, so is at the same time a contrafunctor.
-An evidence value for `Contrafunctor (Const c) can be written similarly:
+Because the implementation of `fmap f` is just an identity function, a value of a constant functor type does not change under `fmap`.
+So, a constant functor is at the same time a contrafunctor.
+An evidence value for `Contrafunctor (Const c)` can be written as:
 
 ```dhall
 let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
   = λ(c : Type) → { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
 
-#### Identity functor
+### Identity functor
 
 The identity functor is the type constructor `Id` such that `Id a = a`.
 It is a functor:
 
 ```dhall
-let Id = ∀(a : Type) → a
+let Id = λ(a : Type) → a
+
 let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
 ```
 
-#### Functor composition
+### Functor composition
 
 TODO contrafunctors too
 
-#### Functor product
+### Functor product
 
-#### Functor co-product
+### Functor co-product
 
-#### Function types with functors and contrafunctors
+### Function types with functors and contrafunctors
 
+### Least and greatest fixpoints
 
+### Universal and existential type quantifiers
 
-## Filterable functors and contrafunctors
+## Filterable functors and contrafunctors, and their combinators
 
-## Applicative covariant and contravariant functors
+## Applicative functors and contrafunctors, and their combinators
 
 ## Traversable functors
 
-## Monads
+## Monads and their combinators
 
 ## Monad transformers
 
-## Free monads
 
-## Free instances of other typeclasses
+## Free typeclasses
 
 ### Free semigroup and free monoid
+
+### Free monad
 
 ### Free functor
 
