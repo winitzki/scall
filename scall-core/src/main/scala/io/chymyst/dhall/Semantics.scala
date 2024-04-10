@@ -154,24 +154,27 @@ object Semantics {
 
   val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
-  val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
+  final case class ExprWithOptions(expr: Expression, options: BetaNormalizingOptions)
+
+  val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[ExprWithOptions, ExprWithOptions](maxCacheSize))
 
   val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
   def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
-    cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, options).expr)
+    cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
 
-  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false, rewriteAssociativity: Boolean = true)
+  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false, rewriteAssociativity: Boolean = false)
 
-  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression = cacheBetaNormalize.get(expr) match {
-    case Some(normalized) => normalized
-    case None             =>
-      val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
-      if (didShortcut) {
-        //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
-        normalized
-      } else cacheBetaNormalize.getOrElseUpdate(expr, normalized)
-  }
+  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
+    cacheBetaNormalize.get(ExprWithOptions(expr, options)) match {
+      case Some(normalized) => normalized.expr
+      case None             =>
+        val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
+        if (didShortcut) {
+          //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
+          normalized
+        } else cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(normalized, options)).expr
+    }
 
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
@@ -697,7 +700,7 @@ object Semantics {
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
-  def equivalent(x: Expression, y: Expression): Boolean = (x == y) || {
+  def equivalent(x: Expression, y: Expression): Boolean = (x `eq` y) || (x == y) || {
     val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
     val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
     val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)

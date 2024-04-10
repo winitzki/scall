@@ -209,7 +209,7 @@ def toLatex: Markdown => String = {
 }
 
 def main(): Unit =
-  val result = parse(System.in, markdown).get.value
+  val result = parse(System.in, markdown(_)).get.value
   println(result.map(toLatex).mkString("\n"))
 
 

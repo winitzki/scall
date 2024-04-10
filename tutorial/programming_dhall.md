@@ -1888,6 +1888,9 @@ let check_monoidText = monoidLaws Text monoidText
 let check_monoidList = λ(a : Type) → monoidLaws (List a) (monoidList a)
 ```
 
+Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
+Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
+
 ### `Functor`
 
 The `Functor` typeclass is a constraint for a _type constructor_.
@@ -1921,6 +1924,10 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
           } ga  
   }
 ```
+
+### Checking the laws of functors
+
+TODO
 
 ### `Contrafunctor`
 
