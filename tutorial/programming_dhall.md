@@ -4841,19 +4841,36 @@ let outP : EP → F A = λ(ep : EP) → ep (F A) stepP
 We now prove that the compositions of `inP` with `outP` in both directions are identity functions.
 
 First direction: for any `fa : F A`, we compute `ep : EP = inP fa` and `faNew : F A = outP ep`.
-We need to show that `faNew == fa`.
+We need to show that `faNew === fa`.
 
 ```dhall
-faNew === outP ep  -- Substitute the definitions of faNew and ep.
-  === outP (packEP A { seed = fa, step = identity A }) -- Use the definition of outP.
-  === packEP A { seed = fa, step = identity A } (F A) stepP  -- Use the definition of packE.
-  === stepP A { seed = fa, step = identity A }  -- Use the definition of stepP.
+faNew === outP ep  -- Expand the definitions of faNew and ep.
+  === outP (packEP A { seed = fa, step = identity A }) -- Expand outP.
+  === packEP A { seed = fa, step = identity A } (F A) stepP  -- Expand packEP.
+  === stepP A { seed = fa, step = identity A }  -- Expand stepP.
   === fmap_F A A (identity A) fa  -- Use fmap_F's identity law.
   === fa
 ```
 
 Second direction: for any `ep : EP`, we compute `fa : F A = outP ep` and `epNew : EP = inP fa`.
-We need to show that `epNew == ep`.
+We need to show that `epNew === ep`.
+Both `ep` and `epNew` are functions of type `EP = ∀(R : Type) → (∀(T : Type) → P T → R) → R`.
+We will show that they are equal if we prove that `epNew R c === ep R c` for any type `R`
+and for any function `c : ∀(T : Type) → P T → R`.
+
+```dhall
+epNew R c === inP fa R c
+  === packEP A { seed = outP ep, step = identity A } R c
+  === c A { seed = outP ep, step = identity A }
+```
+
+To proceed, we note that the function `c` has the type signature of a natural transformation (with respect to its type parameter `T`).
+So, `c` satisfies the corresponding naturality law.
+For any types `T`, `U`, and for any `f : T → U`, the following equation holds:
+
+```dhall
+c 
+```
 
 TODO
 
