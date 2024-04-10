@@ -1690,7 +1690,7 @@ Using `assert` under a lambda with type parameters, we can verify a wide range o
 
 ### Functors and `fmap`
 
-In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
 
 Those type constructors are also called "covariant functors".
 For type constructors, "covariant" means "has a lawful `fmap` method".
@@ -1700,9 +1700,9 @@ Note that this definition of "covariant" does not need subtyping and depends onl
 The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
 
 A simple example of a functor is a record with two values of type `a` and a value of a fixed type `Bool`.
-The `fmap` function transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
+The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
 
-In Haskell, that type constructor and its `fmap` function are defined by:
+In Haskell, that type constructor and its `fmap` method are defined by:
 
 ```haskell
 data F a = F a a Bool
@@ -1770,14 +1770,14 @@ cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
 We will call contravariant type constructors **contrafunctors** for short.
 
 The intuition behind contrafunctors is that they represent functions that _consume_ (zero or more) data items of any given type.
-The `cmap` function transforms data items (_before_ they are consumed) into data items of another type.
+The `cmap` method transforms data items (_before_ they are consumed) into data items of another type.
 
 A simple example of a contrafunctor is:
 
 ```dhall
 let C = λ(a : Type) → a → Text
 ```
-The corresponding `cmap` function is written as:
+The corresponding `cmap` method is written as:
 
 ```dhall
 let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
@@ -1849,6 +1849,8 @@ class Monoid m where
   mappend :: m → m → m
 ```
 
+The values `mempty` and `mappend` are the **typeclass methods** of the monoid typeclass.
+
 In Scala, a corresponding definition is:
 
 ```scala
@@ -1858,7 +1860,9 @@ trait Monoid[M] {
 }
 ```
 
-An evidence value needs to contain a value of type `m` and a function of type `m → m → m`.
+In Scala, the `Monoid` typeclass methods are called `empty` and `combine`.
+
+We see that an evidence value for `Monoid` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
 A value of that type provides evidence that the type `m` has the required methods for a monoid.
 
@@ -1957,7 +1961,7 @@ The `Functor` typeclass is a constraint for a _type constructor_.
 If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
-The required data for an evidence value is a polymorphic `fmap` function for that type constructor.
+The required data for an evidence value is a polymorphic `fmap` method for that type constructor.
 Let us now package that information into a `Functor` typeclass similarly to how we did with `Monoid`.
 
 Define the type constructor for evidence values:
@@ -1966,7 +1970,7 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
 ```
 
-Here is a `Functor` evidence value for `List`. The `fmap` function is already available in the Dhall standard prelude:
+Here is a `Functor` evidence value for `List`. The required `fmap` method is already available in the Dhall standard prelude:
 
 ```dhall
 let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
@@ -1992,7 +1996,7 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
 
 ### Verifying the laws of functors
 
-A functor's `fmap` function must satisfy the identity and the composition laws.
+A functor's `fmap` method must satisfy the identity and the composition laws.
 In the Haskell syntax, these laws are (informally) written as:
 
 ```haskell
@@ -2185,7 +2189,7 @@ is covariant in `a` and contravariant in `b`.
 
 In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
 
-To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` functions separately with respect to each type parameter.
+To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` methods separately with respect to each type parameter.
 It turns out that one can combine the `fmap` and `cmap` methods into a single equivalent method that works at once on both type parameters.
 For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
 
@@ -2534,7 +2538,7 @@ Later we will see that the same techniques work for Church-encoded type construc
 An important requirement is that the recursion scheme `F` should be a _covariant_ type constructor.
 If this is not so, Church encoding does not work as expected.
 
-We will assume that `F` has a known and lawful `fmap` function that we denote by `fmapF`.
+We will assume that `F` has a known and lawful `fmap` method that we denote by `fmapF`.
 So, all Dhall code below assumes a given set of definitions of this form:
 
 ```dhall
@@ -3340,7 +3344,7 @@ Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's stand
 
 ### Example: implementing `fmap`
 
-A type constructor `F` is **covariant** if it admits an `fmap` function with the type signature:
+A type constructor `F` is **covariant** if it admits an `fmap` method with the type signature:
 
 ```dhall
 fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
@@ -4595,7 +4599,7 @@ let naturality_law =
 A naturality law of `t` describes what happens when we apply the transformation `t` to a data container.
 We can apply `t` to transform `F A → G A`, followed an `fmap`-based transformation (`G A → G B`).
 
-(An `fmap` function does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
+(A lawful `fmap` method does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
 
 We can also first apply `fmap_F` to transform `F A → F B` and then apply `t` to transform `F B → G B`.
 The final results of type `G B` will be the same.
@@ -4720,6 +4724,92 @@ Here it is required that `F` be a covariant functor and `C` a contravariant func
 
 These type equivalences are sometimes called **co-Yoneda identities**.
 In a mathematical notation, they look like `F B ≅ ∃ A. (F A) × (A → B)` and `C B ≅ ∃ A. (C A) × (B → A)`.
+
+In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
+Proofs for the contravariant versions are quite similar.
+
+#### Proof of the covariant Yoneda identity
+
+We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to the type of natural transformations `∀(B : Type) → (A → B) → F B`.
+For brevity, let us denote that type by `Y A`:
+
+```dhall
+let Y = λ(A : Type) → ∀(B : Type) → (A → B) → F B
+```
+
+It is assumed that the naturality laws hold for all natural transformations of type `Y A`, and that the functor laws hold for `F`'s `fmap_F` method.
+
+To demonstrate the type equivalence (an isomorphism), we implement two functions `inY` and `outY` that map between the two types:
+
+```dhall
+inY : ∀(A : Type) → F A → Y A
+  = λ(A : Type) → λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
+
+outY : ∀(A : Type) → Y A → F A
+  = λ(A : Type) → λ(ya : Y A) → ya A (identity A)
+```
+
+We begin by showing that, for any `fa : F A`, the value `inY A fa` is automatically a natural transformation of type `Y A`.
+This is necessary because we have imposed a requirement that any value of type `Y A` must be a natural transformation.
+
+The naturality law corresponding to the type `Y A = ∀(B : Type) → (A → B) → F B` says that, for any `ya : Y A` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
+
+```dhall
+ya C (compose_forward A B C f g) === fmap B C g (ya B f)
+```
+
+We substitute `ya = inY A fa` into the left-hand side of this naturality law:
+
+```dhall
+ya C (compose_forward A B C f g)   -- Substitute the definition of ya.
+  === inY A fa C (compose_forward A B C f g)  -- Substitute the definition of inY.
+  === fmap_F A C (compose_forward A B C f g) fa  -- Use `fmap_F`'s composition law.
+  === fmap_F B C g (fmap_F A B f fa)
+```
+
+Now we write the right-hand side of the naturality law:
+
+```dhall
+fmap_F B C g (ya B f)  --- Substitute the definition of ya.
+  === fmap_F B C g (inY A fa B f)  -- Substitute the definition of inY.
+  === fmap_F B C g (fmap_F A B f fa)
+```
+We obtain the same expression as from the left-hand side.
+So, the naturality law will hold automatically for values `ya` obtained via `inY`.
+
+Now we prove that the compositions of `inY A` with `outY A` in both directions are identity functions (when the type `A` is fixed).
+
+The first direction: for any given `fa : F A`, we compute `ya : Y A = inY A fa` and `faNew : F A = outY A ya`.
+Then we need to prove that `faNew === fa`:
+
+```dhall
+faNew === outY A ya  -- Substitute the definition of outY.
+  === ya A (identity A)   -- Substitute the definition of ya.
+  === inY A fa A (identity A)  -- Substitute the definition of inY.
+  === fmap_F A A (identity A) fa  -- Use the identity law of fmap_F.
+  === identity (F A) fa    -- Apply the identity function. 
+  === fa
+```
+This depends on the identity law of `fmap_F`, which holds by assumption.
+
+The second direction: for any given `ya : Y A`, we compute `fa : F A = outY A ya` and `yaNew : Y A = inY A fa`.
+Then we need to prove that `yaNew === ya`.
+Both `ya` and `yaNew` are functions, so we need to show that those functions give the same results when applied to arbitrary arguments.
+Take any type `B` and any `f : A → B`.
+Then we need to show that `yaNew B f === ya B f`.
+
+```dhall
+yaNew B f === inY A fa B f  -- Substitute the definition of inY.
+  === fmap_F A B f fa  -- Substitute the defiition of fa.
+  === fmap_F A B f (outY A ya)  --- Substitute the definition of outY.
+  === fmap_F A B f (ya A (identity A))  -- Use the naturality law of ya.
+  === ya B (compose_forward A A B (identity A) f)  -- Compute composition.
+  === ya B f
+```
+
+This completes the proof of the isomorphism between `F A` and `Y A`.
+
+#### Proof of the covariant co-Yoneda identity
 
 TODO
 
