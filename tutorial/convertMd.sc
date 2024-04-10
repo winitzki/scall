@@ -7,7 +7,6 @@ import fastparse.NoWhitespace.*
 
 def end_of_line[$: P] = P("\n" | "\r\n")
 
-
 def space[$: P] = P(CharIn(" \t").rep(1))
 
 def not_end_of_line[$: P] = P(

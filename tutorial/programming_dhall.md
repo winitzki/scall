@@ -4716,14 +4716,14 @@ The two Yoneda identities just shown will apply to universally quantified functi
 Similar type identities exist for certain _existentially_ quantified types:
 
 ```dhall
-F B ≅ Exists (λ(A : Type) → { seed : F A, step : A → B })
+F A ≅ Exists (λ(B : Type) → { seed : F B, step : B → A })
 
-C B ≅ Exists (λ(A : Type) → { seed : C A, step : B → A })
+C A ≅ Exists (λ(B : Type) → { seed : C B, step : A → B })
 ```
 Here it is required that `F` be a covariant functor and `C` a contravariant functor ("contrafunctor").
 
 These type equivalences are sometimes called **co-Yoneda identities**.
-In a mathematical notation, they look like `F B ≅ ∃ A. (F A) × (A → B)` and `C B ≅ ∃ A. (C A) × (B → A)`.
+In a mathematical notation, they look like `F A ≅ ∃ B. (F B) × (B → A)` and `C A ≅ ∃ B. (C B) × (A → B)`.
 
 In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
 Proofs for the contravariant versions are quite similar.
@@ -4731,38 +4731,39 @@ Proofs for the contravariant versions are quite similar.
 #### Proof of the covariant Yoneda identity
 
 We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to the type of natural transformations `∀(B : Type) → (A → B) → F B`.
-For brevity, let us denote that type by `Y A`:
+
+For brevity, let us view `A` and `F` as fixed and denote by `Y` the type:
 
 ```dhall
-let Y = λ(A : Type) → ∀(B : Type) → (A → B) → F B
+let Y = ∀(B : Type) → (A → B) → F B
 ```
 
-It is assumed that the naturality laws hold for all natural transformations of type `Y A`, and that the functor laws hold for `F`'s `fmap_F` method.
+It is assumed that the naturality laws hold for all natural transformations of type `Y`, and that the functor laws hold for `F`'s `fmap_F` method.
 
 To demonstrate the type equivalence (an isomorphism), we implement two functions `inY` and `outY` that map between the two types:
 
 ```dhall
-inY : ∀(A : Type) → F A → Y A
-  = λ(A : Type) → λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
+inY : F A → Y
+  = λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
 
-outY : ∀(A : Type) → Y A → F A
-  = λ(A : Type) → λ(ya : Y A) → ya A (identity A)
+outY : Y → F A
+  = λ(y : Y) → y (identity A)
 ```
 
-We begin by showing that, for any `fa : F A`, the value `inY A fa` is automatically a natural transformation of type `Y A`.
-This is necessary because we have imposed a requirement that any value of type `Y A` must be a natural transformation.
+We begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
+This is necessary because we have imposed a requirement that any value of type `Y` must be a natural transformation.
 
-The naturality law corresponding to the type `Y A = ∀(B : Type) → (A → B) → F B` says that, for any `ya : Y A` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
+The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) → F B` says that, for any `y : Y` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
 
 ```dhall
-ya C (compose_forward A B C f g) === fmap B C g (ya B f)
+y C (compose_forward A B C f g) === fmap B C g (y B f)
 ```
 
-We substitute `ya = inY A fa` into the left-hand side of this naturality law:
+We substitute `y = inY fa` into the left-hand side of this naturality law:
 
 ```dhall
-ya C (compose_forward A B C f g)   -- Substitute the definition of ya.
-  === inY A fa C (compose_forward A B C f g)  -- Substitute the definition of inY.
+y C (compose_forward A B C f g)   -- Substitute the definition of y.
+  === inY fa C (compose_forward A B C f g)  -- Substitute the definition of inY.
   === fmap_F A C (compose_forward A B C f g) fa  -- Use `fmap_F`'s composition law.
   === fmap_F B C g (fmap_F A B f fa)
 ```
@@ -4770,46 +4771,89 @@ ya C (compose_forward A B C f g)   -- Substitute the definition of ya.
 Now we write the right-hand side of the naturality law:
 
 ```dhall
-fmap_F B C g (ya B f)  --- Substitute the definition of ya.
-  === fmap_F B C g (inY A fa B f)  -- Substitute the definition of inY.
+fmap_F B C g (y B f)  --- Substitute the definition of y.
+  === fmap_F B C g (inY fa B f)  -- Substitute the definition of inY.
   === fmap_F B C g (fmap_F A B f fa)
 ```
 We obtain the same expression as from the left-hand side.
-So, the naturality law will hold automatically for values `ya` obtained via `inY`.
+So, the naturality law will hold automatically for values `y` obtained via `inY`.
 
-Now we prove that the compositions of `inY A` with `outY A` in both directions are identity functions (when the type `A` is fixed).
+It remains to prove that the compositions of `inY` with `outY` in both directions are identity functions.
 
-The first direction: for any given `fa : F A`, we compute `ya : Y A = inY A fa` and `faNew : F A = outY A ya`.
+The first direction: for any given `fa : F A`, we compute `y : Y = inY fa` and `faNew : F A = outY y`.
 Then we need to prove that `faNew === fa`:
 
 ```dhall
-faNew === outY A ya  -- Substitute the definition of outY.
-  === ya A (identity A)   -- Substitute the definition of ya.
-  === inY A fa A (identity A)  -- Substitute the definition of inY.
+faNew === outY y  -- Substitute the definition of outY.
+  === y A (identity A)   -- Substitute the definition of y.
+  === inY fa A (identity A)  -- Substitute the definition of inY.
   === fmap_F A A (identity A) fa  -- Use the identity law of fmap_F.
   === identity (F A) fa    -- Apply the identity function. 
   === fa
 ```
 This depends on the identity law of `fmap_F`, which holds by assumption.
 
-The second direction: for any given `ya : Y A`, we compute `fa : F A = outY A ya` and `yaNew : Y A = inY A fa`.
-Then we need to prove that `yaNew === ya`.
-Both `ya` and `yaNew` are functions, so we need to show that those functions give the same results when applied to arbitrary arguments.
+The second direction: for any given `y : Y` that satisfies the naturality law, we compute `fa : F A = outY y` and `yNew : Y = inY fa`.
+Then we need to prove that `yNew === y`.
+Both `y` and `yNew` are functions, so we need to show that those functions give the same results when applied to arbitrary arguments.
 Take any type `B` and any `f : A → B`.
-Then we need to show that `yaNew B f === ya B f`.
+Then we need to show that `yNew B f === y B f`.
+This will require using the naturality law of `y`:
 
 ```dhall
-yaNew B f === inY A fa B f  -- Substitute the definition of inY.
+yNew B f === inY fa B f  -- Substitute the definition of inY.
   === fmap_F A B f fa  -- Substitute the defiition of fa.
-  === fmap_F A B f (outY A ya)  --- Substitute the definition of outY.
-  === fmap_F A B f (ya A (identity A))  -- Use the naturality law of ya.
-  === ya B (compose_forward A A B (identity A) f)  -- Compute composition.
-  === ya B f
+  === fmap_F A B f (outY y)  --- Substitute the definition of outY.
+  === fmap_F A B f (y A (identity A))  -- Use the naturality law of y.
+  === y B (compose_forward A A B (identity A) f)  -- Compute composition.
+  === y B f
 ```
 
-This completes the proof of the isomorphism between `F A` and `Y A`.
+This completes the proof of the isomorphism between `F A` and `Y`.
 
 #### Proof of the covariant co-Yoneda identity
+
+
+We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to `Exists (λ(B : Type) → { seed : F B, step : B → A })`.
+
+For brevity, let us view `F` and `A` as fixed and denote:
+
+```dhall
+let P = λ(B : Type) → { seed : F B, step : B → A }
+let EP = Exists P
+let packEP : ∀(B : Type) → ∀(p : P B) → EP
+  = λ(B : Type) → λ(p : P B) → λ(R : Type) → λ(pack_ : ∀(T : Type) → P T → R) → pack_ B p
+```
+Then the task is to prove the type equivalence `F A ≅ EP`.
+
+
+Begin by implementing two functions of types `F A → EP` and `EP → F A`.
+
+```dhall
+let inP : F A → EP = λ(fa : F A) → packEP A { seed = fa, step = identity A }
+
+let stepP : ∀(T : Type) → P T → F A
+  = λ(T : Type) → λ(pt : P T) → fmap_F T A pt.step pt.seed
+
+let outP : EP → F A = λ(ep : EP) → ep (F A) stepP
+```
+
+We now prove that the compositions of `inP` with `outP` in both directions are identity functions.
+
+First direction: for any `fa : F A`, we compute `ep : EP = inP fa` and `faNew : F A = outP ep`.
+We need to show that `faNew == fa`.
+
+```dhall
+faNew === outP ep  -- Substitute the definitions of faNew and ep.
+  === outP (packEP A { seed = fa, step = identity A }) -- Use the definition of outP.
+  === packEP A { seed = fa, step = identity A } (F A) stepP  -- Use the definition of packE.
+  === stepP A { seed = fa, step = identity A }  -- Use the definition of stepP.
+  === fmap_F A A (identity A) fa  -- Use fmap_F's identity law.
+  === fa
+```
+
+Second direction: for any `ep : EP`, we compute `fa : F A = outP ep` and `epNew : EP = inP fa`.
+We need to show that `epNew == ep`.
 
 TODO
 
