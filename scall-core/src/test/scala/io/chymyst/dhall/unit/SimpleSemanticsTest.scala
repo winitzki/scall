@@ -474,4 +474,11 @@ class SimpleSemanticsTest extends DhallTest {
         |""".stripMargin.dhall.typeCheckAndBetaNormalize().isValid)
   }
 
+  test("equivalence for Double literals") {
+    val x = "0.0".dhall
+    val y = "-0.0".dhall
+    expect(Semantics.equivalent(x, x))
+    expect(!Semantics.equivalent(x, y))
+  }
+
 }
