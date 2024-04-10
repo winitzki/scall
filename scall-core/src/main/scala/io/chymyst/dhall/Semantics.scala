@@ -269,9 +269,9 @@ object Semantics {
       case Annotation(data, _) => data.pipe(bn)
 
       case ExprOperator(lop, op, rop) =>
-        val ExprOperator(lopNbeforeRewrite, _, ropNbeforeRewrite) = normalizeArgs
+        lazy val ExprOperator(lopNbeforeRewrite, _, ropNbeforeRewrite) = normalizeArgs
 
-        val (lopN, ropN) = if (options.rewriteAssociativity) {
+        lazy val (lopN, ropN) = if (options.rewriteAssociativity) {
           ropNbeforeRewrite.scheme match {
             case ExprOperator(lopNested, `op`, ropNested) =>
               // Rewrite a right-associated operator expression:
@@ -286,7 +286,7 @@ object Semantics {
           }
         } else (lopNbeforeRewrite, ropNbeforeRewrite)
 
-        val normalizeArgsRewritten = Expression(ExprOperator(lopN, op, ropN))
+        lazy val normalizeArgsRewritten = Expression(ExprOperator(lopN, op, ropN))
 
         // Make sure we do not evaluate Bool expressions unnecessarily.
         def booleans(ifLeftFalse: => Expression, ifLeftTrue: => Expression): Expression =
