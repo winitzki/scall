@@ -1688,7 +1688,7 @@ Dhall requires the union type's constructors to be explicitly derived from the f
 In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
 But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
 
-In the code shown above, we were able to shorten those constructors to `(G b).Left` and `(G b).Right`.
+In the code shown above, we shortened those constructors to `(G b).Left` and `(G b).Right`.
 
 ### Contravariant functors ("contrafunctors")
 
@@ -1717,8 +1717,6 @@ let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → 
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
     λ(x : a) → fb (f x)
 ```
-
-TODO examples
 
 ### Bifunctors and `bimap`
 
@@ -1887,6 +1885,7 @@ let check_monoidList = λ(a : Type) → monoidLaws (List a) (monoidList a)
 ### `Functor`
 
 The `Functor` typeclass is a constraint for a _type constructor_.
+If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
 The required data for an evidence value is a polymorphic `fmap` function for that type constructor.
@@ -1925,7 +1924,46 @@ The typeclass for contrafunctors is defined by:
 let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
 ```
 
-TODO examples
+As an example, consider this simple contrafunctor `C`:
+
+
+```dhall
+let C = λ(a : Type) → a → Text
+```
+The corresponding evidence value is written as:
+
+```dhall
+let contrafunctor_C : Contrafunctor C
+  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
+        λ(x : a) → fb (f x)
+  }
+```
+
+### `Bifunctor` and `Profunctor`
+
+
+If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
+For example, the type constructor `F` defined by:
+
+```dhall
+let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+```
+is covariant in `a` and contravariant in `b`.
+
+In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
+
+To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` functions separately with respect to each type parameter.
+It turns out that one can combine the `fmap` and `cmap` methods into a single equivalent method that works at once on both type parameters.
+For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
+
+The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+
+```dhall
+let Bifunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+let Profunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+```
 
 ### `Pointed` functors and contrafunctors
 
@@ -4110,65 +4148,67 @@ The least fixpoint type `Church F` already has that function (`unfix`).
 
 TODO
 
+## Combinators for functors and contrafunctors
 
-## Functors and contrafunctors
+Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways types may be defined in Dhall.
+We will now enumerate all those ways.
+The result is a set of standard combinators that create larger (contra)functors from parts.
 
-In the jargon of functional programmers, a **functor** is just a covariant type constructor with `fmap`.
-We can define a typeclass `Functor` that carries the required `fmap` method: 
+### Constant (contra)functors
 
-```dhall
-let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
-```
-
-The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
-Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
-
-```dhall
-cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
-```
-
-We will call contravariant type constructors **contrafunctors** for short.
-The corresponding typeclass is defined by:
+The simplest combinator is a **constant functor**: it is a type constructor that does not depend on its type parameter.
+Examples of such type constructors are `F a = Integer` or `G a = List Bool`.
+To define them in Dhall, we could write:
 
 ```dhall
-let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+let F = λ(a : Type) → Integer
+let G = λ(a : Type) → List Bool
 ```
 
-A simple example of a contrafunctor is the type constructor `F a = a → Text`.
-Here is its definition and the code for a contrafunctor typeclass instance:
+We can generate all such type constructors via the `Const` combinator:
 
 ```dhall
-let F = λ(a : Type) → a → Text
-let contrafunctorF : Contrafunctor F
-  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → λ(x : a) → fb (f x) } 
+let Const = λ(c : Type) → λ(a : Type) → c
 ```
+Using `Const`, we would define `F = Const Integer`, `G = Const (List Bool)` and so on.
 
-If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
-For example, the type constructor `F` defined by:
+The type constructor `Const c` is a functor for any fixed type `c`.
+The `Functor` evidence value for `Const c` can be implemented by:
 
 ```dhall
-let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+let functorConst : ∀(c : Type) → Functor (Const c)
+  = λ(c : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
-is covariant in `a` and contravariant in `b`.
 
-In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
-
-To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` functions separately with respect to each type parameter.
-It turns out that one can combine the `fmap` and `cmap` methods into a single method that works at once on all type parameters.
-For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
-
-The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+The constant functor does not change under `fmap`, so is at the same time a contrafunctor.
+An evidence value for `Contrafunctor (Const c) can be written similarly:
 
 ```dhall
-let Bifunctor : (Type → Type) → Type
-  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
-let Profunctor : (Type → Type) → Type
-  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
+  = λ(c : Type) → { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
 
-### Constructing functors and contrafunctors from parts
+#### Identity functor
 
-TODO
+The identity functor is the type constructor `Id` such that `Id a = a`.
+It is a functor:
+
+```dhall
+let Id = ∀(a : Type) → a
+let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
+```
+
+#### Functor composition
+
+TODO contrafunctors too
+
+#### Functor product
+
+#### Functor co-product
+
+#### Function types with functors and contrafunctors
+
+
 
 ## Filterable functors and contrafunctors
 
