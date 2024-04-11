@@ -157,7 +157,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (No change to normal forms!)
+- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (Backward compatible, no change to normal forms!)
 
 - [x] Experimental feature: `assert : a === b` will perform alpha, beta, and eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
 
@@ -176,7 +176,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 ## Roadmap for future developments
 
-1. Possibly, implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit
+1. Implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit
    parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if
    other arguments can be used to infer the type. List/map [ 1, 2, 3 ] (\x -> x + 1) should be sufficient. Just a `None`
    without a type should be sufficient in most cases. Similarly, with the do-notation, `as bind with x in p then q`

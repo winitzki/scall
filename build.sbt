@@ -1,5 +1,5 @@
-val scala2V = "2.13.12"
-val scala3V = "3.3.1"
+val scala2V = "2.13.13"
+val scala3V = "3.4.1"
 val scalaV  = scala2V
 
 def munitFramework = new TestFramework("munit.Framework")
@@ -16,8 +16,7 @@ val httpRequest   = "com.lihaoyi"    %% "requests"       % "0.8.0"
 val enumeratum    = "com.beachape"   %% "enumeratum"     % "1.7.3"
 val flatlaf       = "com.formdev"     % "flatlaf"        % "3.2.2"
 val izumi_reflect = "dev.zio"        %% "izumi-reflect"  % "2.3.8"
-val curryhoward   = "io.chymyst"     %% "curryhoward"    % "0.3.8"
-val kindProjector = "org.typelevel"   % "kind-projector" % "0.13.2" cross CrossVersion.full
+val kindProjector = "org.typelevel"   % "kind-projector" % "0.13.3" cross CrossVersion.full
 val jnr_posix     = "com.github.jnr"  % "jnr-posix"      % "3.1.18"
 val cbor1         = "co.nstant.in"    % "cbor"           % "0.9"
 val cbor2         = "com.upokecenter" % "cbor"           % "4.5.3"
@@ -47,10 +46,21 @@ lazy val scall_core = (project in file("scall-core"))
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    Compile / scalacOptions ++= Seq("-Ypatmat-exhaust-depth", "10"), // Cannot make it smaller than 10. Want to speed up compilation.
+    Compile / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ydebug")
+        case Some((2, 12 | 13)) => Seq("-Ypatmat-exhaust-depth", "10") // Cannot make it smaller than 10. Want to speed up compilation.
+      }
+    },
+    ThisBuild / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ykind-projector") // Seq("-Ykind-projector:underscores")
+        case Some((2, 12 | 13)) => Seq()                   // Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
+      }
+    },
     // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
     // That base directory should contain `./dhall-lang` and all files below that.
-    Test / baseDirectory := (Test / resourceDirectory).value,
+    Test / baseDirectory     := (Test / resourceDirectory).value,
     // addCompilerPlugin is a shortcut for libraryDependencies += compilerPlugin(dependency)
     // See https://stackoverflow.com/questions/67579041
     libraryDependencies ++=
@@ -68,7 +78,6 @@ lazy val scall_core = (project in file("scall-core"))
       cbor1,
       cbor2,
       //    cbor3,
-      //    curryhoward,
       httpRequest,
       os_lib % Test,
     ),
@@ -124,7 +133,7 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
   crossScalaVersions       := Seq(scala2V, scala3V),
   Test / parallelExecution := true,
   testFrameworks += munitFramework,
-  libraryDependencies ++= Seq(curryhoward, munitTest, assertVerboseTest),
+  libraryDependencies ++= Seq(munitTest, assertVerboseTest),
   libraryDependencies ++=
     (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, _)) => Seq(kindProjectorPlugin)

@@ -47,7 +47,7 @@ jobs:
           - '11.0.21'
           - '17.0.9'
         scala:
-          - '2.13.11'
+          - '2.13.13'
   checks:
     name: Check formatting
     runs-on: ubuntu-latest

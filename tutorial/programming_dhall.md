@@ -9,7 +9,9 @@ Although most code examples are in Dhall, much of the material of the book has a
 It studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
 which is known in the academic literature as "System Fω".
 
-Dhall was designed as an open-source language for programmable configuration files.
+Dhall is positioned as an open-source language for programmable configuration files.
+The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall. 
+
 From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
 For a more theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
@@ -70,7 +72,7 @@ Identifiers may contain slash characters; for example, `List/map` is a valid nam
 This is helpful when organizing library functions into modules.
 One can have suggestive names such as `List/map`, `Optional/map`, etc.
 
-### Number types
+### Primitive types
 
 Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
 
@@ -81,21 +83,36 @@ Dhall does not support 32-bit or 64-bit integers with overflow, as is common in 
 Dhall supports other numeric types, such as `Double` or `Time`, but there is very little one can do with those values other than print them.
 For instance, Dhall does not directly support floating-point arithmetic on `Double` values.
 
+Strings have type `Text` and support string interpolation: `"The answer is ${answer}"`.
+
 ### Product types
 
-Product types are implemented only through records.
-For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
+Product types are implemented via records.
+For example, `{ x = 123, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
 
 There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`.
-Records with names must be used instead.
-For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Int, _2 : String }`.
+Records with field names must be used instead.
+For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Integer, _2 : Text }`.
+That record type has two fields named `_1` and `_2`.
+The two parts of the tuple may be accessed by those names:
+
+```dhall
+⊢ :let tuple = { _1 = +123, _2 = "abc" }
+
+tuple : { _1 : Integer, _2 : Text }
+
+⊢ tuple._1
+
++123
+```
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
-There is no way of assigning a permanent name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
+For instance, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
+There is no way of assigning a permanent unique name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
 
-For example, the values `x` and `y` have the same type in the following Dhall code:
+For convenience, a Dhall program may define local names for types:
 
 ```dhall
 let RecordType1 = { a : Natural, b : Bool }
@@ -104,19 +121,21 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
-The names `RecordType1` and `RecordType2` are no more than type aliases.
-Dhall does not distinguish them from the literal type expression `{ a : Natural, b : Bool }`.
+But the names `RecordType1` and `RecordType2` are no more than type aliases.
+Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
 (The order of record fields is not significant.) 
+So, the values `x` and `y` actually have the same type in that code.
+
 
 ### Co-product types
 
 Co-product types are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
-Here `X` and `Y` are **constructors** for the given union type.
+Here `X` and `Y` are called the **constructors** of the given union type.
 
 Values of co-product types are created via constructor functions.
 Constructor functions are written using record-like access notation.
 For example, the expression `< X : Natural | Y : Bool >.X` is viewed by Dhall as a function of type `Natural → < X : Natural | Y : Bool >`. 
-Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`:
+Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`, as shown in this example:
 
 ```dhall
 let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
@@ -125,16 +144,17 @@ let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
 Constructors may have at most one argument.
 Constructors with multiple curried arguments (as in Haskell: `P1 Int Int | P2 Bool`) are not supported in Dhall.
 Record types must be used instead of multiple arguments.
-For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer }, P2 : Bool >`.
+For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer } | P2 : Bool >`.
 
 Union types can have empty constructors.
 For example, the union type `< X : Natural | Y >` has values written either as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
 Both these values have type `< X : Natural | Y >`.
 
 Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
-There is no way of assigning a permanent name to the union type itself, as it is done in Haskell and Scala in order to distinguish that union type from others.
+For instance, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated.
+There is no way of assigning a permanent unique name to the union type itself, as it is done in Haskell and Scala to distinguish that union type from others.
 
-For convenience, a Dhall program may define names for types, for example:
+For convenience, a Dhall program may define local names for types, for example:
 
 ```dhall
 let MyType1 = < X : Natural | Y : Bool >
@@ -147,7 +167,7 @@ Dhall will consider `MyType1` to be the same as the literal type expressions `< 
 
 ### Pattern matching
 
-Pattern matching is available for union types as well as for the built-in `Optional` types.
+Pattern matching is available for union types.
 Dhall implements pattern matching via `merge` expressions.
 The `merge` expressions are similar to `case` expressions in Haskell and `match/case` expressions in Scala.
 
@@ -159,7 +179,7 @@ As an example, consider a union type defined in Haskell by:
 data P = X Int | Y Bool | Z
 ```
 
-A function `toString` that prints a value of that type can be written in Haskell as:
+A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
 
 ```haskell
 toString :: P -> String
@@ -175,17 +195,36 @@ The corresponding type is defined in Dhall by:
 let P = < X : Natural | Y : Bool | Z >
 ```
 
+Dhall's pattern matching is similar to the Haskell code, except for putting the value `x` after all the cases.
+
 Here is the Dhall code for a function `toText : < X : Natural | Y : Bool | Z > → Text` that prints a value of type `P`:
 
 ```dhall
 let toText : P → Text = λ(x : P) →
-  merge { X = λ(x : Natural) → "X " ++ Natural/show x
-        , Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False")
-        , Z = "Z"
+  merge {
+          X = λ(x : Natural) → "X " ++ Natural/show x,
+          Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False"),
+          Z = "Z",
         } x
 ```
 
-Another example of using Dhall's `merge` is when implementing a `zip` function for `Optional` types:
+### The `Optional` type
+
+The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
+
+```dhall
+let MyOptional = λ(a : Type) → < MyNone | MySome : a >
+let x : MyOptional Natural = (MyOptional Natural).MySome 123
+let y : MyOptional Text = (MyOptional Text).None
+```
+
+The built-in `Optional` type is equivalent but less verbose.
+Instead of `(MyOptional Text).None` one writes `None Text`.
+Instead of `(MyOptional Natural).Some 123` one writes just `Some 123`.
+(The type parameter `Natural` is determined automatically by Dhall.)
+Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
+
+Here is an example of using Dhall's `merge` for implementing a `zip` function for `Optional` types:
 
 ```dhall
 let zip
@@ -600,12 +639,12 @@ In the file `UseSimpleModule.dhall`, we use the types and the values exported fr
 The code will not compile unless all types match, including the imported values.
 
 All fields of a Dhall record are always public.
-To make values in a Dhall module private, we should not put those values into the final exported record.
+To make values in a Dhall module private, we simply do not include those values into the final exported record.
 Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are part of the final exported value).
 
 In the example just shown, the file `SimpleModule.dhall` defined the local values `test` and `validate`.
 Those values are type-checked and computed inside the module but not exported.
-In this way, sanity checks or unit tests included within the module will be validated but will remain invisible to other modules.
+In this way, sanity checks or unit tests included within a module will be validated but will remain invisible to other modules.
 
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
@@ -650,14 +689,14 @@ That file may be imported via the following frozen import:
 ./simple.dhall sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2
 ```
 This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
-If the user modifies the file `simple.dhall` to contain a Dhall expression that evaluates to something other than `3`, the hash value will be different and the frozen import will fail.
+If the user modifies the file `simple.dhall` so that it evaluates to anything other than `3`, the hash value will become different and the frozen import will fail.
 
-The hash value is computed from the _normal form_ of a Dhall expression, and the normal form is computed only after successful type-checking.
-For this reason, the hash value of a Dhall program remains unchanged under any refactoring.
+Hash values are computed from the _normal form_ of Dhall expressions, and the normal forms are computed only after successful type-checking.
+For this reason, the hash value of a Dhall program remains unchanged under any valid refactoring.
 For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
 The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
 
-## Features of the Dhall type system
+## Some features of the Dhall type system
 
 ### Working with records polymorphically
 
@@ -669,7 +708,49 @@ In those languages, the record type `{ y : Bool }` is actually treated as the ty
 
 Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
 
-TODO
+A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }` but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
+The function only needs the fields `a` and `b` and should ignore all other fields in the record.
+
+To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let f = λ(tuple : MyTuple) → tuple._2
+let r1= { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+  in f r1.(MyTuple)  -- Returns 123.
+```
+
+The field selection operation `r1.(MyTuple)` removes all fields other than those from `MyTuple`.
+We need to apply the field selection each time we call the function.
+We cannot write `f r1` because `r1` does not have the type `MyTuple`.
+
+Another often used behavior is to provide default values for missing fields.
+This is implemented with Dhall's record update operation:
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let myTupleDefault = { _1 = False, _2 = 0 }
+let f = λ(tuple : MyTuple) → tuple._2
+let r2 = { _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+  in f (myTupleDefault // r2).(MyTuple)  -- Returns 123.
+```
+
+We cannot write `f r2.(MyTuple)` because `r2` does not have the required field `_1`.
+The default record `myTupleDefault` provides that value.
+
+The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` of any record type whatsoever.
+If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
+The field selection `.(MyTuple)` will get rid of any other fields.
+
+Note that the built-in Dhall operations `//` and `.()` _are_ polymorphic in the record types.
+For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
+Similarly, `myTupleDefault // r` will accept records `r` of any type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
+
+But Dhall cannot directly describe the polymorphic types of such records.
+So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r`.
+
+
+Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place where record polymorphism is required.
 
 ### The `assert` keyword and equality types
 
@@ -756,12 +837,16 @@ let _ = assert : f "" === "()"    -- OK.
 
 ### Types, kinds, sorts
 
-Dhall treats types and values largely in the same way (except when typechecking, that is, when verifying that each value has the correct type).
+Types are different from values because each value has an assigned type, which is verified during typechecking.
+Other than that, Dhall treats types and values in similar way.
+Types may be assigned to variables, stored in records, and passed as function parameters.
 
-For instance, we may write `let a : Bool = True` to define a variable of type `Bool`, and we may also write `let b = Bool` to define a variable whose value is the type `Bool` itself.
+For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
+Here we use the type `Bool` as a type annotation for the variable `x`.
+But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
 
-Then we may use `b` in typechecking expressions such as `True : b`.
-The type of `b` itself will be `Type`.
+Then we may use `y` in typechecking expressions such as `x : y`.
+The type of `y` itself will be `Type`.
 
 To see the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -789,7 +874,7 @@ The same syntax works if `t` were a type parameter (a variable of type `Type`):
 λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
 
-Records and union types may contain types as well as values:
+Records and union types may mix types as well as values within the same data type:
 
 
 ```dhall
@@ -802,7 +887,28 @@ Records and union types may contain types as well as values:
 < A : Bool | B : Type >
 ```
 
-The symbol `Type` is itself treated as a special value whose type is `Kind`.
+Note that the built-in type constructors `List` and `Optional` are limited to values; one cannot create a `List` of types in the same way as one creates a list of integers.
+
+```dhall
+⊢ :let a = [ 1, 2, 3 ]
+
+a : List Natural
+
+⊢ :let b = [ Bool, Natural, Text ]
+
+Error: Invalid type for ❰List❱
+```
+
+If a "list of types" is desired, such a data structure needs to be defined separately.
+
+The symbol `Type` is itself treated as a special value whose type is `Kind`:
+
+```dhall
+⊢ :let p = Type
+
+p : Kind
+```
+
 Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
 ```dhall
@@ -815,7 +921,8 @@ Kind
 Kind
 ```
 
-As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`. The type of _that_ is `Kind`:
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`.
+The type of _that_ is `Kind`:
 
 ```dhall
 ⊢ :type { a : Natural, b : Type }
@@ -831,6 +938,22 @@ Any function that returns something containing `Type` will itself have the outpu
 ∀(t : Bool) → Kind
 ```
 
+Functions with parameters of type `Kind` can be used for creating complicated higher-order types, for example:
+
+```dhall
+⊢ :let f = λ(a : Kind) → a → a
+
+f : ∀(a : Kind) → Kind
+
+⊢ f Type
+
+Type → Type
+
+⊢ f (Type → Type)
+
+(Type → Type) → Type → Type
+```
+
 In turn, the symbol `Kind` is a special value of type `Sort`.
 Other type expressions involving `Kind` are also of type `Sort`:
 
@@ -842,21 +965,39 @@ Sort
 ⊢ :type Kind → Kind → Type
 
 Sort
+
+⊢ :type λ(a : Kind) → a → a
+
+∀(a : Kind) → Kind
+
+⊢ :type ∀(a : Kind) → Kind
+
+Sort
 ```
 
-However, the symbol `Sort` _does not_ itself have a type.
-It is a type error to use `Sort` in Dhall code.
+The symbol `Sort` is special: it _does not_ itself have a type.
+Because of that, it is a type error to use `Sort` in Dhall code in any way:
 
-This important design decision prevents Dhall from having to define an infinite hierarchy of "type universes".
-(This is done in fully dependently-typed languages such as Agda and Idris.
+```dhall
+⊢ :let a = Sort
+
+Error: ❰Sort❱ has no type, kind, or sort
+
+⊢ λ(s : Sort) → 0
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+
+This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
+That is needed in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
-Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.)
+Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.
 
-The result is a type system that has just enough abstraction to support treating types as values, but does not run into the complications with polymorphism over infinitely many type universes.
+As a result, Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
 
-Because of this design, Dhall does not support any code that operates on `Kind` values ("kind polymorphism").
+Because of this design, Dhall does not support operating on the symbol `Kind` itself.
 Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
-One can define variables having those values, but that's about it.
+One can assign such values to variables, but that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -865,18 +1006,19 @@ For instance, it is a type error to write a function that returns the symbol `Ki
 
 a : Sort
 
-⊢ λ(_: Kind) → a
+⊢ :let f = λ(_: Natural) → a
 
 Error: ❰Sort❱ has no type, kind, or sort
-
-1│ λ(_: Kind) →  a
 ```
 
-This is because Dhall requires a valid function type itself to have a type.
-The symbol `Kind` has type `Sort` but the symbol `Sort` itself does not have a type.
+This is because Dhall requires a function's type itself to have a type.
+The symbol `Kind` has type `Sort`, 
+so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
+But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
+As the function `f`'s type does not _itself_ have a type, Dhall raises a type error.
 
-There was at one time an effort to implement full "kind polymorphism" in Dhall.
-That would allow functions to manipulate `Kind` values.
+There was at one time an effort to implement a form of "kind polymorphism" in Dhall.
+That would allow functions to manipulate `Kind` values more freely.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
@@ -902,6 +1044,10 @@ If we like, we may write the definition of `f` together with a type annotation:
 let f : ∀(x : Text) → Text
   = λ(x : Text) → "${x}..."
 ```
+
+To summarize: `λ(x : a) → ...` is a function and can be applied to an argument.
+But `∀(x : a) → ...` is a type; it is not a function and cannot be applied to an argument.
+
 
 A side note: The type expression `∀(x : Text) → Text` does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
 But Dhall will internally rewrite that to the normal form `∀(_ : Text) → Text`.
@@ -965,10 +1111,9 @@ let identity = λ(A : Type) → λ(x : A) → x
 let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 ```
 
-All type parameters and all value parameters need to be written explicitly.
 This makes Dhall code more verbose, but also helps remove "magic" from the syntax.
 
-### Dependent types
+### Dependent types in Dhall
 
 Dependent types are, by definition, types that depend on _values_.
 
@@ -1004,7 +1149,7 @@ let f
 The result of evaluating `f False` is the _type_ `Text` itself.
 The type of `f` is an example of a "dependent type", that is, a type that depends on a value `x`.
 
-Such functions can be used in type signatures to create dependently-typed functions (that is, functions whose types depend on the values of their input arguments):
+This `f` can be used as a type signature for a **dependently-typed function** (that is, a function whose output types depend on the values of the input arguments):
 
 ```dhall
 ∀(x : Bool) → ∀(y : f x) → Text
@@ -1015,6 +1160,7 @@ Here, the type of the argument `y` must be `Natural` or `Text` depending on the 
 For an example of using dependent types for implementing safe division, see below in the section about arithmetic operations.
 
 One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
+The main limitation is that Dhall cannot correctly infer types that depend on values in the `if/then/else` expressions or in pattern-matching expressions.
 
 The following example shows that Dhall does not recognize that a value of a dependent type is well-typed inside an `if` branch.
 
@@ -1450,7 +1596,7 @@ But Dhall rejects this code with an error message: "Invalid function input, `λ(
 
 With the option `--explain`, Dhall gives some more detail about what is wrong:
 
-```dhall
+```bash
 $ echo "λ(k : Kind) → λ(t : k) → λ(x : t) → x" | dhall --explain
 
 ...
@@ -1600,15 +1746,19 @@ Using `assert` under a lambda with type parameters, we can verify a wide range o
 
 ### Functors and `fmap`
 
-In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` function having the standard type signature and obeying the functor laws.
+In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
 
 Those type constructors are also called "covariant functors".
 For type constructors, "covariant" means "has a lawful `fmap` method".
 
 Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
 
-A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
-In Haskell, that type constructor and its `fmap` function are defined by:
+The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
+
+A simple example of a functor is a record with two values of type `a` and a value of a fixed type `Bool`.
+The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
+
+In Haskell, that type constructor and its `fmap` method are defined by:
 
 ```haskell
 data F a = F a a Bool
@@ -1661,7 +1811,7 @@ Dhall requires the union type's constructors to be explicitly derived from the f
 In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
 But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
 
-In the code shown above, we were able to shorten those constructors to `(G b).Left` and `(G b).Right`.
+In the code shown above, we shortened those constructors to `(G b).Left` and `(G b).Right`.
 
 ### Contravariant functors ("contrafunctors")
 
@@ -1675,7 +1825,21 @@ cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
 
 We will call contravariant type constructors **contrafunctors** for short.
 
-TODO examples
+The intuition behind contrafunctors is that they represent functions that _consume_ (zero or more) data items of any given type.
+The `cmap` method transforms data items (_before_ they are consumed) into data items of another type.
+
+A simple example of a contrafunctor is:
+
+```dhall
+let C = λ(a : Type) → a → Text
+```
+The corresponding `cmap` method is written as:
+
+```dhall
+let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
+    λ(x : a) → fb (f x)
+```
 
 ### Bifunctors and `bimap`
 
@@ -1717,11 +1881,19 @@ Here, we have used the polymorphic identity function defined earlier.
 The code for `fmap` and `bimap` can be derived mechanically from the type definition of a functor or a bifunctor.
 For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
 But Dhall does not have any code generation facilities.
-The code of those methods must be written in Dhall programs that need to use functors or bifunctors.
+The code of those methods must be written in Dhall programs by hand.
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values used as explicit function arguments.
+Typeclasses can be implemented in Dhall via evidence values (also known as "typeclass instance values").
+Those values are used as explicit function arguments to implement functions that require a typeclass constraint.
+
+This is somewhat similar to how Scala implements typeclasses.
+With that technique, one can define different typeclass instances for the same type, if necessary.
+
+In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
+
+To see how this works, let us implement some well-known typeclasses in Dhall.
 
 ### `Monoid`
 
@@ -1733,6 +1905,8 @@ class Monoid m where
   mappend :: m → m → m
 ```
 
+The values `mempty` and `mappend` are the **typeclass methods** of the monoid typeclass.
+
 In Scala, a corresponding definition is:
 
 ```scala
@@ -1742,7 +1916,9 @@ trait Monoid[M] {
 }
 ```
 
-An evidence value needs to contain a value of type `m` and a function of type `m → m → m`.
+In Scala, the `Monoid` typeclass methods are called `empty` and `combine`.
+
+We see that an evidence value for `Monoid` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
 A value of that type provides evidence that the type `m` has the required methods for a monoid.
 
@@ -1766,7 +1942,12 @@ let monoidText : Monoid Text = { empty = "", append = λ(x : Text) → λ(y : Te
 let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
 ```
 
-We can now use those evidence values to implement functions with a type parameter constrained to be a monoid.
+### Functions with typeclass constraints
+
+The main use of typeclasses is for implementing functions with a type parameter constrained to belong to a given typeclass.
+To implement such functions, we add an argument that requires a typeclass evidence value.
+ 
+Let us implement some functions with a type parameter required to belong to the `Monoid` typeclass.
 Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
@@ -1795,12 +1976,48 @@ let foldMap
 
 This code shows how to implement typeclass constraints in Dhall.
 
+### Verifying the laws of monoids
+
+In some cases, Dhall's `assert` feature is able to verify typeclass laws symbolically.
+
+The `Monoid` typeclass has three laws: two identity laws and one associativity law.
+We can write `assert` expressions that verify those laws for any given evidence value of type `Monoid a`.
+
+First, we implement a function that creates the required equality types:
+
+```dhall
+let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
+  let plus = monoid_m.append
+  let e = monoid_m.empty
+    in {
+        monoid_left_id_law = plus e x === x,
+        monoid_right_id_law = plus x e === x,
+        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
+       }
+```
+Note that we did not write `assert` expressions here.
+If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
+For instance, the expressions `plus e x` and `x` are always going to be different _within the body of that function_.
+Those expressions will become the same only after we substitute a lawful implementation of a `Monoid` typeclass.
+
+So, to check the laws we will need to write `assert` values corresponding to each law and a given typeclass evidence value.
+
+As an example, here is how we may check that the laws hold for the `Monoid` evidence value `monoidBool` defined above:
+
+```dhall
+let check_monoidBool_left_id_law = assert : (monoidLaws Bool monoidBool).monoid_left_id.law
+```
+
+Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
+Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
+
 ### `Functor`
 
 The `Functor` typeclass is a constraint for a _type constructor_.
+If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
-The required data for an evidence value is a polymorphic `fmap` function for that type constructor.
+The required data for an evidence value is a polymorphic `fmap` method for that type constructor.
 Let us now package that information into a `Functor` typeclass similarly to how we did with `Monoid`.
 
 Define the type constructor for evidence values:
@@ -1809,24 +2026,161 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
 ```
 
-Here is a `Functor` evidence value for `List`. The `fmap` function is already available in the Dhall standard prelude:
+Here is a `Functor` evidence value for `List`. The required `fmap` method is already available in the Dhall standard prelude:
 
 ```dhall
 let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
 ```
 
-As another example, let us write the evidence values for the type constructors `F` and `G` shown in the section "Functors and bifunctors":
+As another example, let us write the evidence values for the type constructors `F` and `G` shown in the chapter "Covariant and contravariant type constructors":
 
 ```dhall
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
 let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
     { x = f fa.x, y = f fa.y, t = fa.t }
   }
+
+let G : Type → Type
+  = λ(a : Type) → < Left : Text | Right : a >
 let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
     merge { Left = λ(t : Text) → (G B).Left t
           , Right = λ(x : A) → (G B).Right (f x)
           } ga  
   }
 ```
+
+### Verifying the laws of functors
+
+A functor's `fmap` method must satisfy the identity and the composition laws.
+In the Haskell syntax, these laws are (informally) written as:
+
+```haskell
+ fmap id == id    -- Identity law
+ fmap (f . g) == (fmap f) . (fmap g)   -- Composition law.
+```
+
+Given a specific type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
+
+```dhall
+let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
+  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+    let fmap = functor_F.fmap
+      in {
+          functor_id_law = fmap a a (identity a) === identity (F a),
+          functor_comp_law =
+            let fg = compose_forward a b c f g
+            let fmap_f = fmap a b f
+            let fmap_g = fmap b c g
+            let fmapf_fmapg = compose_forward (F a) (F b) (F c) fmap_f fmap_g
+              in fmap a c fg === fmapf_fmapg,
+         }
+```
+
+To verify the functor laws for a specific type, we need to write `assert` expressions for each of the laws separately.
+
+As an example, consider the type constructor `F` from the previous section:
+
+```dhall
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
+let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+  }
+let functor_laws = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+    { 
+      identity_law = assert : (functorLaws F functorF a b c f g).functor_id_law,
+      composition_law = assert : (functorLaws F functorF a b c f g).functor_comp_law,
+    }
+```
+
+The composition law is verified successfully.
+However, the assertion in `identity_law` fails:
+
+```dhall
+
+You tried to assert that this expression:
+
+↳ λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
+
+... is the same as this other expression:
+
+↳ λ(x : { t : Bool, x : a, y : a }) → x
+
+... but they differ
+```
+
+Dhall's reduction to normal form does not recognize that the record `{ t = fa.t, x = fa.x, y = fa.y }` is the same as `fa`.
+
+To get around this limitation, write the identity law separately like this:
+
+```dhall
+let identity_law_of_F = λ(a : Type) →
+    let id_F = λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
+      in assert : functorF.fmap a a (identity a) === id_F
+```
+
+Let us also try verifying the functor laws for the type constructor `G` from the previous section:
+
+```dhall
+let functor_laws_of_G = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+  { identity_law = assert : (functorLaws G functorG a b c f g).functor_id_law
+  , composition_law = assert : (functorLaws G functorG a b c f g).functor_comp_law
+  }
+```
+
+This time, the laws cannot be verified. Trying to verify the identity law, we get this error message:
+
+```dhall
+You tried to assert that this expression:
+
+↳ λ(ga : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : a >.Left t
+      , Right = λ(x : a) → < Left : Text | Right : a >.Right x
+      }
+      ga
+
+... is the same as this other expression:
+
+↳ λ(x : < Left : Text | Right : a >) → x
+
+... but they differ
+```
+
+Trying to verify the composition law, we get:
+
+```dhall
+You tried to assert that this expression:
+
+↳ λ(ga : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : c >.Left t
+      , Right = λ(x : a) → < Left : Text | Right : c >.Right (g (f x))
+      }
+      ga
+
+... is the same as this other expression:
+
+↳ λ(x : < Left : Text | Right : a >) →
+    merge
+      { Left = λ(t : Text) → < Left : Text | Right : c >.Left t
+      , Right = λ(x : b) → < Left : Text | Right : c >.Right (g x)
+      }
+      ( merge
+          { Left = λ(t : Text) → < Left : Text | Right : b >.Left t
+          , Right = λ(x : a) → < Left : Text | Right : b >.Right (f x)
+          }
+          x
+      )
+
+... but they differ
+```
+
+Dhall does not simplify `merge` expressions when they are applied to a symbolic variable `x`.
+As soon as we substitute a specific value, say, `x = (G Bool).Left "abc"`, Dhall will be able to verify that the functor laws hold for `G`.
+
+Keeping such limitations in mind, we will try verifying typeclass laws as much as it can be done with Dhall's functionality.
 
 ### `Contrafunctor`
 
@@ -1836,7 +2190,73 @@ The typeclass for contrafunctors is defined by:
 let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
 ```
 
-TODO examples
+As an example, consider this simple contrafunctor `C`:
+
+
+```dhall
+let C = λ(a : Type) → a → Text
+```
+The corresponding evidence value is written as:
+
+```dhall
+let contrafunctor_C : Contrafunctor C
+  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
+        λ(x : a) → fb (f x)
+  }
+```
+
+The laws of contrafunctors are similar to those of functors:
+
+
+```dhall
+let contrafunctorLaws = λ(F : Type → Type) → λ(contrafunctor_F : Contrafunctor F) →
+  λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+    let cmap = contrafunctor_F.cmap
+      in {
+          contrafunctor_id_law = cmap a a (identity a) === identity (F a),
+          contrafunctor_comp_law =
+            let gf = compose_backward a b c g f
+            let cmap_f = cmap a b f
+            let cmap_g = cmap b c g
+            let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
+              in cmap a c gf === cmapf_cmapg,
+         }
+```
+
+We can verify those laws symbolically for the contrafunctor `C` shown above:
+
+```dhall
+let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
+  { identity_law = assert : (contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_id_law
+  , composition_law = assert: ( contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_comp_law
+  }
+```
+
+### `Bifunctor` and `Profunctor`
+
+
+If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
+For example, the type constructor `F` defined by:
+
+```dhall
+let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+```
+is covariant in `a` and contravariant in `b`.
+
+In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
+
+To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` methods separately with respect to each type parameter.
+It turns out that one can combine the `fmap` and `cmap` methods into a single equivalent method that works at once on both type parameters.
+For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
+
+The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+
+```dhall
+let Bifunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+let Profunctor : (Type → Type) → Type
+  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+```
 
 ### `Pointed` functors and contrafunctors
 
@@ -2075,32 +2495,21 @@ More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to ju
 
 We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
 
-### The Yoneda and Church-Yoneda identities
+In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
-The type equivalence `∀(r : Type) → (p → r) → r ≅ p` is a special case of the **covariant Yoneda identity**:
+```dhall
+∀(r : Type) → (p → r) → r ≅ p
+```
+
+This type equivalence is a special case of one of the **Yoneda identities**:
 
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
 Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
 
-Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identity does not apply to types of that form.
-
-There is a generalized **Church-Yoneda identity** that combines both forms of types:
-
-```dhall
-∀(r : Type) → (F r → r) → G r  ≅  G C
-```
-Here, `C = ∀(r : Type) → (F r → r) → r` is the Church-encoded fixpoint of `F`.
-
-This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
-
-The Yoneda identity and the Church-Yoneda identity are proved via the so-called "parametricity theorem".
+The Yoneda identities can be proved via the parametricity theorem.
 See the Appendix "Naturality and parametricity" for more details.
-
-The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
-In this book, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
 ### Church encoding in the curried form
 
@@ -2155,10 +2564,10 @@ These examples show how any type constructor `F` defined via products (records) 
 
 We will call that the **curried form** of the Church encoding.
 
-The curried form is more convenient for practical programming.
-But when we are studying general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
+The curried form is often convenient for practical programming.
+However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying the general properties of Church encodings.
 
-Historical note: The curried form of the Church encoding is known as the Boehm-Berarducci encoding.
+Historical note: The curried form of the Church encoding is also known as the Boehm-Berarducci encoding.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 ## Working with Church-encoded data
@@ -2185,7 +2594,7 @@ Later we will see that the same techniques work for Church-encoded type construc
 An important requirement is that the recursion scheme `F` should be a _covariant_ type constructor.
 If this is not so, Church encoding does not work as expected.
 
-We will assume that `F` has a known and lawful `fmap` function that we denote by `fmapF`.
+We will assume that `F` has a known and lawful `fmap` method that we denote by `fmapF`.
 So, all Dhall code below assumes a given set of definitions of this form:
 
 ```dhall
@@ -2357,9 +2766,9 @@ In practice, it is easier to "inline" that identity function: that is, to use th
 
 Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, or `traverse`.
 In most FP languages, those operations are implemented via recursive code.
-To use those operations in Dhall, we need to reformulate them as fold-like aggregations.
+To implement those operations in Dhall, we need to reformulate them as "fold-like aggregations".
 
-**"Fold-like" aggregations** iterate over the data while some sort of accumulator value is updated at each step.
+A **fold-like aggregation** iterates over the data while some sort of accumulator value is updated at each step.
 The result value of the aggregation is the last computed value of the accumulator.
 
 Let us show some examples of how this is done.
@@ -2991,7 +3400,7 @@ Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's stand
 
 ### Example: implementing `fmap`
 
-A type constructor `F` is **covariant** if it admits an `fmap` function with the type signature:
+A type constructor `F` is **covariant** if it admits an `fmap` method with the type signature:
 
 ```dhall
 fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
@@ -3042,22 +3451,31 @@ let fmapC
 ### Generic forms of Church encoding
 
 Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
+We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
 
 For simple types:
 
 ```dhall
-let Church : (Type → Type) → Type
+let LFix : (Type → Type) → Type
   = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
 ```
 
-For type constructors:
+For type constructors with one type parameter, we may also define a convenience method `LFixT`:
 
 ```dhall
-let Church1 : (Type → Type → Type) → Type
+let LFixT : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
-Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, `fmap` and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
+This is the same Church encoding as before, and we can easily express `LFixT` through `LFix`:
+
+```dhall
+let LFixT : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → λ(a : Type) → LFix (F a)
+```
+
+Implementations of several standard functions in Church encoding (such as `fix`, `unfix`, and others) can be written once and for all, as functions of `F` and methods such as `fmap_F` or `bimap_F`.
+We will show such implementations later in this book.
 
 ### Existentially quantified types
 
@@ -3075,6 +3493,9 @@ The corresponding code in Scala is:
 sealed trait F[_]
 case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
+
+From the point of view of the program code, an existentially quantified type parameter is one that is present in a specific data constructor but absent from the overall data type.
+In the Haskell code, it is the type parameter `t`, and in the Scala code, it is `T`.
 
 The mathematical notation for `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
 
@@ -3201,7 +3622,7 @@ To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by s
 We will denote the resulting function by `inE`:
 
 ```dhall
-inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
   = λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
     ep r unpack_
 ```
@@ -3213,22 +3634,38 @@ The function `inE` shown above is one side of the isomorphism.
 The other is the function `outE`:
 
 ```dhall
-outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     let ep : Exists P = pack P t pt
       in consume ep
 ```
 
-We will prove below that the functions `inE` and `outE` are inverses of each other.
-We will also prove that `pack` and `unpack` are inverses in a certain sense.
-(See the section "Naturality and parametricity").
+We will prove below (in the chapter "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
 
 Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
 Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
 
 #### Differences between existential and universal quantifiers
 
-The only way of working with values of existentially quantified types, such as `ep : Exists P`, is by using the functions `pack` and `unpack`.
+We have introduced the type constructor `Exists` that helps us create existential types.
+
+```dhall
+let Exists : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+```
+
+We could define a type constructor `Forall` similarly, to create universally quantified types:
+
+```dhall
+let Forall : (Type → Type) → Type
+  = λ(P : Type → Type) → ∀(r : Type) → P r
+```
+
+These definitions allow us to write types such as `Exists P` and `Forall P` more quickly.
+
+Despite this superficial similarity, existentially quantified types have a significantly different behavior from universally quantified ones.
+
+We can work with values of existentially quantified types, such as `ep : Exists P`, by using the functions `pack` and `unpack`.
 
 To create a value `ep`, we call `pack P t pt` with a specific type `t` and a specific value `pt : P t`.
 The type `t` is set when we create the value `ep` and may be different for different such values.
@@ -3246,6 +3683,7 @@ let idText : Text → Text = identity Text
 
 When constructing `idText`, we use the type `Text` as the type parameter.
 After that, the type `Text` is exposed to the outside code because it is part of the type of `idText`.
+The outside code needs to adapt to that type so that the types match.
 
 When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or other type).
 But that type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.  
@@ -3261,7 +3699,7 @@ Because the code of `unpack_` receives `t` and `P t` as arguments, we will be ab
 For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
-In this sense, type quantifiers ensure encapsulation of the type `t` inside `ep`.
+In this sense, type quantifiers ensure encapsulation of the type `t` inside the value `ep`.
 
 ## Co-inductive ("infinite") types
 
@@ -3273,6 +3711,8 @@ But Church encodings always give the **least fixpoints** of type equations.
 The least fixpoints give types that are also known as "inductive types".
 Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive" types.
 
+In this book, we will denote by `LFix F` the least fixpoint and by `GFix F` the greatest fixpoint of the type equation `T = F T`.
+
 Intuitively, the least fixpoint is the smallest data type `T` that satisfies `T = F T`.
 The greatest fixpoint is the largest possible data type that satisfies the same equation.
 
@@ -3282,7 +3722,7 @@ Iteration over the data stored in those structures will always terminate.
 Greatest fixpoints are, as a rule, lazily evaluated data structures that imitate infinite recursion.
 Iteration over those data structures is not expected to terminate.
 Those data structures are used only in ways that do not involve a full traversal of all data.
-It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is finite at all times.
+It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
 
 As an example, consider the recursion scheme `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
@@ -3292,9 +3732,10 @@ let F = ∀(r : Type) → < Nil | Cons { head : Text, tail : r } >
 ```
 
 The type `List Text` is the least fixpoint of `T = F T`.
+(So, we may write `LFix F = List Text`.)
 A data structure of type `List Text` always stores a finite number of `Text` strings (although the list's length is not bounded in advance).
 
-The greatest fixpoint of `T = F T` is a (potentially infinite) stream of `Text` values.
+The greatest fixpoint `GFix F` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
 Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
@@ -3316,9 +3757,9 @@ This motivates the following implementation of the greatest fixpoint of `T = F T
 We take some unknown type `r` and implement `T` as a pair of types `r` and `r → F r`.
 To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
 
-So, the mathematical notation for the greatest fixpoint of `T = F T` is `T = ∃ r. r × (r → F r)`.
-The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
+So, the mathematical notation for the greatest fixpoint of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
 
+The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
 To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)`.
 We will call that type constructor `GF_T` and use it to define `GFix`:
 
@@ -4021,81 +4462,105 @@ The least fixpoint type `Church F` already has that function (`unfix`).
 
 TODO
 
+## Combinators for functors and contrafunctors
 
-## Functors and contrafunctors
+Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways types may be defined in Dhall.
+We will now enumerate all those ways.
+The result is a set of standard combinators that create larger (contra)functors from parts.
 
-In the jargon of functional programmers, a **functor** is just a covariant type constructor with `fmap`.
-We can define a typeclass `Functor` that carries the required `fmap` method: 
+### Constant (contra)functors
 
-```dhall
-let Functor = λ(F : Type → Type) → { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
-```
-
-The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
-Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
-
-```dhall
-cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
-```
-
-We will call contravariant type constructors **contrafunctors** for short.
-The corresponding typeclass is defined by:
+The simplest combinator is a **constant functor**: it is a type constructor that does not depend on its type parameter.
+Examples of such type constructors are `F a = Integer` or `G a = List Bool`.
+To define them in Dhall, we could write:
 
 ```dhall
-let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+let F = λ(a : Type) → Integer
+let G = λ(a : Type) → List Bool
 ```
 
-A simple example of a contrafunctor is the type constructor `F a = a → Text`.
-Here is its definition and the code for a contrafunctor typeclass instance:
+We can generate all such type constructors via the `Const` combinator:
 
 ```dhall
-let F = λ(a : Type) → a → Text
-let contrafunctorF : Contrafunctor F
-  = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → λ(x : a) → fb (f x) } 
+let Const = λ(c : Type) → λ(a : Type) → c
 ```
+Using `Const`, we would define `F = Const Integer`, `G = Const (List Bool)` and so on.
 
-If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
-For example, the type constructor `F` defined by:
+The type constructor `Const c` is a functor for any fixed type `c`.
+The `Functor` evidence value for `Const c` can be implemented by:
 
 ```dhall
-let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
+let functorConst : ∀(c : Type) → Functor (Const c)
+  = λ(c : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
-is covariant in `a` and contravariant in `b`.
 
-In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
-
-To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` functions separately with respect to each type parameter.
-It turns out that one can combine the `fmap` and `cmap` methods into a single method that works at once on all type parameters.
-For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
-
-The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+Because the implementation of `fmap f` is just an identity function, a value of a constant functor type does not change under `fmap`.
+So, a constant functor is at the same time a contrafunctor.
+An evidence value for `Contrafunctor (Const c)` can be written as:
 
 ```dhall
-let Bifunctor : (Type → Type) → Type
-  = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
-let Profunctor : (Type → Type) → Type
-  = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
+  = λ(c : Type) → { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a) }
 ```
 
-### Constructing functors and contrafunctors from parts
+### Identity functor
 
-TODO
+The **identity functor** is the type constructor `Id` such that `Id a = a`.
 
-## Filterable functors and contrafunctors
+The functor evidence value for `Id` can be implemented as:
 
-## Applicative covariant and contravariant functors
+```dhall
+let Id = λ(a : Type) → a
+
+let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
+```
+
+### Functor composition
+
+If `F` and `G` are two functors then the functor composition `H a = F (G a)` is also one.
+We compute the type via the combinator called `Compose`, which is analogous to the function combinator `compose` defined earlier in this book.
+
+```dhall
+let Compose : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F (G a)
+```
+
+The `Functor` evidence for `Compose F G` can be constructed automatically if the evidence values for `F` and `G` are known:
+
+```dhall
+let FunctorCompose : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → }
+```
+
+TODO contrafunctors too
+
+### Functor product
+
+### Functor co-product
+
+### Function types with functors and contrafunctors
+
+### Least and greatest fixpoints
+
+### Universal and existential type quantifiers
+
+## Filterable functors and contrafunctors, and their combinators
+
+## Applicative functors and contrafunctors, and their combinators
 
 ## Traversable functors
 
-## Monads
+## Monads and their combinators
 
 ## Monad transformers
 
-## Free monads
 
-## Free instances of other typeclasses
+## Free typeclasses
 
 ### Free semigroup and free monoid
+
+### Free monad
 
 ### Free functor
 
@@ -4167,9 +4632,9 @@ The function `t` must work in the same way for all types `A` and for all values 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
 
-$$ t . fmap_F f  = fmap_G f . t  $$
+$$  t \circle \textrm{fmap}_F\, f  = \textrm{fmap}_G \, f \circle t  $$
 
-To represent this very concise mathematical formula in Dhall, we write the following definitions:
+To represent this concise mathematical formula in Dhall, we write the following definitions:
 
 ```dhall
 -- Define the type constructor F and its fmap method:
@@ -4186,11 +4651,11 @@ let naturality_law =
 ```
 
 A naturality law of `t` describes what happens when we apply the transformation `t` to a data container.
-We can apply `t` to transform `F A → G A`, followed an `fmap`-based transformation (`G A → G B`).
+We can apply `t` to transform `F A → G A`, followed by an `fmap_G f`-based transformation (`G A → G B`).
 
-(An `fmap` function does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
+(A lawful `fmap` method does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
 
-We can also first apply `fmap_F` to transform `F A → F B` and then apply `t` to transform `F B → G B`.
+We can also first apply `fmap_F f` to transform `F A → F B` and then apply `t` to transform `F B → G B`.
 The final results of type `G B` will be the same.
 
 So, naturality laws describe program refactorings where the programmer decides to change the order of function applications.
@@ -4200,14 +4665,26 @@ Because the naturality law holds, the results of the program are guaranteed to r
 If a natural transformation has several type parameters, there will be a separate naturality law with respect to each of the type parameters.
 To write that kind of naturality law, we need to fix all type parameters except one.
 
-As an example, consider the function `List/map` as a natural transformation with respect to the type parameter `A`.
-To write the corresponding naturality law, we keep `B` fixed and introduce arbitrary types `X`, `Y` and an arbitrary function `f : X → Y`:
+As an example, consider the function `List/map` whose type signature is:
 
-TODO
+```dhall
+List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B
+```
 
-### Fully parametric code. Parametricity theorem
+We fix the type parameter `B` and view `List/map` as a natural transformation with respect to the type parameter `A`.
+To write the corresponding naturality law, we introduce arbitrary types `X`, `Y` and an arbitrary functions `f : X → A` and `g : A → B`.
+Then, for any value `p : List X` we must have:
 
-As a motivation, consider a simple function with a type parameter:
+```dhall
+let fThenG : X → B = compose_forward X A B f g
+ in
+   List/map X B fThenG p === List/map A B g (List/map X A f p)
+```
+
+
+### Parametricity theorem. Relational naturality laws
+
+As a motivation for the parametricity theorem, consider a simple function with a type parameter:
 
 ```dhall
 let f
@@ -4215,11 +4692,15 @@ let f
   = λ(A : Type) → λ(x : A) → λ(y : A) → x
 ```
 
-Because the type `A` is unknown, the function `f` cannot examine the values `x` and `y` and perform any nontrivial computation with them (cannot even check whether `x == y`).
+Because the type `A` is unknown, the function `f` cannot examine the values `x` and `y` and perform any nontrivial computation with them (it cannot even check whether `x == y`).
 
 Neither can the code of `f` examine the type `A` itself and make decisions based on that.
 The code of `f` cannot check whether the type parameter `A` is equal to `Natural`, say.
 This is so because Dhall does not support comparing types or pattern-matching on type parameters.
+
+The function `f` must work in the same way for all types `A`.
+It is not possible to create a value of an unknown type `A` from scratch.
+So, the code of `f` can return one of the given values (`x` or `y`), but it can do nothing else.
 
 Here is an imaginary example of a function that does not work in the same way for all types:
 
@@ -4230,55 +4711,301 @@ let f_strange  -- This cannot work in Dhall.
     if A == Natural then x else y
 ```
 This function implements a different logic for `A == Natural` as opposed to other types.
-This sort of code can be written in a language where types can be examined at run time.
+This sort of code could be written in a language where types may be compared at run time.
 But Dhall does not support such functionality.
 
-For this reason, a Dhall function with a type parameter `A` must work in the same way for all `A`.
+For this reason, any Dhall function with a type parameter `A` must work in the same way for all `A`.
 This property is known as the "full polymorphic parametricity" of the function's code.
-We will call such code **fully parametric** for short.
+We will call such code **fully parametric code** for short.
 
 The **parametricity theorem** says that any fully parametric function will automatically satisfy a certain mathematical law.
 The form of that law is determined by the type signature of the function and does not depend on its implementation.
-(So, all functions of that type will satisfy the same law.)
+(So, all functions of that type will satisfy the same law.
+That law was called a **free theorem** in the paper ["Theorems for free" by P. Wadler](https://people.mpi-sws.org/~dreyer/tor/papers/wadler.pdf).)
 
-The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
-For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a sub-language of Dhall.
+The general formulation and proof of the parametricity theorem are beyond the scope of this book.
+For more details, see [_"The Science of Functional Programming"_ by the same author](https://leanpub.com/sofp).
+In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
 
 For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
 
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
-For functions of more complicated type signatures, the parametricity theorem gives a law of a more complicated form than naturality laws.
+For functions of more complicated type signatures, naturality laws do not apply.
+The parametricity theorem gives a law of a more complicated form than naturality laws.
 
-To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and H are arbitrary but covariant type constructors.
-This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `K A → L A` where `K` and `L` are either both covariant or both contravariant.
+To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
+The type signature `∀(A : Type) → (F A → G A) → H A` is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
 
 For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity theorem gives the following law:
 
-For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-compatible", we must have `fmap_H f (t A p) === t B q`.
+For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-related", we must have `fmap_H A B f (t A p) === t B q`.
 
-Here, we need to define the special property of being "`f`-compatible" as follows: Functions `p` and `q` are "`f`-compatible" if for any value `x : F A` we have:
+Here, we need to define the special property of being "`f`-related" as follows: Functions `p` and `q` are "`f`-related" if for any `x : F A` we have:
 
 ```dhall
 fmap_G A B f (p x) === q (fmap_F A B f x)
 ```
 This equation is similar to a naturality law except for using two different functions (`p` and `q`).
+(If we set `p = q`, we will obtain the naturality law of `p`.)
+
 It is important to note that this equation defines a _many-to-many relation_ between the functions `p` and `q`.
 This equation cannot be used to express `p` through `q` or `q` through `p`.
 
 Because of this complication, the law of `t` does not have the form of a single equation.
-The law says that the equation `fmap_H f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
-(We called that relation "`f`-compatible" just for the purposes of this example.)
+The law says that the equation `fmap_H A B f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
+(We called that property "`f`-related" just for this example.)
 
-One may say that the parametricity theorem gives a "relational law" for functions `t`; the form of that law generalizes naturality laws for the complicated type signature of `t`.
+We say that the parametricity theorem gives a **relational naturality law** for functions `t`.
+The form of that law is a generalization of a naturality law that is necessary for the complicated type signature of `t`.
 
 To summarize: the parametricity theorem applies to all Dhall values.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
 
 That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
 
+That law is the naturality law if the function has a type signature of the form `∀(A : Type) → K A → L A`, where `K` and `L` are either both covariant or both contravariant.
 
-### Existential types: `pack` is a left inverse of `unpack`
+For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational law shown above.
+
+### The four Yoneda identities
+
+One of the important applications of the parametricity theorem is the type equivalences known as the **Yoneda identities**.
+
+There are four different Yoneda identities.
+An example of a Yoneda identity is the following type equivalence:
+
+```dhall
+F A ≅ ∀(B : Type) → (A → B) → F B
+```
+This type equivalence holds under two assumptions:
+
+- `F` is a covariant functor with a lawful `fmap` method
+- all functions of the type `∀(B : Type) → (A → B) → F B` are natural transformations that satisfy the appropriate naturality law
+
+Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
+
+The Yoneda identity shown above requires `F` to be a covariant functor.
+There is a corresponding Yoneda identity for contravariant functors ("contrafunctors") `C`:
+
+```dhall
+C A ≅ ∀(B : Type) → (B → A) → C B
+```
+
+The two Yoneda identities just shown will apply to universally quantified function types of a certain form.
+Similar type identities exist for certain _existentially_ quantified types:
+
+```dhall
+-- Mathematical notation: F A ≅ ∃ B. (F B) × (B → A)
+F A ≅ Exists (λ(B : Type) → { seed : F B, step : B → A })
+
+-- Mathematical notation: C A ≅ ∃ B. (C B) × (A → B)
+C A ≅ Exists (λ(B : Type) → { seed : C B, step : A → B })
+```
+Here it is required that `F` be a covariant functor and `C` a contrafunctor.
+These type equivalences are sometimes called **co-Yoneda identities**.
+
+In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
+Proofs for the contravariant versions are similar.
+
+#### Proof of the covariant Yoneda identity
+
+We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to the type of natural transformations `∀(B : Type) → (A → B) → F B`.
+
+For brevity, let us view `A` and `F` as fixed and denote by `Y` the type:
+
+```dhall
+let Y = ∀(B : Type) → (A → B) → F B
+```
+
+It is assumed that the naturality laws hold for all natural transformations of type `Y`, and that the functor laws hold for `F`'s `fmap_F` method.
+
+To demonstrate the type equivalence (an isomorphism), we implement two functions `inY` and `outY` that map between the two types:
+
+```dhall
+inY : F A → Y
+  = λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
+
+outY : Y → F A
+  = λ(y : Y) → y (identity A)
+```
+
+We have imposed a requirement that any value of type `Y` must be a natural transformation.
+So, we need to begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
+
+The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) → F B` says that, for any `y : Y` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
+
+```dhall
+y C (compose_forward A B C f g) === fmap B C g (y B f)
+```
+
+We substitute `y = inY fa` into the left-hand side of this naturality law:
+
+```dhall
+y C (compose_forward A B C f g)   -- Expand the definition of y:
+  === inY fa C (compose_forward A B C f g)  -- Expand the definition of inY:
+  === fmap_F A C (compose_forward A B C f g) fa  -- Use fmap_F's composition law:
+  === fmap_F B C g (fmap_F A B f fa)
+```
+
+Now we write the right-hand side of the naturality law:
+
+```dhall
+fmap_F B C g (y B f)  -- Expand the definition of y:
+  === fmap_F B C g (inY fa B f)  -- Expand the definition of inY:
+  === fmap_F B C g (fmap_F A B f fa)
+```
+We obtain the same expression as from the left-hand side.
+So, the naturality law will hold automatically for values `y` obtained via `inY`.
+
+It remains to prove that the compositions of `inY` with `outY` in both directions are identity functions.
+
+The first direction: for any given `fa : F A`, we compute `y : Y = inY fa` and `faNew : F A = outY y`.
+Then we need to prove that `faNew === fa`:
+
+```dhall
+faNew === outY y  -- Expand the definition of outY:
+  === y A (identity A)   -- Expand the definition of y:
+  === inY fa A (identity A)  -- Expand the definition of inY:
+  === fmap_F A A (identity A) fa  -- Use the identity law of fmap_F:
+  === identity (F A) fa    -- Apply the identity function:
+  === fa
+```
+This depends on the identity law of `fmap_F`, which holds by assumption.
+
+The second direction: for any given `y : Y` that satisfies the naturality law, we compute `fa : F A = outY y` and `yNew : Y = inY fa`.
+Then we need to prove that `yNew === y`.
+Both `y` and `yNew` are functions, so we need to show that those functions give the same results when applied to arbitrary arguments.
+Take any type `B` and any `f : A → B`.
+Then we need to show that `yNew B f === y B f`.
+This will require using the naturality law of `y`:
+
+```dhall
+yNew B f === inY fa B f  -- Expand the definition of inY:
+  === fmap_F A B f fa  -- Expand the definition of fa:
+  === fmap_F A B f (outY y)  -- Expand the definition of outY:
+  === fmap_F A B f (y A (identity A))  -- Use the naturality law of y:
+  === y B (compose_forward A A B (identity A) f)  -- Compute composition:
+  === y B f
+```
+
+This completes the proof of the isomorphism between `F A` and `Y`.
+
+Note that the last part of the proof cannot succeed without assuming that all functions of type `Y` obey their naturality law.
+All Dhall functions will automatically satisfy that law.
+The Yoneda identities do not hold in programming languages where one can implement functions that violate naturality.
+
+#### Proof of the covariant co-Yoneda identity
+
+
+We prove that, for any covariant functor `F` and for any type `A`:
+
+```dhall
+-- Mathematical notation: F A ≅ ∃ B. (F B) × (B → A)
+F A  ≅  Exists (λ(B : Type) → { seed : F B, step : B → A })
+```
+
+For brevity, let us view `F` and `A` as fixed and denote:
+
+```dhall
+let P = λ(B : Type) → { seed : F B, step : B → A }
+```
+
+Then the covariant co-Yoneda identity says: `F A ≅ Exists P`.
+
+To make the required assumptions precise, let us write out the type `Exists P`:
+
+```dhall
+Exists P === ∀(R : Type) → (∀(B : Type) → P B → R) → R
+```
+
+Both universal quantifiers (`∀(R : Type)` and `∀(B : Type)`) are used with function types of the form of natural transformations.
+So, we need to assume that all functions with type signatures `∀(B : Type) → P B → R` are natural transformations with respect to `B`, and all functions with type signatures `∀(R : Type) → (∀(B : Type) → P B → R) → R` are natural transformations with respect to `R`.
+These assumptions are satisfied automatically if we are working with functions implemented in Dhall.
+
+Begin by considering the type `∀(B : Type) → P B → R`.
+We can rewrite that type equivalently in a curried form, replacing the record type `{ seed : F B, step : B → A }` by two curried arguments of types `F B` and `B → A`:
+
+```dhall
+∀(B : Type) → P B → R
+  ≅  ∀(B : Type) → { seed : F B, step : B → A } → R
+  ≅  ∀(B : Type) → (B → A) → F B → R
+```
+
+Now we note that the last type is of the form to which the contravariant Yoneda identity applies.
+Namely, it is of the form `∀(B : Type) → (B → A) → C B` with the contrafunctor `C` defined by `C B = F B → R`.
+By the contravariant Yoneda identity, that type is equivalent to just `C A`, which means `F A → R`.
+
+So, we may write the type equivalence:
+
+```dhall
+∀(B : Type) → (B → A) → F B → R  ≅  F A → R
+```
+
+Using that equivalence, the type `Exists P` is rewritten as:
+
+```dhall
+Exists P === ∀(R : Type) → (∀(B : Type) → P B → R) → R
+  ≅ ∀(R : Type) → (F A → R) → R
+```
+
+This type is in the form to which the covariant Yoneda identity applies.
+We find:
+
+```dhall
+∀(R : Type) → (F A → R) → R  ≅  F A
+```
+
+This proves the equivalence `Exists P ≅ F A`.
+
+To derive the code that transforms values of type `F A` into values of type `Exists P` and back,
+we turn to the two Yoneda identities used in the proof.
+
+The first type equivalence (`∀(B : Type) → (B → A) → F B → R  ≅  F A → R`) corresponds to using the contravariant Yoneda identity.
+The corresponding code consists of two functions:
+
+TODO
+
+### Proof: The Church-Yoneda identity
+
+Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Yoneda identities cannot be used with types of that form.
+
+There is a generalized identity that combines both forms of types.
+This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
+
+```dhall
+∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
+```
+Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are assumed to be arbitrary covariant functors.
+It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **relational naturality law** that follows from the parametricity theorem.
+
+This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+
+The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
+In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
+
+A proof of the Church-Yoneda identity must use the relational naturality law.
+
+TODO
+
+
+### Proof: The Church-co-Yoneda identity
+
+A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
+
+```dhall
+-- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
+G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
+```
+
+TODO
+
+### Proof: Church encoding of mutually recursive types
+
+TODO
+
+### Proof: `pack` is a left inverse of `unpack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP`.
 
@@ -4383,24 +5110,33 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Functions of existential type
+### Proof: Functions of existential type
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
-We will now show that the functions `inE` and `outE` defined in section "Functions of existential types" are inverses of each other.
+We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
 
-The functions `inE` and `outE` are defined by: TODO
-
-To check that the functions `inE R` and `outE R` are inverses of each other (for fixed `P` and `R`), we need to show that the composition of these functions in both directions are identity functions.
-
-The first direction is when we apply `inE` and then `outE`.
-Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE` to it, then `outE`:
+Recall the definitions of `inE` and `outE`:
 
 ```dhall
-outE R (inE R k)
-  -- Use the definition of `inE`.
-  === outE R (λ(ep : ExistsP) → ep R k)
-  -- Use the definition of `outE`.
+let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
+  = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
+    ep R unpack_
+
+let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
+  = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pT : P t) →
+    let ep : Exists P = pack P T pt
+      in consume ep
+```
+
+To check that the functions `inE R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
+
+The first direction is when we apply `inE R` and then `outE R`.
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE R` to it, then `outE R`:
+
+```dhall
+outE R (inE R k)  -- Use the definition of inE:
+  === outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE:
   === λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
@@ -4412,8 +5148,7 @@ The result should be equal to `k T pt`:
 ```dhall
 outE R (inE R k) t pt
   === (λ(ep : ExistsP) → ep R k) (packP T)
-  === (packP T) R k
-  -- Use the definition of `packP`.
+  === (packP T) R k  -- Use the definition of packP:
   === (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
   === k t pt
 ```

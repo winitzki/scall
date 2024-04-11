@@ -69,49 +69,49 @@ class StressTest extends DhallTest {
   }
 
   test("deeply nested lists") {
-    val generate = { n: Int => "[" * n + "1" + "]" * n }
+    val generate = { (n: Int) => "[" * n + "1" + "]" * n }
     expect(generate(1) == "[1]")
     expect(generate(3) == "[[[1]]]")
     measure(generate, 12, 2)
   }
 
   test("deeply nested parentheses") {
-    val generate = { n: Int => "(" * n + "1" + ")" * n }
+    val generate = { (n: Int) => "(" * n + "1" + ")" * n }
     expect(generate(1) == "(1)")
     expect(generate(3) == "(((1)))")
     measure(generate, 12, 2)
   }
 
   test("deeply nested records") {
-    val generate = { n: Int => "{x = " * n + "1" + "}" * n }
+    val generate = { (n: Int) => "{x = " * n + "1" + "}" * n }
     expect(generate(1) == "{x = 1}")
     expect(generate(3) == "{x = {x = {x = 1}}}")
     measure(generate, 12, 2)
   }
 
   test("deeply nested record types") {
-    val generate = { n: Int => "{x : " * n + "Bool" + "}" * n }
+    val generate = { (n: Int) => "{x : " * n + "Bool" + "}" * n }
     expect(generate(1) == "{x : Bool}")
     expect(generate(3) == "{x : {x : {x : Bool}}}")
     measure(generate, 12, 2)
   }
 
   test("deeply nested applications") {
-    val generate = { n: Int => "List " + "(List " * (n - 1) + "Bool" + ")" * (n - 1) }
+    val generate = { (n: Int) => "List " + "(List " * (n - 1) + "Bool" + ")" * (n - 1) }
     expect(generate(1) == "List Bool")
     expect(generate(3) == "List (List (List Bool))")
     measure(generate, 12, 2)
   }
 
   test("deeply nested applications under lambda") {
-    val generate = { n: Int => "\\(x: Bool -> Bool) -> x " + "(x " * (n - 1) + "True" + ")" * (n - 1) }
+    val generate = { (n: Int) => "\\(x: Bool -> Bool) -> x " + "(x " * (n - 1) + "True" + ")" * (n - 1) }
     expect(generate(1) == "\\(x: Bool -> Bool) -> x True")
     expect(generate(3) == "\\(x: Bool -> Bool) -> x (x (x True))")
     measure(generate, 12, 2)
   }
 
   test("deeply nested lambdas") {
-    val generate = { n: Int => "\\(x: Bool) -> " * n + "x" }
+    val generate = { (n: Int) => "\\(x: Bool) -> " * n + "x" }
     expect(generate(1) == "\\(x: Bool) -> x")
     expect(generate(3) == "\\(x: Bool) -> \\(x: Bool) -> \\(x: Bool) -> x")
     measure(generate, 12, 2)

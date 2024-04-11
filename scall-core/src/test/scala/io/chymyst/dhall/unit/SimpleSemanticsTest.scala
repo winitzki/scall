@@ -2,10 +2,12 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Parser.StringAsDhallExpression
+import io.chymyst.dhall.Semantics.BetaNormalizingOptions
+import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.Expression._
-import io.chymyst.dhall.Syntax.ExpressionScheme.{Variable, underscore}
+import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprOperator, Variable, underscore}
 import io.chymyst.dhall.SyntaxConstants.Builtin.Natural
-import io.chymyst.dhall.SyntaxConstants.VarName
+import io.chymyst.dhall.SyntaxConstants.{Operator, VarName}
 import io.chymyst.dhall.TypeCheck.KnownVars
 import io.chymyst.dhall.{Parser, Semantics, TypecheckResult}
 
@@ -381,6 +383,115 @@ class SimpleSemanticsTest extends DhallTest {
   test("eta-reduction works regardless of types") {
     expect("\\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(x : Bool) → f x x")
     expect("\\(f: Bool) -> \\(x : Bool) -> f x x".dhall.betaNormalized.print == "λ(f : Bool) → λ(x : Bool) → f x x")
+  }
+
+  test("identity law of function composition") {
+    expect("""
+        | let identity
+        |    : ∀(A : Type) → ∀(x : A) → A
+        |    = λ(A : Type) → λ(x : A) → x
+        | let compose_forward : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
+        |    = λ(a : Type) →
+        |      λ(b : Type) →
+        |      λ(c : Type) →
+        |      λ(f : a → b) →
+        |      λ(g : b → c) →
+        |      λ(x : a) →
+        |        g (f x)
+        |  in
+        | λ(a : Type) →
+        |      λ(b : Type) →
+        |      λ(c : Type) →
+        |      λ(d : Type) →
+        |      λ(f : a → b) →
+        |      λ(g : b → c) →
+        |      λ(h : c → d) →
+        |      λ(k : a → b → c) →
+        |        { right_identity_law_forward =
+        |            assert : compose_forward a b b f (identity b) ≡ f
+        |        , left_identity_law_forward =
+        |            assert : compose_forward a a b (identity a) f ≡ f
+        |        , associativity_law_forward =
+        |              assert
+        |            :   compose_forward a b d f (compose_forward b c d g h)
+        |              ≡ compose_forward a c d (compose_forward a b c f g) h
+        |        }
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize().isValid)
+  }
+
+  test("associativity rewrite 1") {
+    val right          = "x + (y + z)".dhall
+    val rightRewritten = Semantics.betaNormalizeAndExpand(right, BetaNormalizingOptions(rewriteAssociativity = true)).scheme
+    val leftScheme     = ExprOperator(Expression(ExprOperator(v("x"), Operator.Plus, v("y"))), Operator.Plus, v("z"))
+    val rightScheme    = ExprOperator(v("x"), Operator.Plus, Expression(ExprOperator(v("y"), Operator.Plus, v("z"))))
+    expect(right.scheme == rightScheme)
+    expect(rightRewritten.scheme == leftScheme)
+  }
+
+  test("associativity rewrite 2") {
+    val left  = "(x && y) && z".dhall
+    val right = "x && (y && z)".dhall
+    expect(Semantics.equivalent(left, right))
+  }
+
+  test("associativity law of monoids") {
+    expect("""
+        |let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+        |
+        |      let monoidBool
+        |          : Monoid Bool
+        |          = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+        |
+        |      let monoidNatural
+        |          : Monoid Natural
+        |          = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
+        |
+        |      let monoidText
+        |          : Monoid Text
+        |          = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
+        |
+        |      let monoidList
+        |          : ∀(a : Type) → Monoid (List a)
+        |          = λ(a : Type) →
+        |              { empty = [] : List a
+        |              , append = λ(x : List a) → λ(y : List a) → x # y
+        |              }
+        |let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
+        |  let plus = monoid_m.append
+        |  let e = monoid_m.empty
+        |    in {
+        |        monoid_left_id_law = { _1 = plus e x, _2 = x },
+        |        monoid_right_id_law = { _1 = plus x e, _2 = x },
+        |        monoid_assoc_law = { _1 = plus x (plus y z), _2 = plus (plus x y) z },
+        |       }
+        |let monoidLaws_eq = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
+        |  let plus = monoid_m.append
+        |  let e = monoid_m.empty
+        |    in {
+        |        monoid_left_id_law = plus e x === x,
+        |        monoid_right_id_law = plus x e === x,
+        |        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
+        |       }
+        |
+        |let check_monoidBool_assoc_law =
+        |            λ(x : Bool) →
+        |            λ(y : Bool) →
+        |            λ(z : Bool) →
+        |              assert : (monoidLaws Bool monoidBool x y z).monoid_assoc_law._1 === (monoidLaws Bool monoidBool x y z).monoid_assoc_law._2
+        |let check_monoidBool_assoc_law_eq =
+        |            λ(x : Bool) →
+        |            λ(y : Bool) →
+        |            λ(z : Bool) →
+        |              assert : (monoidLaws_eq Bool monoidBool x y z).monoid_assoc_law
+        |in True
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize().isValid)
+  }
+
+  test("equivalence for Double literals") {
+    val x = "0.0".dhall
+    val y = "-0.0".dhall
+    expect(Semantics.equivalent(x, x))
+    expect(!Semantics.equivalent(x, y))
   }
 
 }

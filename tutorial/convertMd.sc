@@ -1,12 +1,11 @@
 //> using dep com.lihaoyi::fastparse:3.0.2
 
-//> using scala 3.3.3
+//> using scala 3.4.1
 
 import fastparse.*
 import fastparse.NoWhitespace.*
 
 def end_of_line[$: P] = P("\n" | "\r\n")
-
 
 def space[$: P] = P(CharIn(" \t").rep(1))
 
@@ -173,7 +172,7 @@ def markdown[$: P]: P[Seq[Markdown]] = P(block.rep(1))
 def textualToLatex: Textual => String = {
   case Textual.Span(kind, text) => kind match
     case SpanKind.Emphasis => s"\\emph{$text}"
-    case SpanKind.StrongEmphasis => s"\\textbf{$text}"
+    case SpanKind.StrongEmphasis => s"\\textbf{$text}\\index{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
     case SpanKind.Regular => text
   case Textual.Hyperlink(text, target) =>
@@ -183,8 +182,8 @@ def textualToLatex: Textual => String = {
 }
 
 def languageOption(str: String): String =
-  val replaced = if str equalsIgnoreCase "dhall" then "haskell" else str
-  val capitalized = (if replaced equalsIgnoreCase "haskell" then "" else replaced).capitalize
+  val replaced = if str `equalsIgnoreCase` "dhall" then "haskell" else str
+  val capitalized = (if replaced `equalsIgnoreCase` "haskell" then "" else replaced).capitalize
   if capitalized.isEmpty then "" else s"[language=$capitalized]"
 
 def toLatex: Markdown => String = {

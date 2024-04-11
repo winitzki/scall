@@ -9,7 +9,7 @@ import scala.collection.mutable
 class ParserStressTest extends DhallTest {
 
   test("tracing the parse of deeply nested parentheses") {
-    val generate = { n: Int => "(" * n + "1" + ")" * n }
+    val generate = { (n: Int) => "(" * n + "1" + ")" * n }
     val input    = generate(1)
     fastparse.parse(
       input,

@@ -6,7 +6,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme.DoubleLiteral
 import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.SyntaxConstants.FieldName
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
-import io.chymyst.dhall.codec.FromDhall.DhallExpressionAsScala
+import io.chymyst.dhall.codec.Adapters.DhallExpressionAsScala
 import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
 import izumi.reflect.{Tag, TagK}

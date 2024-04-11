@@ -1214,7 +1214,7 @@ object Grammar {
 
   def record_literal_entry[$: P]: P[RawRecordLiteral] = P(
     any_label_or_some.map(FieldName) ~ record_literal_normal_entry.?
-  ).map(RawRecordLiteral.tupled)
+  ).map { case (base, defs) => RawRecordLiteral(base, defs)}
 
   def record_literal_normal_entry[$: P]: P[(Seq[FieldName], Expression)] = P(
     (whsp ~ "." ~ whsp ~/ any_label_or_some.map(FieldName)).rep ~ whsp ~ "=" ~ whsp ~/ expression

@@ -1,7 +1,7 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.CBORmodel.CBytes
-import io.chymyst.dhall.Syntax.Expression.v
+import io.chymyst.dhall.Syntax.Expression.{toExpressionScheme, v}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{ListFold, ListLength, Natural, NaturalSubtract}
@@ -154,24 +154,27 @@ object Semantics {
 
   val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
-  val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
+  final case class ExprWithOptions(expr: Expression, options: BetaNormalizingOptions)
+
+  val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[ExprWithOptions, ExprWithOptions](maxCacheSize))
 
   val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
   def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
-    cacheBetaNormalize.getOrElseUpdate(expr, betaNormalizeUncached(expr, options).expr)
+    cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
 
-  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false)
+  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false, rewriteAssociativity: Boolean = false)
 
-  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression = cacheBetaNormalize.get(expr) match {
-    case Some(normalized) => normalized
-    case None             =>
-      val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
-      if (didShortcut) {
-        //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
-        normalized
-      } else cacheBetaNormalize.getOrElseUpdate(expr, normalized)
-  }
+  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
+    cacheBetaNormalize.get(ExprWithOptions(expr, options)) match {
+      case Some(normalized) => normalized.expr
+      case None             =>
+        val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
+        if (didShortcut) {
+          //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
+          normalized
+        } else cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(normalized, options)).expr
+    }
 
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
@@ -205,7 +208,7 @@ object Semantics {
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
       matcher: PartialFunction[ExpressionScheme[Expression], Expression]
     ): Expression =
-      matcher.applyOrElse(bn(expr).scheme, { _: ExpressionScheme[Expression] => default })
+      matcher.applyOrElse(bn(expr).scheme, { (_: ExpressionScheme[Expression]) => default })
 
     expr.scheme match {
       // These expression types are already in beta-normal form.
@@ -269,14 +272,31 @@ object Semantics {
       case Annotation(data, _) => data.pipe(bn)
 
       case ExprOperator(lop, op, rop) =>
-        lazy val ExprOperator(lopN, _, ropN) = normalizeArgs
+        lazy val ExprOperator(lopNbeforeRewrite, _, ropNbeforeRewrite) = normalizeArgs
 
-        // Make sure we do not evaluate unnecessarily.
+        lazy val (lopN, ropN) = if (options.rewriteAssociativity) {
+          ropNbeforeRewrite.scheme match {
+            case ExprOperator(lopNested, `op`, ropNested) =>
+              // Rewrite a right-associated operator expression:
+              // (lopNbeforeRewrite `op` (lopNested `op` ropNested))
+              // into a left-associated operator expression:
+              // ((lopNbeforeRewrite `op` lopNested) `op` ropNested)
+              val newLop = Expression(ExprOperator(lopNbeforeRewrite, op, lopNested))
+              val newRop = ropNested
+              (newLop, newRop)
+
+            case _ => (lopNbeforeRewrite, ropNbeforeRewrite)
+          }
+        } else (lopNbeforeRewrite, ropNbeforeRewrite)
+
+        lazy val normalizeArgsRewritten = Expression(ExprOperator(lopN, op, ropN))
+
+        // Make sure we do not evaluate Bool expressions unnecessarily.
         def booleans(ifLeftFalse: => Expression, ifLeftTrue: => Expression): Expression =
           if (lopN.scheme == ExprConstant(Constant.False) || ropN.scheme == ExprConstant(Constant.True)) ifLeftFalse
           else if (lopN.scheme == ExprConstant(Constant.True) || ropN.scheme == ExprConstant(Constant.False)) ifLeftTrue
           else if (equivalent(lopN, ropN)) ropN
-          else normalizeArgs
+          else normalizeArgsRewritten
 
         op match {
           case Operator.Or => booleans(ropN, lopN)
@@ -288,7 +308,7 @@ object Semantics {
               case (NaturalLiteral(a), _) if a == 0       => ropN
               case (_, NaturalLiteral(b)) if b == 0       => lopN
               case (NaturalLiteral(a), NaturalLiteral(b)) => NaturalLiteral(a + b)
-              case _                                      => normalizeArgs
+              case _                                      => normalizeArgsRewritten
             }
 
           case Operator.TextAppend => Expression(TextLiteral(List(("", lopN), ("", ropN)), "")).pipe(bn)
@@ -298,7 +318,7 @@ object Semantics {
               case (EmptyList(_), _)                            => ropN
               case (_, EmptyList(_))                            => lopN
               case (NonEmptyList(exprs1), NonEmptyList(exprs2)) => Expression(NonEmptyList(exprs1 ++ exprs2)).pipe(bn)
-              case _                                            => normalizeArgs
+              case _                                            => normalizeArgsRewritten
             }
 
           case Operator.CombineRecordTerms =>
@@ -308,7 +328,7 @@ object Semantics {
               case (RecordLiteral(defs1), RecordLiteral(defs2)) =>
                 Expression(RecordLiteral(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTerms, defs2)))
                   .pipe(bn) // TODO report issue that we need to beta-normalize this, otherwise tests fail
-              case _                                            => normalizeArgs
+              case _                                            => normalizeArgsRewritten
             }
 
           case Operator.Prefer =>
@@ -323,7 +343,7 @@ object Semantics {
                 RecordLiteral(mergedFields)    // .pipe(bn)  - not needed here.
               case _ if equivalent(lopN, ropN)                  =>
                 lopN // TODO report issue: beta-normalization.md does not include this rule in Haskell code after `betaNormalize (Operator ls₀ Prefer rs₀)`
-              case _                                            => normalizeArgs
+              case _                                            => normalizeArgsRewritten
             }
 
           case Operator.CombineRecordTypes =>
@@ -333,7 +353,7 @@ object Semantics {
               case (RecordType(defs1), RecordType(defs2)) =>
                 Expression(RecordType(mergeRecordPartsPreferringSecond(defs1, Operator.CombineRecordTypes, defs2)))
                   .pipe(bn) // TODO report issue that we need to beta-normalize this, otherwise tests fail.
-              case _                                      => normalizeArgs
+              case _                                      => normalizeArgsRewritten
             }
 
           case Operator.Times =>
@@ -343,7 +363,7 @@ object Semantics {
               case (NaturalLiteral(a), _) if a == 1       => ropN
               case (_, NaturalLiteral(b)) if b == 1       => lopN
               case (NaturalLiteral(a), NaturalLiteral(b)) => NaturalLiteral(a * b)
-              case _                                      => normalizeArgs
+              case _                                      => normalizeArgsRewritten
             }
           case Operator.Equal =>
             if (lopN.scheme == ExprConstant(Constant.True)) ropN
@@ -355,9 +375,10 @@ object Semantics {
             if (lopN.scheme == ExprConstant(Constant.False)) ropN
             else if (ropN.scheme == ExprConstant(Constant.False)) lopN
             else if (equivalent(lop, rop)) ExprConstant(Constant.False)
-            else normalizeArgs
+            else normalizeArgsRewritten
 
-          case Operator.Equivalent  => normalizeArgs
+          case Operator.Equivalent => normalizeArgsRewritten
+
           case Operator.Alternative => throw new Exception(s"Unresolved import alternative in $expr cannot be beta-normalized")
         }
 
@@ -677,11 +698,23 @@ object Semantics {
     }
   }
 
+  // Shortcut: identical JVM object references are equivalent.
+  // But do not use x == y here, because that would incorrectly judge -0.0 === 0.0, which we don't want.
+  private def simpleEquivalence(x: Expression, y: Expression): Boolean = x.eq(y) || {
+    x.scheme match {
+      case DoubleLiteral(value) => false
+      case _                    => x == y // Equivalent as case classes.
+    }
+  }
+
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
-  // TODO: report issue, activate eta-reduction only when doing the equivalence check.
-  def equivalent(x: Expression, y: Expression): Boolean =
-    betaNormalizeAndExpand(x.alphaNormalized, options = BetaNormalizingOptions(etaReduce = true)).toCBORmodel.encodeCbor1 sameElements
-      betaNormalizeAndExpand(y.alphaNormalized, options = BetaNormalizingOptions(etaReduce = true)).toCBORmodel.encodeCbor1
+  // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
+  def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
+    val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
+    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
+    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)
+    normalizedX.toCBORmodel.encodeCbor1 sameElements normalizedY.toCBORmodel.encodeCbor1
+  }
 
   def desugar(c: Completion[Expression]): Expression =
     Expression(ExprOperator(Field(c.base, FieldName("default")), Operator.Prefer, c.target)) | Field(c.base, FieldName("Type"))

@@ -397,69 +397,265 @@ let _functors_examples =
 
       in  True
 
-let _typeclasses_examples =
-      let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+let compose_forward
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+      λ(x : a) →
+        g (f x)
 
-      let monoidBool
-          : Monoid Bool
-          = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+let compose_backward
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : b → c) →
+      λ(g : a → b) →
+      λ(x : a) →
+        f (g x)
 
-      let monoidNatural
-          : Monoid Natural
-          = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
+let flip
+    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → b → a → c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b → c) →
+      λ(x : b) →
+      λ(y : a) →
+        f y x
 
-      let monoidText
-          : Monoid Text
-          = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
+let curry
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      ∀(c : Type) →
+      ({ _1 : a, _2 : b } → c) →
+      a →
+      b →
+        c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : { _1 : a, _2 : b } → c) →
+      λ(x : a) →
+      λ(y : b) →
+        f { _1 = x, _2 = y }
 
-      let monoidList
-          : ∀(a : Type) → Monoid (List a)
-          = λ(a : Type) →
-              { empty = [] : List a
-              , append = λ(x : List a) → λ(y : List a) → x # y
+let uncurry
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      ∀(c : Type) →
+      (a → b → c) →
+      { _1 : a, _2 : b } →
+        c
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b → c) →
+      λ(p : { _1 : a, _2 : b }) →
+        f p._1 p._2
+
+let _ =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+      λ(h : c → d) →
+      λ(k : a → b → c) →
+        { right_identity_law_forward =
+            assert : compose_forward a b b f (identity b) ≡ f
+        , left_identity_law_forward =
+            assert : compose_forward a a b (identity a) f ≡ f
+        , right_identity_law_backward =
+            assert : compose_backward a a b f (identity a) ≡ f
+        , left_identity_law_backward =
+            assert : compose_backward a b b (identity b) f ≡ f
+        , curry_uncurry = assert : curry a b c (uncurry a b c k) ≡ k
+        , associativity_law_forward =
+              assert
+            :   compose_forward a b d f (compose_forward b c d g h)
+              ≡ compose_forward a c d (compose_forward a b c f g) h
+        , associativity_law_backward =
+              assert
+            :   compose_backward a b d (compose_backward b c d h g) f
+              ≡ compose_backward a c d h (compose_backward a b c g f)
+        , flip_flip = assert : flip b a c (flip a b c k) ≡ k
+        }
+
+let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+
+let monoidBool
+    : Monoid Bool
+    = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+
+let monoidNatural
+    : Monoid Natural
+    = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
+
+let monoidText
+    : Monoid Text
+    = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
+
+let monoidList
+    : ∀(a : Type) → Monoid (List a)
+    = λ(a : Type) →
+        { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
+
+let reduce
+    : ∀(m : Type) → Monoid m → List m → m
+    = λ(m : Type) →
+      λ(monoid_m : Monoid m) →
+      λ(xs : List m) →
+        List/fold
+          m
+          xs
+          m
+          (λ(x : m) → λ(y : m) → monoid_m.append x y)
+          monoid_m.empty
+
+let monoidLaws =
+      λ(m : Type) →
+      λ(monoid_m : Monoid m) →
+      λ(x : m) →
+      λ(y : m) →
+      λ(z : m) →
+        let plus = monoid_m.append
+
+        let e = monoid_m.empty
+
+        in  { monoid_left_id_law = plus e x ≡ x
+            , monoid_right_id_law = plus x e ≡ x
+            , monoid_assoc_law = plus x (plus y z) ≡ plus (plus x y) z
+            }
+
+let check_monoidBool_left_id_law =
+      λ(x : Bool) →
+      λ(y : Bool) →
+      λ(z : Bool) →
+        assert : (monoidLaws Bool monoidBool x y z).monoid_left_id_law
+
+let foldMap
+    : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
+    = λ(m : Type) →
+      λ(monoid_m : Monoid m) →
+      λ(a : Type) →
+      λ(f : a → m) →
+      λ(xs : List a) →
+        List/fold
+          a
+          xs
+          m
+          (λ(x : a) → λ(y : m) → monoid_m.append (f x) y)
+          monoid_m.empty
+
+let Functor =
+      λ(F : Type → Type) →
+        { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+
+let Contrafunctor =
+      λ(F : Type → Type) →
+        { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+
+let functorList
+    : Functor List
+    = { fmap = https://prelude.dhall-lang.org/List/map }
+
+let F
+    : Type → Type
+    = λ(A : Type) → { x : A, y : A, t : Bool }
+
+let G
+    : Type → Type
+    = λ(A : Type) → < Left : Text | Right : A >
+
+let functorF
+    : Functor F
+    = { fmap =
+          λ(A : Type) →
+          λ(B : Type) →
+          λ(f : A → B) →
+          λ(fa : F A) →
+            { x = f fa.x, y = f fa.y, t = fa.t }
+      }
+
+let functorG
+    : Functor G
+    = { fmap =
+          λ(A : Type) →
+          λ(B : Type) →
+          λ(f : A → B) →
+          λ(ga : G A) →
+            merge
+              { Left = λ(t : Text) → (G B).Left t
+              , Right = λ(x : A) → (G B).Right (f x)
               }
+              ga
+      }
 
-      let reduce
-          : ∀(m : Type) → Monoid m → List m → m
-          = λ(m : Type) →
-            λ(monoid_m : Monoid m) →
-            λ(xs : List m) →
-              List/fold
-                m
-                xs
-                m
-                (λ(x : m) → λ(y : m) → monoid_m.append x y)
-                monoid_m.empty
+let Const = λ(c : Type) → λ(a : Type) → c
 
-      let foldMap
-          : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → List a → m
-          = λ(m : Type) →
-            λ(monoid_m : Monoid m) →
-            λ(a : Type) →
-            λ(f : a → m) →
-            λ(xs : List a) →
-              List/fold
-                a
-                xs
-                m
-                (λ(x : a) → λ(y : m) → monoid_m.append (f x) y)
-                monoid_m.empty
+let functorConst
+    : ∀(c : Type) → Functor (Const c)
+    = λ(c : Type) →
+        { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a)
+        }
 
-      let Functor =
-            λ(F : Type → Type) →
-              { fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b }
+let functorLaws =
+      λ(F : Type → Type) →
+      λ(functor_F : Functor F) →
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+        let fmap = functor_F.fmap
 
-      let functorList
-          : Functor List
-          = { fmap = https://prelude.dhall-lang.org/List/map }
+        in  { functor_id_law = fmap a a (identity a) ≡ identity (F a)
+            , functor_comp_law =
+                let fg = compose_forward a b c f g
 
+                let fmap_f = fmap a b f
+
+                let fmap_g = fmap b c g
+
+                let fmapf_fmapg =
+                      compose_forward (F a) (F b) (F c) fmap_f fmap_g
+
+                in  fmap a c fg ≡ fmapf_fmapg
+            }
+
+let contrafunctorLaws =
+      λ(F : Type → Type) →
+      λ(contrafunctor_F : Contrafunctor F) →
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : Type) →
+      λ(f : a → b) →
+      λ(g : b → c) →
+        let cmap = contrafunctor_F.cmap
+
+        in  { contrafunctor_id_law = cmap a a (identity a) ≡ identity (F a)
+            , contrafunctor_comp_law =
+                let gf = compose_backward a b c g f
+
+                let cmap_f = cmap a b f
+
+                let cmap_g = cmap b c g
+
+                let cmapf_cmapg =
+                      compose_backward (F c) (F b) (F a) cmap_f cmap_g
+
+                in  cmap a c gf ≡ cmapf_cmapg
+            }
+
+let _ =
       let F
           : Type → Type
-          = λ(A : Type) → { x : A, y : A, t : Bool }
-
-      let G
-          : Type → Type
-          = λ(A : Type) → < Left : Text | Right : A >
+          = λ(a : Type) → { x : a, y : a, t : Bool }
 
       let functorF
           : Functor F
@@ -471,84 +667,145 @@ let _typeclasses_examples =
                   { x = f fa.x, y = f fa.y, t = fa.t }
             }
 
-      let functorG
-          : Functor G
-          = { fmap =
-                λ(A : Type) →
-                λ(B : Type) →
-                λ(f : A → B) →
-                λ(ga : G A) →
-                  merge
-                    { Left = λ(t : Text) → (G B).Left t
-                    , Right = λ(x : A) → (G B).Right (f x)
-                    }
-                    ga
-            }
-
-      let Monad =
-            λ(F : Type → Type) →
-              { pure : ∀(a : Type) → a → F a
-              , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+      let functor_laws_of_F =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(c : Type) →
+            λ(f : a → b) →
+            λ(g : b → c) →
+              { --  identity_law = assert : (functorLaws F functorF a b c f g).functor_id_law,
+                composition_law =
+                  assert : (functorLaws F functorF a b c f g).functor_comp_law
               }
 
-      let monadList
-          : Monad List
-          = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
-
-            in  { pure = λ(a : Type) → λ(x : a) → [ x ]
-                , bind =
-                    λ(a : Type) →
-                    λ(fa : List a) →
-                    λ(b : Type) →
-                    λ(f : a → List b) →
-                      List/concatMap a b f fa
-                }
-
-      let monadJoin =
-            λ(F : Type → Type) →
-            λ(monadF : Monad F) →
+      let identity_law_of_F =
             λ(a : Type) →
-            λ(ffa : F (F a)) →
-              monadF.bind (F a) ffa a (identity (F a))
+              let id_F =
+                    λ(fa : { t : Bool, x : a, y : a }) →
+                      { t = fa.t, x = fa.x, y = fa.y }
 
-      let List/join
-          : ∀(a : Type) → List (List a) → List a
-          = monadJoin List monadList
+              in  assert : functorF.fmap a a (identity a) ≡ id_F
 
-      let Semigroup = λ(m : Type) → { append : m → m → m }
+      let functor_laws_of_G =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(c : Type) →
+            λ(f : a → b) →
+            λ(g : b → c) →
+              { -- identity_law = -- assert : (functorLaws G functorG a b c f g).functor_id_law, composition_law = assert : (functorLaws G functorG a b c f g).functor_comp_law
+                can_verify_laws = False
+              }
 
-      let semigroupText
-          : Semigroup Text
-          = { append = λ(x : Text) → λ(y : Text) → x ++ y }
+      let C = λ(a : Type) → a → Text
 
-      let Monoid = λ(m : Type) → Semigroup m ⩓ { empty : m }
+      let contrafunctor_C
+          : Contrafunctor C
+          = { cmap =
+                λ(a : Type) →
+                λ(b : Type) →
+                λ(f : a → b) →
+                λ(fb : b → Text) →
+                λ(x : a) →
+                  fb (f x)
+            }
 
-      let monoidText
-          : Monoid Text
-          = semigroupText ∧ { empty = "" }
-
-      let Monad =
-            λ(F : Type → Type) →
-                Functor F
-              ⩓ { pure : ∀(a : Type) → a → F a
-                , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
-                }
-
-      let monadList
-          : Monad List
-          = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
-
-            in    functorList
-                ∧ { pure = λ(a : Type) → λ(x : a) → [ x ]
-                  , bind =
-                      λ(a : Type) →
-                      λ(fa : List a) →
-                      λ(b : Type) →
-                      λ(f : a → List b) →
-                        List/concatMap a b f fa
-                  }
+      let contrafunctor_laws_of_C =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(c : Type) →
+            λ(f : a → b) →
+            λ(g : b → c) →
+              { identity_law =
+                    assert
+                  : ( contrafunctorLaws C contrafunctor_C a b c f g
+                    ).contrafunctor_id_law
+              , composition_law =
+                    assert
+                  : ( contrafunctorLaws C contrafunctor_C a b c f g
+                    ).contrafunctor_comp_law
+              , can_verify_laws = True
+              }
 
       in  True
+
+let Contrafunctor =
+      λ(F : Type → Type) →
+        { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+
+let contrafunctorConst
+    : ∀(c : Type) → Contrafunctor (Const c)
+    = λ(c : Type) →
+        { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a)
+        }
+
+let Id = λ(a : Type) → a
+
+let functor_Id
+    : Functor Id
+    = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
+
+let Monad =
+      λ(F : Type → Type) →
+        { pure : ∀(a : Type) → a → F a
+        , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+        }
+
+let monadList
+    : Monad List
+    = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+
+      in  { pure = λ(a : Type) → λ(x : a) → [ x ]
+          , bind =
+              λ(a : Type) →
+              λ(fa : List a) →
+              λ(b : Type) →
+              λ(f : a → List b) →
+                List/concatMap a b f fa
+          }
+
+let monadJoin =
+      λ(F : Type → Type) →
+      λ(monadF : Monad F) →
+      λ(a : Type) →
+      λ(ffa : F (F a)) →
+        monadF.bind (F a) ffa a (identity (F a))
+
+let List/join
+    : ∀(a : Type) → List (List a) → List a
+    = monadJoin List monadList
+
+let Semigroup = λ(m : Type) → { append : m → m → m }
+
+let semigroupText
+    : Semigroup Text
+    = { append = λ(x : Text) → λ(y : Text) → x ++ y }
+
+let Monoid = λ(m : Type) → Semigroup m ⩓ { empty : m }
+
+let monoidText
+    : Monoid Text
+    = semigroupText ∧ { empty = "" }
+
+let Monad =
+      λ(F : Type → Type) →
+          Functor F
+        ⩓ { pure : ∀(a : Type) → a → F a
+          , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
+          }
+
+let monadList
+    : Monad List
+    = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+
+      in    functorList
+          ∧ { pure = λ(a : Type) → λ(x : a) → [ x ]
+            , bind =
+                λ(a : Type) →
+                λ(fa : List a) →
+                λ(b : Type) →
+                λ(f : a → List b) →
+                  List/concatMap a b f fa
+            }
 
 let _church_encoding_examples =
       let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -685,94 +942,5 @@ let _tree_aggregation_test =
                 x
 
       in  True
-
-let compose_forward
-    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → a → c
-    = λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(f : a → b) →
-      λ(g : b → c) →
-      λ(x : a) →
-        g (f x)
-
-let compose_backward
-    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → a → c
-    = λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(f : b → c) →
-      λ(g : a → b) →
-      λ(x : a) →
-        f (g x)
-
-let flip
-    : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → b → a → c
-    = λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(f : a → b → c) →
-      λ(x : b) →
-      λ(y : a) →
-        f y x
-
-let curry
-    : ∀(a : Type) →
-      ∀(b : Type) →
-      ∀(c : Type) →
-      ({ _1 : a, _2 : b } → c) →
-      a →
-      b →
-        c
-    = λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(f : { _1 : a, _2 : b } → c) →
-      λ(x : a) →
-      λ(y : b) →
-        f { _1 = x, _2 = y }
-
-let uncurry
-    : ∀(a : Type) →
-      ∀(b : Type) →
-      ∀(c : Type) →
-      (a → b → c) →
-      { _1 : a, _2 : b } →
-        c
-    = λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(f : a → b → c) →
-      λ(p : { _1 : a, _2 : b }) →
-        f p._1 p._2
-
-let _ =
-      λ(a : Type) →
-      λ(b : Type) →
-      λ(c : Type) →
-      λ(d : Type) →
-      λ(f : a → b) →
-      λ(g : b → c) →
-      λ(h : c → d) →
-      λ(k : a → b → c) →
-        { right_identity_law_forward =
-            assert : compose_forward a b b f (identity b) ≡ f
-        , left_identity_law_forward =
-            assert : compose_forward a a b (identity a) f ≡ f
-        , right_identity_law_backward =
-            assert : compose_backward a a b f (identity a) ≡ f
-        , left_identity_law_backward =
-            assert : compose_backward a b b (identity b) f ≡ f
-        , curry_uncurry = assert : curry a b c (uncurry a b c k) ≡ k
-        , associativity_law_forward =
-              assert
-            :   compose_forward a b d f (compose_forward b c d g h)
-              ≡ compose_forward a c d (compose_forward a b c f g) h
-        , associativity_law_backward =
-              assert
-            :   compose_backward a b d (compose_backward b c d h g) f
-              ≡ compose_backward a c d h (compose_backward a b c g f)
-        , flip_flip = assert : flip b a c (flip a b c k) ≡ k
-        }
 
 in  True
