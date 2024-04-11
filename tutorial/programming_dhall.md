@@ -3119,7 +3119,7 @@ For example, concatenating or reversing lists of type `ListInt` takes time quadr
 
 ## Church encodings for more complicated types
 
-### Encoding mutually recursive types
+### Mutually recursive types
 
 If two or more types are defined recursively through each other, one needs a separate recursion scheme and a separate the Church encoding for each of the types.
 
@@ -3163,7 +3163,7 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
-### Encoding recursive type constructors
+### Recursive type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
@@ -3865,7 +3865,7 @@ let fix : F (GFix F) → GFix F
       in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
 ```
 
-### Data constructors
+### Data constructors and pattern matching
 
 To create values of type `GFix F` more conveniently, we will now implement a function called `makeGFix`.
 The code of that function uses the generic `pack` function (see the section about existential types) to create values of type `∃ r. r × (r → F r)`.
@@ -3892,9 +3892,9 @@ We can then perform pattern-matching directly on that value, since `F` is typica
 
 So, similarly to the case of Church encodings, `fix` provides constructors and `unfix` provides pattern-matching for co-inductive types.
 
-To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
+### Example of a co-inductive type: Streams
 
-#### Example of a co-inductive type: Streams
+To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
 
 Consider the greatest fixpoint of the recursion scheme for `List`:
 
@@ -4191,7 +4191,9 @@ The result is a stream where _every_ operation (even just producing the next ite
 
 ### Sliding-window aggregation (`scan`)
 
-### Size-limited aggregation and bounded-recursion hylomorphisms
+TODO
+
+### Hylomorphisms with bounded recursion depth
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
