@@ -4632,7 +4632,7 @@ The function `t` must work in the same way for all types `A` and for all values 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
 
-$$  t \circle \textrm{fmap}_F\, f  = \textrm{fmap}_G \, f \circle t  $$
+$$  t \circ  \textrm{fmap}_F ~ f  = \textrm{fmap}_G ~ f \circ  t  $$
 
 To represent this concise mathematical formula in Dhall, we write the following definitions:
 
