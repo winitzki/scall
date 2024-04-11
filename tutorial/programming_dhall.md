@@ -72,7 +72,7 @@ Identifiers may contain slash characters; for example, `List/map` is a valid nam
 This is helpful when organizing library functions into modules.
 One can have suggestive names such as `List/map`, `Optional/map`, etc.
 
-### Number types
+### Primitive types
 
 Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
 
@@ -83,14 +83,28 @@ Dhall does not support 32-bit or 64-bit integers with overflow, as is common in 
 Dhall supports other numeric types, such as `Double` or `Time`, but there is very little one can do with those values other than print them.
 For instance, Dhall does not directly support floating-point arithmetic on `Double` values.
 
+Strings have type `Text` and support string interpolation: `"The answer is ${answer}"`.
+
 ### Product types
 
-Product types are implemented only through records.
-For example, `{ x = 1, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
+Product types are implemented via records.
+For example, `{ x = 123, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }` (a "record type").
 
 There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`.
-Records with names must be used instead.
-For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Int, _2 : String }`.
+Records with field names must be used instead.
+For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Integer, _2 : Text }`.
+That record type has two fields named `_1` and `_2`.
+The two parts of the tuple may be accessed by those names:
+
+```dhall
+⊢ :let tuple = { _1 = +123, _2 = "abc" }
+
+tuple : { _1 : Integer, _2 : Text }
+
+⊢ tuple._1
+
++123
+```
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
@@ -694,7 +708,49 @@ In those languages, the record type `{ y : Bool }` is actually treated as the ty
 
 Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
 
-TODO
+A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }` but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
+The function only needs the fields `a` and `b` and should ignore all other fields in the record.
+
+To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let f = λ(tuple : MyTuple) → tuple._2
+let r1= { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+  in f r1.(MyTuple)  -- Returns 123.
+```
+
+The field selection operation `r1.(MyTuple)` removes all fields other than those from `MyTuple`.
+We need to apply the field selection each time we call the function.
+We cannot write `f r1` because `r1` does not have the type `MyTuple`.
+
+Another often used behavior is to provide default values for missing fields.
+This is implemented with Dhall's record update operation:
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let myTupleDefault = { _1 = False, _2 = 0 }
+let f = λ(tuple : MyTuple) → tuple._2
+let r2 = { _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+  in f (myTupleDefault // r2).(MyTuple)  -- Returns 123.
+```
+
+We cannot write `f r2.(MyTuple)` because `r2` does not have the required field `_1`.
+The default record `myTupleDefault` provides that value.
+
+The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` of any record type whatsoever.
+If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
+The field selection `.(MyTuple)` will get rid of any other fields.
+
+Note that the built-in Dhall operations `//` and `.()` _are_ polymorphic in the record types.
+For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
+Similarly, `myTupleDefault // r` will accept records `r` of any type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
+
+But Dhall cannot directly describe the polymorphic types of such records.
+So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r`.
+
+
+Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place where record polymorphism is required.
 
 ### The `assert` keyword and equality types
 
@@ -1540,7 +1596,7 @@ But Dhall rejects this code with an error message: "Invalid function input, `λ(
 
 With the option `--explain`, Dhall gives some more detail about what is wrong:
 
-```dhall
+```bash
 $ echo "λ(k : Kind) → λ(t : k) → λ(x : t) → x" | dhall --explain
 
 ...
@@ -2508,10 +2564,10 @@ These examples show how any type constructor `F` defined via products (records) 
 
 We will call that the **curried form** of the Church encoding.
 
-The curried form is more convenient for practical programming.
-But when we are studying general properties of Church encodings, it is better to use the form `∀(r : Type) → (F r → r) → r`.
+The curried form is often convenient for practical programming.
+However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying the general properties of Church encodings.
 
-Historical note: The curried form of the Church encoding is known as the Boehm-Berarducci encoding.
+Historical note: The curried form of the Church encoding is also known as the Boehm-Berarducci encoding.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 ## Working with Church-encoded data
@@ -3395,7 +3451,7 @@ let fmapC
 ### Generic forms of Church encoding
 
 Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
-We will denote that function by `LFix`, following Wadler's paper "Recursive types for free".
+We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
 
 For simple types:
 
@@ -3566,7 +3622,7 @@ To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by s
 We will denote the resulting function by `inE`:
 
 ```dhall
-inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
   = λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
     ep r unpack_
 ```
@@ -3578,15 +3634,13 @@ The function `inE` shown above is one side of the isomorphism.
 The other is the function `outE`:
 
 ```dhall
-outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     let ep : Exists P = pack P t pt
       in consume ep
 ```
 
-We will prove below that the functions `inE` and `outE` are inverses of each other.
-We will also prove that `pack` and `unpack` are inverses in a certain sense.
-(See the section "Naturality and parametricity").
+We will prove below (in the chapter "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
 
 Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
 Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
@@ -4580,7 +4634,7 @@ It is an equation written like this: For any types `A` and `B`, and for any func
 
 $$ t . fmap_F f  = fmap_G f . t  $$
 
-To represent this very concise mathematical formula in Dhall, we write the following definitions:
+To represent this concise mathematical formula in Dhall, we write the following definitions:
 
 ```dhall
 -- Define the type constructor F and its fmap method:
@@ -4616,7 +4670,7 @@ To write the corresponding naturality law, we keep `B` fixed and introduce arbit
 
 TODO
 
-### Fully parametric code. Parametricity theorem
+### Parametricity theorem. Relational naturality laws
 
 As a motivation, consider a simple function with a type parameter:
 
@@ -4641,52 +4695,62 @@ let f_strange  -- This cannot work in Dhall.
     if A == Natural then x else y
 ```
 This function implements a different logic for `A == Natural` as opposed to other types.
-This sort of code can be written in a language where types can be examined at run time.
+This sort of code could be written in a language where types may be compared at run time.
 But Dhall does not support such functionality.
 
 For this reason, a Dhall function with a type parameter `A` must work in the same way for all `A`.
 This property is known as the "full polymorphic parametricity" of the function's code.
-We will call such code **fully parametric** for short.
+We will call such code **fully parametric code** for short.
 
 The **parametricity theorem** says that any fully parametric function will automatically satisfy a certain mathematical law.
 The form of that law is determined by the type signature of the function and does not depend on its implementation.
-(So, all functions of that type will satisfy the same law.)
+(So, all functions of that type will satisfy the same law.
+That law was called a **free theorem** in the paper ["Theorems for free" by P. Wadler](https://people.mpi-sws.org/~dreyer/tor/papers/wadler.pdf).)
 
-The general formulation and proof of the parametricity theorem are beyond the scope of this book, which focuses on practical applications.
-For more details, see ["The Science of Functional Programming" by the same author](https://leanpub.com/sofp) where the parametricity theorem is proved for a fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
+The general formulation and proof of the parametricity theorem are beyond the scope of this book.
+For more details, see [_"The Science of Functional Programming"_ by the same author](https://leanpub.com/sofp).
+In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
 
 For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
 
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
-For functions of more complicated type signatures, the parametricity theorem gives a law of a more complicated form than naturality laws.
+For functions of more complicated type signatures, naturality laws do not apply.
+The parametricity theorem gives a law of a more complicated form than naturality laws.
 
-To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and H are arbitrary but covariant type constructors.
-This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `K A → L A` where `K` and `L` are either both covariant or both contravariant.
+To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
+The type signature `∀(A : Type) → (F A → G A) → H A` is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
 
 For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity theorem gives the following law:
 
-For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-compatible", we must have `fmap_H f (t A p) === t B q`.
+For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-related", we must have `fmap_H A B f (t A p) === t B q`.
 
-Here, we need to define the special property of being "`f`-compatible" as follows: Functions `p` and `q` are "`f`-compatible" if for any value `x : F A` we have:
+Here, we need to define the special property of being "`f`-related" as follows: Functions `p` and `q` are "`f`-related" if for any `x : F A` we have:
 
 ```dhall
 fmap_G A B f (p x) === q (fmap_F A B f x)
 ```
 This equation is similar to a naturality law except for using two different functions (`p` and `q`).
+(If we set `p = q`, we will obtain the naturality law of `p`.)
+
 It is important to note that this equation defines a _many-to-many relation_ between the functions `p` and `q`.
 This equation cannot be used to express `p` through `q` or `q` through `p`.
 
 Because of this complication, the law of `t` does not have the form of a single equation.
-The law says that the equation `fmap_H f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
-(We called that relation "`f`-compatible" just for the purposes of this example.)
+The law says that the equation `fmap_H A B f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
+(We called that property "`f`-related" just for this example.)
 
-One may say that the parametricity theorem gives a "relational law" for functions `t`; the form of that law generalizes naturality laws for the complicated type signature of `t`.
+We say that the parametricity theorem gives a **relational naturality law** for functions `t`.
+The form of that law is a generalization of a naturality law that is necessary for the complicated type signature of `t`.
 
 To summarize: the parametricity theorem applies to all Dhall values.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
 
 That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
+
+That law is the naturality law if the function has a type signature of the form `∀(A : Type) → K A → L A`, where `K` and `L` are either both covariant or both contravariant.
+
+For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational law shown above.
 
 ### The four Yoneda identities
 
@@ -4706,7 +4770,7 @@ This type equivalence holds under two assumptions:
 Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
 
 The Yoneda identity shown above requires `F` to be a covariant functor.
-There is a corresponding Yoneda identity for contrafunctors `C`:
+There is a corresponding Yoneda identity for contravariant functors ("contrafunctors") `C`:
 
 ```dhall
 C A ≅ ∀(B : Type) → (B → A) → C B
@@ -4716,17 +4780,17 @@ The two Yoneda identities just shown will apply to universally quantified functi
 Similar type identities exist for certain _existentially_ quantified types:
 
 ```dhall
+-- Mathematical notation: F A ≅ ∃ B. (F B) × (B → A)
 F A ≅ Exists (λ(B : Type) → { seed : F B, step : B → A })
 
+-- Mathematical notation: C A ≅ ∃ B. (C B) × (A → B)
 C A ≅ Exists (λ(B : Type) → { seed : C B, step : A → B })
 ```
-Here it is required that `F` be a covariant functor and `C` a contravariant functor ("contrafunctor").
-
+Here it is required that `F` be a covariant functor and `C` a contrafunctor.
 These type equivalences are sometimes called **co-Yoneda identities**.
-In a mathematical notation, they look like `F A ≅ ∃ B. (F B) × (B → A)` and `C A ≅ ∃ B. (C B) × (A → B)`.
 
 In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
-Proofs for the contravariant versions are quite similar.
+Proofs for the contravariant versions are similar.
 
 #### Proof of the covariant Yoneda identity
 
@@ -4750,8 +4814,8 @@ outY : Y → F A
   = λ(y : Y) → y (identity A)
 ```
 
-We begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
-This is necessary because we have imposed a requirement that any value of type `Y` must be a natural transformation.
+We have imposed a requirement that any value of type `Y` must be a natural transformation.
+So, we need to begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
 
 The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) → F B` says that, for any `y : Y` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
 
@@ -4764,14 +4828,14 @@ We substitute `y = inY fa` into the left-hand side of this naturality law:
 ```dhall
 y C (compose_forward A B C f g)   -- Substitute the definition of y.
   === inY fa C (compose_forward A B C f g)  -- Substitute the definition of inY.
-  === fmap_F A C (compose_forward A B C f g) fa  -- Use `fmap_F`'s composition law.
+  === fmap_F A C (compose_forward A B C f g) fa  -- Use fmap_F's composition law.
   === fmap_F B C g (fmap_F A B f fa)
 ```
 
 Now we write the right-hand side of the naturality law:
 
 ```dhall
-fmap_F B C g (y B f)  --- Substitute the definition of y.
+fmap_F B C g (y B f)  -- Substitute the definition of y.
   === fmap_F B C g (inY fa B f)  -- Substitute the definition of inY.
   === fmap_F B C g (fmap_F A B f fa)
 ```
@@ -4803,7 +4867,7 @@ This will require using the naturality law of `y`:
 ```dhall
 yNew B f === inY fa B f  -- Substitute the definition of inY.
   === fmap_F A B f fa  -- Substitute the defiition of fa.
-  === fmap_F A B f (outY y)  --- Substitute the definition of outY.
+  === fmap_F A B f (outY y)  -- Substitute the definition of outY.
   === fmap_F A B f (y A (identity A))  -- Use the naturality law of y.
   === y B (compose_forward A A B (identity A) f)  -- Compute composition.
   === y B f
@@ -4814,67 +4878,67 @@ This completes the proof of the isomorphism between `F A` and `Y`.
 #### Proof of the covariant co-Yoneda identity
 
 
-We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to `Exists (λ(B : Type) → { seed : F B, step : B → A })`.
+We prove that, for any covariant functor `F` and for any type `A`:
+
+```dhall
+-- Mathematical notation: F A ≅ ∃ B. (F B) × (B → A)
+F A  ≅  Exists (λ(B : Type) → { seed : F B, step : B → A })
+```
 
 For brevity, let us view `F` and `A` as fixed and denote:
 
 ```dhall
 let P = λ(B : Type) → { seed : F B, step : B → A }
-let EP = Exists P
-let packEP : ∀(B : Type) → ∀(p : P B) → EP
-  = λ(B : Type) → λ(p : P B) → λ(R : Type) → λ(pack_ : ∀(T : Type) → P T → R) → pack_ B p
 ```
-Then the task is to prove the type equivalence `F A ≅ EP`.
 
+Then the covariant co-Yoneda identity says: `F A ≅ Exists P`.
 
-Begin by implementing two functions of types `F A → EP` and `EP → F A`.
+To make the required assumptions precise, let us write out the type `Exists P`:
 
 ```dhall
-let inP : F A → EP = λ(fa : F A) → packEP A { seed = fa, step = identity A }
-
-let stepP : ∀(T : Type) → P T → F A
-  = λ(T : Type) → λ(pt : P T) → fmap_F T A pt.step pt.seed
-
-let outP : EP → F A = λ(ep : EP) → ep (F A) stepP
+Exists P === ∀(R : Type) → (∀(B : Type) → P B → R) → R
 ```
 
-We now prove that the compositions of `inP` with `outP` in both directions are identity functions.
+Both universal quantifiers (`∀(R : Type)` and `∀(B : Type)`) imply that the corresponding function types are natural transformations.
+So, we need to assume that all functions with type signatures `∀(B : Type) → P B → R` are natural transformations with respect to `B`, and all functions with type signatures `∀(R : Type) → (∀(B : Type) → P B → R) → R` are natural transformations with respect to `R`.
+These assumptions are satisfied automatically if we are working with functions implemented in Dhall.
 
-First direction: for any `fa : F A`, we compute `ep : EP = inP fa` and `faNew : F A = outP ep`.
-We need to show that `faNew === fa`.
+Begin by considering the type `∀(B : Type) → P B → R`.
+We can rewrite that type equivalently in a curried form, replacing the record type `{ seed : F B, step : B → A }` by two curried arguments of types `F B` and `B → A`:
 
 ```dhall
-faNew === outP ep  -- Expand the definitions of faNew and ep.
-  === outP (packEP A { seed = fa, step = identity A }) -- Expand outP.
-  === packEP A { seed = fa, step = identity A } (F A) stepP  -- Expand packEP.
-  === stepP A { seed = fa, step = identity A }  -- Expand stepP.
-  === fmap_F A A (identity A) fa  -- Use fmap_F's identity law.
-  === fa
+∀(B : Type) → P B → R
+  ≅  ∀(B : Type) → { seed : F B, step : B → A } → R
+  ≅  ∀(B : Type) → (B → A) → F B → R
 ```
 
-Second direction: for any `ep : EP`, we compute `fa : F A = outP ep` and `epNew : EP = inP fa`.
-We need to show that `epNew === ep`.
-Both `ep` and `epNew` are functions of type `EP = ∀(R : Type) → (∀(T : Type) → P T → R) → R`.
-We will show that they are equal if we prove that `epNew R c === ep R c` for any type `R`
-and for any function `c : ∀(T : Type) → P T → R`.
+Now we note that the last type is of the form to which the contravariant Yoneda identity applies.
+Namely, it is of the form `∀(B : Type) → (B → A) → C B` with the contrafunctor `C` defined by `C B = F B → R`.
+By the contravariant Yoneda identity, that type is equivalent to just `C A`, which means `F A → R`.
+
+So, we may write the type equivalence:
 
 ```dhall
-epNew R c === inP fa R c
-  === packEP A { seed = outP ep, step = identity A } R c
-  === c A { seed = outP ep, step = identity A }
+∀(B : Type) → (B → A) → F B → R  ≅  F A → R
 ```
 
-To proceed, we note that the function `c` has the type signature of a natural transformation (with respect to its type parameter `T`).
-So, `c` satisfies the corresponding naturality law.
-For any types `T`, `U`, and for any `f : T → U`, the following equation holds:
+After that, the type `Exists P` is rewritten as:
 
 ```dhall
-c 
+Exists P === ∀(R : Type) → (∀(B : Type) → P B → R) → R
+  ≅ ∀(R : Type) → (F A → R) → R
 ```
 
-TODO
+This type is in the form to which the covariant Yoneda identity applies.
+We find:
 
-### The two Church-Yoneda identities
+```dhall
+∀(R : Type) → (F A → R) → R  ≅  F A
+```
+
+This proves the equivalence `Exists P ≅ F A`.
+
+### Proof: The Church-Yoneda identity
 
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identities cannot be used with types of that form.
@@ -4882,27 +4946,41 @@ The Yoneda identities cannot be used with types of that form.
 There is a generalized identity that combines both forms of types:
 
 ```dhall
-∀(r : Type) → (F r → r) → G r  ≅  G (LFix F)
+∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
 ```
-Here, `LFix F = ∀(r : Type) → (F r → r) → r` is the Church-encoded least fixpoint of `F`.
-
-This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
-This book calls it the "Church-Yoneda" identity.
-
-
-That form (`∀(B : Type) → (A → B) → F B`) is superficially similar to that of the Church encoding (`∀(B : Type) → (F B → B) → B`) except for 
-
+Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are arbitrary covariant functors.
+It is assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **relational naturality law** that follows from the parametricity theorem:
 
 TODO
+
+This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+
+This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities.
 
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
-### Church encoding of mutually recursive types
+A proof of the Church-Yoneda identity
 
 TODO
 
-### Existential types: `pack` is a left inverse of `unpack`
+
+### Proof: The Church-co-Yoneda identity
+
+A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
+
+```dhall
+-- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
+G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
+```
+
+TODO
+
+### Proof: Church encoding of mutually recursive types
+
+TODO
+
+### Proof: `pack` is a left inverse of `unpack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP`.
 
@@ -5007,24 +5085,33 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Functions of existential type
+### Proof: Functions of existential type
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
-We will now show that the functions `inE` and `outE` defined in section "Functions of existential types" are inverses of each other.
+We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
 
-The functions `inE` and `outE` are defined by: TODO
-
-To check that the functions `inE R` and `outE R` are inverses of each other (for fixed `P` and `R`), we need to show that the composition of these functions in both directions are identity functions.
-
-The first direction is when we apply `inE` and then `outE`.
-Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE` to it, then `outE`:
+Recall the definitions of `inE` and `outE`:
 
 ```dhall
-outE R (inE R k)
-  -- Use the definition of `inE`.
-  === outE R (λ(ep : ExistsP) → ep R k)
-  -- Use the definition of `outE`.
+let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
+  = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
+    ep R unpack_
+
+let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
+  = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pT : P t) →
+    let ep : Exists P = pack P T pt
+      in consume ep
+```
+
+To check that the functions `inE R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
+
+The first direction is when we apply `inE R` and then `outE R`.
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE R` to it, then `outE R`:
+
+```dhall
+outE R (inE R k)  -- Use the definition of inE.
+  === outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE.
   === λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
@@ -5036,8 +5123,7 @@ The result should be equal to `k T pt`:
 ```dhall
 outE R (inE R k) t pt
   === (λ(ep : ExistsP) → ep R k) (packP T)
-  === (packP T) R k
-  -- Use the definition of `packP`.
+  === (packP T) R k  -- Use the definition of packP.
   === (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
   === k t pt
 ```
