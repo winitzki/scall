@@ -1,9 +1,10 @@
-scala-cli convertMd.sc < programming_dhall.md  > generated.tex
-pdflatex --interaction=batchmode programming_dhall.tex
-test -s programming_dhall.pdf || {
-  echo "Error: no PDF file, see log in programming_dhall.log"
+name=programming_dhall
+scala-cli convertMd.sc < $name.md  > generated.tex
+pdflatex --interaction=batchmode $name.tex
+test -s $name.pdf || {
+  echo "Error: no PDF file, see errors in $name.log"
   exit 1
 }
-makeindex programming_dhall.idx
-pdflatex --interaction=batchmode programming_dhall.tex
-
+makeindex $name.idx
+pdflatex --interaction=batchmode $name.tex
+fgrep "Output written on $name.pdf" $name.log
