@@ -744,6 +744,238 @@ let functor_Id
     : Functor Id
     = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
 
+let Compose
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F (G a)
+
+let functorFunctorCompose
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let ga2gb
+                  : G a → G b
+                  = functorG.fmap a b f
+
+              in  functorF.fmap (G a) (G b) ga2gb
+        }
+
+let functorContrafunctorCompose
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let gb2ga
+                  : G b → G a
+                  = contrafunctorG.cmap a b f
+
+              in  functorF.fmap (G b) (G a) gb2ga
+        }
+
+let contrafunctorFunctorCompose
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Contrafunctor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let ga2gb
+                  : G a → G b
+                  = functorG.fmap a b f
+
+              in  contrafunctorF.cmap (G a) (G b) ga2gb
+        }
+
+let contrafunctorContrafunctorCompose
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Functor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let gb2ga
+                  : G b → G a
+                  = contrafunctorG.cmap a b f
+
+              in  contrafunctorF.cmap (G b) (G a) gb2ga
+        }
+
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+
+let Product
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Pair (F a) (G a)
+
+let fProduct
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      (a → b) →
+      ∀(c : Type) →
+      ∀(d : Type) →
+      (c → d) →
+      Pair a c →
+        Pair b d
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(f : a → b) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(g : c → d) →
+      λ(arg : Pair a c) →
+        { _1 = f arg._1, _2 = g arg._2 }
+
+let functorProduct
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (Product F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fProduct
+                (F a)
+                (F b)
+                (functorF.fmap a b f)
+                (G a)
+                (G b)
+                (functorG.fmap a b f)
+        }
+
+let contrafunctorProduct
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (Product F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fProduct
+                (F b)
+                (F a)
+                (contrafunctorF.cmap a b f)
+                (G b)
+                (G a)
+                (contrafunctorG.cmap a b f)
+        }
+
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+
+let CoProduct
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Either (F a) (G a)
+
+let fCoProduct
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      (a → b) →
+      ∀(c : Type) →
+      ∀(d : Type) →
+      (c → d) →
+      Either a c →
+        Either b d
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(f : a → b) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(g : c → d) →
+      λ(arg : Either a c) →
+        merge
+          { Left = λ(x : a) → (Either b d).Left (f x)
+          , Right = λ(y : c) → (Either b d).Right (g y)
+          }
+          arg
+
+let functorCoProduct
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (CoProduct F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fCoProduct
+                (F a)
+                (F b)
+                (functorF.fmap a b f)
+                (G a)
+                (G b)
+                (functorG.fmap a b f)
+        }
+
+let contrafunctorCoProduct
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (CoProduct F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fCoProduct
+                (F b)
+                (F a)
+                (contrafunctorF.cmap a b f)
+                (G b)
+                (G a)
+                (contrafunctorG.cmap a b f)
+        }
+
 let Monad =
       λ(F : Type → Type) →
         { pure : ∀(a : Type) → a → F a

@@ -106,6 +106,8 @@ tuple : { _1 : Integer, _2 : Text }
 +123
 ```
 
+
+
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
@@ -164,6 +166,35 @@ let x : MyType1 = MyType1.X 123
 But the name `MyType1` is no more than a type alias.
 Dhall will consider `MyType1` to be the same as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`.
 (The order of a union type's constructors is not significant.) 
+
+
+Dhall requires the union type's constructors to be explicitly connected with the full union type.
+In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
+But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
+
+To shorten the code, one normally defines a type alias and writes:
+
+```dhall
+let MyUnionType = < Left : Text | Right : b >
+let x = MyUnionType.Left "abc"
+```
+
+The advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
+In Dhall, each union type may define arbitrary constructor names.
+For example, consider this code:
+
+```dhall
+let Union1 = < Left : Text | Right >
+let Union2 = < Left : Text | Right : Bool >
+let u : Union1 = Union1.Left "abc"
+let v : Union2 = Union2.Left "fgh"
+let x : Union1 = Union1.Right
+let y : Union2 = Union2.Right True
+```
+
+The types `Union1` and `Union2` are different because the constructor named `Right` requires different data types.
+Because constructor names are used always together with the union type, there is no conflict between `Union1.Left` and `Union2.Left`, and between `Union1.Right` and `Union2.Right`.
+(A conflict would exist if we could write simply `Left` for those constructors, but Dhall does not allow that.)
 
 ### Pattern matching
 
@@ -224,20 +255,15 @@ Instead of `(MyOptional Natural).Some 123` one writes just `Some 123`.
 (The type parameter `Natural` is determined automatically by Dhall.)
 Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
 
-Here is an example of using Dhall's `merge` for implementing a `zip` function for `Optional` types:
+Here is an example of using Dhall's `merge` for implementing a `getOrElse` function for `Optional` types:
 
 ```dhall
-let zip
- : ∀(a : Type) → Optional a → ∀(b : Type) → Optional b → Optional { _1 : a, _2 : b }
-  = λ(a : Type) → λ(oa : Optional a) → λ(b : Type) → λ(ob : Optional b) →
-    let Pair = { _1 : a, _2 : b }
-    in
-        merge { None = None Pair
-              , Some = λ(x : a) →
-                 merge { None = None Pair
-                       , Some = λ(y : b) → Some { _1 = x, _2 = y }
-                       } ob 
-              } oa
+let getOrElse : ∀(a : Type) → Optional a → a → a
+  = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
+    merge {
+            None = default,
+            Some = λ(x : a) → x
+          } oa
 ```
 
 ### The void type and its use
@@ -343,7 +369,7 @@ let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer 
 
 Type constructors involving more than one type parameter are usually written as curried functions.
 
-Here is an example of how we could define a type constructor similar to Haskell's and Scala's `Either`:
+Here is an example of defining a type constructor similar to Haskell's and Scala's `Either`:
 
 ```dhall
 let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
@@ -1741,8 +1767,35 @@ In the Haskell syntax, the associativity law looks like this:
 
 Using `assert` under a lambda with type parameters, we can verify a wide range of algebraic laws.
 
+### Function pair products and co-products
 
-## Covariant and contravariant type constructors
+The pair product operation takes two functions `f : a → b` and `g : c → d` and returns a new function of type `Pair a c → Pair b d`.
+
+The type constructor `Pair` and the pair product operation `fProduct` are defined by:
+
+```dhall
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`
+
+let fProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Pair a c → Pair b d
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(arg : Pair a c) →
+    { _1 = f arg._1, _2 = g arg._2 }
+```
+
+The pair co-product operation takes two functions `f : a → b` and `g : c → d` and returns a new function of type `Either a c → Either b d`.
+
+```dhall
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+
+let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Either a c → Either b d
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(arg : Either a c) →
+    merge {
+           Left = λ(x : a) → f x,
+           Right = λ(y : c) → g y,
+          } arg
+```
+
+
+## Covariant and contravariant type constructors - move to Typeclasses
 
 ### Functors and `fmap`
 
@@ -1806,12 +1859,6 @@ let fmap
           , Right = λ(x : a) → (G b).Right (f x)
           } ga
 ```
-
-Dhall requires the union type's constructors to be explicitly derived from the full union type.
-In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
-But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : b >.Left t` and `< Left : Text | Right : b >.Right (f x)` in order to specify the complete union type being constructed.
-
-In the code shown above, we shortened those constructors to `(G b).Left` and `(G b).Right`.
 
 ### Contravariant functors ("contrafunctors")
 
@@ -4530,16 +4577,129 @@ let Compose : (Type → Type) → (Type → Type) → (Type → Type)
 The `Functor` evidence for `Compose F G` can be constructed automatically if the evidence values for `F` and `G` are known:
 
 ```dhall
-let FunctorCompose : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
+let functorFunctorCompose
+  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
-    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → }
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        let ga2gb : G a → G b = functorG.fmap a b f
+          in functorF.fmap (G a) (G b) ga2gb
+    }
 ```
 
-TODO contrafunctors too
+If `F` is covariant but `G` is contravariant (or vice versa), the composition of `F` and `G` becomes contravariant.
+We can also automatically construct the evidence values for those cases:
 
-### Functor product
+```dhall
+let functorContrafunctorCompose
+  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (Compose F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        let gb2ga : G b → G a = contrafunctorG.cmap a b f
+          in functorF.fmap (G b) (G a) gb2ga
+    }
+let contrafunctorFunctorCompose
+  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Functor G) → Contrafunctor (Compose F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        let ga2gb : G a → G b = functorG.fmap a b f
+          in contrafunctorF.cmap (G a) (G b) ga2gb
+    }
+```
 
-### Functor co-product
+Finally, the composition of two contrafunctors is again a covariant functor:
+
+```dhall
+let contrafunctorContrafunctorCompose
+  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Functor (Compose F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        let gb2ga : G b → G a = contrafunctorG.cmap a b f
+          in contrafunctorF.cmap (G b) (G a) gb2ga
+    }
+```
+
+### Products and co-products
+
+To implement the product of two type constructors, we use Dhall records:
+
+
+```dhall
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+let Product : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Pair (F a) (G a)
+```
+
+This creates a new type constructor `Product F G` out of two given type constructors `F` and `G`.
+
+The product of two functors is again a functor, and an evidence value can be constructed automatically.
+For that, it is convenient to use the function pair product operation `fProduct` defined earlier in the chapter "Programming with functions".
+
+```dhall
+let fProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Pair a c → Pair b d
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(arg : Pair a c) →
+    { _1 = f arg._1, _2 = g arg._2 }
+
+let functorProduct
+  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Product F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        -- Return a function of type Pair (F a) (G a) → Pair (F b) (G b).
+        fProduct (F a) (F b) (functorF.fmap a b f) (G a) (G b) (functorG.fmap a b f)
+    }
+```
+
+Similar code works for contrafunctors:
+
+```dhall
+let contrafunctorProduct
+  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (Product F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        -- Return a function of type Pair (F b) (G b) → Pair (F a) (G a).
+        fProduct (F b) (F a) (contrafunctorF.cmap a b f) (G b) (G a) (contrafunctorG.cmap a b f)
+    }
+```
+
+To implement the co-product of functors and contrafunctors, we use the type `Either` defined before.
+
+```dhall
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+
+let CoProduct : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Either (F a) (G a)
+```
+
+This creates a new type constructor `CoProduct F G` out of two given type constructors `F` and `G`.
+
+The co-product of two functors is again a functor, and the co-product of two contrafunctors is again a contrafunctor.
+Evidence values can be constructed automatically.
+For that, it is convenient to use the function pair co-product operation `fCoProduct` defined earlier in the chapter "Programming with functions".
+
+```dhall
+let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Either a c → Either b d
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(arg : Either a c) →
+    merge {
+           Left = λ(x : a) → (Either b d).Left (f x),
+           Right = λ(y : c) → (Either b d).Right (g y),
+          } arg
+
+let functorCoProduct
+  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (CoProduct F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        -- Return a function of type Either (F a) (G a) → Either (F b) (G b).
+        fCoProduct (F a) (F b) (functorF.fmap a b f) (G a) (G b) (functorG.fmap a b f)
+    }
+
+let contrafunctorCoProduct
+  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (CoProduct F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+        -- Return a function of type Either (F b) (G b) → Either (F a) (G a).
+        fCoProduct (F b) (F a) (contrafunctorF.cmap a b f) (G b) (G a) (contrafunctorG.cmap a b f)
+    }
+```
+
 
 ### Function types with functors and contrafunctors
 
