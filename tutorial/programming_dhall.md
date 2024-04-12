@@ -1795,141 +1795,6 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 ```
 
 
-## Covariant and contravariant type constructors - move to Typeclasses
-
-### Functors and `fmap`
-
-In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
-
-Those type constructors are also called "covariant functors".
-For type constructors, "covariant" means "has a lawful `fmap` method".
-
-Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
-
-The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
-
-A simple example of a functor is a record with two values of type `a` and a value of a fixed type `Bool`.
-The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
-
-In Haskell, that type constructor and its `fmap` method are defined by:
-
-```haskell
-data F a = F a a Bool
-fmap :: (a → b) → F a → F b
-fmap f (F x y t) = F (f x) (F y) t 
-```
-
-In Scala, the equivalent code is:
-
-```scala
-case class F[A](x: A, y: A, t: Boolean)
-
-def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
-  F(f(fa.x), f(fa.y), fa.t)
-```
-
-The corresponding Dhall code is:
-
-```dhall
-let F : Type → Type
-  = λ(a : Type) → { x : a, y : a, t : Bool }
-let fmap
- : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
-    { x = f fa.x, y = f fa.y, t = fa.t }
-```
-
-To test:
-
-```dhall
-let example : F Natural = { x = 1, y = 2, t = True }
-let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
-let test = assert : after_fmap === { x = "odd", y = "even", t = True }
-```
-
-As another example, let us define `fmap` for a type constructor that involves a union type:
-
-```dhall
-let G : Type → Type
-  = λ(a : Type) → < Left : Text | Right : a >
-let fmap
- : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
-    merge { Left = λ(t : Text) → (G b).Left t
-          , Right = λ(x : a) → (G b).Right (f x)
-          } ga
-```
-
-### Contravariant functors ("contrafunctors")
-
-
-The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
-Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
-
-```dhall
-cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
-```
-
-We will call contravariant type constructors **contrafunctors** for short.
-
-The intuition behind contrafunctors is that they represent functions that _consume_ (zero or more) data items of any given type.
-The `cmap` method transforms data items (_before_ they are consumed) into data items of another type.
-
-A simple example of a contrafunctor is:
-
-```dhall
-let C = λ(a : Type) → a → Text
-```
-The corresponding `cmap` method is written as:
-
-```dhall
-let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
-    λ(x : a) → fb (f x)
-```
-
-### Bifunctors and `bimap`
-
-Bifunctors are type constructors with two type parameters that are covariant in both type parameters.
-For example, `type P a b = (a, a, b, Int)` is a bifunctor.
-
-Dhall encodes bifunctors as functions with two curried arguments:
-
-```dhall
-let P : Type → Type → Type
-  = λ(a : Type) → λ(b : Type) → { x : a, y : a, z : b, t : Integer }
-```
-
-Bifunctors have a `bimap` method that transforms both type parameters at once:
-
-```dhall
-let bimap
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
-    { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
-```
-
-Given `bimap`, one can then define two `fmap` methods that work only on the first or on the second of `P`'s type parameters.
-
-```dhall
-let fmap1
- : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
-  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
-    bimap a d c d f (identity d)
-
-let fmap2
- : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
-  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
-    bimap a b a d (identity a) g
-```
-
-Here, we have used the polymorphic identity function defined earlier.
-
-The code for `fmap` and `bimap` can be derived mechanically from the type definition of a functor or a bifunctor.
-For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not have any code generation facilities.
-The code of those methods must be written in Dhall programs by hand.
-
 ## Typeclasses
 
 Typeclasses can be implemented in Dhall via evidence values (also known as "typeclass instance values").
@@ -2058,7 +1923,69 @@ let check_monoidBool_left_id_law = assert : (monoidLaws Bool monoidBool).monoid_
 Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
 Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
 
-### `Functor`
+### Functors and the `Functor` typeclass
+
+In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
+
+Those type constructors are also called "covariant functors".
+For type constructors, "covariant" means "has a lawful `fmap` method".
+
+Note that this definition of "covariant" does not need subtyping and depends only on the structure of the type expression.
+
+The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
+
+A simple example of a functor is a record with two values of type `a` and a value of a fixed type `Bool`.
+The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
+
+In Haskell, that type constructor and its `fmap` method are defined by:
+
+```haskell
+data F a = F a a Bool
+fmap :: (a → b) → F a → F b
+fmap f (F x y t) = F (f x) (F y) t 
+```
+
+In Scala, the equivalent code is:
+
+```scala
+case class F[A](x: A, y: A, t: Boolean)
+
+def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
+  F(f(fa.x), f(fa.y), fa.t)
+```
+
+The corresponding Dhall code is:
+
+```dhall
+let F : Type → Type
+  = λ(a : Type) → { x : a, y : a, t : Bool }
+let fmap
+ : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
+    { x = f fa.x, y = f fa.y, t = fa.t }
+```
+
+To test:
+
+```dhall
+let example : F Natural = { x = 1, y = 2, t = True }
+let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
+let test = assert : after_fmap === { x = "odd", y = "even", t = True }
+```
+
+As another example, let us define `fmap` for a type constructor that involves a union type:
+
+```dhall
+let G : Type → Type
+  = λ(a : Type) → < Left : Text | Right : a >
+let fmap
+ : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
+    merge { Left = λ(t : Text) → (G b).Left t
+          , Right = λ(x : a) → (G b).Right (f x)
+          } ga
+```
+
 
 The `Functor` typeclass is a constraint for a _type constructor_.
 If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
@@ -2096,6 +2023,12 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
           } ga  
   }
 ```
+
+The code for `fmap` can be derived mechanically from the type definition of a functor.
+For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
+But Dhall does not have any code generation facilities.
+The code of `fmap` must be written in Dhall programs by hand.
+
 
 ### Verifying the laws of functors
 
@@ -2231,6 +2164,31 @@ Keeping such limitations in mind, we will try verifying typeclass laws as much a
 
 ### `Contrafunctor`
 
+The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
+Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
+
+```dhall
+cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a
+```
+
+We will call contravariant type constructors **contrafunctors** for short.
+
+The intuition behind contrafunctors is that they represent functions that _consume_ (zero or more) data items of any given type.
+The `cmap` method transforms data items (_before_ they are consumed) into data items of another type.
+
+A simple example of a contrafunctor is:
+
+```dhall
+let C = λ(a : Type) → a → Text
+```
+The corresponding `cmap` method is written as:
+
+```dhall
+let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
+    λ(x : a) → fb (f x)
+
+
 The typeclass for contrafunctors is defined by:
 
 ```dhall
@@ -2292,15 +2250,49 @@ is covariant in `a` and contravariant in `b`.
 
 In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
 
-To characterize such type constructors via a typeclass, we could specify `fmap` and `cmap` methods separately with respect to each type parameter.
-It turns out that one can combine the `fmap` and `cmap` methods into a single equivalent method that works at once on both type parameters.
-For bifunctors, that method is called `bimap`, and for profunctors, `xmap`.
+Bifunctors are type constructors with two type parameters that are covariant in _both_ type parameters.
+For example, `type P a b = (a, a, b, Int)` is a bifunctor.
 
-The corresponding Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+Dhall encodes bifunctors as functions with two curried arguments of type `Type`:
+
+```dhall
+let P : Type → Type → Type
+  = λ(a : Type) → λ(b : Type) → { x : a, y : a, z : b, t : Integer }
+```
+
+Bifunctors have a `bimap` method that transforms both type parameters at once:
+
+```dhall
+let bimap
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
+    { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
+```
+
+Given `bimap`, one can then define two `fmap` methods that work only on the first or on the second of `P`'s type parameters.
+
+```dhall
+let fmap1
+ : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
+    bimap a d c d f (identity d)
+
+let fmap2
+ : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
+    bimap a b a d (identity a) g
+```
+
+Here, we have used the `identity` function defined earlier.
+
+Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of types.
+
+The Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
 
 ```dhall
 let Bifunctor : (Type → Type) → Type
   = λ(F : Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+
 let Profunctor : (Type → Type) → Type
   = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
 ```
