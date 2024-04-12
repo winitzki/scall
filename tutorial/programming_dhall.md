@@ -348,23 +348,23 @@ This is a consequence of parametricity.
 
 Type constructors in Dhall are written as functions from `Type` to `Type`.
 
-In Haskell or Scala, one would define a type constructor as (for example) `type PairAAInt a = (a, a, Int)`.
+In Haskell or Scala, one would define a type constructor as (for example) `type AAInt a = (a, a, Int)`.
 The analogous type constructor is encoded in Dhall as an explicit function, taking a parameter `a` of type `Type` and returning another type.
 
 Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
 
 ```dhall
-let PairAAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
 
-Then `PairAAInt` is a function that takes an arbitrary type `a` as its argument.
+Then `AAInt` is a function that takes an arbitrary type `a` as its argument.
 The output of the function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
 
-The type of `PairAAInt` itself is `Type → Type`.
+The type of `AAInt` itself is `Type → Type`.
 For more clarity, we may write that as a type annotation:
 
 ```dhall
-let PairAAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+let AAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
 
 Type constructors involving more than one type parameter are usually written as curried functions.
@@ -377,7 +377,7 @@ let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 
 The type of `Either` is `Type → Type → Type`.
 
-As with all Dhall types, type constructor names such as `PairAAInt` or `Either` are no more than type aliases.
+As with all Dhall types, type constructor names such as `AAInt` or `Either` are no more than type aliases.
 Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves.
 
 ### Function types
@@ -1671,7 +1671,7 @@ Dhall indicates such situations by the error message "Invalid function input".
 
 ### Function combinators
 
-The standard combinators for functions are forward and backward composition, currying / uncurrying, and argument flipping.
+The standard combinators for functions are forward and backward composition, currying / uncurrying, argument flipping, constant functions, and identity functions.
 
 Implementing them in Dhall is straightforward.
 Instead of pairs, we use the record type `{ _1 : a, _2 : b }`. 
@@ -1701,7 +1701,29 @@ let uncurry
  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
     f p._1 p._2
+
+let const
+  : ∀(a : Type) → ∀(b : Type) → b → a → b
+  = λ(a : Type) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
 ```
+
+The function `const` creates constant functions and is used like this:
+
+```dhall
+⊢ :let f = const Natural Text "abc"
+
+f : Natural → Text
+
+⊢ f 0
+
+"abc"
+
+⊢ f 123
+
+"abc"
+```
+We have defined a function `f` that always returns the string `"abc"` and ignores its argument (of type `Natural`).
+
 
 ### Verifying laws symbolically with `assert`
 
@@ -1744,25 +1766,38 @@ Note that Dhall verifies the equivalence of symbolic expression terms such as `�
 This code does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k` for the `assert` test.
 The `assert` verifies that both sides are equal as symbolic expressions, which is equivalent to a rigorous mathematical proof that the law holds.
 
-Another example is verifying the associativity law of function composition:
+Another example is verifying the laws of function composition:
 
 ```dhall
 let compose_backward
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
-    f (g (x)) 
-in                -- Let's verify the associativity law. 
-   λ(a : Type) → λ(b : Type) →  λ(c : Type) → λ(d : Type) →
-      λ(f : a → b) → λ(g : b → c) → λ(h : c → d) →
-          assert : 
-              compose_backward a b d (compose_backward b c d h g) f
-              ≡ compose_backward a c d h (compose_backward a b c g f)
+    f (g (x))
+
+  -- The identity laws.
+let left_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) → 
+  assert : compose_backward a a b f (identity a) === f
+let right_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) → 
+  assert : compose_backward a b b (identity b) f === f
+
+  -- The constant function law.
+let const_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(x : c) → λ(f : a → b) → 
+  compose_backward a b c (const b c x) f === const a c x
+
+  -- The associativity law. 
+let assoc_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → b) → λ(g : b → c) → λ(h : c → d) →
+  assert : 
+    compose_backward a b d (compose_backward b c d h g) f
+    === compose_backward a c d h (compose_backward a b c g f)
 ```
 
-In the Haskell syntax, the associativity law looks like this:
+In the Haskell syntax, these laws look like this:
 
 ```haskell
-(h . g) . f == h . (g . f)
+f . id == f                  -- Left identity law
+id . f == f                  -- Right identity law.
+(const x) . f = const x      -- Constant function law.
+(h . g) . f == h . (g . f)   -- Associativity law.
 ```
 
 Using `assert` under a lambda with type parameters, we can verify a wide range of algebraic laws.
@@ -2187,7 +2222,7 @@ The corresponding `cmap` method is written as:
 let cmap_C : ∀(a : Type) → ∀(b : Type) → (a → b) → (b → Text) → a → Text
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : b → Text) →
     λ(x : a) → fb (f x)
-
+```
 
 The typeclass for contrafunctors is defined by:
 
@@ -2273,14 +2308,14 @@ Given `bimap`, one can then define two `fmap` methods that work only on the firs
 
 ```dhall
 let fmap1
- : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
-  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) →
-    bimap a d c d f (identity d)
+  : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → bimap a d c d f (identity d)
+```
 
+```dhall
 let fmap2
- : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
-  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) →
-    bimap a b a d (identity a) g
+  : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap a b a d (identity a) g
 ```
 
 Here, we have used the `identity` function defined earlier.
@@ -2299,13 +2334,97 @@ let Profunctor : (Type → Type) → Type
 
 ### `Pointed` functors and contrafunctors
 
-TODO
+A functor `F` is pointed if it has a method called `pure` with the type signature `∀(a : Type) → a → F a`.
+This method constructs a certain value of type `F a` given a value of type `a`.
+The intuition is that `pure x` is a container of type `F a` that stores a single value `x : a`.
 
-examples:
+Let us define `Pointed` as a typeclass and implement instances for some simple type constructors.
 
-Pointed instances for Optional, for Pair (a, a), and for List
+```dhall
+let Pointed : (Type → Type) → Type
+  = λ(F : Type → Type) → { pure : ∀(a : Type) → a → F a }
 
-Examples: pointed functor or pointed contrafunctor
+let pointedOptional : Pointed Optional = { pure = λ(a : Type) → λ(x : a) → Some x }
+let pointedList : Pointed List = { pure = λ(a : Type) → λ(x : a) → [ x ] }
+```
+
+So, `Optional` and `List` are pointed functors.
+
+Another example of a pointed functor is `AAInt` defined earlier in this book:
+
+```dhall
+let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+
+let pointedAAInt : Pointed AAInt = { pure = λ(a : Type) → λ(x : a) → { _1 = x, _2 = x, _3 = +123 } }
+```
+
+The `Integer` value `+123` was chosen arbitrarily for this example.
+
+When `F` is a functor, the type `∀(a : Type) → a → F a` can be simplified via one of the **Yoneda identities**:
+
+```dhall
+∀(a : Type) → (p → a) → F a  ≅  F p
+```
+where `p` is a fixed type.
+(See the Appendix "Naturality and parametricity" for more details about the Yoneda identities.)
+
+The type signature `∀(a : Type) → a → F a` is a special case of the identity shown above, if we set `p` to the unit type (in Dhall, `p = {}`).
+Then the type of functions `{} → a` is equivalent to just `a`.
+So, the type signature `∀(a : Type) → a → F a` is simplified to just `F {}`.
+
+We call a value of type `F {}` a **wrapped unit** value, to indicate that a unit value is being "wrapped" by the type constructor `F`.
+
+Because the type `F {}` is equivalent to the type `∀(a : Type) → a → F a`, we can formulate the `Pointed` typeclass equivalently via the wrapped unit method, which we will denote by `unit`.
+
+```dhall
+let PointedU : (Type → Type) → Type
+  = λ(F : Type → Type) → { unit : F {} }
+```
+
+The type equivalence ("isomorphism") between the types `∀(a : Type) → a → F a` and `F {}`  means that there is an isomorphism between `Pointed F` and `PointedU F`, given an evidence value of type `Functor F`.
+The two directions of that isomorphism can be written as the following Dhall functions:
+
+```dhall
+let toPointedU : ∀(F : Type → Type) → Pointed F → PointedU F
+  = λ(F : Type → Type) → λ(pointedF : Pointed F) →
+    { unit = pointedF.pure {} {=} }
+let toPointed : ∀(F : Type → Type) → Functor F → PointedU F → Pointed F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(pointedUF : PointedU F) →
+    { pure = λ(a : Type) → λ(x : a) → functorF.fmap {} a (const {} a x) pointedUF.unit }
+```
+
+One advantage of using `PointedU` instead of `Pointed` is that the evidence value has a simpler type and needs no laws.
+Another advantage is that `PointedU` can apply to type constructors that are not covariant.
+
+We define a **pointed contrafunctor** as a contravariant type constructor `C` for which we have an evidence value of type `PointedU C`.
+
+For example, consider the contrafunctor `C a = a → Optional r`, where `r` is a fixed type.
+We may implement that contrafunctor as:
+
+```dhall
+let C = λ(r : Type) → λ(a : Type) → a → Optional r
+```
+
+This contrafunctor is pointed (with respect to the type parameter `a`) because we can create a value of type `C {}` as a constant function that always returns `None r`:
+
+
+```dhall
+let pointedC : ∀(r : Type) → PointedU (C r)
+  = λ(r : Type) → { unit = const {} (Optional r) (None r) }
+```
+
+The intuition behind pointed contrafunctors is that they are able to consume an empty value (of unit type),
+and we know what result that would give.
+The method analogous to `pure` for contrafunctors is `cpure`.
+It is a value of type `∀(a : Type) → C a` that describes a consumer that ignores its input data (of an arbitrary type `a`).
+
+We can define a value `cpure` for an arbitrary pointed contrafunctor like this:
+
+```dhall
+let cpure : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a : Type) → C a
+  = λ(C : Type → Type) → λ(contrafunctorC : Contrafunctor C) → λ(pointedC : PointedU C) → λ(a : Type) →
+    contrafunctorC.cmap a {} (const a {} {=}) pointedC.unit
+```
 
 ### `Monad`
 
@@ -5355,4 +5474,4 @@ ep ExistsP packP === ep
 ```
 
 It follows that `consume (ep ExistsP packP) === consume ep`.
-This concludes the proof in this subsection.
+This concludes the proof.

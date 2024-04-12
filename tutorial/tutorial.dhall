@@ -457,6 +457,10 @@ let uncurry
       λ(p : { _1 : a, _2 : b }) →
         f p._1 p._2
 
+let const
+    : ∀(a : Type) → ∀(b : Type) → b → a → b
+    = λ(a : Type) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
 let _ =
       λ(a : Type) →
       λ(b : Type) →
@@ -484,6 +488,9 @@ let _ =
             :   compose_backward a b d (compose_backward b c d h g) f
               ≡ compose_backward a c d h (compose_backward a b c g f)
         , flip_flip = assert : flip b a c (flip a b c k) ≡ k
+        , const_law =
+            λ(x : c) →
+              assert : compose_backward a b c (const b c x) f ≡ const a c x
         }
 
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
@@ -739,6 +746,63 @@ let contrafunctorConst
     = λ(c : Type) →
         { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a)
         }
+
+let Pointed
+    : (Type → Type) → Type
+    = λ(F : Type → Type) → { pure : ∀(a : Type) → a → F a }
+
+let pointedOptional
+    : Pointed Optional
+    = { pure = λ(a : Type) → λ(x : a) → Some x }
+
+let pointedList
+    : Pointed List
+    = { pure = λ(a : Type) → λ(x : a) → [ x ] }
+
+let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+
+let pointedAAInt
+    : Pointed AAInt
+    = { pure = λ(a : Type) → λ(x : a) → { _1 = x, _2 = x, _3 = +123 } }
+
+let PointedU
+    : (Type → Type) → Type
+    = λ(F : Type → Type) → { unit : F {} }
+
+let toPointedU
+    : ∀(F : Type → Type) → Pointed F → PointedU F
+    = λ(F : Type → Type) →
+      λ(pointedF : Pointed F) →
+        { unit = pointedF.pure {} {=} }
+
+let toPointed
+    : ∀(F : Type → Type) → Functor F → PointedU F → Pointed F
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(pointedUF : PointedU F) →
+        { pure =
+            λ(a : Type) →
+            λ(x : a) →
+              functorF.fmap {} a (const {} a x) pointedUF.unit
+        }
+
+let cpure
+    : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a : Type) → C a
+    = λ(C : Type → Type) →
+      λ(contrafunctorC : Contrafunctor C) →
+      λ(pointedC : PointedU C) →
+      λ(a : Type) →
+        contrafunctorC.cmap a {} (const a {} {=}) pointedC.unit
+
+let C = λ(r : Type) → λ(a : Type) → a → Optional r
+
+let pointedC
+    : ∀(r : Type) → PointedU (C r)
+    = λ(r : Type) → { unit = λ(_ : {}) → None r }
+
+let pointedC
+    : ∀(r : Type) → PointedU (C r)
+    = λ(r : Type) → { unit = const {} (Optional r) (None r) }
 
 let Id = λ(a : Type) → a
 
