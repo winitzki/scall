@@ -2396,10 +2396,10 @@ let toPointed : ∀(F : Type → Type) → Functor F → PointedU F → Pointed 
 One advantage of using `PointedU` instead of `Pointed` is that the evidence value has a simpler type and needs no laws.
 Another advantage is that `PointedU` can apply to type constructors that are not covariant.
 
-We define a **pointed contrafunctor** as a contravariant type constructor `C` for which we have an evidence value of type `PointedU C`.
+We define a **pointed contrafunctor** as a type constructor `C` for which we have evidence values of type `Contrafunctor C` and `PointedU C`.
 
 For example, consider the contrafunctor `C a = a → Optional r`, where `r` is a fixed type.
-We may implement that contrafunctor as:
+We may implement that contrafunctor in Dhall as:
 
 ```dhall
 let C = λ(r : Type) → λ(a : Type) → a → Optional r
