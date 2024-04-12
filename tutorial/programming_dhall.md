@@ -4513,7 +4513,7 @@ TODO
 
 ## Combinators for functors and contrafunctors
 
-Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways types may be defined in Dhall.
+Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways one may define types in Dhall.
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from parts.
 
@@ -4531,7 +4531,8 @@ let G = λ(a : Type) → List Bool
 We can generate all such type constructors via the `Const` combinator:
 
 ```dhall
-let Const = λ(c : Type) → λ(a : Type) → c
+let Const : Type → Type → Type
+   = λ(c : Type) → λ(_ : Type) → c
 ```
 Using `Const`, we would define `F = Const Integer`, `G = Const (List Bool)` and so on.
 

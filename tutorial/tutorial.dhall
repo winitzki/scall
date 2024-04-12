@@ -596,7 +596,9 @@ let functorG
               ga
       }
 
-let Const = λ(c : Type) → λ(a : Type) → c
+let Const
+    : Type → Type → Type
+    = λ(c : Type) → λ(a : Type) → c
 
 let functorConst
     : ∀(c : Type) → Functor (Const c)
