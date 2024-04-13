@@ -1722,8 +1722,21 @@ f : Natural → Text
 
 "abc"
 ```
-We have defined a function `f` that always returns the string `"abc"` and ignores its argument (of type `Natural`).
+Here, we used `const` to define a constant function `f` that always returns the string `"abc"` and ignores its argument (of type `Natural`).
 
+Similar combinators can be defined for types instead of values.
+Because Dhall does not support polymorphism by kinds, one would write that code separately for each kind of types.
+
+For example, suppose we need a constant function that takes any _type constructor_ as argument (whose type is `Type → Type`) and returns a fixed type `Natural`, ignoring the argument.
+The type of that function is `(Type → Type) → Type`.
+Such functions can be created as `ConstKT (Type → Type) Natural`, where `ConstKT` is defined by:
+
+```dhall
+let ConstKT
+  : ∀(a : Kind) → ∀(b : Type) → a → Type
+  = λ(a : Kind) → λ(b : Type) → λ(_ : a) → b
+
+```
 
 ### Verifying laws symbolically with `assert`
 
@@ -1731,7 +1744,25 @@ The function combinators from the previous subsection obey a number of algebraic
 In most programming languages, the laws may be verified only through random testing.
 Dhall's `assert` feature may be used to verify those laws _symbolically_.
 
-A simple example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice in a row, we recover the original function.
+A simple example of a law is the basic property of any constant function: the function's output should be independent of its input.
+We can formulate that law by saying that a constant function `f` should satisfy the equation `f x === f y` for all `x` and `y` of a suitable type.
+
+```dhall
+let f : Natural → Text = λ(_ : Natural) → "abc"
+let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x === f y
+```
+
+Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it evaluates `f x` and `f y` _symbolically_ within the body of `const_law`.
+(Dhall's interpreter evaluates expressions also inside function bodies, as much as possible.)
+
+In a similar way, we can verify that this property holds for any functions created via `const`:
+
+```dhall
+let general_const_law = λ(a : Type) → λ(b : Type) → λ(c : b) → λ(x : a) → λ(y : a) →
+  assert : const a b c x === const a b c y
+```
+
+Another example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice in a row, we recover the original function.
 
 The Dhall code for verifying the law is:
 
@@ -1766,7 +1797,7 @@ Note that Dhall verifies the equivalence of symbolic expression terms such as `�
 This code does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k` for the `assert` test.
 The `assert` verifies that both sides are equal as symbolic expressions, which is equivalent to a rigorous mathematical proof that the law holds.
 
-Another example is verifying the laws of function composition:
+As a further example, let us verify some laws of function composition:
 
 ```dhall
 let compose_backward
@@ -1780,7 +1811,7 @@ let left_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
 let right_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) → 
   assert : compose_backward a b b (identity b) f === f
 
-  -- The constant function law.
+  -- The constant function composition law.
 let const_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(x : c) → λ(f : a → b) → 
   compose_backward a b c (const b c x) f === const a c x
 

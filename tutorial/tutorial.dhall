@@ -129,6 +129,44 @@ let uncurry
       λ(p : { _1 : a, _2 : b }) →
         f p._1 p._2
 
+let const
+    : ∀(a : Type) → ∀(b : Type) → b → a → b
+    = λ(a : Type) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
+let _ =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : b) →
+      λ(x : a) →
+      λ(y : a) →
+        assert : const a b c x ≡ const a b c y
+
+let ConstKT
+    : ∀(a : Kind) → ∀(b : Type) → b → a → b
+    = λ(a : Kind) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
+let ConstTK
+    : ∀(a : Type) → ∀(b : Kind) → b → a → b
+    = λ(a : Type) → λ(b : Kind) → λ(x : b) → λ(_ : a) → x
+
+let ConstKK
+    : ∀(a : Kind) → ∀(b : Kind) → b → a → b
+    = λ(a : Kind) → λ(b : Kind) → λ(x : b) → λ(_ : a) → x
+
+let f = ConstKK (Type → Type) Type Natural
+
+let ConstKT
+    : ∀(a : Kind) → ∀(b : Type) → a → Type
+    = λ(a : Kind) → λ(b : Type) → λ(_ : a) → b
+
+let f = ConstKT (Type → Type) Natural
+
+let f
+    : Natural → Text
+    = λ(_ : Natural) → "abc"
+
+let _ = λ(x : Natural) → λ(y : Natural) → assert : f x ≡ f y
+
 let unsafeDiv
     : Natural → Natural → Natural
     = let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan

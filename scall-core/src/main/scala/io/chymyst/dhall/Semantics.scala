@@ -689,7 +689,8 @@ object Semantics {
         matchOrNormalize(data) {
           case Application(Expression(Field(Expression(UnionType(_)), fieldName)), _) => TextLiteral.ofString(fieldName.name)
           case Field(Expression(UnionType(_)), fieldName)                             => TextLiteral.ofString(fieldName.name)
-          // Builtin union type: Optional
+          // Builtin union type: Optional, with built-in constructors Some and None.
+          // `None` is a built-in symbol of type `∀(A : Type) → Optional A`, but `Some` is a keyword.
           case Application(Expression(ExprBuiltin(Builtin.None)), _)                  => TextLiteral.ofString(Builtin.None.entryName)
           case KeywordSome(_)                                                         => TextLiteral.ofString("Some")
         }
