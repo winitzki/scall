@@ -1086,6 +1086,68 @@ let Monad =
         , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
         }
 
+let monadLaws =
+      λ(F : Type → Type) →
+      λ(monadF : Monad F) →
+      λ(a : Type) →
+      λ(x : a) →
+      λ(p : F a) →
+      λ(b : Type) →
+      λ(f : a → F b) →
+      λ(c : Type) →
+      λ(g : b → F c) →
+        let left_id_law = monadF.bind a (monadF.pure a x) b f ≡ f x
+
+        let right_id_law = monadF.bind a p a (monadF.pure a) ≡ p
+
+        let assoc_law =
+                monadF.bind b (monadF.bind a p b f) c g
+              ≡ monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
+
+        in  { left_id_law, right_id_law, assoc_law }
+
+let State = λ(S : Type) → λ(A : Type) → S → Pair A S
+
+let monadState
+    : ∀(S : Type) → Monad (State S)
+    = λ(S : Type) →
+        let pure = λ(A : Type) → λ(x : A) → λ(s : S) → { _1 = x, _2 = s }
+
+        let bind =
+              λ(A : Type) →
+              λ(oldState : State S A) →
+              λ(B : Type) →
+              λ(f : A → State S B) →
+              λ(s : S) →
+                let update1
+                    : Pair A S
+                    = oldState s
+
+                let update2
+                    : Pair B S
+                    = f update1._1 update1._2
+
+                in  update2
+
+        in  { pure, bind }
+
+let _ =
+      λ(S : Type) →
+      λ(a : Type) →
+      λ(x : a) →
+      λ(p : State S a) →
+      λ(b : Type) →
+      λ(f : a → State S b) →
+      λ(c : Type) →
+      λ(g : b → State S c) →
+        let laws = monadLaws (State S) (monadState S) a x p b f c g
+
+        let _ = assert : laws.left_id_law
+
+        let _ = assert : laws.assoc_law
+
+        in  True
+
 let monadList
     : Monad List
     = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
@@ -1098,6 +1160,19 @@ let monadList
               λ(f : a → List b) →
                 List/concatMap a b f fa
           }
+
+let monadList
+    : Monad List
+    = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+
+      in    pointedList
+          ∧ { bind =
+                λ(a : Type) →
+                λ(fa : List a) →
+                λ(b : Type) →
+                λ(f : a → List b) →
+                  List/concatMap a b f fa
+            }
 
 let monadJoin =
       λ(F : Type → Type) →
@@ -1142,6 +1217,18 @@ let monadList
                 λ(f : a → List b) →
                   List/concatMap a b f fa
             }
+
+let ApplicativeFunctor =
+      λ(F : Type → Type) →
+          Functor F
+        ⩓ Pointed F
+        ⩓ { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+
+let applicativeFunctorList
+    : ApplicativeFunctor List
+    =   functorList
+      ∧ pointedList
+      ∧ { zip = https://prelude.dhall-lang.org/List/zip }
 
 let _church_encoding_examples =
       let ListInt = ∀(r : Type) → r → (Integer → r → r) → r

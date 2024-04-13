@@ -1742,7 +1742,7 @@ let ConstKT
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, the laws may be verified only through random testing.
-Dhall's `assert` feature may be used to verify those laws _symbolically_.
+Dhall's `assert` feature may be used to verify certain laws rigorously.
 
 A simple example of a law is the basic property of any constant function: the function's output should be independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x === f y` for all `x` and `y` of a suitable type.
@@ -1752,8 +1752,9 @@ let f : Natural → Text = λ(_ : Natural) → "abc"
 let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x === f y
 ```
 
-Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it evaluates `f x` and `f y` _symbolically_ within the body of `const_law`.
-(Dhall's interpreter evaluates expressions also inside function bodies, as much as possible.)
+Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `const_law`.
+Dhall's interpreter evaluates expressions also inside function bodies, as much as possible.
+So, an `assert` within a function body will verify that the equation holds for all possible function arguments.
 
 In a similar way, we can verify that this property holds for any functions created via `const`:
 
@@ -2475,12 +2476,66 @@ As an example, let us define a `Monad` evidence value for `List`:
 ```dhall
 let monadList : Monad List =
   let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
-  in
-  { pure = λ(a : Type) → λ(x : a) → [ x ]
-  , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
-    List/concatMap a b f fa
-  }
+  let pure = λ(a : Type) → λ(x : a) → [ x ]
+  let bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+      List/concatMap a b f fa
+    in { pure, bind }
 ```
+
+Another known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
+
+```dhall
+let State = λ(S : Type) → λ(A : Type) → S → Pair A S
+let monadState : ∀(S : Type) → Monad (State S)
+  = λ(S : Type) →
+    let pure = λ(A : Type) → λ(x : A) → λ(s : S) → { _1 = x, _2 = s }
+    let bind = λ(A : Type) → λ(oldState : State S A) → λ(B : Type) → λ(f : A → State S B) →
+         λ(s : S) →
+           let update1 : Pair A S = oldState s
+           let update2 : Pair B S = f update1._1 update1._2
+             in update2
+      in { pure, bind }
+```
+
+To verify a monad's laws, we first write a function that takes an arbitrary monad and asserts that its laws hold.
+
+There are three laws of a monad: two identity laws and an associativity law.
+In the syntax of Haskell, these laws are often written like this:
+
+```haskell
+bind (pure x) f = f x
+bind p pure = p
+bind (bind p f) g = bind p (\x -> bind (f x) g)
+```
+
+In this presentation of the laws, it is not shown what types are used by all of the functions.
+The corresponding code in Dhall makes all types explicit:
+
+```dhall
+let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) →
+  λ(a : Type) → λ(x : a) → λ(p : F a) → λ(b : Type) → λ(f : a → F b) → λ(c : Type) → λ(g : b → F c) →
+  let left_id_law = monadF.bind a (monadF.pure a x) b f === f x
+  let right_id_law = monadF.bind a p a (monadF.pure a) === p
+  let assoc_law = monadF.bind b (monadF.bind a p b f) c g
+      === monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
+    in { left_id_law, right_id_law, assoc_law }
+```
+
+Let us verify the laws of the `State` monad:
+
+```dhall
+let _ = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : F a) → λ(b : Type) → λ(f : a → F b) → λ(c : Type) → λ(g : b → F c) →
+  let laws = monadLaws (State S) (monadState S) a x p b f c g
+  let _ = assert : laws.left_id_law
+  -- let _ = assert : laws.right_id_law -- This will not work.
+  let _ = assert : laws.assoc_law
+    in True
+```
+
+The Dhall interpreter is not powerful enough to verify the right identity law.
+The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } === x` when `x` is a record with fields `_1` and `_2`.
+
+#### A monad's `join` method
 
 We have defined the `Monad` typeclass via the `pure` and `bind` methods.
 Let us implement a function that provides the `join` method for any member of the `Monad` typeclass.
@@ -2508,13 +2563,31 @@ let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
 
+
+
 ### `Applicative` functors and contrafunctors
 
-TODO use pointed
+One can define applicative functors as pointed functors that have a `zip` method.
 
-TODO example and traverse function
+The corresponding typeclass looks like this:
+
+```dhall
+let ApplicativeFunctor = λ(F : Type → Type ) →
+  Functor F //\\ Pointed F //\\
+    { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+```
+
+An example of an applicative functor is the built-in `List` type constructor.
+Its evidence value for the `ApplicativeFunctor` typeclass can be written as:
+
+```dhall
+let applicativeFunctorList : ApplicativeFunctor List = functorList /\ pointedList /\
+  { zip = https://prelude.dhall-lang.org/List/zip }
+```
 
 TODO examples of contravariant or cross-variant applicatives
+
+### `Traversable` functors
 
 ### Inheritance of typeclasses
 
@@ -2560,21 +2633,18 @@ let monoidText : Monoid Text = semigroupText /\ { empty = "" }
 Similarly, we may rewrite the `Monad` typeclass to make it more clear that any monad is also a covariant and pointed functor:
 
 ```dhall
-let Monad = λ(F : Type → Type) →
+let MonadFP = λ(F : Type → Type) →
   Functor F //\\ Pointed F //\\
       { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
 ```
 
-As an example, let us define a `Monad` evidence value for `List`:
-
-TODO make pointed instance for List
+As an example, let us define a `Monad` evidence value for `List` in that way:TODO make pointed instance for List
 
 ```dhall
-let monadList : Monad List =
+let monadList : MonadFP List =
   let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
-  in functorList /\
-      { pure = λ(a : Type) → λ(x : a) → [ x ]
-      , bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+  in functorList /\ pointedList /\
+      { bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
         List/concatMap a b f fa
       }
 ```
