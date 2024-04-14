@@ -1218,6 +1218,33 @@ let monadList
                   List/concatMap a b f fa
             }
 
+let monoidZip
+    : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Monoid (Pair a b)
+    = λ(a : Type) →
+      λ(monoidA : Monoid a) →
+      λ(b : Type) →
+      λ(monoidB : Monoid b) →
+        let empty = { _1 = monoidA.empty, _2 = monoidB.empty }
+
+        let append =
+              λ(x : Pair a b) →
+              λ(y : Pair a b) →
+                { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
+
+        in  { empty, append }
+
+let pointedMonoid
+    : PointedU Monoid
+    = let empty
+          : {}
+          = {=}
+
+      let append
+          : {} → {} → {}
+          = λ(x : {}) → λ(y : {}) → {=}
+
+      in  { unit = { empty, append } }
+
 let ApplicativeFunctor =
       λ(F : Type → Type) →
           Functor F
@@ -1229,6 +1256,43 @@ let applicativeFunctorList
     =   functorList
       ∧ pointedList
       ∧ { zip = https://prelude.dhall-lang.org/List/zip }
+
+let Applicative =
+      λ(F : Type → Type) →
+          PointedU F
+        ⩓ { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+
+let C = λ(m : Type) → λ(a : Type) → a → m
+
+let applicativeC
+    : ∀(m : Type) → Monoid m → Applicative (C m)
+    = λ(m : Type) →
+      λ(monoidM : Monoid m) →
+        let pointedC
+            : PointedU (C m)
+            = { unit = λ(_ : {}) → monoidM.empty }
+
+        let zip =
+              λ(a : Type) →
+              λ(ca : a → m) →
+              λ(b : Type) →
+              λ(cb : b → m) →
+              λ(p : Pair a b) →
+                monoidM.append (ca p._1) (cb p._2)
+
+        in  pointedC ∧ { zip }
+
+let traverseType =
+      λ(t : Type → Type) →
+        ∀(f : Type → Type) →
+        Applicative f →
+        ∀(a : Type) →
+        ∀(b : Type) →
+        (a → f b) →
+        t a →
+          f (t b)
+
+let Traversable = λ(t : Type → Type) → { traverse : traverseType t }
 
 let _church_encoding_examples =
       let ListInt = ∀(r : Type) → r → (Integer → r → r) → r

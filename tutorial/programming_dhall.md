@@ -1874,7 +1874,7 @@ In addition, Dhall's `assert` feature may be sometimes used to verify the typecl
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
-### `Monoid`
+### Monoids
 
 The `Monoid` typeclass is usually defined in Haskell as:
 
@@ -2229,7 +2229,7 @@ As soon as we substitute a specific value, say, `x = (G Bool).Left "abc"`, Dhall
 
 Keeping such limitations in mind, we will try verifying typeclass laws as much as it can be done with Dhall's functionality.
 
-### `Contrafunctor`
+### Contrafunctors (contravariant functors)
 
 The complementary kind of type constructors is contravariant functors: they cannot have a lawful `fmap` method.
 Instead, they have a `cmap` method with a type signature that flips one of the function arrows:
@@ -2304,7 +2304,7 @@ let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) →
   }
 ```
 
-### `Bifunctor` and `Profunctor`
+### Bifunctors and profunctors
 
 
 If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
@@ -2364,7 +2364,7 @@ let Profunctor : (Type → Type) → Type
   = λ(F : Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
 ```
 
-### `Pointed` functors and contrafunctors
+### Pointed functors and contrafunctors
 
 A functor `F` is pointed if it has a method called `pure` with the type signature `∀(a : Type) → a → F a`.
 This method constructs a certain value of type `F a` given a value of type `a`.
@@ -2458,7 +2458,7 @@ let cpure : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a 
     contrafunctorC.cmap a {} (const a {} {=}) pointedC.unit
 ```
 
-### `Monad`
+### Monads
 
 The `Monad` typeclass may be defined via the methods `pure` and `bind`.
 
@@ -2563,11 +2563,9 @@ let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
 
+### Applicative functors and contrafunctors
 
-
-### `Applicative` functors and contrafunctors
-
-One can define applicative functors as pointed functors that have a `zip` method.
+One may define applicative functors as pointed functors that have a `zip` method.
 
 The corresponding typeclass looks like this:
 
@@ -2585,9 +2583,90 @@ let applicativeFunctorList : ApplicativeFunctor List = functorList /\ pointedLis
   { zip = https://prelude.dhall-lang.org/List/zip }
 ```
 
-TODO examples of contravariant or cross-variant applicatives
+It turns out that a `zip` method can be defined also for some contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
-### `Traversable` functors
+As an example, consider the type constructor that defines the `Monoid` typeclass:
+
+```dhall
+let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+```
+This type constructor is itself neither covariant nor contravariant.
+However, it supports a `zip` method with the usual type signature:
+
+```dhall
+let monoidZip : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Monoid (Pair a b)
+  = λ(a : Type) → λ(monoidA : Monoid a) → λ(b : Type) → λ(monoidB : Monoid b) →
+    let empty = { _1 = monoidA.empty, _2 = monoidB.empty }
+    let append = λ(x : Pair a b) → λ(y : Pair a b) →
+      { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
+        in { empty, append }
+```
+
+The `Monoid` type constructor also has an evidence value for the `PointedU` typeclass:
+
+```dhall
+let pointedMonoid : PointedU Monoid =
+  let empty : {} = {=}
+  let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
+    in { unit = { empty, append } }
+```
+
+The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
+(This turns out to be true, as the monoid laws will hold for the new monoid automatically.)
+
+Below we will study more systematically the various ways of making new monoids out of old ones.
+For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
+So, it is applicative (although not a functor).
+To express that property, let us define the `Applicative` typeclass independently of `Functor`:
+
+```dhall
+let Applicative = λ(F : Type → Type ) →
+  PointedU F //\\
+    { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+
+```
+
+This definition applies to all type constructors, including contravariant ones ("contrafunctors").
+
+A simple example of an applicative contrafunctor is the type constructor `C m a = a → m`.
+The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
+The type `m` is assumed to be a fixed type that belongs to the `Monoid` typeclass.
+
+We can implement an `Applicative` evidence value for `C` like this:
+
+```dhall
+let C = λ(m : Type) → λ(a : Type) → a → m
+let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
+  = λ(m : Type) → λ(monoidM : Monoid m) →
+      let pointedC : PointedU (C m) = { unit = λ(_ : {}) → monoidM.empty }
+      let zip = λ(a : Type) → λ(ca : a → m) → λ(b : Type) → λ(cb : b → m) →
+        λ(p : Pair a b) → monoidM.append (ca p._1) (cb p._2)
+        in pointedC /\ { zip }
+```
+
+### Traversable functors
+
+A functor is traversable if it supports a method called `traverse` with the type signature written in Haskell like this:
+
+```haskell
+traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
+```
+Here `t` is the traversable functor.
+
+Rewriting this type signature in Dhall and making `t` an explicit type parameter, we get the following type signature:
+
+```dhall
+let traverseTypeSignature = λ(t : Type → Type) → ∀(f : Type → Type) → Applicative f → ∀(a : Type) → ∀(b : Type) →
+  (a → f b) → t a → f (t b)
+```
+
+The requirement of having a `traverse` method can be formulated via a `Traversable` typeclass:
+
+```dhall
+let Traversable = λ(t : Type → Type) → { traverse : traverseTypeSignature t }
+```
+
+Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `f` (even if `f` is not covariant).
 
 ### Inheritance of typeclasses
 
@@ -4723,6 +4802,10 @@ The least fixpoint type `Church F` already has that function (`unfix`).
 
 TODO
 
+## Monoids and their combinators
+
+TODO
+
 ## Combinators for functors and contrafunctors
 
 Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways one may define types in Dhall.
@@ -4924,7 +5007,7 @@ let contrafunctorCoProduct
 
 ## Applicative functors and contrafunctors, and their combinators
 
-## Traversable functors
+## Traversable functors and their combinators
 
 ## Monads and their combinators
 
