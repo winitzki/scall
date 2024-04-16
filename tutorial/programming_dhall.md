@@ -207,12 +207,13 @@ One difference is that each case of a `merge` expression must specify an explici
 As an example, consider a union type defined in Haskell by:
 
 ```haskell
-data P = X Int | Y Bool | Z
+data P = X Int | Y Bool | Z    -- Haskell
 ```
 
 A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
 
 ```haskell
+-- Haskell:
 toString :: P -> String
 toString x = case x of
   X x -> "X " ++ show x
@@ -1120,6 +1121,7 @@ Type expressions `∀(A : Type) → A → A` and `∀(A : Type) → ∀(x : A) �
 The corresponding Haskell code is:
 
 ```haskell
+-- Haskell:
 identity :: a → a
 identity = \x → x
 ```
@@ -1127,7 +1129,7 @@ identity = \x → x
 The corresponding Scala code is:
 
 ```scala
-def identity[A]: A => A  = { x => x }
+def identity[A]: A => A  = { x => x }     // Scala
 ```
 
 In Dhall, the type parameters must be specified explicitly, both when defining a function and when calling it:
@@ -1879,6 +1881,7 @@ To see how this works, let us implement some well-known typeclasses in Dhall.
 The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
+-- Haskell:
 class Monoid m where
   mempty :: m
   mappend :: m → m → m
@@ -1889,6 +1892,7 @@ The values `mempty` and `mappend` are the **typeclass methods** of the monoid ty
 In Scala, a corresponding definition is:
 
 ```scala
+// Scala
 trait Monoid[M] {
  def empty: M
  def combine: (M, M) => M 
@@ -1930,6 +1934,7 @@ Let us implement some functions with a type parameter required to belong to the 
 Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
+-- Haskell:
 reduce :: Monoid m => List m -> m
 reduce xs = foldr (\x -> \y -> mappend y x) mempty xs
 
@@ -2007,6 +2012,7 @@ The `fmap` method transforms the data items of type `a` into data items of anoth
 In Haskell, that type constructor and its `fmap` method are defined by:
 
 ```haskell
+-- Haskell:
 data F a = F a a Bool
 fmap :: (a → b) → F a → F b
 fmap f (F x y t) = F (f x) (F y) t 
@@ -2015,6 +2021,7 @@ fmap f (F x y t) = F (f x) (F y) t
 In Scala, the equivalent code is:
 
 ```scala
+// Scala
 case class F[A](x: A, y: A, t: Boolean)
 
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
@@ -2543,6 +2550,7 @@ Let us implement a function that provides the `join` method for any member of th
 In Haskell, we would define `join` via `bind` as:
 
 ```haskell
+-- Haskell:
 monadJoin :: Monad F => F (F a) -> F a
 monadJoin ffa = bind ffa id
 ```
@@ -2649,6 +2657,7 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
 A functor is traversable if it supports a method called `traverse` with the type signature written in Haskell like this:
 
 ```haskell
+-- Haskell:
 traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
 ```
 Here `t` is the traversable functor.
@@ -3833,12 +3842,14 @@ By definition, a value `x` has an **existentially quantified** type, denoted mat
 An example is the following type definition in Haskell:
 
 ```haskell
+-- Haskell:
 data F a = forall t. Hidden (t -> Bool, t -> a)
 ```
 
 The corresponding code in Scala is:
 
 ```scala
+// Scala
 sealed trait F[_]
 case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
@@ -4607,6 +4618,7 @@ This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [B. Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
+-- Haskell:
 hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
 hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
@@ -4620,6 +4632,7 @@ The type constructor `f` will be the recursion scheme for `TreeText`.
 Our Haskell definitions for `TreeText`, its recursion scheme `F`, and the `fmap` method for `F` are:
 
 ```haskell
+-- Haskell:
 data TreeText = Leaf String | Branch TreeText TreeText
 
 data F r = FLeaf String | FBranch r r
@@ -4633,6 +4646,7 @@ The type `TreeText` is the least fixpoint of `F` and has the standard methods `f
 Haskell implementations of `fix` and `unfix` are little more than identity functions that reassign types:
 
 ```haskell
+-- Haskell:
 fix :: F TreeText -> TreeText
 fix FLeaf t -> Leaf t
 fix FBranch x y -> Branch x y
@@ -4651,6 +4665,7 @@ In this example of applying `hylo`, the trees remain unchanged because we are un
 Choose some value `t0` of type `TreeText`:
 
 ```haskell
+-- Haskell:
 t0 :: TreeText
 t0 = Branch (Leaf "a") (Leaf "b")
 ```
@@ -5102,7 +5117,7 @@ The mathematical formulation of that property is called the **naturality law** o
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
 
 ```haskell
-t . fmap_F f === fmap_G f . t
+t . fmap_F f == fmap_G f . t
 ```
 
 To represent this concise formula in Dhall, we write the following definitions:
