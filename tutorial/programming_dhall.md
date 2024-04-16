@@ -240,7 +240,7 @@ let toText : P → Text = λ(x : P) →
         } x
 ```
 
-### The `Optional` type
+### The "Optional" type
 
 The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
 
