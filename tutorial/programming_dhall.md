@@ -5090,9 +5090,11 @@ The function `t` must work in the same way for all types `A` and for all values 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
 
-$$  t \circ  \textrm{fmap}_F ~ f  = \textrm{fmap}_G ~ f \circ  t  $$
+```haskell
+t . fmap_F f === fmap_G f . t
+```
 
-To represent this concise mathematical formula in Dhall, we write the following definitions:
+To represent this concise formula in Dhall, we write the following definitions:
 
 ```dhall
 -- Define the type constructor F and its fmap method:
@@ -5182,7 +5184,7 @@ The form of that law is determined by the type signature of the function and doe
 That law was called a **free theorem** in the paper ["Theorems for free" by P. Wadler](https://people.mpi-sws.org/~dreyer/tor/papers/wadler.pdf).)
 
 The general formulation and proof of the parametricity theorem are beyond the scope of this book.
-For more details, see [_"The Science of Functional Programming"_ by the same author](https://leanpub.com/sofp).
+For more details, see ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
 In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
 
 For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
@@ -5192,27 +5194,28 @@ So, the parametricity theorem guarantees that all Dhall functions of type `∀(A
 For functions of more complicated type signatures, naturality laws do not apply.
 The parametricity theorem gives a law of a more complicated form than a naturality law.
 
-To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
-The type signature `∀(A : Type) → (F A → G A) → H A` is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
+An example of such a law is for functions with type signatures `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
+This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
 
-For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity theorem gives the following law:
+For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity theorem gives the law formulated like this:
 
-For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, such that `p` and `q` are "`f`-related", we must have `fmap_H A B f (t A p) === t B q`.
-
-Here, we need to define the special property of being "`f`-related" as follows: Functions `p` and `q` are "`f`-related" if for any `x : F A` we have:
+For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, first define the property we call "`f`-relatedness". We say that `p` and `q` are "`f`-related" if for all `x : F A` we have:
 
 ```dhall
 fmap_G A B f (p x) === q (fmap_F A B f x)
 ```
-This equation is similar to a naturality law except for using two different functions (`p` and `q`).
-(If we set `p = q`, we will obtain the naturality law of `p`.)
+This equation is similar to a naturality law except for using two different functions, `p` and `q`.
+(If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
 
-It is important to note that this equation defines a _many-to-many relation_ between the functions `p` and `q`.
-This equation cannot be used to express `p` through `q` or `q` through `p`.
+Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related `p` and `q`, the following equation must hold:
 
+```dhall
+fmap_H A B f (t A p) === t B q
+```
+
+It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
 Because of this complication, the law of `t` does not have the form of a single equation.
-The law says that the equation `fmap_H A B f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
-(We called that property "`f`-related" just for this example.)
+The law says that the equation `fmap_H A B f (t A p) === t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
 We call the law of `t` a **relational naturality law**.
 The form of that law is a generalization of a naturality law, adapted for the type signature of `t`.
