@@ -2746,25 +2746,25 @@ For example, suppose `T` is the type of lists with integer values.
 A recursive definition of `T` in Haskell could look like this:
 
 ```haskell
-data T = Nil | Cons Int T
+data T = Nil | Cons Int T     -- Haskell
 ```
 
-This definition of `T` has the form of a "type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by: 
+This definition of `T` has the form of a "recursive type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by: 
 
 ```haskell
-type F a = Nil | Cons Int a
+type F a = Nil | Cons Int a     -- Haskell
 ```
 
 The type constructor `F` is called the **recursion scheme** for the definition of `T`.
 
-Dhall does not accept recursive type equations, but it will accept the definition of `F` (because it is non-recursive).
+Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is non-recursive.
 The definition of `F` is written in Dhall as:
 
 ```dhall
 let F : Type → Type = λ(a : Type) → < Nil |  Cons : { head : Integer, tail : a } >
 ```
 
-By definition, the **Church encoding** of `T` is the following type expression:
+The **Church encoding** of `T` is the following type expression:
 
 ```dhall
 let C : Type = ∀(r : Type) → (F r → r) → r 
@@ -2782,7 +2782,7 @@ Given a recursion scheme `F`, one defines a non-recursive type `C`:
 ```dhall
 let C = ∀(r : Type) → (F r → r) → r
 ```
-Then the type `C` is equivalent to the type `T` that we would have defined by `T = F T` in a language that supports recursively defined types.
+As it turns out, the type `C` is equivalent to the type `T` that one would have defined by `T = F T` in a language that supports recursively defined types.
 
 It is not obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `C = F C`.
@@ -3342,6 +3342,7 @@ When working with recursive types in ordinary functional languages, one often us
 For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
 
 ```haskell
+-- Haskell:
 data TreeInt = Leaf Int | Branch TreeInt TreeInt
 
 isSingleLeaf: TreeInt -> Bool
@@ -3353,6 +3354,7 @@ isSingleLeaf t = case t of
 Another example is a Haskell function that returns the first value in the list if it exists:
 
 ```haskell
+-- Haskell:
 headMaybe :: [a] -> Maybe a
 headMaybe []     = Nothing
 headMaybe (x:xs) = Just x
@@ -3464,6 +3466,7 @@ If two or more types are defined recursively through each other, one needs a sep
 As an example, consider this Haskell definition:
 
 ```haskell
+-- Haskell:
 data Layer = Name String | OneLayer Layer | TwoLayers Layer2 Layer2
 data Layer2 = Name2 String | ManyLayers [ Layer ]   
 ```
@@ -3473,13 +3476,15 @@ The type `Layer` is defined via itself and `Layer2`, while `Layer2` is defined v
 We need two recursion schemes (`F` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
 
 ```haskell
+-- Haskell:
 data Layer = Layer (F Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-We will achieve this formulation if we define `F` and `F2` (still in Haskell) by:
+We will achieve this formulation if we define `F` and `F2` by:
 
 ```haskell
+-- Haskell:
 data F a b = Name String |  OneLayer a | TwoLayers b b
 data F2 a b = Name2 String | ManyLayers [ a ]
 ```
@@ -3501,21 +3506,25 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
+See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
+
 ### Recursive type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
 For this to work, the recursion scheme `F` must have one more type parameter than `T`.
 
-For example, take the Haskell definition of a binary tree with leaves of type `a`:
+For example, consider this Haskell definition of a binary tree with leaves of type `a`:
 
 ```haskell
+-- Haskell:
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 ```
 
 The corresponding recursion scheme `F` is:
 
 ```haskell
+-- Haskell:
 data F a r = Leaf a | Branch r r
 ```
 
@@ -3541,12 +3550,14 @@ The code is written similarly in case of more type parameters.
 Consider a Haskell definition of a binary tree with two type parameters and two different kinds of leaf:
 
 ```haskell
+-- Haskell:
 data TreeAB a b = LeafA a | LeafB b | Branch (TreeAB a b) (TreeAB a b)
 ```
 
 The corresponding recursion scheme is:
 
 ```haskell
+-- Haskell:
 data F a b r = LeafA a | LeafB b | Branch r r
 ```
 
@@ -3561,17 +3572,17 @@ let TreeAB = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (F a b r → r)
 ### Example: Concatenating and reversing non-empty lists
 
 Dhall's `List` data structure already has concatenation and reversal operations (`List/concat` and `List/reverse`).
-As an example, let us implement those operations for _non-empty_ lists using a Church encoding.
-
-Non-empty lists (`NEL: Type → Type`) can be defined recursively as:
+To practice implementing those operations for a Church-encoded data type, consider _non-empty_ lists (`NEL: Type → Type`) defined recursively as:
 
 ```haskell
+-- Haskell:
 data NEL a = One a | Cons a (NEL a)
 ```
 
 The recursion scheme corresponding to this definition is:
 
 ```haskell
+-- Haskell:
 data F a r = One a | Cons a r
 ```
 
