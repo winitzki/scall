@@ -7,12 +7,15 @@ Features that are good to have in IDE support for Dhall:
 - Tooltip: hover on a variable to see its type, or display its type on Command-hover or otherwise
 - Type error: say where and what types were expected and what types were found instead
 - Autocomplete possible arguments for curried functions
-- Autocomplete defined variables, record field names, union constructor names
+- Autocomplete possible functions that apply to a given argument type
+- Autocomplete constructor names after union types and record field names after record types / names
+- Autocomplete lambdas in `merge`
+- Autocomplete defined variables in scope
 - Autocomplete lambda blocks after type annotation is given
-- Do not autocomplete the name that is being defined (no recursion in Dhall)
+- Do not autocomplete the name that is currently being defined (no recursion in Dhall!)
 - Fill in the inferred type for let bindings or lambda arguments or any other terms
 - Reduce to normal form and replace selected expression
-- Alpha-normalize, beta-normalize, eta-reduce
+- Alpha-normalize, beta-normalize, eta-reduce inline
 - Freeze / unfreeze imports
 - Rename variables within their definition's scope
 - Suggest edits when typechecking fails or when variables are undefined

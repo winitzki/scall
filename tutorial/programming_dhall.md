@@ -4800,7 +4800,7 @@ The converse transformation (from the least fixpoint to the greatest fixpoint) c
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
 The least fixpoint type `Church F` already has that function (`unfix`).
 
-TODO
+TODO example and note about performance
 
 ## Monoids and their combinators
 
@@ -5190,7 +5190,7 @@ For natural transformations (functions of type `∀(A : Type) → F A → G A`),
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
 For functions of more complicated type signatures, naturality laws do not apply.
-The parametricity theorem gives a law of a more complicated form than naturality laws.
+The parametricity theorem gives a law of a more complicated form than a naturality law.
 
 To see an example of such a law, consider a function with type signature `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
 The type signature `∀(A : Type) → (F A → G A) → H A` is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
@@ -5214,8 +5214,8 @@ Because of this complication, the law of `t` does not have the form of a single 
 The law says that the equation `fmap_H A B f (t A p) === t B q` holds for any `p` and `q` that are in a certain relation to each other and to `f`.
 (We called that property "`f`-related" just for this example.)
 
-We say that the parametricity theorem gives a **relational naturality law** for functions `t`.
-The form of that law is a generalization of a naturality law that is necessary for the complicated type signature of `t`.
+We call the law of `t` a **relational naturality law**.
+The form of that law is a generalization of a naturality law, adapted for the type signature of `t`.
 
 To summarize: the parametricity theorem applies to all Dhall values.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
@@ -5224,7 +5224,11 @@ That law is determined by the type signature alone and can be written in advance
 
 That law is the naturality law if the function has a type signature of the form `∀(A : Type) → K A → L A`, where `K` and `L` are either both covariant or both contravariant.
 
-For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational law shown above.
+For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational naturality law shown above.
+
+The parametricity theorem shows how such laws are formulated for arbitrarily complicated type signatures, but the special case of type signatures of the form `∀(A : Type) → (F A → G A) → H A` will be sufficient for the purposes of this book.
+
+In this book's derivations, we will assume that the relational naturality laws always hold and proceed to prove various properties of Dhall programs.
 
 ### The four Yoneda identities
 
@@ -5443,7 +5447,8 @@ This identity is mentioned in the proceedings of the conference ["Fixed Points i
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
-A proof of the Church-Yoneda identity must use the relational naturality law.
+Here is a proof of the Church-Yoneda identity that uses the relational naturality law.
+
 
 TODO
 
@@ -5461,21 +5466,140 @@ TODO
 
 ### Proof: Church encoding of mutually recursive types
 
-TODO
+We will prove the following statement:
+
+Suppose two mutually recursive types `T`, `U` are defined as the least fixpoints of this system of type equations:
+
+```dhall
+T = F T U
+U = G T U
+```
+where `F` and `G` are some (covariant) bifunctors:
+
+```dhall
+let F = ∀(a : Type) → ∀(b : Type) →  ...
+let G = ∀(a : Type) → ∀(b : Type) →  ...
+```
+Then the types `T`, `U`  are equivalently defined by a Church encoding in the form:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
+```
+
+The plan of the proof is to express the fixpoints of a system of type equations through simple fixpoints of single-argument functors.
+We already know that we may use the ordinary Church encoding works for such fixpoints.
+Together with the Church-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
+
+Using the name `LFix` for the Church encoding of least fixpoints, we rewrite the given system of type equations like this:
+
+```dhall
+T = LFix (λ(x : Type) → F x U)
+U = LFix (λ(y : Type) → G T y)
+```
+(This is still not a valid Dhall code but we can work with this notation better.)
+
+To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
+
+```dhall
+let H = λ(a : Type) → LFix (G a)
+```
+Note that the curried type constructor `G a` is the same as `λ(y : Type) → G a y`.
+Then `U = H T`, and so we can derive a fixpoint equation that contains just `T` and no `U`:
+
+```dhall
+T === LFix (λ(x : Type) → F x U)
+  === LFix (λ(x : Type) → F x (H T))
+```
+To simplify the last equation, define the type constructor `K` by `K a = F a (H a)`, or in Dhall:
+
+```dhall
+let K = λ(a : Type) → F a (H a)
+```
+Then the last equation becomes `T = LFix K`.
+
+It remains to show that the type definition we started with:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+is equivalent to just `T = LFix K`.
+
+To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
+
+```dhall
+∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
+```
+
+In order to apply this identity, rewrite the type expression for `T` in a suitable form:
+
+```dhall
+T === ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+    -- Swap `a` and `b`, and swap the curried arguments:
+  === ∀(b : Type) → ∀(a : Type) → (G a b → b) → (F a b → a) → a
+  === ∀(a : Type) → ∀(b : Type) → (P b → b) → Q b
+```
+where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) → a`.
+(The type parameter `a` is kept fixed.)
+
+```dhall
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+    in ∀(b : Type) → (P b → b) → Q b
+```
+
+With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
+So, we may apply the Church-Yoneda identity and obtain:
+
+
+```dhall
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+    in Q (LFix P)
+  === ∀(a : Type) → (F a (LFix P) → a) → a
+```
+
+However, we notice that `LFix P` is the same type as `H a`:
+
+```dhall
+LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
+```
+
+Also, `F a (LFix P) === F a (H a) === K a`.
+
+So, we can finally rewrite `T` as:
+
+```dhall
+T === ∀(a : Type) → (F a (LFix P) → a) → a
+  === ∀(a : Type) → (F a (H a) → a) → a
+  === ∀(a : Type) → (K a → a) → a
+  === LFix K
+```
+
+This is precisely the type expression we needed to derive.
+
+We have proved the Church encoding formula for the type `T`.
+The proof for `U` is similar.
+
 
 ### Proof: `pack` is a left inverse of `unpack`
 
-In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP`.
-
-By assuming that `P` is always fixed, we may simplify the definitions of `pack` and `unpack`: 
+In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
 ```dhall
 let ExistsP = ∀(R : Type) → (∀(T : Type) → P T → R) → R
+```
+By assuming that `P` is always fixed, we may simplify the definitions of `pack` and `unpack`: 
 
-let unpackP : ExistsP → ∀(R : Type) → (∀(T : Type) → P T → R) → R 
+```dhall
+let unpackP : ExistsP → ∀(R : Type) → (∀(T : Type) → P T → R) → R
   = λ(ep : ExistsP) → λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) →
       ep R unpack_
-
+```
+and
+```dhall
 let packP : ∀(T : Type) → P T → ExistsP
   = λ(T : Type) → λ(pt : P T) →
       λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt
