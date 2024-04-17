@@ -4347,7 +4347,7 @@ Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`:
 ```dhall
 let fix : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fg : F (GFix F)) →
-    let fmap_unfix : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) unfix
+    let fmap_unfix : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) (unfix F functorF)
       in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
 ```
 
@@ -4369,7 +4369,7 @@ The required reasoning is quite different from that of creating values of the le
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
 Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fix : F T → T`.
-That function, similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
+Similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
 Those constructors are "finite": they cannot create an infinite data structure.
 For that, we need the general constructor `makeGFix`.
 
