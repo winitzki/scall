@@ -4330,13 +4330,12 @@ The result is a value of type `F (GFix F)` as required.
 The complete Dhall code is:
 
 ```dhall
-let unfix : GFix F → F (GFix F) TODO: use GF_T and explicit arguments F, Functor F
-  = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
-    let f
-     : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+let unfix : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(g : GFix F) →
+    let f : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
-        let fk : F t → F (GFix F) = fmap_F t (GFix F) k
+        let fk : F t → F (GFix F) = functorF.fmap t (GFix F) k
           in fk (p.step p.seed)
             in g (F (GFix F)) f
 ```
@@ -4346,9 +4345,9 @@ We first compute `fmap_F unfix : F (GFix F) → F (F (GFix F))`.
 Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`: 
 
 ```dhall
-let fix : F (GFix F) → GFix F
-  = λ(fg : F (GFix F)) →
-    let fmap_unfix : F (GFix F) → F (F (GFix F)) = fmap_F (GFix F) (F (GFix F)) unfix
+let fix : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fg : F (GFix F)) →
+    let fmap_unfix : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) unfix
       in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
 ```
 
@@ -4702,11 +4701,9 @@ The general type signature of a fold-like aggregation is `P → ∀(r : Type) �
 
 The implementation of `fold` will be different for each data structure `P`.
 If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
-If `P` is the greatest fixpoint (`GFix F`), the analogous signature of `P`'s `fold` would be:
+If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'s `fold` would be:
 
-```dhall
-let fold_GFix : GFix F → ∀(r : Type) → (F r → r) → r = ???
-```
+`GFix F → ∀(r : Type) → (F r → r) → r`
 
 Note that this type is a function from an existential type in `GFix F`.
 Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
@@ -4720,15 +4717,11 @@ GFix F → Q  -- Symbolic derivation.
 We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T F t = { seed : t, step : t → F t }` as appropriate for streams.
 Then we obtain the type signature:
 
-```dhall
-let fold_GFix : ∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r = ???
-```
+`∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r`
 
 Rewrite that type by replacing the record by two curried arguments:
 
-```dhall
-let fold_GFix : ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r = ???
-```
+`∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
 Functions of that type are called **hylomorphisms**.
 See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
