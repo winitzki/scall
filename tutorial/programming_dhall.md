@@ -3459,21 +3459,21 @@ implemented via pattern matching on that type:
 ```dhall
 let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
 
-let TreeInt = ∀(r : Type) → (F r → r) → r
+let TreeInt = LFix F
 
-let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b =
-    λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+let functorF : Functor F = {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
       Leaf = (F b).Leaf,
       Branch = λ(branch : { left : a, right : a }) → (F b).Branch { left = f branch.left, right = f branch.right }
     } fa
-
+}
 -- Assume the definition of `unfix` as shown above.
 
 let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
     merge {
       Leaf = λ(_ : Integer) → True,
       Branch = λ(_ : { left : TreeInt, right : TreeInt }) → False
-    } (unfix c)
+    } (unfix F functorF c)
 ```
 
 For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The function `headOptional` that replaces
@@ -3482,21 +3482,21 @@ Haskell's `headMaybe` is written in Dhall like this:
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 
-let ListInt = ∀(r : Type) → (F r → r) → r
+let ListInt = LFix F
 
-let fmapF : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b =
-    λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+let functorF : Functor F = {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
       Nil = (F b).Nil,
       Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
     } fa
-
+  }
 -- Assume the definition of `unfix` as shown above.
 
 let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
     merge {
       Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.head),
       Nil = None Integer
-    } (unfix c)
+    } (unfix F functorF c)
 -- Run a test:
 let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
 ```
