@@ -1417,11 +1417,9 @@ We also cannot test whether `y` is zero at run time and then call `safeDiv` only
 This code:
 
 ```dhall
--- Type error: \
-λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=}
+λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=} -- ???
 ```
-
-will produce a type error because `{=}` is not of type `Nonzero y`.
+will produce a type error because Dhall cannot check whether `{=}` is of type `Nonzero y`.
 
 Neither can we use the `Optional` type to create a value of type `Optional (Nonzero y)` that will be `None` when `y` equals zero.
 Dhall will not accept code like this:
@@ -3043,7 +3041,7 @@ Another property proved in that paper is the identity `c C (fix F functorF) = c`
 
 ### Data constructors
 
-The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values, or from scratch.
+The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values or from scratch.
 
 As the type `F C` is almost always a union type, it is convenient to rewrite the function type `F C → C` as a product of simpler functions.
 We can write this in a mathematical notation:
@@ -3052,8 +3050,58 @@ We can write this in a mathematical notation:
 
 where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, etc.
 
-Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we can assign a name for convenience.
-In this way, we replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
+Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
+In this way, we will replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
+
+The code for the constructors can be derived mechanically from the general code of `fix`.
+As an example, consider the type `ListInt` and define the necessary functions for it:
+
+```dhall
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let functorF : Functor F = {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+      Nil = (F b).Nil,
+      Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
+    } fa
+  }
+let ListInt = LFix F
+```
+
+The argument of the function `fix F functorF : F ListInt → ListInt` is a union type `< Nil | Cons : { head : Integer, tail : ListInt } >`.
+We can apply that function to the value `Nil` or to a value `Cons { head, tail }`.
+The results of those applications are the two constructors for the `ListInt` type.
+We can obtain the normal forms of those constructors if we use Dhall's interpreter to print the values `fix F functorF (F ListInt).Nil` and `fix F functorF (F ListInt).Cons { head, tail }`.
+The code is found [in the file ./example_list_fix.dhall](./example_list_fix.dhall):
+
+```dhall
+$ dhall --file ./example_list_fix.dhall
+{ cons =
+    λ(head : Integer) →
+    λ ( tail
+      : ∀(r : Type) → (< Cons : { head : Integer, tail : r } | Nil > → r) → r
+      ) →
+    λ(r : Type) →
+    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
+      frr
+        ( < Cons : { head : Integer, tail : r } | Nil >.Cons
+            { head, tail = tail r frr }
+        )
+, nil =
+    λ(r : Type) →
+    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
+      frr < Cons : { head : Integer, tail : r } | Nil >.Nil
+}
+```
+Rewriting these expressions using the types `F` and `ListInt`, we get the following definitions:
+
+```dhall
+let cons = λ(head : Integer) → λ (tail : ListInt) →
+  λ(r : Type) → λ(frr : F r → r) → frr ((F r).Cons { head = head, tail = tail r frr})
+let nil = λ(r : Type) → λ(frr : F r → r) → frr (F r).Nil
+```
+These are the two basic constructors for the `ListInt` type.
+
+In some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
 
 To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
 
@@ -3074,9 +3122,6 @@ let cons : Integer → ListInt → ListInt = ???
 let leaf : Text → TreeText = ???
 let branch : TreeText → TreeText → TreeText = ???
 ```
-
-In principle, the code for the constructors can be derived mechanically from the general code of `fix`.
-But in most cases, it is easier to write the constructors manually, by implementing the required type signatures guided by the types.
 
 Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
 Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
@@ -3100,11 +3145,11 @@ let branch: TreeText → TreeText → TreeText
 Now we can create values of Church-encoded types by writing nested constructor calls:
 
 ```dhall
--- The list [+123, -456, +789]
+-- The list [+123, -456, +789]:
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 
-{- The tree    /\
-              /\ c
+{-             /\
+   The tree   /\ c    :
              a  b
 -}
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")

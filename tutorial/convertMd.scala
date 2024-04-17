@@ -198,6 +198,7 @@ val dhallToIgnore = Seq(
   "≅",
   "-- Type error: ",
   "-- Symbolic derivation.",
+  "$ dhall --file ",
 )
 
 def toDhall: Markdown => String = {
