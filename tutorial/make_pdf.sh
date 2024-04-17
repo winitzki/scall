@@ -1,5 +1,6 @@
 name=programming_dhall
-scala-cli convertMd.sc < $name.md  > generated.tex
+scala-cli convertMd.scala --   false < $name.md  > generated.tex
+scala-cli convertMd.scala --   true < $name.md  > generated.dhall
 pdflatex --interaction=batchmode $name.tex
 test -s $name.pdf || {
   echo "Error: no PDF file, see errors in $name.log"
