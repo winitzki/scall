@@ -3054,54 +3054,7 @@ Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific c
 In this way, we will replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
 
 The code for the constructors can be derived mechanically from the general code of `fix`.
-As an example, consider the type `ListInt` and define the necessary functions for it:
-
-```dhall
-let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
-let functorF : Functor F = {
-    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
-      Nil = (F b).Nil,
-      Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
-    } fa
-  }
-let ListInt = LFix F
-```
-
-The argument of the function `fix F functorF : F ListInt → ListInt` is a union type `< Nil | Cons : { head : Integer, tail : ListInt } >`.
-We can apply that function to the value `Nil` or to a value `Cons { head, tail }`.
-The results of those applications are the two constructors for the `ListInt` type.
-We can obtain the normal forms of those constructors if we use Dhall's interpreter to print the values `fix F functorF (F ListInt).Nil` and `fix F functorF (F ListInt).Cons { head, tail }`.
-The code is found [in the file ./example_list_fix.dhall](./example_list_fix.dhall):
-
-```dhall
-$ dhall --file ./example_list_fix.dhall
-{ cons =
-    λ(head : Integer) →
-    λ ( tail
-      : ∀(r : Type) → (< Cons : { head : Integer, tail : r } | Nil > → r) → r
-      ) →
-    λ(r : Type) →
-    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
-      frr
-        ( < Cons : { head : Integer, tail : r } | Nil >.Cons
-            { head, tail = tail r frr }
-        )
-, nil =
-    λ(r : Type) →
-    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
-      frr < Cons : { head : Integer, tail : r } | Nil >.Nil
-}
-```
-Rewriting these expressions using the types `F` and `ListInt`, we get the following definitions:
-
-```dhall
-let cons = λ(head : Integer) → λ (tail : ListInt) →
-  λ(r : Type) → λ(frr : F r → r) → frr ((F r).Cons { head = head, tail = tail r frr})
-let nil = λ(r : Type) → λ(frr : F r → r) → frr (F r).Nil
-```
-These are the two basic constructors for the `ListInt` type.
-
-In some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
+But in some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
 
 To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
 
@@ -3125,6 +3078,7 @@ let branch : TreeText → TreeText → TreeText = ???
 
 Each of the constructor functions needs to return a value of the Church-encoded type, and we write out its type signature.
 Then, each constructor applies the corresponding part of the curried Church-encoded type to suitable arguments.
+After some guessing, we arrive at this code:
 
 ```dhall
 let nil : ListInt
@@ -3155,11 +3109,64 @@ let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 ```
 
+To illustrate the general principle that constructors come from the `fix` function, let us see how the list constructors `cons` and `nil` can be derived from the general `fix` function for `ListInt`.
+Begin by implementing the functions necessary for the definition of `fix`:
+
+```dhall
+let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let functorF : Functor F = {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → merge {
+      Nil = (F b).Nil,
+      Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
+    } fa
+  }
+let ListInt = LFix F
+```
+
+The argument of the function `fix F functorF : F ListInt → ListInt` is a union type `< Nil | Cons : { head : Integer, tail : ListInt } >`.
+Since that union type has only two parts, we can apply `fix` either to the value `Nil` or to a value `Cons { head, tail }`.
+The results of those two computations are the two constructors for the `ListInt` type.
+
+We can obtain the normal forms of those constructors if we use Dhall's interpreter to print the values `fix F functorF (F ListInt).Nil` and `fix F functorF (F ListInt).Cons { head, tail }`.
+The complete code is [in the file ./example-list-fix.dhall](https://github.com/winitzki/scall/blob/master/tutorial/example-list-fix.dhall).
+When we run it through the Dhall interpreter, we get this output:
+
+```dhall
+$ dhall --file ./example-list-fix.dhall
+{ cons =
+    λ(h : Integer) →
+    λ ( t
+      : ∀(r : Type) → (< Cons : { head : Integer, tail : r } | Nil > → r) → r
+      ) →
+    λ(r : Type) →
+    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
+      frr
+        ( < Cons : { head : Integer, tail : r } | Nil >.Cons
+            { head = h, tail = t r frr }
+        )
+, nil =
+    λ(r : Type) →
+    λ(frr : < Cons : { head : Integer, tail : r } | Nil > → r) →
+      frr < Cons : { head : Integer, tail : r } | Nil >.Nil
+}
+```
+Rewriting these expressions via the types `F` and `ListInt` for brevity, we get the following definitions:
+
+```dhall
+let cons = λ(h : Integer) → λ(t : ListInt) →
+  λ(r : Type) → λ(frr : F r → r) → frr ((F r).Cons { head = h, tail = t r frr})
+let nil = λ(r : Type) → λ(frr : F r → r) → frr (F r).Nil
+```
+
+These are the two basic constructors for the `ListInt` type.
+We see that the code is equivalent to the code we wrote earlier by guessing.
+
+
 ### Aggregations ("folds")
 
 The type `C` itself is a type of fold-like functions.
 
-To see the similarity, compare the curried form of the `ListInt` type:
+To see the similarity, compare the curried form of the Church-encoded `ListInt` type:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -3213,13 +3220,12 @@ The result value of the aggregation is the last computed value of the accumulato
 
 Let us show some examples of how this is done.
 
-### Sum of values in a `ListInt`
+### Sum of values in a list
 
 Suppose we have a value `list` in the curried-form Church encoding of `ListInt`:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
-
 let list : ListInt = ???
 ```
 
@@ -3261,19 +3267,31 @@ The `update` function is implemented via the standard Prelude function `Integer/
 
 ```dhall
 let abs = https://prelude.dhall-lang.org/Integer/abs
-let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+let update : Integer → Natural → Natural
+  = λ(i : Integer) → λ(previous : Natural) → previous + abs i
 ```
 
 The complete test code is:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
-let init : Natural = 0
-let abs = https://prelude.dhall-lang.org/Integer/abs
-let update : Integer → Natural → Natural = λ(i : Integer) → λ(previous : Natural) → previous + abs i
-let sumListInt : ListInt → Natural = λ(list : ListInt) → list Natural init update
-let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
+let nil : ListInt
+   = λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) → a1
+let cons : Integer → ListInt → ListInt
+   = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
+     a2 n (c r a1 a2)
+```
 
+```dhall
+let abs = https://prelude.dhall-lang.org/Integer/abs
+let update : Integer → Natural → Natural
+  = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+let sumListInt : ListInt → Natural
+  = λ(list : ListInt) → list Natural 0 update
+```
+
+```dhall
+let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 let _ = assert : sumListInt example1 === 1368
 ```
 
@@ -3477,9 +3495,7 @@ let C = ∀(r : Type) → (F r → r) → r
 
 let TreeInt = ∀(r : Type) → (F r → r) → r
 ```
-
 and
-
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
@@ -3512,6 +3528,7 @@ let functorF : Functor F = {
       Branch = λ(branch : { left : a, right : a }) → (F b).Branch { left = f branch.left, right = f branch.right }
     } fa
 }
+
 -- Assume the definition of `unfix` as shown above.
 
 let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
@@ -3522,7 +3539,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
 ```
 
 For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The function `headOptional` that replaces
-Haskell's `headMaybe` is written in Dhall like this:
+Haskell's `headMaybe` is rewritten in Dhall like this:
 
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
@@ -3535,6 +3552,11 @@ let functorF : Functor F = {
       Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
     } fa
   }
+-- Constructors.
+let cons = λ(h : Integer) → λ(t : ListInt) →
+  λ(r : Type) → λ(frr : F r → r) → frr ((F r).Cons { head = h, tail = t r frr})
+let nil = λ(r : Type) → λ(frr : F r → r) → frr (F r).Nil
+
 -- Assume the definition of `unfix` as shown above.
 
 let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
@@ -3660,11 +3682,11 @@ Then the last definition of `Tree` is equivalently written as `let Tree = LFixT 
 To see that this is the same Church encoding as before, we can express `LFixT` through `LFix`:
 
 ```dhall
-let LFixT : (Type → Type → Type) → Type
+let LFixT : (Type → Type → Type) → Type → Type
   = λ(F : Type → Type → Type) → λ(a : Type) → LFix (F a)
 ```
 
-The code is written similarly in case of two or more type parameters.
+The Church encoding works similarly for type constructors with two or more type parameters.
 Consider a Haskell definition of a binary tree with two type parameters and two different kinds of leaf:
 
 ```haskell
@@ -3707,55 +3729,56 @@ data F a r = One a | Cons a r
 Convert this definition to Dhall and write the corresponding Church encoding:
 
 ```dhall
-let F = ∀(a : Type) → ∀(r : Type) → < One : a |  Cons : { head : a, tail: r } >
+let F = λ(a : Type) → λ(r : Type) → < One : a |  Cons : { head : a, tail: r } >
 let NEL = ∀(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
-It will be more convenient to rewrite the type `NEL` without using union or record types. An equivalent definition is:
+It will be more convenient to rewrite the type `NEL` without using union or record types.
+This is achieved if we use the curried form of the Church encoding:
 
 ```dhall
 let NEL = λ(a : Type) → ∀(r : Type) → (a → r) → (a → r → r) → r
 ```
 
-The standard constructors for `NEL` are:
+The constructors for `NEL` are:
 
-- a function (`one`) that creates a list of one element
-- a function (`cons`) that prepends a given value of type `a` to a list of type `NEL a`
+- a function (`one`) that creates a list consisting of one element
+- a function (`consn`) that prepends a given value of type `a` to a non-empty list of type `NEL a`
 
-Non-empty list values can be now built as `cons Natural 1 (cons Natural 2 (one Natural 3))` and so on.
+Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
 
 ```dhall
 let one : ∀(a : Type) → a → NEL a =
     λ(a : Type) → λ(x : a) → λ(r : Type) → λ(ar : a → r) → λ(_ : a → r → r) → ar x
-let cons : ∀(a : Type) → a → NEL a → NEL a =
+let consn : ∀(a : Type) → a → NEL a → NEL a =
     λ(a : Type) → λ(x : a) → λ(prev : NEL a) → λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) → arr x (prev r ar arr)
-let example1 : NEL Natural = cons Natural 1 (cons Natural 2 (one Natural 3))
-let example2 : NEL Natural = cons Natural 3 (cons Natural 2 (one Natural 1))
+let example1 : NEL Natural = consn Natural 1 (consn Natural 2 (one Natural 3))
+let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
 ```
 
 The folding function is just an identity function:
 
 ```dhall
-let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r =
-    λ(a : Type) → λ(nel : NEL a) → nel
+let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r
+  = λ(a : Type) → λ(nel : NEL a) → nel
 ```
 
 To see that this is a "right fold", apply `foldNEL` to some functions `ar : a → r` and `arr : a → r → r` and a three-element list such as `example1`. The result
 will be `arr 1 (arr 2 (ar 3))`; the first function evaluation is at the right-most element of the list.
 
-Folding with `one` and `cons` gives again the initial list:
+Folding with `one` and `consn` gives again the initial list:
 
 ```dhall
-let test = assert : example1 === foldNEL Natural example1 (NEL Natural) (one Natural) (cons Natural)
+let test = assert : example1 === foldNEL Natural example1 (NEL Natural) (one Natural) (consn Natural)
 ```
 
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
 
 ```dhall
-let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a =
-    λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
-        foldNEL a nel1 (NEL a) (λ(x : a) → cons a x nel2) (cons a)
-let test = assert : concatNEL Natural example1 example2 === cons Natural 1 (cons Natural 2 (cons Natural 3 (cons Natural 3 (cons Natural 2 (one Natural 1)))))
+let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
+  = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
+        foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
+let test = assert : concatNEL Natural example1 example2 === consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 3 (consn Natural 2 (one Natural 1)))))
 ```
 
 To reverse a list, we right-fold over it and accumulate a new list by appending elements to it.
@@ -3763,9 +3786,9 @@ To reverse a list, we right-fold over it and accumulate a new list by appending 
 So, we will need a new constructor (`snoc`) that appends a given value of type `a` to a list of type `NEL a`, rather than prepending as `cons` does.
 
 ```dhall
-let snoc : ∀(a : Type) → a → NEL a → NEL a =
-    λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
-    foldNEL a prev (NEL a) (λ(y : a) → cons a y (one a x)) (cons a)
+let snoc : ∀(a : Type) → a → NEL a → NEL a
+  = λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
+    foldNEL a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
 let test = assert : example1 === snoc Natural 3 (snoc Natural 2 (one Natural 1))
 ```
 
@@ -3789,8 +3812,8 @@ The first examples are functions that compute the total size and the maximum dep
 Suppose we are given an arbitrary recursion scheme `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
 
 ```dhall
-let F = ∀(a : Type) → ∀(r : Type) → ???
-let C = ∀(a : Type) → ∀(r : Type) → (F a r → r) → r
+let F = λ(a : Type) → λ(r : Type) → ???
+let C = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
 We imagine that a value `p : C a` is a data structure that stores zero or more values of type `a`.
@@ -3806,10 +3829,10 @@ The goal is to implement these functions generically, for all Church-encoded dat
 Both of those functions need to traverse the entire data structure and to accumulate a `Natural` value. Let us begin with `size`:
 
 ```dhall
-let size : ∀(a : Type) → ∀(ca : C a) → Natural =
-  λ(a : Type) → λ(ca : C a) →
+let size : ∀(a : Type) → ∀(ca : C a) → Natural
+  = λ(a : Type) → λ(ca : C a) →
     let sizeF : F a Natural → Natural = ??? 
-    in ca Natural sizeF
+      in ca Natural sizeF
 ```
 
 The function `sizeF` should count the number of data items stored in `F a Natural`. The values of type `Natural` inside `F` represent the sizes of nested
@@ -3823,27 +3846,32 @@ For example, non-empty lists are described by `F a r = < One : a | Cons : { head
 The corresponding `sizeF` function is:
 
 ```dhall
-let sizeF : < One : a | Cons : { head : a, tail: Natural } > → Natural = λ(fa : < One : a | Cons : { head : a, tail: Natural } >) → merge {
+let sizeF : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural } > → Natural
+  = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail: Natural } >) →
+    merge {
       One = λ(x : a) → 1,
       Cons = λ(x : { head : a, tail: Natural }) → 1 + x.tail,
-   } fa
+    } fa
 ```
 
 Binary trees are described by `F a r = < Leaf : a | Branch : { left : r, right: r } >`.
 The corresponding `sizeF` function is:
 
 ```dhall
-let sizeF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural = λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → merge {
+let sizeF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
+  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
+    merge {
       Leaf = λ(x : a) → 1,
       Branch = λ(x : { left : Natural, right: Natural }) → x.left + x.right,
-   } fa
+    } fa
 ```
 
-Having realized that `sizeF` needs to be supplied for each recursion scheme `F`, we can implement `size` like this:
+Having realized that `sizeF` needs to be supplied for each recursion scheme `F`, we can implement `size` as a function of `F`.
+The type `C` will be expressed as `LFix F`:
 
 ```dhall
-let size : ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → ∀(ca : C a) → Natural =
-  λ(a : Type) → λ(ca : C a) → λ(sizeF : ∀(b : Type) → F b Natural → Natural) →
+let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → ∀(ca : LFix (F a)) → Natural
+  = λ(F : Type → Type → Type) → λ(a : Type) → λ(sizeF : ∀(b : Type) → F b Natural → Natural) → λ(ca : LFix (F a)) → 
     ca Natural (sizeF a)
 ```
 
@@ -3854,16 +3882,18 @@ returns 1.
 
 For non-empty lists (and also for empty lists), the `depthF` function is the same as `sizeF` (because the recursion depth is the same as the list size).
 
-For binary trees, the corresponding `depthF` function is:
+For binary trees, the corresponding `depthF` function is defined like this:
 
 ```dhall
-let depthF : < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural = λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → Natural/subtract 1 (merge {
+let Natural/max = https://prelude.dhall-lang.org/Natural/max
+let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
+  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → Natural/subtract 1 (
+    merge {
       Leaf = λ(x : a) → 1,
       Branch = λ(x : { left : Natural, right: Natural }) → 1 + Natural/max x.left x.right,
-   } fa)
+    } fa
+  )
 ```
-
-Here, the functions `Natural/max` and `Natural/subtract` come from Dhall's standard prelude.
 
 ### Example: implementing `fmap`
 
@@ -3877,7 +3907,7 @@ satisfying the appropriate laws (the identity and the composition laws).
 For convenience, we will use the type constructor `Fmap_t` defined earlier and write the type signature of `fmap` as
 `fmap : Fmap_t F`.
 
-Type constructors such as lists and trees are covariant in their type arguments.
+Church-encoded type constructors such as lists and trees are covariant in their type arguments.
 
 As an example, let us implement the `fmap` method for the type constructor `Tree` in the curried Church encoding:
 
@@ -3902,18 +3932,33 @@ The code is:
 ```dhall
 let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ??? -- Define the recursion scheme.
 let bimap_F
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
+  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
   = ??? -- Define the bimap function for F.
 let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 
 let fmapC
- : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
+  : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
     λ(r : Type) → λ(fbrr : F b r → r) →
       let farr : F a r → r = λ(far : F a r) →
         let fbr : F b r = bimap_F a r b r f (identity r) far
           in fbrr fbr
             in ca r farr
+```
+
+We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a functor `LFix (F a)`.
+
+```dhall
+let functorLFix
+  : ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : LFix (F a)) →
+          λ(r : Type) → λ(fbrr : F b r → r) →
+            let farr : F a r → r = λ(far : F a r) →
+              let fbr : F b r = bifunctorF.bimap a r b r f (identity r) far
+                in fbrr fbr
+                  in ca r farr
+  }
 ```
 
 ### Existentially quantified types
@@ -3985,10 +4030,11 @@ The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t
 We construct a value `x : F Natural` like this:
 
 ```dhall
+let Integer/greaterThan = https://prelude.dhall-lang.org/Integer/greaterThan
 let x
  : ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r
   = λ(r : Type) → λ(pack : ∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) →
-    pack Integer { _1 = λ(x : Integer) → Integer/greaterThan x 10, _2 = λ(x : Integer) → Integer/clamp x }
+    pack Integer { _1 = λ(x : Integer) → Integer/greaterThan x +10, _2 = λ(x : Integer) → Integer/clamp x }
 ```
 
 In this code, we apply the given argument `pack` of type `∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r` to some arguments.
@@ -3996,24 +4042,31 @@ In this code, we apply the given argument `pack` of type `∀(t : Type) → { _1
 It is clear that we may produce a value `x : F Natural` given any specific type `t` and any value of type `{ _1 : t → Bool, _2 : t → Natural }`.  
 This exactly corresponds to the information contained within a value of an existentially quantified type `∃ t. (t → Bool) × (t → Natural)`.
 
-To generalize this example to arbitrary existentially quantified types, we replace the specific type `{ _1 : t → Bool, _2 : t → a }` by an arbitrary type constructor `P t`.
-It follows that the Church encoding of `∃ t. P t` is:
+To generalize this example to arbitrary existentially quantified types, we replace the type `{ _1 : t → Bool, _2 : t → a }` by an arbitrary type constructor `P t`.
+Here `a` needs to be viewed as a fixed type; for instance, if `a = Natural` we will get:
 
 ```dhall
-let exists_t_in_P = ∀(r : Type) → (∀(t : Type) → P t → r) → r
+let P = λ(t : Type) → { _1 : t → Bool, _2 : t → Natural }
 ```
 
-To create a value of type `exists_t_in_P`, we just need to supply a specific type `t` together with a value of type `P t`.
+It follows that the Church encoding of `∃ t. P t` is a type we denote by `Exists P`:
+
+```dhall
+let Exists = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+```
+
+To create a value of type `Exists P`, we just need to supply a specific type `t` together with a value of type `P t`.
 
 ```dhall
 let our_type_t : Type = ???   -- Can be any specific type here.
 let our_value : P t = ???   -- Any specific value here.
-let e : exists_t_in_P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
+let e : Exists P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
 ```
 
 Heuristically, the function application `pack X y` will "pack" a given type `X` under the "existentially quantified wrapper" together with a value `y`.
+We will now study the constructor functions `Exists` and `pack` in more detail.
 
-#### Constructors for existential types
+#### Working with existential types
 
 To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
@@ -4227,18 +4280,14 @@ Hre, we will focus on the practical use of the greatest fixpoints.
 To show that `GFix F` is a fixpoint of `T = F T`, we write two functions, `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
 (This is proved in the paper "Recursive types for free".)
 
-To implement these functions, we need to assume that `F` has a known `fmap` method:
-
-```dhall
-let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ???
-```
+To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
 We begin by implementing `unfix : GFix F → F (GFix F) = λ(g : GFix F) → ...` (that function is called `out` in the paper "Recursive types for free").
 
 Let us write the type of `g` in detail:
 
 ```dhall
-g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
+let g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r = ???
 ```
 
 One way of consuming such a value is by applying the function `g` to some arguments.
@@ -4253,8 +4302,7 @@ If we could produce such a function `f`, we would complete the code of `unfix`:
 ```dhall
 let unfix : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
-    let f
-     : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+    let f : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
         in g (F (GFix F)) f
 ```
@@ -4265,12 +4313,14 @@ However, `f` is required to return a value of type `F (GFix F)` instead.
 To achieve that, we use a trick: we first create a function of type `t → GFix F`.
 
 ```dhall
+-- Here t = ??? is a fixed type.
 let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
 ```
 
 Then we will apply `fmap_F` to that function, which will give us a function of type `F t → F (GFix F)`.
 
 ```dhall
+-- Here t = ??? is a fixed type.
 let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 ```
 
@@ -4280,7 +4330,7 @@ The result is a value of type `F (GFix F)` as required.
 The complete Dhall code is:
 
 ```dhall
-let unfix : GFix F → F (GFix F)
+let unfix : GFix F → F (GFix F) TODO: use GF_T and explicit arguments F, Functor F
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f
      : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
