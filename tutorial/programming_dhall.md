@@ -3031,15 +3031,15 @@ let fix : ∀(F : Type → Type) → Functor F →
 let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
     let C = LFix F
-    let fmap_fix : F (F C) → F C = functorF.fmap (F C) C fix
+    let fmap_fix : F (F C) → F C = functorF.fmap (F C) C (fix F functorF)
       in λ(c : C) → c (F C) fmap_fix
 ```
 
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
 
-The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other.
+The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor.
 
-Another property proved in that paper is the identity `c C fix = c` for all `c : C`.
+Another property proved in that paper is the identity `c C (fix F functorF) = c` for all `c : C`.
 
 ### Data constructors
 
