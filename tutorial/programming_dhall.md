@@ -2813,9 +2813,9 @@ More precisely, the type `C` is the "least fixpoint" of the type equation `C = F
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
 In this book, we will focus on the practical uses of Church encoding.
 
-### Simple recursive types
+### First examples of recursive types
 
-Here are some examples of Church encoding for simple recursive types.
+Here are some examples of Church encoding for recursively defined types.
 
 The type `ListInt` (a list with integer values):
 
@@ -2833,7 +2833,7 @@ let TreeText = ∀(r : Type) → (F r → r) → r
 
 ### Church encoding of non-recursive types
 
-If a recursion scheme does not actually depend on its type parameter, the Church encoding leaves the type unchanged.
+If a recursion scheme does not actually depend on its type parameter, the Church encoding construction will leave the type unchanged.
 
 For example, consider this recursion scheme:
 
@@ -3013,8 +3013,7 @@ The code will be a function of an arbitrary functor `F`.
 For clarity, we split the code into smaller chunks annotated by their types:
 
 ```dhall
-let fix : ∀(F : Type → Type) → Functor F →
-   F (LFix F) → LFix F
+let fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) →
     let C = LFix F
     in
@@ -3034,8 +3033,6 @@ let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
 
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor.
-
-Another property proved in that paper is the identity `c C (fix F functorF) = c` for all `c : C`.
 
 ### Data constructors
 
@@ -5597,10 +5594,122 @@ This identity is mentioned in the proceedings of the conference ["Fixed Points i
 The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
-Here is a proof of the Church-Yoneda identity that uses the relational naturality law.
+Here is a proof of the Church-Yoneda identity that uses the relational naturality law and other properties of the Church encoding.
 
+To make the proof shorter, let us define the "Church-Yoneda" type constructor:
+```dhall
+let CY = λ(F : Type → Type) → λ(G : Type → Type) → ∀(R : Type) → (F R → R) → G R
+```
+Then the Church-Yoneda identity may be written as `CY F G  ≅  G (LFix F)`.
 
-TODO
+First, we implement a pair of functions (`fromCY` and `toCY`) that map between the types `CY F G` and `G (LFix F)`.
+Then we will show that those functions are inverses of each other, which will prove the type isomorphism.
+
+```dhall
+let fix = (./LFix.dhall).fix
+let fromCY : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → CY F G → G (LFix F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(cy : CY F G) →
+    let C = LFix F
+      in cy C (fix F functorF)
+let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G (LFix F) → CY F G
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    let C = LFix F
+      in λ(gc : G C) →
+        λ(R : Type) → λ(frr: F R → R) →
+          let c2r : C → R = λ(c : C) → c R frr
+            in functorG.fmap C R c2r gc
+```
+For brevity, we will write `C` instead of `LFix F` to denote that Church-encoded recursive type.
+
+It remains to show the two directions of the isomorphism roundtrip (applying `fromCY` after `toCY`, or applying `toCY` after `fromCY`):
+
+(1) For any `gc : G C`, we need to show that:
+
+`fromCY F functorF G (toCY F G functorG gc) === gc`
+
+(2) For any `cy : CY F G`, we need to show that:
+
+`toCY F G functorG (fromCY F functorF G cy) === cy`
+
+To prove item (1), we begin by substituting the definitions of `fromCY` and `toCY` into the left-hand side:
+
+```dhall
+-- Symbolic derivation. We expect this to equal `gc`.
+fromCY F functorF G (toCY F G functorG gc)
+  === fromCY F functorF G (λ(R : Type) → λ(frr: F R → R) →
+    functorG.fmap C R (λ(c : C) → c R frr) gc
+) === functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
+```
+
+The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
+Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
+(This property is proved in the paper "Recursive types for free".)
+So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
+Applying `fmap` to an identity function gives again an identity function.
+Then we get:
+```dhall
+-- Symbolic derivation.
+functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
+  === functorG.fmap C C (identity C) gc
+  === identity (G C) gc
+  === gc
+```
+This is exactly what we needed to show.
+
+To prove item (2), we note that both sides are functions of type `CY F G = ∀(R : Type) → (F R → R) → G R`.
+To establish that those two functions are equal, we apply both sides to an arbitrary type `R` and an arbitrary function `frr : F R → R`.
+Then we substitute the definitions of `fromCY` and `toCY` into the left-hand side:
+
+```dhall
+-- Symbolic derivation. We expect this to equal `cy R frr`.
+toCY F G functorG (fromCY F functorF G cy) R frr
+  === toCY F G functorG (cy C (fix F functorF)) R frr
+  === functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF))
+```
+
+We need to show that the last expression is equal to `cy R frr`.
+So, we need to prove an equation that looks like `fmap f (cy p) === cy q`.
+This is similar to the form of the relational naturality law of `cy`.
+Let us write the general form of that law and then find specific parameters that will help us make progress with the proof:
+
+```dhall
+-- Symbolic derivation. The relational naturality law of `cy`.
+∀(cy : CY F G) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
+-- If p and q are f-related then fmap f (cy p) === cy q
+   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
+     functorG.fmap a b f (cy a p) === cy b q
+```
+
+Compare the last expression in our derivation with this law and read off the required parameters:
+
+```dhall
+-- Symbolic derivation. We need to match this equation:
+  functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF)) === cy R frr
+-- with this one:
+  functorG.fmap a b f (cy a p) === cy b q
+-- These equations are the same if we define:
+a = C
+b = R
+f = λ(c : C) → c R frr
+p = fix F functorF
+q = frr
+```
+So, this will conclude the proof of item (2) as long as we verify the assumption of the law: namely, that `p` and `q` are `f`-related.
+That will hold if, for any `x : F a`, we will have:
+
+`f (p x) === q (functorF.fmap a b f x)`
+
+Substitute the parameters as shown above:
+
+```dhall
+-- Symbolic derivation. We need to show that this holds:
+∀(x : F C) →
+  (λ(c : C) → c R frr) (fix F functorF x)
+    === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+```
+The left-hand side is just `fix F functorF x R frr` and has type `R`.
+This equation is the `F`-algebra morphism law of the function `λ(c : C) → c R frr`, which is the unique `F`-algebra morphism between `C` and `R`.
+That property is also proved in the paper "Recursive types for free".
 
 
 ### Proof: The Church-co-Yoneda identity
