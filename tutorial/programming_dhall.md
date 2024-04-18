@@ -5575,6 +5575,10 @@ The corresponding code consists of two functions:
 
 TODO
 
+### Proof: Properties of the Church encoding
+
+TODO
+
 ### Proof: The Church-Yoneda identity
 
 Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
@@ -5707,10 +5711,15 @@ Substitute the parameters as shown above:
   (λ(c : C) → c R frr) (fix F functorF x)
     === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
 ```
-The left-hand side is just `fix F functorF x R frr` and has type `R`.
-This equation is the `F`-algebra morphism law of the function `λ(c : C) → c R frr`, which is the unique `F`-algebra morphism between `C` and `R`.
-That property is also proved in the paper "Recursive types for free".
+Expand the left-hand side of the last equation using the definition of `fix`:
 
+```dhall
+-- Symbolic derivation.
+(λ(c : C) → c R frr) (fix F functorF x)
+  === fix F functorF x R frr
+  === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+```
+This is now equal to the right-hand side.
 
 ### Proof: The Church-co-Yoneda identity
 
