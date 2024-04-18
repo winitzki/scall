@@ -106,8 +106,6 @@ tuple : { _1 : Integer, _2 : Text }
 +123
 ```
 
-
-
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
@@ -790,7 +788,7 @@ Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTup
 
 ### The `assert` keyword and equality types
 
-For types other than `Bool` and `Natural`, equality testing is not available as a function.
+For values other than booleans and natural numbers, equality testing is not available as a function.
 However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
 That feature is designed for basic sanity checks:
 
@@ -4359,7 +4357,7 @@ The code of that function uses the generic `pack` function (see the section abou
 ```dhall
 let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
   let P = λ(r : Type) → { seed : r, step : r → F r }
-    in pack (GF_T F) r { init = x, step = rfr } 
+    in pack (GF_T F) r { seed = x, step = rfr } 
 ```
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
@@ -4394,7 +4392,7 @@ let fmap_F
             (F x b).Cons { head = cons.head, tail = f cons.tail }
           } fa
 let Stream = λ(a : Type) → GFix (F a)
-let makeStream = makeGFix F
+let makeStream = λ(a : Type) → makeGFix (F a)
 ```
 
 Values of type `Stream a` are higher-order functions with quantified types.
@@ -4426,8 +4424,8 @@ For more clarity about how to create and use values of type `Stream a`, let us e
 The type of `makeStream` can be simplified to:
 
 ```dhall
-makeStream : λ(a : Type) → λ(r : Type) →
-  λ(x : r) → λ(rfr : r → < Cons : { head : a, tail : r } | Nil > )
+let _ = makeStream : ∀(a : Type) → ∀(r : Type) →
+  ∀(x : r) → ∀(rfr : r → < Cons : { head : a, tail : r } | Nil > )
     → Stream a
 ```
 
@@ -4651,7 +4649,7 @@ The analogous operation for streams can be implemented as a special case of conc
 
 ```dhall
 let Stream/cons : ∀(a : Type) → a → Stream a → Stream a
- = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (listToStream a [ a ]) stream
+ = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (listToStream a [ x ]) stream
 ```
 
 We may use `Stream/nil` and `Stream/cons` to create finite streams, similar to how the constructors `nil` and `cons` create lists.
@@ -4692,15 +4690,13 @@ That limitation will ensure that all computations terminate, as Dhall requires.
 The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
 
-```dhall
-fold : Church F → ∀(r : Type) → (F r → r) → r
-```
+`fold : LFix F → ∀(r : Type) → (F r → r) → r`
 
 By a **fold-like aggregation** we mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
 The general type signature of a fold-like aggregation is `P → ∀(r : Type) → (F r → r) → r`.
 
 The implementation of `fold` will be different for each data structure `P`.
-If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `Church F` is the same as `∀(r : Type) → (F r → r) → r`.
+If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `LFix F` is the same as `∀(r : Type) → (F r → r) → r`.
 If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'s `fold` would be:
 
 `GFix F → ∀(r : Type) → (F r → r) → r`
@@ -4709,7 +4705,7 @@ Note that this type is a function from an existential type in `GFix F`.
 Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
 
 ```dhall
-GFix F → Q  -- Symbolic derivation.
+GFix F → Q      -- Symbolic derivation.
   ===  Exists (GF_T F) → Q
   ===  ∀(t : Type) → GF_T F t → Q
 ```
@@ -4888,19 +4884,20 @@ The example shown in the previous subsection explains that applying `h_n` to a v
 Let us now implement this logic in Dhall:
 
 ```dhall
-let hylo_N
- : Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
-  = λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
-    let update : (t → r) → t → r = λ(f : t → r) → compose_backward (alg (compose_backward (fmap_F f) coalg))
-    let transform : t → r = Natural/fold limit (t → r) update stopgap
-      in transform seed
+let hylo_Nat : ∀(F : Type → Type) → Functor F → 
+    Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
+      let update : (t → r) → t → r = λ(f : t → r) → λ(y : t) → alg (functorF.fmap t r f (coalg y))
+      let transform : t → r = Natural/fold limit (t → r) update stopgap
+        in transform seed
 ```
 
-The function `hylo_N` is a general fold-like aggregation function that can be used with the greatest fixpoints of arbitrary recursion schemes `F`. 
+The function `hylo_Nat` is a general fold-like aggregation function that can be used with arbitrary recursion schemes `F`. 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see an example of using `hylo_N`.  TODO
+For now, let us see an example of using `hylo_Nat`.  TODO
 
 #### Hylomorphisms driven by a Church-encoded template
 
@@ -5279,7 +5276,7 @@ Then, for any value `p : List X` we must have:
 
 ```dhall
 let fThenG : X → B = compose_forward X A B f g
- in  -- Symbolic derivation. This will not work in Dhall.
+ in      -- Symbolic derivation.
    assert : List/map X B fThenG p === List/map A B g (List/map X A f p)
 ```
 
@@ -5344,7 +5341,7 @@ For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity t
 For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, first define the property we call "`f`-relatedness". We say that `p` and `q` are "`f`-related" if for all `x : F A` we have:
 
 ```dhall
-fmap_G A B f (p x) === q (fmap_F A B f x)
+fmap_G A B f (p x) === q (fmap_F A B f x)  -- Symbolic derivation.
 ```
 This equation is similar to a naturality law except for using two different functions, `p` and `q`.
 (If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
@@ -5352,7 +5349,7 @@ This equation is similar to a naturality law except for using two different func
 Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related `p` and `q`, the following equation must hold:
 
 ```dhall
-fmap_H A B f (t A p) === t B q
+fmap_H A B f (t A p) === t B q   -- Symbolic derivation.
 ```
 
 It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
@@ -5383,7 +5380,7 @@ There are four different Yoneda identities.
 An example of a Yoneda identity is the following type equivalence:
 
 ```dhall
-F A ≅ ∀(B : Type) → (A → B) → F B
+F A  ≅  ∀(B : Type) → (A → B) → F B
 ```
 This type equivalence holds under two assumptions:
 
@@ -5396,7 +5393,7 @@ The Yoneda identity shown above requires `F` to be a covariant functor.
 There is a corresponding Yoneda identity for contravariant functors ("contrafunctors") `C`:
 
 ```dhall
-C A ≅ ∀(B : Type) → (B → A) → C B
+C A  ≅  ∀(B : Type) → (B → A) → C B
 ```
 
 The two Yoneda identities just shown will apply to universally quantified function types of a certain form.
@@ -5404,10 +5401,10 @@ Similar type identities exist for certain _existentially_ quantified types:
 
 ```dhall
 -- Mathematical notation: F A ≅ ∃ B. (F B) × (B → A)
-F A ≅ Exists (λ(B : Type) → { seed : F B, step : B → A })
+F A  ≅  Exists (λ(B : Type) → { seed : F B, step : B → A })
 
 -- Mathematical notation: C A ≅ ∃ B. (C B) × (A → B)
-C A ≅ Exists (λ(B : Type) → { seed : C B, step : A → B })
+C A  ≅  Exists (λ(B : Type) → { seed : C B, step : A → B })
 ```
 Here it is required that `F` be a covariant functor and `C` a contrafunctor.
 These type equivalences are sometimes called **co-Yoneda identities**.
@@ -5422,6 +5419,7 @@ We prove that, for any covariant functor `F` and for any type `A`, the type `F A
 For brevity, let us view `A` and `F` as fixed and denote by `Y` the type:
 
 ```dhall
+let F : Type → Type = ???
 let Y = ∀(B : Type) → (A → B) → F B
 ```
 
@@ -5430,6 +5428,7 @@ It is assumed that the naturality laws hold for all natural transformations of t
 To demonstrate the type equivalence (an isomorphism), we implement two functions `inY` and `outY` that map between the two types:
 
 ```dhall
+let fmap_F = ???
 let inY : F A → Y
   = λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
 
@@ -5520,6 +5519,7 @@ F A  ≅  Exists (λ(B : Type) → { seed : F B, step : B → A })
 For brevity, let us view `F` and `A` as fixed and denote:
 
 ```dhall
+let F = ???
 let P = λ(B : Type) → { seed : F B, step : B → A }
 ```
 
@@ -5528,7 +5528,7 @@ Then the covariant co-Yoneda identity says: `F A ≅ Exists P`.
 To make the required assumptions precise, let us write out the type `Exists P`:
 
 ```dhall
-let _ = assert : Exists P === (∀(R : Type) → (∀(B : Type) → P B → R) → R)
+Exists P  ≅  (∀(R : Type) → (∀(B : Type) → P B → R) → R)
 ```
 
 Both universal quantifiers (`∀(R : Type)` and `∀(B : Type)`) are used with function types of the form of natural transformations.
@@ -5625,11 +5625,12 @@ Suppose two mutually recursive types `T`, `U` are defined as the least fixpoints
 let T = F T U
 let U = G T U
 ```
-where `F` and `G` are some (covariant) bifunctors:
+where `F` and `G` are some (covariant) bifunctors.
+An example definition of `F` and `G` is:
 
 ```dhall
-let F = ∀(a : Type) → ∀(b : Type) →  ???
-let G = ∀(a : Type) → ∀(b : Type) →  ???
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
+let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
 ```
 Then the types `T`, `U`  may be equivalently defined by a Church encoding in the form:
 
@@ -5649,7 +5650,7 @@ Using the name `LFix` for the Church encoding of least fixpoints, we rewrite the
 T = LFix (λ(x : Type) → F x U)
 U = LFix (λ(y : Type) → G T y)
 ```
-This is still not a valid Dhall code but we can work with this notation better.
+This is still not a valid Dhall program, but we can work with this notation better.
 
 To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
 
@@ -5871,7 +5872,7 @@ let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
     ep R unpack_
 
 let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
-  = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pT : P t) →
+  = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pt : P T) →
     let ep : Exists P = pack P T pt
       in consume ep
 ```

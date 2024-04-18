@@ -236,6 +236,6 @@ def main(code: Boolean): Unit =
 
   val convert = if code then toDhall else toLatex
   val sep = if code then "" else "\n"
-  val finalLine = if code then " in True\n" else ""
+  val finalLine = if code then " in \"Example code from the book was evaluated successfully.\"\n" else ""
   
   println(result.map(convert).mkString(sep) + finalLine)  
