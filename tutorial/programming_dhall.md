@@ -5879,7 +5879,7 @@ This is exactly the same as the $F$-algebra morphism law for `f`, which holds by
 
 ### The Church-Yoneda identity
 
-We begin by remarking that the Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identities cannot be used with types of that form.
 
 There is a generalized identity that combines both forms of types.
