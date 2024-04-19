@@ -220,8 +220,11 @@ def toLatex: Markdown => String = {
       case 6 => "paragraph"
       case _ => "relax"
     }
-    // Disable book parts!
-    if level == 1 then "" else s"\\$heading{${toLatex(text)}}"
+    // Disable book parts! But enable appendix.
+    val content = toLatex(text)
+    if level == 1 then  {
+      if content == "Appendixes" then "\\appendix" else ""
+    } else s"\\$heading{$content}"
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")

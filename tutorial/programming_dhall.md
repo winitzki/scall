@@ -3892,7 +3892,7 @@ let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Na
 
 ### Example: implementing `fmap`
 
-A type constructor `F` is **covariant** if it admits an `fmap` method with the type signature:
+A type constructor `F` is a **covariant functor** if it admits an `fmap` method with the type signature:
 
 ```dhall
 let fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ???
@@ -5170,6 +5170,8 @@ TODO
 
 ## Dhall as a scripting DSL
 
+# Appendixes
+
 ## Appendix: Naturality and parametricity
 
 The properties known as "naturality" and "parametricity" are rigorous mathematical expressions of a programmer's intuition about functions with type parameters.
@@ -5592,12 +5594,20 @@ It is assumed that `F` is a covariant functor and `C` is the type defined by `C 
 We will also assume that all values of type `C` obey the **strong dinaturality law** shown earlier, adapted to the type signature of `C`.
 
 
+###### Property 1
 
-##### Property 1
+For any given covariant functor `F`, define `C = LFix F`.
+Then there exist functions `fix : F C → C` and `unfix : C → F C` that are each other's inverses.
+
+###### Proof
+
+TODO
+
+###### Property 2
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
 More precisely: `c C (fix F functorF) === c`.
 
-##### Proof
+###### Proof
 
 We need to prove an equation between functions of type `C`.
 Apply both sides of that equation to arbitrary arguments `R : Type` and `frr : F R → R`.
@@ -5652,7 +5662,7 @@ Expand the left-hand side of the last equation using the definition of `fix`:
 ```
 This is now equal to the right-hand side of the last equation we needed to prove. $\square$
 
-##### Property 2
+###### Property 3
 
 For any type `T` that has a function `alg : F T → T`, there exists a unique function `p : C → T` that satisfies the law:
 
@@ -5664,7 +5674,7 @@ Functions that satisfy that law are called **$F$-algebra morphisms**.
 The function `p` can be expressed as `p = λ(c : C) → c T alg`.
 Any $F$-algebra morphism of type `C → T` will be equal to `p`.
 
-##### Proof
+###### Proof
 
 TODO
 
