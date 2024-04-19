@@ -5658,16 +5658,15 @@ For any type `T` that has a function `alg : F T → T`, there exists a unique fu
 
 `∀(x : F C) → p (fix F functorF x) === alg (fmap_F C T p x)`
 
-(In category theory, this law is known as the **$F$-algebra morphism law**.)
+In category theory, that law is known as the "$F$-algebra morphism law".
+Functions that satisfy that law are called **$F$-algebra morphisms**.
 
 The function `p` can be expressed as `p = λ(c : C) → c T alg`.
+Any $F$-algebra morphism of type `C → T` will be equal to `p`.
 
 ##### Proof
-For any other fixpoint `T` (any type `T` having the isomorphism `T ≅ F T`), there is a unique function `p : C → T` that satisfies the laws:
 
-`fmap_F C T p`
-
-(In category theory, these laws are called the `F`-algebra morphism law and the `F`-coalgebra morphism law.)
+TODO
 
 ### Proof: The Church-Yoneda identity
 
