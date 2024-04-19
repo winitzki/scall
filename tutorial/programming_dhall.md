@@ -5343,18 +5343,27 @@ fmap_G A B f (p x) === q (fmap_F A B f x)  -- Symbolic derivation.
 This equation is similar to a naturality law except for using two different functions, `p` and `q`.
 (If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
 
-Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related `p` and `q`, the following equation must hold:
+Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related values `p` and `q`, the following equation must hold:
 
-```dhall
-fmap_H A B f (t A p) === t B q   -- Symbolic derivation.
-```
+`fmap_H A B f (t A p) === t B q`
 
 It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
 Because of this complication, the law of `t` does not have the form of a single equation.
 The law says that the equation `fmap_H A B f (t A p) === t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
-We call the law of `t` a **relational naturality law**.
+That law of `t` is known as a **strong dinaturality law**.
 The form of that law is a generalization of a naturality law, adapted for the type signature of `t`.
+The strong dinaturality law is a consequence of the parametricity theorem for type signatures `∀(A : Type) → (F A → G A) → H A`.
+That law can be written in Dhall syntax as:
+
+```dhall
+-- Symbolic derivation. The strong dinaturality law of `p`:
+∀(t : ∀(R : Type) → (F R → G R) → H R) → ∀(A : Type) → ∀(B : Type) → ∀(f : A → B) → ∀(p : F A → G A) → ∀(q : F B → G B) →
+-- If p and q are f-related then fmap f (t p) === t q
+   ∀(_ : ∀(x : F A) → functorG.fmap A B f (p x) === q (functorF.fmap A B f x)) →
+     functorH.fmap A B f (t A p) === t B q
+```
+
 
 To summarize: the parametricity theorem applies to all Dhall values.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
@@ -5363,11 +5372,11 @@ That law is determined by the type signature alone and can be written in advance
 
 That law is the naturality law if the function has a type signature of the form `∀(A : Type) → K A → L A`, where `K` and `L` are either both covariant or both contravariant.
 
-For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational naturality law shown above.
+For functions with type signatures of the form `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors, parametricity theorem gives a more complicated relational naturality law, which can be reduced to the strong dinaturality law shown above.
 
-The parametricity theorem shows how such laws are formulated for arbitrarily complicated type signatures, but the special case of type signatures of the form `∀(A : Type) → (F A → G A) → H A` will be sufficient for the purposes of this book.
-
-In this book's derivations, we will assume that the relational naturality laws always hold and proceed to prove various properties of Dhall programs.
+In this book's derivations, we will prove various properties of Dhall programs by assuming that the parametricity theorem and the various relational naturality laws always hold.
+The parametricity theorem shows how such laws are formulated for arbitrarily complicated type signatures.
+For the purposes of this book, it will be sufficient to use the strong dinaturality law shown above for type signatures of the form `∀(A : Type) → (F A → G A) → H A`.
 
 ### The four Yoneda identities
 
@@ -5575,9 +5584,90 @@ The corresponding code consists of two functions:
 
 TODO
 
-### Proof: Properties of the Church encoding
+### Proofs: Some properties of the Church encoding
 
-TODO
+We will prove some technical properties of Church-encoded types.
+
+It is assumed that `F` is a covariant functor and `C` is the type defined by `C = LFix F`, or explicitly `C = ∀(R : Type) → (F R → R) → R`.
+We will also assume that all values of type `C` obey the **strong dinaturality law** shown earlier, adapted to the type signature of `C`.
+
+
+
+##### Property 1
+Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
+More precisely: `c C (fix F functorF) === c`.
+
+##### Proof
+
+We need to prove an equation between functions of type `C`.
+Apply both sides of that equation to arbitrary arguments `R : Type` and `frr : F R → R`.
+So, we need to prove that:
+
+`c C (fix F functorF) R frr === c R frr`
+
+Values `c : C` satisfy the strong dinaturality law:
+
+
+```dhall
+-- Symbolic derivation. The strong dinaturality law of `c`:
+∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
+-- If p and q are f-related then f (c a p) === c b q
+   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
+     f (c a p) === c b q
+```
+The last equation needs to match the equation we need to prove:
+
+```dhall
+-- Symbolic derivation. We need to match this equation:
+  c C (fix F functorF) R frr === c R frr
+-- with this one:
+  f (c a p) === c b q
+-- These equations will be the same if we define:
+  a = C
+  b = R
+  f = λ(c : C) → c R frr
+  p = fix F functorF
+  q = frr
+```
+This will conclude the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
+That will hold if, for any `x : F a`, we will have:
+
+`f (p x) === q (functorF.fmap a b f x)`
+
+Substitute the parameters as shown above:
+
+```dhall
+-- Symbolic derivation. We need to show that this holds:
+∀(x : F C) →
+  (λ(c : C) → c R frr) (fix F functorF x)
+    === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+```
+Expand the left-hand side of the last equation using the definition of `fix`:
+
+```dhall
+-- Symbolic derivation.
+(λ(c : C) → c R frr) (fix F functorF x)
+  === fix F functorF x R frr
+  === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+```
+This is now equal to the right-hand side of the last equation we needed to prove. $\square$
+
+##### Property 2
+
+For any type `T` that has a function `alg : F T → T`, there exists a unique function `p : C → T` that satisfies the law:
+
+`∀(x : F C) → p (fix F functorF x) === alg (fmap_F C T p x)`
+
+(In category theory, this law is known as the **$F$-algebra morphism law**.)
+
+The function `p` can be expressed as `p = λ(c : C) → c T alg`.
+
+##### Proof
+For any other fixpoint `T` (any type `T` having the isomorphism `T ≅ F T`), there is a unique function `p : C → T` that satisfies the laws:
+
+`fmap_F C T p`
+
+(In category theory, these laws are called the `F`-algebra morphism law and the `F`-coalgebra morphism law.)
 
 ### Proof: The Church-Yoneda identity
 
@@ -5591,14 +5681,13 @@ This book calls it the **Church-Yoneda identity** because of the similarity to b
 ∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
 ```
 Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are assumed to be arbitrary covariant functors.
-It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **relational naturality law** that follows from the parametricity theorem.
+It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law** that follows from the parametricity theorem.
 
-This identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+The Church-Yoneda identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
 
-The Church-Yoneda identity is useful for proving certain properties of Church-encoded types.
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
-Here is a proof of the Church-Yoneda identity that uses the relational naturality law and other properties of the Church encoding.
+Here is a proof of the Church-Yoneda identity that assumes that the parametricity theorem holds for all values.
 
 To make the proof shorter, let us define the "Church-Yoneda" type constructor:
 ```dhall
@@ -5647,7 +5736,8 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(This property is proved in the paper "Recursive types for free".)
+(That property is proved in the paper "Recursive types for free", and also in this book as "Property 1" in the previous section.)
+
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
 Then we get:
@@ -5673,11 +5763,11 @@ toCY F G functorG (fromCY F functorF G cy) R frr
 
 We need to show that the last expression is equal to `cy R frr`.
 So, we need to prove an equation that looks like `fmap f (cy p) === cy q`.
-This is similar to the form of the relational naturality law of `cy`.
-Let us write the general form of that law and then find specific parameters that will help us make progress with the proof:
+This is similar to the form of the strong dinaturality law of `cy`.
+Let us write the general form of that law and then find specific parameters that will move the proof forward:
 
 ```dhall
--- Symbolic derivation. The relational naturality law of `cy`.
+-- Symbolic derivation. The strong dinaturality law of `cy`:
 ∀(cy : CY F G) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
 -- If p and q are f-related then fmap f (cy p) === cy q
    ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
@@ -5691,14 +5781,14 @@ Compare the last expression in our derivation with this law and read off the req
   functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF)) === cy R frr
 -- with this one:
   functorG.fmap a b f (cy a p) === cy b q
--- These equations are the same if we define:
-a = C
-b = R
-f = λ(c : C) → c R frr
-p = fix F functorF
-q = frr
+-- These equations will be the same if we define:
+  a = C
+  b = R
+  f = λ(c : C) → c R frr
+  p = fix F functorF
+  q = frr
 ```
-So, this will conclude the proof of item (2) as long as we verify the assumption of the law: namely, that `p` and `q` are `f`-related.
+This will conclude the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will hold if, for any `x : F a`, we will have:
 
 `f (p x) === q (functorF.fmap a b f x)`
@@ -5719,7 +5809,7 @@ Expand the left-hand side of the last equation using the definition of `fix`:
   === fix F functorF x R frr
   === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
 ```
-This is now equal to the right-hand side.
+This is now equal to the right-hand side of the last equation we needed to prove.
 
 ### Proof: The Church-co-Yoneda identity
 
