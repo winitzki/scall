@@ -3034,6 +3034,8 @@ The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall
 
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor.
 
+A proof is also shown as "Statement 2" in the section "Some properties of the Church encoding" of the Appendix in this book.
+
 ### Data constructors
 
 The function `fix : F C → C` (sometimes also called `build`) provides a general way of creating new values of type `C` out of previously known values or from scratch.
@@ -5586,26 +5588,189 @@ The corresponding code consists of two functions:
 
 TODO
 
-### Proofs: Some properties of the Church encoding
+### Some properties of the Church encoding
 
-We will prove some technical properties of Church-encoded types.
+Here we show proofs of some technical properties of Church-encoded types.
 
-It is assumed that `F` is a covariant functor and `C` is the type defined by `C = LFix F`, or explicitly `C = ∀(R : Type) → (F R → R) → R`.
-We will also assume that all values of type `C` obey the **strong dinaturality law** shown earlier, adapted to the type signature of `C`.
+Throughout this section, we assume that `F` is a lawful covariant functor for which an evidence value `functorF : Functor F` is available.
+We define the type `C` by `C = LFix F`, or in explicit form: `C = ∀(R : Type) → (F R → R) → R`.
 
+We will assume that (due to automatic parametricity) all values of type `C` obey the **strong dinaturality law** shown earlier, adapted to the type signature of `C`.
 
-###### Property 1
+###### Statement 1
 
-For any given covariant functor `F`, define `C = LFix F`.
-Then there exist functions `fix : F C → C` and `unfix : C → F C` that are each other's inverses.
+For any type `R` and any function `frr : F R → R`, define the function `c2r : C → R` by:
+
+`let c2r : C → R = λ(c : C) → c R frr`
+
+Then the function `c2r` satisfies the law: for any value `fc : F C`,
+
+`c2r (fix F functorF fc) === frr (functorF.fmap C R c2r fc)`
+
+In category theory, that law is known as the "$F$-algebra morphism law".
+Functions that satisfy that law are called **$F$-algebra morphisms**.
+
+So, it is claimed that `c2r` is always an $F$-algebra morphism.
+
 
 ###### Proof
 
-TODO
 
-###### Property 2
+Expand `c2r (fix F functorF fc)` using the definitions of `c2r` and `fix`:
+
+```dhall
+-- Symbolic derivation.
+c2r (fix F functorF fc)
+  === (λ(c : C) → c R frr) (fix F functorF fc)
+  === fix F functorF fc R frr
+  === frr (functorF.fmap C R (λ(c : C) → c R frr) fc)
+  === frr (functorF.fmap C R c2r fc)
+```
+This is now equal to the right-hand side of the equation we needed to prove.
+
+###### Statement 2
+
+The functions `fix F functorF: F C → C` and `unfix F functorF : C → F C` defined in the chapter "Working with Church-encoded data" are inverses of each other.
+
+###### Proof
+
+We need to prove the two directions of the isomorphism:
+
+(1) For an arbitrary value `c : C`, show that:
+
+`fix F functorF (unfix F functorF c) === c`
+
+(2) For an arbitrary value `p : F C`, show that:
+
+`unfix F functorF (fix F functorF p) === p`
+
+To prove item (1), we note that both sides are functions of type `C`.
+Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and substitute the definitions of `fix` and `unfix`:
+
+```dhall
+-- Expect the following expression to equal just `c R frr`:
+fix F functorF (unfix F functorF c) R frr === ???
+```
+
+We define temporary symbols `fmap_fix` and `c2r` for brevity, and rewrite the definitions of `fix` and `unfix` as:
+
+```dhall
+-- Symbolic derivation. Define for brevity:
+let fmap_fix : F (F C) → F C = functorF.fmap (F C) C (fix F functorF)
+let c2r : C → R = λ(c : C) → c R frr
+-- The applications of `fix` and `unfix` to arbitrary arguments are then rewritten as:
+fix F functorF fc R frr = frr (functorF.fmap C R c2r fc)
+unfix F functorF c = c (F C) fmap_fix
+```
+
+The equation we are trying to prove then becomes:
+
+`frr (functorF.fmap C R c2r (c (F C) fmap_fix)) === c R frr`
+
+By assumption, the value `c : C` satisfies the strong dinaturality law:
+
+
+```dhall
+-- Symbolic derivation. The strong dinaturality law of `c`:
+∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
+-- If p and q are f-related then f (c a p) === c b q
+   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
+     f (c a p) === c b q
+```
+The last equation needs to match the equation we need to prove:
+
+```dhall
+-- Symbolic derivation. We need to match this equation:
+  frr (functorF.fmap C R c2r (c (F C) fmap_fix)) === c R frr
+-- with this one:
+  f (c a p) === c b q
+-- These equations will be the same if we define:
+  a = F C
+  b = R
+  f = λ(fc : F C) → frr (functorF.fmap C R c2r fc)
+  p = fmap_fix
+  q = frr
+```
+This will finish the proof of item (1) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
+That will be true if, for any `x : F a`, we had:
+
+`f (p x) === q (functorF.fmap a b f x)`
+
+Substitute the parameters as shown above:
+
+```dhall
+-- Symbolic derivation. We need to show that this holds:
+∀(x : F (F C)) →
+  frr (functorF.fmap C R c2r (fmap_fix x))
+    === frr (functorF.fmap (F C) R f x)
+-- Omit the call to `frr` in both sides:
+functorF.fmap C R c2r (fmap_fix x) === functorF.fmap (F C) R f x
+```
+In the last equation, the left-hand side contains a composition of two functions under `fmap`.
+We use `fmap`'s composition law to transform that:
+
+```dhall
+-- Symbolic derivation.
+functorF.fmap C R c2r (fmap_fix x)
+  === functorF.fmap C R c2r (functorF.fmap (F C) C (fix F functorF) x)
+-- Use functorF's composition law:
+  === functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
+```
+
+Now the remaining equation is rewritten to:
+
+```dhall
+-- Symbolic derivation. We need to show that this holds:
+functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
+  === functorF.fmap (F C) R f x
+```
+Both sides are now of the form `functorF.fmap (F C) R (...) x`. It remains to prove:
+
+`λ(fc : F C) → c2r (fix F functorF fc) === f`
+
+Substitute the definition of `f`:
+
+`f === λ(fc : F C) → frr (functorF.fmap C R c2r fc)`
+
+Omit the common code `λ(fc : F C) → ...`, and it remains to prove that:
+
+`c2r (fix F functorF fc) === frr (functorF.fmap C R c2r fc)`
+
+This holds by Statement 1. This concludes the proof of item (1).
+
+To prove item (2), we substitute the definitions of `fix` and `unfix`:
+
+```dhall
+-- Symbolic derivation. For any p : F C, expect this to equal just p:
+unfix F functorF (fix F functorF p)  -- Substitute the definition of unfix:
+  === fix F functorF p (F C) fmap_fix  -- Substitute the definition of fix:
+  === fmap_fix (functorF.fmap C (F C) (λ(c : C) → c (F C) fmap_fix) p)
+-- Substitute the definition of `unfix` again:
+  === fmap_fix (functorF.fmap C (F C) (unfix F functorF) p)
+-- Use the composition law of fmap:
+  === functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
+```
+Now we use item (1) that we already proved, and find:
+
+`fix F functorF (unfix F functorF c) === c`
+
+So, the argument of `functorF.fmap C C ` is actually an identity function of type `C → C`.
+This allows us to complete the final step of the proof:
+
+```dhall
+-- Symbolic derivation.
+functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
+  === functorF.fmap C C (λ(c : C) → c) p
+-- Use the identity law of fmap:
+  === p
+```
+
+###### Statement 3
+
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-More precisely: `c C (fix F functorF) === c`.
+More precisely:
+
+`c C (fix F functorF) === c`
 
 ###### Proof
 
@@ -5639,48 +5804,82 @@ The last equation needs to match the equation we need to prove:
   p = fix F functorF
   q = frr
 ```
-This will conclude the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
-That will hold if, for any `x : F a`, we will have:
+This will finish the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
+That will be true if, for any `x : F a`, we had:
 
 `f (p x) === q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above:
 
 ```dhall
--- Symbolic derivation. We need to show that this holds:
-∀(x : F C) →
-  (λ(c : C) → c R frr) (fix F functorF x)
-    === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+-- Symbolic derivation. We need to show that, for any `x : F C`:
+f (fix F functorF x) === frr (functorF.fmap C R f x)
 ```
-Expand the left-hand side of the last equation using the definition of `fix`:
 
-```dhall
--- Symbolic derivation.
-(λ(c : C) → c R frr) (fix F functorF x)
-  === fix F functorF x R frr
-  === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
-```
-This is now equal to the right-hand side of the last equation we needed to prove. $\square$
+This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
 
-###### Property 3
+###### Statement 4
 
-For any type `T` that has a function `alg : F T → T`, there exists a unique function `p : C → T` that satisfies the law:
+Given any type `R` and any function `frr : F R → R`, suppose there exists a function `f : C → R` that
+satisfies the $F$-algebra morphism law:
 
-`∀(x : F C) → p (fix F functorF x) === alg (fmap_F C T p x)`
+`∀(fc : F C) → f (fix F functorF fc) === frr (functorF.fmap C R f fc)`
 
-In category theory, that law is known as the "$F$-algebra morphism law".
-Functions that satisfy that law are called **$F$-algebra morphisms**.
-
-The function `p` can be expressed as `p = λ(c : C) → c T alg`.
-Any $F$-algebra morphism of type `C → T` will be equal to `p`.
+Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
+(By Statement 1, that function satisfies the $F$-algebra morphism law.)
 
 ###### Proof
 
-TODO
+Suppose a function `f` is given.
+We need to prove that, for any `c : C`, the following holds:
 
-### Proof: The Church-Yoneda identity
+`f c === c2r c === c R frr`.
 
-Note that the Church encoding formula, `∀(r : Type) → (F r → r) → r`, is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+Values `c : C` satisfy the strong dinaturality law:
+
+
+```dhall
+-- Symbolic derivation. The strong dinaturality law of `c`:
+∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
+-- If p and q are f-related then f (c a p) === c b q
+   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
+     f (c a p) === c b q
+```
+The last equation needs to match the equation we need to prove:
+
+```dhall
+-- Symbolic derivation. We need to match this equation:
+  f c === c R frr
+-- with this one:
+  f (c a p) === c b q
+-- These equations will be the same if we define:
+  a = C
+  b = R
+  p = fix F functorF
+  q = frr
+```
+
+Note that the strong dinaturality law gives `f (c C p) === c R frr` and not `f c = c R frr`.
+However, Statement 3 says that `c C p === c` with our definition of `p`.
+
+So, the proof will be finished as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
+That will be true if, for any `x : F a`, we had:
+
+`f (p x) === q (functorF.fmap a b f x)`
+
+Substitute the parameters as shown above, and rename `x` to `fc`:
+
+```dhall
+-- Symbolic derivation. We need to show that, for any `fc : F C`:
+f (fix F functorF fc) === frr (functorF.fmap C R f fc)
+```
+
+This is exactly the same as the $F$-algebra morphism law for `f`, which holds by assumption.
+
+
+### The Church-Yoneda identity
+
+We begin by remarking that the Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identities cannot be used with types of that form.
 
 There is a generalized identity that combines both forms of types.
@@ -5797,28 +5996,19 @@ Compare the last expression in our derivation with this law and read off the req
   p = fix F functorF
   q = frr
 ```
-This will conclude the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
-That will hold if, for any `x : F a`, we will have:
+This will finish the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
+That will be true if, for any `x : F a`, we had:
 
 `f (p x) === q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above:
 
 ```dhall
--- Symbolic derivation. We need to show that this holds:
+-- Symbolic derivation. We need to show that:
 ∀(x : F C) →
-  (λ(c : C) → c R frr) (fix F functorF x)
-    === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
+  f (fix F functorF x) === frr (functorF.fmap C R f x)
 ```
-Expand the left-hand side of the last equation using the definition of `fix`:
-
-```dhall
--- Symbolic derivation.
-(λ(c : C) → c R frr) (fix F functorF x)
-  === fix F functorF x R frr
-  === frr (functorF.fmap C R (λ(c : C) → c R frr) x)
-```
-This is now equal to the right-hand side of the last equation we needed to prove.
+This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
 ### Proof: The Church-co-Yoneda identity
 
@@ -5960,7 +6150,7 @@ We have proved the Church encoding formula for the type `T`.
 The proof for `U` is similar.
 
 
-### Proof: `pack` is a left inverse of `unpack`
+### Proof: "pack" is a left inverse of "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
