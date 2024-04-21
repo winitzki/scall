@@ -4188,7 +4188,7 @@ But all such functions are constrained to work _in the same way_ for all types `
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
 In this sense, type quantifiers ensure encapsulation of the type `t` inside the value `ep`.
 
-## Co-inductive ("infinite") types
+## Co-inductive types
 
 ### Greatest fixpoints: Motivation
 
@@ -4204,14 +4204,14 @@ Intuitively, the least fixpoint is the smallest data type `T` that satisfies `T 
 The greatest fixpoint is the largest possible data type that satisfies the same equation.
 
 Least fixpoints are always _finite_ structures.
-Iteration over the data stored in those structures will always terminate.
+One can always traverse all data stored in such a structure within a finite number of operations.
 
-Greatest fixpoints are, as a rule, lazily evaluated data structures that imitate infinite recursion.
-Iteration over those data structures is not expected to terminate.
+Greatest fixpoints are, as a rule, lazily evaluated data structures that correspond to infinite iteration.
+A traversal of all data items stored in those data structures is not expected to terminate.
 Those data structures are used only in ways that do not involve a full traversal of all data.
 It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
 
-As an example, consider the recursion scheme `F` for the data type `List Text`.
+As an example of the contrast between the least fixpoints and the greatest fixpoints, consider the recursion scheme `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
 
 ```dhall
@@ -4260,7 +4260,7 @@ It advances the stream by only one step.
 So, the entire definition `GFix` is non-recursive and will be accepted by Dhall.
 Nevertheless, `GFix F` is equivalent to a recursive type.
 
-To see `GFix` as a higher-order function, we expand that definition in Dhall's REPL:
+To see that `GFix` is a higher-order function, we let Dhall's REPL expand the definition of `GFix`:
 
 ```dhall
 ⊢ GFix
@@ -4272,10 +4272,10 @@ To see `GFix` as a higher-order function, we expand that definition in Dhall's R
 A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the paper "Recursive types for free".
 Hre, we will focus on the practical use of the greatest fixpoints.
 
-### The fixpoint isomorphisms
+### The fixpoint isomorphism
 
-To show that `GFix F` is a fixpoint of `T = F T`, we write two functions, `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
-(This is proved in the paper "Recursive types for free".)
+To show that `GFix F` is a fixpoint of `T = F T`, we implement two functions, called `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
+(That property is proved in the paper "Recursive types for free" and in the Appendix of this book.)
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
@@ -4305,8 +4305,10 @@ let unfix : GFix F → F (GFix F)
 ```
 
 Within the body of `f`, we have a type `t` and two values `p.seed : t` and `p.step : t → F t`.
-So, we can create a value of type `GFix F` using that data as `pack (GF_T F) t p`.
-However, `f` is required to return a value of type `F (GFix F)` instead.
+So, we could create a value of type `GFix F` using that data as `pack (GF_T F) t p`.
+(The function "pack" is defined in the section "Working with existential types".)
+
+However, `f` is required to return not a value of type `GFix F` but of type `F (GFix F)`.
 To achieve that, we use a trick: we first create a function of type `t → GFix F`.
 
 ```dhall
@@ -4324,17 +4326,20 @@ let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 Finally, we apply the function `fk` to `p.step p.seed`, which is a value of type `F t`.
 The result is a value of type `F (GFix F)` as required.
 
+Note that the function `f` depends only on the recursion scheme `F` and not on the specific value `g`.
+So, it will be convenient to implement `f` separately; we will call it `packF`.
+
 The complete Dhall code is:
 
 ```dhall
-let unfix : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(g : GFix F) →
-    let f : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
-      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
+let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
+      = λ(F : Type → Type) → λ(functorF : Functor F) → λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
         let fk : F t → F (GFix F) = functorF.fmap t (GFix F) k
           in fk (p.step p.seed)
-            in g (F (GFix F)) f
+let unfix : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(g : GFix F) →
+    g (F (GFix F)) (packF F functorF)
 ```
 
 Implementing the function `fix : F (GFix F) → GFix F` is simpler, once we have `unfix`.
@@ -4351,7 +4356,7 @@ let fix : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
 ### Data constructors and pattern matching
 
 To create values of type `GFix F` more conveniently, we will now implement a function called `makeGFix`.
-The code of that function uses the generic `pack` function (see the section about existential types) to create values of type `∃ r. r × (r → F r)`.
+The code of that function uses the generic `pack` function (defined in the section "Working with existential types") to create values of type `∃ r. r × (r → F r)`.
 
 ```dhall
 let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
@@ -5477,7 +5482,7 @@ fmap_F B C g (y B f)  -- Expand the definition of y:
 We obtain the same expression as from the left-hand side.
 So, the naturality law will hold automatically for values `y` obtained via `inY`.
 
-It remains to prove that the compositions of `inY` with `outY` in both directions are identity functions.
+Now we will prove that the compositions of `inY` with `outY` in both directions are identity functions.
 
 The first direction: for any given `fa : F A`, we compute `y : Y = inY fa` and `faNew : F A = outY y`.
 Then we need to prove that `faNew === fa`:
@@ -5510,10 +5515,17 @@ yNew B f === inY fa B f  -- Expand the definition of inY:
   === y B f
 ```
 
-This completes the proof of the isomorphism between `F A` and `Y`.
+This completes the proof of the isomorphism between `F A` and `Y`. $\square$
 
-Note that the last part of the proof cannot succeed without assuming that all functions of type `Y` obey their naturality law.
-All Dhall functions will automatically satisfy that law.
+Let us remark on the use of `y`'s naturality law in this proof.
+
+At a certain step in the last part of the proof, we needed to show that `fmap_F A B f (y A (identity A))` equals `y B f`.
+Because `y` is an arbitrary function, we cannot substitute any specific code for `y`.
+If we knew nothing else about `y` other than it has type `Y`, we would not be able to proceed with the proof any further after that step.
+
+But we do know that `y` satisfies a naturality law, and that law relates different expressions involving `y`.
+So, the proof of the Yoneda identity works only due to the assumed naturality law of `y`.
+All Dhall functions of type `Y` will automatically satisfy that law.
 The Yoneda identities do not hold in programming languages where one can implement functions that violate naturality.
 
 #### Proof of the covariant co-Yoneda identity
@@ -6050,18 +6062,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Proof: The Church-co-Yoneda identity
-
-A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
-
-```dhall
--- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
-G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
-```
-
-TODO
-
-### Proof: Church encoding of mutually recursive types
+### Church encoding of mutually recursive types
 
 We will prove the following statement:
 
@@ -6190,7 +6191,7 @@ We have proved the Church encoding formula for the type `T`.
 The proof for `U` is similar.
 
 
-### Proof: "pack" is a left inverse of "unpack"
+### Existential types: "pack" is a left inverse of "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
@@ -6305,7 +6306,7 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Proof: Functions of existential type
+### Functions of existential type
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
@@ -6404,3 +6405,80 @@ ep ExistsP packP === ep
 It follows that `consume (ep ExistsP packP) === consume ep`.
 
 This concludes the proof.
+
+### Some properties of co-inductive types
+
+###### Statement 1
+
+For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
+
+###### Proof
+
+To make the derivations shorter, we denote `fixf = fix F functorF`, `packf = packF F functorF`, and `unfixf = unfix F functorF`.
+(The functions `fix`, `packF`, and `unfix` were defined in the section "The fixpoint isomorphism" in the chapter "Co-inductive types".)
+We then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed:
+
+```dhall
+let GFt = λ(t : Type) → { seed : t, step : t → F t }  -- This is `GF_T F`.
+let unfixf = λ(g : GFix F) → g (F (GFix F)) packf
+```
+
+```dhall
+let fmap_unfixf = functorF.fmap (GFix F) (F (GFix F)) unfixf
+let fixf = λ(fg : F (GFix F)) →
+  pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf }
+```
+
+Also, recall that the type `GFix F` is written in an expanded form as:
+
+`∀(r : Type) → (∀(t : Type) → GFt t → r) → r`
+
+We need to prove two directions of the isomorphism round-trip:
+
+(1) For any `g : GFix F` we will have `fixf (unfixf g) === g`
+
+(2) For any `fg : F (GFix F)` we will have `unfixf (fixf fg) === fg`
+
+Due to parametricity, any value `g : GFix F` will satisfy a relational naturality law formulated like this:
+
+- For any types `A`, `B`, and for any functions `f : A → B`, `p : ∀(t : Type) → GFt t → A`, and `q : ∀(t : Type) → GFt t → B`, such that `p` and `q` are `f`-related, we must have `f (g A p) === g B q`.
+- In the previous sentence, functions `p` and `q` are considered to be `f`-related if for any types `C`, `D`, and for any `k : C → D`, `u : GFt C`, `v : GFt D`, such that `u` and `v` are `k`-related, we will have `f (p C u) === q D v`.
+- In the previous sentence, values `u` and `v` are considered to be `k`-related if `k u.seed === v.seed` and for any `x : C` we will have `functorF.fmap C D k (u.step x) === v.step (k x)`.
+
+We will need to use that law in the proof.
+
+To prove item (1), we first note that the type of `g` is a function whose arguments are `R : Type` and `p : ∀(t : Type) → GFt t → R`.
+So, both sides of the equation in item (1) are functions with those arguments.
+We will prove that those functions are equal if we show that applying those functions to arbitrary arguments gives equal results.
+
+Apply both sides of the equation in item (1) to arbitrary `R : Type` and `p : ∀(t : Type) → GFt t → R`, then substitute the definitions of `fixf` and `unfixf`:
+
+```dhall
+-- Symbolic derivation. Expect this to equal just `g R p`.
+fixf (unfixf g) R p
+  === pack GFt (F (GFix F)) { seed = g (F (GFix F)) packf, step = fmap_unfixf } R p
+```
+We will show that the last expression equals `g R p` if we find suitable parameters for applying the relational naturality law of `g`.
+
+```dhall
+-- Symbolic derivation. The relational naturality law:
+f (g A p) === g B q
+-- will match our expression:
+pack GFt (F (GFix F)) { seed = g (F (GFix F)) packf, step = fmap_unfixf } R p
+-- if we define the parameters as:
+
+```
+The 
+TODO
+
+
+### The Church-co-Yoneda identity
+
+A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
+
+```dhall
+-- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
+G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
+```
+
+TODO
