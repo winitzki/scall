@@ -2810,8 +2810,8 @@ As it turns out, the type `C` is equivalent to the type `T` that one would have 
 
 It is not obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `C = F C`.
-A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler.
-In this book, we will focus on the practical uses of Church encoding.
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in the Appendix of this book.
+Here we will focus on the practical uses of Church encoding.
 
 ### First examples of recursive types
 
@@ -5876,6 +5876,46 @@ f (fix F functorF fc) === frr (functorF.fmap C R f fc)
 
 This is exactly the same as the $F$-algebra morphism law for `f`, which holds by assumption.
 
+###### Statement 5
+
+The Church encoding type `C` has the following "universal property":
+For any fixpoint `R` of the type equation `R = F R`, there exists a unique function `c2r : C → R` that preserves the fixpoint isomorphisms.
+
+The property of "preserving the fixpoint isomorphisms" means:
+- The type isomorphism `C ≅ F C` is given by two functions: `fix_C : F C → C` and `unfix_C : C → F C`. Each value `c : C` corresponds to a value `fc : F C` computed as `fc = unfix_C c`.
+- The type isomorphism `R ≅ F R` is given by two functions: `fix_R : F R → R` and `unfix_R : R → F R`. Each value `r : R` corresponds to a value `fr : F R` computed as `fr = unfix_R r`.
+- Any `c : C` is mapped by the function `c2r` into some `r : R`.
+- Any `fc : F C` is mapped by the function `fmap_F c2r` into some `fr : F R`.
+- The property of "preserving the fixpoint isomorphisms" means that `fr === unfix_R r` if and only if `fc === unfix_C c`.
+
+In other words, the following equations must hold:
+
+(1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) === c2r (fix_C fc)`.
+
+(2) For any `c : C`: `unfix_R (c2r c) === fmap_F c2r (unfix_C c)`.
+
+
+###### Proof
+
+The function `c2r` is defined by `c2r = λ(c : C) → c R fix_R`.
+By Statement 1 (where we use `frr = fix_R`), there is only one such function that satisfies equation (1) above, and it is `c2r`.
+ 
+To show that `c2r` also satisfies equation (2) above, we choose any value `c : C` and compute the corresponding `fc = unfix_C c`.
+Then we substitute that `fc` into equation (1):
+
+```dhall
+-- Symbolic derivation.
+fix_R (fmap_F c2r fc) === c2r (fix_C fc)
+  -- Substitute fc = unfix_C c:
+fix_R (fmap_F c2r (unfix_C c)) === c2r (fix_C (unfix_C c))
+  -- Use the isomorphism law: fix_C (unfix_C  c) === c
+fix_R (fmap_F c2r (unfix_C c)) === c2r c
+  -- Apply unfix_R to both sides of the equation:
+unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
+  -- Use the isomorphism law: unfix_R (fix_R fr) === fr
+fmap_F c2r (unfix_C c) === unfix_R (c2r c)
+```
+We obtained equation (2).
 
 ### The Church-Yoneda identity
 
@@ -5944,7 +5984,7 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(That property is proved in the paper "Recursive types for free", and also in this book as "Property 1" in the previous section.)
+(That property is proved in the paper "Recursive types for free", and also in this book as "Statement 3" in the previous section.)
 
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
