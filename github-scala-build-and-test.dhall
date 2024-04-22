@@ -59,7 +59,8 @@ in  GithubActions.Workflow::{
                     { run =
                         "sbt -DJDK_VERSION=\${{ matrix.java }} ++\${{ matrix.scala }} coverage test coverageReport"
                     }
-                , GithubActions.steps.run { run = "bash tutorial/make_pdf.sh dryrun" }
+                , GithubActions.steps.run
+                    { run = "bash tutorial/make_pdf.sh dryrun" }
                 , GithubActions.Step::{
                   , name = Some "Report test results"
                   , uses = Some "dorny/test-reporter@v1.7.0"
