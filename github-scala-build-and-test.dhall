@@ -18,6 +18,10 @@ let setup =
           , hashFiles =
             [ "build.sbt", "project/plugins.sbt", "project/build.properties" ]
           }
+      , GithubActions.Step::{
+        , name = Some "Setup scala-cli"
+        , uses = Some "VirtusLab/scala-cli-setup@main"
+        }
       ]
 
 in  GithubActions.Workflow::{
@@ -60,7 +64,7 @@ in  GithubActions.Workflow::{
                         "sbt -DJDK_VERSION=\${{ matrix.java }} ++\${{ matrix.scala }} coverage test coverageReport"
                     }
                 , GithubActions.steps.run
-                    { run = "bash tutorial/make_pdf.sh dryrun" }
+                    { run = "bash tutorial/make_pdf.sh dryrunx" }
                 , GithubActions.Step::{
                   , name = Some "Report test results"
                   , uses = Some "dorny/test-reporter@v1.7.0"
