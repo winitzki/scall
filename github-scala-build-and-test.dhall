@@ -22,6 +22,16 @@ let setup =
         , name = Some "Setup scala-cli"
         , uses = Some "VirtusLab/scala-cli-setup@main"
         }
+      , GithubActions.Step::{
+        , name = Some "Setup dhall executable"
+        , uses = Some "dhall-lang/setup-dhall@v4"
+        , `with` = Some (toMap { version = "1.42.1" })
+        }
+      , GithubActions.Step::{
+        , name = Some "Setup latex"
+        , uses = Some "zauguin/install-texlive@v3"
+        , `with` = Some (toMap { packages = "scheme-basic" })
+        }
       ]
 
 in  GithubActions.Workflow::{

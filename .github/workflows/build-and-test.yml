@@ -23,6 +23,14 @@ jobs:
             ${{ runner.os }}-sbt
       - name: Setup scala-cli
         uses: "VirtusLab/scala-cli-setup@main"
+      - name: Setup dhall executable
+        uses: "dhall-lang/setup-dhall@v4"
+        with:
+          version: '1.42.1'
+      - name: Setup latex
+        uses: "zauguin/install-texlive@v3"
+        with:
+          packages: scheme-basic
       - name: "java ${{ matrix.java }} setup"
         uses: "actions/setup-java@v1.4.3"
         with:
@@ -69,6 +77,14 @@ jobs:
             ${{ runner.os }}-sbt
       - name: Setup scala-cli
         uses: "VirtusLab/scala-cli-setup@main"
+      - name: Setup dhall executable
+        uses: "dhall-lang/setup-dhall@v4"
+        with:
+          version: '1.42.1'
+      - name: Setup latex
+        uses: "zauguin/install-texlive@v3"
+        with:
+          packages: scheme-basic
       - name: java 17 setup
         uses: "actions/setup-java@v1.4.3"
         with:
