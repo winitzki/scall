@@ -28,6 +28,7 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java }}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java }} ++${{ matrix.scala }} coverage test coverageReport"
+      - run: bash tutorial/make_pdf.sh
       - if: "success() || failure()"
         name: Report test results
         uses: "dorny/test-reporter@v1.7.0"

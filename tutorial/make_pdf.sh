@@ -1,3 +1,4 @@
+test -d tutorial && cd tutorial
 name=programming_dhall
 scala-cli convertMd.scala --   false < $name.md  > generated.tex
 (
@@ -15,5 +16,5 @@ test -s $name.pdf || {
 makeindex $name.idx
 pdflatex --interaction=batchmode $name.tex
 ) >& /dev/null
-fgrep "Output written on $name.pdf" $name.log
 wait
+fgrep "Output written on $name.pdf" $name.log
