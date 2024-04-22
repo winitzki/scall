@@ -1,3 +1,4 @@
+if [ x"$1" == xdryrun ]; then exit 0; fi
 test -d tutorial && cd tutorial
 name=programming_dhall
 scala-cli convertMd.scala --   false < $name.md  > generated.tex
