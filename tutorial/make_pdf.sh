@@ -10,6 +10,7 @@ scala-cli convertMd.scala --   false < $name.md  > generated.tex
 pdflatex --interaction=batchmode $name.tex >& /dev/null
 test -s $name.pdf || {
   echo "Error building PDF file, see $name.log"
+	cat $name.log
   wait
   exit 1
 }
