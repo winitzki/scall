@@ -1480,7 +1480,7 @@ The code is:
 let bitWidth : Natural → Natural = λ(n : Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
   let Accum = { b : Natural, bitWidth : Natural }
-  let init = { b = 1, bitWidth = 0 } -- At all times, b == pow(2, bitWidth).
+  let init = { b = 1, bitWidth = 0 } -- At all times, b === pow(2, bitWidth).
   let update = λ(acc : Accum) →
      if lessThanEqual acc.b n
      then { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
@@ -1497,7 +1497,7 @@ So, we replace the base 2 in `bitWidth` by an arbitrary base and obtain this cod
 let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
   let Accum = { b : Natural, log : Natural }
-  let init = { b = 1, log = 0 } -- At all times, b == pow(base, log).
+  let init = { b = 1, log = 0 } -- At all times, b === pow(base, log).
   let update = λ(acc : Accum) →
      if lessThanEqual acc.b n
      then { b = acc.b * base, log = acc.log + 1 }
@@ -1576,7 +1576,7 @@ For instance, we can apply `identity` to itself and get the same function as a r
 #### Identity functions for types and kinds
 
 What if we wanted the identity function to be able to work on _types_ themselves?
-We expect some code like `identityT Bool == Bool`.
+We expect some code like `identityT Bool === Bool`.
 
 Note that the type of `Bool` is `Type`.
 So, a simple implementation of `identityT` is:
@@ -4287,7 +4287,7 @@ Let us write the type of `g` in detail:
 let g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r = ???
 ```
 
-One way of consuming such a value is by applying the function `g` to some arguments.
+One way of consuming `g` is by applying the function `g` to some arguments.
 
 We need to return a value of type `F (GFix F)` as the final result of `unfix g`.
 The return type of `g` is an arbitrary type `r` (which is the first argument of `g`).
@@ -4305,15 +4305,16 @@ let unfix : GFix F → F (GFix F)
 ```
 
 Within the body of `f`, we have a type `t` and two values `p.seed : t` and `p.step : t → F t`.
-So, we could create a value of type `GFix F` using that data as `pack (GF_T F) t p`.
-(The function "pack" is defined in the section "Working with existential types".)
+So, we could create a value of type `GFix F` as `pack (GF_T F) t p`.
+(The function "pack" was defined in the section "Working with existential types".)
 
-However, `f` is required to return not a value of type `GFix F` but of type `F (GFix F)`.
+However, `f` is required to return not a value of type `GFix F` but a value of type `F (GFix F)`.
 To achieve that, we use a trick: we first create a function of type `t → GFix F`.
+That function will pack a given value `x : t` together with the "step" function `p.step` into a value of type `GFix F`.
 
 ```dhall
--- Here t = ??? is a fixed type.
-let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+-- Given a type t = ??? and p : { seed : t, step : t → F t }.
+let k : t → GFix F = λ(x : t) → pack (GF_T F) t { seed = x, step = p.step }
 ```
 
 Then we will apply `fmap_F` to that function, which will give us a function of type `F t → F (GFix F)`.
@@ -4334,7 +4335,7 @@ The complete Dhall code is:
 ```dhall
 let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(F : Type → Type) → λ(functorF : Functor F) → λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
-        let k : t → GFix F = λ(x : t) → pack (GF_T F) t p
+        let k : t → GFix F = λ(x : t) → pack (GF_T F) t { seed = x, step = p.step }
         let fk : F t → F (GFix F) = functorF.fmap t (GFix F) k
           in fk (p.step p.seed)
 let unfix : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
@@ -4677,7 +4678,7 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Sliding-window aggregation (`scan`)
+### Sliding-window aggregation ("scan")
 
 TODO
 
@@ -6408,30 +6409,78 @@ This concludes the proof.
 
 ### Some properties of co-inductive types
 
-###### Statement 1
+In this section, we will prove some general properties of co-inductive types such as `GFix F`.
+For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
+An example:
 
-For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
+```dhall
+let F = Optional
+let functorF : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
+```
 
-###### Proof
-
-To make the derivations shorter, we denote `fixf = fix F functorF`, `packf = packF F functorF`, and `unfixf = unfix F functorF`.
+To make the derivations shorter, we denote `fixf = fix F functorF`, `packFf = packF F functorF`, and `unfixf = unfix F functorF`.
 (The functions `fix`, `packF`, and `unfix` were defined in the section "The fixpoint isomorphism" in the chapter "Co-inductive types".)
-We then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed:
+We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed:
 
 ```dhall
 let GFt = λ(t : Type) → { seed : t, step : t → F t }  -- This is `GF_T F`.
-let unfixf = λ(g : GFix F) → g (F (GFix F)) packf
+let packFf : ∀(t : Type) → GFt t → F (GFix F)
+  = λ(t : Type) → λ(p : GFt t) →
+    functorF.fmap t (GFix F) (λ(x : t) → pack GFt t { seed = x, step = p.step }) (p.step p.seed)
+let unfixf : GFix F → F (GFix F) = λ(g : GFix F) → g (F (GFix F)) packFf
 ```
 
 ```dhall
 let fmap_unfixf = functorF.fmap (GFix F) (F (GFix F)) unfixf
-let fixf = λ(fg : F (GFix F)) →
-  pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf }
+let fixf : F (GFix F) → GFix F
+  = λ(fg : F (GFix F)) → pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf }
 ```
 
 Also, recall that the type `GFix F` is written in an expanded form as:
 
 `∀(r : Type) → (∀(t : Type) → GFt t → r) → r`
+
+
+##### Statement 1
+
+For any type `R` and any function `rfr : R → F R`, define the function `r2g : R → GFix F` by:
+
+`let r2g : R → GFix F = λ(x : R) → pack GFt R { seed = x, step = rfr }`
+
+Then the function `r2g` satisfies the following law: for any `r : R`,
+
+`unfixf (r2g r) === functorF.fmap R (GFix F) r2g (rfr r)`
+
+In category theory, that law is known as the "$F$-coalgebra morphism law".
+Functions that satisfy that law are called **$F$-coalgebra morphisms**.
+
+So, it is claimed that `r2g` is always an $F$-coalgebra morphism.
+
+
+##### Proof
+
+Substitute the definitions of `r2g` and `unfixf`:
+
+```dhall
+-- Symbolic derivation.
+unfixf (r2g r)  -- Use definition of unfixf:
+ === r2g r (F (GFix F)) packFf  -- Use definitions of r2g and pack:
+ === pack GFt R { seed = r, step = rfr } (F (GFix F)) packFf
+ === packFf R { seed = r, step = rfr }  -- Use definition of packFf:
+ === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+```
+This is exactly the same as the right-hand side of the equation we needed to prove:
+```dhall
+-- Symbolic derivation.
+functorF.fmap R (GFix F) r2g (rfr r)  -- Use definition of r2g:
+ === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+```
+
+###### Statement 2
+
+For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
+
+###### Proof
 
 We need to prove two directions of the isomorphism round-trip:
 
@@ -6442,33 +6491,92 @@ We need to prove two directions of the isomorphism round-trip:
 Due to parametricity, any value `g : GFix F` will satisfy a relational naturality law formulated like this:
 
 - For any types `A`, `B`, and for any functions `f : A → B`, `p : ∀(t : Type) → GFt t → A`, and `q : ∀(t : Type) → GFt t → B`, such that `p` and `q` are `f`-related, we must have `f (g A p) === g B q`.
-- In the previous sentence, functions `p` and `q` are considered to be `f`-related if for any types `C`, `D`, and for any `k : C → D`, `u : GFt C`, `v : GFt D`, such that `u` and `v` are `k`-related, we will have `f (p C u) === q D v`.
+- In the previous sentence, functions `p` and `q` are considered to be `f`-related if for any types `C`, `D`, and for any `k : C → D`, `u : GFt C`, `v : GFt D`, such that `u` and `v` are `k`-related, we will have `f (p D v) === q C u`.
 - In the previous sentence, values `u` and `v` are considered to be `k`-related if `k u.seed === v.seed` and for any `x : C` we will have `functorF.fmap C D k (u.step x) === v.step (k x)`.
 
 We will need to use that law in the proof.
 
-To prove item (1), we first note that the type of `g` is a function whose arguments are `R : Type` and `p : ∀(t : Type) → GFt t → R`.
+To prove item (1), we first note that the type of `g` is a function whose arguments are `R : Type` and `r : ∀(t : Type) → GFt t → R`.
 So, both sides of the equation in item (1) are functions with those arguments.
 We will prove that those functions are equal if we show that applying those functions to arbitrary arguments gives equal results.
 
-Apply both sides of the equation in item (1) to arbitrary `R : Type` and `p : ∀(t : Type) → GFt t → R`, then substitute the definitions of `fixf` and `unfixf`:
+Apply both sides of the equation in item (1) to arbitrary `R : Type` and `r : ∀(t : Type) → GFt t → R`, then substitute the definitions of `fixf` and `unfixf`:
 
 ```dhall
--- Symbolic derivation. Expect this to equal just `g R p`.
-fixf (unfixf g) R p
-  === pack GFt (F (GFix F)) { seed = g (F (GFix F)) packf, step = fmap_unfixf } R p
+-- Symbolic derivation. Expect this to equal just `g R r`.
+fixf (unfixf g) R r
+  === pack GFt (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } R r
+-- Substitute the definition of `pack`:
+  === r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf }
 ```
-We will show that the last expression equals `g R p` if we find suitable parameters for applying the relational naturality law of `g`.
+We will show that the last expression equals `g R r` if we find suitable parameters for applying the relational naturality law of `g`.
 
 ```dhall
--- Symbolic derivation. The relational naturality law:
+-- Symbolic derivation. The relational naturality law of `g`:
 f (g A p) === g B q
--- will match our expression:
-pack GFt (F (GFix F)) { seed = g (F (GFix F)) packf, step = fmap_unfixf } R p
+-- will match our equation:
+r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } === g R r
 -- if we define the parameters as:
-
+A = F (GFix F)
+B = R
+f = λ(fg : A) → r A { seed = fg, step = fmap_unfixf }
+p = packFf
+q = r
 ```
-The 
+
+The relational naturality law of `g` will prove item (1) if we show that `p` and `q` are `f`-related.
+To check that, we write the definition of that relation:
+
+```dhall
+-- Symbolic derivation. The values `p` and `q` are `f`-related if:
+f (p D v) === q C u
+-- Substitute our definitions of f, p, q, B:
+r A { seed = packFf D v, step = fmap_unfixf } === r C u
+-- This should hold for any `u` and `v` that are `k`-related, that is:
+k u.seed === v.seed
+functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
+```
+
+As `r` is an arbitrary function, we need to use a naturality law of `r` in order to derive an equation involving `r` at both sides.
+The relational naturality law of `r` is formulated as follows: for any types `K`, `L` and any `j : K → L`, `m : GFt K`, `n : GFt L` such that `m` and `n` are `j`-related, we have `r K m === r L n`.
+In the last sentence, the property of being `j`-related means `j m.seed === n.seed` and `functorF.fmap K L j (m.step y) === n.step (j y)` for all `y : K`.
+
+Now we continue the derivation:
+
+```dhall
+-- Symbolic derivation. The values `p` and `q` are `f`-related if:
+r A { seed = packFf D v, step = fmap_unfixf } === r C u
+-- This will match the naturality law of `r`:
+r L n === r K m
+-- if we define the parameters as:
+K = C
+L = A
+m = u
+n = { seed = packFf D v, step = fmap_unfixf }
+```
+
+Now it remains to show that `m` and `n` are `j`-related for some `j : C → A` whenever we are given arbitrary types `C`, `D` and some arbitrary `k : C → D`, `u : GFt C`, and `v : GFt D` that are `k`-related.
+All we know about `k`, `u`, and `v` is:
+
+```dhall
+-- Symbolic derivation. We know that `u` and `v` are `k`-related:
+k u.seed === v.seed
+functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
+```
+
+The first condition (`j m.seed === n.seed`) gives `j u.seed === packFf D v` or equivalently `j (packFf C u) === k u.seed`.
+So, we need to choose `j` to satisfy that equation.
+
+The second condition is rewritten as:
+
+```dhall
+-- Symbolic derivation. The condition for `m.step` and `n.step` is:
+functorF.fmap K L j (m.step y) === n.step (j y)  -- for any `y : C`
+-- Substitute the definitions of K, L, m, n:
+functorF.fmap C A j (u.step y) === fmap_unfixf (j y)
+```
+doesn't seem to work!
+
 TODO
 
 
