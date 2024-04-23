@@ -30,7 +30,7 @@ let setup =
       , GithubActions.Step::{
         , name = Some "Setup latex"
         , uses = Some "zauguin/install-texlive@v3"
-        , `with` = Some (toMap { packages = "scheme-basic" })
+        , `with` = Some (toMap { packages = "scheme-basic koma-script" })
         }
       ]
 
