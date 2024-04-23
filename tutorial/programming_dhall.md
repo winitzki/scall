@@ -5625,10 +5625,9 @@ In category theory, that law is known as the "$F$-algebra morphism law".
 Functions that satisfy that law are called **$F$-algebra morphisms**.
 
 So, it is claimed that `c2r` is always an $F$-algebra morphism.
-
+(Note that the notion of an $F$-algebra morphism of type `C → R` depends on having the designated functions `fix : F C → C` and `frr : F R → R`.)
 
 ###### Proof
-
 
 Expand `c2r (fix F functorF fc)` using the definitions of `c2r` and `fix`:
 
@@ -5834,13 +5833,13 @@ This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
 
 ###### Statement 4
 
-Given any type `R` and any function `frr : F R → R`, suppose there exists a function `f : C → R` that
+Given a type `R` and a function `frr : F R → R`, suppose there exists a function `f : C → R` that
 satisfies the $F$-algebra morphism law:
 
 `∀(fc : F C) → f (fix F functorF fc) === frr (functorF.fmap C R f fc)`
 
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
-(By Statement 1, that function satisfies the $F$-algebra morphism law.)
+(By Statement 1, that function already satisfies the $F$-algebra morphism law.)
 
 ###### Proof
 
@@ -5875,6 +5874,7 @@ The last equation needs to match the equation we need to prove:
 
 Note that the strong dinaturality law gives `f (c C p) === c R frr` and not `f c = c R frr`.
 However, Statement 3 says that `c C p === c` with our definition of `p`.
+That is why we are justified in replacing `f c` by `f (c C p)`.
 
 So, the proof will be finished as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
@@ -6412,7 +6412,7 @@ This concludes the proof.
 
 In this section, we will prove some general properties of co-inductive types such as `GFix F`.
 For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
-An example:
+An example would be:
 
 ```dhall
 let F = Optional
@@ -6444,7 +6444,7 @@ Also, recall that the type `GFix F` is written in an expanded form as:
 
 ###### Statement 1
 
-For any type `R` and any function `rfr : R → F R`, define the function `r2g : R → GFix F` by:
+Given any type `R` and any function `rfr : R → F R`, define the function `r2g` by:
 
 `let r2g : R → GFix F = λ(x : R) → pack GFt R { seed = x, step = rfr }`
 
@@ -6456,7 +6456,6 @@ In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 
 So, we claim that `r2g` is always an $F$-coalgebra morphism.
-
 
 ###### Proof
 
@@ -6479,6 +6478,27 @@ functorF.fmap R (GFix F) r2g (rfr r)  -- Use definition of r2g:
 
 ###### Statement 2
 
+The function `r2g` defined in Statement 1 may be rewritten using a more general function we will call `packAf` that can "package" any type `R` into a value of type `GFix F`:
+
+```dhall
+let packAf : ∀(R : Type) → (R → F R) → R → GFix F
+  = λ(R : Type) → λ(rfr : R → F R) → λ(x : R) →
+    pack GFt R { seed = x, step = rfr }
+```
+The definition of Statement 1 will be obtained as `r2g = packAf R rfr`.
+
+Because we may apply `packAf` with any type `R` as long as we have a function of type `R → F R`, we may set `R = GFix F` and `rfr = unfixf`.
+Then the corresponding function `r2g` will be an identity function of type `GFix F → GFix F`.
+
+In other words, for any value `g : GFix F` we will have:
+
+`packAf (GFix F) unfixf g === g`
+
+###### Proof
+
+
+###### Statement 3
+
 Let `R` be any type for which a function `rfr : R → GFix F` is given.
 Then there exists only one $F$-coalgebra morphism of type `R → GFix F`, and that morphism is the function `r2g` defined in Statement 1.
 
@@ -6496,7 +6516,7 @@ Expand the definition of `unfixf`:
 
 Because `h r` has type `GFix F`, it satisfies the naturality law:
 
-###### Statement 3
+###### Statement 4
 
 For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
 
@@ -6598,6 +6618,30 @@ functorF.fmap C A j (u.step y) === fmap_unfixf (j y)
 doesn't seem to work!
 
 TODO
+
+To prove item (2):
+
+```dhall
+-- Symbolic derivation. Use the definitions of fixf and unfixf:
+unfixf (fixf fg)
+  === fixf fg (F (GFix F)) packFf
+  === pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf } (F (GFix F)) packFf
+-- Use the definition of pack:
+  === packFf (F (GFix F)) { seed = fg, step = fmap_unfixf }
+-- Use the definition of packFf:
+  === functorF.fmap (F (GFix F)) (GFix F) (λ(x : F (GFix F)) → pack GFt (F (GFix F)) { seed = x, step = fmap_unfixf }) (fmap_unfixf fg)
+-- Recognize that the function under `(λ(x : F (GFix F)) → pack ...)` is fixf:
+  === functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg)
+```
+The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
+By `fmap`'s composition law, we get `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
+We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
+Applying `functorF.fmap` to an identity function of type `GFix F → GFix F` gives an identity function of type `F (GFix F) → F (GFix F)`.
+So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
+
+`functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg) === fg`
+
+This is what remained to be proved. $\square$
 
 
 ### The Church-co-Yoneda identity
