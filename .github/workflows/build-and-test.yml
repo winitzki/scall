@@ -75,6 +75,18 @@ jobs:
     name: Build and validate the tutorial
     runs-on: ubuntu-latest
     steps:
+      - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
+      - name: "~/.sbt\n\"~/.cache/coursier\"\n cache"
+        uses: "actions/cache@v3"
+        with:
+          key: "${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}"
+          path: |
+            ~/.sbt
+            "~/.cache/coursier"
+          restore-keys: |
+            ${{ runner.os }}-sbt
       - name: Setup scala-cli
         uses: "VirtusLab/scala-cli-setup@main"
       - name: Setup dhall executable
