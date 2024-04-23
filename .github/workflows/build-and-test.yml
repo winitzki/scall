@@ -30,7 +30,7 @@ jobs:
       - name: Setup latex
         uses: "zauguin/install-texlive@v3"
         with:
-          packages: scheme-basic
+          packages: scheme-full
       - name: "java ${{ matrix.java }} setup"
         uses: "actions/setup-java@v1.4.3"
         with:
@@ -84,7 +84,7 @@ jobs:
       - name: Setup latex
         uses: "zauguin/install-texlive@v3"
         with:
-          packages: scheme-basic
+          packages: scheme-full
       - name: java 17 setup
         uses: "actions/setup-java@v1.4.3"
         with:

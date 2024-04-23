@@ -5604,6 +5604,7 @@ TODO
 ### Some properties of the Church encoding
 
 Here we show proofs of some technical properties of Church-encoded types.
+(Those properties are shown in the paper "Recursive types for free". Here we give some more detailed proofs.)
 
 Throughout this section, we assume that `F` is a lawful covariant functor for which an evidence value `functorF : Functor F` is available.
 We define the type `C` by `C = LFix F`, or in explicit form: `C = ∀(R : Type) → (F R → R) → R`.
@@ -5843,7 +5844,7 @@ Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C)
 
 ###### Proof
 
-Suppose a function `f` is given.
+Suppose a function `f : C → R` is given and satisfies the $F$-algebra morphism law.
 We need to prove that, for any `c : C`, the following holds:
 
 `f c === c2r c === c R frr`.
@@ -5891,27 +5892,27 @@ This is exactly the same as the $F$-algebra morphism law for `f`, which holds by
 
 ###### Statement 5
 
-The Church encoding type `C` has the following "universal property":
+The Church encoding type `C` has the following so-called "universal property":
 For any fixpoint `R` of the type equation `R = F R`, there exists a unique function `c2r : C → R` that preserves the fixpoint isomorphisms.
 
-The property of "preserving the fixpoint isomorphisms" means:
-- The type isomorphism `C ≅ F C` is given by two functions: `fix_C : F C → C` and `unfix_C : C → F C`. Each value `c : C` corresponds to a value `fc : F C` computed as `fc = unfix_C c`.
-- The type isomorphism `R ≅ F R` is given by two functions: `fix_R : F R → R` and `unfix_R : R → F R`. Each value `r : R` corresponds to a value `fr : F R` computed as `fr = unfix_R r`.
+To explain the property of "preserving the fixpoint isomorphisms" in detail, consider that:
+- The type isomorphism `C ≅ F C` is given by two functions: `fix_C : F C → C` and `unfix_C : C → F C`. Each value `c : C` corresponds to a value `fc : F C` computed as `fc = unfix_C c`, and each value `fc` corresponds to a value `c` computed as `c = fix_C fc`.
+- The type isomorphism `R ≅ F R` is given by two functions: `fix_R : F R → R` and `unfix_R : R → F R`. Each value `r : R` corresponds to a value `fr : F R` computed as `fr = unfix_R r`, and each value `fr` corresponds to a value `r` computed as `r = fix_R fr`.
 - Any `c : C` is mapped by the function `c2r` into some `r : R`.
 - Any `fc : F C` is mapped by the function `fmap_F c2r` into some `fr : F R`.
-- The property of "preserving the fixpoint isomorphisms" means that `fr === unfix_R r` if and only if `fc === unfix_C c`.
+- The property of "preserving the fixpoint isomorphisms" means that `c2r` should map `c` into `r` and the corresponding `fc` into the corresponding `fr`. In other words, `fr === unfix_R r` if and only if `fc === unfix_C c`.
 
-In other words, the following equations must hold:
+It means that the following equations must hold:
 
 (1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) === c2r (fix_C fc)`.
 
 (2) For any `c : C`: `unfix_R (c2r c) === fmap_F c2r (unfix_C c)`.
 
+We claim that these equations will hold for the function `c2r` defined by `c2r = λ(c : C) → c R fix_R`, and that there is only one such function.
 
 ###### Proof
 
-The function `c2r` is defined by `c2r = λ(c : C) → c R fix_R`.
-By Statement 1 (where we use `frr = fix_R`), there is only one such function that satisfies equation (1) above, and it is `c2r`.
+By Statement 1 (where we use `frr = fix_R`), there is only one function of type `C → R` that satisfies equation (1) above, and that function is `c2r` defined by `c2r = λ(c : C) → c R fix_R`.
  
 To show that `c2r` also satisfies equation (2) above, we choose any value `c : C` and compute the corresponding `fc = unfix_C c`.
 Then we substitute that `fc` into equation (1):
@@ -6441,7 +6442,7 @@ Also, recall that the type `GFix F` is written in an expanded form as:
 `∀(r : Type) → (∀(t : Type) → GFt t → r) → r`
 
 
-##### Statement 1
+###### Statement 1
 
 For any type `R` and any function `rfr : R → F R`, define the function `r2g : R → GFix F` by:
 
@@ -6457,9 +6458,9 @@ Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 So, it is claimed that `r2g` is always an $F$-coalgebra morphism.
 
 
-##### Proof
+###### Proof
 
-Substitute the definitions of `r2g` and `unfixf`:
+Begin with the expression `unfixf (r2g r)`:
 
 ```dhall
 -- Symbolic derivation.
