@@ -21,16 +21,6 @@ jobs:
             "~/.cache/coursier"
           restore-keys: |
             ${{ runner.os }}-sbt
-      - name: Setup scala-cli
-        uses: "VirtusLab/scala-cli-setup@main"
-      - name: Setup dhall executable
-        uses: "dhall-lang/setup-dhall@v4"
-        with:
-          version: '1.42.0'
-      - name: Setup latex
-        uses: "zauguin/install-texlive@v3"
-        with:
-          packages: scheme-full
       - name: "java ${{ matrix.java }} setup"
         uses: "actions/setup-java@v1.4.3"
         with:
@@ -38,7 +28,6 @@ jobs:
           java-package: jdk
           java-version: "${{ matrix.java }}"
       - run: "sbt -DJDK_VERSION=${{ matrix.java }} ++${{ matrix.scala }} coverage test coverageReport"
-      - run: bash tutorial/make_pdf.sh dryrunx
       - if: "success() || failure()"
         name: Report test results
         uses: "dorny/test-reporter@v1.7.0"
@@ -75,6 +64,17 @@ jobs:
             "~/.cache/coursier"
           restore-keys: |
             ${{ runner.os }}-sbt
+      - name: java 17 setup
+        uses: "actions/setup-java@v1.4.3"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: '17'
+      - run: sbt scalafmtCheckAll scalafmtSbtCheck
+  pdftutorial:
+    name: Build and validate the tutorial
+    runs-on: ubuntu-latest
+    steps:
       - name: Setup scala-cli
         uses: "VirtusLab/scala-cli-setup@main"
       - name: Setup dhall executable
@@ -85,13 +85,7 @@ jobs:
         uses: "zauguin/install-texlive@v3"
         with:
           packages: scheme-full
-      - name: java 17 setup
-        uses: "actions/setup-java@v1.4.3"
-        with:
-          architecture: x64
-          java-package: jdk
-          java-version: '17'
-      - run: sbt scalafmtCheckAll scalafmtSbtCheck
+      - run: bash tutorial/make_pdf.sh dryrunx
 name: scall_build_and_test
 on:
   push: {}

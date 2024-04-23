@@ -6455,7 +6455,7 @@ Then the function `r2g` satisfies the following law: for any `r : R`,
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 
-So, it is claimed that `r2g` is always an $F$-coalgebra morphism.
+So, we claim that `r2g` is always an $F$-coalgebra morphism.
 
 
 ###### Proof
@@ -6478,6 +6478,25 @@ functorF.fmap R (GFix F) r2g (rfr r)  -- Use definition of r2g:
 ```
 
 ###### Statement 2
+
+Let `R` be any type for which a function `rfr : R → GFix F` is given.
+Then there exists only one $F$-coalgebra morphism of type `R → GFix F`, and that morphism is the function `r2g` defined in Statement 1.
+
+###### Proof
+
+Let `h : R → GFix F` be any given function that satisfies the $F$-coalgebra morphism law: for any `r : R`,
+
+`unfixf (h r) === functorF.fmap R (GFix F) h (rfr r)`
+
+Both sides of this equation have type `F (GFix F)`.
+
+Expand the definition of `unfixf`:
+
+`h r (F (GFix F)) packFf === functorF.fmap R (GFix F) h (rfr r)`
+
+Because `h r` has type `GFix F`, it satisfies the naturality law:
+
+###### Statement 3
 
 For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
 

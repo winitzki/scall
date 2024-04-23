@@ -18,20 +18,6 @@ let setup =
           , hashFiles =
             [ "build.sbt", "project/plugins.sbt", "project/build.properties" ]
           }
-      , GithubActions.Step::{
-        , name = Some "Setup scala-cli"
-        , uses = Some "VirtusLab/scala-cli-setup@main"
-        }
-      , GithubActions.Step::{
-        , name = Some "Setup dhall executable"
-        , uses = Some "dhall-lang/setup-dhall@v4"
-        , `with` = Some (toMap { version = "1.42.0" })
-        }
-      , GithubActions.Step::{
-        , name = Some "Setup latex"
-        , uses = Some "zauguin/install-texlive@v3"
-        , `with` = Some (toMap { packages = "scheme-full" })
-        }
       ]
 
 in  GithubActions.Workflow::{
@@ -47,6 +33,28 @@ in  GithubActions.Workflow::{
                 , GithubActions.steps.run
                     { run = "sbt scalafmtCheckAll scalafmtSbtCheck" }
                 ]
+          }
+        , pdftutorial = GithubActions.Job::{
+          , name = Some "Build and validate the tutorial"
+          , runs-on = GithubActions.types.RunsOn.ubuntu-latest
+          , steps =
+            [ GithubActions.Step::{
+              , name = Some "Setup scala-cli"
+              , uses = Some "VirtusLab/scala-cli-setup@main"
+              }
+            , GithubActions.Step::{
+              , name = Some "Setup dhall executable"
+              , uses = Some "dhall-lang/setup-dhall@v4"
+              , `with` = Some (toMap { version = "1.42.0" })
+              }
+            , GithubActions.Step::{
+              , name = Some "Setup latex"
+              , uses = Some "zauguin/install-texlive@v3"
+              , `with` = Some (toMap { packages = "scheme-full" })
+              }
+            , GithubActions.steps.run
+                { run = "bash tutorial/make_pdf.sh dryrunx" }
+            ]
           }
         , build = GithubActions.Job::{
           , name = Some "Build"
@@ -73,8 +81,6 @@ in  GithubActions.Workflow::{
                     { run =
                         "sbt -DJDK_VERSION=\${{ matrix.java }} ++\${{ matrix.scala }} coverage test coverageReport"
                     }
-                , GithubActions.steps.run
-                    { run = "bash tutorial/make_pdf.sh dryrunx" }
                 , GithubActions.Step::{
                   , name = Some "Report test results"
                   , uses = Some "dorny/test-reporter@v1.7.0"
