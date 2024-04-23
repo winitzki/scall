@@ -87,6 +87,12 @@ jobs:
             "~/.cache/coursier"
           restore-keys: |
             ${{ runner.os }}-sbt
+      - name: java 17 setup
+        uses: "actions/setup-java@v1.4.3"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: '17'
       - name: Setup scala-cli
         uses: "VirtusLab/scala-cli-setup@main"
       - name: Setup dhall executable

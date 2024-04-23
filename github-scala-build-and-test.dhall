@@ -39,7 +39,8 @@ in  GithubActions.Workflow::{
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
           , steps =
                 checkout_and_cache
-              # [ GithubActions.Step::{
+              # [ GithubActions.steps.actions/setup-java { java-version = "17" }
+                , GithubActions.Step::{
                   , name = Some "Setup scala-cli"
                   , uses = Some "VirtusLab/scala-cli-setup@main"
                   }
