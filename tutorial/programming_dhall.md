@@ -1051,8 +1051,7 @@ so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sor
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
 As the function `f`'s type does not _itself_ have a type, Dhall raises a type error.
 
-There was at one time an effort to implement a form of "kind polymorphism" in Dhall.
-That would allow functions to manipulate `Kind` values more freely.
+There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
@@ -6496,6 +6495,9 @@ In other words, for any value `g : GFix F` we will have:
 
 ###### Proof
 
+We need to use the relational naturality law of `packAf`.
+
+TODO
 
 ###### Statement 3
 
