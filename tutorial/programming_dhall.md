@@ -6495,7 +6495,18 @@ In other words, for any value `g : GFix F` we will have:
 
 ###### Proof
 
-We need to use the relational naturality law of `packAf`.
+Both sides of the equation are functions of type `GFix F`.
+We will apply both sides to some arguments and show that the results are equal.
+Since the type `GFix G` is equal to `∀(T : Type) → (∀(R : Type) → GFt R → T) → T`, suitable arguments are `T : Type` and `t : ∀(R : Type) → GFt R → T`.
+So, our goal is to prove that, for any such `T` and `t`:
+
+`packAf (GFix F) unfixf g T t === g T t`
+
+`pack GFt (GFix F) { seed = g, step = unfixf } T t === g T t`
+
+TODO
+
+Weuse the relational naturality law of `packAf`.
 
 TODO
 
