@@ -6241,7 +6241,7 @@ So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality la
 The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
 ```dhall
--- Symbolic derivation. The naturality law of ep is:
+-- Symbolic derivation. The naturality law of `ep`:
 f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
@@ -6528,6 +6528,11 @@ Both sides of this equation have type `F (GFix F)`.
 Expand the definition of `unfixf`:
 
 `h r (F (GFix F)) packFf === functorF.fmap R (GFix F) h (rfr r)`
+
+We need to show that `h r === r2g r`.
+
+
+TODO
 
 Because `h r` has type `GFix F`, it satisfies the naturality law:
 
