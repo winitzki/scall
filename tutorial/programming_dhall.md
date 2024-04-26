@@ -6217,7 +6217,7 @@ Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
 
 We will now prove the following property:
 
-When used with the type `ExistsP` itself, `packP` is a left inverse to `unpackP`.
+- When used with the type `ExistsP` itself, `packP` is a left inverse to `unpackP`.
 
 In mathematics, a function `f : A → B` is a **left inverse** to a function `g : B → A` if the composition `f(g(x))` is always equal to `x` for any `x : A`.
 
@@ -6241,7 +6241,7 @@ So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality la
 The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
 ```dhall
--- Symbolic derivation.
+-- Symbolic derivation. The naturality law of ep is:
 f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
@@ -6504,9 +6504,11 @@ So, our goal is to prove that, for any such `T` and `t`:
 
 `pack GFt (GFix F) { seed = g, step = unfixf } T t === g T t`
 
+`t (GFix F) { seed = g, step = unfixf } === g T t`
+
 TODO
 
-Weuse the relational naturality law of `packAf`.
+Weuse the relational naturality law of `g`.
 
 TODO
 

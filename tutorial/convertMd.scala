@@ -229,7 +229,9 @@ def toLatex: Markdown => String = {
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
   case Markdown.CodeBlock(language, content) =>
-    val cleanContent = content.replace("\n--Symbolic derivation.\n", "\n").replace("-- Symbolic derivation. ", "-- ")
+    val cleanContent = content
+      .replaceAll("-- Symbolic derivation[ .]+\\R", "")
+      .replace("-- Symbolic derivation. ", "-- ")
     s"\\begin{lstlisting}${languageOption(language)}\n$cleanContent\\end{lstlisting}"
   case Markdown.BlankLine => "\n"
 }
