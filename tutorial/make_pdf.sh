@@ -4,8 +4,8 @@ name=programming_dhall
 scala-cli convertMd.scala --   false < $name.md  > generated.tex
 (
  scala-cli convertMd.scala --   true < $name.md  > generated.dhall 2> /dev/null
- dhall --explain --file generated.dhall >& generated.log
- fgrep -q  "Example code from the book was evaluated successfully." generated.log || echo "Errors in Dhall code, see generated.log"
+ dhall text --file generated.dhall --explain >& generated.log
+ fgrep -q -i "example code from the book" generated.log || echo "Errors in Dhall code, see generated.log"
 ) &
 pdflatex --interaction=batchmode $name.tex >& /dev/null
 test -s $name.pdf || {
