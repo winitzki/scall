@@ -365,4 +365,205 @@ let _ =
             6
         ≡ [ 1, 2, 3, 1, 2 ]
 
+let Stream/scan =
+      λ(a : Type) →
+      λ(sa : Stream a) →
+      λ(b : Type) →
+      λ(init : b) →
+      λ(update : a → b → b) →
+        let State = { source : Stream a, current : b }
+
+        let initState
+            : State
+            = { source = sa, current = init }
+
+        let ResultT = < Cons : { head : b, tail : State } | Nil >
+
+        let step
+            : State → ResultT
+            = λ(s : State) →
+                merge
+                  { None = ResultT.Nil
+                  , Some =
+                      λ(headTail : { head : a, tail : Stream a }) →
+                        let newCurrent = update headTail.head s.current
+
+                        in  ResultT.Cons
+                              { head = newCurrent
+                              , tail =
+                                { source = headTail.tail, current = newCurrent }
+                              }
+                  }
+                  (headTailOption a s.source)
+
+        in  makeStream b State initState step
+
+let runningSum
+    : Stream Natural → Stream Natural
+    = λ(sn : Stream Natural) →
+        Stream/scan
+          Natural
+          sn
+          Natural
+          0
+          (λ(x : Natural) → λ(sum : Natural) → x + sum)
+
+let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
+
+let Stream/scanMap
+    : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → Stream a → Stream m
+    = λ(m : Type) →
+      λ(monoidM : Monoid m) →
+      λ(a : Type) →
+      λ(map : a → m) →
+      λ(sa : Stream a) →
+        Stream/scan
+          a
+          sa
+          m
+          monoidM.empty
+          (λ(x : a) → λ(y : m) → monoidM.append (map x) y)
+
+let _ =
+        assert
+      :   streamToList
+            Natural
+            (runningSum (repeatForever Natural [ 1, 2, 3 ]))
+            7
+        ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
+
+let _ =
+        assert
+      :   streamToList
+            Natural
+            (runningSum (listToStream Natural ([] : List Natural)))
+            7
+        ≡ ([] : List Natural)
+
+let identity
+    : ∀(A : Type) → ∀(x : A) → A
+    = λ(A : Type) → λ(x : A) → x
+
+let Contrafunctor =
+      λ(F : Type → Type) →
+        { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
+
+let Bifunctor
+    : (Type → Type → Type) → Type
+    = λ(F : Type → Type → Type) →
+        { bimap :
+            ∀(a : Type) →
+            ∀(b : Type) →
+            ∀(c : Type) →
+            ∀(d : Type) →
+            (a → c) →
+            (b → d) →
+            F a b →
+              F c d
+        }
+
+let Fmap_t =
+      λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+
+let Functor = λ(F : Type → Type) → { fmap : Fmap_t F }
+
+let Profunctor
+    : (Type → Type → Type) → Type
+    = λ(F : Type → Type → Type) →
+        { xmap :
+            ∀(a : Type) →
+            ∀(b : Type) →
+            ∀(c : Type) →
+            ∀(d : Type) →
+            (c → a) →
+            (b → d) →
+            F a b →
+              F c d
+        }
+
+let HT = λ(h : Type) → λ(t : Type) → < Cons : { head : h, tail : t } | Nil >
+
+let bifunctorHT
+    : Bifunctor HT
+    = { bimap =
+          λ(a : Type) →
+          λ(b : Type) →
+          λ(c : Type) →
+          λ(d : Type) →
+          λ(f : a → c) →
+          λ(g : b → d) →
+          λ(pab : HT a b) →
+            merge
+              { Cons =
+                  λ(ht : { head : a, tail : b }) →
+                    (HT c d).Cons { head = f ht.head, tail = g ht.tail }
+              , Nil = (HT c d).Nil
+              }
+              pab
+      }
+
+let Pack_t =
+      λ(r : Type) →
+      λ(h : Type) →
+        ∀(t : Type) → { seed : t, step : t → HT h t } → r
+
+let contrafunctor_Pack_t
+    : ∀(r : Type) → Contrafunctor (Pack_t r)
+    = λ(r : Type) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+            λ(pb : Pack_t r b) →
+            λ(t : Type) →
+            λ(state : { seed : t, step : t → HT a t }) →
+              pb
+                t
+                { seed = state.seed
+                , step =
+                    λ(x : t) →
+                      bifunctorHT.bimap a t b t f (identity t) (state.step x)
+                }
+        }
+
+let Stream/map
+    : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → Stream b
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(f : a → b) →
+      λ(sa : Stream a) →
+      λ(r : Type) →
+      λ(pack_b : ∀(t : Type) → { seed : t, step : t → HT b t } → r) →
+        let pack_a
+            : Pack_t r a
+            = (contrafunctor_Pack_t r).cmap a b f pack_b
+
+        in  sa r pack_a
+
+let functorStream
+    : Functor Stream
+    = { fmap = Stream/map }
+
+let _ =
+        assert
+      :   streamToList
+            Natural
+            ( Stream/map
+                Natural
+                Natural
+                (λ(x : Natural) → x * 10)
+                (listToStream Natural [ 1, 2, 3 ])
+            )
+            5
+        ≡ [ 10, 20, 30 ]
+
+
+let runningList : ∀(a : Type) → Stream a → Stream (List a)
+  = λ(a : Type) → λ(sa : Stream a) → 
+  Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
+
+let ex1 : Stream ( List Natural ) = runningList Natural (repeatForever Natural [ 1, 2, 3 ])
+let _ = assert : streamToList (List Natural) ex1 5
+        ≡ [ [ 1 ], [1, 2], [1, 2, 3], [ 1, 2, 3, 1], [ 1, 2, 3, 1, 2] ]
+
 in  True

@@ -1,5 +1,6 @@
 if [ x"$1" == xdryrun ]; then exit 0; fi
-test -d tutorial && cd tutorial
+test -d tutorial && cd tutorial || echo "No directory 'tutorial'"
+rm -f generated.*
 name=programming_dhall
 scala-cli convertMd.scala --   false < $name.md  > generated.tex
 (

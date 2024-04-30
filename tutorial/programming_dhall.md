@@ -2740,7 +2740,7 @@ let MonadFP = λ(F : Type → Type) →
       { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
 ```
 
-As an example, let us define a `Monad` evidence value for `List` in that way:TODO make pointed instance for List
+As an example, let us define a `Monad` evidence value for `List` in that way:
 
 ```dhall
 let monadList : MonadFP List =
@@ -4273,12 +4273,12 @@ Hre, we will focus on the practical use of the greatest fixpoints.
 
 ### The fixpoint isomorphism
 
-To show that `GFix F` is a fixpoint of `T = F T`, we implement two functions, called `fix : F T → T` and `unfix : T → F T`, which are inverses of each other.
+To show that `GFix F` is a fixpoint of `T = F T`, we implement two functions, called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
 (That property is proved in the paper "Recursive types for free" and in the Appendix of this book.)
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
-We begin by implementing `unfix : GFix F → F (GFix F) = λ(g : GFix F) → ...` (that function is called `out` in the paper "Recursive types for free").
+We begin by implementing `unfixG : GFix F → F (GFix F) = λ(g : GFix F) → ...` (that function is called `out` in the paper "Recursive types for free").
 
 Let us write the type of `g` in detail:
 
@@ -4288,15 +4288,15 @@ let g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → 
 
 One way of consuming `g` is by applying the function `g` to some arguments.
 
-We need to return a value of type `F (GFix F)` as the final result of `unfix g`.
+We need to return a value of type `F (GFix F)` as the final result of `unfixG g`.
 The return type of `g` is an arbitrary type `r` (which is the first argument of `g`).
 Because we need to return a value of type `F (GFix F)`, we set `r = F (GFix F)`.
 
 The second argument of `g` is a function of type `∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)`.
-If we could produce such a function `f`, we would complete the code of `unfix`:
+If we could produce such a function `f`, we would complete the code of `unfixG`:
 
 ```dhall
-let unfix : GFix F → F (GFix F)
+let unfixG : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
@@ -4337,20 +4337,20 @@ let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : 
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t { seed = x, step = p.step }
         let fk : F t → F (GFix F) = functorF.fmap t (GFix F) k
           in fk (p.step p.seed)
-let unfix : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
+let unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(g : GFix F) →
     g (F (GFix F)) (packF F functorF)
 ```
 
-Implementing the function `fix : F (GFix F) → GFix F` is simpler, once we have `unfix`.
-We first compute `fmap_F unfix : F (GFix F) → F (F (GFix F))`.
+Implementing the function `fixG : F (GFix F) → GFix F` is simpler, once we have `unfixG`.
+We first compute `fmap_F unfixG : F (GFix F) → F (F (GFix F))`.
 Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`: 
 
 ```dhall
-let fix : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
+let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fg : F (GFix F)) →
-    let fmap_unfix : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) (unfix F functorF)
-      in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfix }
+    let fmap_unfixG : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) (unfixG F functorF)
+      in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfixG }
 ```
 
 ### Data constructors and pattern matching
@@ -4360,8 +4360,7 @@ The code of that function uses the generic `pack` function (defined in the secti
 
 ```dhall
 let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
-  let P = λ(r : Type) → { seed : r, step : r → F r }
-    in pack (GF_T F) r { seed = x, step = rfr } 
+  pack (GF_T F) r { seed = x, step = rfr } 
 ```
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
@@ -4370,15 +4369,15 @@ We imagine that the code will run the "step" function as many times as needed, i
 The required reasoning is quite different from that of creating values of the least fixpoint types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
-Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fix : F T → T`.
+Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fixG : F T → T`.
 Similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
 Those constructors are "finite": they cannot create an infinite data structure.
 For that, we need the general constructor `makeGFix`.
 
-We can also apply `unfix` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
+We can also apply `unfixG` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
 We can then perform pattern-matching directly on that value, since `F` is typically a union type.
 
-So, similarly to the case of Church encodings, `fix` provides constructors and `unfix` provides pattern-matching for co-inductive types.
+So, similarly to the case of Church encodings, `fixG` provides constructors and `unfixG` provides pattern-matching for co-inductive types.
 
 ### Example of a co-inductive type: Streams
 
@@ -4595,6 +4594,7 @@ let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
         ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
 ```
 
+
 #### Concatenating streams
 
 The standard Dhall function for concatenating lists is `List/concat`.
@@ -4625,9 +4625,10 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
         in makeStream a State (State.InFirst first) step
 ```
 
+
 #### Size-limited streams
 
-We can truncate an arbitrary stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
+We can stop a given stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
 
 ```dhall
 let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
@@ -4645,6 +4646,14 @@ let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
 
 This is different from `streamToList` because we are not traversing the stream; we just need to modify the stream's seed and the step function.
 So, `Stream/truncate` is a `O(1)` operation.
+
+
+Note that `streamToList` requires an explicit bound on the size of the output list.
+It is not possible to implement a function that determines whether a given stream terminates.
+Also, we cannot terminate a stream at the data item that satisfies some condition (say, a `Natural` number that is equal to zero).
+We can use `Stream/truncate` to terminate a stream but we still need to specify a limit on the size of the output stream.
+
+Streams represent "infinite" structures, but working with those structures in System Fω always requires an explicit upper bound on the number of possible iterations.
 
 #### The `cons` constructor for streams. Performance issues
 
@@ -4677,9 +4686,128 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Sliding-window aggregation ("scan")
+### Running aggregations ("scan" and "scanMap")
 
-TODO
+A typical task for streams is to perform "running aggregations".
+A "running aggregation" extracts each new value from a source stream and updates an aggregated value in some way.
+This results in a new stream of aggregated values computed after consuming each value from the source stream.
+So, running aggregations may be viewed as transformations of type `Stream a → Stream b`.
+Each value in the result stream may depend in some way on the previously seen values in the source stream.
+
+Examples of running aggregations are running sums, running averages, sliding-window averages, and histogram sampling.
+
+For example, the running sum transforms the stream `[1, 2, 3, 4, 5, ...]` into `[1, 3, 6, 10, 15, ...]`.
+
+A general function for running aggregations is called `scan`.
+Its type signature is quite similar to that of `fold`:
+
+`scan : ∀(a : Type) → Stream a → ∀(b : Type) → b → (a → b → b) → Stream b`
+
+Here `b` is the type of the aggregated value.
+The argument of type `a → b → b` takes the next value of type `a`, the previous aggregated value of type `b`, and computes the next aggregated value of type `b`.
+The argument of type `b` is the initial aggregated value.
+
+Unlike `fold` that consumes the entire collection, `scan` computes the new stream one value at a time.
+
+
+To implement the `scan` function for the `Stream` type, we create a new stream whose values will be of type `b` and whose internal state will contain a source stream (of type `Stream a`) and the current aggregated value.
+The code is:
+
+```dhall
+let Stream/scan = λ(a : Type) → λ(sa : Stream a) → λ(b : Type) → λ(init : b) → λ(update : a → b → b) →
+  let State = { source : Stream a, current : b }
+  let initState : State = { source = sa, current = init }
+  let ResultT = < Cons : { head : b, tail : State } | Nil >
+  let step : State → ResultT = λ(s : State) → merge {
+      None = ResultT.Nil,
+      Some = λ(headTail : { head : a, tail : Stream a }) →
+       let newCurrent = update headTail.head s.current
+         in ResultT.Cons { head = newCurrent, tail = { source = headTail.tail, current = newCurrent } },
+    } (headTailOption a s.source)
+  in makeStream b State initState step
+```
+
+As an example, we implement a running sum computation via `scan`:
+
+```dhall
+let runningSum : Stream Natural → Stream Natural
+  = λ(sn : Stream Natural) → Stream/scan Natural sn Natural 0 (λ(x : Natural) → λ(sum : Natural) → x + sum)
+
+let _ = assert : streamToList Natural (runningSum (repeatForever Natural [ 1, 2, 3 ])) 7
+        ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
+```
+
+A running aggregation could accumulate _all_ previously seen values into a list.
+The result is a function we may call `runningList`:
+
+```dhall
+let runningList : ∀(a : Type) → Stream a → Stream (List a)
+  = λ(a : Type) → λ(sa : Stream a) → Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
+let _ = assert : streamToList (List Natural) (runningList Natural (repeatForever Natural [ 1, 2, 3 ])) 5
+        ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
+```
+
+This is different from the function `streamToList`.
+When we apply `streamToList`, we have to give an explicit bound on the size of the output list.
+When we apply `runningList`, we obtain a _stream_ of lists of growing size.
+We can decide later how many values to take from that stream.
+
+Another version of `scan` is a function `scanMap` that uses a `Monoid` type constraint.
+Instead of the initial aggregated value, it uses the "empty" value of the monoid.
+The updating function is the monoid's "append" operation.
+
+The function `scanMap` is analogous to `foldMap` and can be implemented via `scan` as:
+
+```dhall
+ let Stream/scanMap : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → Stream a → Stream m
+  = λ(m : Type) → λ(monoidM : Monoid m) → λ(a : Type) → λ(map : a → m) → λ(sa : Stream a) →
+    Stream/scan a sa m monoidM.empty (λ(x : a) → λ(y : m) → monoidM.append (map x) y)
+```
+
+We can implement `runningSum` and `runningList` via `scanMap` like this:
+
+```dhall
+
+```
+
+The `Stream` type constructor is a functor.
+The corresponding `fmap` function, called `Stream/map`, can be implemented like this:
+
+```dhall
+-- Define some typeclass instances to make code more concise.
+let HT = λ(h : Type) → λ(t : Type) → < Cons : { head : h, tail : t } | Nil >
+let bifunctorHT : Bifunctor HT = { bimap = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : HT a b) → merge {
+  Cons = λ(ht : { head : a, tail : b }) → (HT c d).Cons { head = f ht.head, tail = g ht.tail },
+  Nil = (HT c d).Nil,
+} pab }
+let Pack_t = λ(r : Type) → λ(h : Type) → ∀(t : Type) → { seed : t, step : t → HT h t } → r
+let contrafunctor_Pack_t : ∀(r : Type) → Contrafunctor (Pack_t r) = λ(r : Type) → {
+   cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pb : Pack_t r b) →
+   -- Compute a value of type Pack_t r a:
+     λ(t : Type) → λ(state : { seed : t, step : t → HT a t }) → pb t {
+       seed = state.seed,
+       step = λ(x : t) → bifunctorHT.bimap a t b t f (identity t) (state.step x),
+     }
+}
+let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → Stream b
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(sa : Stream a) →
+  -- Compute a value of type Stream b:
+    λ(r : Type) → λ(pack_b : ∀(t : Type) → { seed : t, step : t → HT b t } → r) →
+      let pack_a : Pack_t r a = (contrafunctor_Pack_t r).cmap a b f pack_b
+      in sa r pack_a
+let functorStream : Functor Stream = { fmap = Stream/map }
+
+let _ = assert : streamToList Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 === [ 10, 20, 30 ]
+```
+
+Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat similar.
+The main difference between `Stream/map` and `Stream/scanMap` is that `Stream/scanMap` can accumulate information about previously transformed data items in the stream, while `Stream/map` can only transform one data item at a time at a time.
+
+It turns out that `scanMap` is equivalent to `scan` at the level of types, as long as the parametricity assumptions hold.
+The equivalence "at the level of types" means that _all possible_ implementations of `scan` (satisfying appropriate laws) are in a one-to-one correspondence to all possible implementations of `scanMap`.
+So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
+
+The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 
 ### Hylomorphisms with bounded recursion depth
 
@@ -4911,18 +5039,18 @@ To drive the iterations, we used the standard `fold` method (`Natural/fold`) for
 Note that `Natural` is a recursive type whose `fold` method is a Dhall built-in.
 Could we drive iterations via the `fold` method for a different recursive type?
 
-Suppose we already have a value of the Church-encoded least fixpoint type (`Church F`).
+Suppose we already have a value of the Church-encoded least fixpoint type (`LFix F`).
 That value can serve as a "recursion template" that at the same time provides depth limits and all necessary default values.
 
 We will denote the template-driven hylomorphism by `hylo_T`.
-The type signature is `Church F → GFix F → Church F`.
+The type signature is `LFix F → GFix F → LFix F`.
 We will again expand the type signature and unpack the existential types into a curried argument.
 The Dhall code is:
 
 ```dhall
 let hylo_T
- : Church F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
-  = λ(template : Church F) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) →
+ : LFix F → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+  = λ(template : LFix F) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) →
     let F/ap : ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b = ??? -- Implement this function for F.
     let reduce : F (t → r) → t → r
       = λ(ftr : F (t → r)) → λ(arg : t) → alg (F/ap t r ftr (coalg t))
@@ -4940,12 +5068,19 @@ TODO example of usage
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
-A hylomorphisms can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
-Previous sections showed how to adapt hylomorphisms to recursion-less Dhall programming style.
+A hylomorphism can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+Previous sections showed how to adapt hylomorphisms to the recursion-less programming style of System Fω and Dhall.
 
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
-The least fixpoint type `Church F` already has that function (`unfix`).
+The least fixpoint type `LFix F` already has that function (`unfix`).
+So, we can implement a conversion function:
+
+```dhall
+let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
+    makeGFix F (LFix F) x (unfix F functorF)
+```
 
 TODO example and note about performance
 
