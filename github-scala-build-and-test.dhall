@@ -56,6 +56,18 @@ in  GithubActions.Workflow::{
                   }
                 , GithubActions.steps.run
                     { run = "bash tutorial/make_pdf.sh dryrunx" }
+                , GithubActions.Step::{
+                  , name = Some "Upload tutorial PDF"
+                  , uses = Some "actions/upload-artifact@v2"
+                  , `with` = Some
+                      ( toMap
+                          { name = "Tutorial PDF file and logs"
+                          , if-no-files-found = "error"
+                          , path =
+                              "./tutorial/programming_dhall.pdf ./tutorial/generated.log ./tutorial/programming_dhall.log"
+                          }
+                      )
+                  }
                 ]
           }
         , build = GithubActions.Job::{
