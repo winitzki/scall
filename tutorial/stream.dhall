@@ -557,13 +557,44 @@ let _ =
             5
         ≡ [ 10, 20, 30 ]
 
+let functorForall
+    : ∀(F : Type → Type → Type) →
+      (∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+        Functor (λ(a : Type) → ∀(b : Type) → F a b)
+    = λ(F : Type → Type → Type) →
+      λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+        let G = λ(a : Type) → ∀(b : Type) → F a b
 
-let runningList : ∀(a : Type) → Stream a → Stream (List a)
-  = λ(a : Type) → λ(sa : Stream a) → 
-  Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
+        in  { fmap =
+                λ(c : Type) →
+                λ(d : Type) →
+                λ(f : c → d) →
+                λ(gc : G c) →
+                  let gd
+                      : G d
+                      = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
 
-let ex1 : Stream ( List Natural ) = runningList Natural (repeatForever Natural [ 1, 2, 3 ])
-let _ = assert : streamToList (List Natural) ex1 5
-        ≡ [ [ 1 ], [1, 2], [1, 2, 3], [ 1, 2, 3, 1], [ 1, 2, 3, 1, 2] ]
+                  in  gd
+            }
+
+let runningList
+    : ∀(a : Type) → Stream a → Stream (List a)
+    = λ(a : Type) →
+      λ(sa : Stream a) →
+        Stream/scan
+          a
+          sa
+          (List a)
+          ([] : List a)
+          (λ(x : a) → λ(current : List a) → current # [ x ])
+
+let ex1
+    : Stream (List Natural)
+    = runningList Natural (repeatForever Natural [ 1, 2, 3 ])
+
+let _ =
+        assert
+      :   streamToList (List Natural) ex1 5
+        ≡ [ [ 1 ], [ 1, 2 ], [ 1, 2, 3 ], [ 1, 2, 3, 1 ], [ 1, 2, 3, 1, 2 ] ]
 
 in  True

@@ -44,8 +44,8 @@ Here is an example of a Dhall program:
 ```dhall
 let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
 let id = λ(A : Type) → λ(x : A) → x
-  in f 10 (id Natural 20)
-    -- This is a complete program that evaluates to 32 of type Natural.
+in f 10 (id Natural 20)
+  -- This is a complete program that evaluates to 32 of type Natural.
 ```
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
@@ -317,7 +317,7 @@ Then we write `let x : X = absurd void X` in the body of `our_program`.
 ```dhall
 let our_program = λ(void : < >) →
   let x : Integer = absurd void Integer
-    in { x }    -- Whatever.
+  in { x }    -- Whatever.
 ```
 The typechecker will accept this program.
 Of course, we can never supply a value for the `void : < >` argument.
@@ -331,8 +331,7 @@ So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` 
 
 ```dhall
 let our_program = λ(TODO : ∀(A : Type) → A) →
-  let x = TODO Integer
-    in { x }     -- Whatever.
+  let x = TODO Natural in { result = x + 123 }     -- Whatever.
 ```
 
 ### The unit type
@@ -476,8 +475,8 @@ When applying that function, the code must specify both type parameters (`a`, `b
 
 ```dhall
 let List/map = https://prelude.dhall-lang.org/List/map
-  in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
-    -- This is a complete program that returns [2, 3, 4].
+in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
+  -- This is a complete program that returns [2, 3, 4].
 ```
 
 A polymorphic identity function can be written (with a complete type annotation) as:
@@ -505,7 +504,7 @@ For example:
 ```dhall
 let a = 1
 let b = 2
-  in a + b  -- This is a complete program that evaluates to 3.
+in a + b  -- This is a complete program that evaluates to 3.
 ```
 
 Because of this syntax, we will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
@@ -613,7 +612,7 @@ Here is an example: the first file contains a list of numbers, and the second fi
 -- This file is `./sum.dhall`.
 let input_list = ./first.dhall  -- Import from relative path.
 let List/sum = https://prelude.dhall-lang.org/Natural/sum
-  in List/sum input_list
+in List/sum input_list
 ```
 
 Running `dhall` on the second file will compute and show the result:
@@ -751,7 +750,7 @@ To implement this behavior in Dhall, we may use a field selection operation: any
 let MyTuple = { _1 : Bool, _2 : Natural}
 let f = λ(tuple : MyTuple) → tuple._2
 let r1= { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
-  in f r1.(MyTuple)  -- This is a complete program that returns 123.
+in f r1.(MyTuple)  -- This is a complete program that returns 123.
 ```
 
 The field selection operation `r1.(MyTuple)` removes all fields other than those from `MyTuple`.
@@ -766,7 +765,7 @@ let MyTuple = { _1 : Bool, _2 : Natural}
 let myTupleDefault = { _1 = False, _2 = 0 }
 let f = λ(tuple : MyTuple) → tuple._2
 let r2 = { _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
-  in f (myTupleDefault // r2).(MyTuple)  -- This is a complete program that returns 123.
+in f (myTupleDefault // r2).(MyTuple)  -- This is a complete program that returns 123.
 ```
 
 We cannot write `f r2.(MyTuple)` because `r2` does not have the required field `_1`.
@@ -795,8 +794,8 @@ That feature is designed for basic sanity checks:
 ```dhall
 let x : Text = "123"
 let _ = assert : x === "123"
-  in x ++ "1"
-    -- This is a complete program that returns "1231".
+in x ++ "1"
+ -- This is a complete program that returns "1231".
 ```
 
 The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
@@ -851,7 +850,7 @@ Try writing this code:
 let compareTextValues : Text → Text → Bool
   = λ(a : Text) → λ(b : Text) → 
     let _ = assert : a === b    -- Type error: the two sides are not equal.
-      in True
+    in True
 ```
 
 This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and those two symbols are not equal.
@@ -1283,7 +1282,7 @@ The code is:
 let unsafeDiv : Natural → Natural → Natural =
   let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
   let Accum = { result : Natural, sub : Natural, done : Bool }
-    in λ(x : Natural) → λ(y : Natural) →
+  in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = {result = 0, sub = x, done = False}
          let update : Accum → Accum = λ(acc : Accum) →
              if acc.done then acc
@@ -1454,7 +1453,7 @@ The code is:
 let sqrt = λ(n: Natural) →
   let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
   let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r 
-    in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 1)
+  in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 1)
 let _ = assert : sqrt 15 === 3
 let _ = assert : sqrt 16 === 4
 ```
@@ -1485,7 +1484,7 @@ let bitWidth : Natural → Natural = λ(n : Natural) →
      then { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
      else acc 
   let result : Accum = Natural/fold n Accum update init
-    in result.bitWidth 
+  in result.bitWidth 
 ```
 
 The function `bitWidth` may be generalized to compute integer-valued logarithms with a natural base.
@@ -1502,7 +1501,7 @@ let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natura
      then { b = acc.b * base, log = acc.log + 1 }
      else acc 
   let result : Accum = Natural/fold n Accum update init
-    in Natural/subtract 1 result.log
+  in Natural/subtract 1 result.log
 
 let _ = assert : log 10 100 ≡ 2
 ```
@@ -1533,7 +1532,7 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
   let init = sortPair { x = x, y = y }
   let max_iter = init.x
   let result : Pair = Natural/fold max_iter Pair update init
-    in result.x
+  in result.x
 ```
 
 ## Programming with functions
@@ -1981,7 +1980,7 @@ First, we implement a function that creates the required equality types:
 let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y : m) → λ(z : m) →
   let plus = monoid_m.append
   let e = monoid_m.empty
-    in {
+  in {
         monoid_left_id_law = plus e x === x,
         monoid_right_id_law = plus x e === x,
         monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
@@ -2136,14 +2135,14 @@ Given a specific type constructor `F` and its `Functor` typeclass evidence, the 
 let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
   λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
     let fmap = functor_F.fmap
-      in {
+    in {
           functor_id_law = fmap a a (identity a) === identity (F a),
           functor_comp_law =
             let fg = compose_forward a b c f g
             let fmap_f = fmap a b f
             let fmap_g = fmap b c g
             let fmapf_fmapg = compose_forward (F a) (F b) (F c) fmap_f fmap_g
-              in fmap a c fg === fmapf_fmapg,
+            in fmap a c fg === fmapf_fmapg,
          }
 ```
 
@@ -2161,7 +2160,7 @@ let check_functor_laws = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f
 -- Type error: assertion failed.
   let composition_law = assert : (functorLaws F functorF a b c f g).functor_comp_law
   let identity_law = assert : (functorLaws F functorF a b c f g).functor_id_law
-    in True
+  in True
 ```
 
 The composition law is verified successfully.
@@ -2187,7 +2186,7 @@ To get around this limitation, write the identity law separately like this:
 ```dhall
 let identity_law_of_F = λ(a : Type) →
     let id_F = λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
-      in assert : functorF.fmap a a (identity a) === id_F
+    in assert : functorF.fmap a a (identity a) === id_F
 ```
 
 Let us also try verifying the functor laws for the type constructor `G` from the previous section:
@@ -2196,7 +2195,7 @@ Let us also try verifying the functor laws for the type constructor `G` from the
 let functor_laws_of_G = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
   let identity_law = assert : (functorLaws G functorG a b c f g).functor_id_law
   let composition_law = assert : (functorLaws G functorG a b c f g).functor_comp_law
-    in True  -- Type error: assertion failed.
+  in True  -- Type error: assertion failed.
 ```
 
 This time, the laws cannot be verified.
@@ -2305,15 +2304,15 @@ The laws of contrafunctors are similar to those of functors:
 let contrafunctorLaws = λ(F : Type → Type) → λ(contrafunctor_F : Contrafunctor F) →
   λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
     let cmap = contrafunctor_F.cmap
-      in {
-          contrafunctor_id_law = cmap a a (identity a) === identity (F a),
-          contrafunctor_comp_law =
-            let gf = compose_backward a b c g f
-            let cmap_f = cmap a b f
-            let cmap_g = cmap b c g
-            let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
-              in cmap a c gf === cmapf_cmapg,
-         }
+    in {
+        contrafunctor_id_law = cmap a a (identity a) === identity (F a),
+        contrafunctor_comp_law =
+          let gf = compose_backward a b c g f
+          let cmap_f = cmap a b f
+          let cmap_g = cmap b c g
+          let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
+          in cmap a c gf === cmapf_cmapg,
+       }
 ```
 
 We can verify those laws symbolically for the contrafunctor `C` shown above:
@@ -2500,7 +2499,7 @@ let monadList : Monad List =
   let pure = λ(a : Type) → λ(x : a) → [ x ]
   let bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
       List/concatMap a b f fa
-    in { pure, bind }
+  in { pure, bind }
 ```
 
 Another known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
@@ -2514,8 +2513,8 @@ let monadState : ∀(S : Type) → Monad (State S)
          λ(s : S) →
            let update1 : Pair A S = oldState s
            let update2 : Pair B S = f update1._1 update1._2
-             in update2
-      in { pure, bind }
+           in update2
+    in { pure, bind }
 ```
 
 To verify a monad's laws, we first write a function that takes an arbitrary monad and asserts that its laws hold.
@@ -2539,7 +2538,7 @@ let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) →
   let right_id_law = monadF.bind a p a (monadF.pure a) === p
   let assoc_law = monadF.bind b (monadF.bind a p b f) c g
       === monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
-    in { left_id_law, right_id_law, assoc_law }
+  in { left_id_law, right_id_law, assoc_law }
 ```
 
 Let us verify the laws of the `State` monad:
@@ -2550,7 +2549,7 @@ let tests = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) �
   let test1 = assert : laws.left_id_law
   -- let test2 = assert : laws.right_id_law -- This will not work.
   let test3 = assert : laws.assoc_law
-    in True
+  in True
 ```
 
 The Dhall interpreter can verify the left identity law and the associativity law, but is not powerful enough to verify the right identity law.
@@ -2621,7 +2620,7 @@ let monoidZip : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Mo
     let empty = { _1 = monoidA.empty, _2 = monoidB.empty }
     let append = λ(x : Pair a b) → λ(y : Pair a b) →
       { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
-        in { empty, append }
+    in { empty, append }
 ```
 
 The `Monoid` type constructor also has an evidence value for the `PointedU` typeclass:
@@ -2630,7 +2629,7 @@ The `Monoid` type constructor also has an evidence value for the `PointedU` type
 let pointedMonoid : PointedU Monoid =
   let empty : {} = {=}
   let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
-    in { unit = { empty, append } }
+  in { unit = { empty, append } }
 ```
 
 The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
@@ -2663,7 +2662,7 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
       let pointedC : PointedU (C m) = { unit = λ(_ : {}) → monoidM.empty }
       let zip = λ(a : Type) → λ(ca : a → m) → λ(b : Type) → λ(cb : b → m) →
         λ(p : Pair a b) → monoidM.append (ca p._1) (cb p._2)
-        in pointedC /\ { zip }
+      in pointedC /\ { zip }
 ```
 
 ### Traversable functors
@@ -2934,7 +2933,7 @@ let x
  : ∀(r : Type) → (F r → r) → r
   = λ(r : Type) → λ(frr : F r → r) →
      let y : r = ??? -- Need to insert some code here.
-        in y
+     in y
 ```
 
 Working with data encoded in this way is not straightforward.
@@ -3003,8 +3002,8 @@ As long as we are able to provide a function of type `F D → D`, we can convert
 
 ```dhall
 let d : D =
-    let fdd : F D → D = ???
-        in c D fdd
+  let fdd : F D → D = ???
+  in c D fdd
 ```
 
 We will use this technique to implement `fix` and `unfix`.
@@ -3020,13 +3019,13 @@ let fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
         let c2r : C → r = λ(c : C) → c r frr
         let fmap_c2r : F C → F r = functorF.fmap C r c2r
         let fr : F r = fmap_c2r fc
-          in frr fr
+        in frr fr
 
 let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
     let C = LFix F
     let fmap_fix : F (F C) → F C = functorF.fmap (F C) C (fix F functorF)
-      in λ(c : C) → c (F C) fmap_fix
+    in λ(c : C) → c (F C) fmap_fix
 ```
 
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
@@ -3438,17 +3437,17 @@ Each computation is a fold-like aggregation, so we will implement all of them vi
 let treeSum : TreeNat → Natural =
    let leafSum = ???
    let branchSum = ???
-     in ∀(tree : TreeNat) → tree Natural leafSum branchSum
+   in ∀(tree : TreeNat) → tree Natural leafSum branchSum
 
 let treeCount : TreeNat → Natural =
    let leafCount = ???
    let branchCount = ???
-     in ∀(tree : TreeNat) → tree Natural leafCount branchCount
+   in ∀(tree : TreeNat) → tree Natural leafCount branchCount
 
 let treeDepth : TreeNat → Natural =
    let leafDepth = ???
    let branchDepth = ???
-     in ∀(tree : TreeNat) → tree Natural leafDepth branchDepth
+   in ∀(tree : TreeNat) → tree Natural leafDepth branchDepth
 ```
 
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
@@ -3828,7 +3827,7 @@ Both of those functions need to traverse the entire data structure and to accumu
 let size : ∀(a : Type) → ∀(ca : C a) → Natural
   = λ(a : Type) → λ(ca : C a) →
     let sizeF : F a Natural → Natural = ??? 
-      in ca Natural sizeF
+    in ca Natural sizeF
 ```
 
 The function `sizeF` should count the number of data items stored in `F a Natural`. The values of type `Natural` inside `F` represent the sizes of nested
@@ -3913,7 +3912,7 @@ let fmapTree : Fmap_t Tree
    = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : Tree a) →
      λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
        let leafA : a → r = λ(x : a) → leafB (f x)
-         in treeA r leafA branch
+       in treeA r leafA branch
 ```
 
 This code only needs to convert a function argument of type `b → r` to a function of type `a → r`.
@@ -3938,8 +3937,8 @@ let fmapC
     λ(r : Type) → λ(fbrr : F b r → r) →
       let farr : F a r → r = λ(far : F a r) →
         let fbr : F b r = bimap_F a r b r f (identity r) far
-          in fbrr fbr
-            in ca r farr
+        in fbrr fbr
+      in ca r farr
 ```
 
 We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a functor `LFix (F a)`.
@@ -3952,8 +3951,8 @@ let functorLFix
           λ(r : Type) → λ(fbrr : F b r → r) →
             let farr : F a r → r = λ(far : F a r) →
               let fbr : F b r = bifunctorF.bimap a r b r f (identity r) far
-                in fbrr fbr
-                  in ca r farr
+              in fbrr fbr
+            in ca r farr
   }
 ```
 
@@ -4123,7 +4122,7 @@ The other is the function `outE`:
 let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     let ep : Exists P = pack P t pt
-      in consume ep
+    in consume ep
 ```
 
 We will prove below (in the chapter "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
@@ -4300,7 +4299,7 @@ let unfixG : GFix F → F (GFix F)
   = λ(g : ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r) →
     let f : ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
       = λ(t : Type) → λ(p : { seed : t, step : t → F t }) → ???
-        in g (F (GFix F)) f
+    in g (F (GFix F)) f
 ```
 
 Within the body of `f`, we have a type `t` and two values `p.seed : t` and `p.step : t → F t`.
@@ -4336,7 +4335,7 @@ let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : 
       = λ(F : Type → Type) → λ(functorF : Functor F) → λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
         let k : t → GFix F = λ(x : t) → pack (GF_T F) t { seed = x, step = p.step }
         let fk : F t → F (GFix F) = functorF.fmap t (GFix F) k
-          in fk (p.step p.seed)
+        in fk (p.step p.seed)
 let unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(g : GFix F) →
     g (F (GFix F)) (packF F functorF)
@@ -4350,7 +4349,7 @@ Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`:
 let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fg : F (GFix F)) →
     let fmap_unfixG : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) (unfixG F functorF)
-      in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfixG }
+    in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfixG }
 ```
 
 ### Data constructors and pattern matching
@@ -4481,7 +4480,7 @@ let headTailOption
                 }
          , Nil = None ResultT
       } (state.step state.seed)
-        in s (Optional ResultT) unpack_
+    in s (Optional ResultT) unpack_
 ```
 
 Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further data items from the stream, or to discover that the stream has finished.
@@ -4503,9 +4502,9 @@ let streamToList : ∀(a : Type) → Stream a → Natural → List a
      let headTail : Optional { head : a, tail : Stream a } = merge { None = None { head : a, tail : Stream a }
                                                                    , Some = λ(str : Stream a) → headTailOption a str
                                                                    } prev.stream
-       in merge { None = prev // { stream = None (Stream a) }
+     in merge { None = prev // { stream = None (Stream a) }
                 , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail } } headTail
-         in (Natural/fold limit Accum update init).list
+    in (Natural/fold limit Accum update init).list
 ```
 
 #### Creating finite streams
@@ -4522,7 +4521,7 @@ let Stream/nil : ∀(a : Type) → Stream a
   = λ(a : Type) → 
     let r = {}
     let seed : r = {=}
-      in makeStream a r seed (λ(_ : r) → (F a r).Nil)
+    in makeStream a r seed (λ(_ : r) → (F a r).Nil)
 ```
 
 How can we create a finite stream, say, `[1, 2, 3]`?
@@ -4539,9 +4538,9 @@ let HeadTailT = λ(a : Type) → < Cons : { head : a, tail : List a } | Nil >
 let headTail : ∀(a : Type) → List a → HeadTailT a
   = λ(a : Type) → λ(list : List a) →
     let getTail = https://prelude.dhall-lang.org/List/drop 1 a
-      in merge { None = (HeadTailT a).Nil
+    in merge { None = (HeadTailT a).Nil
                , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = getTail list }
-      } (List/head a list)
+    } (List/head a list)
 
 let listToStream : ∀(a : Type) → List a → Stream a
   = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
@@ -4559,7 +4558,7 @@ let streamFunction
   = λ(a : Type) → λ(seed : a) → λ(f : a → a) →
     let FA = < Cons : { head : a, tail : a } | Nil >
     let step : a → FA = λ(x : a) → FA.Cons { head = x, tail = f x }
-      in makeStream a a seed step
+    in makeStream a a seed step
 ```
 
 We can compute a finite prefix of an infinite stream:
@@ -4584,11 +4583,11 @@ let repeatForever : ∀(a : Type) → List a → Stream a
         merge { None = (HeadTailT a).Cons { head = h.head, tail = h.tail }
               , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = getTail prev }
         } (List/head a prev)
-        in makeStream a (List a) list step
+      in makeStream a (List a) list step
     -- Check whether `list` is empty. If so, return an empty stream.
-      in merge { Nil = Stream/nil a
+    in merge { Nil = Stream/nil a
                , Cons = λ(h : { head : a, tail : List a }) → mkStream h
-               } (headTail a list)
+             } (headTail a list)
 
 let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
         ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
@@ -4622,7 +4621,7 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
           } (headTailOption a str) 
         , InSecond = stepSecond
       } state
-        in makeStream a State (State.InFirst first) step
+    in makeStream a State (State.InFirst first) step
 ```
 
 
@@ -4636,12 +4635,12 @@ let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
    let State = { remaining : Natural, stream : Stream a}    -- Internal state of the new stream.
    let StepT = < Nil | Cons : { head : a, tail : State } >
    let step : State → StepT = λ(state : State) →
-       if Natural/isZero state.remaining then StepT.Nil else merge {
-              None = StepT.Nil
-            , Some = λ(ht : { head : a, tail : Stream a }) → 
-             StepT.Cons { head = ht.head, tail = { remaining = Natural/subtract 1 state.remaining, stream =  ht.tail } }
-          } (headTailOption a state.stream) 
-         in makeStream a State { remaining = n, stream = stream } step
+     if Natural/isZero state.remaining then StepT.Nil else merge {
+            None = StepT.Nil
+          , Some = λ(ht : { head : a, tail : Stream a }) → 
+           StepT.Cons { head = ht.head, tail = { remaining = Natural/subtract 1 state.remaining, stream =  ht.tail } }
+      } (headTailOption a state.stream) 
+    in makeStream a State { remaining = n, stream = stream } step
 ```
 
 This is different from `streamToList` because we are not traversing the stream; we just need to modify the stream's seed and the step function.
@@ -4722,7 +4721,7 @@ let Stream/scan = λ(a : Type) → λ(sa : Stream a) → λ(b : Type) → λ(ini
       None = ResultT.Nil,
       Some = λ(headTail : { head : a, tail : Stream a }) →
        let newCurrent = update headTail.head s.current
-         in ResultT.Cons { head = newCurrent, tail = { source = headTail.tail, current = newCurrent } },
+       in ResultT.Cons { head = newCurrent, tail = { source = headTail.tail, current = newCurrent } },
     } (headTailOption a s.source)
   in makeStream b State initState step
 ```
@@ -5022,7 +5021,7 @@ let hylo_Nat : ∀(F : Type → Type) → Functor F →
     λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
       let update : (t → r) → t → r = λ(f : t → r) → λ(y : t) → alg (functorF.fmap t r f (coalg y))
       let transform : t → r = Natural/fold limit (t → r) update stopgap
-        in transform seed
+      in transform seed
 ```
 
 The function `hylo_Nat` is a general fold-like aggregation function that can be used with arbitrary recursion schemes `F`. 
@@ -5055,7 +5054,7 @@ let hylo_T
     let reduce : F (t → r) → t → r
       = λ(ftr : F (t → r)) → λ(arg : t) → alg (F/ap t r ftr (coalg t))
     let transform : t → r = template (t → r) reduce
-      in transform seed 
+    in transform seed 
 ```
 
 For this code, we need to have a function `F/ap` with type `F (a → b) → F a → F b`.
@@ -5157,7 +5156,7 @@ let functorFunctorCompose
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let ga2gb : G a → G b = functorG.fmap a b f
-          in functorF.fmap (G a) (G b) ga2gb
+        in functorF.fmap (G a) (G b) ga2gb
     }
 ```
 
@@ -5166,18 +5165,18 @@ We can also automatically construct the evidence values for those cases:
 
 ```dhall
 let functorContrafunctorCompose
-  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (Compose F G)
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Compose F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
-          in functorF.fmap (G b) (G a) gb2ga
+        in functorF.fmap (G b) (G a) gb2ga
     }
 let contrafunctorFunctorCompose
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Functor G) → Contrafunctor (Compose F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Functor G → Contrafunctor (Compose F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let ga2gb : G a → G b = functorG.fmap a b f
-          in contrafunctorF.cmap (G a) (G b) ga2gb
+        in contrafunctorF.cmap (G a) (G b) ga2gb
     }
 ```
 
@@ -5189,7 +5188,7 @@ let contrafunctorContrafunctorCompose
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
-          in contrafunctorF.cmap (G b) (G a) gb2ga
+        in contrafunctorF.cmap (G b) (G a) gb2ga
     }
 ```
 
@@ -5215,7 +5214,7 @@ let fProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) �
     { _1 = f arg._1, _2 = g arg._2 }
 
 let functorProduct
-  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Product F G)
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (Product F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         -- Return a function of type Pair (F a) (G a) → Pair (F b) (G b).
@@ -5259,7 +5258,7 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
           } arg
 
 let functorCoProduct
-  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (CoProduct F G)
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (CoProduct F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         -- Return a function of type Either (F a) (G a) → Either (F b) (G b).
@@ -5267,7 +5266,7 @@ let functorCoProduct
     }
 
 let contrafunctorCoProduct
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (CoProduct F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (CoProduct F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         -- Return a function of type Either (F b) (G b) → Either (F a) (G a).
@@ -5278,9 +5277,50 @@ let contrafunctorCoProduct
 
 ### Function types with functors and contrafunctors
 
-### Least and greatest fixpoints
-
 ### Universal and existential type quantifiers
+
+Given a type constructor with multiple type parameters, we may impose a type quantifier on some of the parameters and obtain a type constructor with fewer type parameters.
+Imposing type quantifiers will not change the covariance properties of the type constructor.
+In this way, we may produce functors or contrafunctors that have type quantifiers.
+
+Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the second type parameter of `F`.
+In a mathematical notation, the definition of `G` is `G a = ∀b. F a b`.
+The corresponding Dhall code is:
+
+```dhall
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ???
+let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
+```
+
+If `F a b` is covariant with respect to `a` then so is `G a`; if `F a b` is contravariant with respect to `a` then so is `G a`.
+
+To express the requirement that `F a b` is covariant with respect to `a` (while `F` could be anything with respect to `b`), we write a `Functor` evidence value for the type constructor `λ(a : Type) → F a b` while keeping `b` fixed:
+
+```dhall
+let functorF1
+  : ∀(b : Type) → Functor (λ(a : Type) → F a b)
+  = λ(b : Type) → { fmap = ??? }
+```
+
+Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`:
+
+```dhall
+let functorForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let G = λ(a : Type) → ∀(b : Type) → F a b
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
+        let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
+        in gd
+      }
+```
+
+Existential quantifiers have similar properties.
+If we define `G` by `G a = ∃b. F a b` then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
+
+TODO
+
+### Least and greatest fixpoints
 
 ## Filterable functors and contrafunctors, and their combinators
 
@@ -6099,14 +6139,14 @@ let fix = (./LFix.dhall).fix
 let fromCY : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → CY F G → G (LFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(cy : CY F G) →
     let C = LFix F
-      in cy C (fix F functorF)
+    in cy C (fix F functorF)
 let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G (LFix F) → CY F G
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(functorG : Functor G) →
     let C = LFix F
-      in λ(gc : G C) →
+    in λ(gc : G C) →
         λ(R : Type) → λ(frr: F R → R) →
           let c2r : C → R = λ(c : C) → c R frr
-            in functorG.fmap C R c2r gc
+          in functorG.fmap C R c2r gc
 ```
 For brevity, we will write `C` instead of `LFix F` to denote that Church-encoded recursive type.
 
@@ -6286,7 +6326,7 @@ where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) �
 T === ∀(a : Type) →
   let P = λ(b : Type) → G a b
   let Q = λ(b : Type) → (F a b → a) → a
-    in ∀(b : Type) → (P b → b) → Q b
+  in ∀(b : Type) → (P b → b) → Q b
 ```
 
 With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
@@ -6298,7 +6338,7 @@ So, we may apply the Church-Yoneda identity and obtain:
 T === ∀(a : Type) →
   let P = λ(b : Type) → G a b
   let Q = λ(b : Type) → (F a b → a) → a
-    in Q (LFix P)
+  in Q (LFix P)
   === ∀(a : Type) → (F a (LFix P) → a) → a
 ```
 
@@ -6458,7 +6498,7 @@ let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
 let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
   = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pt : P T) →
     let ep : Exists P = pack P T pt
-      in consume ep
+    in consume ep
 ```
 
 To check that the functions `inE R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
