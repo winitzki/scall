@@ -64,7 +64,10 @@ in  GithubActions.Workflow::{
                           { name = "Tutorial PDF file and logs"
                           , if-no-files-found = "error"
                           , path =
-                              "./tutorial/programming_dhall.pdf ./tutorial/generated.log ./tutorial/programming_dhall.log"
+                              ''
+                              ./tutorial/programming_dhall.pdf
+                              ./tutorial/generated.log
+                              ./tutorial/programming_dhall.log''
                           }
                       )
                   }
