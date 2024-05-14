@@ -9,7 +9,7 @@ val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty" % "0.16.0" % Test
 
 val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.0.2"
 val antlr4           = "org.antlr"                  % "antlr4-runtime"              % "4.13.1"
-val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalone" % "1.2.1" % Compile
+val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalone" % "1.2.1" % Provided
 
 val os_lib        = "com.lihaoyi"    %% "os-lib"         % "0.9.2"
 val httpRequest   = "com.lihaoyi"    %% "requests"       % "0.8.0"
@@ -35,7 +35,7 @@ lazy val jdkModuleOptions: Seq[String] = {
 
 lazy val root = (project in file("."))
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses)
+  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli)
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(
@@ -102,6 +102,25 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
+  ).dependsOn(scall_core, scall_testutils % "test->compile")
+
+lazy val scall_cli = (project in file("scall-cli"))
+  .settings(
+    organization               := "io.chymyst",
+    version                    := "0.1",
+    assembly / mainClass       := Some("io.chymyst.dhall.Main"),
+    assembly / assemblyJarName := "dhall-cli.jar",
+    scalaVersion               := scalaV,
+    crossScalaVersions         := Seq(scala2V, scala3V),
+    Test / parallelExecution   := true,
+    Test / fork                := true,
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+    assembly / assemblyMergeStrategy ~= (old => {
+      case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
+      case x                                                             => old(x)
+    }),
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
 lazy val abnf = (project in file("abnf")).settings(

@@ -4982,14 +4982,14 @@ These repeated applications create a data structure of a deeply nested type: `f 
 
 We find that the hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
 
-However, it is impossible to assure up front that the data structure of type `GFix F` is finite.
+However, it is impossible to assure up front that a given data structure of type `GFix F` is finite.
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
-(In fact, a function with that type signature cannot be implemented in Dhall.)
+In fact, a function with the type signature of `hylo` cannot be implemented in Dhall.
 
 #### Depth-limited hylomorphisms
 
-Implementing hylomorphisms in Dhall requires modifying the type signature shown above, explicitly ensuring termination.
-One possibility is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value (of type `t → r`).
+Implementing hylomorphisms in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
+One possibility, [shown on an example in the blog post here](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
 The stop-gap value will be used when the recursion bound is smaller than the recursion depth of the data.
 If the recursion bound is large enough, the hylomorphism's output value will be actually independent of the stop-gap value.
 
@@ -4997,11 +4997,11 @@ To show how that works, we will first write Haskell code for the depth-limited h
 Then we will translate that code to Dhall.
 
 The idea of depth-limited hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
-To be able to do that, we begin by setting `h = stopgap` as the initial value (where `default : t → r` is a given default value) and then expand the recursive definition repeatedly.
+To be able to do that, we begin by setting `h = stopgap` as the initial value (where `stopgap : t → r` is a given default value) and then expand the recursive definition repeatedly.
 For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
 ```haskell
-h_0 = default 
+h_0 = stopgap 
 h_1 = alg . fmap h_0 . coalg
 h_2 = alg . fmap h_1 . coalg
 h_3 = alg . fmap h_2 . coalg
@@ -5010,7 +5010,7 @@ h_3 = alg . fmap h_2 . coalg
 
 All the intermediate values `h_1`, `h_2`, `h_3`, ..., are still of type `t → r`.
 After repeating this procedure `n` times (where `n` is a given natural number), we will obtain a function `h_n : t → r`.
-The example shown in the previous subsection explains that applying `h_n` to a value `t` will give a result (of type `r`) that does not depend on the `stopgap` value, as long as the recursion depth `n` is large enough.
+The example in the previous subsection shows that applying `h_n` to a value `t` will give a result (of type `r`) that does not depend on the `stopgap` value, as long as the recursion depth `n` is large enough.
 
 Let us now implement this logic in Dhall:
 
@@ -5026,9 +5026,9 @@ let hylo_Nat : ∀(F : Type → Type) → Functor F →
 
 The function `hylo_Nat` is a general fold-like aggregation function that can be used with arbitrary recursion schemes `F`. 
 Termination is assured because we specify a limit for the recursion depth in advance.
-This function will be used later in this book for implementing the `zip` method for Church-encoded type constructors.
+This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see an example of using `hylo_Nat`.  TODO
+For now, let us see a simple example of using `hylo_Nat`.  TODO
 
 #### Hylomorphisms driven by a Church-encoded template
 
