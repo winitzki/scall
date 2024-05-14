@@ -163,7 +163,12 @@ object Semantics {
   def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
     cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
 
-  final case class BetaNormalizingOptions(stopExpanding: Boolean = false, etaReduce: Boolean = false, rewriteAssociativity: Boolean = false)
+  final case class BetaNormalizingOptions(
+    stopExpanding: Boolean = false,
+    etaReduce: Boolean = false,
+    rewriteAssociativity: Boolean = false,
+    stopExpandingIfFreeVars: Boolean = false,
+  )
 
   private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
     cacheBetaNormalize.get(ExprWithOptions(expr, options)) match {
@@ -178,13 +183,13 @@ object Semantics {
 
   private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
 
-  private def needShortcut(oldExpr: => Expression, newExpr: => Expression): Boolean = {
+  private def needShortcut(oldExpr: => Expression, newExpr: => Expression, options: BetaNormalizingOptions): Boolean = options.stopExpanding && {
     lazy val oldLength = oldExpr.exprCount
     lazy val newLength = newExpr.exprCount
     // TODO: perhaps enable this optimization. See https://github.com/dhall-lang/dhall-lang/issues/1213#issuecomment-1855878600
-    //    lazy val hasFreeVars = Semantics.freeVars(oldExpr).names.nonEmpty
+    val hasFreeVars    = options.stopExpandingIfFreeVars && Semantics.freeVars(oldExpr).names.nonEmpty
 
-    val result = newLength >= oldLength && newLength > 500 // || hasFreeVars
+    val result = hasFreeVars || (newLength >= oldLength && newLength > 500)
     // if (result) println(s"DEBUG: shortcut detected with $oldExpr")
     result
   }
@@ -192,8 +197,8 @@ object Semantics {
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
   private def betaNormalizeUncached(expr: Expression, options: BetaNormalizingOptions): BNResult = {
-    //    if (expr.print contains " : Natural) → List/fold { index : Natural, value : {} } (List/indexed {} (Natural/fold ")
-    //      println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = $stopExpanding)")
+//        if (expr.print contains "Natural/fold")
+//          println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = ${options.stopExpanding})")
     implicit def toBNResult(e: Expression): BNResult = BNResult(e)
 
     implicit def toBNResultFromScheme(e: ExpressionScheme[Expression]): BNResult = BNResult(e)
@@ -385,7 +390,9 @@ object Semantics {
       case Application(func, arg) =>
         lazy val argN = arg.pipe(bn)
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
-        bn(func).scheme match {
+        // While expanding the function head (`func`), do not expand when expressions contain free vars. This is an optimization.
+        // TODO report issue - add this optimization to the Dhall standard document
+        betaNormalizeOrUnexpand(func, options.copy(stopExpandingIfFreeVars = true)).scheme match {
           case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
           case Application(
@@ -403,7 +410,7 @@ object Semantics {
                 if (newResult == currentResult) {
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   currentResult
-                } else if (options.stopExpanding && needShortcut(currentResult, newResult)) {
+                } else if (needShortcut(currentResult, newResult, options)) {
                   // If the beta-normalized result grew in size, we return the unevaluated intermediate result:
                   // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
                   // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
