@@ -473,6 +473,23 @@ object Syntax {
       }
     }
 
+    import scala.util.control.TailCalls._
+
+    def traverseTC[H, F[_]](f: E => TailRec[F[H]])(implicit ev: Applicative[F]): TailRec[F[ExpressionScheme[H]]] = {
+      type G[A] = TailRec[F[A]]
+      implicit val ApplicativeG: Applicative[G] = new Applicative[G] {
+        override def zip[A, B](fa: G[A], fb: G[B]): G[(A, B)] = for {
+          a <- fa
+          b <- fb
+        } yield ev.zip(a, b)
+
+        override def map[A, B](f: A => B)(fa: G[A]): G[B] = fa.map(_.map(f))
+
+        override def pure[A](a: A): G[A] = done(ev.pure(a))
+      }
+      traverse[H, G](e => tailcall(f(e)))
+    }
+
     def traverse[H, F[_]](f: E => F[H])(implicit ev: Applicative[F]): F[ExpressionScheme[H]] = {
 
       this match {
@@ -897,18 +914,20 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
-    def exprCount: Int = {
+    lazy val exprCount: Int = {
       implicit val monoidInt: Monoid[Int]                         = new Monoid[Int] {
         override def empty: Int = 1
 
         override def combine(a: Int, b: Int): Int = a + b
       }
       implicit val monoidConst: Applicative[Monoid.Const[Int, *]] = Monoid.trivialApplicative[Int]
-      traverseRecursive[Monoid.Const[Int, *]] { a => 1 }
+      traverseRecursive[Monoid.Const[Int, *]] { a => 1 }.result
     }
 
-    def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =
-      scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
+    import scala.util.control.TailCalls._
+
+    def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): TailRec[F[Expression]] =
+      scheme.traverseTC[Expression, F](e => tailcall(e.traverseRecursive(f))).map(_.map(Expression.apply))
 
     /*def uniqueSubexpressionReferences: Expression = {
       val t: UniqueReferences[Expression] = traverseRecursive[UniqueReferences](UniqueReferences.make)
@@ -966,6 +985,12 @@ object Syntax {
       *   A string representation of `this` expression in (valid but only approximately standard) Dhall syntax.
       */
     lazy val print: String = Syntax.print1(this)
+
+    private val dummyHashCode = 1234567890
+
+    override def hashCode(): Int = {
+      if (exprCount > 10000) dummyHashCode else super.hashCode()
+    }
 
     override def toString: String = {
       val result = print

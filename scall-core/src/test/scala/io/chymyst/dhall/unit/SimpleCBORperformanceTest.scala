@@ -35,11 +35,22 @@ object SimpleCBORperformanceTest {
 
 class SimpleCBORperformanceTest extends DhallTest {
 
+  import scala.util.control.TailCalls._
+
   // λ(x : Natural) → Natural/fold x Natural () 1
-  def largeNormalForm(size: Int): Expression = if (size == 0)
-    "λ(x : Natural) → x + 1".dhall
-  else {
-    (v("x") | ~Natural) -> (~NaturalFold)(v("x"))(~Natural)(largeNormalForm(size - 1))(v("x") + NaturalLiteral(1))
+  def largeNormalForm(size: Int): Expression = {
+    def large(size: Int): TailRec[Expression] =
+      if (size == 0)
+        done("λ(x : Natural) → x + 1".dhall)
+      else
+        for {
+          x <- tailcall(large(size - 1))
+        } yield {
+          (v("x") | ~Natural) -> (~NaturalFold)(v("x"))(~Natural)(x)(v("x") + NaturalLiteral(1))
+
+        }
+
+    large(size).result
   }
 
   // s"λ(x : Natural) → Natural/fold x Natural (${largeNormalForm(size - 1)}) (x + 1)")
@@ -63,5 +74,18 @@ class SimpleCBORperformanceTest extends DhallTest {
     // TODO: fix stack overflow
     val elapsed1 = elapsedNanos(expr.typeCheckAndBetaNormalize().unsafeGet)._2 / 1000000.0
     println(s"beta-normalizing expression of length $n takes $elapsed1 ms")
+  }
+
+  test("no more stack overflow in Scala MurmurHash") {
+    val n         = 50000
+    val delta     = 1000
+    val lastGoodN = (1 to n by delta).map { i =>
+      println(s"Iteration $i")
+      val expr  = largeNormalForm(i) // This will throw an exception if we fail to produce that expression due to stack overflow.
+      val count = expr.exprCount     // This should not throw any exceptions either.
+      val hash = expr.hashCode()
+      i
+    }.last
+    expect(lastGoodN > n - delta)
   }
 }
