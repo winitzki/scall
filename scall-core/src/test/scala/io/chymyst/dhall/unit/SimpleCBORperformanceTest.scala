@@ -1,16 +1,13 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import com.upokecenter.cbor.CBORObject
-import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
 import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.Expression.v
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold}
 import io.chymyst.dhall.unit.SimpleCBORperformanceTest.{cborRoundtrip1, cborRoundtrip2}
-import io.chymyst.dhall.unit.SimpleCBORtest.cborRoundtrip
-import io.chymyst.dhall.{CBOR, CBORmodel, Grammar}
+import io.chymyst.dhall.{CBOR, CBORmodel}
 
 object SimpleCBORperformanceTest {
   def cborRoundtrip1(expr: Expression) = {
@@ -51,10 +48,20 @@ class SimpleCBORperformanceTest extends DhallTest {
     val n        = 150 // TODO: n = 250 gives a stack overflow
     val expr     = largeNormalForm(n)
     expect(expr.exprCount == 6 * n + 3)
-    // TODO: this takes an exponentially long time! Need to fix.
+    // TODO: this creates a stack overflow, need to fix.
     //    expr.typeCheckAndBetaNormalize().unsafeGet
     val elapsed1 = elapsedNanos(cborRoundtrip1(expr))._2 / 1000000.0
     val elapsed2 = elapsedNanos(cborRoundtrip2(expr))._2 / 1000000.0
-    println(s"$elapsed1 ms, $elapsed2 ms")
+    println(s"cbor1 : $elapsed1 ms, cbor2 : $elapsed2 ms")
+    expect(elapsed1 > elapsed2 * 1.5) // cbor1 is about 2x slower than cbor2
+  }
+
+  test("beta-normalizing performance") {
+    val n        = 75
+    val expr     = largeNormalForm(n)
+    expect(expr.exprCount == 6 * n + 3)
+    // TODO: fix stack overflow
+    val elapsed1 = elapsedNanos(expr.typeCheckAndBetaNormalize().unsafeGet)._2 / 1000000.0
+    println(s"beta-normalizing expression of length $n takes $elapsed1 ms")
   }
 }

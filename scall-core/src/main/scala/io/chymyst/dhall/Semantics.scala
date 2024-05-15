@@ -154,6 +154,7 @@ object Semantics {
 
   val maxCacheSize: Option[Int] = Some(2000000) // Specify `None` for no limit.
 
+  // Use this case class as a dictionary key for caching beta normalization, because the results are different depending on options.
   final case class ExprWithOptions(expr: Expression, options: BetaNormalizingOptions)
 
   val cacheBetaNormalize = IdempotentCache("beta-normalization cache", ObservedCache.createCache[ExprWithOptions, ExprWithOptions](maxCacheSize))
@@ -392,8 +393,10 @@ object Semantics {
       case Application(func, arg) =>
         lazy val argN = arg.pipe(bn)
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
-        // TODO report issue - add this optimization to the Dhall standard document
+
         // While expanding the function head (`func`), do not expand when expressions contain free vars. This is an optimization.
+        // TODO report issue - add this optimization to the Dhall standard document
+
         betaNormalizeOrUnexpand(func, options.copy(stopExpandingIfFreeVars = true)).scheme match {
           case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
@@ -688,9 +691,14 @@ object Semantics {
           case t                                   => t
         }
 
-      case RecordType(_) => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
+      // TODO rewrite RecordType identity expressions
+      case RecordType(_)     => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
 
-      case RecordLiteral(_) => normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
+      case RecordLiteral(_) => {
+        val normalForm = normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
+
+        if (options.rewriteRecordIdentity) rewriteRecordIdentity(normalForm) else normalForm
+      }
 
       case UnionType(_) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
 
@@ -707,6 +715,9 @@ object Semantics {
       case Import(_, _, _) => throw new Exception(s"Unresolved import in $expr cannot be beta-normalized")
     }
   }
+
+  // TODO rewrite { x.a, x.b } as x.{a,b} and normalize
+  private def rewriteRecordIdentity(normalForm: RecordLiteral[Expression]): RecordLiteral[Expression] = normalForm
 
   // Shortcut: identical JVM object references are equivalent.
   // But we should not use x == y for Double values, because that would incorrectly judge -0.0 === 0.0, which we don't want.
