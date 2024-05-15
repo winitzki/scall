@@ -390,8 +390,8 @@ object Semantics {
       case Application(func, arg) =>
         lazy val argN = arg.pipe(bn)
         // If funcN evaluates to a builtin name, and if it is fully applied to all required arguments, implement the builtin here.
-        // While expanding the function head (`func`), do not expand when expressions contain free vars. This is an optimization.
         // TODO report issue - add this optimization to the Dhall standard document
+        // While expanding the function head (`func`), do not expand when expressions contain free vars. This is an optimization.
         betaNormalizeOrUnexpand(func, options.copy(stopExpandingIfFreeVars = true)).scheme match {
           case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
@@ -718,7 +718,7 @@ object Semantics {
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
-    val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true)
+    val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true, stopExpandingIfFreeVars = true)
     val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
     val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)
     normalizedX.toCBORmodel.encodeCbor1 sameElements normalizedY.toCBORmodel.encodeCbor1
