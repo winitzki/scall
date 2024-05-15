@@ -2,11 +2,22 @@ package io.chymyst.dhall
 
 import fastparse.Parsed
 
+import java.io.{InputStream, OutputStream}
+
 object Main {
-  def main(args: Array[String]) = {
-    Parser.parseDhallStream(System.in) match {
-      case Parsed.Success(value, index) => System.out.println(value.value.typeCheckAndBetaNormalize().unsafeGet.print)
-      case failure: Parsed.Failure      => System.err.println(s"Error parsing Dhall input: ${failure}\n${failure.extra}")
+
+  def process(input: InputStream, output: OutputStream): Unit =
+    Parser.parseDhallStream(input) match {
+      case Parsed.Success(value, index) =>
+        val result = value.value.typeCheckAndBetaNormalize().unsafeGet.print.getBytes("UTF-8")
+        output.write(result)
+
+      case failure: Parsed.Failure => System.err.println(s"Error parsing Dhall input: ${failure}\n${failure.extra}")
     }
+
+  // $COVERAGE-OFF$
+  def main(args: Array[String]) = {
+    process(System.in, System.out)
   }
+  // $COVERAGE-ON$
 }
