@@ -434,7 +434,7 @@ object Syntax {
 
       implicit def ffOption(e: Option[E]): Option[H] = e map f
 
-      implicit def fseq[A](e: Seq[E]): Seq[H] = e map f
+      implicit def fseq(e: Seq[E]): Seq[H] = e map f
 
       implicit def fseqE[A](e: Seq[(A, E)]): Seq[(A, H)] = e map { case (a, b) => (a, b) }
 
@@ -442,7 +442,7 @@ object Syntax {
 
       implicit def flist[A](e: List[(A, E)]): List[(A, H)] = e map { case (a, b) => (a, b) }
 
-      implicit def fImport[A](e: ImportType[E]): ImportType[H] = e map f
+      implicit def fImport(e: ImportType[E]): ImportType[H] = e map f
 
       this match {
         case Lambda(name, tipe, body)               => Lambda(name, tipe, body)
@@ -976,9 +976,9 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    def alphaNormalized: Expression                                 = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression                             = betaNormalizeWithType(None)
-    def betaNormalizeWithType(tipe: Option[Expression]): Expression = Semantics.betaNormalizeAndExpand(this, tipe)
+    lazy val alphaNormalized: Expression                                    = Semantics.alphaNormalize(this)
+    lazy val betaNormalized: Expression                                     = Semantics.betaNormalizeAndExpand(this, None)
+    @inline def betaNormalizeWithType(tipe: Option[Expression]): Expression = Semantics.betaNormalizeAndExpand(this, tipe)
 
     /** Print `this` to Dhall syntax.
       *

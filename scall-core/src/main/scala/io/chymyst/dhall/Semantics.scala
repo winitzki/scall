@@ -635,9 +635,11 @@ object Semantics {
             val newR: Expression = ProjectByLabels(right, labels intersect defs.map(_._1))
             Expression(ExprOperator(newL, Operator.Prefer, newR)).pipe(bn)
 
-          // This case is t.{} where t could be a record type literal, or a n unknown value of a record type.
+          // This case is t.{} where t could be a record type literal, or an unknown value of a record type.
           // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
           case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
+          // TODO normalize x.{a, b} to just x if x's type has exactly those fields
+          // case _ => ???
 
           case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, None, options))
         }
@@ -695,9 +697,14 @@ object Semantics {
       case RecordType(_)     => normalizeArgs.asInstanceOf[RecordType[Expression]].sorted
 
       case RecordLiteral(_) => {
-        val normalForm = normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
-
-        if (options.rewriteRecordIdentity) rewriteRecordIdentity(normalForm) else normalForm
+        val normalizedFields = normalizeArgs.asInstanceOf[RecordLiteral[Expression]].sorted
+        // TODO report issue - add to standard, rewrite { a = x.a, b = x.b } as x.{a, b}
+        if (options.rewriteRecordIdentity && normalizedFields.defs.nonEmpty) {
+          rewriteRecordAsProjection(normalizedFields) match {
+            case Some(replacedByProjection) => betaNormalizeUncached(replacedByProjection, tipe, options)
+            case None                       => normalizedFields
+          }
+        } else normalizedFields
       }
 
       case UnionType(_) => normalizeArgs.asInstanceOf[UnionType[Expression]].sorted
@@ -716,8 +723,25 @@ object Semantics {
     }
   }
 
-  // TODO rewrite { x.a, x.b } as x.{a,b} and normalize
-  private def rewriteRecordIdentity(normalForm: RecordLiteral[Expression]): RecordLiteral[Expression] = normalForm
+  // TODO report issue - add to the standard, rewrite a non-empty record { a = x.a, b = x.b } as x.{a, b} as beta-reduction
+  // For now, we do this only in assert checking.
+  private def rewriteRecordAsProjection(recordLiteral: RecordLiteral[Expression]): Option[Expression] = {
+    recordLiteral.defs.head._2.scheme match {
+      case Field(headExpr, _) =>
+        val allFieldsMatch = recordLiteral.defs.forall { case (fieldName, expr) => // This field is fieldName = expr and expr must be headExpr.fieldName
+          expr.scheme match {
+            case Field(base, name) => base == headExpr && name == fieldName
+            case _                 => false
+          }
+        }
+        if (allFieldsMatch)
+          Some(Expression(ProjectByLabels(headExpr, recordLiteral.defs.map(_._1))))
+        else
+          None
+      case _                  => None
+    }
+
+  }
 
   // Shortcut: identical JVM object references are equivalent.
   // But we should not use x == y for Double values, because that would incorrectly judge -0.0 === 0.0, which we don't want.
