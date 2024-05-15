@@ -99,7 +99,7 @@ object ImportResolution {
     case None => Resolved(expr)
 
     case Some(BytesLiteral(hex)) =>
-      val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1
+      val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor2
       val ourHash  = Semantics.computeHash(ourBytes).toLowerCase
       if (hex.toLowerCase == ourHash) {
         dhallCacheRoots

@@ -37,7 +37,7 @@ object Semantics {
     CBytes.byteArrayToHexString(MessageDigest.getInstance("SHA-256").digest(bytes)).toLowerCase
 
   def semanticHash(expr: Expression, currentFile: java.nio.file.Path): String =
-    computeHash(expr.resolveImports(currentFile).alphaNormalized.betaNormalized.toCBORmodel.encodeCbor1)
+    computeHash(expr.resolveImports(currentFile).alphaNormalized.betaNormalized.toCBORmodel.encodeCbor2)
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/shift.md
   def shift(positive: Boolean, x: VarName, minIndex: Natural, expr: Expression): Expression = {
@@ -168,6 +168,8 @@ object Semantics {
     etaReduce: Boolean = false,
     rewriteAssociativity: Boolean = false,
     stopExpandingIfFreeVars: Boolean = false,
+    rewriteRecordIdentity: Boolean = false,
+    rewriteMergeOfMerge: Boolean = false,
   )
 
   private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
@@ -707,28 +709,37 @@ object Semantics {
   }
 
   // Shortcut: identical JVM object references are equivalent.
-  // But do not use x == y here, because that would incorrectly judge -0.0 === 0.0, which we don't want.
+  // But we should not use x == y for Double values, because that would incorrectly judge -0.0 === 0.0, which we don't want.
   private def simpleEquivalence(x: Expression, y: Expression): Boolean = x.eq(y) || {
     x.scheme match {
-      case DoubleLiteral(value) => false
-      case _                    => x == y // Equivalent as case classes.
+      case DoubleLiteral(_) => false
+      case _                => x == y // Equivalent as case classes.
     }
   }
+
+  private val optionsForEquivalenceCheck = BetaNormalizingOptions(
+    etaReduce = true,
+    rewriteAssociativity = true,
+    stopExpandingIfFreeVars = true,
+    rewriteRecordIdentity = true,
+    rewriteMergeOfMerge = true,
+  )
 
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
-    val options     = BetaNormalizingOptions(etaReduce = true, rewriteAssociativity = true, stopExpandingIfFreeVars = true)
-    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options)
-    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options)
-    normalizedX.toCBORmodel.encodeCbor1 sameElements normalizedY.toCBORmodel.encodeCbor1
+    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, optionsForEquivalenceCheck)
+    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, optionsForEquivalenceCheck)
+    normalizedX.toCBORmodel.encodeCbor2 sameElements normalizedY.toCBORmodel.encodeCbor2
   }
 
   def desugar(c: Completion[Expression]): Expression =
     Expression(ExprOperator(Field(c.base, FieldName("default")), Operator.Prefer, c.target)) | Field(c.base, FieldName("Type"))
 }
 
-final case class FreeVars[A](names: Set[VarName]) // Quick-and-dirty foldMap replacement.
+final case class FreeVars[A](names: Set[VarName])
+// Quick-and-dirty foldMap replacement.
+// FreeVars is a constant functor and a monoid, so we define an applicative functor evidence for it.
 
 object FreeVars {
   implicit val ApplicativeFreeVars: Applicative[FreeVars] = new Applicative[FreeVars] {
