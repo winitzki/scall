@@ -161,8 +161,8 @@ object Semantics {
 
   val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
-    cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
+  def betaNormalizeAndExpand(expr: Expression, tipe: Option[Expression], options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
+    cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, tipe, options).expr, options)).expr
 
   final case class BetaNormalizingOptions(
     stopExpanding: Boolean = false,
@@ -173,11 +173,11 @@ object Semantics {
     rewriteMergeOfMerge: Boolean = false,
   )
 
-  private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
+  private def betaNormalizeOrUnexpand(expr: Expression, tipe: Option[Expression], options: BetaNormalizingOptions): Expression =
     cacheBetaNormalize.get(ExprWithOptions(expr, options)) match {
       case Some(normalized) => normalized.expr
       case None             =>
-        val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, options)
+        val BNResult(normalized, didShortcut) = betaNormalizeUncached(expr, tipe, options)
         if (didShortcut) {
           //        println(s"DEBUG in normalizing $expr, after stopExpanding shortcut, do not cache the result $normalized")
           normalized
@@ -199,18 +199,18 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
-  private def betaNormalizeUncached(expr: Expression, options: BetaNormalizingOptions): BNResult = {
-//        if (expr.print contains "Natural/fold")
-//          println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = ${options.stopExpanding})")
+  private def betaNormalizeUncached(expr: Expression, tipe: Option[Expression], options: BetaNormalizingOptions): BNResult = {
+    //        if (expr.print contains "Natural/fold")
+    //          println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = ${options.stopExpanding})")
     implicit def toBNResult(e: Expression): BNResult = BNResult(e)
 
     implicit def toBNResultFromScheme(e: ExpressionScheme[Expression]): BNResult = BNResult(e)
 
-    def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, options)
+    def bn(e: Expression): Expression = betaNormalizeOrUnexpand(e, None, options)
 
-    def bnStopExpanding(e: Expression): Expression = betaNormalizeOrUnexpand(e, options = options.copy(stopExpanding = true))
+    def bnStopExpanding(e: Expression): Expression = betaNormalizeOrUnexpand(e, None, options = options.copy(stopExpanding = true))
 
-    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, options))
+    lazy val normalizeArgs: ExpressionScheme[Expression] = expr.scheme.map(betaNormalizeOrUnexpand(_, None, options))
 
     // if (stopExpanding) println(s"DEBUG beta-normalize $expr, stopExpanding = $stopExpanding")
     def matchOrNormalize(expr: Expression, default: => Expression = normalizeArgs)(
@@ -397,7 +397,7 @@ object Semantics {
         // While expanding the function head (`func`), do not expand when expressions contain free vars. This is an optimization.
         // TODO report issue - add this optimization to the Dhall standard document
 
-        betaNormalizeOrUnexpand(func, options.copy(stopExpandingIfFreeVars = true)).scheme match {
+        betaNormalizeOrUnexpand(func, None, options.copy(stopExpandingIfFreeVars = true)).scheme match {
           case ExprBuiltin(Builtin.NaturalBuild)                                => // Natural/build g = g Natural (λ(x : Natural) → x + 1) 0
             argN(~Natural)((v("x") | ~Natural) -> (v("x") + NaturalLiteral(1)))(NaturalLiteral(0)).pipe(bn)
           case Application(
@@ -639,7 +639,7 @@ object Semantics {
           // TODO make typecheck fail for t.{} unless t is a literal record type or t is a value of record type, otherwise this code is wrong. Follow https://github.com/dhall-lang/dhall-lang/pull/1371
           case _ if labels.isEmpty                                                          => RecordLiteral(Seq())
 
-          case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, options))
+          case _ => p.sorted.scheme.map(betaNormalizeOrUnexpand(_, None, options))
         }
 
       case ProjectByType(base, labels) =>
@@ -739,8 +739,8 @@ object Semantics {
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
-    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, optionsForEquivalenceCheck)
-    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, optionsForEquivalenceCheck)
+    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, tipe = None, options = optionsForEquivalenceCheck)
+    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, tipe = None, options = optionsForEquivalenceCheck)
     normalizedX.toCBORmodel.encodeCbor2 sameElements normalizedY.toCBORmodel.encodeCbor2
   }
 

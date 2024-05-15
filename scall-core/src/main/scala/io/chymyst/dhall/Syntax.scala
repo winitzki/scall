@@ -946,7 +946,7 @@ object Syntax {
     def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
     def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty): TypecheckResult[Expression] =
-      inferTypeWith(gamma).map(_ => betaNormalized)
+      inferTypeWith(gamma).map(tipe => betaNormalizeWithType(Some(tipe)))
 
     def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
@@ -976,8 +976,9 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    def alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    def betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
+    def alphaNormalized: Expression                                 = Semantics.alphaNormalize(this)
+    lazy val betaNormalized: Expression                             = betaNormalizeWithType(None)
+    def betaNormalizeWithType(tipe: Option[Expression]): Expression = Semantics.betaNormalizeAndExpand(this, tipe)
 
     /** Print `this` to Dhall syntax.
       *

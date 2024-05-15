@@ -83,7 +83,7 @@ class SimpleCBORperformanceTest extends DhallTest {
       println(s"Iteration $i")
       val expr  = largeNormalForm(i) // This will throw an exception if we fail to produce that expression due to stack overflow.
       val count = expr.exprCount     // This should not throw any exceptions either.
-      val hash = expr.hashCode()
+      val hash  = expr.hashCode()
       i
     }.last
     expect(lastGoodN > n - delta)

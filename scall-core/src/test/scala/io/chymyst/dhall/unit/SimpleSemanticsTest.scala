@@ -439,7 +439,7 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("associativity rewrite 1") {
     val right          = "x + (y + z)".dhall
-    val rightRewritten = Semantics.betaNormalizeAndExpand(right, BetaNormalizingOptions(rewriteAssociativity = true)).scheme
+    val rightRewritten = Semantics.betaNormalizeAndExpand(right, None, BetaNormalizingOptions(rewriteAssociativity = true)).scheme
     val leftScheme     = ExprOperator(Expression(ExprOperator(v("x"), Operator.Plus, v("y"))), Operator.Plus, v("z"))
     val rightScheme    = ExprOperator(v("x"), Operator.Plus, Expression(ExprOperator(v("y"), Operator.Plus, v("z"))))
     expect(right.scheme == rightScheme)
