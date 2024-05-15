@@ -957,8 +957,8 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
+    def alphaNormalized: Expression = Semantics.alphaNormalize(this)
+    def betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
 
     /** Print `this` to Dhall syntax.
       *
