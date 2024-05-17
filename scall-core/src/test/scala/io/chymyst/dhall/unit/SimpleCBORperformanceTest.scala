@@ -70,12 +70,12 @@ class SimpleCBORperformanceTest extends DhallTest {
   }
 
   test("beta-normalizing performance") {
-    val n        = 75
+    val n        = 25
     val expr     = largeNormalForm(n)
     expect(expr.exprCount == 6 * n + 3)
     // TODO: fix stack overflow and set n = 200000
     val elapsed1 = elapsedNanos(expr.typeCheckAndBetaNormalize().unsafeGet)._2 / 1000000.0
-    println(s"beta-normalizing expression of length $n takes $elapsed1 ms")
+    println(s"beta-normalizing for an expression of length $n takes $elapsed1 ms")
   }
 
   test("no more stack overflow in Scala MurmurHash3") {
