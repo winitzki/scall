@@ -3,6 +3,7 @@ package io.chymyst.dhall
 import enumeratum._
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
+import io.chymyst.dhall.Semantics.BetaNormalizingOptions
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
@@ -956,11 +957,16 @@ object Syntax {
     inferType() returns a possibly modified expression whose full type has been inferred.
     Sub-expressions will be annotated with a type context `gamma`.
 
-    Semantics.betaNormalizeAndExpand()
+    expr.typeCheckAndBetaNormalize() calls Semantics.betaNormalizeAndExpand(expr, default options).
+    Semantics.betaNormalizeAndExpand(expr, options) checks the cache and, if needed, calls betaNormalizeUncached(expr, options).
+    betaNormalizeUncached(expr, options) performs pattern-matching on expr and sometimes calls betaNormalizeOrUnexpand(expr, options) with different options.
+    betaNormalizeOrUnexpand(expr, options) will again check the cache. If shortcut was taken, it will not cache the result.
+    TODO: simplify that logic
+    TODO: make betaNormalize() stack-safe using TailRec
      */
 
     def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty): TypecheckResult[Expression] =
-      TypeCheck.inferType(gamma, this).map(_ => Semantics.betaNormalizeAndExpand(this))
+      TypeCheck.inferType(gamma, this).map(_ => Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default))
 
     def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
@@ -991,7 +997,7 @@ object Syntax {
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
+    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default)
 
     /** Print `this` to Dhall syntax.
       *

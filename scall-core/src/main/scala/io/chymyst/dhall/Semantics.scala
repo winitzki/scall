@@ -161,7 +161,7 @@ object Semantics {
 
   val cacheAlphaNormalize = IdempotentCache("alpha-normalization cache", ObservedCache.createCache[Expression, Expression](maxCacheSize))
 
-  def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions = BetaNormalizingOptions()): Expression =
+  def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions): Expression =
     cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
 
   final case class BetaNormalizingOptions(
@@ -172,6 +172,10 @@ object Semantics {
     rewriteRecordIdentity: Boolean = false,
     rewriteMergeOfMerge: Boolean = false,
   )
+
+  object BetaNormalizingOptions {
+    val default: BetaNormalizingOptions = BetaNormalizingOptions()
+  }
 
   private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
     cacheBetaNormalize.get(ExprWithOptions(expr, options)) match {
@@ -199,6 +203,7 @@ object Semantics {
 
   // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/beta-normalization.md
   // stopExpanding = true means: in betaNormalize(Application f arg) we will cut short beta-normalizing Natural/fold or List/fold inside `f` if the result starts growing.
+  @tailrec
   private def betaNormalizeUncached(expr: Expression, options: BetaNormalizingOptions): BNResult = {
     //        if (expr.print contains "Natural/fold")
     //          println(s"DEBUG betaNormalizeUncached(${expr.print}, stopExpanding = ${options.stopExpanding})")
@@ -763,8 +768,8 @@ object Semantics {
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
-    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, options = optionsForEquivalenceCheck)
-    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, options = optionsForEquivalenceCheck)
+    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, optionsForEquivalenceCheck)
+    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, optionsForEquivalenceCheck)
     normalizedX.toCBORmodel.encodeCbor2 sameElements normalizedY.toCBORmodel.encodeCbor2
   }
 
