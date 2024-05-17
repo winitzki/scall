@@ -189,7 +189,7 @@ object TypeCheck {
               case Valid(_)        => tipe
               case Invalid(errors) => Invalid(errors :+ s"Variable ${exprToInferTypeOf.print} has type error(s)")
             }
-          case None       => typeError(s"Variable ${exprToInferTypeOf.print} is not in type inference context")
+          case None       => typeError(s"Variable ${exprToInferTypeOf.print} is not defined in the current type inference context")
         }
 
       case Lambda(name, tipe, body) =>

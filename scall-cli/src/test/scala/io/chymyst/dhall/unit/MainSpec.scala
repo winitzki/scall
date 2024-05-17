@@ -8,16 +8,29 @@ import munit.FunSuite
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, StringReader}
 
 class MainSpec extends FunSuite with TestTimings {
-  test("run the Main.process function") {
+
+  def runMain(input: String): String = {
     val testOut = new ByteArrayOutputStream()
-    val testIn  = new ByteArrayInputStream("1 + 1 + 1\n".getBytes)
+    val testIn  = new ByteArrayInputStream(input.getBytes)
     try {
       Main.process(testIn, testOut)
     } finally {
       testOut.close()
       testIn.close()
     }
-    expect(new String(testOut.toByteArray) == "3")
+    new String(testOut.toByteArray)
+  }
+
+  test("run the Main.process function") {
+    expect(runMain("1 + 1 + 1\n") == "3")
+  }
+
+  test("Main.process with parse failure") {
+    expect(runMain("1 +") contains "Error parsing Dhall input")
+  }
+
+  test("Main.process with evaluation failure") {
+    expect(runMain("xyz_undefined") contains "Variable xyz_undefined is not defined in the current type inference context")
   }
 
 }
