@@ -93,6 +93,8 @@ final class AsScalaVal(lazyValue: => Any, val inferredType: TypecheckResult[Expr
   lazy val value = lazyValue
 
   def map(f: Any => Any): AsScalaVal = new AsScalaVal(f(value), inferredType, typeTag)
+
+  override def toString: String = s"AsScalaVal($lazyValue, $inferredType, $typeTag)"
 }
 
 final case class AsScalaError(expr: Expression, inferredType: TypecheckResult[Expression], typeTag: Option[Tag[_]] = None, message: Option[String] = None) {
