@@ -1008,11 +1008,13 @@ object Syntax {
 
     private val dummyHashCode = 1234567890
 
+    private def hashCodeTC: TailRec[Int] =
+      scheme.mapTC[Int](e => tailcall(e.hashCodeTC)).map(_.hashCode)
+
     // TODO: make sure we don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded
-//    override def hashCode(): Int = {
-//      if (exprCount > 10000) dummyHashCode else
-//        super.hashCode()
-//    }
+    override def hashCode(): Int = {
+      hashCodeTC.result
+    }
 
     override def toString: String = {
       val result = print

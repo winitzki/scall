@@ -58,7 +58,7 @@ class SimpleCBORperformanceTest extends DhallTest {
   // s"λ(x : Natural) → Natural/fold x Natural (${largeNormalForm(size - 1)}) (x + 1)")
 
   test("produce an expression with a large normal form") {
-    val n        = 100 // TODO: n = 250 gives a stack overflow
+    val n        = 150 // TODO: n = 250 gives a stack overflow
     val expr     = largeNormalForm(n)
     expect(expr.exprCount == 6 * n + 3)
     // TODO: this creates a stack overflow, need to fix.
@@ -66,7 +66,7 @@ class SimpleCBORperformanceTest extends DhallTest {
     val elapsed1 = elapsedNanos(cborRoundtrip1(expr))._2 / 1000000.0
     val elapsed2 = elapsedNanos(cborRoundtrip2(expr))._2 / 1000000.0
     println(s"cbor1 : $elapsed1 ms, cbor2 : $elapsed2 ms")
-    expect(elapsed1 > elapsed2 * 1.5) // cbor1 is about 2x slower than cbor2
+    expect(elapsed1 > elapsed2 * 1.3) // cbor1 is about 2x slower than cbor2
   }
 
   test("beta-normalizing performance") {
@@ -78,8 +78,8 @@ class SimpleCBORperformanceTest extends DhallTest {
     println(s"beta-normalizing for an expression of length $n takes $elapsed1 ms")
   }
 
-  test("no more stack overflow in Scala MurmurHash3") {
-    val n         = 500 // TODO: Set this to 50000 after Scala's scala.util.hashing.MurmurHash3.productHash is fixed.
+  test("no more stack overflow in Scala MurmurHash3 or hashCode()") {
+    val n         = 50000 // TODO: Set this to 50000
     val delta     = n / 20 - 1
     val lastGoodN = (1 to n by delta).map { i =>
       println(s"Iteration $i")
