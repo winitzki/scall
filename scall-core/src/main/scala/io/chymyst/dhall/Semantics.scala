@@ -164,11 +164,31 @@ object Semantics {
   def betaNormalizeAndExpand(expr: Expression, options: BetaNormalizingOptions): Expression =
     cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(betaNormalizeUncached(expr, options).expr, options)).expr
 
+  /** Options for beta-normalization.
+    *
+    * @param stopExpanding
+    *   Enable the optimization to stop expanding the normal form if it grows too much.
+    * @param stopExpandingIfFreeVars
+    *   Stop expanding the normal form if it contains free variables. (Requires `stopExpanding`.)
+    * @param stopExpandingIfAtLeast
+    *   Stop expanding if the sub-expression count is at least this. (Requires `stopExpanding`.)
+    * @param stopExpandingIfGrewBy
+    *   Stop expanding if the sub-expression count grew by at least this. (Requires `stopExpanding`.)
+    * @param etaReduce
+    *   Rewrite `λ(x : A) → f x` into `f` if `f` does not contain `x` as a free variable.
+    * @param rewriteAssociativity
+    *   Rewrite `x op (y op z)` into `(x op y) op z` for all associative operations `op`.
+    * @param rewriteRecordIdentity
+    *   Rewrite `{ a = x.a, b = x.b }` into `x` when `x` has the record type with fields `a`, `b`.
+    * @param rewriteMergeOfMerge
+    */
   final case class BetaNormalizingOptions(
     stopExpanding: Boolean = false,
+    stopExpandingIfFreeVars: Boolean = false,
+    stopExpandingIfAtLeast: Int = 500,
+    stopExpandingIfGrewBy: Int = 0,
     etaReduce: Boolean = false,
     rewriteAssociativity: Boolean = false,
-    stopExpandingIfFreeVars: Boolean = false,
     rewriteRecordIdentity: Boolean = false,
     rewriteMergeOfMerge: Boolean = false,
   )
@@ -188,16 +208,27 @@ object Semantics {
         } else cacheBetaNormalize.getOrElseUpdate(ExprWithOptions(expr, options), ExprWithOptions(normalized, options)).expr
     }
 
-  private final case class BNResult(expr: Expression, didShortcut: Boolean = false)
+  private final case class BNResult(expr: Expression, didStopExpanding: Boolean = false)
 
-  private def needShortcut(oldExpr: => Expression, newExpr: => Expression, options: BetaNormalizingOptions): Boolean = options.stopExpanding && {
+  /** Determine if beta-normalization should stop expanding an expression. This is done when the expression grows too much during beta-normalization.
+    *
+    * @param oldExpr
+    *   Expression before a beta-normalization step.
+    * @param newExpr
+    *   Expression after the beta-normalization step.
+    * @param options
+    *   Beta-normalization options.
+    * @return
+    *   `true` if the expression was determined to have "grown too much".
+    */
+  private def needToStopExpanding(oldExpr: => Expression, newExpr: => Expression, options: BetaNormalizingOptions): Boolean = options.stopExpanding && {
     lazy val oldLength = oldExpr.exprCount
     lazy val newLength = newExpr.exprCount
     // TODO: perhaps enable this optimization. See https://github.com/dhall-lang/dhall-lang/issues/1213#issuecomment-1855878600
     val hasFreeVars    = options.stopExpandingIfFreeVars && Semantics.freeVars(oldExpr).names.nonEmpty
 
-    val result = hasFreeVars || (newLength >= oldLength && newLength > 500)
-    // if (result) println(s"DEBUG: shortcut detected with $oldExpr")
+    val result = hasFreeVars || (newLength >= oldLength + options.stopExpandingIfGrewBy && newLength > options.stopExpandingIfAtLeast)
+    // if (result) println(s"DEBUG: stop-expanding shortcut detected with $oldExpr")
     result
   }
 
@@ -416,11 +447,12 @@ object Semantics {
               // Loop invariant: currentResult == g(g(...g(argN)...)) with `counter` repetitions of `g`.
               if (counter >= m) currentResult
               else {
-                val newResult = g(currentResult).pipe(bn)
+                val newResult = betaNormalizeOrUnexpand(g(currentResult), options) // TODO: what normalization options should be used here?
                 if (newResult == currentResult) {
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
+                  // We use a simple comparison of case classes, not the `equivalence` check, because the expressions were already normalized.
                   currentResult
-                } else if (needShortcut(currentResult, newResult, options)) {
+                } else if (needToStopExpanding(currentResult, newResult, options)) {
                   // If the beta-normalized result grew in size, we return the unevaluated intermediate result:
                   // We are calculating g(g(...g(argN)...)) with `m` repetitions of `g`.
                   // So far, we have calculated currentResult = g(g(...g(argN)...)) with `counter` repetitions of `g`.
@@ -428,7 +460,7 @@ object Semantics {
                   // In Dhall, this is `Natural/fold (m-counter) b g currentResult`.
                   val unevaluatedIntermediateResult = (~Builtin.NaturalFold)(NaturalLiteral(m - counter))(b)(g)(currentResult)
                   //                  println(s"DEBUG detected shortcut stopExpanding = true for expression:\n${unevaluatedIntermediateResult.print}")
-                  BNResult(unevaluatedIntermediateResult, didShortcut = true)
+                  BNResult(unevaluatedIntermediateResult, didStopExpanding = true)
                 } else {
                   loop(newResult, counter + 1)
                 }

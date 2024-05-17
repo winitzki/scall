@@ -9,6 +9,8 @@ import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold}
 import io.chymyst.dhall.unit.SimpleCBORperformanceTest.{cborRoundtrip1, cborRoundtrip2}
 import io.chymyst.dhall.{CBOR, CBORmodel}
 
+import scala.collection.mutable
+
 object SimpleCBORperformanceTest {
   def cborRoundtrip1(expr: Expression) = {
     val aModel = CBOR.toCborModel(expr)
@@ -71,14 +73,14 @@ class SimpleCBORperformanceTest extends DhallTest {
     val n        = 75
     val expr     = largeNormalForm(n)
     expect(expr.exprCount == 6 * n + 3)
-    // TODO: fix stack overflow
+    // TODO: fix stack overflow and set n = 200000
     val elapsed1 = elapsedNanos(expr.typeCheckAndBetaNormalize().unsafeGet)._2 / 1000000.0
     println(s"beta-normalizing expression of length $n takes $elapsed1 ms")
   }
 
-  test("no more stack overflow in Scala MurmurHash") {
-    val n         = 50000
-    val delta     = 1000
+  test("no more stack overflow in Scala MurmurHash3") {
+    val n         = 500 // TODO: Set this to 50000 after Scala's scala.util.hashing.MurmurHash3.productHash is fixed.
+    val delta     = n / 20 - 1
     val lastGoodN = (1 to n by delta).map { i =>
       println(s"Iteration $i")
       val expr  = largeNormalForm(i) // This will throw an exception if we fail to produce that expression due to stack overflow.
@@ -87,5 +89,37 @@ class SimpleCBORperformanceTest extends DhallTest {
       i
     }.last
     expect(lastGoodN > n - delta)
+  }
+
+  sealed trait Tree
+
+  final case class Leaf() extends Tree
+
+  final case class Branch(left: Tree, right: Tree) extends Tree
+
+  def largeTree(n: Int): Tree = {
+    def large: Int => TailRec[Tree] = {
+      case 0 => done(Leaf())
+      case n =>
+        for {
+          x <- tailcall(large(n - 1))
+          y <- tailcall(large(0))
+        } yield Branch(x, y)
+    }
+
+    large(n).result
+  }
+
+  test("stack overflow in Scala MurmurHash3") {
+    val n     = 1000 // TODO: set this to 100000
+    val delta = n / 50
+    val cache = mutable.Map[Tree, Int]()
+    (0 to n by delta).foreach { i =>
+      val tree = largeTree(i)
+      println(s"Size $i, tree computed")
+      cache.put(tree, i)
+      println(s"Size $i, tree cached")
+    }
+
   }
 }
