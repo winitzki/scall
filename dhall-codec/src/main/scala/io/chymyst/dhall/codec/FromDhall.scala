@@ -61,8 +61,8 @@ object FromDhall {
             Right(new AsScalaVal(value, validType, expectedTag))
 
           //          println(
-//            s"DEBUG: (${expr.print}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
-//          )
+          //            s"DEBUG: (${expr.print}).asScala with expected type tag ${tpe.tag}\nscalaStyledName=${tpe.tag.scalaStyledName}\nlongNameWithPrefix=${tpe.tag.longNameWithPrefix}\nlongNameInternalSymbol=${tpe.tag.longNameInternalSymbol}\nshortName=${tpe.tag.shortName}"
+          //          )
 
           expr.scheme match {
             case v @ ExpressionScheme.Variable(_, _)      =>
@@ -80,7 +80,10 @@ object FromDhall {
               val dhallVars2     = dhallVars.prependAndShift(name, tpe)
               for {
                 varType     <- valueAndType(tpe, variables, dhallVars)
-                varTag       = varType.value.asInstanceOf[Tag[_]]
+                varTag       = varType.value match {
+                                 case x: Tag[_]          => x
+                                 case x: DhallRecordType => Tag[DhallRecordType]
+                               }
                 varX         = new AsScalaVal(varXValue, Valid(tpe), varTag)
                 variables2   = variables1 ++ Map(ExpressionScheme.Variable(name, BigInt(0)) -> varX)
                 bodyAsScala <- valueAndType(body, variables2, dhallVars2)
@@ -130,6 +133,7 @@ object FromDhall {
                   new AsScalaVal(operator(x.value.asInstanceOf[P], y.value.asInstanceOf[Q]), validType, implicitly[Tag[R]])
                 }
               }
+
               op match {
                 case Operator.Or                 => // useOp[Boolean, Boolean](_ || _)
                   // This operation must be lazy and avoid evaluating `rop` if `lop` is `True`.
@@ -165,7 +169,19 @@ object FromDhall {
                 functionResultTag <- valueAndType(functionResult, variables, dhallVars)
                 argument          <- valueAndType(arg, variables, dhallVars)
               } yield new AsScalaVal(functionHead.value.asInstanceOf[Function1[Any, Any]](argument.value), validType, functionResultTag.typeTag)
-            case ExpressionScheme.Field(base, name)                     => ???
+            case ExpressionScheme.Field(base, name)                     =>
+              for {
+                x <- valueAndType(base, variables, dhallVars)
+              } yield {
+                x.value match {
+                  case record: DhallRecordValue =>
+                    val (field, tag) = record.fields(name)
+                    new AsScalaVal(field, validType, tag)
+                  case record: DhallRecordType  =>
+                    val tag = record.fields(name)
+                    new AsScalaVal(tag, validType, Tag.apply(tag))
+                }
+              }
             case ExpressionScheme.ProjectByLabels(base, labels)         => ???
             case ExpressionScheme.ProjectByType(base, by)               => ???
             case ExpressionScheme.Completion(base, target)              => ???
@@ -191,13 +207,20 @@ object FromDhall {
             case d: ExpressionScheme.TimeLiteral      => result(d.toLocalTime, Tag[LocalTime])
             case d: ExpressionScheme.TimeZoneLiteral  => result(d.toZoneOffset, Tag[ZoneOffset])
             case ExpressionScheme.RecordType(defs)    =>
-              seqSeq(defs.map { case (field, tipe) => valueAndType(tipe, variables, dhallVars).map(t => (field, t.typeTag)) })
-                .map(_.toMap)
-                .map(fields => new AsScalaVal(DhallRecordType(fields), validType, Tag[DhallRecordType]))
+              seqSeq(defs.map { case (field, tipe) =>
+                valueAndType(tipe, variables, dhallVars).map { t =>
+//                                        println(s"DEBUG: processing RecordType($defs), got t=$t")
+                  (field, t.value.asInstanceOf[Tag[_]])
+                }
+              }).map(_.toMap).map(fields => new AsScalaVal(DhallRecordType(fields), validType, Tag[DhallRecordType]))
             case ExpressionScheme.RecordLiteral(defs) =>
-              val types: Either[Seq[AsScalaError], Map[FieldName, Tag[_]]]       = seqSeq(tipe.scheme.asInstanceOf[RecordType[Expression]].defs.map {
-                case (field, tipe) => valueAndType(tipe, variables, dhallVars).map(t => (field, t.typeTag))
-              }).map(_.toMap)
+              val types: Either[Seq[AsScalaError], Map[FieldName, Tag[_]]]       =
+                seqSeq(tipe.scheme.asInstanceOf[RecordType[Expression]].defs.map { case (field, tipe) =>
+                  valueAndType(tipe, variables, dhallVars).map { t =>
+//                      println(s"DEBUG: processing RecordLiteral($defs), got t=$t")
+                    (field, t.value.asInstanceOf[Tag[_]])
+                  }
+                }).map(_.toMap)
               val exprs: Either[Seq[AsScalaError], Seq[(FieldName, AsScalaVal)]] = seqSeq(defs.map { case (field, value) =>
                 valueAndType(value, variables, dhallVars).map((field, _))
               })

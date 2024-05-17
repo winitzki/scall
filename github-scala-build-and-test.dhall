@@ -5,7 +5,7 @@ let GithubActions =
 let matrix =
       toMap { java = [ "8.0.382", "11.0.21", "17.0.9" ], scala = [ "2.13.13" ] }
 
-let setup =
+let checkout_and_cache =
       [     GithubActions.steps.actions/checkout
         //  { `with` = Some (toMap { submodules = "true" }) }
       , GithubActions.steps.actions/cache
@@ -28,10 +28,49 @@ in  GithubActions.Workflow::{
           , name = Some "Check formatting"
           , runs-on = GithubActions.types.RunsOn.ubuntu-latest
           , steps =
-                setup
+                checkout_and_cache
               # [ GithubActions.steps.actions/setup-java { java-version = "17" }
                 , GithubActions.steps.run
                     { run = "sbt scalafmtCheckAll scalafmtSbtCheck" }
+                ]
+          }
+        , pdftutorial = GithubActions.Job::{
+          , name = Some "Build and validate the tutorial"
+          , runs-on = GithubActions.types.RunsOn.ubuntu-latest
+          , steps =
+                checkout_and_cache
+              # [ GithubActions.steps.actions/setup-java { java-version = "17" }
+                , GithubActions.Step::{
+                  , name = Some "Setup scala-cli"
+                  , uses = Some "VirtusLab/scala-cli-setup@main"
+                  }
+                , GithubActions.Step::{
+                  , name = Some "Setup dhall executable"
+                  , uses = Some "dhall-lang/setup-dhall@v4"
+                  , `with` = Some (toMap { version = "1.42.0" })
+                  }
+                , GithubActions.Step::{
+                  , name = Some "Setup latex"
+                  , uses = Some "zauguin/install-texlive@v3"
+                  , `with` = Some (toMap { packages = "scheme-full" })
+                  }
+                , GithubActions.steps.run
+                    { run = "bash tutorial/make_pdf.sh dryrunx" }
+                , GithubActions.Step::{
+                  , name = Some "Upload tutorial PDF"
+                  , uses = Some "actions/upload-artifact@v2"
+                  , `with` = Some
+                      ( toMap
+                          { name = "Tutorial PDF file and logs"
+                          , if-no-files-found = "error"
+                          , path =
+                              ''
+                              ./tutorial/programming_dhall.pdf
+                              ./tutorial/generated.log
+                              ./tutorial/programming_dhall.log''
+                          }
+                      )
+                  }
                 ]
           }
         , build = GithubActions.Job::{
@@ -52,7 +91,7 @@ in  GithubActions.Workflow::{
                             , { mapKey = Permission.contents, mapValue = read }
                             ]
           , steps =
-                setup
+                checkout_and_cache
               # [ GithubActions.steps.actions/setup-java
                     { java-version = "\${{ matrix.java }}" }
                 , GithubActions.steps.run

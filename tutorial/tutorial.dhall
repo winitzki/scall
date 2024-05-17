@@ -129,6 +129,44 @@ let uncurry
       λ(p : { _1 : a, _2 : b }) →
         f p._1 p._2
 
+let const
+    : ∀(a : Type) → ∀(b : Type) → b → a → b
+    = λ(a : Type) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
+let _ =
+      λ(a : Type) →
+      λ(b : Type) →
+      λ(c : b) →
+      λ(x : a) →
+      λ(y : a) →
+        assert : const a b c x ≡ const a b c y
+
+let ConstKT
+    : ∀(a : Kind) → ∀(b : Type) → b → a → b
+    = λ(a : Kind) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
+let ConstTK
+    : ∀(a : Type) → ∀(b : Kind) → b → a → b
+    = λ(a : Type) → λ(b : Kind) → λ(x : b) → λ(_ : a) → x
+
+let ConstKK
+    : ∀(a : Kind) → ∀(b : Kind) → b → a → b
+    = λ(a : Kind) → λ(b : Kind) → λ(x : b) → λ(_ : a) → x
+
+let f = ConstKK (Type → Type) Type Natural
+
+let ConstKT
+    : ∀(a : Kind) → ∀(b : Type) → a → Type
+    = λ(a : Kind) → λ(b : Type) → λ(_ : a) → b
+
+let f = ConstKT (Type → Type) Natural
+
+let f
+    : Natural → Text
+    = λ(_ : Natural) → "abc"
+
+let _ = λ(x : Natural) → λ(y : Natural) → assert : f x ≡ f y
+
 let unsafeDiv
     : Natural → Natural → Natural
     = let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
@@ -457,6 +495,10 @@ let uncurry
       λ(p : { _1 : a, _2 : b }) →
         f p._1 p._2
 
+let const
+    : ∀(a : Type) → ∀(b : Type) → b → a → b
+    = λ(a : Type) → λ(b : Type) → λ(x : b) → λ(_ : a) → x
+
 let _ =
       λ(a : Type) →
       λ(b : Type) →
@@ -484,6 +526,9 @@ let _ =
             :   compose_backward a b d (compose_backward b c d h g) f
               ≡ compose_backward a c d h (compose_backward a b c g f)
         , flip_flip = assert : flip b a c (flip a b c k) ≡ k
+        , const_law =
+            λ(x : c) →
+              assert : compose_backward a b c (const b c x) f ≡ const a c x
         }
 
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
@@ -596,7 +641,9 @@ let functorG
               ga
       }
 
-let Const = λ(c : Type) → λ(a : Type) → c
+let Const
+    : Type → Type → Type
+    = λ(c : Type) → λ(a : Type) → c
 
 let functorConst
     : ∀(c : Type) → Functor (Const c)
@@ -738,17 +785,368 @@ let contrafunctorConst
         { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → identity (Const c a)
         }
 
+let Pointed
+    : (Type → Type) → Type
+    = λ(F : Type → Type) → { pure : ∀(a : Type) → a → F a }
+
+let pointedOptional
+    : Pointed Optional
+    = { pure = λ(a : Type) → λ(x : a) → Some x }
+
+let pointedList
+    : Pointed List
+    = { pure = λ(a : Type) → λ(x : a) → [ x ] }
+
+let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
+
+let pointedAAInt
+    : Pointed AAInt
+    = { pure = λ(a : Type) → λ(x : a) → { _1 = x, _2 = x, _3 = +123 } }
+
+let PointedU
+    : (Type → Type) → Type
+    = λ(F : Type → Type) → { unit : F {} }
+
+let toPointedU
+    : ∀(F : Type → Type) → Pointed F → PointedU F
+    = λ(F : Type → Type) →
+      λ(pointedF : Pointed F) →
+        { unit = pointedF.pure {} {=} }
+
+let toPointed
+    : ∀(F : Type → Type) → Functor F → PointedU F → Pointed F
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(pointedUF : PointedU F) →
+        { pure =
+            λ(a : Type) →
+            λ(x : a) →
+              functorF.fmap {} a (const {} a x) pointedUF.unit
+        }
+
+let cpure
+    : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a : Type) → C a
+    = λ(C : Type → Type) →
+      λ(contrafunctorC : Contrafunctor C) →
+      λ(pointedC : PointedU C) →
+      λ(a : Type) →
+        contrafunctorC.cmap a {} (const a {} {=}) pointedC.unit
+
+let C = λ(r : Type) → λ(a : Type) → a → Optional r
+
+let pointedC
+    : ∀(r : Type) → PointedU (C r)
+    = λ(r : Type) → { unit = λ(_ : {}) → None r }
+
+let pointedC
+    : ∀(r : Type) → PointedU (C r)
+    = λ(r : Type) → { unit = const {} (Optional r) (None r) }
+
 let Id = λ(a : Type) → a
 
 let functor_Id
     : Functor Id
     = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
 
+let Compose
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F (G a)
+
+let functorFunctorCompose
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let ga2gb
+                  : G a → G b
+                  = functorG.fmap a b f
+
+              in  functorF.fmap (G a) (G b) ga2gb
+        }
+
+let functorContrafunctorCompose
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let gb2ga
+                  : G b → G a
+                  = contrafunctorG.cmap a b f
+
+              in  functorF.fmap (G b) (G a) gb2ga
+        }
+
+let contrafunctorFunctorCompose
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Contrafunctor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let ga2gb
+                  : G a → G b
+                  = functorG.fmap a b f
+
+              in  contrafunctorF.cmap (G a) (G b) ga2gb
+        }
+
+let contrafunctorContrafunctorCompose
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Functor (Compose F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              let gb2ga
+                  : G b → G a
+                  = contrafunctorG.cmap a b f
+
+              in  contrafunctorF.cmap (G b) (G a) gb2ga
+        }
+
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+
+let Product
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Pair (F a) (G a)
+
+let fProduct
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      (a → b) →
+      ∀(c : Type) →
+      ∀(d : Type) →
+      (c → d) →
+      Pair a c →
+        Pair b d
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(f : a → b) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(g : c → d) →
+      λ(arg : Pair a c) →
+        { _1 = f arg._1, _2 = g arg._2 }
+
+let functorProduct
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (Product F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fProduct
+                (F a)
+                (F b)
+                (functorF.fmap a b f)
+                (G a)
+                (G b)
+                (functorG.fmap a b f)
+        }
+
+let contrafunctorProduct
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (Product F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fProduct
+                (F b)
+                (F a)
+                (contrafunctorF.cmap a b f)
+                (G b)
+                (G a)
+                (contrafunctorG.cmap a b f)
+        }
+
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
+
+let CoProduct
+    : (Type → Type) → (Type → Type) → Type → Type
+    = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Either (F a) (G a)
+
+let fCoProduct
+    : ∀(a : Type) →
+      ∀(b : Type) →
+      (a → b) →
+      ∀(c : Type) →
+      ∀(d : Type) →
+      (c → d) →
+      Either a c →
+        Either b d
+    = λ(a : Type) →
+      λ(b : Type) →
+      λ(f : a → b) →
+      λ(c : Type) →
+      λ(d : Type) →
+      λ(g : c → d) →
+      λ(arg : Either a c) →
+        merge
+          { Left = λ(x : a) → (Either b d).Left (f x)
+          , Right = λ(y : c) → (Either b d).Right (g y)
+          }
+          arg
+
+let functorCoProduct
+    : ∀(F : Type → Type) →
+      Functor F →
+      ∀(G : Type → Type) →
+      Functor G →
+        Functor (CoProduct F G)
+    = λ(F : Type → Type) →
+      λ(functorF : Functor F) →
+      λ(G : Type → Type) →
+      λ(functorG : Functor G) →
+        { fmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fCoProduct
+                (F a)
+                (F b)
+                (functorF.fmap a b f)
+                (G a)
+                (G b)
+                (functorG.fmap a b f)
+        }
+
+let contrafunctorCoProduct
+    : ∀(F : Type → Type) →
+      Contrafunctor F →
+      ∀(G : Type → Type) →
+      Contrafunctor G →
+        Contrafunctor (CoProduct F G)
+    = λ(F : Type → Type) →
+      λ(contrafunctorF : Contrafunctor F) →
+      λ(G : Type → Type) →
+      λ(contrafunctorG : Contrafunctor G) →
+        { cmap =
+            λ(a : Type) →
+            λ(b : Type) →
+            λ(f : a → b) →
+              fCoProduct
+                (F b)
+                (F a)
+                (contrafunctorF.cmap a b f)
+                (G b)
+                (G a)
+                (contrafunctorG.cmap a b f)
+        }
+
 let Monad =
       λ(F : Type → Type) →
         { pure : ∀(a : Type) → a → F a
         , bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b
         }
+
+let monadLaws =
+      λ(F : Type → Type) →
+      λ(monadF : Monad F) →
+      λ(a : Type) →
+      λ(x : a) →
+      λ(p : F a) →
+      λ(b : Type) →
+      λ(f : a → F b) →
+      λ(c : Type) →
+      λ(g : b → F c) →
+        let left_id_law = monadF.bind a (monadF.pure a x) b f ≡ f x
+
+        let right_id_law = monadF.bind a p a (monadF.pure a) ≡ p
+
+        let assoc_law =
+                monadF.bind b (monadF.bind a p b f) c g
+              ≡ monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
+
+        in  { left_id_law, right_id_law, assoc_law }
+
+let State = λ(S : Type) → λ(A : Type) → S → Pair A S
+
+let monadState
+    : ∀(S : Type) → Monad (State S)
+    = λ(S : Type) →
+        let pure = λ(A : Type) → λ(x : A) → λ(s : S) → { _1 = x, _2 = s }
+
+        let bind =
+              λ(A : Type) →
+              λ(oldState : State S A) →
+              λ(B : Type) →
+              λ(f : A → State S B) →
+              λ(s : S) →
+                let update1
+                    : Pair A S
+                    = oldState s
+
+                let update2
+                    : Pair B S
+                    = f update1._1 update1._2
+
+                in  update2
+
+        in  { pure, bind }
+
+let _ =
+      λ(S : Type) →
+      λ(a : Type) →
+      λ(x : a) →
+      λ(p : State S a) →
+      λ(b : Type) →
+      λ(f : a → State S b) →
+      λ(c : Type) →
+      λ(g : b → State S c) →
+        let laws = monadLaws (State S) (monadState S) a x p b f c g
+
+        let _ = assert : laws.left_id_law
+
+        let _ = assert : laws.assoc_law
+
+        in  True
 
 let monadList
     : Monad List
@@ -762,6 +1160,19 @@ let monadList
               λ(f : a → List b) →
                 List/concatMap a b f fa
           }
+
+let monadList
+    : Monad List
+    = let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+
+      in    pointedList
+          ∧ { bind =
+                λ(a : Type) →
+                λ(fa : List a) →
+                λ(b : Type) →
+                λ(f : a → List b) →
+                  List/concatMap a b f fa
+            }
 
 let monadJoin =
       λ(F : Type → Type) →
@@ -806,6 +1217,82 @@ let monadList
                 λ(f : a → List b) →
                   List/concatMap a b f fa
             }
+
+let monoidZip
+    : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Monoid (Pair a b)
+    = λ(a : Type) →
+      λ(monoidA : Monoid a) →
+      λ(b : Type) →
+      λ(monoidB : Monoid b) →
+        let empty = { _1 = monoidA.empty, _2 = monoidB.empty }
+
+        let append =
+              λ(x : Pair a b) →
+              λ(y : Pair a b) →
+                { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
+
+        in  { empty, append }
+
+let pointedMonoid
+    : PointedU Monoid
+    = let empty
+          : {}
+          = {=}
+
+      let append
+          : {} → {} → {}
+          = λ(x : {}) → λ(y : {}) → {=}
+
+      in  { unit = { empty, append } }
+
+let ApplicativeFunctor =
+      λ(F : Type → Type) →
+          Functor F
+        ⩓ Pointed F
+        ⩓ { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+
+let applicativeFunctorList
+    : ApplicativeFunctor List
+    =   functorList
+      ∧ pointedList
+      ∧ { zip = https://prelude.dhall-lang.org/List/zip }
+
+let Applicative =
+      λ(F : Type → Type) →
+          PointedU F
+        ⩓ { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
+
+let C = λ(m : Type) → λ(a : Type) → a → m
+
+let applicativeC
+    : ∀(m : Type) → Monoid m → Applicative (C m)
+    = λ(m : Type) →
+      λ(monoidM : Monoid m) →
+        let pointedC
+            : PointedU (C m)
+            = { unit = λ(_ : {}) → monoidM.empty }
+
+        let zip =
+              λ(a : Type) →
+              λ(ca : a → m) →
+              λ(b : Type) →
+              λ(cb : b → m) →
+              λ(p : Pair a b) →
+                monoidM.append (ca p._1) (cb p._2)
+
+        in  pointedC ∧ { zip }
+
+let traverseType =
+      λ(t : Type → Type) →
+        ∀(f : Type → Type) →
+        Applicative f →
+        ∀(a : Type) →
+        ∀(b : Type) →
+        (a → f b) →
+        t a →
+          f (t b)
+
+let Traversable = λ(t : Type → Type) → { traverse : traverseType t }
 
 let _church_encoding_examples =
       let ListInt = ∀(r : Type) → r → (Integer → r → r) → r

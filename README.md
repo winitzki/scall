@@ -128,7 +128,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
     - [x] A serializer and deserializer for CBOR format is implemented using one of the two
       libraries: [cbor-java](https://github.com/c-rack/cbor-java)
-      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java).
+      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). The latter library is 2x faster.
 
     - [x] Alpha-normalization is implemented according
       to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
@@ -203,6 +203,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
     as gcd, div_mod, int_sqrt.
 12. Implement numerical functions for rational numbers (instead of floating-point).
 13. Implement higher-kinded types, heterogeneous lists, dependently-typed lists, etc., if possible.
+14. `assert` should be more powerful. Enable comparing types, enable associative simplification, product and co-product rewriting.
 
 ### Parsing with `fastparse`
 

@@ -71,6 +71,45 @@ jobs:
           java-package: jdk
           java-version: '17'
       - run: sbt scalafmtCheckAll scalafmtSbtCheck
+  pdftutorial:
+    name: Build and validate the tutorial
+    runs-on: ubuntu-latest
+    steps:
+      - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
+      - name: "~/.sbt\n\"~/.cache/coursier\"\n cache"
+        uses: "actions/cache@v3"
+        with:
+          key: "${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}"
+          path: |
+            ~/.sbt
+            "~/.cache/coursier"
+          restore-keys: |
+            ${{ runner.os }}-sbt
+      - name: java 17 setup
+        uses: "actions/setup-java@v1.4.3"
+        with:
+          architecture: x64
+          java-package: jdk
+          java-version: '17'
+      - name: Setup scala-cli
+        uses: "VirtusLab/scala-cli-setup@main"
+      - name: Setup dhall executable
+        uses: "dhall-lang/setup-dhall@v4"
+        with:
+          version: '1.42.0'
+      - name: Setup latex
+        uses: "zauguin/install-texlive@v3"
+        with:
+          packages: scheme-full
+      - run: bash tutorial/make_pdf.sh dryrunx
+      - name: Upload tutorial PDF
+        uses: "actions/upload-artifact@v2"
+        with:
+          if-no-files-found: error
+          name: Tutorial PDF file and logs
+          path: "./tutorial/programming_dhall.pdf\n./tutorial/generated.log\n./tutorial/programming_dhall.log"
 name: scall_build_and_test
 on:
   push: {}

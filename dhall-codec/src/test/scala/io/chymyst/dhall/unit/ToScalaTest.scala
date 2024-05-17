@@ -7,7 +7,7 @@ import io.chymyst.dhall.Syntax.{Expression, Natural}
 import io.chymyst.dhall.SyntaxConstants.FieldName
 import io.chymyst.dhall.codec.DhallBuiltinFunctions._
 import io.chymyst.dhall.codec.Adapters.DhallExpressionAsScala
-import io.chymyst.dhall.codec.{DhallKinds, DhallRecordValue}
+import io.chymyst.dhall.codec.{DhallKinds, DhallRecordType, DhallRecordValue}
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
 import izumi.reflect.{Tag, TagK}
 import munit.FunSuite
@@ -142,7 +142,7 @@ class ToScalaTest extends FunSuite {
     expect(
       Try(
         "x : Bool".dhall.asScala[Boolean]
-      ).failed.get.getMessage == "Error importing from Dhall: Expression x : Bool having type errors: List(Variable x is not in type inference context, expression under type inference: x, type inference context = {}) cannot be converted to the given Scala type None (None)"
+      ).failed.get.getMessage == "Error importing from Dhall: Expression x : Bool having type errors: List(Variable x is not defined in the current type inference context, expression under type inference: x, type inference context = {}) cannot be converted to the given Scala type None (None)"
     )
   }
 
@@ -169,12 +169,36 @@ class ToScalaTest extends FunSuite {
     expect(f(BigInt(10)) == BigInt(22))
   }
 
-  test("convert generic functions to Scala generic functions") {
+  // TODO: implement this test
+  test("todo: convert generic functions to Scala generic functions") {
     val d = "\\(A: Type) -> \\(x: A) -> x".dhall // TODO: enable .asScala[{ def apply[A]: A => A }] or something like that.
     val e = new { def apply[A](x: A): A = x }
     expect(e(1) == 1)
     expect(e("asdf") == "asdf")
   }
+
+  test("field access for records 1") {
+    val d = "{ a = True, b = 123 }"
+    val x = d.dhall.asScala[DhallRecordValue]
+    println(s"Dhall code $d is converted to Scala value $x")
+    val y = x.a.asInstanceOf[Boolean]
+    expect(y == true)
+    val z = x.b.asInstanceOf[BigInt]
+    expect(z == BigInt(123))
+  }
+
+  test("field access for records 2") {
+    val x = " { a = True, b = 123 }.a".dhall.asScala[Boolean]
+    expect(x == true)
+    val y = " { a = True, b = 123 }.b".dhall.asScala[BigInt]
+    expect(y == BigInt(123))
+  }
+
+  test("field access for records 3") {
+    // TODO: make this work. At the moment `x` is `null` when `x.a` is evaluated. How do we deal with functions?
+    // val a = "\\(x: {a : Bool, b : Natural }) -> x.a".dhall.asScala[DhallRecordValue => Boolean]
+  }
+
   /*
   test("some built-in list functions") {
     expect("List/head Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(1.0))

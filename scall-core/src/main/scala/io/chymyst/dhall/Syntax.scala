@@ -3,11 +3,12 @@ package io.chymyst.dhall
 import enumeratum._
 import io.chymyst.dhall.CBORmodel.CBytes
 import io.chymyst.dhall.Grammar.{TextLiteralNoInterp, hexStringToByteArray}
+import io.chymyst.dhall.Semantics.BetaNormalizingOptions
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.tc.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
+import io.chymyst.tc.Applicative.{ApplicativeId, ApplicativeOps, Id, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.tc.Monoid.MonoidSyntax
 import io.chymyst.tc.{Applicative, Monoid}
 
@@ -434,7 +435,7 @@ object Syntax {
 
       implicit def ffOption(e: Option[E]): Option[H] = e map f
 
-      implicit def fseq[A](e: Seq[E]): Seq[H] = e map f
+      implicit def fseq(e: Seq[E]): Seq[H] = e map f
 
       implicit def fseqE[A](e: Seq[(A, E)]): Seq[(A, H)] = e map { case (a, b) => (a, b) }
 
@@ -442,7 +443,7 @@ object Syntax {
 
       implicit def flist[A](e: List[(A, E)]): List[(A, H)] = e map { case (a, b) => (a, b) }
 
-      implicit def fImport[A](e: ImportType[E]): ImportType[H] = e map f
+      implicit def fImport(e: ImportType[E]): ImportType[H] = e map f
 
       this match {
         case Lambda(name, tipe, body)               => Lambda(name, tipe, body)
@@ -506,6 +507,28 @@ object Syntax {
         case _                                      => Applicative[F].pure(this.asInstanceOf[ExpressionScheme[H]])
       }
     }
+    import scala.util.control.TailCalls._
+
+    def traverseTC[H, F[_]](f: E => TailRec[F[H]])(implicit ev: Applicative[F]): TailRec[F[ExpressionScheme[H]]] = {
+      type G[A] = TailRec[F[A]]
+      implicit val ApplicativeG: Applicative[G] = new Applicative[G] {
+        override def zip[A, B](fa: G[A], fb: G[B]): G[(A, B)] = for {
+          a <- fa
+          b <- fb
+        } yield ev.zip(a, b)
+
+        override def map[A, B](f: A => B)(fa: G[A]): G[B] = fa.map(_.map(f))
+
+        override def pure[A](a: A): G[A] = done(ev.pure(a))
+      }
+      traverse[H, G](e => tailcall(f(e)))
+    }
+
+    def mapTC[H](f: E => TailRec[H]): TailRec[ExpressionScheme[H]] = {
+      implicit val applicativeId: Applicative[Id] = ApplicativeId
+      traverseTC[H, Id](e => tailcall(f(e)))
+    }
+
   }
 
   object ExpressionScheme {
@@ -897,18 +920,20 @@ object Syntax {
   }
 
   final case class Expression(scheme: ExpressionScheme[Expression]) {
-    def exprCount: Int = {
+    lazy val exprCount: Int = {
       implicit val monoidInt: Monoid[Int]                         = new Monoid[Int] {
         override def empty: Int = 1
 
         override def combine(a: Int, b: Int): Int = a + b
       }
       implicit val monoidConst: Applicative[Monoid.Const[Int, *]] = Monoid.trivialApplicative[Int]
-      traverseRecursive[Monoid.Const[Int, *]] { a => 1 }
+      traverseRecursive[Monoid.Const[Int, *]] { a => 1 }.result
     }
 
-    def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): F[Expression] =
-      scheme.traverse[Expression, F](e => e.traverseRecursive(f)).map(Expression.apply)
+    import scala.util.control.TailCalls._
+
+    def traverseRecursive[F[_]: Applicative](f: Expression => F[Expression]): TailRec[F[Expression]] =
+      scheme.traverseTC[Expression, F](e => tailcall(e.traverseRecursive(f))).map(_.map(Expression.apply))
 
     /*def uniqueSubexpressionReferences: Expression = {
       val t: UniqueReferences[Expression] = traverseRecursive[UniqueReferences](UniqueReferences.make)
@@ -918,7 +943,7 @@ object Syntax {
 
     def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
 
-    def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
+    def op(operator: Operator)(arg: Expression): Expression = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
@@ -926,8 +951,22 @@ object Syntax {
 
     def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
+    /*
+    The main user-facing function is typeCheckAndBetaNormalize() because betaNormalize is not safe without type-checking.
+
+    inferType() returns a possibly modified expression whose full type has been inferred.
+    Sub-expressions will be annotated with a type context `gamma`.
+
+    expr.typeCheckAndBetaNormalize() calls Semantics.betaNormalizeAndExpand(expr, default options).
+    Semantics.betaNormalizeAndExpand(expr, options) checks the cache and, if needed, calls betaNormalizeUncached(expr, options).
+    betaNormalizeUncached(expr, options) performs pattern-matching on expr and sometimes calls betaNormalizeOrUnexpand(expr, options) with different options.
+    betaNormalizeOrUnexpand(expr, options) will again check the cache. If shortcut was taken, it will not cache the result.
+    TODO: simplify that logic
+    TODO: make betaNormalize() stack-safe using TailRec
+     */
+
     def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty): TypecheckResult[Expression] =
-      inferTypeWith(gamma).map(_ => betaNormalized)
+      TypeCheck.inferType(gamma, this).map(_ => Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default))
 
     def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
@@ -958,7 +997,7 @@ object Syntax {
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
     lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
+    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default)
 
     /** Print `this` to Dhall syntax.
       *
@@ -966,6 +1005,18 @@ object Syntax {
       *   A string representation of `this` expression in (valid but only approximately standard) Dhall syntax.
       */
     lazy val print: String = Syntax.print1(this)
+
+    private val dummyHashCode = 1234567890
+
+    private def hashCodeTC: TailRec[Int] =
+      scheme
+        .mapTC[Int](e => tailcall(e.hashCodeTC)) // Produce TailRec[ExpressionScheme[Int]].
+        .map(_.hashCode)                         // Produce TailRec[Int] using non-recursive ExpressionScheme#hashCode().
+
+    // We don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded with tail recursion.
+    override def hashCode(): Int = {
+      hashCodeTC.result
+    }
 
     override def toString: String = {
       val result = print

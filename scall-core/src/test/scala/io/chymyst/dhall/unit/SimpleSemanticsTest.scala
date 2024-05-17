@@ -105,6 +105,24 @@ class SimpleSemanticsTest extends DhallTest {
     expect(result.unsafeGet.print == "λ(y : Natural) → y + 1")
   }
 
+  test("shortcut in Natural/fold with a function 1") {
+    val result =
+      """
+        |let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
+        |in Natural/fold 10000000000000000000000000000 Natural f 0
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "1")
+  }
+
+  test("shortcut in Natural/fold with a function 2") {
+    val result =
+      """
+        |let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else Natural/subtract x 2
+        |in Natural/fold 10000000000000000000000000000 Natural f 0
+        |""".stripMargin.dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "1")
+  }
+
   test("avoid expanding Natural/fold when the result grows as a symbolic expression") {
     val result =
       """

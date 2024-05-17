@@ -1,4 +1,4 @@
-//> using dep com.lihaoyi::fastparse:3.0.2
+//> using dep com.lihaoyi::fastparse:3.1.0
 
 //> using scala 3.4.1
 
@@ -186,6 +186,29 @@ def languageOption(str: String): String =
   val capitalized = (if replaced `equalsIgnoreCase` "haskell" then "" else replaced).capitalize
   if capitalized.isEmpty then "" else s"[language=$capitalized]"
 
+val dhallAddLet = Seq(
+  "-- This is a complete program",
+  "-- This file is `",
+)
+
+val dhallToIgnore = Seq(
+  "⊢",
+  "↳",
+  "???",
+  "≅",
+  "-- Type error: ",
+  "-- Symbolic derivation.",
+  "$ dhall --file ",
+)
+
+def toDhall: Markdown => String = {
+  case Markdown.CodeBlock("dhall", content) if dhallAddLet.exists(content.contains(_)) =>
+    s"let _ = $content"
+  case Markdown.CodeBlock("dhall", content) if !dhallToIgnore.exists(content.contains(_)) =>
+     content
+  case _ => ""
+}
+
 def toLatex: Markdown => String = {
   case Markdown.Heading(level, text) =>
     val heading = level match {
@@ -197,19 +220,28 @@ def toLatex: Markdown => String = {
       case 6 => "paragraph"
       case _ => "relax"
     }
-    // Disable book parts!
-    if level == 1 then "" else s"\\$heading{${toLatex(text)}}"
+    // Disable book parts! But enable appendix.
+    val content = toLatex(text)
+    if level == 1 then  {
+      if content == "Appendixes" then "\\appendix" else ""
+    } else s"\\$heading{$content}"
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")
   case Markdown.CodeBlock(language, content) =>
-    s"\\begin{lstlisting}${languageOption(language)}\n$content\\end{lstlisting}"
+    val cleanContent = content
+      .replaceAll("-- Symbolic derivation[ .]+\\R", "")
+      .replace("-- Symbolic derivation. ", "-- ")
+    s"\\begin{lstlisting}${languageOption(language)}\n$cleanContent\\end{lstlisting}"
   case Markdown.BlankLine => "\n"
 }
 
-def main(): Unit =
-  val result = parse(System.in, markdown(_)).get.value
-  println(result.map(toLatex).mkString("\n"))
+@main
+def main(code: Boolean): Unit =
+  val result: Seq[Markdown] = parse(System.in, markdown(_)).get.value
 
-
-main()
+  val convert = if code then toDhall else toLatex
+  val sep = if code then "" else "\n"
+  val finalLine = if code then " in \"Example code from the book was evaluated successfully.\"\n" else ""
+  
+  println(result.map(convert).mkString(sep) + finalLine)  

@@ -56,6 +56,8 @@ let showSign = λ(x : Bool) → if x then "+" else "-"
 
 let Base = 10
 
+let HalfBase = D.safeDiv Base 2 {=}
+
 let _ = assert : Natural/lessThan 1 Base ≡ True
 
 let Digits = 3
@@ -64,6 +66,7 @@ let _ = assert : Natural/lessThan 1 Digits ≡ True
 
 let MaxBase = D.power Base Digits
 
+let _ = "toDigits does not need to be limited by a small number once the official dhall gets the Natural/fold optimization"
 let MaxNatural = MaxBase * Base
 
 let AssertLessThan =
@@ -350,4 +353,8 @@ let _ = assert : Float/show (Float/create +123 -3 {=}) ≡ "+1.23e-1"
 
 let _ = assert : Float/show (Float/create +0 -10 {=}) ≡ "0.0"
 
-in  { T = Float, show = Float/show, create = Float/create, AssertLessThan }
+in  { T = Float, base = Base, digits = Digits, show = Float/show, create = Float/create, AssertLessThan, doc = ''
+The NonzeroFloat type is represented by a list with a fixed number of digits = ${Digits} of mantissa, base = ${Base}.
+The first digit of mantissa is always nonzero.
+(Zero floats are represented by a different part of the union type.)
+'' }
