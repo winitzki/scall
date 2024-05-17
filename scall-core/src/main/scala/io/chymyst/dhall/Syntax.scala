@@ -1009,9 +1009,11 @@ object Syntax {
     private val dummyHashCode = 1234567890
 
     private def hashCodeTC: TailRec[Int] =
-      scheme.mapTC[Int](e => tailcall(e.hashCodeTC)).map(_.hashCode)
+      scheme
+        .mapTC[Int](e => tailcall(e.hashCodeTC)) // Produce TailRec[ExpressionScheme[Int]].
+        .map(_.hashCode) // Produce TailRec[Int] using non-recursive ExpressionScheme#hashCode().
 
-    // TODO: make sure we don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded
+    // We don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded with tail recursion.
     override def hashCode(): Int = {
       hashCodeTC.result
     }
