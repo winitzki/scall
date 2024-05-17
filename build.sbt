@@ -78,7 +78,7 @@ lazy val scall_core = (project in file("scall-core"))
       enumeratum,
       cbor1,
       cbor2,
-      scalahashing,
+//      scalahashing,
       //    cbor3,
       httpRequest,
       os_lib % Test,
