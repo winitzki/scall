@@ -13,6 +13,16 @@ trait Applicative[F[_]] {
 
 object Applicative {
 
+  type Id[A] = A
+
+  val ApplicativeId: Applicative[Id] = new Applicative[Id] {
+    override def zip[A, B](fa: Id[A], fb: Id[B]): (A, B) = (fa, fb)
+
+    override def map[A, B](f: A => B)(fa: Id[A]): Id[B] = f(fa)
+
+    override def pure[A](a: A): Id[A] = a
+  }
+
   implicit class ApplicativeOps[F[_], A](fa: F[A])(implicit ev: Applicative[F]) {
     def map[B](f: A => B): F[B] = ev.map(f)(fa)
 

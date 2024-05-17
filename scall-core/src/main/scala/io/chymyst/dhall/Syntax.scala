@@ -7,7 +7,7 @@ import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Operator.Plus
 import io.chymyst.dhall.SyntaxConstants._
-import io.chymyst.tc.Applicative.{ApplicativeOps, seqOption, seqSeq, seqTuple2, seqTuple3}
+import io.chymyst.tc.Applicative.{ApplicativeId, ApplicativeOps, Id, seqOption, seqSeq, seqTuple2, seqTuple3}
 import io.chymyst.tc.Monoid.MonoidSyntax
 import io.chymyst.tc.{Applicative, Monoid}
 
@@ -473,23 +473,6 @@ object Syntax {
       }
     }
 
-    import scala.util.control.TailCalls._
-
-    def traverseTC[H, F[_]](f: E => TailRec[F[H]])(implicit ev: Applicative[F]): TailRec[F[ExpressionScheme[H]]] = {
-      type G[A] = TailRec[F[A]]
-      implicit val ApplicativeG: Applicative[G] = new Applicative[G] {
-        override def zip[A, B](fa: G[A], fb: G[B]): G[(A, B)] = for {
-          a <- fa
-          b <- fb
-        } yield ev.zip(a, b)
-
-        override def map[A, B](f: A => B)(fa: G[A]): G[B] = fa.map(_.map(f))
-
-        override def pure[A](a: A): G[A] = done(ev.pure(a))
-      }
-      traverse[H, G](e => tailcall(f(e)))
-    }
-
     def traverse[H, F[_]](f: E => F[H])(implicit ev: Applicative[F]): F[ExpressionScheme[H]] = {
 
       this match {
@@ -523,6 +506,28 @@ object Syntax {
         case _                                      => Applicative[F].pure(this.asInstanceOf[ExpressionScheme[H]])
       }
     }
+    import scala.util.control.TailCalls._
+
+    def traverseTC[H, F[_]](f: E => TailRec[F[H]])(implicit ev: Applicative[F]): TailRec[F[ExpressionScheme[H]]] = {
+      type G[A] = TailRec[F[A]]
+      implicit val ApplicativeG: Applicative[G] = new Applicative[G] {
+        override def zip[A, B](fa: G[A], fb: G[B]): G[(A, B)] = for {
+          a <- fa
+          b <- fb
+        } yield ev.zip(a, b)
+
+        override def map[A, B](f: A => B)(fa: G[A]): G[B] = fa.map(_.map(f))
+
+        override def pure[A](a: A): G[A] = done(ev.pure(a))
+      }
+      traverse[H, G](e => tailcall(f(e)))
+    }
+
+    def mapTC[H](f: E => TailRec[H]): TailRec[ExpressionScheme[H]] = {
+      implicit val applicativeId: Applicative[Id] = ApplicativeId
+      traverseTC[H, Id](e => tailcall(f(e)))
+    }
+
   }
 
   object ExpressionScheme {
@@ -937,7 +942,7 @@ object Syntax {
 
     def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
 
-    def op(operator: Operator)(arg: Expression) = Expression(ExprOperator(scheme, operator, arg))
+    def op(operator: Operator)(arg: Expression): Expression = Expression(ExprOperator(scheme, operator, arg))
 
     def toCBORmodel: CBORmodel = CBOR.toCborModel(scheme)
 
@@ -945,8 +950,17 @@ object Syntax {
 
     def inferTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = TypeCheck.inferType(gamma, this)
 
+    /*
+    The main user-facing function is typeCheckAndBetaNormalize() because betaNormalize is not safe without type-checking.
+
+    inferType() returns a possibly modified expression whose full type has been inferred.
+    Sub-expressions will be annotated with a type context `gamma`.
+
+    Semantics.betaNormalizeAndExpand()
+     */
+
     def typeCheckAndBetaNormalize(gamma: TypeCheck.KnownVars = TypeCheck.KnownVars.empty): TypecheckResult[Expression] =
-      inferTypeWith(gamma).map(tipe => betaNormalizeWithType(Some(tipe)))
+      TypeCheck.inferType(gamma, this).map(_ => Semantics.betaNormalizeAndExpand(this))
 
     def inferAndValidateTypeWith(gamma: TypeCheck.KnownVars): TypecheckResult[Expression] = for {
       t <- TypeCheck.inferType(gamma, this)
@@ -976,9 +990,8 @@ object Syntax {
     }
 
     // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val alphaNormalized: Expression                                    = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression                                     = Semantics.betaNormalizeAndExpand(this, None)
-    @inline def betaNormalizeWithType(tipe: Option[Expression]): Expression = Semantics.betaNormalizeAndExpand(this, tipe)
+    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
+    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this)
 
     /** Print `this` to Dhall syntax.
       *
