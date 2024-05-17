@@ -1008,9 +1008,11 @@ object Syntax {
 
     private val dummyHashCode = 1234567890
 
-    override def hashCode(): Int = {
-      if (exprCount > 10000) dummyHashCode else super.hashCode()
-    }
+    // TODO: make sure we don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded
+//    override def hashCode(): Int = {
+//      if (exprCount > 10000) dummyHashCode else
+//        super.hashCode()
+//    }
 
     override def toString: String = {
       val result = print
