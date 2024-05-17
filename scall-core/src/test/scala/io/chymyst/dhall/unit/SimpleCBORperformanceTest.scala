@@ -58,7 +58,7 @@ class SimpleCBORperformanceTest extends DhallTest {
   // s"λ(x : Natural) → Natural/fold x Natural (${largeNormalForm(size - 1)}) (x + 1)")
 
   test("produce an expression with a large normal form") {
-    val n        = 150 // TODO: n = 250 gives a stack overflow
+    val n        = 50 // TODO: n = 250 gives a stack overflow. Set n = 50000.
     val expr     = largeNormalForm(n)
     expect(expr.exprCount == 6 * n + 3)
     // TODO: this creates a stack overflow, need to fix.

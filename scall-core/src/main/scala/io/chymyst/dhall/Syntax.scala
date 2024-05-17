@@ -1011,7 +1011,7 @@ object Syntax {
     private def hashCodeTC: TailRec[Int] =
       scheme
         .mapTC[Int](e => tailcall(e.hashCodeTC)) // Produce TailRec[ExpressionScheme[Int]].
-        .map(_.hashCode) // Produce TailRec[Int] using non-recursive ExpressionScheme#hashCode().
+        .map(_.hashCode)                         // Produce TailRec[Int] using non-recursive ExpressionScheme#hashCode().
 
     // We don't fail the test "avoid expanding Natural/fold" when hashCode is overloaded with tail recursion.
     override def hashCode(): Int = {
