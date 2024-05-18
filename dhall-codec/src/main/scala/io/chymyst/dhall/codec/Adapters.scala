@@ -29,7 +29,10 @@ object DhallBuiltinFunctions {
   val List_head: Tag[_] => List[Any] => Option[Any]                 = _ => _.headOption
   val List_last: Tag[_] => List[Any] => Option[Any]                 = _ => _.lastOption
   val List_indexed: Tag[_] => List[Any] => List[DhallRecordValue]   = tag =>
-    _.zipWithIndex.map { case (a, i) => DhallRecordValue(Map(FieldName("index") -> (BigInt(i), Tag[Natural]), FieldName("value") -> (a, tag))) }
+    _.zipWithIndex.map { case (a, i) =>
+      val tpe = DhallRecordType(Map(FieldName("index") -> Tag[Natural], FieldName("value") -> tag))
+      DhallRecordValue(Map(FieldName("index") -> BigInt(i), FieldName("value") -> a), tpe)
+    }
   val Date_show: LocalDate => String                                = _.toString
   val Double_show: Double => String                                 = _.toString
   val Integer_clamp: BigInt => Natural                              = x => if (x < 0) BigInt(0) else x
@@ -68,8 +71,8 @@ object DhallBuiltinFunctions {
   val TimeZone_show: ZoneOffset => String                = _.toString // TODO verify that this prints a reasonable representation of TimeZone, or use the Dhall format instead.
 }
 
-final case class DhallRecordValue(fields: Map[FieldName, (Any, Tag[_])]) extends Dynamic {
-  def selectDynamic(field: String): Any = fields(FieldName(field))._1
+final case class DhallRecordValue(fields: Map[FieldName, Any], recordType: DhallRecordType) extends Dynamic {
+  def selectDynamic(field: String): Any = fields(FieldName(field))
 }
 
 final case class DhallRecordType(fields: Map[FieldName, Tag[_]]) extends Dynamic {
@@ -82,19 +85,19 @@ final case class DhallEqualityType(left: AsScalaVal, right: AsScalaVal)
 
 /** This represents a successful conversion from Dhall to Scala. The `inferredType` must be `Valid()` except when `value = Sort`, which is not typeable.
   *
-  * @param lazyValue
-  *   A Scala value converted from a Dhall expression.
+  * @param maybeValue
+  *   A Scala value converted from a Dhall expression. This may be missing or null at early stages of evaluation.
   * @param inferredType
   *   The result of typechecking the Dhall expression.
   * @param typeTag
   *   The izumi type tag corresponding to the converted Scala value.
   */
-final class AsScalaVal(lazyValue: => Any, val inferredType: TypecheckResult[Expression], val typeTag: Tag[_]) {
-  lazy val value = lazyValue
+final class AsScalaVal(maybeValue: => Any, val inferredType: TypecheckResult[Expression], val typeTag: Tag[_]) {
+  def value = maybeValue // Cannot make this a lazy val!
 
   def map(f: Any => Any): AsScalaVal = new AsScalaVal(f(value), inferredType, typeTag)
 
-  override def toString: String = s"AsScalaVal($lazyValue, $inferredType, $typeTag)"
+  override def toString: String = s"AsScalaVal($maybeValue, $inferredType, $typeTag)"
 }
 
 final case class AsScalaError(expr: Expression, inferredType: TypecheckResult[Expression], typeTag: Option[Tag[_]] = None, message: Option[String] = None) {

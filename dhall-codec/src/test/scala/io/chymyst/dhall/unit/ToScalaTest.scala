@@ -195,8 +195,14 @@ class ToScalaTest extends FunSuite {
   }
 
   test("field access for records 3") {
-    // TODO: make this work. At the moment `x` is `null` when `x.a` is evaluated. How do we deal with functions?
-    // val a = "\\(x: {a : Bool, b : Natural }) -> x.a".dhall.asScala[DhallRecordValue => Boolean]
+    val func1  = "\\(x: {a : Bool, b : Natural }) -> x.a".dhall.asScala[DhallRecordValue => Boolean]
+    val func2  = "\\(x: {a : Bool, b : Natural }) -> x.b".dhall.asScala[DhallRecordValue => BigInt]
+    val record = DhallRecordValue(
+      Map(FieldName("a") -> true, FieldName("b") -> BigInt(123)),
+      DhallRecordType(Map(FieldName("a") -> Tag[Boolean], FieldName("b") -> Tag[BigInt])),
+    )
+    expect(func1(record) == true)
+    expect(func2(record) == BigInt(123))
   }
 
   /*
