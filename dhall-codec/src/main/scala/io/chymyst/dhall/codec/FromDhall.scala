@@ -166,8 +166,11 @@ object FromDhall {
             case ExpressionScheme.Application(func, arg)       =>
               for {
                 functionHead      <- valueAndType(func, variables, dhallVars)
-                functionResult    <- functionHead.inferredType.unsafeGet.scheme match {
-                                       case ExpressionScheme.Forall(tvar, _, resultType: Expression) =>
+                 functionResult     <- functionHead.inferredType.unsafeGet.scheme match {
+                                       case ExpressionScheme.Forall(tvar, tvartype, resultType: Expression) =>
+                                         val variables1     = shiftVars(up = true, tvar)(variables)
+                                         val dhallVars2     = dhallVars.prependAndShift(tvar, tvartype)
+                                         val variables2 = variables1 ++ Map(ExpressionScheme.Variable(tvar, BigInt(0)) -> new AsScalaVal(Tag))
                                          Right(resultType) // TODO fix this: resultType may have a free type variable bound as `tvar` here.
                                      }
                 functionResultTag <- valueAndType(functionResult, variables, dhallVars)

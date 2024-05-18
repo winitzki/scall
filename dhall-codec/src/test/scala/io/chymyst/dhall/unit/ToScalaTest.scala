@@ -205,6 +205,10 @@ class ToScalaTest extends FunSuite {
     expect(func2(record) == BigInt(123))
   }
 
+  test("built-in functions with type parameters") {
+    expect("List/head Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(1.0))
+  }
+
   /*
   test("some built-in list functions") {
     expect("List/head Double [1.0, 2.0, 3.0]".dhall.asScala[Option[Double]] == Some(1.0))
