@@ -3467,16 +3467,20 @@ isSingleLeaf t = case t of
     Branch _ _ -> false
 ```
 
-Another example is a Haskell function that returns the first value in the list if it exists:
+Further examples are Haskell functions that return the head or the tail of a list if the list is non-empty:
 
 ```haskell
 -- Haskell:
 headMaybe :: [a] -> Maybe a
 headMaybe []     = Nothing
 headMaybe (x:xs) = Just x
+
+tailMaybe :: [a] -> Maybe [a]
+tailMaybe []     = Nothing
+tailMaybe (x:xs) = Just xs
 ```
 
-The Dhall translation of `TreeInt` and `ListInt` are Church-encoded types:
+The Dhall translations of `TreeInt` and `ListInt` are the following Church-encoded types:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
@@ -3496,18 +3500,18 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
-Values of type `TreeInt` and `ListInt` are functions, so we cannot perform pattern matching on such values.
+Values of type `TreeInt` and `ListInt` are functions, and one cannot perform pattern matching on function values.
 How can we implement functions like `isSingleLeaf` and `headMaybe` in Dhall?
 
 The general method for translating pattern matching into Church-encoded types `C` consists of two steps.
 The first step is to apply the standard function `unfix` of type `C → F C`.
-The function `unfix` (sometimes also called `unroll` or `unfold`) is available for all Church-encoded types; we have shown its implementation above.
+The function `unfix` is available for all Church-encoded types; we have shown its implementation above.
 
 Given a value `c : C` of a Church-encoded type, the value `unfix c` will have type `F C`, which is typically a union type.
 The second step is to use the ordinary pattern-matching (Dhall's `merge`) on that value.
 
 
-This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall. Let us look at some examples.
+This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall.
 
 For `C = TreeInt`, the type `F C` is the union type `< Leaf: Integer | Branch : { left : TreeInt, right : TreeInt } >`. The function `isSingleLeaf` is
 implemented via pattern matching on that type:
@@ -3534,7 +3538,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
 ```
 
 For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The function `headOptional` that replaces
-Haskell's `headMaybe` is rewritten in Dhall like this:
+Haskell's `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
 
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
@@ -3559,8 +3563,16 @@ let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
       Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.head),
       Nil = None Integer
     } (unfix F functorF c)
--- Run a test:
+
+let tailOptional : ListInt → Optional ListInt = λ(c : ListInt) →
+    merge {
+      Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.tail),
+      Nil = None Integer
+    } (unfix F functorF c)
+
+-- Run some tests:
 let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
+let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
 ### Performance
