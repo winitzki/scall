@@ -165,16 +165,18 @@ object FromDhall {
               }
             case ExpressionScheme.Application(func, arg)       =>
               for {
-                functionHead      <- valueAndType(func, variables, dhallVars)
-                 functionResult     <- functionHead.inferredType.unsafeGet.scheme match {
-                                       case ExpressionScheme.Forall(tvar, tvartype, resultType: Expression) =>
-                                         val variables1     = shiftVars(up = true, tvar)(variables)
-                                         val dhallVars2     = dhallVars.prependAndShift(tvar, tvartype)
-                                         val variables2 = variables1 ++ Map(ExpressionScheme.Variable(tvar, BigInt(0)) -> new AsScalaVal(Tag))
-                                         Right(resultType) // TODO fix this: resultType may have a free type variable bound as `tvar` here.
-                                     }
-                functionResultTag <- valueAndType(functionResult, variables, dhallVars)
-                argument          <- valueAndType(arg, variables, dhallVars)
+                functionHead                    <- valueAndType(func, variables, dhallVars)
+                functionResultWithTypeVar       <- functionHead.inferredType.unsafeGet.scheme match {
+                                                     // TODO fix this: resultType may have a free type variable bound as `tvar` here.
+                                                     case ExpressionScheme.Forall(tvar, tvarType, resultType: Expression) => Right((resultType, tvar, tvarType))
+                                                   }
+                (functionResult, tvar, tvarType) = functionResultWithTypeVar
+                variables1                       = shiftVars(up = true, tvar)(variables)
+                dhallVars2                       = dhallVars.prependAndShift(tvar, tvarType)
+//                tvarScala <- valueAndType(tvar, variables, dhallVars)
+//                  variables2 = variables1 ++ Map(ExpressionScheme.Variable(tvar, BigInt(0)) -> tvarScala)
+                functionResultTag               <- valueAndType(functionResult, variables1, dhallVars2)
+                argument                        <- valueAndType(arg, variables, dhallVars)
               } yield new AsScalaVal(functionHead.value.asInstanceOf[Function1[Any, Any]](argument.value), validType, functionResultTag.typeTag)
 
             case ExpressionScheme.Field(base, name)                     =>
