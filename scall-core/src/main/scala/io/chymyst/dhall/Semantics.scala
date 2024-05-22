@@ -309,6 +309,7 @@ object Semantics {
 
       case Merge(record, target, _) =>
         matchOrNormalize(record) { case r @ RecordLiteral(_) =>
+          // TODO: maybe this function is not needed?
           def getFinalOutput(term: Expression): Expression = term.scheme match {
             case Lambda(name, tipe, body) => body
             case _                        => term
