@@ -311,8 +311,8 @@ object Semantics {
           // TODO report issue: add this beta-normalization rule to standard
           r.defs.headOption match {
             case Some((_, output))
-                if r.defs.forall(_._2 == output) // Simple equality of case classes.
-                =>
+                // Simple equality of case classes.
+                if r.defs.forall(_._2 == output) =>
               output
             case _ => // Record is empty, or some outputs are different.
               // TODO: eliminate merge if it is an identity function
