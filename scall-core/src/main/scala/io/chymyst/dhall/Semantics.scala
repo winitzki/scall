@@ -191,6 +191,7 @@ object Semantics {
     etaReduce: Boolean = false,
     rewriteAssociativity: Boolean = false,
     rewriteRecordIdentity: Boolean = false,
+    rewriteMergeConstant: Boolean = false,
     rewriteMergeIdentity: Boolean = false,
     rewriteMergeOfMerge: Boolean = false,
   )
@@ -203,6 +204,7 @@ object Semantics {
       rewriteAssociativity = true,
       rewriteRecordIdentity = true,
       rewriteMergeIdentity = true,
+      rewriteMergeConstant = false, // This does not yet work.
       rewriteMergeOfMerge = true,
     )
   }
@@ -305,27 +307,37 @@ object Semantics {
         else if (equivalent(ifTrue, ifFalse)) ifTrue.pipe(bn)
         else normalizeArgs
 
-      case Merge(record, update, _) =>
+      case Merge(record, target, _) =>
         matchOrNormalize(record) { case r @ RecordLiteral(_) =>
+          def getFinalOutput(term: Expression): Expression = term.scheme match {
+            case Lambda(name, tipe, body) => body
+            case _                        => term
+          }
+
           // If all outputs of handlers are the same, eliminate merge.
           // TODO report issue: add this beta-normalization rule to standard
-          r.defs.headOption match {
-            case Some((_, output))
-                // Simple equality of case classes.
-                if r.defs.forall(_._2 == output) =>
-              output
-            case _ => // Record is empty, or some outputs are different.
-              // TODO: eliminate merge if it is an identity function
+          val outputIfMergeHasConstantOutput: Option[Expression] = // TODO: the logic here is wrong, needs fixing.
+            // for example: merge { x = f } typeX.x a : X  should reduce to `f a` and not to just `f`.
+            r.defs.headOption.filter(_ => options.rewriteMergeConstant).map(_._2).filter { output => r.defs.forall(_._2 == getFinalOutput(output)) }
+
+          // TODO: eliminate merge if it is an identity function
+          // TODO report issue: add this beta-normalization rule to standard
+          val outputIfMergeIsIdentity: Option[Expression] =
+            Some(target).filter(_ => options.rewriteMergeIdentity).filter { _ =>
+              r.defs.forall { case (fieldName, handler) => false } // TODO: the logic here is wrong. We need to know the type of `target`!
+            }
+
+          outputIfMergeHasConstantOutput orElse outputIfMergeIsIdentity getOrElse
+            matchOrNormalize(target) {
 
               // TODO: eliminate nested merge if all outputs are explicit union constructors
-
-              matchOrNormalize(update) {
-                case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).pipe(bn)
-                case Field(Expression(UnionType(_)), x)                             => r.lookup(x).get
-                case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).pipe(bn)
-                case Application(Expression(ExprBuiltin(Builtin.None)), _)          => r.lookup(FieldName("None")).get
-              }
-          }
+              // TODO report issue: add this beta-normalization rule to standard
+              case Merge(record2, update2, tipe2) if options.rewriteMergeOfMerge  => normalizeArgs // TODO: enable this logic1
+              case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).pipe(bn)
+              case Field(Expression(UnionType(_)), x)                             => r.lookup(x).get
+              case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).pipe(bn)
+              case Application(Expression(ExprBuiltin(Builtin.None)), _)          => r.lookup(FieldName("None")).get
+            }
         }
 
       case ToMap(Expression(RecordLiteral(Seq())), Some(tipe)) => EmptyList(tipe.pipe(bn))
