@@ -21,6 +21,7 @@ val kindProjector       = "org.typelevel"   % "kind-projector"        % "0.13.3"
 val jnr_posix           = "com.github.jnr"  % "jnr-posix"             % "3.1.19"
 val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
+val reflections = "org.reflections" % "reflections" % "0.10.2"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
@@ -107,15 +108,21 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     Test / fork              := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    libraryDependencies ++= Seq(izumi_reflect, zio_schema, zio_schema_deriving, munitTest, assertVerboseTest),
+    libraryDependencies ++= Seq(izumi_reflect, zio_schema, zio_schema_deriving, munitTest, assertVerboseTest, reflections),
+    assembly / mainClass       := Some("io.chymyst.dhall.codec.DhallShim"),
+    assembly / assemblyJarName := "dhall-shim.jar",
+    assembly / assemblyMergeStrategy ~= (old => {
+      case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
+      case PathList("module-info.class") => MergeStrategy.discard
+      case x                                                             => old(x)
+    }),
+
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
 lazy val scall_cli = (project in file("scall-cli"))
   .settings(
     organization               := "io.chymyst",
     version                    := "0.1",
-    assembly / mainClass       := Some("io.chymyst.dhall.Main"),
-    assembly / assemblyJarName := "dhall-cli.jar",
     scalaVersion               := scalaV,
     crossScalaVersions         := Seq(scala2V, scala3V),
     Test / parallelExecution   := true,
@@ -123,6 +130,8 @@ lazy val scall_cli = (project in file("scall-cli"))
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+    assembly / mainClass       := Some("io.chymyst.dhall.Main"),
+    assembly / assemblyJarName := "dhall-cli.jar",
     assembly / assemblyMergeStrategy ~= (old => {
       case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
       case x                                                             => old(x)

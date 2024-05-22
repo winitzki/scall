@@ -11,7 +11,7 @@ object ToScala {
     */
 
   def print(packageName: String, exprName: String, hash: String, expr: Expression): String =
-    s"""package $packageName
+    s"""package io.chymyst.dhall_shim.$packageName
       |import io.chymyst.dhall.Syntax.Expression
       |import io.chymyst.dhall.Syntax.ExpressionScheme._
       |import io.chymyst.dhall.SyntaxConstants.Builtin
@@ -19,9 +19,9 @@ object ToScala {
       |import io.chymyst.dhall.SyntaxConstants.Operator
       |import io.chymyst.dhall.codec.DhallShim
       |
-      |object $exprName extends DhallShim {
+      |object `$exprName` extends DhallShim {
       |  val name: String = "$exprName"
-      |  val packageName: String = "$packageName"
+      |  val packageName: String = "io.chymyst.dhall_shim.$packageName"
       |  val hash: String = "$hash"
       |  val dhallSource: String = ${escape(expr.print)}
       |  lazy val dhallExpression: Expression = ${printSourceCodeTC(expr).result}
