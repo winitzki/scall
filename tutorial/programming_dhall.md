@@ -2248,7 +2248,7 @@ You tried to assert that this expression:
 ... but they differ
 ```
 
-Dhall does not simplify `merge` expressions when they are applied to a symbolic variable `x`.
+Dhall does not simplify `merge` expressions when they are applied to a symbolic variable (in these examples, the symbolic variables are `ga` and `x`).
 As soon as we substitute a specific value, say, `x = (G Bool).Left "abc"`, Dhall will be able to verify that the functor laws hold for `G`.
 
 Keeping such limitations in mind, we will try verifying typeclass laws as much as it can be done with Dhall's functionality.

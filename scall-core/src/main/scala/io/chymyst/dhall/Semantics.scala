@@ -1,6 +1,7 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.CBORmodel.CBytes
+import io.chymyst.dhall.Semantics.BetaNormalizingOptions.optionsForAssertChecking
 import io.chymyst.dhall.Syntax.Expression.{toExpressionScheme, v}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
@@ -190,11 +191,20 @@ object Semantics {
     etaReduce: Boolean = false,
     rewriteAssociativity: Boolean = false,
     rewriteRecordIdentity: Boolean = false,
+    rewriteMergeIdentity: Boolean = false,
     rewriteMergeOfMerge: Boolean = false,
   )
 
   object BetaNormalizingOptions {
-    val default: BetaNormalizingOptions = BetaNormalizingOptions()
+    val default = BetaNormalizingOptions()
+
+    val optionsForAssertChecking = BetaNormalizingOptions(
+      etaReduce = true,
+      rewriteAssociativity = true,
+      rewriteRecordIdentity = true,
+      rewriteMergeIdentity = true,
+      rewriteMergeOfMerge = true,
+    )
   }
 
   private def betaNormalizeOrUnexpand(expr: Expression, options: BetaNormalizingOptions): Expression =
@@ -297,11 +307,24 @@ object Semantics {
 
       case Merge(record, update, _) =>
         matchOrNormalize(record) { case r @ RecordLiteral(_) =>
-          matchOrNormalize(update) {
-            case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).pipe(bn)
-            case Field(Expression(UnionType(_)), x)                             => r.lookup(x).get
-            case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).pipe(bn)
-            case Application(Expression(ExprBuiltin(Builtin.None)), _)          => r.lookup(FieldName("None")).get
+          // If all outputs of handlers are the same, eliminate merge.
+          // TODO report issue: add this beta-normalization rule to standard
+          r.defs.headOption match {
+            case Some((_, output))
+                if r.defs.forall(_._2 == output) // Simple equality of case classes.
+                =>
+              output
+            case _ => // Record is empty, or some outputs are different.
+              // TODO: eliminate merge if it is an identity function
+
+              // TODO: eliminate nested merge if all outputs are explicit union constructors
+
+              matchOrNormalize(update) {
+                case Application(Expression(Field(Expression(UnionType(_)), x)), a) => (r.lookup(x).get)(a).pipe(bn)
+                case Field(Expression(UnionType(_)), x)                             => r.lookup(x).get
+                case KeywordSome(a)                                                 => (r.lookup(FieldName("Some")).get)(a).pipe(bn)
+                case Application(Expression(ExprBuiltin(Builtin.None)), _)          => r.lookup(FieldName("None")).get
+              }
           }
         }
 
@@ -448,7 +471,7 @@ object Semantics {
               if (counter >= m) currentResult
               else {
                 val newResult = betaNormalizeOrUnexpand(g(currentResult), options) // TODO: what normalization options should be used here?
-                if (newResult == currentResult) {
+                if (newResult == currentResult) { // Simple equality of case classes.
                   // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
                   // We use a simple comparison of case classes, not the `equivalence` check, because the expressions were already normalized.
                   currentResult
@@ -789,19 +812,11 @@ object Semantics {
     }
   }
 
-  private val optionsForEquivalenceCheck = BetaNormalizingOptions(
-    etaReduce = true,
-    rewriteAssociativity = true,
-    stopExpandingIfFreeVars = true,
-    rewriteRecordIdentity = true,
-    rewriteMergeOfMerge = true,
-  )
-
   // https://github.com/dhall-lang/dhall-lang/blob/master/standard/equivalence.md
   // TODO: report issue, activate eta-reduction and associativity rewrite only when type-checking an `assert` value.
   def equivalent(x: Expression, y: Expression): Boolean = simpleEquivalence(x, y) || {
-    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, optionsForEquivalenceCheck)
-    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, optionsForEquivalenceCheck)
+    val normalizedX = betaNormalizeAndExpand(x.alphaNormalized, optionsForAssertChecking)
+    val normalizedY = betaNormalizeAndExpand(y.alphaNormalized, optionsForAssertChecking)
     normalizedX.toCBORmodel.encodeCbor2 sameElements normalizedY.toCBORmodel.encodeCbor2
   }
 
