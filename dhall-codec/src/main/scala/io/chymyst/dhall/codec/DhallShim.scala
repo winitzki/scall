@@ -31,19 +31,17 @@ trait DhallShim {
 
 object DhallShim {
   def findAll: Map[String, DhallShim] = {
-    val reflections = new Reflections(new ConfigurationBuilder()
-      .setScanners(Scanners.SubTypes)
-      .forPackage("io.chymyst")
-      .filterInputsBy(new FilterBuilder().includePackage("io.chymyst")))
-    val classes =
-      reflections.getSubTypesOf(classOf[DhallShim])
-        .asScala.filter(c => c.getName.endsWith("$")) // Select only Scala `object` classes.
+    val reflections = new Reflections(
+      new ConfigurationBuilder().setScanners(Scanners.SubTypes).forPackage("io.chymyst").filterInputsBy(new FilterBuilder().includePackage("io.chymyst"))
+    )
+    val classes     =
+      reflections.getSubTypesOf(classOf[DhallShim]).asScala.filter(c => c.getName.endsWith("$")) // Select only Scala `object` classes.
 
     // map classes to actual object instances
     classes.map { clazz =>
       val runtimeMirror = universe.runtimeMirror(clazz.getClassLoader)
-      val module = runtimeMirror.staticModule(clazz.getName)
-      val shim = runtimeMirror.reflectModule(module).instance.asInstanceOf[DhallShim]
+      val module        = runtimeMirror.staticModule(clazz.getName)
+      val shim          = runtimeMirror.reflectModule(module).instance.asInstanceOf[DhallShim]
       (shim.hash, shim)
     }.toMap
   }
@@ -51,20 +49,16 @@ object DhallShim {
   def main(args: Array[String]) = {
     args.foreach { dhallSourceFile =>
       val path = Paths.get(dhallSourceFile)
-      val name = path.getName(path.getNameCount-1).toString.replace(".dhall", "")
+      val name = path.getName(path.getNameCount - 1).toString.replace(".dhall", "")
       Try {
-        val expr = Parser.parseDhallBytes(Files.readAllBytes(path))
-          .get.value.value
-          .resolveImports(path)
-          .alphaNormalized
-          .typeCheckAndBetaNormalize().unsafeGet
-        val hash = computeHash(expr.toCBORmodel.encodeCbor2)
+        val expr      = Parser.parseDhallBytes(Files.readAllBytes(path)).get.value.value.resolveImports(path).alphaNormalized.typeCheckAndBetaNormalize().unsafeGet
+        val hash      = computeHash(expr.toCBORmodel.encodeCbor2)
         val scalaCode = ToScala.print("scala", name, hash, expr)
-        val output = Paths.get(name + ".scala")
+        val output    = Paths.get(name + ".scala")
         Files.writeString(output, scalaCode)
       } match {
         case Failure(exception) => println(s"Failure for source '$dhallSourceFile': $exception")
-        case Success(value) =>
+        case Success(value)     =>
       }
     }
   }

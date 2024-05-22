@@ -21,7 +21,7 @@ val kindProjector       = "org.typelevel"   % "kind-projector"        % "0.13.3"
 val jnr_posix           = "com.github.jnr"  % "jnr-posix"             % "3.1.19"
 val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
-val reflections = "org.reflections" % "reflections" % "0.10.2"
+val reflections         = "org.reflections" % "reflections"           % "0.10.2"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
@@ -102,10 +102,10 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
 
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(
-    scalaVersion             := scalaV,
-    crossScalaVersions       := Seq(scala2V, scala3V),
-    Test / parallelExecution := true,
-    Test / fork              := true,
+    scalaVersion               := scalaV,
+    crossScalaVersions         := Seq(scala2V, scala3V),
+    Test / parallelExecution   := true,
+    Test / fork                := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(izumi_reflect, zio_schema, zio_schema_deriving, munitTest, assertVerboseTest, reflections),
@@ -113,10 +113,9 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     assembly / assemblyJarName := "dhall-shim.jar",
     assembly / assemblyMergeStrategy ~= (old => {
       case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
-      case PathList("module-info.class") => MergeStrategy.discard
+      case PathList("module-info.class")                                 => MergeStrategy.discard
       case x                                                             => old(x)
     }),
-
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
 lazy val scall_cli = (project in file("scall-cli"))
