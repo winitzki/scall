@@ -55,7 +55,7 @@ object DhallShim {
         val hash      = computeHash(expr.toCBORmodel.encodeCbor2)
         val scalaCode = ToScala.print("scala", name, hash, expr)
         val output    = Paths.get(name + ".scala")
-        Files.writeString(output, scalaCode)
+        Files.write(output, scalaCode.getBytes("UTF-8"))
       } match {
         case Failure(exception) => println(s"Failure for source '$dhallSourceFile': $exception")
         case Success(value)     =>
