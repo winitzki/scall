@@ -3577,7 +3577,7 @@ let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
 let tailOptional : ListInt → Optional ListInt = λ(c : ListInt) →
     merge {
       Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.tail),
-      Nil = None Integer
+      Nil = None ListInt
     } (unfix F functorF c)
 
 -- Run some tests:
@@ -6668,7 +6668,7 @@ let PackTo = λ(r : Type) → ∀(t : Type) → (t → F t) → t → r  -- Defi
 let G = ∀(r : Type) → PackTo r → r
 let unfold : PackTo G
   = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
-    λ(r : Type) → λ(pack_ : PackTo r) → pack_ r c y
+    λ(r : Type) → λ(pack_ : PackTo r) → pack_ t c y
 let unfoldF : PackTo (F G)
   = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
     functorF.fmap t G (unfold t c) (c y)
