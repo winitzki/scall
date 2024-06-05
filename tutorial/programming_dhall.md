@@ -63,7 +63,7 @@ Any Dhall program that passes type-checking will be guaranteed to evaluate to a 
 The type-checking itself is also guaranteed to complete within finite time.
 
 The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
-But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
+But this is not a significant limitation for a wide scope of Dhall usage, as this book will show.
 
 ### Identifiers
 
@@ -388,14 +388,14 @@ Dhall distinguishes types and type constructors not by assigned names but by the
 
 ### Function types
 
-Function types are written as `∀(x : arg_t) → res_t`, where `arg_t` is the argument type and `res_t` is a type expression that describes the type of the result value.
+Function types are written as `∀(x : arg_t) → res_t`, where `x` is a bound variable representing the function's argument, `arg_t` is the argument's type, and `res_t` is a type expression that describes the type of the result value.
 
-Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body (which must be of type `res_t`).
+Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body, which must be an expression of type `res_t`.
 
 Usually, the function body is an expression that uses the bound variable `x`.
 However, the type `res_t` itself might also depend on `x`.
-
-In simple cases, `res_t` will not depend on `x`.
+We will consider such functions in more detail later.
+In most cases, `res_t` will not depend on `x`.
 Then the function's type can be written in a simpler form: `arg_t → res_t`.
 
 For example, consider a function that adds `1` to a `Natural` argument:
@@ -479,11 +479,20 @@ in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
   -- This is a complete program that returns [2, 3, 4].
 ```
 
-A polymorphic identity function can be written (with a complete type annotation) as:
+A **polymorphic identity function** is written (with a complete type annotation) as:
 
 ```dhall
 let identity : ∀(A : Type) → ∀(x : A) → A 
   = λ(A : Type) → λ(x : A) → x
+```
+The type of the polymorphic identity function is of the form `∀(x : arg_t) → res_t` if we set `x = A`, `arg_t = Type`, and `res_t = ∀(x : A) → A`.
+Note that `res_t` is again a function type, and this time its result type (`A`) does not depend on the value of the argument (`x`).
+So, this type can be rewritten in the short form as `A → A`.
+We will usually write the identity function as:
+
+```dhall
+let identity : ∀(A : Type) → A → A
+  = λ(A : Type) → λ(a : A) → a
 ```
 
 In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax.
@@ -2836,9 +2845,9 @@ If a recursion scheme does not actually depend on its type parameter, the Church
 For example, consider this recursion scheme:
 
 ```dhall
-let F = λ(t : Type) → { x : Text, y : Bool }
+let K = λ(t : Type) → { x : Text, y : Bool }
 ```
-Here the type `F t` does not actually depend on `t`.
+The type `K t` does not actually depend on `t`.
 
 The corresponding Church encoding gives the type:
 
@@ -2846,10 +2855,10 @@ The corresponding Church encoding gives the type:
 let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 ```
 
-The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = F C`.
-This remains true even when `F` does not depend on its type parameter.
-So, now we have `F C = { x : Text, y : Bool }` independently of `C`.
-The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
+The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = K C`.
+This remains true even when `KF` does not depend on its type parameter.
+So, now we have `K C = { x : Text, y : Bool }` independently of `C`.
+The type equation `C = K C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
@@ -2866,9 +2875,9 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
-Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
+Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
 
-The Yoneda identities can be proved via the parametricity theorem.
+The Yoneda identities can be proved via the parametricity theorem, or by assuming suitable naturality laws.
 See the Appendix "Naturality and parametricity" for more details.
 
 ### Church encoding in the curried form
@@ -2918,10 +2927,11 @@ These examples show how any type constructor `F` defined via products (records) 
 We will call that the **curried form** of the Church encoding.
 
 The curried form is often convenient for practical programming.
-However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying the general properties of Church encodings.
+However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
 
 Historical note: The curried form of the Church encoding is also known as the Boehm-Berarducci encoding.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
+
 
 ## Working with Church-encoded data
 
@@ -6122,7 +6132,7 @@ We obtained equation (2).
 The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identities cannot be used with types of that form.
 
-There is a generalized identity that combines both forms of types.
+There is a generalized identity (without a widely accepted name) that combines both forms of types.
 This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
 
 ```dhall
@@ -6592,11 +6602,51 @@ ep ExistsP packP === ep
 
 It follows that `consume (ep ExistsP packP) === consume ep`.
 
+Then we get:
+
+`consume ep === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
+
 This concludes the proof.
+
+### Wadler's "surjectivity property" for existential types
+
+The paper "Recursive types for free" mentions a "surjective pairing property" that we will now formulate and prove for existential types of the form `ExistsP`:
+
+For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`, the following equation holds:
+
+`h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))`
+
+Proof: After setting `h = consume`, this equation is the same as the last line in the proof in the previous section.
+
+This property allows us to express a function application `h ep` through an application of `h` to a value explicitly constructed via `packP`.
+This does _not_ mean that `packP` constructs all possible values of type `ExistsP` (i.e., that `packP` is surjective as a function from `T : Type` and `pt : P T` to `ExistsP`).
+This "surjectivity" only holds in a weaker sense: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
+
+#### Encoding Wadler's notation in Dhall
+
+Wadler's paper "Recursive types for free" uses a special notation for existential types.
+That notation can be encoded in Dhall as follows:
+
+```dhall
+-- Symbolic derivation.
+ExistsP      -- Wadler's existential type ∃X. P X
+packP X y    -- Wadler's constructor: (X, y)
+t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) -> w}) : W
+```
+
+Then Wadler's "surjective pairing property", which he writes as:
+
+`h t == case t of {(X, y) -> h(X, y)}`
+
+is translated into Dhall as:
+
+`h t === t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
+
+After renaming `t = ep`, this is the same equation we proved above.
 
 ### Some properties of co-inductive types
 
-In this section, we will prove some general properties of co-inductive types such as `GFix F`.
+In this section, we will prove some general properties of co-inductive types, such as `GFix F` defined in the chapter "Co-inductive types".
 For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
 An example would be:
 
@@ -6605,38 +6655,70 @@ let F = Optional
 let functorF : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
 ```
 
-To make the derivations shorter, we denote `fixf = fix F functorF`, `packFf = packF F functorF`, and `unfixf = unfix F functorF`.
-(The functions `fix`, `packF`, and `unfix` were defined in the section "The fixpoint isomorphism" in the chapter "Co-inductive types".)
-We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed:
+To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
+(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Co-inductive types".)
+We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
+We will also denote the type `GFix F` simply by `G`.
+We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : step : t → F t }`.
+
+Here is a summary of the resulting definitions:
 
 ```dhall
-let GFt = λ(t : Type) → { seed : t, step : t → F t }  -- This is `GF_T F`.
-let packFf : ∀(t : Type) → GFt t → F (GFix F)
-  = λ(t : Type) → λ(p : GFt t) →
-    functorF.fmap t (GFix F) (λ(x : t) → pack GFt t { seed = x, step = p.step }) (p.step p.seed)
-let unfixf : GFix F → F (GFix F) = λ(g : GFix F) → g (F (GFix F)) packFf
+let PackTo = λ(r : Type) → ∀(t : Type) → (t → F t) → t → r  -- Define PackTo for brevity.
+let G = ∀(r : Type) → PackTo r → r
+let unfold : PackTo G
+  = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
+    λ(r : Type) → λ(pack_ : PackTo r) → pack_ r c y
+let unfoldF : PackTo (F G)
+  = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
+    functorF.fmap t G (unfold t c) (c y)
+let unfixf : G → F G = λ(g : G) → g (F G) unfoldF
+let fmap_unfixf = functorF.fmap G (F G) unfixf
+let fixf : F G → G
+  = unfold (F G) fmap_unfixf
 ```
 
-```dhall
-let fmap_unfixf = functorF.fmap (GFix F) (F (GFix F)) unfixf
-let fixf : F (GFix F) → GFix F
-  = λ(fg : F (GFix F)) → pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf }
-```
+Below we will need to use the relational naturality law of `unfold`.
+That law will be applied in the following form:
 
-Also, recall that the type `GFix F` is written in an expanded form as:
+For any types `R`, `S`, for any functions `f : R → S`, `cR : R → F R`, `cS : S → F S`:
+if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
 
-`∀(r : Type) → (∀(t : Type) → GFt t → r) → r`
+###### Statement 1 (extensional surjectivity of `unfold`)
+
+For any value `g : G`, for any type `S`, for any function `h : G → S`, we will have:
+
+`h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))`
+
+The name "extensional surjectivity" is used here to make it clear that we are not proving the ordinary surjectivity for `unfold`.
+The ordinary meaning of surjectivity for `unfold` would hold if any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
+We are not able to prove that here.
+
+Instead, this statement claims a weaker property: for any function `h : G → S`, the function application `h g` can be computed if we know how to compute the function application `h (unfold R cR x)` for arbitrary types `R` and arbitrary values `cR : R → F R` and `x : R`.
 
 
-###### Statement 1
+###### Proof
+
+Apply Wadler's "surjectivity pairing property" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
+
+`h t === t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
+
+Now we can pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
+Then we obtain directly the equation we need for the extensional surjectivity of `unfold`.
+
+###### Statement 2
 
 Given any type `R` and any function `rfr : R → F R`, define the function `r2g` by:
 
-`let r2g : R → GFix F = λ(x : R) → pack GFt R { seed = x, step = rfr }`
+`let r2g : R → G = λ(x : R) → unfold R rfr x`
+
+or more concisely:
+
+`let r2g : R → G = unfold R rfr`
 
 Then the function `r2g` satisfies the following law: for any `r : R`,
 
-`unfixf (r2g r) === functorF.fmap R (GFix F) r2g (rfr r)`
+`unfixf (r2g r) === functorF.fmap R G r2g (rfr r)`
 
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
@@ -6645,219 +6727,196 @@ So, we claim that `r2g` is always an $F$-coalgebra morphism.
 
 ###### Proof
 
-Begin with the expression `unfixf (r2g r)`:
+We need to show that:
+
+`unfixf (unfold R rfr r) === functorF.fmap R G (unfold R rfr) (rfr r)`
+
+Begin with the expression `unfixf (unfold R rfr r)`:
 
 ```dhall
 -- Symbolic derivation.
-unfixf (r2g r)  -- Use definition of unfixf:
- === r2g r (F (GFix F)) packFf  -- Use definitions of r2g and pack:
- === pack GFt R { seed = r, step = rfr } (F (GFix F)) packFf
- === packFf R { seed = r, step = rfr }  -- Use definition of packFf:
- === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+unfixf (unfold R rfr r)              -- Use definition of unfixf:
+ === unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
+ === unfoldF R rfr r                 -- Use definition of unfoldF:
+ === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
-This is exactly the same as the right-hand side of the equation we needed to prove:
+Rewrite the right-hand side of the equation we needed to prove:
 ```dhall
 -- Symbolic derivation.
-functorF.fmap R (GFix F) r2g (rfr r)  -- Use definition of r2g:
- === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+functorF.fmap R G (unfold R rfr) (rfr r)
+ === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
 
-###### Statement 2
-
-The function `r2g` defined in Statement 1 may be rewritten using a more general function we will call `packAf` that can "package" any type `R` into a value of type `GFix F`:
-
-```dhall
-let packAf : ∀(R : Type) → (R → F R) → R → GFix F
-  = λ(R : Type) → λ(rfr : R → F R) → λ(x : R) →
-    pack GFt R { seed = x, step = rfr }
-```
-The definition of Statement 1 will be obtained as `r2g = packAf R rfr`.
-
-Because we may apply `packAf` with any type `R` as long as we have a function of type `R → F R`, we may set `R = GFix F` and `rfr = unfixf`.
-Then the corresponding function `r2g` will be an identity function of type `GFix F → GFix F`.
-
-In other words, for any value `g : GFix F` we will have:
-
-`packAf (GFix F) unfixf g === g`
-
-###### Proof
-
-Both sides of the equation are functions of type `GFix F`.
-We will apply both sides to some arguments and show that the results are equal.
-Since the type `GFix G` is equal to `∀(T : Type) → (∀(R : Type) → GFt R → T) → T`, suitable arguments are `T : Type` and `t : ∀(R : Type) → GFt R → T`.
-So, our goal is to prove that, for any such `T` and `t`:
-
-`packAf (GFix F) unfixf g T t === g T t`
-
-`pack GFt (GFix F) { seed = g, step = unfixf } T t === g T t`
-
-`t (GFix F) { seed = g, step = unfixf } === g T t`
-
-TODO
-
-Weuse the relational naturality law of `g`.
-
-TODO
+The two sides are now equal.
 
 ###### Statement 3
 
-Let `R` be any type for which a function `rfr : R → GFix F` is given.
-Then there exists only one $F$-coalgebra morphism of type `R → GFix F`, and that morphism is the function `r2g` defined in Statement 1.
+The construction in Statement 2 may be used with `R = G` and `rfr = unfixf`.
+Then the corresponding function `r2g` will be an identity function of type `G → G`,
+as long as `unfold` satisfies its relational naturality law.
+
+In other words, for any value `g : G` we will have:
+
+`g === unfold G unfixf g`
 
 ###### Proof
 
-Let `h : R → GFix F` be any given function that satisfies the $F$-coalgebra morphism law: for any `r : R`,
+For brevity, denote `v = unfold G unfixf`. Then our goal is to prove that `v g === g`.
 
-`unfixf (h r) === functorF.fmap R (GFix F) h (rfr r)`
+First, we use the relational naturality law of `g` with `S = G`, `f = unfold R cR`, `cS = unfixf` and get:
 
-Both sides of this equation have type `F (GFix F)`.
+If `unfixf (unfold R cR x) === functorF.fmap R G (unfold R cR) (cR x)` for all `x : R` then `unfold R cR y === unfold G unfixf (unfold R cR y)` for all `y : R`.
 
-Expand the definition of `unfixf`:
+The precondition holds by Statement 2.
+So, we have for all `y : R`:
 
-`h r (F (GFix F)) packFf === functorF.fmap R (GFix F) h (rfr r)`
+`unfold R cR y === unfold G unfixf (unfold R cR y) === v (unfold R cR y)`
 
-We need to show that `h r === r2g r`.
+This is close to what we need: this equation says `k == v k` for `k = unfold R cR y`.
+But we need to show `g === v g` for arbitrary `g : G`.
 
+To get around this difficulty, we use Statement 1 with `h = identity G` and get:
 
-TODO
+`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
 
-Because `h r` has type `GFix F`, it satisfies the naturality law:
+Now substitute what we already derived:
+
+`unfold R cR y === v (unfold R cR y)`
+
+and get:
+
+`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
+
+ Again use Statement 1, this time with `h = v` and `g = unfold R cR y`, to get:
+
+```dhall
+-- Symbolic derivation.
+g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
+  === v g
+```
+
+So, we obtain `g === v g` as required.
+
 
 ###### Statement 4
 
-For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
+For a fixed functor `F`, the functions `fixf : F G → G` and `unfixf : G → F G` are inverses of each other.
 
 ###### Proof
 
 We need to prove two directions of the isomorphism round-trip:
 
-(1) For any `g : GFix F` we will have `fixf (unfixf g) === g`
+(1) For any `g : G` we will have `fixf (unfixf g) === g`
 
-(2) For any `fg : F (GFix F)` we will have `unfixf (fixf fg) === fg`
+(2) For any `fg : F G` we will have `unfixf (fixf fg) === fg`
 
-Due to parametricity, any value `g : GFix F` will satisfy a relational naturality law formulated like this:
-
-- For any types `A`, `B`, and for any functions `f : A → B`, `p : ∀(t : Type) → GFt t → A`, and `q : ∀(t : Type) → GFt t → B`, such that `p` and `q` are `f`-related, we must have `f (g A p) === g B q`.
-- In the previous sentence, functions `p` and `q` are considered to be `f`-related if for any types `C`, `D`, and for any `k : C → D`, `u : GFt C`, `v : GFt D`, such that `u` and `v` are `k`-related, we will have `f (p D v) === q C u`.
-- In the previous sentence, values `u` and `v` are considered to be `k`-related if `k u.seed === v.seed` and for any `x : C` we will have `functorF.fmap C D k (u.step x) === v.step (k x)`.
-
-We will need to use that law in the proof.
-
-To prove item (1), we first note that the type of `g` is a function whose arguments are `R : Type` and `r : ∀(t : Type) → GFt t → R`.
-So, both sides of the equation in item (1) are functions with those arguments.
-We will prove that those functions are equal if we show that applying those functions to arbitrary arguments gives equal results.
-
-Apply both sides of the equation in item (1) to arbitrary `R : Type` and `r : ∀(t : Type) → GFt t → R`, then substitute the definitions of `fixf` and `unfixf`:
+To prove item (1), we write out the left-hand side of its equation:
 
 ```dhall
--- Symbolic derivation. Expect this to equal just `g R r`.
-fixf (unfixf g) R r
-  === pack GFt (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } R r
--- Substitute the definition of `pack`:
-  === r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf }
+-- Symbolic derivation. Expect this to equal just `g`.
+fixf (unfixf g)
+  === unfold (F G) fmap_unfixf (unfixf g)
 ```
-We will show that the last expression equals `g R r` if we find suitable parameters for applying the relational naturality law of `g`.
+
+Then we use the relational naturality law of `unfold` with `R = G`, `S = F G`, `f = unfixf`, `cR = unfixf`, and `cS = fmap_unfixf`.
+The precondition of the relational naturality law becomes:
+
+if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
+
+`fmap_unfixf (unfixf x) === functorF.fmap G (F G) unfixf (unfixf x) === fmap_unfixf (unfixf x)`
+
+This holds trivially.
+So, the conclusion of the law also holds: for all `g : G`,
+
+`unfold G unfixf g === unfold (F G) fmap_unfixf (unfixf g)`
+
+The right-hand side is the same as the expression we got after expanding `fixf` in `fixf (unfixf g)`.
+So, we continue our derivation:
 
 ```dhall
--- Symbolic derivation. The relational naturality law of `g`:
-f (g A p) === g B q
--- will match our equation:
-r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } === g R r
--- if we define the parameters as:
-A = F (GFix F)
-B = R
-f = λ(fg : A) → r A { seed = fg, step = fmap_unfixf }
-p = packFf
-q = r
+-- Symbolic derivation. Expect this to equal just `g`.
+fixf (unfixf g)  -- Use the definition of fixf:
+  === unfold (F G) fmap_unfixf (unfixf g)  -- Use the relational naturality law of `unfold`:
+  === unfold G unfixf g  -- Use Statement 3:
+  === g
 ```
 
-The relational naturality law of `g` will prove item (1) if we show that `p` and `q` are `f`-related.
-To check that, we write the definition of that relation:
+Item (1) is proved.
+
+To prove item (2), write out the left-hand side of its equation:
 
 ```dhall
--- Symbolic derivation. The values `p` and `q` are `f`-related if:
-f (p D v) === q C u
--- Substitute our definitions of f, p, q, B:
-r A { seed = packFf D v, step = fmap_unfixf } === r C u
--- This should hold for any `u` and `v` that are `k`-related, that is:
-k u.seed === v.seed
-functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
+-- Symbolic derivation. Expect this to equal just `fg`.
+unfixf (fixf fg)   -- Use the definition of unfixf:
+  === fixf fg (F G) unfoldF  -- Use the definition of fixf:
+  === unfold (F G) fmap_unfixf fg (F G) unfoldF  -- Use the definition of unfold:
+  === unfoldF (F G) fmap_unfixf fg  -- Use the definition of unfoldF: 
+  === functorF.fmap (F G) G (unfold (F G) fmap_unfixf) (fmap_unfixf fg)
 ```
 
-As `r` is an arbitrary function, we need to use a naturality law of `r` in order to derive an equation involving `r` at both sides.
-The relational naturality law of `r` is formulated as follows: for any types `K`, `L` and any `j : K → L`, `m : GFt K`, `n : GFt L` such that `m` and `n` are `j`-related, we have `r K m === r L n`.
-In the last sentence, the property of being `j`-related means `j m.seed === n.seed` and `functorF.fmap K L j (m.step y) === n.step (j y)` for all `y : K`.
+At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simplify the last line to:
 
-Now we continue the derivation:
+`functorF.fmap (F G) G fixf (fmap_unfixf fg)`
 
-```dhall
--- Symbolic derivation. The values `p` and `q` are `f`-related if:
-r A { seed = packFf D v, step = fmap_unfixf } === r C u
--- This will match the naturality law of `r`:
-r L n === r K m
--- if we define the parameters as:
-K = C
-L = A
-m = u
-n = { seed = packFf D v, step = fmap_unfixf }
-```
-
-Now it remains to show that `m` and `n` are `j`-related for some `j : C → A` whenever we are given arbitrary types `C`, `D` and some arbitrary `k : C → D`, `u : GFt C`, and `v : GFt D` that are `k`-related.
-All we know about `k`, `u`, and `v` is:
-
-```dhall
--- Symbolic derivation. We know that `u` and `v` are `k`-related:
-k u.seed === v.seed
-functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
-```
-
-The first condition (`j m.seed === n.seed`) gives `j u.seed === packFf D v` or equivalently `j (packFf C u) === k u.seed`.
-So, we need to choose `j` to satisfy that equation.
-
-The second condition is rewritten as:
-
-```dhall
--- Symbolic derivation. The condition for `m.step` and `n.step` is:
-functorF.fmap K L j (m.step y) === n.step (j y)  -- for any `y : C`
--- Substitute the definitions of K, L, m, n:
-functorF.fmap C A j (u.step y) === fmap_unfixf (j y)
-```
-doesn't seem to work!
-
-TODO
-
-To prove item (2):
-
-```dhall
--- Symbolic derivation. Use the definitions of fixf and unfixf:
-unfixf (fixf fg)
-  === fixf fg (F (GFix F)) packFf
-  === pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf } (F (GFix F)) packFf
--- Use the definition of pack:
-  === packFf (F (GFix F)) { seed = fg, step = fmap_unfixf }
--- Use the definition of packFf:
-  === functorF.fmap (F (GFix F)) (GFix F) (λ(x : F (GFix F)) → pack GFt (F (GFix F)) { seed = x, step = fmap_unfixf }) (fmap_unfixf fg)
--- Recognize that the function under `(λ(x : F (GFix F)) → pack ...)` is fixf:
-  === functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg)
-```
 The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
-By `fmap`'s composition law, we get `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
+By `fmap`'s composition law, we have `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
 We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
-Applying `functorF.fmap` to an identity function of type `GFix F → GFix F` gives an identity function of type `F (GFix F) → F (GFix F)`.
+Applying `functorF.fmap` to an identity function of type `G → G` gives an identity function of type `F G → F G`.
 So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
 
-`functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg) === fg`
+`functorF.fmap (F G) G fixf (fmap_unfixf fg) === fg`
 
-This is what remained to be proved. $\square$
+This is what remained to be proved for item (2). $\square$
+
+###### Statement 5
+
+Given any type `R` and any function `rfr : R → F R`,
+there exists only one $F$-coalgebra morphism of type `R → G`, namely the function `r2g` defined in Statement 2 as `r2g = unfold R rfr`.
+
+###### Proof
+
+Let `f : R → G` be any function that satisfies the $F$-coalgebra morphism law.
+We need to show that `f` is then equal to `r2g` (which is defined as `unfold R rfr`).
+
+The $F$-coalgebra morphism law of `f` says that, for any `x : R`,
+
+`unfixf (f x) === functorF.fmap R G f (rfr x)`
+
+This equation is the same as the precondition of the relational naturality law of `unfold` with `S = G`, `cR = rfr`, and `cS = unfixf`.
+So, the conclusion of that law holds: for any `x : R`,
+
+`unfold R rfr x === unfold G unfixf (f x)`
+
+By Statement 3, we have `g === unfold G unfixf g` for any `g : G`.
+Use that property for `g = f x` and obtain:
+
+`unfold R rfr x === unfold G unfixf g === g === f x`
+
+The left-hand side is exactly the function `r2g` from Statement 2.
+So, we have proved that `r2g x === f x`. The function `f` is the same as `r2g`.
 
 
 ### The Church-co-Yoneda identity
 
-A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
+The following identity holds for all covariant functors `F` and `K`:
 
 ```dhall
--- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
-G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
+-- Mathematical notation:  K (GFix F) ≅ ∃ A. (K A) × (A → F A)
+K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
+
+This is analogous to the Church-Yoneda identity, except for using existentially quantified types and the encoding of greatest fixpoints instead of universally quantified types and the encoding of least fixpoints.
+
+Denote for brevity:
+
+```dhall
+let G = GFix F
+let CCoY = Exists (λ(A : Type) → { seed : K A, step : A → F A })
+```
+
+To prove the Church-co-Yoneda identity, we implement the two directions of the isomorphism:
+`fromCCoY : CCoY → K G`
+and
+`toCCoy : K G → CCoY`
 
 TODO
