@@ -2848,7 +2848,18 @@ For example, consider this recursion scheme:
 let K = λ(t : Type) → { x : Text, y : Bool }
 ```
 The type `K t` does not actually depend on `t`.
+Nevertheless, `K` is a valid type constructor that is covariant (has a `Functor` evidence value):
 
+```dhall
+let functorK : Functor K = { fmap =
+  λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(x : K a) → x
+}
+```
+In this code, we just return `x` because the type judgments `x : K a` and `x : K b` both hold.
+
+The type constructor `K` is an example of a **constant functor**.
+
+Because `K` is a covariant functor, we may use the Church encoding for the least fixpoint of `K`.
 The corresponding Church encoding gives the type:
 
 ```dhall
@@ -4121,7 +4132,7 @@ We notice that `unpack` does nothing more than rearrange the curried arguments a
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
 
-#### Functions of existential types
+#### Functions of existential types: the function extension rule
 
 The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
 
@@ -4137,8 +4148,8 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
 Indeed, this type equivalence (an isomorphism) can be proved rigorously.
-The function `inE` shown above is one side of the isomorphism.
-The other is the function `outE`:
+The function `inE` shown above gives one direction of the isomorphism.
+The other direction is the function `outE`:
 
 ```dhall
 let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
@@ -4147,10 +4158,11 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     in consume ep
 ```
 
-We will prove below (in the chapter "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
+We will prove below (in the appendix "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
 
-Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
-Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
+Because of this type isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
+
+We call this equivalence the **function extension rule** for existential types.
 
 #### Differences between existential and universal quantifiers
 
@@ -6311,19 +6323,19 @@ Then `U = H T`, and so we can derive a fixpoint equation that contains just `T` 
 T === LFix (λ(x : Type) → F x U)
   === LFix (λ(x : Type) → F x (H T))
 ```
-To simplify the last equation, define the type constructor `K` by `K a = F a (H a)`, or in Dhall:
+To simplify the last equation, define the type constructor `J` by `J a = F a (H a)`, or in Dhall:
 
 ```dhall
-let K = λ(a : Type) → F a (H a)
+let J = λ(a : Type) → F a (H a)
 ```
-Then the last equation becomes `T = LFix K`.
+Then the last equation becomes `T = LFix J`.
 
 It remains to show that the type definition we started with:
 
 ```dhall
 let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 ```
-is equivalent to just `T = LFix K`.
+is equivalent to just `T = LFix J`.
 
 To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
 
@@ -6371,7 +6383,7 @@ However, we notice that `LFix P` is the same type as `H a`:
 LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
 ```
 
-Also, `F a (LFix P) === F a (H a) === K a`.
+Also, `F a (LFix P) === F a (H a) === J a`.
 
 So, we can finally rewrite `T` as:
 
@@ -6379,8 +6391,8 @@ So, we can finally rewrite `T` as:
 -- Symbolic derivation.
 T === ∀(a : Type) → (F a (LFix P) → a) → a
   === ∀(a : Type) → (F a (H a) → a) → a
-  === ∀(a : Type) → (K a → a) → a
-  === LFix K
+  === ∀(a : Type) → (J a → a) → a
+  === LFix J
 ```
 
 This is precisely the type expression we needed to derive.
@@ -6504,13 +6516,15 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Functions of existential type
+### Function extension rule for existential types
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
 We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
+This proves the **function extension rule** for existential types.
+That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) → P T → R`.
 
-Recall the definitions of `inE` and `outE`:
+Begin the proof by recalling the definitions of `inE` and `outE`:
 
 ```dhall
 let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
@@ -6608,9 +6622,9 @@ Then we get:
 
 This concludes the proof.
 
-### Wadler's "surjectivity property" for existential types
+### Wadler's "surjectivity pairing rule" for existential types
 
-The paper "Recursive types for free" mentions a "surjective pairing property" that we will now formulate and prove for existential types of the form `ExistsP`:
+The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
 
 For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`, the following equation holds:
 
@@ -6619,8 +6633,11 @@ For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`
 Proof: After setting `h = consume`, this equation is the same as the last line in the proof in the previous section.
 
 This property allows us to express a function application `h ep` through an application of `h` to a value explicitly constructed via `packP`.
+
 This does _not_ mean that `packP` constructs all possible values of type `ExistsP` (i.e., that `packP` is surjective as a function from `T : Type` and `pt : P T` to `ExistsP`).
-This "surjectivity" only holds in a weaker sense: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
+We cannot prove _that_ property.
+
+The meaning of the "surjectivity rule" is a weaker statement: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
 
 #### Encoding Wadler's notation in Dhall
 
@@ -6634,7 +6651,7 @@ packP X y    -- Wadler's constructor: (X, y)
 t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) -> w}) : W
 ```
 
-Then Wadler's "surjective pairing property", which he writes as:
+Then Wadler's "surjective pairing rule", which he writes as:
 
 `h t == case t of {(X, y) -> h(X, y)}`
 
@@ -6907,16 +6924,62 @@ K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 
 This is analogous to the Church-Yoneda identity, except for using existentially quantified types and the encoding of greatest fixpoints instead of universally quantified types and the encoding of least fixpoints.
 
+For this identity to hold, we need `Functor` evidence values for both `F` and `K`.
+
 Denote for brevity:
 
 ```dhall
 let G = GFix F
 let CCoY = Exists (λ(A : Type) → { seed : K A, step : A → F A })
+let fmap_K = functorK.fmap
+let fmap_F = functorF.fmap
 ```
 
-To prove the Church-co-Yoneda identity, we implement the two directions of the isomorphism:
+For convenience, we redefine the types `G` and `CCoY` using curried arguments:
+
+```dhall
+let G = ∀(R : Type) → (∀(T : Type) → (T → F T) → T → R) → R
+let CCoY = ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
+```
+
+To prove the Church-co-Yoneda identity, we begin by implementing the two directions of the isomorphism:
 `fromCCoY : CCoY → K G`
 and
 `toCCoy : K G → CCoY`
+
+The function type `CCoY → K G` can be simplified using the function extension rule:
+
+`CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
+
+Then we notice the similarity between the last type and the type of `unfold`:
+
+`unfold : ∀(T : Type) → (T → F T) → T → G`
+
+The difference is only in a replacement of `T → G` by `K T → K G`.
+We can implement that replacement via `fmap_K`.
+Then we can write the code for the function `fromCCoY` as:
+
+```dhall
+let fromCCoY : CCoY → K G
+  = λ(c : CCoY) →
+    c (K G) (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → 
+      fmap_K T G (unfold T cT) kt
+    )
+```
+
+To implement `toCCoY`, we write:
+
+```dhall
+let toCCoY : K G → ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
+  = λ(kg : K G) → λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf kg
+```
+
+It remains to show that `fromCCoY` and `toCCoY` are inverses to each other.
+We need to prove the two directions of the isomorphism round-trip:
+
+(1) For any `kg : K G` we have `kg === fromCCoY (toCCoY kg)`
+
+(2) For any `c : CCoY` we have `c === toCCoY (fromCCoY c)`
 
 TODO
