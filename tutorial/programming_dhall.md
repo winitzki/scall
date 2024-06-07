@@ -3632,34 +3632,34 @@ data Layer2 = Name2 String | ManyLayers [ Layer ]
 
 The type `Layer` is defined via itself and `Layer2`, while `Layer2` is defined via `Layer`.
 
-We need two recursion schemes (`F` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
+We need two recursion schemes (`F1` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
 
 ```haskell
 -- Haskell:
-data Layer = Layer (F Layer Layer2)
+data Layer = Layer (F1 Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-We will achieve this formulation if we define `F` and `F2` by:
+We will achieve this formulation if we define `F1` and `F2` by:
 
 ```haskell
 -- Haskell:
-data F a b = Name String |  OneLayer a | TwoLayers b b
+data F1 a b = Name String |  OneLayer a | TwoLayers b b
 data F2 a b = Name2 String | ManyLayers [ a ]
 ```
 
-The recursion schemes `F` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
+The recursion schemes `F1` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
 
 ```dhall
-let F = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
 Then we define the types `Layer` and `Layer2` in Dhall via the Church encodings:
 
 ```dhall
-let Layer  = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → a
-let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → b
+let Layer  = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → b) → a
+let Layer2 = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → b) → b
 ```
 
 The definitions appear very similar, except for the output types of the functions.
@@ -4307,13 +4307,42 @@ To see that `GFix` is a higher-order function, we let Dhall's REPL expand the de
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the paper "Recursive types for free".
+A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the appendix "Naturality and parametricity".
 Hre, we will focus on the practical use of the greatest fixpoints.
+
+### Greatest fixpoints for mutually recursive types
+
+Consider two mutually recursive types (this example was shown in the section "Mutually recursive types" of chapter "Church encodings for more complicated types"):
+
+```haskell
+-- Haskell:
+data Layer = Layer (F1 Layer Layer2)
+data Layer2 = Layer2 (F2 Layer Layer2)
+```
+
+Define two recursion schemes `F1` and `F2` by:
+
+
+```dhall
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
+```
+
+Then Dhall types `Layer` and `Layer2` can be defined like this:
+
+```dhall
+let Layer = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, step1 : a → F1 a b, step2 : b → F2 a b}))
+let Layer2 = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, step1 : a → F1 a b, step2 : b → F2 a b}))
+```
+
+We will prove in the Appendix "Naturality and parametricity" that these type formulas actually encode the greatest fixpoints.
+
+For the rest of this chapter, we will focus on the simpler case of a single recursively defined type.
 
 ### The fixpoint isomorphism
 
-To show that `GFix F` is a fixpoint of `T = F T`, we implement two functions, called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
-(That property is proved in the paper "Recursive types for free" and in the Appendix of this book.)
+Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
+It means there exist two functions, here called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
@@ -6278,7 +6307,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Church encoding of mutually recursive types
+### Proof of Church encoding for mutual least fixpoints
 
 We will prove the following statement:
 
@@ -7114,3 +7143,48 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
   === c
 ```
 $\square$
+
+### Proof of Church encoding for mutual greatest fixpoints
+
+ 
+Suppose two mutually recursive types `T`, `U` are defined as the greatest fixpoints of a system of type equations:
+
+```dhall
+-- Type error: Dhall does not support recursive definitions.
+T = GFix (λ(x : Type) → F x U)
+U = GFix (λ(y : Type) → G T y)
+```
+where `F` and `G` are some (covariant) bifunctors.
+An example definition of `F` and `G` is:
+
+```dhall
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
+let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
+```
+Then the types `T`, `U`  may be equivalently defined by a Church encoding in the form:
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+```
+
+The plan of the proof is to express the fixpoints of a system of type equations through greatest fixpoints of single-argument functors.
+Together with the Church-co-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
+
+To begin, notice that the record type `{ seed : a, stepA : a → F a b, stepB : b → G a b }` is equivalent to `{ seedB : H a b, stepB : b → G a b }` if we define `H` as:
+
+```dhall
+let H = λ(a : Type) → λ(b : Type) → { seed : a, stepA : a → F a b}
+```
+We fix `a` and view `H a b` as a covariant functor with respect to `b`.
+Then we can rewrite `T` as:
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seedB : H a b, stepB : b → G a b }))
+```
+
+By the Church-co-Yoneda identity, the type `T` is then equivalent to:
+
+`T  ≅  Exists (λ(a : Type) → H a (GFix (G a)))`
+
+TODO
