@@ -12,9 +12,11 @@ which is known in the academic literature as "System Fω".
 Dhall is positioned as an open-source language for programmable configuration files.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall. 
 
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
+
 From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
-For a more theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+For a more theoretical introduction to various forms of typed lambda calculus, System F, and System Fω, see:
 
 - [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
@@ -30,8 +32,6 @@ To summarize, Dhall is a powerful, purely functional programming language that h
 This book focuses on the last two applications.
 
 ## Overview of Dhall
-
-The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
 
 The Dhall project's documentation covers many aspects of using Dhall to produce YAML and JSON configuration files.
 This book focuses on other applications of Dhall, viewing it primarily as a vehicle for learning the patterns of advanced functional programming.
@@ -52,6 +52,12 @@ See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) 
 
 The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
 such as `Natural/lessThan` and `List/map`.
+
+
+It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, F#, and so on).
+One major difference is the syntax for functions, which is more similar to the notation adopted in System F and System Fω.
+System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x:t). f t x` correspond to Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+
 
 ### Guaranteed termination
 
@@ -6521,7 +6527,7 @@ This completes the proof that `ep ExistsP packP U u === ep U u`.
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
 We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
-This proves the **function extension rule** for existential types.
+This will prove the **function extension rule** for existential types.
 That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) → P T → R`.
 
 Begin the proof by recalling the definitions of `inE` and `outE`:
@@ -6661,9 +6667,11 @@ is translated into Dhall as:
 
 After renaming `t = ep`, this is the same equation we proved above.
 
-### Some properties of co-inductive types
+### Properties of co-inductive type encodings
 
 In this section, we will prove some general properties of co-inductive types, such as `GFix F` defined in the chapter "Co-inductive types".
+In particular, we will prove that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
+
 For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
 An example would be:
 
@@ -6716,7 +6724,7 @@ Instead, this statement claims a weaker property: for any function `h : G → S`
 
 ###### Proof
 
-Apply Wadler's "surjectivity pairing property" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
+Apply Wadler's "surjectivity pairing rule" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
 
 `h t === t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
 
@@ -6737,16 +6745,17 @@ Then the function `r2g` satisfies the following law: for any `r : R`,
 
 `unfixf (r2g r) === functorF.fmap R G r2g (rfr r)`
 
+or equivalently:
+
+`unfixf (unfold R rfr r) === functorF.fmap R G (unfold R rfr) (rfr r)`
+
+
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 
 So, we claim that `r2g` is always an $F$-coalgebra morphism.
 
 ###### Proof
-
-We need to show that:
-
-`unfixf (unfold R rfr r) === functorF.fmap R G (unfold R rfr) (rfr r)`
 
 Begin with the expression `unfixf (unfold R rfr r)`:
 
@@ -6771,10 +6780,14 @@ The two sides are now equal.
 The construction in Statement 2 may be used with `R = G` and `rfr = unfixf`.
 Then the corresponding function `r2g` will be an identity function of type `G → G`,
 as long as `unfold` satisfies its relational naturality law.
+We can write that property as:
+
+`unfold G unfixf === identity G`
 
 In other words, for any value `g : G` we will have:
 
 `g === unfold G unfixf g`
+
 
 ###### Proof
 
@@ -6923,8 +6936,12 @@ K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
 This is analogous to the Church-Yoneda identity, except for using existentially quantified types and the encoding of greatest fixpoints instead of universally quantified types and the encoding of least fixpoints.
+In this section, we will show a proof of the Church-co-Yoneda identity.
 
-For this identity to hold, we need `Functor` evidence values for both `F` and `K`.
+For that identity to hold, we need the following requirements:
+
+- both `F` and `K` must be lawful covariant functors (with `Functor` typeclass evidence values satisfying the functor laws)
+- parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions
 
 Denote for brevity:
 
@@ -6962,8 +6979,8 @@ Then we can write the code for the function `fromCCoY` as:
 ```dhall
 let fromCCoY : CCoY → K G
   = λ(c : CCoY) →
-    c (K G) (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → 
-      fmap_K T G (unfold T cT) kt
+    c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
     )
 ```
 
@@ -6982,4 +6999,118 @@ We need to prove the two directions of the isomorphism round-trip:
 
 (2) For any `c : CCoY` we have `c === toCCoY (fromCCoY c)`
 
-TODO
+To prove item (1):
+
+```dhall
+-- Symbolic derivation. Expect this to equal `kg`:
+fromCCoY (toCCoY kg)   -- Expand the definition of fromCCoY:
+  === toCCoY kg (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    )                  -- Expand the definition of toCCoY:
+  === (λ(T : Type) → λ(cT : T → F T) →
+      fmap_K T G (unfold T cT)
+    ) G unfixf kg      -- Apply function to arguments:
+  === fmap_K G G (unfold G unfixf) kg
+```
+
+Statement 3 in section "Properties of co-inductive type encodings" shows that `unfold G unfixf` is an identity function of type `G → G` (denoted by `identity G`).
+So, we have:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `kg`:
+fromCCoY (toCCoY kg)
+  === fmap_K G G (unfold G unfixf) kg   -- Use Statement 3:
+  === fmap_K G G (identity G) kg     -- Use functor K's identity law:
+  === identity (K G) kg              -- Apply identity function:
+  === kg
+```
+
+This proves item (1).
+
+To prove item (2), write:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `c`:
+toCCoY (fromCCoY c)   -- Expand the definition of fromCCoY:
+  === toCCoY (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))                -- Expand the definition of toCCoY:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))
+```
+
+At this point, we need to use naturality laws, which hold due to parametricity assumptions.
+
+The first law we will use is the naturality law for values `c : CCoY`.
+That law says that for any types `Q`, `S`, for any function `f : Q → S`, for any value `q : ∀(T : Type) → (T → F T) → K T → Q`:
+
+`f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))`
+
+Apply that law to the last expression, setting `Q = K G`, `S = R`, `f = p G unfixf`, and
+`q = λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)`.
+Then we get:
+
+```dhall
+-- Symbolic derivation.
+p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)
+  === f (c Q q)
+  === c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
+  === c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
+```
+
+The next step is to simplify the sub-expression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
+For that, we use the relational naturality law for values `p : ∀(T : Type) → (T → F T) → K T → R`.
+That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
+
+`fmap_F T U h (cT x) === cU (h x)` for all `x : T`,
+
+then the conclusion holds:
+
+`p T cT kt === p U cU (fmap_K T U h kt)`
+
+We need to set the parameters in the law to match the right-hand side of the last equation:
+
+
+```dhall
+-- Symbolic derivation. We will match:
+p U cU (fmap_K T U h kt)
+-- with:
+p G unfixf (fmap_K T G (unfold T cT) kt)
+-- if we set U = G, cU = unfixf, and h = unfold T cT.
+```
+With these parameters, we get:
+
+```dhall
+-- Symbolic derivation.
+p G unfixf (fmap_K T G (unfold T cT) kt)
+  === p U cU (fmap_K T U h kt)
+  === p T cT kt
+```
+as long as the precondition of the law holds:
+
+`fmap_F T G (unfold T cT) (cT x) === unfixf (unfold T cT x)`
+This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Properties of co-inductive types".
+
+This allows us to complete the proof of item 2:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `c`.
+toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))    -- Use the naturality law of `c`:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) →
+      p G unfixf (fmap_K T G (unfold T cT) kt))
+        -- Use the relational naturality law of `p`:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p T cT kt)
+       -- Unexpand function: λ T → λ cT → λ kt → p T cT kt === p
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) → c R p
+       -- Unexpand function: λ R → λ p → c R p === c
+  === c
+```
+$\square$
