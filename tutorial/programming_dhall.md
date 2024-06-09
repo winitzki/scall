@@ -1,4 +1,4 @@
-# Advanced Functional Programming in System Fω using Dhall
+# Programming in System Fω using Dhall
 
 ## Preface
 
@@ -6307,135 +6307,6 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Proof of Church encoding for mutual least fixpoints
-
-We will prove the following statement:
-
-Suppose two mutually recursive types `T`, `U` are defined as the least fixpoints of this system of type equations:
-
-```dhall
--- Type error: Dhall does not support recursive definitions.
-let T = F T U
-let U = G T U
-```
-where `F` and `G` are some (covariant) bifunctors.
-An example definition of `F` and `G` is:
-
-```dhall
-let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
-let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
-```
-Then the types `T`, `U`  may be equivalently defined by a Church encoding in the form:
-
-```dhall
-let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
-```
-
-The plan of the proof is to express the fixpoints of a system of type equations through simple fixpoints of single-argument functors.
-We already know that we may use the ordinary Church encoding works for such fixpoints.
-Together with the Church-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
-
-Using the name `LFix` for the Church encoding of least fixpoints, we rewrite the given system of type equations like this:
-
-```dhall
--- Type error: Dhall does not support recursive definitions.
-T = LFix (λ(x : Type) → F x U)
-U = LFix (λ(y : Type) → G T y)
-```
-This is still not a valid Dhall program, but we can work with this notation better.
-
-To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
-
-```dhall
-let H = λ(a : Type) → LFix (G a)
-```
-Note that the curried type constructor `G a` is the same as `λ(y : Type) → G a y`.
-Then `U = H T`, and so we can derive a fixpoint equation that contains just `T` and no `U`:
-
-```dhall
--- Symbolic derivation.
-T === LFix (λ(x : Type) → F x U)
-  === LFix (λ(x : Type) → F x (H T))
-```
-To simplify the last equation, define the type constructor `J` by `J a = F a (H a)`, or in Dhall:
-
-```dhall
-let J = λ(a : Type) → F a (H a)
-```
-Then the last equation becomes `T = LFix J`.
-
-It remains to show that the type definition we started with:
-
-```dhall
-let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-```
-is equivalent to just `T = LFix J`.
-
-To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
-
-```dhall
-∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
-```
-
-In order to apply this identity, rewrite the type expression for `T` in a suitable form:
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-    -- Swap `a` and `b`, and swap the curried arguments:
-  === ∀(b : Type) → ∀(a : Type) → (G a b → b) → (F a b → a) → a
-  === ∀(a : Type) → ∀(b : Type) → (P b → b) → Q b
-```
-where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) → a`.
-(The type parameter `a` is kept fixed.)
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) →
-  let P = λ(b : Type) → G a b
-  let Q = λ(b : Type) → (F a b → a) → a
-  in ∀(b : Type) → (P b → b) → Q b
-```
-
-With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
-So, we may apply the Church-Yoneda identity and obtain:
-
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) →
-  let P = λ(b : Type) → G a b
-  let Q = λ(b : Type) → (F a b → a) → a
-  in Q (LFix P)
-  === ∀(a : Type) → (F a (LFix P) → a) → a
-```
-
-However, we notice that `LFix P` is the same type as `H a`:
-
-```dhall
--- Symbolic derivation.
-LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
-```
-
-Also, `F a (LFix P) === F a (H a) === J a`.
-
-So, we can finally rewrite `T` as:
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) → (F a (LFix P) → a) → a
-  === ∀(a : Type) → (F a (H a) → a) → a
-  === ∀(a : Type) → (J a → a) → a
-  === LFix J
-```
-
-This is precisely the type expression we needed to derive.
-
-We have proved the Church encoding formula for the type `T`.
-The proof for `U` is similar.
-
-
 ### Existential types: "pack" is a left inverse of "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
@@ -7142,17 +7013,352 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
        -- Unexpand function: λ R → λ p → c R p === c
   === c
 ```
+
+### Proofs for mutually recursive fixpoints
+
+Suppose two types `T`, `U` are defined as fixpoints of a system of type equations:
+
+```dhall
+-- Type error: Dhall does not support recursive definitions.
+let T = F T U
+let U = G T U
+```
+where `F` and `G` are some (covariant) bifunctors.
+
+An example definition of `F` and `G` is:
+
+```dhall
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
+let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
+```
+
+Then we may consider two possibilities: either we need the least fixpoints, or we need the greatest fixpoints.
+
+In this section, we will prove that the least fixpoints are given by the following Church encodings:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
+```
+while the greatest fixpoints are given by the following encodings:
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
+```
+
+The proofs in both cases are similar, and so we will write both proofs at the same time.
+The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
+We already know how to encode fixpoints of a single recursive type, and we will use those encodings to express `T`.
+Then we will use the Church-Yoneda identity (for least fixpoints) or the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
+The derivation for `U` will be omitted because it is exactly similar.
+
+We will need the following **mutual recursion lemma**:
+
+###### Statement 1.
+Suppose `J` is any bifunctor. Then the double fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
+That property holds for all fixpoints (least or greatest or any other fixpoints).
+
+###### Proof
+
+Let us temporarily denote by `Fix` the operation of taking any fixpoint, and consider a fixpoint `W` of `J x x` with respect to `x`.
+This is expressed by `W = Fix (λ(x : Type) → J x x)`.
+For that  type `W`, the type isomorphism `W ≅ J W W` holds.
+
+Keeping that `W` set, consider the type equation `Y = J W Y`.
+Clearly, `W` is also a solution of that type equation.
+So, `W` is the fixpoint of `J W y` with respect to `y`.
+We write this as:
+
+`W = Fix (λ(y : Type) → J W y)`
+
+The last equation is a type equation for `W`, whose solution is written as:
+
+`W = Fix (λ(w : Type) → Fix (λ(y : Type) → J w y))`
+
+So, we have shown that `W` is a double fixpoint of `J x y` with respect to both `x` and `y`.
+
+Conversely, consider any `W` which is a double fixpoint of `J x y` with respect to both `x` and `y`:
+
+`W = Fix (λ(x : Type) → Fix (λ(y : Type) → J x y))`
+
+This `W` satisfies the type equation `W = Fix (λ(y : Type) → J W y)`.
+Consider that type equation separately: a type `V = Fix (λ(y : Type) → J W y)` must be such that the type isomorphism `V ≅ J W V` holds.
+But we know that `W` _equals_ `Fix (λ(y : Type) → J W y)`; in other words, `W = V`.
+So, `W` satisfies the type isomorphism `W ≅ J W W`.
+It means that `W` is a fixpoint of `J x x` with respect to `x`. 
+
+We have shown that every fixpoint of `J x x` with respect to `x` is at the same time a fixpoint of `J x y` with respect to `x` and `y`, and vice versa.
+All fixpoints of `J x x` and all fixpoints of `J x y` are in a one-to-one correspondence.
+
+It follows that the greatest fixpoint of `J x x` is the same as the greatest fixpoint of `J x y`, and similarly for the least fixpoints.
 $\square$
 
-### Proof of Church encoding for mutual greatest fixpoints
+Now we begin the proof of the mutual recursion encoding.
 
- 
-Suppose two mutually recursive types `T`, `U` are defined as the greatest fixpoints of a system of type equations:
+Let us first consider the greatest fixpoints and rewrite the equations `T = F T U` and `U = G T U` as:
 
 ```dhall
 -- Type error: Dhall does not support recursive definitions.
 T = GFix (λ(x : Type) → F x U)
 U = GFix (λ(y : Type) → G T y)
+```
+
+The first step is to express `U` via `T` and to derive a fixpoint type equation for `T` alone.
+We notice that the last equation is an expression of `U` via `T`.
+It will be more convenient to write that expression as `U = H T` where the functor `H` is defined by:
+
+```dhall
+let H = λ(x : Type) → GFix (λ(y : Type) → G x y)
+```
+
+Note that the curried type constructor `G a` is the same as `λ(y : Type) → G a y`.
+So, we may define `H` more concisely as:
+```dhall
+let H = λ(x : Type) → GFix (G x)
+```
+
+As `U = H T`, we can derive a fixpoint equation that contains just `T` and no `U`:
+
+```dhall
+-- Symbolic derivation.
+T === LFix (λ(x : Type) → F x U)
+  === LFix (λ(x : Type) → F x (H T))
+```
+This is a fixpoint equation for `T` alone. The solution can be written as:
+
+```dhall
+let T = GFix (λ(t : Type) → GFix (λ(x : Type) → F x (H t)))
+```
+To see the structure of the last equation more clearly, let us define the type constructor `J` by `J x y = F x (H y)`, or in Dhall:
+
+```dhall
+let J = λ(x : Type) → λ(y : Type) → F x (H y)
+```
+Then `T` is expressed as:
+
+```dhall
+let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
+```
+
+
+The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
+So, we may use the mutual recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
+
+```dhall
+let T = GFix (λ(x : Type) → J x x)
+  -- Or equivalently:
+let H = λ(x : Type) → GFix (G x)
+in let T = GFix (λ(x : Type) → F x (H x))
+```
+
+For the case of least fixpoints, the argument will be exactly similar. The resulting definitions for `H` and `T` are:
+
+```dhall
+let H = λ(x : Type) → LFix (G x)
+in let T = LFix (λ(x : Type) → F x (H x))
+```
+
+Now that we have gotten rid of `U` and obtained `T` as a fixpoint for which we may use the known Church encodings:
+
+```dhall
+-- For the greatest fixpoints:
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
+-- Written out in full:
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → {seed : y , step : y → G x y })) })
+-- For the least fixpoints:
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+-- Written out in full:
+let T = ∀(x : Type) → (F x (∀(y : Type) → (G x y → y) → y) → x) → x
+```
+
+Note that both type formulas involve type quantifiers _inside_ functors:
+For the greatest fixpoints, `T` has the form `T = Exists ( ... F x (Exists ...))`.
+For the least fixpoints, `T` has the form `T = ∀x( ... F x (∀y ...))`.
+
+Our goal is to show that the types `T` are given by the formulas we started with:
+
+```dhall
+-- For the greatest fixpoints:
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+-- For the least fixpoints:
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+These formulas are simpler because all type quantifiers are outside any functors.
+
+To achieve that simplification, we will need to use the Church-Yoneda and the Church-co-Yoneda identities.
+Those identities express a type with a fixpoint inside a functor through a type whose quantifier is outside.
+
+For the greatest fixpoints, we will apply the Church-co-Yoneda identity, and for the least fixpoints, we will apply the Church-Yoneda identity.
+It remains to bring the type expressions `T` into the form suitable for applying those identities.
+
+First consider the case of the greatest fixpoints.
+Write the type expression for `T` that we last obtained:
+
+```dhall
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
+```
+
+The Church-co-Yoneda identity says that, for any functors `P` and `Q`,
+
+`P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })`
+
+The left-hand side of this formula will match the type expression `F x (GFix (G x))` if we consider `x` to be a fixed type and set `P a = F x a` and `Q a = G x a`.
+Then we obtain:
+
+```dhall
+-- Symbolic derivation.
+F x (GFix (G x)) === Exists (λ(A : Type) → { seed : F x A, step : A → G x A })
+-- Rename A to y and substitute into T:
+T === Exists (λ(x : Type) → { seed : x, step : x → Exists (λ(y : Type) → { seed : F x y, step : y → G x y }) })
+```
+
+We may move the existential quantifier with `y` outside the expression:
+
+```dhall
+-- Symbolic derivation.
+T === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, step : x → { seed : F x y, step : y → G x y } }))
+```
+
+Transform the record type into an equivalent type:
+
+```dhall
+-- Symbolic derivation.
+T === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x → F x y, stepB : x → y → G x y }))
+```
+
+TODO
+
+For the least fixpoints, we write the last obtained type expression for `T`:
+
+```dhall
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+```
+
+The Church-Yoneda identity says that, for any functors `P` and `Q`,
+
+`P (LFix Q)  ≅  ∀(A : Type) → (Q A → A) → P A`
+
+The left-hand side of this formula will match the type expression `F x (LFix (G x))` if we consider `x` to be a fixed type and set `P a = F x a` and `Q a = G x a`.
+Then we obtain:
+
+```dhall
+-- Symbolic derivation.
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+  === ∀(x : Type) → (P (Lfix Q) → x) → x
+  === ∀(x : Type) → ((∀(y : Type) → (G x y → y) → F x y) → x) → x
+```
+
+TODO this doesn't seem to work. What am I doing wrong?
+
+ For the greatest fixpoints, we notice that the record type `{ seed : a, stepA : a → F a b, stepB : b → G a b }` is equivalent to `{ seedB : H a b, stepB : b → G a b }` if we define `H` as:
+
+```dhall
+let H = λ(a : Type) → λ(b : Type) → { seed : a, stepA : a → F a b}
+```
+We fix `a` and notice that `H a b` is a covariant functor with respect to `b`.
+Then we can rewrite `T` as:
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seedB : H a b, stepB : b → G a b }))
+```
+TODO
+By the Church-co-Yoneda identity, the type `T` is then equivalent to:
+
+`T  ≅  Exists (λ(a : Type) → H a (GFix (G a)))`
+
+Expand the definition of `H`:
+
+`T  ≅  Exists (λ(a : Type) → { seed : a, step : a → ***{ seed : a, H a (GFix (G a)))`
+
+
+TODO
+
+To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
+
+```dhall
+let H = λ(a : Type) → LFix (G a)
+```
+
+It remains to show that the type definition we started with:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+ TODO
+
+To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
+
+```dhall
+∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
+```
+
+In order to apply this identity, rewrite the type expression for `T` in a suitable form:
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+    -- Swap `a` and `b`, and swap the curried arguments:
+  === ∀(b : Type) → ∀(a : Type) → (G a b → b) → (F a b → a) → a
+  === ∀(a : Type) → ∀(b : Type) → (P b → b) → Q b
+```
+where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) → a`.
+(The type parameter `a` is kept fixed.)
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+  in ∀(b : Type) → (P b → b) → Q b
+```
+
+With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
+So, we may apply the Church-Yoneda identity and obtain:
+
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+  in Q (LFix P)
+  === ∀(a : Type) → (F a (LFix P) → a) → a
+```
+
+However, we notice that `LFix P` is the same type as `H a`:
+
+```dhall
+-- Symbolic derivation.
+LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
+```
+
+Also, `F a (LFix P) === F a (H a) === J a a`.
+
+So, we can finally rewrite `T` as:
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) → (F a (LFix P) → a) → a
+  === ∀(a : Type) → (F a (H a) → a) → a
+  === ∀(a : Type) → (J a a → a) → a
+```
+
+This is precisely the type expression we needed to derive.
+
+We have proved the Church encoding formula for the type `T`.
+The proof for `U` is similar.
+
+### Proof of Church encoding for mutual least fixpoints
+
+We will prove the following statement:
+
+Suppose two mutually recursive types `T`, `U` are defined as the least fixpoints of this system of type equations:
+
+```dhall
+-- Type error: Dhall does not support recursive definitions.
+let T = F T U
+let U = G T U
 ```
 where `F` and `G` are some (covariant) bifunctors.
 An example definition of `F` and `G` is:
@@ -7164,27 +7370,203 @@ let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a,
 Then the types `T`, `U`  may be equivalently defined by a Church encoding in the form:
 
 ```dhall
-let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
-let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
 ```
 
-The plan of the proof is to express the fixpoints of a system of type equations through greatest fixpoints of single-argument functors.
-Together with the Church-co-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
+The plan of the proof is to express the fixpoints of a system of type equations through simple fixpoints of single-argument functors.
+We already know that we may use the ordinary Church encoding works for such fixpoints.
+Together with the Church-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
 
-To begin, notice that the record type `{ seed : a, stepA : a → F a b, stepB : b → G a b }` is equivalent to `{ seedB : H a b, stepB : b → G a b }` if we define `H` as:
+Using the name `LFix` for the Church encoding of least fixpoints, we rewrite the given system of type equations like this:
 
 ```dhall
-let H = λ(a : Type) → λ(b : Type) → { seed : a, stepA : a → F a b}
+-- Type error: Dhall does not support recursive definitions.
+T = LFix (λ(x : Type) → F x U)
+U = LFix (λ(y : Type) → G T y)
 ```
-We fix `a` and view `H a b` as a covariant functor with respect to `b`.
-Then we can rewrite `T` as:
+This is still not a valid Dhall program, but we can work with this notation better.
+
+To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
 
 ```dhall
-let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seedB : H a b, stepB : b → G a b }))
+let H = λ(a : Type) → LFix (G a)
+```
+Note that the curried type constructor `G a` is the same as `λ(y : Type) → G a y`.
+Then `U = H T`, and so we can derive a fixpoint equation that contains just `T` and no `U`:
+
+```dhall
+-- Symbolic derivation.
+T === LFix (λ(x : Type) → F x U)
+  === LFix (λ(x : Type) → F x (H T))
+```
+To simplify the last equation, define the type constructor `J` by `J a = F a (H a)`, or in Dhall:
+
+```dhall
+let J = λ(a : Type) → F a (H a)
+```
+Then the last equation becomes `T = LFix J`.
+
+It remains to show that the type definition we started with:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+is equivalent to just `T = LFix J`.
+
+To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
+
+```dhall
+∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
 ```
 
-By the Church-co-Yoneda identity, the type `T` is then equivalent to:
+In order to apply this identity, rewrite the type expression for `T` in a suitable form:
 
-`T  ≅  Exists (λ(a : Type) → H a (GFix (G a)))`
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+    -- Swap `a` and `b`, and swap the curried arguments:
+  === ∀(b : Type) → ∀(a : Type) → (G a b → b) → (F a b → a) → a
+  === ∀(a : Type) → ∀(b : Type) → (P b → b) → Q b
+```
+where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) → a`.
+(The type parameter `a` is kept fixed.)
 
-TODO
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+  in ∀(b : Type) → (P b → b) → Q b
+```
+
+With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
+So, we may apply the Church-Yoneda identity and obtain:
+
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) →
+  let P = λ(b : Type) → G a b
+  let Q = λ(b : Type) → (F a b → a) → a
+  in Q (LFix P)
+  === ∀(a : Type) → (F a (LFix P) → a) → a
+```
+
+However, we notice that `LFix P` is the same type as `H a`:
+
+```dhall
+-- Symbolic derivation.
+LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
+```
+
+Also, `F a (LFix P) === F a (H a) === J a`.
+
+So, we can finally rewrite `T` as:
+
+```dhall
+-- Symbolic derivation.
+T === ∀(a : Type) → (F a (LFix P) → a) → a
+  === ∀(a : Type) → (F a (H a) → a) → a
+  === ∀(a : Type) → (J a → a) → a
+  === LFix J
+```
+
+This is precisely the type expression we needed to derive.
+
+We have proved the Church encoding formula for the type `T`.
+The proof for `U` is similar.
+
+
+
+### Summary of type equivalence identities
+
+Here are some of the type identities we have proved in this appendix.
+
+All those identities hold under assumptions of parametricity and for covariant functors `P`, `Q`.
+
+Yoneda identity:
+
+```dhall
+λ(a : Type) → ∀(x : Type) → (a → x) → Q x  ≅  λ(a : Type) → Q a
+```
+
+
+Church encoding of least fixpoints:
+
+```dhall
+∀(x : Type) → (P x → x) → x  ≅  LFix P
+```
+
+
+Church-Yoneda identity:
+
+```dhall
+∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
+```
+
+
+Co-Yoneda identity:
+
+```dhall
+λ(a : Type) → Exists (λ(x : Type) → { seed : Q x, step : x → a})  ≅  λ(a : Type) → Q a
+```
+
+
+Church encoding of greatest fixpoints:
+
+```dhall
+Exists (λ(x : Type) → { seed : x, step : x → P x})  ≅  GFix P
+```
+
+
+Church-co-Yoneda identity:
+
+```dhall
+Exists (λ(x : Type) → { seed : Q x, step : x → P x})  ≅  Q (GFix P)
+```
+
+## Appendix: Specification and implementation of "nano-Dhall"
+
+This Appendix serves to illustrate how a functional programming language can be specified and implemented.
+We will consider a small subset of Dhall, called "nano-Dhall".
+It is similar to Dhall but limited to:
+
+- Function types `(a : t1) -> t2` or `t1 -> t2`, and function values `\(a : t) -> b`.
+- Function application: `f x`, grouping to the left, so that `f x y = (f x) y`.
+- Built-in types `Nat` (operations `+`, `*`, and `!`) and `Text` (operation `++`).
+- Type universes `Type` and `Kind`, so that we have typing judgments `Nat : Type` and `Type : Kind`. (The symbol `Kind` has no type.)
+
+### Syntax and parsing
+
+The syntax is described in the ABNF format:
+
+```
+complete-expression = whsp expression whsp
+
+whitespace-chunk =
+      " "
+    / tab
+    / end-of-line
+
+; optional whitespace: zero or more whitespace-chunk
+whsp = *whitespace-chunk
+
+; nonempty whitespace: one or more whitespace-chunk
+whsp1 = 1*whitespace-chunk
+
+; Uppercase or lowercase ASCII letter
+ALPHA = %x41-5A / %x61-7A
+
+; ASCII digit
+DIGIT = %x30-39  ; 0-9
+
+ALPHANUM = ALPHA / DIGIT
+
+valid-non-ascii =    ; support some Unicode
+      %x80-D7FF
+    ; %xD800-DFFF = surrogate pairs
+    / %xE000-FFFD
+    ; %xFFFE-FFFF = non-characters
+    / %x10000-1FFFD
+```
