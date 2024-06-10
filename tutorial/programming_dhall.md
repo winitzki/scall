@@ -7231,7 +7231,7 @@ let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 
 The Church-Yoneda identity says that, for any functors `P` and `Q`,
 
-`P (LFix Q)  ≅  ∀(A : Type) → (Q A → A) → P A`
+`P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y`
 
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = (F x a → x) → x` and `Q a = G x a`.
 Defined in that way, both `P` and `Q` are covariant functors.
