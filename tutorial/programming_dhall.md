@@ -1,4 +1,4 @@
-# Advanced Functional Programming in System Fω using Dhall
+# Programming in System Fω using Dhall
 
 ## Preface
 
@@ -12,9 +12,11 @@ which is known in the academic literature as "System Fω".
 Dhall is positioned as an open-source language for programmable configuration files.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall. 
 
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
+
 From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
 
-For a more theoretical introduction to various forms of lambda calculus, System F, and System Fω, see:
+For a more theoretical introduction to various forms of typed lambda calculus, System F, and System Fω, see:
 
 - [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
@@ -30,8 +32,6 @@ To summarize, Dhall is a powerful, purely functional programming language that h
 This book focuses on the last two applications.
 
 ## Overview of Dhall
-
-The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
 
 The Dhall project's documentation covers many aspects of using Dhall to produce YAML and JSON configuration files.
 This book focuses on other applications of Dhall, viewing it primarily as a vehicle for learning the patterns of advanced functional programming.
@@ -53,6 +53,12 @@ See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) 
 The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
 such as `Natural/lessThan` and `List/map`.
 
+
+It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, F#, and so on).
+One major difference is the syntax for functions, which is more similar to the notation adopted in System F and System Fω.
+System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x:t). f t x` correspond to Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+
+
 ### Guaranteed termination
 
 The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
@@ -63,7 +69,7 @@ Any Dhall program that passes type-checking will be guaranteed to evaluate to a 
 The type-checking itself is also guaranteed to complete within finite time.
 
 The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
-But this is not a significant limitation for the intended scope of Dhall usage, as this book will show.
+But this is not a significant limitation for a wide scope of Dhall usage, as this book will show.
 
 ### Identifiers
 
@@ -388,14 +394,14 @@ Dhall distinguishes types and type constructors not by assigned names but by the
 
 ### Function types
 
-Function types are written as `∀(x : arg_t) → res_t`, where `arg_t` is the argument type and `res_t` is a type expression that describes the type of the result value.
+Function types are written as `∀(x : arg_t) → res_t`, where `x` is a bound variable representing the function's argument, `arg_t` is the argument's type, and `res_t` is a type expression that describes the type of the result value.
 
-Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body (which must be of type `res_t`).
+Function _values_ corresponding to that function type are written like this: `λ(x : arg_t) → expr`, where `expr` is a function body, which must be an expression of type `res_t`.
 
 Usually, the function body is an expression that uses the bound variable `x`.
 However, the type `res_t` itself might also depend on `x`.
-
-In simple cases, `res_t` will not depend on `x`.
+We will consider such functions in more detail later.
+In most cases, `res_t` will not depend on `x`.
 Then the function's type can be written in a simpler form: `arg_t → res_t`.
 
 For example, consider a function that adds `1` to a `Natural` argument:
@@ -479,11 +485,20 @@ in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
   -- This is a complete program that returns [2, 3, 4].
 ```
 
-A polymorphic identity function can be written (with a complete type annotation) as:
+A **polymorphic identity function** is written (with a complete type annotation) as:
 
 ```dhall
 let identity : ∀(A : Type) → ∀(x : A) → A 
   = λ(A : Type) → λ(x : A) → x
+```
+The type of the polymorphic identity function is of the form `∀(x : arg_t) → res_t` if we set `x = A`, `arg_t = Type`, and `res_t = ∀(x : A) → A`.
+Note that `res_t` is again a function type, and this time its result type (`A`) does not depend on the value of the argument (`x`).
+So, this type can be rewritten in the short form as `A → A`.
+We will usually write the identity function as:
+
+```dhall
+let identity : ∀(A : Type) → A → A
+  = λ(A : Type) → λ(a : A) → a
 ```
 
 In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax.
@@ -2248,7 +2263,7 @@ You tried to assert that this expression:
 ... but they differ
 ```
 
-Dhall does not simplify `merge` expressions when they are applied to a symbolic variable `x`.
+Dhall does not simplify `merge` expressions when they are applied to a symbolic variable (in these examples, the symbolic variables are `ga` and `x`).
 As soon as we substitute a specific value, say, `x = (G Bool).Left "abc"`, Dhall will be able to verify that the functor laws hold for `G`.
 
 Keeping such limitations in mind, we will try verifying typeclass laws as much as it can be done with Dhall's functionality.
@@ -2836,20 +2851,31 @@ If a recursion scheme does not actually depend on its type parameter, the Church
 For example, consider this recursion scheme:
 
 ```dhall
-let F = λ(t : Type) → { x : Text, y : Bool }
+let K = λ(t : Type) → { x : Text, y : Bool }
 ```
-Here the type `F t` does not actually depend on `t`.
+The type `K t` does not actually depend on `t`.
+Nevertheless, `K` is a valid type constructor that is covariant (has a `Functor` evidence value):
 
+```dhall
+let functorK : Functor K = { fmap =
+  λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(x : K a) → x
+}
+```
+In this code, we just return `x` because the type judgments `x : K a` and `x : K b` both hold.
+
+The type constructor `K` is an example of a **constant functor**.
+
+Because `K` is a covariant functor, we may use the Church encoding for the least fixpoint of `K`.
 The corresponding Church encoding gives the type:
 
 ```dhall
 let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 ```
 
-The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = F C`.
-This remains true even when `F` does not depend on its type parameter.
-So, now we have `F C = { x : Text, y : Bool }` independently of `C`.
-The type equation `C = F C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
+The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = K C`.
+This remains true even when `KF` does not depend on its type parameter.
+So, now we have `K C = { x : Text, y : Bool }` independently of `C`.
+The type equation `C = K C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
@@ -2866,9 +2892,9 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 ```dhall
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
-Here, it is assumed that `G` is a covariant type constructor and `p` is a fixed type (not depending on `r`).
+Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
 
-The Yoneda identities can be proved via the parametricity theorem.
+The Yoneda identities can be proved via the parametricity theorem, or by assuming suitable naturality laws.
 See the Appendix "Naturality and parametricity" for more details.
 
 ### Church encoding in the curried form
@@ -2918,10 +2944,11 @@ These examples show how any type constructor `F` defined via products (records) 
 We will call that the **curried form** of the Church encoding.
 
 The curried form is often convenient for practical programming.
-However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying the general properties of Church encodings.
+However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
 
 Historical note: The curried form of the Church encoding is also known as the Boehm-Berarducci encoding.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
+
 
 ## Working with Church-encoded data
 
@@ -3467,16 +3494,20 @@ isSingleLeaf t = case t of
     Branch _ _ -> false
 ```
 
-Another example is a Haskell function that returns the first value in the list if it exists:
+Further examples are Haskell functions that return the head or the tail of a list if the list is non-empty:
 
 ```haskell
 -- Haskell:
 headMaybe :: [a] -> Maybe a
 headMaybe []     = Nothing
 headMaybe (x:xs) = Just x
+
+tailMaybe :: [a] -> Maybe [a]
+tailMaybe []     = Nothing
+tailMaybe (x:xs) = Just xs
 ```
 
-The Dhall translation of `TreeInt` and `ListInt` are Church-encoded types:
+The Dhall translations of `TreeInt` and `ListInt` are the following Church-encoded types:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
@@ -3496,18 +3527,18 @@ let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
 
-Values of type `TreeInt` and `ListInt` are functions, so we cannot perform pattern matching on such values.
+Values of type `TreeInt` and `ListInt` are functions, and one cannot perform pattern matching on function values.
 How can we implement functions like `isSingleLeaf` and `headMaybe` in Dhall?
 
 The general method for translating pattern matching into Church-encoded types `C` consists of two steps.
 The first step is to apply the standard function `unfix` of type `C → F C`.
-The function `unfix` (sometimes also called `unroll` or `unfold`) is available for all Church-encoded types; we have shown its implementation above.
+The function `unfix` is available for all Church-encoded types; we have shown its implementation above.
 
 Given a value `c : C` of a Church-encoded type, the value `unfix c` will have type `F C`, which is typically a union type.
 The second step is to use the ordinary pattern-matching (Dhall's `merge`) on that value.
 
 
-This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall. Let us look at some examples.
+This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall.
 
 For `C = TreeInt`, the type `F C` is the union type `< Leaf: Integer | Branch : { left : TreeInt, right : TreeInt } >`. The function `isSingleLeaf` is
 implemented via pattern matching on that type:
@@ -3534,7 +3565,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
 ```
 
 For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The function `headOptional` that replaces
-Haskell's `headMaybe` is rewritten in Dhall like this:
+Haskell's `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
 
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
@@ -3559,8 +3590,16 @@ let headOptional : ListInt → Optional Integer = λ(c : ListInt) →
       Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.head),
       Nil = None Integer
     } (unfix F functorF c)
--- Run a test:
+
+let tailOptional : ListInt → Optional ListInt = λ(c : ListInt) →
+    merge {
+      Cons = λ(list : { head : Integer, tail : ListInt }) → Some (list.tail),
+      Nil = None ListInt
+    } (unfix F functorF c)
+
+-- Run some tests:
 let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
+let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
 ### Performance
@@ -3593,34 +3632,34 @@ data Layer2 = Name2 String | ManyLayers [ Layer ]
 
 The type `Layer` is defined via itself and `Layer2`, while `Layer2` is defined via `Layer`.
 
-We need two recursion schemes (`F` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
+We need two recursion schemes (`F1` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
 
 ```haskell
 -- Haskell:
-data Layer = Layer (F Layer Layer2)
+data Layer = Layer (F1 Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-We will achieve this formulation if we define `F` and `F2` by:
+We will achieve this formulation if we define `F1` and `F2` by:
 
 ```haskell
 -- Haskell:
-data F a b = Name String |  OneLayer a | TwoLayers b b
+data F1 a b = Name String |  OneLayer a | TwoLayers b b
 data F2 a b = Name2 String | ManyLayers [ a ]
 ```
 
-The recursion schemes `F` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
+The recursion schemes `F1` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
 
 ```dhall
-let F = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
 Then we define the types `Layer` and `Layer2` in Dhall via the Church encodings:
 
 ```dhall
-let Layer  = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → a
-let Layer2 = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (F2 a b → b) → b
+let Layer  = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → b) → a
+let Layer2 = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → b) → b
 ```
 
 The definitions appear very similar, except for the output types of the functions.
@@ -4099,7 +4138,7 @@ We notice that `unpack` does nothing more than rearrange the curried arguments a
 This is so because `unpack P` is the same as the identity function of type `Exists P → Exists P`.
 So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
 
-#### Functions of existential types
+#### Functions of existential types: the function extension rule
 
 The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
 
@@ -4115,8 +4154,8 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
 Indeed, this type equivalence (an isomorphism) can be proved rigorously.
-The function `inE` shown above is one side of the isomorphism.
-The other is the function `outE`:
+The function `inE` shown above gives one direction of the isomorphism.
+The other direction is the function `outE`:
 
 ```dhall
 let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
@@ -4125,10 +4164,11 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     in consume ep
 ```
 
-We will prove below (in the chapter "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
+We will prove below (in the appendix "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
 
-Because of this type isomorphism, it is not necessary to use a complicated type `Exists P → r`.
-Instead, we may use the simpler and equivalent type `∀(t : Type) → P t → r`.
+Because of this type isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
+
+We call this equivalence the **function extension rule** for existential types.
 
 #### Differences between existential and universal quantifiers
 
@@ -4267,13 +4307,42 @@ To see that `GFix` is a higher-order function, we let Dhall's REPL expand the de
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the paper "Recursive types for free".
+A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the appendix "Naturality and parametricity".
 Hre, we will focus on the practical use of the greatest fixpoints.
+
+### Greatest fixpoints for mutually recursive types
+
+Consider two mutually recursive types (this example was shown in the section "Mutually recursive types" of chapter "Church encodings for more complicated types"):
+
+```haskell
+-- Haskell:
+data Layer = Layer (F1 Layer Layer2)
+data Layer2 = Layer2 (F2 Layer Layer2)
+```
+
+Define two recursion schemes `F1` and `F2` by:
+
+
+```dhall
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
+```
+
+Then Dhall types `Layer` and `Layer2` can be defined like this:
+
+```dhall
+let Layer = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, step1 : a → F1 a b, step2 : b → F2 a b}))
+let Layer2 = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, step1 : a → F1 a b, step2 : b → F2 a b}))
+```
+
+We will prove in the Appendix "Naturality and parametricity" that these type formulas actually encode the greatest fixpoints.
+
+For the rest of this chapter, we will focus on the simpler case of a single recursively defined type.
 
 ### The fixpoint isomorphism
 
-To show that `GFix F` is a fixpoint of `T = F T`, we implement two functions, called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
-(That property is proved in the paper "Recursive types for free" and in the Appendix of this book.)
+Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
+It means there exist two functions, here called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
@@ -6110,7 +6179,7 @@ We obtained equation (2).
 The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The Yoneda identities cannot be used with types of that form.
 
-There is a generalized identity that combines both forms of types.
+There is a generalized identity (without a widely accepted name) that combines both forms of types.
 This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
 
 ```dhall
@@ -6238,135 +6307,6 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Church encoding of mutually recursive types
-
-We will prove the following statement:
-
-Suppose two mutually recursive types `T`, `U` are defined as the least fixpoints of this system of type equations:
-
-```dhall
--- Type error: Dhall does not support recursive definitions.
-let T = F T U
-let U = G T U
-```
-where `F` and `G` are some (covariant) bifunctors.
-An example definition of `F` and `G` is:
-
-```dhall
-let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
-let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
-```
-Then the types `T`, `U`  may be equivalently defined by a Church encoding in the form:
-
-```dhall
-let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
-```
-
-The plan of the proof is to express the fixpoints of a system of type equations through simple fixpoints of single-argument functors.
-We already know that we may use the ordinary Church encoding works for such fixpoints.
-Together with the Church-Yoneda identity, that will give us a way of expressing the fixpoints of a system of type equations.
-
-Using the name `LFix` for the Church encoding of least fixpoints, we rewrite the given system of type equations like this:
-
-```dhall
--- Type error: Dhall does not support recursive definitions.
-T = LFix (λ(x : Type) → F x U)
-U = LFix (λ(y : Type) → G T y)
-```
-This is still not a valid Dhall program, but we can work with this notation better.
-
-To express `U` via `T`, begin by defining the type constructor `H` as `H a = LFix (G a)`, or in Dhall:
-
-```dhall
-let H = λ(a : Type) → LFix (G a)
-```
-Note that the curried type constructor `G a` is the same as `λ(y : Type) → G a y`.
-Then `U = H T`, and so we can derive a fixpoint equation that contains just `T` and no `U`:
-
-```dhall
--- Symbolic derivation.
-T === LFix (λ(x : Type) → F x U)
-  === LFix (λ(x : Type) → F x (H T))
-```
-To simplify the last equation, define the type constructor `K` by `K a = F a (H a)`, or in Dhall:
-
-```dhall
-let K = λ(a : Type) → F a (H a)
-```
-Then the last equation becomes `T = LFix K`.
-
-It remains to show that the type definition we started with:
-
-```dhall
-let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-```
-is equivalent to just `T = LFix K`.
-
-To show that, we will use the **Church-Yoneda identity**: For any two covariant functors `P`, `Q`:
-
-```dhall
-∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
-```
-
-In order to apply this identity, rewrite the type expression for `T` in a suitable form:
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
-    -- Swap `a` and `b`, and swap the curried arguments:
-  === ∀(b : Type) → ∀(a : Type) → (G a b → b) → (F a b → a) → a
-  === ∀(a : Type) → ∀(b : Type) → (P b → b) → Q b
-```
-where `P` and `Q` need to be defined as `P b = G a b` and `Q b = (F a b → a) → a`.
-(The type parameter `a` is kept fixed.)
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) →
-  let P = λ(b : Type) → G a b
-  let Q = λ(b : Type) → (F a b → a) → a
-  in ∀(b : Type) → (P b → b) → Q b
-```
-
-With these definitions, both `P b` and `Q b` are covariant in `b` (with fixed `a`).
-So, we may apply the Church-Yoneda identity and obtain:
-
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) →
-  let P = λ(b : Type) → G a b
-  let Q = λ(b : Type) → (F a b → a) → a
-  in Q (LFix P)
-  === ∀(a : Type) → (F a (LFix P) → a) → a
-```
-
-However, we notice that `LFix P` is the same type as `H a`:
-
-```dhall
--- Symbolic derivation.
-LFix P === LFix (λ(b : Type) → G a b) === LFix (G a) === H a
-```
-
-Also, `F a (LFix P) === F a (H a) === K a`.
-
-So, we can finally rewrite `T` as:
-
-```dhall
--- Symbolic derivation.
-T === ∀(a : Type) → (F a (LFix P) → a) → a
-  === ∀(a : Type) → (F a (H a) → a) → a
-  === ∀(a : Type) → (K a → a) → a
-  === LFix K
-```
-
-This is precisely the type expression we needed to derive.
-
-We have proved the Church encoding formula for the type `T`.
-The proof for `U` is similar.
-
-
 ### Existential types: "pack" is a left inverse of "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
@@ -6482,13 +6422,15 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u === ep U u`.
 
-### Functions of existential type
+### Function extension rule for existential types
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
 We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
+This will prove the **function extension rule** for existential types.
+That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) → P T → R`.
 
-Recall the definitions of `inE` and `outE`:
+Begin the proof by recalling the definitions of `inE` and `outE`:
 
 ```dhall
 let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
@@ -6580,11 +6522,56 @@ ep ExistsP packP === ep
 
 It follows that `consume (ep ExistsP packP) === consume ep`.
 
+Then we get:
+
+`consume ep === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
+
 This concludes the proof.
 
-### Some properties of co-inductive types
+### Wadler's "surjectivity pairing rule" for existential types
 
-In this section, we will prove some general properties of co-inductive types such as `GFix F`.
+The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
+
+For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`, the following equation holds:
+
+`h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))`
+
+Proof: After setting `h = consume`, this equation is the same as the last line in the proof in the previous section.
+
+This property allows us to express a function application `h ep` through an application of `h` to a value explicitly constructed via `packP`.
+
+This does _not_ mean that `packP` constructs all possible values of type `ExistsP` (i.e., that `packP` is surjective as a function from `T : Type` and `pt : P T` to `ExistsP`).
+We cannot prove _that_ property.
+
+The meaning of the "surjectivity rule" is a weaker statement: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
+
+#### Encoding Wadler's notation in Dhall
+
+Wadler's paper "Recursive types for free" uses a special notation for existential types.
+That notation can be encoded in Dhall as follows:
+
+```dhall
+-- Symbolic derivation.
+ExistsP      -- Wadler's existential type ∃X. P X
+packP X y    -- Wadler's constructor: (X, y)
+t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) -> w}) : W
+```
+
+Then Wadler's "surjective pairing rule", which he writes as:
+
+`h t == case t of {(X, y) -> h(X, y)}`
+
+is translated into Dhall as:
+
+`h t === t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
+
+After renaming `t = ep`, this is the same equation we proved above.
+
+### Properties of co-inductive type encodings
+
+In this section, we will prove some general properties of co-inductive types, such as `GFix F` defined in the chapter "Co-inductive types".
+In particular, we will prove that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
+
 For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
 An example would be:
 
@@ -6593,38 +6580,75 @@ let F = Optional
 let functorF : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
 ```
 
-To make the derivations shorter, we denote `fixf = fix F functorF`, `packFf = packF F functorF`, and `unfixf = unfix F functorF`.
-(The functions `fix`, `packF`, and `unfix` were defined in the section "The fixpoint isomorphism" in the chapter "Co-inductive types".)
-We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed:
+To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
+(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Co-inductive types".)
+We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
+We will also denote the type `GFix F` simply by `G`.
+We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : step : t → F t }`.
+
+Here is a summary of the resulting definitions:
 
 ```dhall
-let GFt = λ(t : Type) → { seed : t, step : t → F t }  -- This is `GF_T F`.
-let packFf : ∀(t : Type) → GFt t → F (GFix F)
-  = λ(t : Type) → λ(p : GFt t) →
-    functorF.fmap t (GFix F) (λ(x : t) → pack GFt t { seed = x, step = p.step }) (p.step p.seed)
-let unfixf : GFix F → F (GFix F) = λ(g : GFix F) → g (F (GFix F)) packFf
+let PackTo = λ(r : Type) → ∀(t : Type) → (t → F t) → t → r  -- Define PackTo for brevity.
+let G = ∀(r : Type) → PackTo r → r
+let unfold : PackTo G
+  = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
+    λ(r : Type) → λ(pack_ : PackTo r) → pack_ t c y
+let unfoldF : PackTo (F G)
+  = λ(t : Type) → λ(c : t → F t) → λ(y : t) →
+    functorF.fmap t G (unfold t c) (c y)
+let unfixf : G → F G = λ(g : G) → g (F G) unfoldF
+let fmap_unfixf = functorF.fmap G (F G) unfixf
+let fixf : F G → G
+  = unfold (F G) fmap_unfixf
 ```
 
-```dhall
-let fmap_unfixf = functorF.fmap (GFix F) (F (GFix F)) unfixf
-let fixf : F (GFix F) → GFix F
-  = λ(fg : F (GFix F)) → pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf }
-```
+Below we will need to use the relational naturality law of `unfold`.
+That law will be applied in the following form:
 
-Also, recall that the type `GFix F` is written in an expanded form as:
+For any types `R`, `S`, for any functions `f : R → S`, `cR : R → F R`, `cS : S → F S`:
+if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
 
-`∀(r : Type) → (∀(t : Type) → GFt t → r) → r`
+###### Statement 1 (extensional surjectivity of `unfold`)
+
+For any value `g : G`, for any type `S`, for any function `h : G → S`, we will have:
+
+`h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))`
+
+The name "extensional surjectivity" is used here to make it clear that we are not proving the ordinary surjectivity for `unfold`.
+The ordinary meaning of surjectivity for `unfold` would hold if any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
+We are not able to prove that here.
+
+Instead, this statement claims a weaker property: for any function `h : G → S`, the function application `h g` can be computed if we know how to compute the function application `h (unfold R cR x)` for arbitrary types `R` and arbitrary values `cR : R → F R` and `x : R`.
 
 
-###### Statement 1
+###### Proof
+
+Apply Wadler's "surjectivity pairing rule" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
+
+`h t === t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
+
+Now we can pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
+Then we obtain directly the equation we need for the extensional surjectivity of `unfold`.
+
+###### Statement 2
 
 Given any type `R` and any function `rfr : R → F R`, define the function `r2g` by:
 
-`let r2g : R → GFix F = λ(x : R) → pack GFt R { seed = x, step = rfr }`
+`let r2g : R → G = λ(x : R) → unfold R rfr x`
+
+or more concisely:
+
+`let r2g : R → G = unfold R rfr`
 
 Then the function `r2g` satisfies the following law: for any `r : R`,
 
-`unfixf (r2g r) === functorF.fmap R (GFix F) r2g (rfr r)`
+`unfixf (r2g r) === functorF.fmap R G r2g (rfr r)`
+
+or equivalently:
+
+`unfixf (unfold R rfr r) === functorF.fmap R G (unfold R rfr) (rfr r)`
+
 
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
@@ -6633,219 +6657,699 @@ So, we claim that `r2g` is always an $F$-coalgebra morphism.
 
 ###### Proof
 
-Begin with the expression `unfixf (r2g r)`:
+Begin with the expression `unfixf (unfold R rfr r)`:
 
 ```dhall
 -- Symbolic derivation.
-unfixf (r2g r)  -- Use definition of unfixf:
- === r2g r (F (GFix F)) packFf  -- Use definitions of r2g and pack:
- === pack GFt R { seed = r, step = rfr } (F (GFix F)) packFf
- === packFf R { seed = r, step = rfr }  -- Use definition of packFf:
- === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+unfixf (unfold R rfr r)              -- Use definition of unfixf:
+ === unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
+ === unfoldF R rfr r                 -- Use definition of unfoldF:
+ === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
-This is exactly the same as the right-hand side of the equation we needed to prove:
+Rewrite the right-hand side of the equation we needed to prove:
 ```dhall
 -- Symbolic derivation.
-functorF.fmap R (GFix F) r2g (rfr r)  -- Use definition of r2g:
- === functorF.fmap R (GFix F) (λ(x : R) → pack GFt R { seed = x, step = rfr }) (rfr r)
+functorF.fmap R G (unfold R rfr) (rfr r)
+ === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
 
-###### Statement 2
-
-The function `r2g` defined in Statement 1 may be rewritten using a more general function we will call `packAf` that can "package" any type `R` into a value of type `GFix F`:
-
-```dhall
-let packAf : ∀(R : Type) → (R → F R) → R → GFix F
-  = λ(R : Type) → λ(rfr : R → F R) → λ(x : R) →
-    pack GFt R { seed = x, step = rfr }
-```
-The definition of Statement 1 will be obtained as `r2g = packAf R rfr`.
-
-Because we may apply `packAf` with any type `R` as long as we have a function of type `R → F R`, we may set `R = GFix F` and `rfr = unfixf`.
-Then the corresponding function `r2g` will be an identity function of type `GFix F → GFix F`.
-
-In other words, for any value `g : GFix F` we will have:
-
-`packAf (GFix F) unfixf g === g`
-
-###### Proof
-
-Both sides of the equation are functions of type `GFix F`.
-We will apply both sides to some arguments and show that the results are equal.
-Since the type `GFix G` is equal to `∀(T : Type) → (∀(R : Type) → GFt R → T) → T`, suitable arguments are `T : Type` and `t : ∀(R : Type) → GFt R → T`.
-So, our goal is to prove that, for any such `T` and `t`:
-
-`packAf (GFix F) unfixf g T t === g T t`
-
-`pack GFt (GFix F) { seed = g, step = unfixf } T t === g T t`
-
-`t (GFix F) { seed = g, step = unfixf } === g T t`
-
-TODO
-
-Weuse the relational naturality law of `g`.
-
-TODO
+The two sides are now equal.
 
 ###### Statement 3
 
-Let `R` be any type for which a function `rfr : R → GFix F` is given.
-Then there exists only one $F$-coalgebra morphism of type `R → GFix F`, and that morphism is the function `r2g` defined in Statement 1.
+The construction in Statement 2 may be used with `R = G` and `rfr = unfixf`.
+Then the corresponding function `r2g` will be an identity function of type `G → G`,
+as long as `unfold` satisfies its relational naturality law.
+We can write that property as:
+
+`unfold G unfixf === identity G`
+
+In other words, for any value `g : G` we will have:
+
+`g === unfold G unfixf g`
+
 
 ###### Proof
 
-Let `h : R → GFix F` be any given function that satisfies the $F$-coalgebra morphism law: for any `r : R`,
+For brevity, denote `v = unfold G unfixf`. Then our goal is to prove that `v g === g`.
 
-`unfixf (h r) === functorF.fmap R (GFix F) h (rfr r)`
+First, we use the relational naturality law of `g` with `S = G`, `f = unfold R cR`, `cS = unfixf` and get:
 
-Both sides of this equation have type `F (GFix F)`.
+If `unfixf (unfold R cR x) === functorF.fmap R G (unfold R cR) (cR x)` for all `x : R` then `unfold R cR y === unfold G unfixf (unfold R cR y)` for all `y : R`.
 
-Expand the definition of `unfixf`:
+The precondition holds by Statement 2.
+So, we have for all `y : R`:
 
-`h r (F (GFix F)) packFf === functorF.fmap R (GFix F) h (rfr r)`
+`unfold R cR y === unfold G unfixf (unfold R cR y) === v (unfold R cR y)`
 
-We need to show that `h r === r2g r`.
+This is close to what we need: this equation says `k == v k` for `k = unfold R cR y`.
+But we need to show `g === v g` for arbitrary `g : G`.
 
+To get around this difficulty, we use Statement 1 with `h = identity G` and get:
 
-TODO
+`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
 
-Because `h r` has type `GFix F`, it satisfies the naturality law:
+Now substitute what we already derived:
+
+`unfold R cR y === v (unfold R cR y)`
+
+and get:
+
+`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
+
+ Again use Statement 1, this time with `h = v` and `g = unfold R cR y`, to get:
+
+```dhall
+-- Symbolic derivation.
+g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
+  === v g
+```
+
+So, we obtain `g === v g` as required.
+
 
 ###### Statement 4
 
-For a fixed functor `F`, the functions `fix F functorF` and `unfix F functorF` (defined in the chapter "Co-inductive types") are inverses of each other.
+For a fixed functor `F`, the functions `fixf : F G → G` and `unfixf : G → F G` are inverses of each other.
 
 ###### Proof
 
 We need to prove two directions of the isomorphism round-trip:
 
-(1) For any `g : GFix F` we will have `fixf (unfixf g) === g`
+(1) For any `g : G` we will have `fixf (unfixf g) === g`
 
-(2) For any `fg : F (GFix F)` we will have `unfixf (fixf fg) === fg`
+(2) For any `fg : F G` we will have `unfixf (fixf fg) === fg`
 
-Due to parametricity, any value `g : GFix F` will satisfy a relational naturality law formulated like this:
-
-- For any types `A`, `B`, and for any functions `f : A → B`, `p : ∀(t : Type) → GFt t → A`, and `q : ∀(t : Type) → GFt t → B`, such that `p` and `q` are `f`-related, we must have `f (g A p) === g B q`.
-- In the previous sentence, functions `p` and `q` are considered to be `f`-related if for any types `C`, `D`, and for any `k : C → D`, `u : GFt C`, `v : GFt D`, such that `u` and `v` are `k`-related, we will have `f (p D v) === q C u`.
-- In the previous sentence, values `u` and `v` are considered to be `k`-related if `k u.seed === v.seed` and for any `x : C` we will have `functorF.fmap C D k (u.step x) === v.step (k x)`.
-
-We will need to use that law in the proof.
-
-To prove item (1), we first note that the type of `g` is a function whose arguments are `R : Type` and `r : ∀(t : Type) → GFt t → R`.
-So, both sides of the equation in item (1) are functions with those arguments.
-We will prove that those functions are equal if we show that applying those functions to arbitrary arguments gives equal results.
-
-Apply both sides of the equation in item (1) to arbitrary `R : Type` and `r : ∀(t : Type) → GFt t → R`, then substitute the definitions of `fixf` and `unfixf`:
+To prove item (1), we write out the left-hand side of its equation:
 
 ```dhall
--- Symbolic derivation. Expect this to equal just `g R r`.
-fixf (unfixf g) R r
-  === pack GFt (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } R r
--- Substitute the definition of `pack`:
-  === r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf }
+-- Symbolic derivation. Expect this to equal just `g`.
+fixf (unfixf g)
+  === unfold (F G) fmap_unfixf (unfixf g)
 ```
-We will show that the last expression equals `g R r` if we find suitable parameters for applying the relational naturality law of `g`.
+
+Then we use the relational naturality law of `unfold` with `R = G`, `S = F G`, `f = unfixf`, `cR = unfixf`, and `cS = fmap_unfixf`.
+The precondition of the relational naturality law becomes:
+
+if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
+
+`fmap_unfixf (unfixf x) === functorF.fmap G (F G) unfixf (unfixf x) === fmap_unfixf (unfixf x)`
+
+This holds trivially.
+So, the conclusion of the law also holds: for all `g : G`,
+
+`unfold G unfixf g === unfold (F G) fmap_unfixf (unfixf g)`
+
+The right-hand side is the same as the expression we got after expanding `fixf` in `fixf (unfixf g)`.
+So, we continue our derivation:
 
 ```dhall
--- Symbolic derivation. The relational naturality law of `g`:
-f (g A p) === g B q
--- will match our equation:
-r (F (GFix F)) { seed = g (F (GFix F)) packFf, step = fmap_unfixf } === g R r
--- if we define the parameters as:
-A = F (GFix F)
-B = R
-f = λ(fg : A) → r A { seed = fg, step = fmap_unfixf }
-p = packFf
-q = r
+-- Symbolic derivation. Expect this to equal just `g`.
+fixf (unfixf g)  -- Use the definition of fixf:
+  === unfold (F G) fmap_unfixf (unfixf g)  -- Use the relational naturality law of `unfold`:
+  === unfold G unfixf g  -- Use Statement 3:
+  === g
 ```
 
-The relational naturality law of `g` will prove item (1) if we show that `p` and `q` are `f`-related.
-To check that, we write the definition of that relation:
+Item (1) is proved.
+
+To prove item (2), write out the left-hand side of its equation:
 
 ```dhall
--- Symbolic derivation. The values `p` and `q` are `f`-related if:
-f (p D v) === q C u
--- Substitute our definitions of f, p, q, B:
-r A { seed = packFf D v, step = fmap_unfixf } === r C u
--- This should hold for any `u` and `v` that are `k`-related, that is:
-k u.seed === v.seed
-functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
+-- Symbolic derivation. Expect this to equal just `fg`.
+unfixf (fixf fg)   -- Use the definition of unfixf:
+  === fixf fg (F G) unfoldF  -- Use the definition of fixf:
+  === unfold (F G) fmap_unfixf fg (F G) unfoldF  -- Use the definition of unfold:
+  === unfoldF (F G) fmap_unfixf fg  -- Use the definition of unfoldF: 
+  === functorF.fmap (F G) G (unfold (F G) fmap_unfixf) (fmap_unfixf fg)
 ```
 
-As `r` is an arbitrary function, we need to use a naturality law of `r` in order to derive an equation involving `r` at both sides.
-The relational naturality law of `r` is formulated as follows: for any types `K`, `L` and any `j : K → L`, `m : GFt K`, `n : GFt L` such that `m` and `n` are `j`-related, we have `r K m === r L n`.
-In the last sentence, the property of being `j`-related means `j m.seed === n.seed` and `functorF.fmap K L j (m.step y) === n.step (j y)` for all `y : K`.
+At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simplify the last line to:
 
-Now we continue the derivation:
+`functorF.fmap (F G) G fixf (fmap_unfixf fg)`
 
-```dhall
--- Symbolic derivation. The values `p` and `q` are `f`-related if:
-r A { seed = packFf D v, step = fmap_unfixf } === r C u
--- This will match the naturality law of `r`:
-r L n === r K m
--- if we define the parameters as:
-K = C
-L = A
-m = u
-n = { seed = packFf D v, step = fmap_unfixf }
-```
-
-Now it remains to show that `m` and `n` are `j`-related for some `j : C → A` whenever we are given arbitrary types `C`, `D` and some arbitrary `k : C → D`, `u : GFt C`, and `v : GFt D` that are `k`-related.
-All we know about `k`, `u`, and `v` is:
-
-```dhall
--- Symbolic derivation. We know that `u` and `v` are `k`-related:
-k u.seed === v.seed
-functorF.fmap C D k (u.step x) === v.step (k x)   -- for any `x : C`
-```
-
-The first condition (`j m.seed === n.seed`) gives `j u.seed === packFf D v` or equivalently `j (packFf C u) === k u.seed`.
-So, we need to choose `j` to satisfy that equation.
-
-The second condition is rewritten as:
-
-```dhall
--- Symbolic derivation. The condition for `m.step` and `n.step` is:
-functorF.fmap K L j (m.step y) === n.step (j y)  -- for any `y : C`
--- Substitute the definitions of K, L, m, n:
-functorF.fmap C A j (u.step y) === fmap_unfixf (j y)
-```
-doesn't seem to work!
-
-TODO
-
-To prove item (2):
-
-```dhall
--- Symbolic derivation. Use the definitions of fixf and unfixf:
-unfixf (fixf fg)
-  === fixf fg (F (GFix F)) packFf
-  === pack GFt (F (GFix F)) { seed = fg, step = fmap_unfixf } (F (GFix F)) packFf
--- Use the definition of pack:
-  === packFf (F (GFix F)) { seed = fg, step = fmap_unfixf }
--- Use the definition of packFf:
-  === functorF.fmap (F (GFix F)) (GFix F) (λ(x : F (GFix F)) → pack GFt (F (GFix F)) { seed = x, step = fmap_unfixf }) (fmap_unfixf fg)
--- Recognize that the function under `(λ(x : F (GFix F)) → pack ...)` is fixf:
-  === functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg)
-```
 The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
-By `fmap`'s composition law, we get `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
+By `fmap`'s composition law, we have `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
 We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
-Applying `functorF.fmap` to an identity function of type `GFix F → GFix F` gives an identity function of type `F (GFix F) → F (GFix F)`.
+Applying `functorF.fmap` to an identity function of type `G → G` gives an identity function of type `F G → F G`.
 So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
 
-`functorF.fmap (F (GFix F)) (GFix F) fixf (fmap_unfixf fg) === fg`
+`functorF.fmap (F G) G fixf (fmap_unfixf fg) === fg`
 
-This is what remained to be proved. $\square$
+This is what remained to be proved for item (2). $\square$
+
+###### Statement 5
+
+Given any type `R` and any function `rfr : R → F R`,
+there exists only one $F$-coalgebra morphism of type `R → G`, namely the function `r2g` defined in Statement 2 as `r2g = unfold R rfr`.
+
+###### Proof
+
+Let `f : R → G` be any function that satisfies the $F$-coalgebra morphism law.
+We need to show that `f` is then equal to `r2g` (which is defined as `unfold R rfr`).
+
+The $F$-coalgebra morphism law of `f` says that, for any `x : R`,
+
+`unfixf (f x) === functorF.fmap R G f (rfr x)`
+
+This equation is the same as the precondition of the relational naturality law of `unfold` with `S = G`, `cR = rfr`, and `cS = unfixf`.
+So, the conclusion of that law holds: for any `x : R`,
+
+`unfold R rfr x === unfold G unfixf (f x)`
+
+By Statement 3, we have `g === unfold G unfixf g` for any `g : G`.
+Use that property for `g = f x` and obtain:
+
+`unfold R rfr x === unfold G unfixf g === g === f x`
+
+The left-hand side is exactly the function `r2g` from Statement 2.
+So, we have proved that `r2g x === f x`. The function `f` is the same as `r2g`.
 
 
 ### The Church-co-Yoneda identity
 
-A dual identity (involving existentially quantified types) holds for all covariant functors `F` and `G`:
+The following identity holds for all covariant functors `F` and `K`:
 
 ```dhall
--- Mathematical notation:  G (GFix F) ≅ ∃ A. (G A) × (A → F A)
-G (GFix F)  ≅  Exists (λ(A : Type) → { seed : G A, step : A → F A })
+-- Mathematical notation:  K (GFix F) ≅ ∃ A. (K A) × (A → F A)
+K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
-TODO
+This is analogous to the Church-Yoneda identity, except for using existentially quantified types and the encoding of greatest fixpoints instead of universally quantified types and the encoding of least fixpoints.
+In this section, we will show a proof of the Church-co-Yoneda identity.
+
+For that identity to hold, we need the following requirements:
+
+- both `F` and `K` must be lawful covariant functors (with `Functor` typeclass evidence values satisfying the functor laws)
+- parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions
+
+Denote for brevity:
+
+```dhall
+let G = GFix F
+let CCoY = Exists (λ(A : Type) → { seed : K A, step : A → F A })
+let fmap_K = functorK.fmap
+let fmap_F = functorF.fmap
+```
+
+For convenience, we redefine the types `G` and `CCoY` using curried arguments:
+
+```dhall
+let G = ∀(R : Type) → (∀(T : Type) → (T → F T) → T → R) → R
+let CCoY = ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
+```
+
+To prove the Church-co-Yoneda identity, we begin by implementing the two directions of the isomorphism:
+`fromCCoY : CCoY → K G`
+and
+`toCCoy : K G → CCoY`
+
+The function type `CCoY → K G` can be simplified using the function extension rule:
+
+`CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
+
+Then we notice the similarity between the last type and the type of `unfold`:
+
+`unfold : ∀(T : Type) → (T → F T) → T → G`
+
+The difference is only in a replacement of `T → G` by `K T → K G`.
+We can implement that replacement via `fmap_K`.
+Then we can write the code for the function `fromCCoY` as:
+
+```dhall
+let fromCCoY : CCoY → K G
+  = λ(c : CCoY) →
+    c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    )
+```
+
+To implement `toCCoY`, we write:
+
+```dhall
+let toCCoY : K G → ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
+  = λ(kg : K G) → λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf kg
+```
+
+It remains to show that `fromCCoY` and `toCCoY` are inverses to each other.
+We need to prove the two directions of the isomorphism round-trip:
+
+(1) For any `kg : K G` we have `kg === fromCCoY (toCCoY kg)`
+
+(2) For any `c : CCoY` we have `c === toCCoY (fromCCoY c)`
+
+To prove item (1):
+
+```dhall
+-- Symbolic derivation. Expect this to equal `kg`:
+fromCCoY (toCCoY kg)   -- Expand the definition of fromCCoY:
+  === toCCoY kg (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    )                  -- Expand the definition of toCCoY:
+  === (λ(T : Type) → λ(cT : T → F T) →
+      fmap_K T G (unfold T cT)
+    ) G unfixf kg      -- Apply function to arguments:
+  === fmap_K G G (unfold G unfixf) kg
+```
+
+Statement 3 in section "Properties of co-inductive type encodings" shows that `unfold G unfixf` is an identity function of type `G → G` (denoted by `identity G`).
+So, we have:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `kg`:
+fromCCoY (toCCoY kg)
+  === fmap_K G G (unfold G unfixf) kg   -- Use Statement 3:
+  === fmap_K G G (identity G) kg     -- Use functor K's identity law:
+  === identity (K G) kg              -- Apply identity function:
+  === kg
+```
+
+This proves item (1).
+
+To prove item (2), write:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `c`:
+toCCoY (fromCCoY c)   -- Expand the definition of fromCCoY:
+  === toCCoY (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))                -- Expand the definition of toCCoY:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))
+```
+
+At this point, we need to use naturality laws, which hold due to parametricity assumptions.
+
+The first law we will use is the naturality law for values `c : CCoY`.
+That law says that for any types `Q`, `S`, for any function `f : Q → S`, for any value `q : ∀(T : Type) → (T → F T) → K T → Q`:
+
+`f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))`
+
+Apply that law to the last expression, setting `Q = K G`, `S = R`, `f = p G unfixf`, and
+`q = λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)`.
+Then we get:
+
+```dhall
+-- Symbolic derivation.
+p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)
+  === f (c Q q)
+  === c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
+  === c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
+```
+
+The next step is to simplify the sub-expression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
+For that, we use the relational naturality law for values `p : ∀(T : Type) → (T → F T) → K T → R`.
+That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
+
+`fmap_F T U h (cT x) === cU (h x)` for all `x : T`,
+
+then the conclusion holds:
+
+`p T cT kt === p U cU (fmap_K T U h kt)`
+
+We need to set the parameters in the law to match the right-hand side of the last equation:
+
+
+```dhall
+-- Symbolic derivation. We will match:
+p U cU (fmap_K T U h kt)
+-- with:
+p G unfixf (fmap_K T G (unfold T cT) kt)
+-- if we set U = G, cU = unfixf, and h = unfold T cT.
+```
+With these parameters, we get:
+
+```dhall
+-- Symbolic derivation.
+p G unfixf (fmap_K T G (unfold T cT) kt)
+  === p U cU (fmap_K T U h kt)
+  === p T cT kt
+```
+as long as the precondition of the law holds:
+
+`fmap_F T G (unfold T cT) (cT x) === unfixf (unfold T cT x)`
+This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Properties of co-inductive types".
+
+This allows us to complete the proof of item 2:
+
+```dhall
+-- Symbolic derivation. Expect this to equal `c`.
+toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+      fmap_K T G (unfold T cT)
+    ))    -- Use the naturality law of `c`:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) →
+      p G unfixf (fmap_K T G (unfold T cT) kt))
+        -- Use the relational naturality law of `p`:
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+    c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p T cT kt)
+       -- Unexpand function: λ T → λ cT → λ kt → p T cT kt === p
+  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) → c R p
+       -- Unexpand function: λ R → λ p → c R p === c
+  === c
+```
+
+### Proofs for mutually recursive fixpoints
+
+Suppose two types `T`, `U` are defined as fixpoints of a system of type equations:
+
+```dhall
+-- Type error: Dhall does not support recursive definitions.
+let T = F T U
+let U = G T U
+```
+where `F` and `G` are some (covariant) bifunctors.
+
+An example definition of `F` and `G` is:
+
+```dhall
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
+let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
+```
+
+Then we may consider two possibilities: either we need the least fixpoints, or we need the greatest fixpoints.
+
+In this section, we will prove that the least fixpoints are given by the following Church encodings:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
+```
+while the greatest fixpoints are given by the following encodings:
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
+```
+
+The proofs in both cases are similar, and so we will write both proofs at the same time.
+The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
+We already know how to encode fixpoints of a single recursive type, and we will use those encodings to express `T`.
+Then we will use the Church-Yoneda identity (for least fixpoints) or the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
+The derivation for `U` will be omitted because it is exactly similar.
+
+We will need the property we call **mutual recursion lemma**:
+
+###### Statement 1 (mutual recursion lemma).
+Suppose `J` is any bifunctor. Then the double fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
+That property holds for all fixpoints (least or greatest or any other fixpoints).
+
+###### Proof
+
+Let us temporarily denote by `Fix` the operation of taking any fixpoint, and consider a fixpoint `W` of `J x x` with respect to `x`.
+This is expressed by `W = Fix (λ(x : Type) → J x x)`.
+For that  type `W`, the type isomorphism `W ≅ J W W` holds.
+
+Keeping that `W` set, consider the type equation `Y = J W Y`.
+Clearly, `W` is also a solution of that type equation.
+So, `W` is the fixpoint of `J W y` with respect to `y`.
+We write this as:
+
+`W = Fix (λ(y : Type) → J W y)`
+
+The last equation is a type equation for `W`, whose solution is written as:
+
+`W = Fix (λ(w : Type) → Fix (λ(y : Type) → J w y))`
+
+So, we have shown that `W` is a double fixpoint of `J x y` with respect to both `x` and `y`.
+
+Conversely, consider any `W` which is a double fixpoint of `J x y` with respect to both `x` and `y`:
+
+`W = Fix (λ(x : Type) → Fix (λ(y : Type) → J x y))`
+
+This `W` satisfies the type equation `W = Fix (λ(y : Type) → J W y)`.
+Consider that type equation separately: a type `V = Fix (λ(y : Type) → J W y)` must be such that the type isomorphism `V ≅ J W V` holds.
+But we know that `W` _equals_ `Fix (λ(y : Type) → J W y)`; in other words, `W = V`.
+So, `W` satisfies the type isomorphism `W ≅ J W W`.
+It means that `W` is a fixpoint of `J x x` with respect to `x`. 
+
+We have shown that every fixpoint of `J x x` with respect to `x` is at the same time a fixpoint of `J x y` with respect to `x` and `y`, and vice versa.
+All fixpoints of `J x x` and all fixpoints of `J x y` are in a one-to-one correspondence.
+
+It follows that the greatest fixpoint of `J x x` is the same as the greatest fixpoint of `J x y`, and similarly for the least fixpoints.
+$\square$
+
+Now we begin the proof of the mutual recursion encodings.
+
+Let us first consider the greatest fixpoints and rewrite the equations `T = F T U` and `U = G T U` as:
+
+```dhall
+-- Type error: Dhall does not support recursive definitions.
+T = GFix (λ(x : Type) → F x U)
+U = GFix (λ(y : Type) → G T y)
+```
+
+We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equtaions.
+We notice that the last equation expresses `U` via `T`.
+It will be more convenient to write that expression as `U = H T` where the functor `H` is defined by:
+
+```dhall
+let H = λ(x : Type) → GFix (λ(y : Type) → G x y)
+```
+
+The type constructor `λ(y : Type) → G a y` is an expanded form of the curried type constructor `G a`.
+So, we may define `H` more concisely as:
+```dhall
+let H = λ(x : Type) → GFix (G x)
+```
+
+As `U = H T`, we can derive a fixpoint equation that contains just `T` and no `U`:
+
+```dhall
+-- Symbolic derivation.
+T === LFix (λ(x : Type) → F x U)
+  === LFix (λ(x : Type) → F x (H T))
+```
+This is a fixpoint equation for `T` alone. The solution can be written as:
+
+```dhall
+let T = GFix (λ(t : Type) → GFix (λ(x : Type) → F x (H t)))
+```
+To see the structure of the last equation more clearly, let us define the type constructor `J` by `J x y = F x (H y)`, or in Dhall:
+
+```dhall
+let J = λ(x : Type) → λ(y : Type) → F x (H y)
+```
+Then `T` is expressed as:
+
+```dhall
+let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
+```
+
+
+The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
+So, we may use the mutual recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
+
+```dhall
+let T = GFix (λ(x : Type) → J x x)
+  -- Or equivalently:
+let H = λ(x : Type) → GFix (G x)
+in let T = GFix (λ(x : Type) → F x (H x))
+```
+
+For the case of least fixpoints, the argument will be exactly similar. The resulting definitions for `H` and `T` are:
+
+```dhall
+let H = λ(x : Type) → LFix (G x)
+in let T = LFix (λ(x : Type) → F x (H x))
+```
+
+Now that we have gotten rid of `U` and obtained a fixpoint equation for `T` alone, we may use the known Church encodings:
+
+```dhall
+-- For the greatest fixpoints:
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
+-- Written out in full:
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → {seed : y , step : y → G x y })) })
+-- For the least fixpoints:
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+-- Written out in full:
+let T = ∀(x : Type) → (F x (∀(y : Type) → (G x y → y) → y) → x) → x
+```
+
+Note that both type formulas involve type quantifiers _inside_ functors:
+For the greatest fixpoints, `T` has the form `T = Exists ( ... F x (Exists ...))`.
+For the least fixpoints, `T` has the form `T = ∀x( ... F x (∀y ...))`.
+
+Our goal is to derive the type formulas we started with:
+
+```dhall
+-- For the greatest fixpoints:
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+-- For the least fixpoints:
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+These formulas are simpler because all type quantifiers are outside any functors.
+To achieve that simplification, we will need to use the Church-Yoneda and the Church-co-Yoneda identities.
+Those identities say that a type with a fixpoint inside a functor is equivalent to a type whose quantifier is outside.
+For the greatest fixpoints, we will apply the Church-co-Yoneda identity, and for the least fixpoints, we will apply the Church-Yoneda identity.
+It remains to bring the type expressions `T` into the form suitable for applying those identities.
+
+First consider the case of the greatest fixpoints.
+Write the type expression for `T` that we last obtained:
+
+```dhall
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
+```
+
+The Church-co-Yoneda identity says that, for any functors `P` and `Q`,
+
+`P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })`
+
+The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = { seed: x, step: x → F x a }` and `Q a = G x a`.
+With these definitions, `P` and `Q` are covariant functors.
+Then we may use the Church-co-Yoneda identity to obtain:
+
+```dhall
+-- Symbolic derivation.
+T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
+  === Exists (λ(x : Type) → P (GFix Q))
+  === Exists (λ(x : Type) → Exists (λ(A : Type) → { seed : P A, step : A → Q A }))
+-- Rename A to y and expand the definitions of P and Q:
+  === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed: x, step: x → F x y }, step : y → G x y }))
+```
+
+Transform the record type into an equivalent record type, and obtain the required type formula for `T`:
+
+```dhall
+-- Symbolic derivation.
+T === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x → F x y, stepB : y → G x y }))
+```
+
+This concludes the proof for the greatest fixpoints.
+
+For the least fixpoints, we write the last obtained type expression for `T`:
+
+```dhall
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+```
+
+The Church-Yoneda identity says that, for any functors `P` and `Q`,
+
+`P (LFix Q)  ≅  ∀(A : Type) → (Q A → A) → P A`
+
+The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = (F x a → x) → x` and `Q a = G x a`.
+Defined in that way, both `P` and `Q` are covariant functors.
+Then we may use the Church-Yoneda identity to obtain:
+
+```dhall
+-- Symbolic derivation.
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+  === ∀(x : Type) → P (Lfix Q)
+  === ∀(x : Type) → ∀(y : Type) → (Q y → y) → P y
+  === ∀(x : Type) → ∀(y : Type) → (G x y → y) → (F x y → x) → x
+```
+
+This is equivalent to the type expression we wanted to derive:
+
+```dhall
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+
+This concludes the proof for the least fixpoints.
+
+### Summary of type equivalence identities
+
+Here are some of the type identities we have proved in this appendix.
+
+All those identities hold under assumptions of parametricity.
+
+Function extension rule (for any type constructor `P`):
+
+```dhall
+Exists P → R  ≅  ∀(T : Type) → P T → R
+```
+
+Yoneda identity (for a covariant functor `Q`):
+
+```dhall
+∀(x : Type) → (a → x) → Q x  ≅  Q a
+```
+
+
+Church encoding of least fixpoints (for a covariant functor `P`):
+
+```dhall
+∀(x : Type) → (P x → x) → x  ≅  LFix P
+```
+
+
+Church-Yoneda identity (for covariant functors `P` and `Q`):
+
+```dhall
+∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
+```
+
+
+Co-Yoneda identity (for a covariant functor `Q`):
+
+```dhall
+Exists (λ(x : Type) → { seed : Q x, step : x → a})  ≅  Q a
+```
+
+
+Church encoding of greatest fixpoints (for a covariant functor `P`):
+
+```dhall
+Exists (λ(x : Type) → { seed : x, step : x → P x})  ≅  GFix P
+```
+
+
+Church-co-Yoneda identity (for covariant functors `P` and `Q`):
+
+```dhall
+Exists (λ(x : Type) → { seed : Q x, step : x → P x})  ≅  Q (GFix P)
+```
+
+## Appendix: Specification and implementation of "nano-Dhall"
+
+This Appendix serves to illustrate how a functional programming language can be specified and implemented.
+We will consider a small subset of Dhall, called "nano-Dhall".
+It is similar to Dhall but limited to:
+
+- Function types `(a : t1) -> t2` or `t1 -> t2`, and function values `\(a : t) -> b`.
+- Function application: `f x`, grouping to the left, so that `f x y = (f x) y`.
+- Built-in types `Nat` (operations `+`, `*`, and `!`) and `Text` (operation `++`).
+- Type universes `Type` and `Kind`, so that we have typing judgments `Nat : Type` and `Type : Kind`. (The symbol `Kind` has no type.)
+
+### Syntax and parsing
+
+The syntax is described in the ABNF format:
+
+```
+complete-expression = whsp expression whsp
+
+whitespace-chunk =
+      " "
+    / tab
+    / end-of-line
+
+; optional whitespace: zero or more whitespace-chunk
+whsp = *whitespace-chunk
+
+; nonempty whitespace: one or more whitespace-chunk
+whsp1 = 1*whitespace-chunk
+
+expression =
+  lambda whsp "(" whsp identifier whsp ":" whsp expression whsp ")" whsp arrow whsp expression
+
+; Uppercase or lowercase ASCII letter
+ALPHA = %x41-5A / %x61-7A
+
+; ASCII digit
+DIGIT = %x30-39  ; 0-9
+
+ALPHANUM = ALPHA / DIGIT
+
+valid-non-ascii =    ; support some Unicode
+      %x80-D7FF
+    ; %xD800-DFFF = surrogate pairs
+    / %xE000-FFFD
+    ; %xFFFE-FFFF = non-characters
+    / %x10000-1FFFD
+```
