@@ -7255,56 +7255,69 @@ This concludes the proof for the least fixpoints.
 
 ### Summary of type equivalence identities
 
-Here are some of the type identities we have proved in this appendix.
+Here are some of the type identities we have proved in this Appendix.
 
 All those identities hold under assumptions of parametricity.
+
+We show the identities both in the Dhall syntax and in a standard mathematical notation.
 
 Function extension rule (for any type constructor `P`):
 
 ```dhall
 Exists P → R  ≅  ∀(T : Type) → P T → R
 ```
+$$ (\exists A.~P~A) \to R \cong \forall T.~P~T\to R $$
+
+Mutual recursion lemma (for any covariant bifunctor `J`):
+
+```dhall
+LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
+GFix(λ(x : Type) → GFix(λ(y : Type) → J x y))  ≅  GFix(λ(x : Type) → J x x)
+```
+$$ \mu x.~\mu y.~J~x~y \cong \mu x.~J~x~x $$
+$$ \nu x.~\nu y.~J~x~y \cong \nu x.~J~x~x $$
 
 Yoneda identity (for a covariant functor `Q`):
 
 ```dhall
 ∀(x : Type) → (a → x) → Q x  ≅  Q a
 ```
-
+$$ \forall x.~(a \to x)\to Q~x \cong Q~a $$
 
 Church encoding of least fixpoints (for a covariant functor `P`):
 
 ```dhall
 ∀(x : Type) → (P x → x) → x  ≅  LFix P
 ```
-
+$$ \forall x.~(P~x \to x)\to x \cong \mu x.~P~x $$
 
 Church-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
 ∀(x : Type) → (P x → x) → Q x  ≅  Q (LFix P)
 ```
-
-
-Co-Yoneda identity (for a covariant functor `Q`):
-
-```dhall
-Exists (λ(x : Type) → { seed : Q x, step : x → a})  ≅  Q a
-```
-
+$$ \forall x.~(P~x \to x)\to Q~x \cong Q(\mu x.~P~x) $$
 
 Church encoding of greatest fixpoints (for a covariant functor `P`):
 
 ```dhall
-Exists (λ(x : Type) → { seed : x, step : x → P x})  ≅  GFix P
+Exists (λ(a : Type) → { seed : a, step : a → P a})  ≅  GFix P
 ```
+$$ \exists a.~a \times (a\to P~a) \cong \nu x.~P~x $$
 
+Co-Yoneda identity (for a covariant functor `Q`):
+
+```dhall
+Exists (λ(a : Type) → { seed : Q a, step : a → r})  ≅  Q a
+```
+$$ \exists a.~Q~a \times (a\to r) \cong Q~a $$
 
 Church-co-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
-Exists (λ(x : Type) → { seed : Q x, step : x → P x})  ≅  Q (GFix P)
+Exists (λ(a : Type) → { seed : Q a, step : a → P a})  ≅  Q (GFix P)
 ```
+$$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
 
 ## Appendix: Specification and implementation of "nano-Dhall"
 
