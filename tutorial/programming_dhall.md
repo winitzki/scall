@@ -813,10 +813,11 @@ in x ++ "1"
  -- This is a complete program that returns "1231".
 ```
 
-The `assert` construction is a special Dhall syntax that implements a limited form of the "equality type" (known from dependently typed languages).
+The `assert` construction is a special Dhall syntax that implements the "equality type" (known from dependently typed languages).
+The Unicode symbol `≡` may be used instead of `===`.
 
-In other words, the Dhall expression `a === b` is a special sort of type.
-(The Unicode symbol `≡` may be used instead of `===`.)
+The Dhall expression `a === b` is a special type that depends on the values `a` and `b`.
+The type `a === b` is different for each pair `a`, `b`.
 
 The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
 For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
@@ -825,7 +826,7 @@ For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
 If `a` and `b` evaluate to the same normal form, the type `a === b` is considered to be non-void.
 That is, there exists a value of the type `a === b`.
 
-If we want to write that value explicitly, we need to use the `assert` keyword with the following syntax: `assert : a === b`.
+If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a === b`.
 This expression is valid only if the two sides are equal after reducing them to their normal forms.
 If the two sides are not equal, this expression _fails to type-check_, meaning that the entire program will fail to compile.
 
@@ -836,10 +837,11 @@ let test1 = assert : 1 + 2 === 0 + 3
 ```
 
 In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after reducing them to normal forms.
-The resulting type `3 === 3` is non-void and has a value assigned to `test1`.
+The resulting type `3 === 3` is non-void and has a value.
+We assigned that value to `test1`.
 
 It is not actually possible to print the value of type `3 === 3` or to examine it in any other way.
-We just know that that value exists (because the `assert` expression was accepted by Dhall).
+We just know that that value exists, because the `assert` expression was accepted by Dhall.
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
@@ -858,6 +860,8 @@ The normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) �
 The normal form of `print y` is the same Dhall expression.
 So, the assertion is valid.
 
+Most often, it does not make sense to use `assert` inside function bodies.
+
 Because `assert` expressions are checked at compile time, they cannot be used for implementing a _function_ comparing, say, two arbitrary `Text` values given as arguments.
 Try writing this code:
 
@@ -868,10 +872,14 @@ let compareTextValues : Text → Text → Bool
     in True
 ```
 
-This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the function parameters `a` and `b` are just the symbols `a` and `b`, and those two symbols are not equal.
+This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the parameters `a` and `b` are just the _symbols_ `a` and `b`, and those two symbols are not equal.
 Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
-The `assert` keyword is most often used to implement unit tests.
+
+We cannot even write a Dhall function that checks whether a string is empty.
+An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` is a an empty string.
+
+The `assert` keyword is most often used to implement unit tests or other static sanity checks on Dhall code.
 In that case, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
 So, we may write unit tests like this:
@@ -913,16 +921,16 @@ Type
 Dhall defines functions with the `λ` syntax:
 
 ```dhall
-λ(t : Natural) → t + 1    -- This is a complete program.
+λ(t : Natural) → t + 1
 ```
 
-The same syntax works if `t` were a type parameter (a variable of type `Type`):
+The same syntax works if `t` were a type parameter (having type `Type`):
 
 ```dhall
-λ(t : Type) → λ(x : t) → { first = x, second = x }   -- This is a complete program.
+λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
 
-Records and union types may mix types as well as values within the same data type:
+Records and union types may contain types as well as values within the same data type:
 
 
 ```dhall
@@ -1041,7 +1049,7 @@ That is needed in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
 Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.
 
-As a result, Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
+Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
 
 Because of this design, Dhall does not support operating on the symbol `Kind` itself.
 Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
@@ -1063,7 +1071,7 @@ This is because Dhall requires a function's type itself to have a type.
 The symbol `Kind` has type `Sort`, 
 so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
-As the function `f`'s type does not _itself_ have a type, Dhall raises a type error.
+Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not _itself_ have a type.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
@@ -1096,27 +1104,26 @@ To summarize: `λ(x : a) → ...` is a function and can be applied to an argumen
 But `∀(x : a) → ...` is a type; it is not a function and cannot be applied to an argument.
 
 
-A side note: The type expression `∀(x : Text) → Text` does not need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
+A side note: The type expression `∀(x : Text) → Text` does not actually need the name `x` and can be also written in a shorter syntax as just `Text → Text`.
 But Dhall will internally rewrite that to the normal form `∀(_ : Text) → Text`.
 
 An expression of the form `λ(x : sometype1) → something2` is a function that can be applied to any `x` of type `sometype1` and will compute a result, `something2`.
 (That result could itself be a value or a type.)
 The _type_ of the expression `λ(x : sometype1) → something2` is `∀(x : sometype1) → sometype2` where `sometype2` is the type of `something2`.
 
-Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → "abc"`.
+Another way to see that `∀` always denotes types is to try writing an expression `∀(x : Text) → 123`.
 Dhall will reject that expression with the error message "Invalid function output".
 The expression `∀(x : Text) → something2` must be a _type_ of a function, and `something2` must be the output type of that function.
 So, `something2` must be a type and cannot be a value.
-But in the example `∀(x : Text) → "abc"`, the output type of the function is a text string `"abc"`, which is not a type.
+But in the example `∀(x : Text) → 123`, the output type of the function is the number `123`, which is not a type.
 
 In Dhall, this requirement is expressed by saying that `something2` should have type `Type`, `Kind`, or `Sort`.
 
-As another example of the error "Invalid function output", consider code like `∀(x : Type) → λ(y : Type) → x` with .
+As another example of the error "Invalid function output", consider code like `∀(x : Type) → λ(y : Type) → x`.
 This code has the form `∀(x : Type) → something` where `something` is a lambda-expression, which is not a type.
 
-Valid code examples are `∀(x : Type) → ∀(y : Type) → x` and `λ(x : Type) → ∀(y : Type) → x`.
+Valid examples are `∀(x : Type) → ∀(y : Type) → x` and `λ(x : Type) → ∀(y : Type) → x`.
 
-The type of `λ(x : sometype1) → something2` is `∀(x : sometype1) → sometype2`, where `sometype2` is the type of the expression `something2`.
 
 The polymorphic identity function is an example that helps remember the difference between `∀` and `λ`.
 
@@ -1159,7 +1166,7 @@ let identity = λ(A : Type) → λ(x : A) → x
 let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 ```
 
-This makes Dhall code more verbose, but also helps remove "magic" from the syntax.
+This makes Dhall code more verbose but also helps remove "magic" from the syntax.
 
 ### Dependent types in Dhall
 
@@ -1226,7 +1233,7 @@ In the `else` branch, `x` is `False` because the `if/then/else` construction beg
 So, the `else` branch must have type `f False = Text`.
 But Dhall does not implement this logic and cannot see that both branches will have the same type `Text`.
 
-Because of this and other limitations, dependent types in Dhall can be used only in sufficiently simple cases. 
+Because of this and other limitations, Dhall can work productively with dependent types only in sufficiently simple cases. 
 
 
 ## Arithmetic with `Natural` numbers
@@ -1239,7 +1246,7 @@ In an ordinary programming language, we would use loops to implement those opera
 But Dhall will only accept loops that are guaranteed in advance to terminate.
 So, we will need to know in advance how many iterations are needed for any given computation.
 
-### Using `Natural/fold` to replace loops
+### Using `Natural/fold` to implement loops
 
 The function `Natural/fold` is a general facility for creating loops with a fixed number of iterations:
 
@@ -7287,6 +7294,13 @@ Yoneda identity (for a covariant functor `Q`):
 ```
 $$ \forall x.~(a \to x)\to Q~x \cong Q~a $$
 
+Yoneda identity (for a contravariant functor `Q`):
+
+```dhall
+∀(x : Type) → (x → a) → Q x  ≅  Q a
+```
+$$ \forall x.~(x \to a)\to Q~x \cong Q~a $$
+
 Church encoding of least fixpoints (for a covariant functor `P`):
 
 ```dhall
@@ -7314,6 +7328,13 @@ Co-Yoneda identity (for a covariant functor `Q`):
 Exists (λ(a : Type) → { seed : Q a, step : a → r})  ≅  Q a
 ```
 $$ \exists a.~Q~a \times (a\to r) \cong Q~a $$
+
+Co-Yoneda identity (for a contravariant functor `Q`):
+
+```dhall
+Exists (λ(a : Type) → { seed : Q a, step : r → a})  ≅  Q a
+```
+$$ \exists a.~Q~a \times (r\to a) \cong Q~a $$
 
 Church-co-Yoneda identity (for covariant functors `P` and `Q`):
 

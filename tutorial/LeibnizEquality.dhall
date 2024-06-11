@@ -15,7 +15,7 @@ let x
 
 let _
     : LeibnizEqual Bool ./NeedToValidate.dhall True
-    = -- require that NeedToValidate.dhall evaluates to True
+    = -- assert that NeedToValidate.dhall evaluates to True
       refl Bool True
 
 let symmetry =
