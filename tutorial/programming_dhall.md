@@ -3059,7 +3059,7 @@ The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall
 
 The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor.
 
-A proof is also shown as "Statement 2" in the section "Some properties of the Church encoding" of the Appendix in this book.
+A proof is also shown as "Statement 2" in the section "Some properties of the Church encoding" of the Appendix A in this book.
 
 ### Data constructors
 
@@ -5159,6 +5159,9 @@ Functors and contrafunctors may be constructed only in a fixed number of ways, b
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from parts.
 
+All of the combinators preserve functor laws; the created new functors are automatically lawful.
+The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp).
+
 ### Constant (contra)functors
 
 The simplest combinator is a **constant functor**: it is a type constructor that does not depend on its type parameter.
@@ -5397,7 +5400,7 @@ TODO
 
 ## Monoids and their combinators
 
-TODO
+
 ## Traversable functors and their combinators
 
 ## Monads and their combinators
@@ -5417,7 +5420,7 @@ TODO
 
 ### Free applicative
 
-### Nested types and GADTs
+## Nested types and GADTs
 
 ## Dhall as a scripting DSL
 
@@ -5847,7 +5850,7 @@ TODO
 ### Some properties of the Church encoding
 
 Here we show proofs of some technical properties of Church-encoded types.
-(Those properties are shown in the paper "Recursive types for free". Here we give some more detailed proofs.)
+(Those properties are shown in the paper "Recursive types for free". Here we give more detailed proofs.)
 
 Throughout this section, we assume that `F` is a lawful covariant functor for which an evidence value `functorF : Functor F` is available.
 We define the type `C` by `C = LFix F`, or in explicit form: `C = ∀(R : Type) → (F R → R) → R`.
@@ -6241,7 +6244,7 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(That property is proved in the paper "Recursive types for free", and also in this book as "Statement 3" in the previous section.)
+(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the previous section.)
 
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
