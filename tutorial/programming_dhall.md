@@ -2696,19 +2696,19 @@ A functor is traversable if it supports a method called `traverse` with the type
 -- Haskell:
 traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
 ```
-Here `t` is the traversable functor.
+Here `t` is a traversable functor.
 
 Rewriting this type signature in Dhall and making `t` an explicit type parameter, we get the following type signature:
 
 ```dhall
-let traverseTypeSignature = λ(t : Type → Type) → ∀(f : Type → Type) → Applicative f → ∀(a : Type) → ∀(b : Type) →
+let TraverseTypeSignature = λ(t : Type → Type) → ∀(f : Type → Type) → Applicative f → ∀(a : Type) → ∀(b : Type) →
   (a → f b) → t a → f (t b)
 ```
 
 The requirement of having a `traverse` method can be formulated via a `Traversable` typeclass:
 
 ```dhall
-let Traversable = λ(t : Type → Type) → { traverse : traverseTypeSignature t }
+let Traversable = λ(t : Type → Type) → { traverse : TraverseTypeSignature t }
 ```
 
 Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `f` (even if `f` is not covariant).
@@ -2720,7 +2720,7 @@ For example, `Semigroup` is similar to `Monoid`: it has the `append` method but 
 We could say that the `Monoid` typeclass inherits `append` from `Semigroup` and adds the `empty` method.
 The `Monad` typeclass could inherit `fmap` from the `Functor` typeclass and `pure` from the `Pointed` typeclass.
 
-To express this kind of inheritance in Dhall, we can use Dhall's record-typing features.
+To express this kind of inheritance in Dhall, we can use Dhall's features for manipulating records.
 Dhall has the operator `//\\` that combines all fields from two record types into one larger record type.
 The corresponding operator `/\` combines fields from two record values.
 For example:
@@ -7350,10 +7350,16 @@ This Appendix serves to illustrate how a functional programming language can be 
 We will consider a small subset of Dhall, called "nano-Dhall".
 It is similar to Dhall but limited to:
 
-- Function types `(a : t1) -> t2` or `t1 -> t2`, and function values `\(a : t) -> b`.
+- Function types `/(a : t1) -> t2` and function values `\(a : t) -> b`.
 - Function application: `f x`, grouping to the left, so that `f x y = (f x) y`.
 - Built-in types `Nat` (operations `+`, `*`, and `!`) and `Text` (operation `++`).
 - Type universes `Type` and `Kind`, so that we have typing judgments `Nat : Type` and `Type : Kind`. (The symbol `Kind` has no type.)
+
+We have omitted imports and many features of Dhall that can be desugared to nano-Dhall.
+
+The syntax is simplified so that there are fewer keywords and fewer equivalent ways of writing the same thing.
+
+We kept just two built-in types (`Nat` and `Text`) with some infix operations, in order to show how such features are implemented.
 
 ### Syntax and parsing
 
@@ -7375,12 +7381,44 @@ whsp1 = 1*whitespace-chunk
 
 expression =
   lambda whsp "(" whsp identifier whsp ":" whsp expression whsp ")" whsp arrow whsp expression
+  / forall whsp "(" whsp identifier whsp ":" whsp expression whsp ")" whsp arrow whsp expression
+  / expression0
+
+lambda        = %x3BB  / "\"
+arrow         = %x2192 / "->"
+forall        = "forall" / %x2200
+
+
+; Precedence tower.
+expression0 = expression1 [ whsp ":" whsp expression ] ; Type annotation.
+
+expression1 = expression2   *(whsp "+" whsp expression2) ; Nat + Nat
+
+expression2 = expression3 *(whsp "++" whsp expression3) ; Text ++ Text
+
+expression3 = expression4 *(whsp "*" whsp expression4) ; Nat * Nat
+
+expression4 = expression5 *(whsp1 expression5) ; Function application.
+; End of precedence tower.
+expression5 = primitive-expression
+
+primitive-expression = natural-literal / text-literal / builtin / identifier / "(" complete-expression ")"
+
+builtin =   "Nat" / "Text" / "Type" / "Kind"
+
+identifier = builtin 1*label-char / !builtin label
+
+label = ALPHA 1*label-char
+
+label-char
 
 ; Uppercase or lowercase ASCII letter
 ALPHA = %x41-5A / %x61-7A
 
 ; ASCII digit
 DIGIT = %x30-39  ; 0-9
+
+NONZERODIGIT = %x31-39
 
 ALPHANUM = ALPHA / DIGIT
 
