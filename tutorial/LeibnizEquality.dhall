@@ -13,6 +13,11 @@ let x
     : LeibnizEqual Natural 123 123
     = refl Natural 123
 
+let _
+    : LeibnizEqual Bool ./NeedToValidate.dhall True
+    = -- require that NeedToValidate.dhall evaluates to True
+      refl Bool True
+
 let symmetry =
       λ(T : Type) →
       λ(a : T) →
