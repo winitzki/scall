@@ -544,7 +544,7 @@ Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`,
 
 For additional clarity, we will sometimes write type parameters `A`, `B`, etc.
 
-### Type inference
+#### No type inference
 
 Dhall has almost no type inference.
 The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
@@ -554,7 +554,7 @@ Although this makes Dhall programs more verbose, it makes for less "magic" in th
 In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
 This verbosity may help in learning some of the more advanced concepts of functional programming.
 
-### Strict / lazy evaluation
+#### Strict and lazy evaluation are the same
 
 All well-typed functions in Dhall are total (never partial).
 For instance, a pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
@@ -576,7 +576,7 @@ The program cannot return a `Natural` value that will be computed "later", or an
 However, it is important that Dhall's _typechecking_ is eager.
 A type error in defining a variable `x` (for example, `let x : Natural = "abc"`) will prevent the entire program from evaluating, even if that `x` is never used.
 
-### No computations with custom data
+#### No computations with custom data
 
 In Dhall, the majority of built-in types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
 The user may specify literal values of those types but can do little else with those values.
@@ -592,6 +592,8 @@ Neither can Dhall compare `Double` or the date / time types with each other.
 Comparison functions are only available for `Bool` and `Natural` types.
 (Comparison functions for `Integer` is defined in the standard prelude.)
 
+#### No recursion
+
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
 The only recursive type directly supported by Dhall is the built-in type `List`.
 The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them.
@@ -600,6 +602,8 @@ User-defined recursive types and functions must be encoded in a non-recursive wa
 Later chapters in this book will show how to use the Church encoding or existential types for that purpose.
 In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
+
+#### No side effects
 
 Dhall is a purely functional language with no side effects.
 There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound, etc.
@@ -771,6 +775,7 @@ in f r1.(MyTuple)  -- This is a complete program that returns 123.
 The field selection operation `r1.(MyTuple)` removes all fields other than those from `MyTuple`.
 We need to apply the field selection each time we call the function.
 We cannot write `f r1` because `r1` does not have the type `MyTuple`.
+Instead, we  write `f r1.(MyTuple)`.
 
 Another often used behavior is to provide default values for missing fields.
 This is implemented with Dhall's record update operation:
@@ -790,15 +795,15 @@ The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` o
 If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
 The field selection `.(MyTuple)` will get rid of any other fields.
 
-Note that the built-in Dhall operations `//` and `.()` _are_ polymorphic in the record types.
+Note that the built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
 For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
 Similarly, `myTupleDefault // r` will accept records `r` of any type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
 
 But Dhall cannot directly describe the polymorphic types of such records.
-So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r`.
+So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r` where `r` is an arbitrary record.
 
 
-Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place where record polymorphism is required.
+Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
 
 ### The `assert` keyword and equality types
 
@@ -1248,17 +1253,12 @@ So, we will need to know in advance how many iterations are needed for any given
 
 ### Using `Natural/fold` to implement loops
 
-The function `Natural/fold` is a general facility for creating loops with a fixed number of iterations:
+The function `Natural/fold` is a general facility for creating loops with a fixed number of iterations.
 
-```bash
-$ dhall repl
-⊢ :type Natural/fold
+The type of `Natural/fold` can be written as:
 
-Natural →
-∀(natural : Type) →
-∀(succ : natural → natural) →
-∀(zero : natural) →
-  natural
+```dhall
+Natural/fold : ∀(n : Natural) → ∀(A : Type) → ∀(s : A → A) → ∀(z : A) → A
 ```
 
 Evaluating `Natural/fold n A s z` will repeatedly apply the function `s : A → A` to the initial value `z : A`.
@@ -1277,9 +1277,10 @@ However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily man
 The number of iterations must be specified in advance, given as the first argument of `Natural/fold`.
 
 Also, `Natural/fold` cannot stop early: it will always carry out the specified number of iterations.
+(Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.)
 
 When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run more iterations than necessary without changing the result.
-(Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.)
+We will now see examples of this.
 
 ### Integer division
 
@@ -1295,7 +1296,7 @@ So, we have to perform the iteration using the function call `Natural/fold x ...
 
 In most cases, the actual required number of iterations will be smaller than `x`.
 For clarity, we will maintain a boolean flag `done` and set it to `True` once we reach the final result.
-Then we write code to ensure that any further iterations will not modify the final result. 
+The code will ensure that any further iterations will not modify the final result. 
 
 The code is:
 
