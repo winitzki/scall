@@ -7361,23 +7361,27 @@ The syntax is simplified so that there are fewer keywords and fewer equivalent w
 
 We kept just two built-in types (`Nat` and `Text`) with some infix operations, in order to show how such features are implemented.
 
-### Syntax and parsing
+### Syntax and parsing into the syntax tree
 
-The syntax is described in the ABNF format:
+The syntax of nano-Dhall is described in the ABNF format.
+This is a greatly simplified version of `dhall.abnf`.
+
+The main entry point is `complete-expression`.
 
 ```
 complete-expression = whsp expression whsp
-
-whitespace-chunk =
-      " "
-    / tab
-    / end-of-line
 
 ; optional whitespace: zero or more whitespace-chunk
 whsp = *whitespace-chunk
 
 ; nonempty whitespace: one or more whitespace-chunk
 whsp1 = 1*whitespace-chunk
+
+whitespace-chunk =
+      " "
+    / tab
+    / end-of-line
+
 
 expression =
   lambda whsp "(" whsp identifier whsp ":" whsp expression whsp ")" whsp arrow whsp expression
@@ -7404,13 +7408,18 @@ expression5 = primitive-expression
 
 primitive-expression = natural-literal / text-literal / builtin / identifier / "(" complete-expression ")"
 
-builtin =   "Nat" / "Text" / "Type" / "Kind"
+natural-literal = NONZERODIGIT *DIGIT / "0"
 
-identifier = builtin 1*label-char / !builtin label
+builtin =  "Nat" / "Text" / "Type" / "Kind"
 
-label = ALPHA 1*label-char
+identifier = builtin 1*label-next-char / !builtin label
 
-label-char
+label =
+       keyword 1*label-next-char
+     / !keyword (label-first-char *label-next-char)
+label-first-char = ALPHA / "_"
+label-next-char = ALPHANUM / "-" / "/" / "_"
+
 
 ; Uppercase or lowercase ASCII letter
 ALPHA = %x41-5A / %x61-7A
@@ -7421,6 +7430,17 @@ DIGIT = %x30-39  ; 0-9
 NONZERODIGIT = %x31-39
 
 ALPHANUM = ALPHA / DIGIT
+
+; Printable characters except double quote and backslash
+double-quote-char =
+      %x20-21
+        ; %x22 = '"'
+    / %x23-5B
+        ; %x5C = "\"
+    / %x5D-7F
+    / valid-non-ascii
+
+text-literal = %x22 *double-quote-char %x22
 
 valid-non-ascii =    ; support some Unicode
       %x80-D7FF
