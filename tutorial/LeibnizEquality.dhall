@@ -91,4 +91,25 @@ let extensional_equality =
 
         in  result
 
-in  { LeibnizEqual, refl, symmetry, transitivity, extensional_equality }
+let toAssertType =
+      λ(T : Type) →
+      λ(a : T) →
+      λ(b : T) →
+      λ(x : LeibnizEqual T a b) →
+        let Equals_a = λ(x : T) → a ≡ x
+
+        let refl_a = assert : a ≡ a
+
+        let result
+            : a ≡ b
+            = x Equals_a refl_a
+
+        in  result
+
+in  { LeibnizEqual
+    , reflexivity = refl
+    , symmetry
+    , transitivity
+    , extensional_equality
+    , toAssertType
+    }
