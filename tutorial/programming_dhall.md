@@ -938,13 +938,13 @@ Type
 Dhall defines functions with the `λ` syntax:
 
 ```dhall
-λ(t : Natural) → t + 1
+let inc = λ(t : Natural) → t + 1
 ```
 
 The same syntax works if `t` were a type parameter (having type `Type`):
 
 ```dhall
-λ(t : Type) → λ(x : t) → { first = x, second = x }
+let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
 
 Records and union types may contain types as well as values within the same data type:
@@ -1270,7 +1270,7 @@ The function `Natural/fold` is a general facility for creating loops with a fixe
 The type of `Natural/fold` can be written as:
 
 ```dhall
-Natural/fold : ∀(n : Natural) → ∀(A : Type) → ∀(s : A → A) → ∀(z : A) → A
+let _ = Natural/fold : ∀(n : Natural) → ∀(A : Type) → ∀(s : A → A) → ∀(z : A) → A
 ```
 
 Evaluating `Natural/fold n A s z` will repeatedly apply the function `s : A → A` to the initial value `z : A`.
@@ -1298,7 +1298,7 @@ For example, consider this code:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 10000000000 Natural f 0
-in assert : result === 1
+ -- in assert : result === 1
 ```
 
 Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
@@ -7541,9 +7541,8 @@ The output of typechecking is either a success with an output `expression` or a 
 In case of success, the output `expression` has a type annotation indicating the type of the expression.
 
 For example, the typechecking of `(context = [y : Natural], λ(x : Natural) → x + 1) ` succeeds and outputs:
-```dhall
-(λ(x : Natural) → x + 1) : ∀(x : Natural) → Natural
-```
+
+`(λ(x : Natural) → x + 1) : ∀(x : Natural) → Natural`
 
 This typechecking function is different from what is described in the Dhall standard.
 There, typechecking does not modify the original expression but merely computes its type (or determines that there is a type error).
