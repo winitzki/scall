@@ -4173,7 +4173,7 @@ So, we can just use values of type `Exists P` as functions, instead of using `un
 
 #### Functions of existential types: the function extension rule
 
-The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type.
+The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type expression.
 
 To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by swapping some curried arguments.
 We will denote the resulting function by `inE`:
@@ -4186,7 +4186,7 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
-Indeed, this type equivalence (an isomorphism) can be proved rigorously.
+Indeed, one can prove regorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
 The function `inE` shown above gives one direction of the isomorphism.
 The other direction is the function `outE`:
 

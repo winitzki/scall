@@ -92,10 +92,6 @@ let _ = assert : divmod 10 2 ≡ { div = 5, rem = 0 }
 
 let _ = assert : divmod 10 3 ≡ { div = 3, rem = 1 }
 
-let _ =
-      ./floatN.dhall
-        sha256:2d21552714de4f3cf44c006ae1d8222b9954379c989dbd030663478f495e9f47
-
 let Nonzero =
       λ(y : Natural) →
         if    Natural/isZero y
