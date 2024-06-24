@@ -370,7 +370,6 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("failure in eta expansion with two curried arguments") {
     val failure = "λ(f : Bool → Bool → Bool) → assert : f === (λ(x : Bool) → λ(y : Bool) → f y x)".dhall.inferTypeWith(KnownVars.empty)
-    println(failure)
     expect(failure match {
       case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f does not equal λ(_ : Bool) → λ(_ : Bool) → f _ _@1")
     })
@@ -383,7 +382,6 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("failure 1 with f x in eta expansion with free occurrences of external bound variable") {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f x === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
-    println(failure)
     expect(failure match {
       case TypecheckResult.Invalid(errors) => errors exists (_ contains "Unequal sides, f x does not equal λ(_ : Bool) → f _ _, in f x ≡ (λ(x : Bool) → f x x)")
     })
@@ -391,7 +389,6 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("failure 2 with f x in eta expansion with free occurrences of external bound variable") {
     val failure = "λ(f : Bool → Bool → Bool) → λ(x : Bool) → assert : f === (λ(x : Bool) → f x x)".dhall.inferTypeWith(KnownVars.empty)
-    println(failure)
     expect(failure match {
       case TypecheckResult.Invalid(errors) =>
         errors exists (_ contains "Types of two sides of `===` are not equivalent: ∀(_ : Bool) → ∀(_ : Bool) → Bool and ∀(x : Bool) → Bool")
@@ -510,6 +507,16 @@ class SimpleSemanticsTest extends DhallTest {
     val y = "-0.0".dhall
     expect(Semantics.equivalent(x, x))
     expect(!Semantics.equivalent(x, y))
+  }
+
+  test("with for Optional works if it does not change type") { // https://github.com/dhall-lang/dhall-haskell/issues/2597
+    val result = "(Some { x.y = 1 }) with ?.x.y = 2".dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print  == "Some { x = 2 }")
+  }
+
+  test("with for Optional may not change type") {
+   val result = """(Some { x.y = 1 }) with ?.x.y = "hello"""".dhall.typeCheckAndBetaNormalize()
+    expect(Try(result.unsafeGet).failed.get.getMessage contains "Inferred type Text differs from the expected type { x : { y : Natural } }, expression under type inference: \"hello\"")
   }
 
 }
