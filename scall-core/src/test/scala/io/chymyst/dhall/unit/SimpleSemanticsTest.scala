@@ -509,12 +509,26 @@ class SimpleSemanticsTest extends DhallTest {
     expect(!Semantics.equivalent(x, y))
   }
 
-  test("with for Optional works if it does not change type") { // https://github.com/dhall-lang/dhall-haskell/issues/2597
+  test("`with` for Optional works if it does not change type") { // https://github.com/dhall-lang/dhall-haskell/issues/2597
+    val result = "(Some 1) with ? = 2".dhall.typeCheckAndBetaNormalize()
+    expect(result.unsafeGet.print == "Some 2")
+  }
+
+  test("fail `with` for Optional if it changes type") {
+    val result = """(Some 1) with ? = "hello"""".dhall.typeCheckAndBetaNormalize()
+    expect(
+      Try(
+        result.unsafeGet
+      ).failed.get.getMessage contains "Inferred type Text differs from the expected type Natural, expression under type inference: \"hello\""
+    )
+  }
+
+  test("`with` for Optional works if it does not change type, with deep record access") { // https://github.com/dhall-lang/dhall-haskell/issues/2597
     val result = "(Some { x.y = 1 }) with ?.x.y = 2".dhall.typeCheckAndBetaNormalize()
     expect(result.unsafeGet.print == "Some { x = 2 }")
   }
 
-  test("with for Optional may not change type") {
+  test("fail `with` for Optional if it changes type, with deep record access") {
     val result = """(Some { x.y = 1 }) with ?.x.y = "hello"""".dhall.typeCheckAndBetaNormalize()
     expect(
       Try(
