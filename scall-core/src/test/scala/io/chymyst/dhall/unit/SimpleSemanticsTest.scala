@@ -511,12 +511,16 @@ class SimpleSemanticsTest extends DhallTest {
 
   test("with for Optional works if it does not change type") { // https://github.com/dhall-lang/dhall-haskell/issues/2597
     val result = "(Some { x.y = 1 }) with ?.x.y = 2".dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print  == "Some { x = 2 }")
+    expect(result.unsafeGet.print == "Some { x = 2 }")
   }
 
   test("with for Optional may not change type") {
-   val result = """(Some { x.y = 1 }) with ?.x.y = "hello"""".dhall.typeCheckAndBetaNormalize()
-    expect(Try(result.unsafeGet).failed.get.getMessage contains "Inferred type Text differs from the expected type { x : { y : Natural } }, expression under type inference: \"hello\"")
+    val result = """(Some { x.y = 1 }) with ?.x.y = "hello"""".dhall.typeCheckAndBetaNormalize()
+    expect(
+      Try(
+        result.unsafeGet
+      ).failed.get.getMessage contains "Inferred type Text differs from the expected type { x : { y : Natural } }, expression under type inference: \"hello\""
+    )
   }
 
 }
