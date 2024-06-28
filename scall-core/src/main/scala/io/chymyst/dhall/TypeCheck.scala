@@ -639,10 +639,12 @@ object TypeCheck {
                     // We use `validate` to impose the constraint that body's type is `t`. See https://github.com/dhall-lang/dhall-haskell/issues/2597
                     validate(gamma, body, t).map(_ => tt)
                   case tail  => // The expression is (Some x) with ?.a.b = body. The type of this expression is Optional Y where Y is the type of `x with a.b = body`. Here, `x` is a new variable that should not be free in `body`.
-                    val newVar  = VarName("check_type_of_with")
-                    val newBody = Semantics.shift(positive = true, newVar, BigInt(0), body)
-                    val newWith = With(Expression(Variable(newVar, BigInt(0))), tail, newBody)
-                    newWith.inferTypeWith(gamma.prependAndShift(newVar, t)).map(t1 => Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), t1)))
+                    val newVar   = VarName("check_type_of_with")
+                    val newBody  = Semantics.shift(positive = true, newVar, BigInt(0), body)
+                    val newWith  = With(Expression(Variable(newVar, BigInt(0))), tail, newBody)
+                    val newGamma = gamma.prependAndShift(newVar, t)
+//                    newWith.inferTypeWith(newGamma).map(t1 => Expression(Application(Expression(ExprBuiltin(Builtin.Optional)), t1))) // This would allow changing types after `with`.
+                    validate(newGamma, newWith, t).map(_ => tt)
 
                 }
 

@@ -528,14 +528,10 @@ class SimpleSemanticsTest extends DhallTest {
     expect(result.unsafeGet.print == "Some { x = { y = 2 } }")
   }
 
-  test("succeed `with` for Optional if it changes type, with deep record access") {
+  test("fail `with` for Optional if it changes type, with deep record access") {
     val result = """(Some { x.y = 1 }) with ?.x.y = "hello"""".dhall.typeCheckAndBetaNormalize()
-    expect(result.unsafeGet.print == "Some { x = { y = \"hello\" } }")
-//    expect(
-//      Try(
-//        result.unsafeGet
-//      ).failed.get.getMessage contains "Inferred type Text differs from the expected type { x : { y : Natural } }, expression under type inference: \"hello\""
-//    )
+//    expect(result.unsafeGet.print == "Some { x = { y = \"hello\" } }")
+    expect(Try(result.unsafeGet).failed.get.getMessage contains "Inferred type { x : { y : Text } } differs from the expected type { x : { y : Natural } }")
   }
 
 }
