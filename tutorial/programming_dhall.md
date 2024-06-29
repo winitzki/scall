@@ -90,6 +90,9 @@ Identifiers may be arbitrary characters (even keywords or whitespace) if escaped
 3
 ```
 
+The standalone underscore character `_` in Haskell and Scala is a syntax for a special "unused" variable.
+But in Dhall, the variable named `_` is a variable like any other.
+
 ### Primitive types
 
 Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
@@ -7027,6 +7030,7 @@ p G unfixf (fmap_K T G (unfold T cT) kt)
 as long as the precondition of the law holds:
 
 `fmap_F T G (unfold T cT) (cT x) === unfixf (unfold T cT x)`
+
 This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Properties of co-inductive types".
 
 This allows us to complete the proof of item 2:
