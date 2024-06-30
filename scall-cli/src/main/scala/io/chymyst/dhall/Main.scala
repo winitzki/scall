@@ -20,7 +20,7 @@ object Main {
     case object GetHash extends OutputMode
   }
 
-  def process(input: InputStream, output: OutputStream, outputMode: OutputMode = OutputMode.Dhall): Unit = {
+  def process(input: InputStream, output: OutputStream, outputMode: OutputMode): Unit = {
     outputMode match {
       case OutputMode.Decode =>
         // TODO streamline those APIs

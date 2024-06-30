@@ -2,6 +2,7 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Main
+import io.chymyst.dhall.Main.OutputMode
 import io.chymyst.test.TestTimings
 import munit.FunSuite
 
@@ -9,11 +10,11 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, String
 
 class MainSpec extends FunSuite with TestTimings {
 
-  def runMain(input: String): String = {
+  def runMain(input: String, outputMode: OutputMode = OutputMode.Dhall): String = {
     val testOut = new ByteArrayOutputStream()
     val testIn  = new ByteArrayInputStream(input.getBytes)
     try {
-      Main.process(testIn, testOut)
+      Main.process(testIn, testOut, outputMode)
     } finally {
       testOut.close()
       testIn.close()
@@ -33,6 +34,8 @@ class MainSpec extends FunSuite with TestTimings {
     expect(runMain("xyz_undefined") contains "Variable xyz_undefined is not defined in the current type inference context")
   }
 
-  test("")
+  test("obtain type") {
+    
+  }
 
 }
