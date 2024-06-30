@@ -15,13 +15,14 @@ val os_lib              = "com.lihaoyi"    %% "os-lib"                % "0.9.2"
 val httpRequest         = "com.lihaoyi"    %% "requests"              % "0.8.0"
 val enumeratum          = "com.beachape"   %% "enumeratum"            % "1.7.3"
 val izumi_reflect       = "dev.zio"        %% "izumi-reflect"         % "2.3.8"
-val zio_schema          = "dev.zio"        %% "zio-schema"            % "1.1.1"
+val zio_schema          = "dev.zio"        %% "zio-schema"            % "1.2.1"
 val zio_schema_deriving = "dev.zio"        %% "zio-schema-derivation" % "1.1.1"
 val kindProjector       = "org.typelevel"   % "kind-projector"        % "0.13.3" cross CrossVersion.full
 val jnr_posix           = "com.github.jnr"  % "jnr-posix"             % "3.1.19"
 val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
 val reflections         = "org.reflections" % "reflections"           % "0.10.2"
+val mainargs = "com.lihaoyi" %% "mainargs" % "0.7.0"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
@@ -128,7 +129,7 @@ lazy val scall_cli = (project in file("scall-cli"))
     Test / fork                := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+    libraryDependencies ++= Seq(munitTest, assertVerboseTest, mainargs),
     assembly / mainClass       := Some("io.chymyst.dhall.Main"),
     assembly / assemblyJarName := "dhall-cli.jar",
     assembly / assemblyMergeStrategy ~= (old => {

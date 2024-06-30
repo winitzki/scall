@@ -2,12 +2,15 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Main
-import io.chymyst.test.TestTimings
+import io.chymyst.dhall.Main.OutputMode
+import io.chymyst.test.{ResourceFiles, TestTimings}
 import munit.FunSuite
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
+import java.nio.file.{Files, Path, Paths}
+import scala.util.Try
 
-class MainSpec extends FunSuite with TestTimings {
+class MainSpec extends FunSuite with TestTimings with ResourceFiles {
   def runMain(input: String, outputMode: String): String                    = {
     new String(runMainByteArray(input, outputMode))
   }
@@ -21,7 +24,7 @@ class MainSpec extends FunSuite with TestTimings {
     val testOut = new ByteArrayOutputStream()
     val testIn  = new ByteArrayInputStream(input)
     try {
-      Main.process(testIn, testOut, Main.parseArgs(Array(outputMode)))
+      Main.process(Paths.get("."), testIn, testOut, Main.parseArgs(Array(outputMode)))
     } finally {
       testOut.close()
       testIn.close()
@@ -109,7 +112,6 @@ class MainSpec extends FunSuite with TestTimings {
 
   test("yaml output for list of records") {
     val result = runMain("[{a = 1, b = 2}, {a = 3, b = 4}]", "yaml")
-    println(result)
     expect(result == """- a: 1
                                                                     |  b: 2
                                                                     |- a: 3
@@ -126,5 +128,22 @@ class MainSpec extends FunSuite with TestTimings {
                                                                             |  d: 4
                                                                             |""".stripMargin)
 
+  }
+
+  test("yaml corner cases from dhall-haskell/yaml") {
+    val parentPath = resourceAsFile("yaml-corner-cases").get.toPath.getParent
+    val results = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+      //val relativePathForTest                 = parentPath.relativize(file.toPath)
+      val testOut = new ByteArrayOutputStream
+      try {
+        Main.process(Path.of(file.toURI), new FileInputStream(file), testOut, OutputMode.Yaml)
+      } finally {
+        testOut.close()
+      }
+      val resultYaml =new String(testOut.toByteArray)
+      val expectedYaml = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
+      Try(expect(resultYaml == expectedYaml))
+    }
+    TestUtils.requireSuccessAtLeast(1, results, 10)
   }
 }
