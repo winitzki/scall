@@ -37,10 +37,12 @@ object Yaml {
         Right((output.head, output.tail))
       }
 
-    case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) | ExpressionScheme.TextLiteral(List(), _) =>
+    case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) | ExpressionScheme.TextLiteral(List(), _)             =>
       Right((expr.print, Seq()))
+    case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) =>
+      Right((expr.print.toLowerCase, Seq()))
 
-    case s => Left(s"Error: Unsupported expression type for Yaml export: $s")
+    case s => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print}")
   }
 
   private def escapeYamlName(name: String): String = name match {

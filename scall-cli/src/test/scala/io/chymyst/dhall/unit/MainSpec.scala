@@ -61,10 +61,27 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
     expect(runMain(runMainByteArray("1 + 1 + 1", "encode"), "decode") == "3")
   }
 
+  test("export text") {
+    expect(runMain("\"3\"", "dhall") == "\"3\"")
+    expect(runMain("\"3\"", "text") == "3")
+  }
+
+  test("fail to export text if Dhall expression is not text") {
+    expect(runMain("1 + 1 + 1", "text") == "Error: Dhall expression should have type Text but is instead: NaturalLiteral(3)")
+  }
+
   test("yaml output for literals") {
     expect(runMain("3", "yaml") == "3\n")
     expect(runMain("3.14159", "yaml") == "3.14159\n")
     expect(runMain("\"3\"", "yaml") == "\"3\"\n")
+    expect(runMain("True", "yaml") == "true\n")
+    expect(runMain("False || False", "yaml") == "false\n")
+  }
+
+  test("fail to export yaml if Dhall expression contains unsupported types") {
+    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00")
+    expect(runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x")
+    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type")
   }
 
   test("yaml output for lists of numbers") {
@@ -132,18 +149,18 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
 
   test("yaml corner cases from dhall-haskell/yaml") {
     val parentPath = resourceAsFile("yaml-corner-cases").get.toPath.getParent
-    val results = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
-      //val relativePathForTest                 = parentPath.relativize(file.toPath)
-      val testOut = new ByteArrayOutputStream
+    val results    = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+      // val relativePathForTest                 = parentPath.relativize(file.toPath)
+      val testOut      = new ByteArrayOutputStream
       try {
         Main.process(Path.of(file.toURI), new FileInputStream(file), testOut, OutputMode.Yaml)
       } finally {
         testOut.close()
       }
-      val resultYaml =new String(testOut.toByteArray)
+      val resultYaml   = new String(testOut.toByteArray)
       val expectedYaml = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
       Try(expect(resultYaml == expectedYaml))
     }
-    TestUtils.requireSuccessAtLeast(1, results, 10)
+    TestUtils.requireSuccessAtLeast(11, results, 10)
   }
 }

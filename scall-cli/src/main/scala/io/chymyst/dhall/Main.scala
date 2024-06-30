@@ -28,7 +28,7 @@ object Main {
       case _                 =>
         val outputBytes = Parser.parseDhallStream(input) match {
           case Parsed.Success(value: DhallFile, _) =>
-            val resolved = value.value.resolveImports(path)
+            val resolved            = value.value.resolveImports(path)
             val valueType           = resolved.inferType.map { t => (t, resolved.betaNormalized) }
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
@@ -73,15 +73,15 @@ object Main {
   // $COVERAGE-OFF$
   @main
   def run(
-            @arg(short = 'f', doc = "Path to the input Dhall file")
-file : Option[String],
-            command: Leftover[String]
-          ): Unit = {
+    @arg(short = 'f', doc = "Path to the input Dhall file")
+    file: Option[String],
+    command: Leftover[String],
+  ): Unit = {
     val (path, inputStream) = file match {
       case Some(value) =>
         val path = Paths.get(value)
         (path, new FileInputStream(path.toFile))
-      case None => (Paths.get("."), System.in)
+      case None        => (Paths.get("."), System.in)
     }
     process(path, inputStream, System.out, parseArgs(command.value.toArray))
   }

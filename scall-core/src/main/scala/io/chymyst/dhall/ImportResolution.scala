@@ -141,7 +141,7 @@ object ImportResolution {
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
-   // TODO: return an Either instead of throwing exceptions?
+  // TODO: return an Either instead of throwing exceptions?
   def resolveAllImports(expr: Expression, currentImport: Import[Expression]): Expression = {
     val initialVisited = currentImport
 
