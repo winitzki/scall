@@ -33,4 +33,6 @@ class MainSpec extends FunSuite with TestTimings {
     expect(runMain("xyz_undefined") contains "Variable xyz_undefined is not defined in the current type inference context")
   }
 
+  test("")
+
 }
