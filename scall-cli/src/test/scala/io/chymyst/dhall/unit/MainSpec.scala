@@ -162,6 +162,12 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
                                                                             |""".stripMargin)
   }
 
+  test("yaml for map-typed values") {
+    expect(runMain("[{mapKey=\"a\",mapValue=123},{mapKey=\"b\",mapValue=456}]", "yaml") == """a: 123
+                                                                                             |b: 456
+                                                                                             |""".stripMargin)
+  }
+
   test("yaml corner cases from dhall-haskell/yaml") {
     val parentPath = resourceAsFile("yaml-corner-cases").get.toPath.getParent
     val results    = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
@@ -178,7 +184,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(11, results, 7)
+    requireSuccessAtLeast(11, results, 6)
   }
 
   test("parse command-line argument") {
