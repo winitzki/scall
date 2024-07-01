@@ -133,8 +133,8 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
                                     |""".stripMargin)
   }
 
-  test("yaml output for list of records") {
-    val result = runMain("[Some {a = 1, b = 2}, Some {a = 3, b = 4}]", "yaml")
+  test("yaml output for list of records, including None") {
+    val result = runMain("[Some {a = 1, b = 2}, None { a : Natural, b : Natural },  Some {a = 3, b = 4}]", "yaml")
     expect(result == """- a: 1
                                                                     |  b: 2
                                                                     |- a: 3
