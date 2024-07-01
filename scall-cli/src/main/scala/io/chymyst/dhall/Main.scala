@@ -74,10 +74,11 @@ object Main {
   }
 
   // $COVERAGE-OFF$
-  @main
-  def run(
+  @main // This method will be called by `ParserForMethods.runOrExist()` automatically.
+  def `dhall.jar`(
     @arg(short = 'f', doc = "Path to the input Dhall file")
     file: Option[String],
+    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
     command: Leftover[String],
   ): Unit = {
     val (path, inputStream) = file match {

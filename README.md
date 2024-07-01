@@ -229,9 +229,8 @@ So far, there are some issues with the Unicode characters:
 
 # Building
 
-To build a standalone `dhall` executable JAR:
+To build a standalone `dhall` executable JAR: `bash make_jar.sh`
 
-```bash
-sbt scall_cli/assembly
-mv scall-cli/target/scala-*/dhall-cli.jar dhall.jar
-```
+To test the executable: `bash test_jar.sh`
+
+The test script should print "Tests successful." at the end. If it does not print that, some tests failed.
