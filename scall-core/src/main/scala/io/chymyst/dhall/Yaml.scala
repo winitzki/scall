@@ -1,13 +1,14 @@
 package io.chymyst.dhall
 
+import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprBuiltin, ExprConstant}
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
-import io.chymyst.dhall.SyntaxConstants.FieldName
+import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 
 object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
-  private def toYamlLines(expr: Expression, indent: Int): Either[String, (String, Seq[String])] = expr.scheme match {
-    case ExpressionScheme.RecordLiteral(Seq()) => Right(("{}", Seq()))
+  private def toYamlLines(expr: Expression, indent: Int): Either[String, Seq[String]] = expr.scheme match {
+    case ExpressionScheme.RecordLiteral(Seq()) => Right(Seq("{}"))
 
     case ExpressionScheme.RecordLiteral(defs) =>
       val content = defs.map { case (FieldName(name), e: Expression) =>
@@ -17,14 +18,14 @@ object Yaml {
       if (errors.nonEmpty) Left(errors.mkString("; "))
       else {
         val valids = content.map { case Right(x) => x }
-        val output = valids
-          .map {
-            case (name, (firstLine, Seq()))     => (name + ": " + firstLine, Seq())
-            case (name, (firstLine, moreLines)) => (escapeYamlName(name) + ":", (firstLine +: moreLines).map(l => yamlIndent(indent) + l))
-          }.flatMap { case (head, tail) => head +: tail }
-        Right((output.head, output.tail))
+        val output = valids.flatMap {
+          case (_, Seq())             => Seq[String]()
+          case (name, Seq(firstLine)) => Seq(name + ": " + firstLine)
+          case (name, lines)          => (escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l)
+        }
+        Right(output)
       }
-    case ExpressionScheme.EmptyList(_)        => Right(("[]", Seq()))
+    case ExpressionScheme.EmptyList(_)        => Right(Seq("[]")) // TODO: support Dhall toMap structures
 
     case ExpressionScheme.NonEmptyList(exprs) =>
       val content = exprs.map(e => toYamlLines(e, indent))
@@ -32,28 +33,33 @@ object Yaml {
       if (errors.nonEmpty) Left(errors.mkString("; "))
       else {
         val valids = content.map { case Right(x) => x }
-        val output = valids
-          .map {
-            case (firstLine, Seq())     => ("- " + firstLine, Seq())
-            case (firstLine, moreLines) => ("- " + firstLine, moreLines.map(l => yamlIndent(indent) + l))
-          }.flatMap { case (head, tail) => head +: tail }
-        Right((output.head, output.tail))
+        val output = valids.flatMap {
+          case Seq()          => Seq()
+          case Seq(firstLine) => Seq("- " + firstLine)
+          case lines          => ("- " + lines.head) +: lines.tail.map(l => yamlIndent(indent) + l)
+        }
+        Right(output)
       }
 
     case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) | ExpressionScheme.TextLiteral(List(), _)             =>
-      Right((expr.print, Seq()))
+      Right(Seq(expr.print))
     case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) =>
-      Right((expr.print.toLowerCase, Seq()))
+      Right(Seq(expr.print.toLowerCase))
 
-    case s => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print}")
+    case ExpressionScheme.KeywordSome(expression: Expression) => toYamlLines(expression, indent)
+
+    case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(Seq())
+
+    case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print}")
   }
 
-  private def escapeYamlName(name: String): String = name match {
-    case "y" | "n" | "no" | "off" | "on" | "yes" => s"'$name'"
-    case _                                       => name
+  private val yamlBooleanNames = Set("y", "n", "yes", "no", "on", "off", "true", "false")
+
+  private def escapeYamlName(name: String): String = {
+    if (yamlBooleanNames contains name.toLowerCase) s"'$name'" else name
   }
 
   def toYaml(value: Expression, indent: Int = 2): Either[String, String] =
-    toYamlLines(value, indent).map { case (first, next) => (first +: next).mkString("", "\n", "\n") }
+    toYamlLines(value, indent).map(_.mkString("", "\n", "\n"))
 
 }
