@@ -70,7 +70,10 @@ object Yaml {
             }
 
           case ExpressionScheme.TextLiteral(List(), trailing) =>
-            Right(Seq(stringEscapeForYaml(trailing, expr)))
+            if (trailing.contains("\n")) {
+              val lines = trailing.split("\n").toSeq
+              Right(Seq("| ") ++ lines.map { line => yamlIndent(indent) + line })
+            } else Right(Seq(stringEscapeForYaml(trailing, expr)))
 
           case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
             Right(Seq(expr.print))
@@ -90,9 +93,9 @@ object Yaml {
 
   private def stringEscapeForYaml(str: String, expr: Expression): String = {
     if (yamlBooleanNames contains str.toLowerCase) "'" + str + "'"
-    else if (str.matches("[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)")) "'" + str + "'"
-    else if (str.matches("([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])")) "'" + str + "'"
-    else if (str.matches(".*[\":{}\\[\\]\\\\*&#?|<>!%@].*")) expr.print
+    else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) "'" + str + "'"
+    else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) "'" + str + "'"
+    else if (str.matches("^.*[\":{}$\\[\\]\\\\*&#?|<>!%@].*$")) expr.print
     else str
   }
 
