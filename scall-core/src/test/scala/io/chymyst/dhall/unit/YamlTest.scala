@@ -43,4 +43,49 @@ class YamlTest extends FunSuite {
         |""".stripMargin
     )
   }
+  test("yaml output for record of lists with indent") {
+    expect(Yaml.toYaml("{a = [1, 2, 3], b= [4, 5]}".dhall, 4).merge == """a:
+                                                              |    - 1
+                                                              |    - 2
+                                                              |    - 3
+                                                              |b:
+                                                              |    - 4
+                                                              |    - 5
+                                                              |""".stripMargin)
+  }
+
+  test("yaml output for strings with special characters") {
+    expect(
+      Yaml.toYaml("{a = \"-\"}".dhall, 2).merge ==
+        """a: "-"
+        |""".stripMargin
+    )
+    expect(
+      Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge ==
+        """a: "a-b"
+        |""".stripMargin
+    )
+    expect(
+      Yaml.toYaml("""{a = "\"abc\""}""".dhall, 2).merge ==
+        """a: "\"abc\""
+        |""".stripMargin
+    )
+  }
+
+  test("yaml output for multiline strings with special characters 1") {
+    val result = Yaml.toYaml("{a = \"-\\n\\\"-\\\"\"}".dhall, 2).merge
+    expect(
+      result ==
+        """a: |
+        |  -
+        |  -
+        |""".stripMargin
+    )
+  }
+
+  test("yaml output for multiline strings with special characters 1") {
+    val result = Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge
+    expect(result == """a: 'a-b'""")
+  }
+
 }

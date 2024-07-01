@@ -1,6 +1,5 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.Grammar.TextLiteralNoInterp
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprBuiltin, RecordLiteral, TextLiteral}
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
@@ -89,22 +88,27 @@ object Yaml {
         }
     }
 
-  private val yamlBooleanNames = Set("y", "n", "yes", "no", "on", "off", "true", "false")
+  private val yamlSpecialNames = Set("y", "n", "yes", "no", "on", "off", "true", "false", "null", "~")
 
   private def stringEscapeForYaml(str: String, expr: Expression): String = {
-    if (yamlBooleanNames contains str.toLowerCase) "'" + str + "'"
+    if (yamlSpecialNames contains str.toLowerCase) "'" + str + "'"
     else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) "'" + str + "'"
     else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) "'" + str + "'"
-    else if (str.matches("^.*[\":{}$\\[\\]\\\\*&#?|<>!%@].*$")) expr.print
+    else if (str.matches("^.*[-\":{}$\\[\\]\\\\*&#?|<>!%@].*$"))
+      expr.print // \0, \x01, \x02, \x03, \x04, \x05, \x06, \a, \b, \t, \n, \v, \f, \r, \x0e, \x0f, \x10, \x11, \x12, \x13, \x14, \x15, \x16, \x17, \x18, \x19, \x1a, \e, \x1c, \x1d, \x1e, \x1f, \N, \_, \L, \P
     else str
   }
 
   private def escapeYamlName(name: String): String = {
-    if (yamlBooleanNames contains name.toLowerCase) s"'$name'" else name
+    if (yamlSpecialNames contains name.toLowerCase) s"'$name'" else name
   }
 
   private def commentsToYaml(comments: String): String = {
     if (comments.isEmpty) "" else comments.split("\n").map(line => line.replaceFirst("^[ \\t]*--", "")).mkString("#", "\n#", "\n")
+  }
+
+  def toYaml(expression: Expression, indent: Int): Either[String, String] = {
+    toYaml(DhallFile(Seq(), "", expression), indent)
   }
 
   def toYaml(dhallFile: DhallFile, indent: Int = 2): Either[String, String] = {
