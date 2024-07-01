@@ -418,7 +418,7 @@ object CBORmodel {
   final case class CString(data: String) extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
-    override def toString: String = s"\"$escaped\"" // s"\"$escaped\""
+    override def toString: String = "\"" + escaped + "\"" // s"\"$escaped\"" is Scala 2.13+
 
     def escaped: String = data.flatMap {
       case '\b'                               => "\\b"
@@ -468,9 +468,10 @@ object CBORmodel {
       CBORObject.FromObject(dict)
     }
 
-    override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": $v" }.mkString(", ") + "}"
+    override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => "\"" + k + "\": " + v }.mkString(", ") + "}"
 
-    override lazy val dhallDiagnostics: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": ${v.dhallDiagnostics}" }.mkString(", ") + "}"
+    override lazy val dhallDiagnostics: String =
+      "{" + data.toSeq.sortBy(_._1).map { case (k, v) => "\"" + k + "\": " + v.dhallDiagnostics }.mkString(", ") + "}"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
 

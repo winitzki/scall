@@ -46,7 +46,6 @@ jobs:
           - '8.0.382'
           - '22.0.1'
         scala:
-          - '2.12.19'
           - '2.13.13'
   checks:
     name: Check formatting

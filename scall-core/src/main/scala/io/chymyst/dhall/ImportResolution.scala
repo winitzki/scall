@@ -17,7 +17,6 @@ import io.chymyst.tc.Applicative
 
 import java.nio.file
 import java.nio.file.{Files, Paths}
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
@@ -89,9 +88,10 @@ object ImportResolution {
   def readFirstCached(digest: BytesLiteral): Option[Expression] =
     dhallCacheRoots
       .map(readCached(_, digest))
-      .map(_.tap { t =>
+      .map { t =>
         if (t.isFailure && t.failed.get.getMessage.contains("SHA256 mismatch")) println(s"Warning: failure reading from cache: ${t.failed.get}")
-      })                                          // Print this failure only when the error is important (hash mismatch).
+        t
+      }                                           // Print this failure only when the error is important (hash mismatch).
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 

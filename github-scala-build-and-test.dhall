@@ -4,7 +4,8 @@ let GithubActions =
 
 let matrix =
     -- { java = [ "8.0.382", "11.0.21", "17.0.9" ], scala = [ "2.13.13" ] }
-      toMap { java = [ "8.0.382", "22.0.1" ], scala = [ "2.12.19", "2.13.13" ] }
+    -- Scala "2.12.19" is not supported - it gives too many problems all over the place.
+      toMap { java = [ "8.0.382", "22.0.1" ], scala = [ "2.13.13" ] }
 
 let checkout_and_cache =
       [     GithubActions.steps.actions/checkout
