@@ -70,7 +70,7 @@ object Yaml {
             }
 
           case ExpressionScheme.TextLiteral(List(), trailing) =>
-            Right(Seq(stringEscapeForYaml(trailing)))
+            Right(Seq(stringEscapeForYaml(trailing, expr)))
 
           case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
             Right(Seq(expr.print))
@@ -88,11 +88,12 @@ object Yaml {
 
   private val yamlBooleanNames = Set("y", "n", "yes", "no", "on", "off", "true", "false")
 
-  private def stringEscapeForYaml(str: String): String = {
+  private def stringEscapeForYaml(str: String, expr: Expression): String = {
     if (yamlBooleanNames contains str.toLowerCase) "'" + str + "'"
     else if (str.matches("[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)")) "'" + str + "'"
     else if (str.matches("([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])")) "'" + str + "'"
-    else "\"" + str + "\""
+    else if (str.matches(".*[:{}\\[\\]\\\\*&#?|<>!%@].*")) expr.print
+    else str
   }
 
   private def escapeYamlName(name: String): String = {
