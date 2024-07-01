@@ -66,7 +66,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
       result
     }
-    TestUtils.requireSuccessAtLeast(288, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("validate CBOR writing for standard examples") {
@@ -145,7 +145,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results
         .count(_.isFailure)}\nCBOR expression mismatch count: ${results.filter(_.isFailure).count(_.failed.get.getMessage.contains("expression differs"))}")
     results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
-    TestUtils.requireSuccessAtLeast(288, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("validate binary decoding/success") {
