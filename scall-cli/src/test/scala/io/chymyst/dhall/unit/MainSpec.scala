@@ -79,15 +79,18 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   test("yaml output for literals") {
     expect(runMain("3", "yaml") == "3\n")
     expect(runMain("3.14159", "yaml") == "3.14159\n")
-    expect(runMain("\"3\"", "yaml") == "\"3\"\n")
+    expect(runMain("\"3\"", "yaml") == "'3'\n")
+    expect(runMain("\"3.14159\"", "yaml") == "'3.14159'\n")
     expect(runMain("True", "yaml") == "true\n")
     expect(runMain("False || False", "yaml") == "false\n")
   }
 
   test("fail to export yaml if Dhall expression contains unsupported types") {
-    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00\n")
-    expect(runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x\n")
-    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type\n")
+    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00 of type Time\n")
+    expect(
+      runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x of type ∀(x : Bool) → Bool\n"
+    )
+    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type of type Kind\n")
   }
 
   test("yaml output for lists of numbers") {
@@ -184,7 +187,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(11, results, 6)
+    requireSuccessAtLeast(totalTests = 11, results, allowFailures = 6)
   }
 
   test("parse command-line argument") {

@@ -43,7 +43,7 @@ object Yaml {
             val emptyListOrRecord = if (isRecordMap) "{}" else "[]"
             Right(Seq(emptyListOrRecord))
 
-          case ExpressionScheme.NonEmptyList(exprs)                                                                                         =>
+          case ExpressionScheme.NonEmptyList(exprs) =>
             if (isRecordMap) { // Each expression in the list is a record { mapKey = x, mapValue = y }.
               // Generate the same yaml as for a record {x = y, ...}
               toYamlLines(
@@ -68,8 +68,13 @@ object Yaml {
                 Right(output)
               }
             }
-          case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) | ExpressionScheme.TextLiteral(List(), _)             =>
+
+          case ExpressionScheme.TextLiteral(List(), trailing) =>
+            Right(Seq(stringEscapeForYaml(trailing)))
+
+          case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
             Right(Seq(expr.print))
+
           case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) =>
             Right(Seq(expr.print.toLowerCase))
 
@@ -77,11 +82,18 @@ object Yaml {
 
           case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(Seq())
 
-          case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print}")
+          case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print} of type ${tpe.print}")
         }
     }
 
   private val yamlBooleanNames = Set("y", "n", "yes", "no", "on", "off", "true", "false")
+
+  private def stringEscapeForYaml(str: String): String = {
+    if (yamlBooleanNames contains str.toLowerCase) "'" + str + "'"
+    else if (str.matches("[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)")) "'" + str + "'"
+    else if (str.matches("([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])")) "'" + str + "'"
+    else "\"" + str + "\""
+  }
 
   private def escapeYamlName(name: String): String = {
     if (yamlBooleanNames contains name.toLowerCase) s"'$name'" else name
