@@ -92,7 +92,7 @@ object Yaml {
     if (yamlBooleanNames contains str.toLowerCase) "'" + str + "'"
     else if (str.matches("[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)")) "'" + str + "'"
     else if (str.matches("([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])")) "'" + str + "'"
-    else if (str.matches(".*[:{}\\[\\]\\\\*&#?|<>!%@].*")) expr.print
+    else if (str.matches(".*[\":{}\\[\\]\\\\*&#?|<>!%@].*")) expr.print
     else str
   }
 
