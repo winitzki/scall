@@ -9,12 +9,12 @@ import io.chymyst.test.{ManyFixtures, TestTimings}
 import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
 
 object TestUtils extends ManyFixtures {
 
-  def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+  def readToString(path: String): String = new String(Files.readAllBytes(Paths.get(path))).trim
 
   def readToString(path: Path): String = new String(Files.readAllBytes(path)).trim
 

@@ -24,7 +24,7 @@ object Main {
     outputMode match {
       case OutputMode.Decode =>
         // TODO streamline those APIs
-        output.write((Expression(CBORmodel.decodeCbor2(input.readAllBytes()).toScheme).print + "\n").getBytes("UTF-8"))
+        output.write((Expression(CBORmodel.decodeCbor2(CBOR.java8ReadInputStreamToByteArray(input)).toScheme).print + "\n").getBytes("UTF-8"))
       case _                 =>
         val outputBytes = Parser.parseDhallStream(input) match {
           case Parsed.Success(value: DhallFile, _) =>

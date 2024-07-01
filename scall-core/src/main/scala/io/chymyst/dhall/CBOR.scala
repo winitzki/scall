@@ -11,7 +11,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.dhall.SyntaxConstants._
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
@@ -526,6 +526,18 @@ object CBORmodel {
 
 // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/binary.md
 object CBOR {
+
+  def java8ReadInputStreamToByteArray(input: InputStream): Array[Byte] = {
+    val bufLen       = 1024
+    val buf          = new Array[Byte](bufLen)
+    var readLen      = 0
+    val outputStream = new ByteArrayOutputStream
+
+    while ({ readLen = input.read(buf, 0, bufLen); readLen } != -1) outputStream.write(buf, 0, readLen)
+
+    outputStream.toByteArray
+  }
+
   val maxCborNumberAsCInt: BigInt = BigInt(1L) << 64
 
   def naturalToCbor2(index: Natural): CBORObject =
