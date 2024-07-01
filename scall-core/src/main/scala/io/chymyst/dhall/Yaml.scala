@@ -1,6 +1,6 @@
 package io.chymyst.dhall
 
-import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprBuiltin, ExprConstant}
+import io.chymyst.dhall.Syntax.ExpressionScheme.ExprBuiltin
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 

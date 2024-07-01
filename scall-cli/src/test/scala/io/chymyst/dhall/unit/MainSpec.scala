@@ -134,7 +134,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("yaml output for list of records") {
-    val result = runMain("[{a = 1, b = 2}, {a = 3, b = 4}]", "yaml")
+    val result = runMain("[Some {a = 1, b = 2}, Some {a = 3, b = 4}]", "yaml")
     expect(result == """- a: 1
                                                                     |  b: 2
                                                                     |- a: 3
@@ -150,7 +150,16 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
                                                                             |  c: 3
                                                                             |  d: 4
                                                                             |""".stripMargin)
+  }
 
+  test("yaml for optional values") {
+    expect(runMain("{x = Some {a = 1, b = Some 2, c = None Natural}, z = None Bool, y = {c = Some 3, d = 4}}", "yaml") == """x:
+                                                                            |  a: 1
+                                                                            |  b: 2
+                                                                            |'y':
+                                                                            |  c: 3
+                                                                            |  d: 4
+                                                                            |""".stripMargin)
   }
 
   test("yaml corner cases from dhall-haskell/yaml") {
@@ -159,7 +168,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       // val relativePathForTest                 = parentPath.relativize(file.toPath)
       val testOut      = new ByteArrayOutputStream
       try {
-        Main.process(Path.of(file.toURI), new FileInputStream(file), testOut, OutputMode.Yaml)
+        Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml)
       } finally {
         testOut.close()
       }
