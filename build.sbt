@@ -109,7 +109,7 @@ lazy val dhall_codec = (project in file("dhall-codec"))
     Test / fork                := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    libraryDependencies ++= Seq(izumi_reflect, zio_schema, zio_schema_deriving, munitTest, assertVerboseTest, reflections),
+    libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest, reflections),
     assembly / mainClass       := Some("io.chymyst.dhall.codec.DhallShim"),
     assembly / assemblyJarName := "dhall-shim.jar",
     assembly / assemblyMergeStrategy ~= (old => {

@@ -9,6 +9,7 @@ import munit.FunSuite
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
+import TestUtils.requireSuccessAtLeast
 
 class MainSpec extends FunSuite with TestTimings with ResourceFiles {
   def runMain(input: String, outputMode: String): String                    = {
@@ -161,6 +162,6 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
       val expectedYaml = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
       Try(expect(resultYaml == expectedYaml))
     }
-    TestUtils.requireSuccessAtLeast(11, results, 10)
+    requireSuccessAtLeast(11, results, 10)
   }
 }
