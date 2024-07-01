@@ -24,7 +24,7 @@ object Main {
     outputMode match {
       case OutputMode.Decode =>
         // TODO streamline those APIs
-        output.write(Expression(CBORmodel.decodeCbor2(input.readAllBytes()).toScheme).print.getBytes("UTF-8"))
+        output.write((Expression(CBORmodel.decodeCbor2(input.readAllBytes()).toScheme).print + "\n").getBytes("UTF-8"))
       case _                 =>
         val outputBytes = Parser.parseDhallStream(input) match {
           case Parsed.Success(value: DhallFile, _) =>
@@ -33,28 +33,31 @@ object Main {
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
                 outputMode match {
-                  case OutputMode.Dhall   => expr.print.getBytes("UTF-8")
+                  case OutputMode.Dhall   => (expr.print + "\n").getBytes("UTF-8")
                   case OutputMode.Text    =>
                     (expr.scheme match {
-                      case ExpressionScheme.TextLiteral(List(), trailing) => trailing
-                      case s                                              => s"Error: Dhall expression should have type Text but is instead: $s"
+                      case ExpressionScheme.TextLiteral(List(), trailing) => trailing + "\n"
+                      case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
                   case OutputMode.Yaml    =>
-                    Yaml.toYaml(expr).merge.getBytes("UTF-8")
+                    (Yaml.toYaml(expr) match {
+                      case Left(value) => value + "\n"
+                      case Right(value) => value
+                    }).getBytes("UTF-8")
                   case OutputMode.Encode  =>
                     expr.toCBORmodel.encodeCbor2
                   case OutputMode.GetType =>
-                    tpe.print.getBytes("UTF-8")
+                    (tpe.print + "\n").getBytes("UTF-8")
                   case OutputMode.GetHash =>
-                    ("sha256:" + Semantics.semanticHash(expr, Paths.get("."))).getBytes("UTF-8")
+                    ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
                 }
 
               case TypecheckResult.Invalid(errors) =>
-                errors.toString.getBytes("UTF-8")
+                (errors.toString + "\n").getBytes("UTF-8")
             }
             result
 
-          case failure: Parsed.Failure => s"Error parsing Dhall input: $failure\n${failure.extra}".getBytes("UTF-8")
+          case failure: Parsed.Failure => s"Error parsing Dhall input: $failure\n${failure.extra}\n".getBytes("UTF-8")
         }
         output.write(outputBytes)
     }

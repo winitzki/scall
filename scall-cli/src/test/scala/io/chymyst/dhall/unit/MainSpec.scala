@@ -34,7 +34,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
   }
 
   test("run the Main.process function") {
-    expect(runMain("1 + 1 + 1\n", "") == "3")
+    expect(runMain("1 + 1 + 1\n", "") == "3\n")
   }
 
   test("Main.process with parse failure") {
@@ -46,29 +46,29 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
   }
 
   test("obtain type") {
-    expect(runMain("1 + 1 + 1", "type") == "Natural")
-    expect(runMain("3.14159", "type") == "Double")
+    expect(runMain("1 + 1 + 1", "type") == "Natural\n")
+    expect(runMain("3.14159", "type") == "Double\n")
   }
 
   test("obtain hash 1") {
-    expect(runMain("1 + 1 + 1", "hash") == "sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2")
+    expect(runMain("1 + 1 + 1", "hash") == "sha256:15f52ecf91c94c1baac02d5a4964b2ed8fa401641a2c8a95e8306ec7c1e3b8d2\n")
   }
 
   test("obtain hash 2") {
-    expect(runMain("\\(x : Natural) -> x + 1", "hash") == "sha256:b5fe21628a38725865cb68ff5a9973cecb3f65efaa3096a451e43d336a84eb45")
+    expect(runMain("\\(x : Natural) -> x + 1", "hash") == "sha256:b5fe21628a38725865cb68ff5a9973cecb3f65efaa3096a451e43d336a84eb45\n")
   }
 
   test("encode / decode roundtrip") {
-    expect(runMain(runMainByteArray("1 + 1 + 1", "encode"), "decode") == "3")
+    expect(runMain(runMainByteArray("1 + 1 + 1", "encode"), "decode") == "3\n")
   }
 
   test("export text") {
-    expect(runMain("\"3\"", "dhall") == "\"3\"")
-    expect(runMain("\"3\"", "text") == "3")
+    expect(runMain("\"3\"", "dhall") == "\"3\"\n")
+    expect(runMain("\"3\"", "text") == "3\n")
   }
 
   test("fail to export text if Dhall expression is not text") {
-    expect(runMain("1 + 1 + 1", "text") == "Error: Dhall expression should have type Text but is instead: NaturalLiteral(3)")
+    expect(runMain("1 + 1 + 1", "text") == "Error: Dhall expression should have type Text but is instead: NaturalLiteral(3)\n")
   }
 
   test("yaml output for literals") {
@@ -80,9 +80,9 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
   }
 
   test("fail to export yaml if Dhall expression contains unsupported types") {
-    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00")
-    expect(runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x")
-    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type")
+    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00\n")
+    expect(runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x\n")
+    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type\n")
   }
 
   test("yaml output for lists of numbers") {
