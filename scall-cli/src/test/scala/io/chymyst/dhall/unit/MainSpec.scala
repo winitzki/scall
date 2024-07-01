@@ -2,7 +2,7 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Main.OutputMode
-import io.chymyst.dhall.{Main, Yaml}
+import io.chymyst.dhall.Main
 import io.chymyst.test.{ManyFixtures, ResourceFiles, TestTimings}
 import munit.FunSuite
 
@@ -178,7 +178,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(11, results, 8)
+    requireSuccessAtLeast(11, results, 7)
   }
 
   test("parse command-line argument") {

@@ -1,5 +1,3 @@
-# ./.mergify.yml
-
 pull_request_rules:
 
   - name: Automatically merge pull requests
