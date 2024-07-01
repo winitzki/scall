@@ -27,8 +27,8 @@ object Main {
         output.write((Expression(CBORmodel.decodeCbor2(CBOR.java8ReadInputStreamToByteArray(input)).toScheme).print + "\n").getBytes("UTF-8"))
       case _                 =>
         val outputBytes = Parser.parseDhallStream(input) match {
-          case Parsed.Success(value: DhallFile, _) =>
-            val resolved            = value.value.resolveImports(path)
+          case Parsed.Success(dhallFile: DhallFile, _) =>
+            val resolved            = dhallFile.value.resolveImports(path)
             val valueType           = resolved.inferType.map { t => (t, resolved.betaNormalized) }
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
@@ -40,7 +40,7 @@ object Main {
                       case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
                   case OutputMode.Yaml    =>
-                    (Yaml.toYaml(expr) match {
+                    (Yaml.toYaml(dhallFile.copy(value = expr)) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")

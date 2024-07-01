@@ -1,7 +1,7 @@
 package io.chymyst.dhall
 
 import io.chymyst.dhall.Syntax.ExpressionScheme.ExprBuiltin
-import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
+import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 
 object Yaml {
@@ -59,7 +59,12 @@ object Yaml {
     if (yamlBooleanNames contains name.toLowerCase) s"'$name'" else name
   }
 
-  def toYaml(value: Expression, indent: Int = 2): Either[String, String] =
-    toYamlLines(value, indent).map(_.mkString("", "\n", "\n"))
+  private def commentsToYaml(comments: String): String = {
+    if (comments.isEmpty) "" else comments.split("\n").map(line => line.replaceFirst("^[ \\t]*--", "")).mkString("#", "\n#", "\n")
+  }
+
+  def toYaml(dhallFile: DhallFile, indent: Int = 2): Either[String, String] = {
+    toYamlLines(dhallFile.value, indent).map(_.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
+  }
 
 }

@@ -328,8 +328,8 @@ object ImportResolution {
             case ImportMode.Code     =>
               Right(bytes =>
                 Parser.parseDhallBytes(bytes) match {
-                  case Parsed.Success(DhallFile(_, expr), _) => Resolved(expr)
-                  case failure: Parsed.Failure               => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
+                  case Parsed.Success(DhallFile(_, _, expr), _) => Resolved(expr)
+                  case failure: Parsed.Failure                  => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
                 }
               )
             case ImportMode.RawBytes => Right(bytes => Resolved(Expression(BytesLiteral(CBytes.byteArrayToHexString(bytes)))))

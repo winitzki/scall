@@ -1,13 +1,13 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.dhall.Main
 import io.chymyst.dhall.Main.OutputMode
+import io.chymyst.dhall.{Main, Yaml}
 import io.chymyst.test.{ManyFixtures, ResourceFiles, TestTimings}
 import munit.FunSuite
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 import scala.util.Try
 
 class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFixtures {
@@ -199,4 +199,5 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
     }
 
   }
+
 }

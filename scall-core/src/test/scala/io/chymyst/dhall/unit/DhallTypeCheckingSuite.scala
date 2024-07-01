@@ -18,8 +18,8 @@ class DhallTypeCheckingSuite extends DhallTest {
       val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
       val result = Try {
-        val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-        val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+        val Parsed.Success(DhallFile(_, _, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+        val Parsed.Success(DhallFile(_, _, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
 
         val resolved = ourResult.resolveImports(file.toPath)
         // println(s"DEBUG: ${file.getName} starting type inference, ourResult = ${ourResult.print}, after resolving: $resolved")
@@ -40,7 +40,7 @@ class DhallTypeCheckingSuite extends DhallTest {
   test("type inference failure") {
     val results: Seq[Try[String]] = enumerateResourceFiles("dhall-lang/tests/type-inference/failure", Some(".dhall")).map { file =>
       val result = Try {
-        val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+        val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
         expect(!ourResult.resolveImports(file.toPath).inferType.isValid)
         file.getName
       }

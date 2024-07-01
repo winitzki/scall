@@ -18,8 +18,8 @@ class DhallParserAndCbor1Suite extends DhallTest {
   test("convert standard examples for successful parsing into CBOR") {
     val results = testFilesForSuccess.flatMap { file =>
       val r: Option[Syntax.Expression] = Try(Parser.parseDhallStream(new FileInputStream(file))).toOption.flatMap {
-        case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
-        case _                                     => None
+        case Parsed.Success(DhallFile(_, _, expr), _) => Some(expr)
+        case _                                        => None
       }
       val result                       = r.map { expr => Try(expr.toCBORmodel.encodeCbor1) }
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR1: ${result.get.failed.get.getMessage}")

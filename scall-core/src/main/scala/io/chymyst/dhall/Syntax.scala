@@ -420,7 +420,7 @@ object Syntax {
     }
   }
 
-  final case class DhallFile(shebangs: Seq[String], value: Expression)
+  final case class DhallFile(shebangs: Seq[String], headerComments: String, value: Expression)
 
   type Natural = BigInt
   type Integer = BigInt

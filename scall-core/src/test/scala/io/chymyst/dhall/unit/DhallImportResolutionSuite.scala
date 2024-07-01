@@ -13,7 +13,7 @@ import scala.util.Try
 
 object DhallImportResolutionSuite {
   def readHeadersFromEnv(envVarsFile: File): Seq[(String, String)] = if (envVarsFile.exists) {
-    val Parsed.Success(DhallFile(_, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
+    val Parsed.Success(DhallFile(_, _, envs), _) = Parser.parseDhallStream(new FileInputStream(envVarsFile))
     envs.betaNormalized.toPrimitiveValue match {
       case Some(t: List[Map[String, AnyRef]]) =>
         t.flatMap {
@@ -55,9 +55,9 @@ class DhallImportResolutionSuite extends DhallTest with OverrideEnvironment with
         // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
         runInFakeEnvironmentWith(extraEnvVars: _*) {
           val result = Try {
-            val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-            val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-            val x                                                 = ourResult.resolveImports(
+            val Parsed.Success(DhallFile(_, _, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+            val Parsed.Success(DhallFile(_, _, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+            val x                                                    = ourResult.resolveImports(
               relativePathForTest
             ) // Here we must avoid beta-normalizing entire expressions. Only the import contents must be normalized.
             val y = validationResult.resolveImports(relativePathForTest)
@@ -95,8 +95,8 @@ class DhallImportResolutionSuite extends DhallTest with OverrideEnvironment with
           // if (envVarsFile.exists) println(s"DEBUG: env vars for file ${file.toPath} are $extraEnvVars")
           runInFakeEnvironmentWith(extraEnvVars: _*) {
             val result = Try {
-              val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
-              val x                                          = Try(ourResult.resolveImports(relativePathForTest))
+              val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+              val x                                             = Try(ourResult.resolveImports(relativePathForTest))
               expect(x.isFailure)
               file.getName
             }

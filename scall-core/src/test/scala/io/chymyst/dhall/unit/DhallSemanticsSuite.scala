@@ -17,10 +17,10 @@ class DhallSemanticsSuite extends DhallTest {
       val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
       val result = Try {
-        val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-        val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-        val x                                                 = ourResult.alphaNormalized
-        val y                                                 = validationResult.alphaNormalized
+        val Parsed.Success(DhallFile(_, _, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+        val Parsed.Success(DhallFile(_, _, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+        val x                                                    = ourResult.alphaNormalized
+        val y                                                    = validationResult.alphaNormalized
         //  println(s"DEBUG: ${file.getName}: our parser gives ${ourResult.print}, after alpha-normalization ${x.print}")
         expect(x.print == y.print, x == y)
         file.getName
@@ -36,10 +36,10 @@ class DhallSemanticsSuite extends DhallTest {
       val validationFile = new File(file.getAbsolutePath.replace("A.dhall", "B.dhall"))
 
       val result = Try {
-        val Parsed.Success(DhallFile(_, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
-        val Parsed.Success(DhallFile(_, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
-        val x                                                 = ourResult.resolveImports(file.toPath).betaNormalized
-        val y                                                 = validationResult.resolveImports(validationFile.toPath) // Should not normalize the validation result.
+        val Parsed.Success(DhallFile(_, _, ourResult), _)        = Parser.parseDhallStream(new FileInputStream(file))
+        val Parsed.Success(DhallFile(_, _, validationResult), _) = Parser.parseDhallStream(new FileInputStream(validationFile))
+        val x                                                    = ourResult.resolveImports(file.toPath).betaNormalized
+        val y                                                    = validationResult.resolveImports(validationFile.toPath) // Should not normalize the validation result.
 
         if (x.print != y.print)
           println(
