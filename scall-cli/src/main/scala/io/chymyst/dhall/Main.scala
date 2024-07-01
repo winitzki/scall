@@ -3,7 +3,7 @@ package io.chymyst.dhall
 import fastparse.Parsed
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 
-import java.io.{FileInputStream, InputStream, OutputStream}
+import java.io.{FileInputStream, FileOutputStream, InputStream, OutputStream}
 import java.nio.file.{Path, Paths}
 import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
 
@@ -78,16 +78,22 @@ object Main {
   def `dhall.jar`(
     @arg(short = 'f', doc = "Path to the input Dhall file")
     file: Option[String],
+    @arg(short = 'o', doc = "Path to the output file")
+    output: Option[String],
     @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
     command: Leftover[String],
   ): Unit = {
-    val (path, inputStream) = file match {
-      case Some(value) =>
-        val path = Paths.get(value)
+    val (inputPath, inputStream) = file match {
+      case Some(inputFile) =>
+        val path = Paths.get(inputFile)
         (path, new FileInputStream(path.toFile))
-      case None        => (Paths.get("."), System.in)
+      case None            => (Paths.get("."), System.in)
     }
-    process(path, inputStream, System.out, parseArgs(command.value.toArray))
+    val outputStream             = output match {
+      case Some(outputFile) => new FileOutputStream(outputFile)
+      case None             => System.out
+    }
+    process(inputPath, inputStream, outputStream, parseArgs(command.value.toArray))
   }
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
   // $COVERAGE-ON$

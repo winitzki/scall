@@ -37,7 +37,7 @@ $j --file scall-cli/src/test/resources/jar-tests/4.dhall text | tee -a $log | gr
 
 $j --file scall-cli/src/test/resources/jar-tests/4.dhall | tee -a $log | grep '^"abc"$'
 
-$j --file scall-cli/src/test/resources/jar-tests/3.dhall yaml | tee -a $log > /tmp/3.yaml
+$j --file scall-cli/src/test/resources/jar-tests/3.dhall --output /tmp/3.yaml  yaml | tee -a $log
 diff scall-cli/src/test/resources/jar-tests/3.yaml /tmp/3.yaml
 
 $j --file /tmp/nonexisting_file_12345 2>&1 | tee -a $log | grep 'FileNotFound'
