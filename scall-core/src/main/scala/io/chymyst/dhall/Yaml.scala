@@ -7,6 +7,8 @@ object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
   private def toYamlLines(expr: Expression, indent: Int): Either[String, (String, Seq[String])] = expr.scheme match {
+    case ExpressionScheme.RecordLiteral(Seq()) => Right(("{}", Seq()))
+
     case ExpressionScheme.RecordLiteral(defs) =>
       val content = defs.map { case (FieldName(name), e: Expression) =>
         toYamlLines(e, indent).map(lines => (name, lines))
