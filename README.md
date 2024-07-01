@@ -225,3 +225,13 @@ So far, there are some issues with the Unicode characters:
   character (Unicode decimal `65533`). However, the Dhall standard specifies that non-UTF8 input should be rejected by
   the parser. As a workaround, at the moment, Unicode character `65533` is not allowed in Dhall files and will be
   rejected at parsing time.
+
+
+# Building
+
+To build a standalone `dhall` executable JAR:
+
+```bash
+sbt scall_cli/assembly
+mv scall-cli/target/scala-*/dhall-cli.jar dhall.jar
+```

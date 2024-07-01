@@ -3,15 +3,20 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Main
 import io.chymyst.dhall.Main.OutputMode
-import io.chymyst.test.{ResourceFiles, TestTimings}
+import io.chymyst.test.{ManyFixtures, ResourceFiles, TestTimings}
 import munit.FunSuite
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream}
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
-import TestUtils.requireSuccessAtLeast
 
-class MainSpec extends FunSuite with TestTimings with ResourceFiles {
+class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFixtures {
+
+  def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
+    val (failures, successes) = failureAndSuccessCounts(totalTests, results, allowFailures)
+    expect(failures <= allowFailures && successes >= totalTests - allowFailures)
+  }
+
   def runMain(input: String, outputMode: String): String                    = {
     new String(runMainByteArray(input, outputMode))
   }
@@ -160,8 +165,29 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles {
       }
       val resultYaml   = new String(testOut.toByteArray)
       val expectedYaml = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
+      if (resultYaml != expectedYaml) println(s"DEBUG failure in $file, resultYaml=$resultYaml")
       Try(expect(resultYaml == expectedYaml))
     }
-    requireSuccessAtLeast(11, results, 10)
+
+    requireSuccessAtLeast(11, results, 7)
+  }
+
+  test("parse command-line argument") {
+    import OutputMode._
+    Seq(
+      Array[String]()         -> Dhall,
+      Array("text")           -> Text,
+      Array("encode")         -> Encode,
+      Array("decode")         -> Decode,
+      Array("type")           -> GetType,
+      Array("hash")           -> GetHash,
+      Array("encode", "text") -> Text,
+      Array("decode")         -> Decode,
+      Array("yaml")           -> Yaml,
+      Array("unrecognized")   -> Dhall,
+    ).foreach { case (args, mode) =>
+      expect(Main.parseArgs(args) == mode)
+    }
+
   }
 }

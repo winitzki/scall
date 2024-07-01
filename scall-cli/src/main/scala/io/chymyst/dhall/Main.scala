@@ -41,7 +41,7 @@ object Main {
                     }).getBytes("UTF-8")
                   case OutputMode.Yaml    =>
                     (Yaml.toYaml(expr) match {
-                      case Left(value) => value + "\n"
+                      case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")
                   case OutputMode.Encode  =>
@@ -63,14 +63,14 @@ object Main {
     }
   }
 
-  def parseArgs(args: Array[String]): OutputMode = args(0) match {
-    case "text"   => OutputMode.Text
-    case "yaml"   => OutputMode.Yaml
-    case "decode" => OutputMode.Decode
-    case "encode" => OutputMode.Encode
-    case "type"   => OutputMode.GetType
-    case "hash"   => OutputMode.GetHash
-    case _        => OutputMode.Dhall
+  def parseArgs(args: Array[String]): OutputMode = args.lastOption match {
+    case Some("text")   => OutputMode.Text
+    case Some("yaml")   => OutputMode.Yaml
+    case Some("decode") => OutputMode.Decode
+    case Some("encode") => OutputMode.Encode
+    case Some("type")   => OutputMode.GetType
+    case Some("hash")   => OutputMode.GetHash
+    case _              => OutputMode.Dhall
   }
 
   // $COVERAGE-OFF$

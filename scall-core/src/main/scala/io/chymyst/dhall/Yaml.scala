@@ -22,6 +22,7 @@ object Yaml {
           }.flatMap { case (head, tail) => head +: tail }
         Right((output.head, output.tail))
       }
+    case ExpressionScheme.EmptyList(_)        => Right(("[]", Seq()))
 
     case ExpressionScheme.NonEmptyList(exprs) =>
       val content = exprs.map(e => toYamlLines(e, indent))
