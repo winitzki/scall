@@ -187,7 +187,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(totalTests = 11, results, allowFailures = 5)
+    requireSuccessAtLeast(totalTests = 11, results, allowFailures = 4)
   }
 
   test("parse command-line argument") {

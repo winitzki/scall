@@ -174,7 +174,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] Print Dhall values using the standard Dhall syntax.
 
-- [x] Export Dhall values to Yaml for supported types (numbers, strings, Booleans, lists, records).
+- [x] Export Dhall values to Yaml for most of the relevant types (numbers, strings, Booleans, lists, records). Limited to a single Yaml document.
 
 ## Roadmap for future developments
 

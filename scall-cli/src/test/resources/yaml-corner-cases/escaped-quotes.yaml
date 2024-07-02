@@ -10,4 +10,4 @@ hello_world_with_newlines: |
 hello_world_with_quotes: "hello, \"world\""
 int_value: 1
 string_value: '2000-01-01'
-yes: 'y'
+'yes': 'y'

@@ -34,7 +34,7 @@ object Yaml {
               val valids = content.map { case Right(x) => x }
               val output = valids.flatMap {
                 case (_, Seq())             => Seq[String]()
-                case (name, Seq(firstLine)) => Seq(name + ": " + firstLine)
+                case (name, Seq(firstLine)) => Seq(escapeYamlName(name) + ": " + firstLine)
                 // If the value of the record field is a multiline YAML, we will skip a line unless the first line is empty.
                 case (name, lines)          =>
                   if (lines.head.isEmpty)
