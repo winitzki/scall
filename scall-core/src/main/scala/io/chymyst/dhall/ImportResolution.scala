@@ -17,7 +17,6 @@ import io.chymyst.tc.Applicative
 
 import java.nio.file
 import java.nio.file.{Files, Paths}
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
 object ImportResolution {
@@ -89,9 +88,10 @@ object ImportResolution {
   def readFirstCached(digest: BytesLiteral): Option[Expression] =
     dhallCacheRoots
       .map(readCached(_, digest))
-      .map(_.tap { t =>
+      .map { t =>
         if (t.isFailure && t.failed.get.getMessage.contains("SHA256 mismatch")) println(s"Warning: failure reading from cache: ${t.failed.get}")
-      })                                          // Print this failure only when the error is important (hash mismatch).
+        t
+      }                                           // Print this failure only when the error is important (hash mismatch).
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
@@ -141,6 +141,7 @@ object ImportResolution {
 
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
+  // TODO: return an Either instead of throwing exceptions?
   def resolveAllImports(expr: Expression, currentImport: Import[Expression]): Expression = {
     val initialVisited = currentImport
 
@@ -327,8 +328,8 @@ object ImportResolution {
             case ImportMode.Code     =>
               Right(bytes =>
                 Parser.parseDhallBytes(bytes) match {
-                  case Parsed.Success(DhallFile(_, expr), _) => Resolved(expr)
-                  case failure: Parsed.Failure               => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
+                  case Parsed.Success(DhallFile(_, _, expr), _) => Resolved(expr)
+                  case failure: Parsed.Failure                  => PermanentFailure(Seq(s"failed to parse imported file: $failure"))
                 }
               )
             case ImportMode.RawBytes => Right(bytes => Resolved(Expression(BytesLiteral(CBytes.byteArrayToHexString(bytes)))))

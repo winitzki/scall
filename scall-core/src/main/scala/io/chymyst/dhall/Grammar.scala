@@ -39,7 +39,7 @@ object Grammar {
       //        | % x10000_1FFFD
       // U+10000 = "\uD800\uDC00"
       // U+103FF = "\uD800\uDFFF"
-      // U+10400 = "\uD01\uDC00"
+      // U+10400 = "\uD801\uDC00"
       // U+1FFFD = "\uD83F\uDFFD"
       // format: off
       | (CharIn("\uD800-\uD83E") ~ CharIn("\uDC00-\uDFFF"))
@@ -235,7 +235,7 @@ object Grammar {
 
   def double_quote_escaped[$: P]: P[String] = P(
     //    CharIn("\"$\\/bfnrt")
-    CharIn("\u0022").! // '"'    quotation mark  U+0022
+    CharIn("\"").! // '"'    quotation mark  U+0022
       | "$".!.map(_ => "\u0024") // '$'    dollar sign     U+0024
       | "\\".! //| % x5C // '\'    reverse solidus U+005C
       | "/".! // '/'    solidus         U+002F
@@ -790,7 +790,7 @@ object Grammar {
   def env[$: P]: P[ImportType.Env] = P(
     "env:" ~/ (
       bash_environment_variable.!
-        | ("\u0022" ~ posix_environment_variable ~ "\u0022")
+        | ("\"" ~ posix_environment_variable ~ "\"")
       )
   ).map(name => ImportType.Env(name))
 
@@ -1240,8 +1240,8 @@ object Grammar {
   )
 
   def complete_dhall_file[$: P] = P( // TODO: figure out whether we need ~ End here.
-    shebang.rep ~ complete_expression ~ line_comment_prefix.? ~ End
-  ).map { case (shebangContents, expr) => DhallFile(shebangContents, expr) }
+    shebang.rep ~ (line_comment | block_comment | whsp1).rep.! ~ complete_expression ~ line_comment_prefix.? ~ End
+  ).map { case (shebangContents, headerComments, expr) => DhallFile(shebangContents, headerComments, expr) }
 
   def complete_expression[$: P] = P(
     whsp ~ expression ~ whsp

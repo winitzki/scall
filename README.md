@@ -157,11 +157,11 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (Backward compatible, no change to normal forms!)
+- [x] Optimization: `Natural/fold` will short-cut the loop when the current result stops changing. (Backward compatible, no change to normal forms!) I also [contributed this optimization to the Haskell backend](https://github.com/dhall-lang/dhall-haskell/pull/2596).
 
 - [x] Experimental feature: `assert : a === b` will perform alpha, beta, and eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
 
-- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing. (Breaking change to normal forms!)
+- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing beyond about 500 sub-terms. (Breaking change to normal forms! Standard tests still pass because they do not include terms with such large normal forms.)
 
 
 ## Other features in the Scala implementation of Dhall
@@ -173,6 +173,8 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
   tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
 - [x] Print Dhall values using the standard Dhall syntax.
+
+- [x] Export Dhall values to Yaml for most of the relevant types (numbers, strings, Booleans, lists, records). Limited to a single Yaml document.
 
 ## Roadmap for future developments
 
@@ -225,3 +227,12 @@ So far, there are some issues with the Unicode characters:
   character (Unicode decimal `65533`). However, the Dhall standard specifies that non-UTF8 input should be rejected by
   the parser. As a workaround, at the moment, Unicode character `65533` is not allowed in Dhall files and will be
   rejected at parsing time.
+
+
+# Building
+
+To build a standalone `dhall` executable JAR: `bash make_jar.sh`
+
+To test the executable: `bash test_jar.sh`
+
+The test script should print "Tests successful." at the end. If it does not print that, some tests failed.

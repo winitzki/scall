@@ -4,7 +4,6 @@ import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.codec.FromScala
 import izumi.reflect.{Tag, TagK, TagKK}
 import munit.FunSuite
-import zio.schema._
 
 import scala.util.Try
 

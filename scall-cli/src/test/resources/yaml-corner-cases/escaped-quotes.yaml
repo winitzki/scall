@@ -1,0 +1,13 @@
+bool_string: 'true'
+bool_value: true
+hello-world-with-newlines-and-quotes: |
+  hello,
+  "world"
+hello_world: hello world
+hello_world_with_newlines: |
+  hello,
+  world
+hello_world_with_quotes: "hello, \"world\""
+int_value: 1
+string_value: '2000-01-01'
+'yes': 'y'

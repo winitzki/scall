@@ -5,16 +5,16 @@ import fastparse._
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme.Variable
 import io.chymyst.dhall.{Semantics, SyntaxConstants, TypeCheck}
-import io.chymyst.test.TestTimings
+import io.chymyst.test.{ManyFixtures, TestTimings}
 import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import scala.util.Try
 
-object TestUtils {
+object TestUtils extends ManyFixtures {
 
-  def readToString(path: String): String = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path))).trim
+  def readToString(path: String): String = new String(Files.readAllBytes(Paths.get(path))).trim
 
   def readToString(path: Path): String = new String(Files.readAllBytes(path)).trim
 
@@ -94,11 +94,7 @@ object TestUtils {
   }
 
   def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
-    val failures          = results.count(_.isFailure)
-    val successes         = results.count(_.isSuccess)
-    val unexpectedSuccess = math.max(0, successes - (totalTests - allowFailures))
-    println(s"Success count: $successes, failure count: $failures${if (unexpectedSuccess > 0) s" but the success count is $unexpectedSuccess more than expected"
-      else ""}")
+    val (failures, successes) = failureAndSuccessCounts(totalTests, results, allowFailures)
     expect(failures <= allowFailures && successes >= totalTests - allowFailures)
   }
 

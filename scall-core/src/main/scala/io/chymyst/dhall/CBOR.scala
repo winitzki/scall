@@ -11,7 +11,7 @@ import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme, Natural, PathComponent}
 import io.chymyst.dhall.SyntaxConstants._
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
@@ -418,7 +418,7 @@ object CBORmodel {
   final case class CString(data: String) extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
-    override def toString: String = s"\"$escaped\"" // s"\"$escaped\""
+    override def toString: String = "\"" + escaped + "\"" // This can be written as s"\"$escaped\"" in Scala 2.13+.
 
     def escaped: String = data.flatMap {
       case '\b'                               => "\\b"
@@ -468,9 +468,10 @@ object CBORmodel {
       CBORObject.FromObject(dict)
     }
 
-    override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": $v" }.mkString(", ") + "}"
+    override def toString: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => "\"" + k + "\": " + v }.mkString(", ") + "}"
 
-    override lazy val dhallDiagnostics: String = "{" + data.toSeq.sortBy(_._1).map { case (k, v) => s"\"$k\": ${v.dhallDiagnostics}" }.mkString(", ") + "}"
+    override lazy val dhallDiagnostics: String =
+      "{" + data.toSeq.sortBy(_._1).map { case (k, v) => "\"" + k + "\": " + v.dhallDiagnostics }.mkString(", ") + "}"
 
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CMap] && (obj.asInstanceOf[CMap].data.zip(data).forall { case (x, y) => x equals y })
 
@@ -526,6 +527,18 @@ object CBORmodel {
 
 // See https://github.com/dhall-lang/dhall-lang/blob/master/standard/binary.md
 object CBOR {
+
+  def java8ReadInputStreamToByteArray(input: InputStream): Array[Byte] = {
+    val bufLen       = 1024
+    val buf          = new Array[Byte](bufLen)
+    var readLen      = 0
+    val outputStream = new ByteArrayOutputStream
+
+    while ({ readLen = input.read(buf, 0, bufLen); readLen } != -1) outputStream.write(buf, 0, readLen)
+
+    outputStream.toByteArray
+  }
+
   val maxCborNumberAsCInt: BigInt = BigInt(1L) << 64
 
   def naturalToCbor2(index: Natural): CBORObject =

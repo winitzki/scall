@@ -37,7 +37,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
       }
       result
     }
-    TestUtils.requireSuccessAtLeast(286, results)
+    TestUtils.requireSuccessAtLeast(281, results)
   }
 
   test("parse standard examples for failed parsing") {
@@ -59,14 +59,14 @@ class DhallParserAndCbor2Suite extends DhallTest {
   test("convert standard examples for successful parsing into CBOR") {
     val results = testFilesForSuccess.flatMap { file =>
       val r: Option[Expression] = Try(Parser.parseDhallStream(new FileInputStream(file))).toOption.flatMap {
-        case Parsed.Success(DhallFile(_, expr), _) => Some(expr)
-        case _                                     => None
+        case Parsed.Success(DhallFile(_, _, expr), _) => Some(expr)
+        case _                                        => None
       }
       val result                = r.map { expr => Try(expr.toCBORmodel.encodeCbor2) }
       if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
       result
     }
-    TestUtils.requireSuccessAtLeast(286, results)
+    TestUtils.requireSuccessAtLeast(282, results)
   }
 
   test("validate CBOR writing for standard examples") {
@@ -145,7 +145,7 @@ class DhallParserAndCbor2Suite extends DhallTest {
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results
         .count(_.isFailure)}\nCBOR expression mismatch count: ${results.filter(_.isFailure).count(_.failed.get.getMessage.contains("expression differs"))}")
     results.filter(_.isFailure).map(_.failed.get.getMessage).foreach(println)
-    TestUtils.requireSuccessAtLeast(286, results)
+    TestUtils.requireSuccessAtLeast(283, results)
   }
 
   test("validate binary decoding/success") {

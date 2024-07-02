@@ -1,7 +1,5 @@
 package io.chymyst.test
 
-import scala.util.chaining.scalaUtilChainingOps
-
 /** Test-only utility to run test code with fake values of the Unix shell environment variables. The environment overrides will be in effect only during JVM
   * tests; the actual environment remains unchanged as it cannot be changed. The test code can just read System.getenv() as usual and it will get the fake
   * environment variables. If the test code throws exceptions, they will not be caught but the previous environment will be restored.
@@ -97,8 +95,11 @@ trait OverrideEnvironment {
   }
 
   // This is a mutable dictionary.
-  private lazy val fakeEnvironment: java.util.Map[String, String] =
-    System.getenv.getClass.getDeclaredField("m").tap(_ setAccessible true).get(System.getenv).asInstanceOf[java.util.Map[String, String]]
+  private lazy val fakeEnvironment: java.util.Map[String, String] = {
+    val field = System.getenv.getClass.getDeclaredField("m")
+    field.setAccessible(true)
+    field.get(System.getenv).asInstanceOf[java.util.Map[String, String]]
+  }
 
   private def putIntoFakeEnvironment(envVar: String, envVarValue: String): Unit = fakeEnvironment.put(envVar, envVarValue)
 

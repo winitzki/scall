@@ -27,8 +27,8 @@ class SimpleExpressionTest extends DhallTest {
   }
 
   test("simple expression: { foo, bar }") {
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall("{ foo, bar }")
-    val expected: Expression                        = RecordLiteral[Expression](List((FieldName("foo"), v("foo")), (FieldName("bar"), v("bar")))).sorted
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhall("{ foo, bar }")
+    val expected: Expression                           = RecordLiteral[Expression](List((FieldName("foo"), v("foo")), (FieldName("bar"), v("bar")))).sorted
     expect(result == expected, "{ foo, bar } must be parsed in the order bar, foo".nonEmpty)
   }
 
@@ -62,8 +62,8 @@ class SimpleExpressionTest extends DhallTest {
   }
 
   test("simple expression: let x = 1 in y") {
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall("let x = 1 in y")
-    val expected                                    = Let(VarName("x"), None, Expression(NaturalLiteral(1)), Expression(v("y")))
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhall("let x = 1 in y")
+    val expected                                       = Let(VarName("x"), None, Expression(NaturalLiteral(1)), Expression(v("y")))
     expect(result.scheme == expected)
   }
 
@@ -74,25 +74,25 @@ class SimpleExpressionTest extends DhallTest {
   }
 
   test("parse a string interpolation") {
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall(""" "${1}" """)
-    val expected                                    = TextLiteral[Expression](List(("", NaturalLiteral(1))), "")
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhall(""" "${1}" """)
+    val expected                                       = TextLiteral[Expression](List(("", NaturalLiteral(1))), "")
     expect(result.scheme == expected)
   }
 
   test("parse a sample file") {
-    val testFile                                    = getClass.getClassLoader.getResourceAsStream("dhall-lang/tests/parser/success/whitespaceBuffetA.dhall")
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhallStream(testFile)
+    val testFile                                       = getClass.getClassLoader.getResourceAsStream("dhall-lang/tests/parser/success/whitespaceBuffetA.dhall")
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhallStream(testFile)
   }
 
   test("expression and a block comment") {
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall("""1 {- -}""")
-    val expected                                    = NaturalLiteral(1)
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhall("""1 {- -}""")
+    val expected                                       = NaturalLiteral(1)
     expect(result.scheme == expected)
   }
 
   test("expression and a line comment") {
-    val Parsed.Success(DhallFile(Seq(), result), _) = Parser.parseDhall("""1 -- aaa \n""")
-    val expected                                    = NaturalLiteral(1)
+    val Parsed.Success(DhallFile(Seq(), _, result), _) = Parser.parseDhall("""1 -- aaa \n""")
+    val expected                                       = NaturalLiteral(1)
     expect(result.scheme == expected)
   }
 

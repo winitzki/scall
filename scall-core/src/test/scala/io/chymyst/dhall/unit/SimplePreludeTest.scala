@@ -61,14 +61,14 @@ class SimplePreludeTest extends DhallTest with TestTimings {
 
   test("import dhall-lang/Prelude/Natural/package.dhall without hanging") {
     enumerateResourceFiles("dhall-lang/Prelude/Natural", Some("package.dhall")).foreach { file =>
-      val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+      val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
       expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
     }
   }
 
   test("import dhall-lang/Prelude/package.dhall without hanging") {
     enumerateResourceFiles("dhall-lang/Prelude", Some("package.dhall")).filter(_.getAbsolutePath contains "dhall-lang/Prelude/package.dhall").foreach { file =>
-      val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+      val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
       expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression])
       println(TestUtils.cacheStatistics())
       /*
@@ -84,9 +84,9 @@ class SimplePreludeTest extends DhallTest with TestTimings {
       .filterNot(_.getAbsolutePath contains "dhall-lang/Prelude/Natural/package.dhall")
       .map { file =>
         val result = Try {
-          val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+          val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
 //          println(s"${LocalDateTime.now} Resolving imports in file ${file.getAbsolutePath}")
-          val (_, elapsed)                               = elapsedNanos(expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression]))
+          val (_, elapsed)                                  = elapsedNanos(expect(ourResult.resolveImports(file.toPath).isInstanceOf[Expression]))
           elapsed
         }
         if (result.isFailure) println(s"Failure for file $file: ${Throwables.printThrowable(result.failed.get)}")

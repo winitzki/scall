@@ -3,9 +3,7 @@ package io.chymyst.test
 import jnr.posix.POSIX
 
 import java.io.File
-import java.nio.file.Paths
 import scala.util.Try
-import scala.util.chaining.scalaUtilChainingOps
 
 object ResourceFiles extends ResourceFiles
 
@@ -14,7 +12,7 @@ trait ResourceFiles {
 
   // Recursively enumerate all files (not directories) with names matching a given suffix.
   def enumerateResourceFiles(directory: String, filterBySuffix: Option[String] = None): Seq[File] = Try(
-    enumerateFilesRecursively(getClass.getClassLoader.getResource(directory).getPath.pipe(new File(_)), filterBySuffix)
+    enumerateFilesRecursively(new File(getClass.getClassLoader.getResource(directory).getPath), filterBySuffix)
   ).toOption.toSeq.flatten
 
   def enumerateFilesRecursively(directory: File, filterBySuffix: Option[String] = None): Seq[File] = Try(Option(directory.listFiles).map(_.toSeq) match {

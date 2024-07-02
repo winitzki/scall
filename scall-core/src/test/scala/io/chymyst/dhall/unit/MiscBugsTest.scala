@@ -135,7 +135,7 @@ class MiscBugsTest extends DhallTest with ResourceFiles {
     val fileName = "equal.dhall"
     enumerateResourceFiles("dhall-lang/Prelude/DirectoryTree/Mode", Some(fileName)) foreach { file =>
       println(s"Reading ${file.toPath}")
-      val Parsed.Success(DhallFile(_, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
+      val Parsed.Success(DhallFile(_, _, ourResult), _) = Parser.parseDhallStream(new FileInputStream(file))
       ourResult.resolveImports(file.toPath).inferType
     }
   }

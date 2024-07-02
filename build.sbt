@@ -1,6 +1,8 @@
-val scala2V = "2.13.13"
-val scala3V = "3.4.1"
-val scalaV  = scala2V
+val scala2V                = "2.13.13"
+val scala212V              = "2.12.19"
+val scala3V                = "3.4.1"
+val scalaV                 = scala2V
+val supportedScalaVersions = Seq(scala2V, scala3V)
 
 def munitFramework = new TestFramework("munit.Framework")
 
@@ -15,13 +17,14 @@ val os_lib              = "com.lihaoyi"    %% "os-lib"                % "0.9.2"
 val httpRequest         = "com.lihaoyi"    %% "requests"              % "0.8.0"
 val enumeratum          = "com.beachape"   %% "enumeratum"            % "1.7.3"
 val izumi_reflect       = "dev.zio"        %% "izumi-reflect"         % "2.3.8"
-val zio_schema          = "dev.zio"        %% "zio-schema"            % "1.1.1"
+val zio_schema          = "dev.zio"        %% "zio-schema"            % "1.2.1"
 val zio_schema_deriving = "dev.zio"        %% "zio-schema-derivation" % "1.1.1"
 val kindProjector       = "org.typelevel"   % "kind-projector"        % "0.13.3" cross CrossVersion.full
 val jnr_posix           = "com.github.jnr"  % "jnr-posix"             % "3.1.19"
 val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
 val reflections         = "org.reflections" % "reflections"           % "0.10.2"
+val mainargs            = "com.lihaoyi"    %% "mainargs"              % "0.7.0"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
@@ -46,7 +49,7 @@ lazy val root = (project in file("."))
 lazy val scall_core = (project in file("scall-core"))
   .settings(
     scalaVersion             := scalaV,
-    crossScalaVersions       := Seq(scala2V, scala3V),
+    crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
     Test / fork              := true,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
@@ -92,7 +95,7 @@ lazy val scall_core = (project in file("scall-core"))
 
 lazy val scall_testutils = (project in file("scall-testutils")).settings(
   scalaVersion             := scalaV,
-  crossScalaVersions       := Seq(scala2V, scala3V),
+  crossScalaVersions       := supportedScalaVersions,
   Test / parallelExecution := true,
   Test / fork              := true,
   testFrameworks += munitFramework,
@@ -103,12 +106,12 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(
     scalaVersion               := scalaV,
-    crossScalaVersions         := Seq(scala2V, scala3V),
+    crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
     Test / fork                := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    libraryDependencies ++= Seq(izumi_reflect, zio_schema, zio_schema_deriving, munitTest, assertVerboseTest, reflections),
+    libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest, reflections),
     assembly / mainClass       := Some("io.chymyst.dhall.codec.DhallShim"),
     assembly / assemblyJarName := "dhall-shim.jar",
     assembly / assemblyMergeStrategy ~= (old => {
@@ -123,12 +126,12 @@ lazy val scall_cli = (project in file("scall-cli"))
     organization               := "io.chymyst",
     version                    := "0.1",
     scalaVersion               := scalaV,
-    crossScalaVersions         := Seq(scala2V, scala3V),
+    crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
     Test / fork                := true,
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
-    libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+    libraryDependencies ++= Seq(munitTest, assertVerboseTest, mainargs),
     assembly / mainClass       := Some("io.chymyst.dhall.Main"),
     assembly / assemblyJarName := "dhall-cli.jar",
     assembly / assemblyMergeStrategy ~= (old => {
@@ -140,7 +143,7 @@ lazy val scall_cli = (project in file("scall-cli"))
 lazy val abnf = (project in file("abnf")).settings(
   name                     := "scall-abnf",
   scalaVersion             := scalaV,
-  crossScalaVersions       := Seq(scala2V, scala3V),
+  crossScalaVersions       := supportedScalaVersions,
   Test / parallelExecution := true,
   testFrameworks += munitFramework,
   libraryDependencies ++= Seq(fastparse, munitTest, assertVerboseTest),
@@ -149,7 +152,7 @@ lazy val abnf = (project in file("abnf")).settings(
 lazy val scall_macros = (project in file("scall-macros")).settings(
   name                     := "scall-macros",
   scalaVersion             := scalaV,
-  crossScalaVersions       := Seq(scala2V, scala3V),
+  crossScalaVersions       := supportedScalaVersions,
   Test / parallelExecution := true,
   testFrameworks += munitFramework,
   libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
@@ -163,7 +166,7 @@ lazy val scall_macros = (project in file("scall-macros")).settings(
 lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
   name                     := "scall-typeclasses",
   scalaVersion             := scalaV,
-  crossScalaVersions       := Seq(scala2V, scala3V),
+  crossScalaVersions       := supportedScalaVersions,
   Test / parallelExecution := true,
   testFrameworks += munitFramework,
   libraryDependencies ++= Seq(munitTest, assertVerboseTest),

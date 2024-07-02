@@ -17,7 +17,6 @@ import java.time.{LocalDate, LocalTime, ZoneOffset}
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.implicitConversions
-import scala.util.chaining.scalaUtilChainingOps
 
 object SyntaxConstants {
   final case class VarName(name: String) extends AnyVal {
@@ -353,7 +352,7 @@ object Syntax {
                   more(m =>
                     "\"" + interpolations.toIndexedSeq.zipWithIndex.map { case ((prefix, _), i) => prefix + "${" + m(i) + "}" }.mkString + trailing + "\""
                   )(interpolations.map { case (_, expr) => (expr, p) }: _*)
-                case BytesLiteral(hex)                      => result(s"0x\"$hex\"")
+                case BytesLiteral(hex)                      => result("0x\"" + hex + "\"")
                 case DateLiteral(year, month, day)          => result(f"$year%04d-$month%02d-$day%02d")
                 case t @ TimeLiteral(_, _, _, _)            => result(t.toString)
                 case t @ TimeZoneLiteral(_)                 => result(f"${if (t.isPositive) "+" else "-"}${t.hours}%02d:${t.minutes}%02d")
@@ -420,7 +419,7 @@ object Syntax {
     }
   }
 
-  final case class DhallFile(shebangs: Seq[String], value: Expression)
+  final case class DhallFile(shebangs: Seq[String], headerComments: String, value: Expression)
 
   type Natural = BigInt
   type Integer = BigInt
@@ -719,8 +718,10 @@ object Syntax {
         removeIndentsAndConcatenate(longestCommonIndent.length)
       }
 
-      private def splitByAllNewlines(s: String): Seq[String] =
-        s.split("\r\n", -1).flatMap(_.split("\n", -1)).toSeq.pipe(s => if (s.isEmpty) Seq("") else s)
+      private def splitByAllNewlines(s: String): Seq[String] = {
+        val lines = s.split("\r\n", -1).flatMap(_.split("\n", -1)).toSeq
+        if (lines.isEmpty) Seq("") else lines
+      }
 
       private def removeIndentsAndConcatenate(indent: Int): TextLiteral[E] = {
         def join(a: TextLiteral[E], b: TextLiteral[E]): TextLiteral[E] = a ++ TextLiteral.ofString("\n") ++ b
