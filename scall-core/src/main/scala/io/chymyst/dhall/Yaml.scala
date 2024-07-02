@@ -1,5 +1,6 @@
 package io.chymyst.dhall
 
+import io.chymyst.dhall.CBORmodel.CString
 import io.chymyst.dhall.Syntax.ExpressionScheme.{ExprBuiltin, RecordLiteral, TextLiteral}
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
@@ -34,7 +35,12 @@ object Yaml {
               val output = valids.flatMap {
                 case (_, Seq())             => Seq[String]()
                 case (name, Seq(firstLine)) => Seq(name + ": " + firstLine)
-                case (name, lines)          => (escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l)
+                // If the value of the record field is a multiline YAML, we will skip a line unless the first line is empty.
+                case (name, lines)          =>
+                  if (lines.head.isEmpty)
+                    (escapeYamlName(name) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(indent) + l)
+                  else
+                    (escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l)
               }
               Right(output)
             }
@@ -62,7 +68,10 @@ object Yaml {
                 val output = valids.flatMap {
                   case Seq()          => Seq()
                   case Seq(firstLine) => Seq("- " + firstLine)
-                  case lines          => ("- " + lines.head) +: lines.tail.map(l => yamlIndent(indent) + l)
+                  // If the value of the list item is a multiline YAML, we will skip the first line if it is empty.
+                  case lines          =>
+                    val content = if (lines.head.isEmpty) lines.tail else lines
+                    ("- " + content.head) +: content.tail.map(l => yamlIndent(indent) + l)
                 }
                 Right(output)
               }
@@ -71,7 +80,7 @@ object Yaml {
           case ExpressionScheme.TextLiteral(List(), trailing) =>
             if (trailing.contains("\n")) {
               val lines = trailing.split("\n").toSeq
-              Right(Seq("| ") ++ lines.map { line => yamlIndent(indent) + line })
+              Right(Seq("", "|") ++ lines)
             } else Right(Seq(stringEscapeForYaml(trailing, expr)))
 
           case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
@@ -95,7 +104,9 @@ object Yaml {
     else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) "'" + str + "'"
     else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) "'" + str + "'"
     else if (str.matches("^.*[-\":{}$\\[\\]\\\\*&#?|<>!%@].*$"))
-      expr.print // \0, \x01, \x02, \x03, \x04, \x05, \x06, \a, \b, \t, \n, \v, \f, \r, \x0e, \x0f, \x10, \x11, \x12, \x13, \x14, \x15, \x16, \x17, \x18, \x19, \x1a, \e, \x1c, \x1d, \x1e, \x1f, \N, \_, \L, \P
+      CString(
+        str
+      ).toString // \0, \x01, \x02, \x03, \x04, \x05, \x06, \a, \b, \t, \n, \v, \f, \r, \x0e, \x0f, \x10, \x11, \x12, \x13, \x14, \x15, \x16, \x17, \x18, \x19, \x1a, \e, \x1c, \x1d, \x1e, \x1f, \N, \_, \L, \P
     else str
   }
 

@@ -157,11 +157,11 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [x] Experimental optimization: `Natural/fold` will stop iterations when the current result stops changing. (Backward compatible, no change to normal forms!)
+- [x] Optimization: `Natural/fold` will stop iterations when the current result stops changing. (Backward compatible, no change to normal forms!) I also contributed this optimization to the Haskell backend.
 
 - [x] Experimental feature: `assert : a === b` will perform alpha, beta, and eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
 
-- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing. (Breaking change to normal forms!)
+- [x] Experimental optimization: `Natural/fold` will not expand under lambda if intermediate expressions keep growing beyond about 500 sub-terms. (Breaking change to normal forms! Standard tests still pass because they do not include terms with such large normal forms.)
 
 
 ## Other features in the Scala implementation of Dhall
@@ -173,6 +173,8 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
   tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
 - [x] Print Dhall values using the standard Dhall syntax.
+
+- [x] Export Dhall values to Yaml for supported types (numbers, strings, Booleans, lists, records).
 
 ## Roadmap for future developments
 

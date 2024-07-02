@@ -418,7 +418,7 @@ object CBORmodel {
   final case class CString(data: String) extends CBORmodel {
     override def toCbor2: CBORObject = CBORObject.FromObject(data)
 
-    override def toString: String = "\"" + escaped + "\"" // s"\"$escaped\"" is Scala 2.13+
+    override def toString: String = "\"" + escaped + "\"" // This can be written as s"\"$escaped\"" in Scala 2.13+.
 
     def escaped: String = data.flatMap {
       case '\b'                               => "\\b"

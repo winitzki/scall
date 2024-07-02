@@ -55,37 +55,57 @@ class YamlTest extends FunSuite {
   }
 
   test("yaml output for strings with special characters") {
+    val result1 = Yaml.toYaml("{a = \"-\"}".dhall, 2).merge
     expect(
-      Yaml.toYaml("{a = \"-\"}".dhall, 2).merge ==
+      result1 ==
         """a: "-"
         |""".stripMargin
     )
+    val result2 = Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge
     expect(
-      Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge ==
+      result2 ==
         """a: "a-b"
         |""".stripMargin
     )
+    val result3 = Yaml.toYaml("""{a = "\"abc\""}""".dhall, 2).merge
     expect(
-      Yaml.toYaml("""{a = "\"abc\""}""".dhall, 2).merge ==
+      result3 ==
         """a: "\"abc\""
         |""".stripMargin
     )
   }
 
-  test("yaml output for multiline strings with special characters 1") {
-    val result = Yaml.toYaml("{a = \"-\\n\\\"-\\\"\"}".dhall, 2).merge
-    expect(
-      result ==
-        """a: |
+  test("yaml output for multiline strings with special characters") {
+    val result1 = Yaml.toYaml("{a = \"-\\n\\\"-\\\"\"}".dhall, 2).merge
+    expect(result1 == """a: |
         |  -
-        |  -
-        |""".stripMargin
-    )
+        |  "-"
+        |""".stripMargin)
+    val result2 = Yaml.toYaml("[  \"-\\n\\\"-\\\"\", \"a\", \"b\"]".dhall, 2).merge
+    expect(result2 == """- |
+          |  -
+          |  "-"
+          |- a
+          |- b
+          |""".stripMargin)
+    val result3 = Yaml.toYaml("{a = [\"-\\n\\\"-\\\"\", \"a\", \"b\"]}".dhall, 2).merge
+    expect(result3 == """a:
+          |  - |
+          |    -
+          |    "-"
+          |  - a
+          |  - b
+          |""".stripMargin)
+
   }
 
-  test("yaml output for multiline strings with special characters 1") {
+  test("yaml output for strings with special characters") {
     val result = Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge
-    expect(result == """a: 'a-b'""")
+    expect(
+      result ==
+        """a: "a-b"
+        |""".stripMargin
+    )
   }
 
 }
