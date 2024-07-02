@@ -157,7 +157,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] A [non-standard "do-notation"](./do-notation.md) is implemented.
 
-- [x] Optimization: `Natural/fold` will stop iterations when the current result stops changing. (Backward compatible, no change to normal forms!) I also contributed this optimization to the Haskell backend.
+- [x] Optimization: `Natural/fold` will short-cut the loop when the current result stops changing. (Backward compatible, no change to normal forms!) I also [contributed this optimization to the Haskell backend](https://github.com/dhall-lang/dhall-haskell/pull/2596).
 
 - [x] Experimental feature: `assert : a === b` will perform alpha, beta, and eta-reduction on `a` and `b` before comparing their CBOR serializations. (Breaking change to normal forms!)
 
