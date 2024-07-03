@@ -8,7 +8,9 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
-  private def toYamlLines(expr: Expression, indent: Int): Either[String, Seq[String]] =
+  final case class YamlLines(lines: Seq[String])
+
+  private def toYamlLines(expr: Expression, indent: Int): Either[String, YamlLines] =
     expr.inferType match {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
       case TypecheckResult.Valid(tpe)      =>
@@ -22,31 +24,31 @@ object Yaml {
         }
 
         expr.scheme match {
-          case ExpressionScheme.RecordLiteral(Seq()) => Right(Seq("{}"))
+          case ExpressionScheme.RecordLiteral(Seq()) => Right(YamlLines(Seq("{}")))
 
           case ExpressionScheme.RecordLiteral(defs) =>
-            val content = defs.map { case (FieldName(name), e: Expression) =>
+            val content: Seq[Either[String, (String, YamlLines)]] = defs.map { case (FieldName(name), e: Expression) =>
               toYamlLines(e, indent).map(lines => (name, lines))
             }
-            val errors  = content.collect { case Left(e) => e }
+            val errors                                            = content.collect { case Left(e) => e }
             if (errors.nonEmpty) Left(errors.mkString("; "))
             else {
-              val valids = content.map { case Right(x) => x }
-              val output = valids.flatMap {
-                case (_, Seq())             => Seq[String]()
-                case (name, Seq(firstLine)) => Seq(escapeYamlName(name) + ": " + firstLine)
+              val valids                 = content.map { case Right(x) => x }
+              val output: Seq[YamlLines] = valids.map {
+                case (_, YamlLines(Seq()))             => YamlLines(Seq[String]())
+                case (name, YamlLines(Seq(firstLine))) => YamlLines(Seq(escapeYamlName(name) + ": " + firstLine))
                 // If the value of the record field is a multiline YAML, we will skip a line unless the first line is empty.
-                case (name, lines)          =>
+                case (name, YamlLines(lines))          =>
                   if (lines.head.isEmpty)
-                    (escapeYamlName(name) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(indent) + l)
+                    YamlLines((escapeYamlName(name) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(indent) + l))
                   else
-                    (escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l)
+                    YamlLines((escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l))
               }
-              Right(output)
+              Right(YamlLines(output.flatMap(_.lines)))
             }
           case ExpressionScheme.EmptyList(_)        =>
             val emptyListOrRecord = if (isRecordMap) "{}" else "[]"
-            Right(Seq(emptyListOrRecord))
+            Right(YamlLines(Seq(emptyListOrRecord)))
 
           case ExpressionScheme.NonEmptyList(exprs) =>
             if (isRecordMap) { // Each expression in the list is a record { mapKey = x, mapValue = y }.
@@ -64,34 +66,34 @@ object Yaml {
               val errors  = content.collect { case Left(e) => e }
               if (errors.nonEmpty) Left(errors.mkString("; "))
               else {
-                val valids = content.map { case Right(x) => x }
-                val output = valids.flatMap {
-                  case Seq()          => Seq()
-                  case Seq(firstLine) => Seq("- " + firstLine)
+                val valids                 = content.map { case Right(x) => x }
+                val output: Seq[YamlLines] = valids.map {
+                  case YamlLines(Seq())          => YamlLines(Seq())
+                  case YamlLines(Seq(firstLine)) => YamlLines(Seq("- " + firstLine))
                   // If the value of the list item is a multiline YAML, we will skip the first line if it is empty.
-                  case lines          =>
+                  case YamlLines(lines)          =>
                     val content = if (lines.head.isEmpty) lines.tail else lines
-                    ("- " + content.head) +: content.tail.map(l => yamlIndent(indent) + l)
+                    YamlLines(("- " + content.head) +: content.tail.map(l => yamlIndent(indent) + l))
                 }
-                Right(output)
+                Right(YamlLines(output.flatMap(_.lines)))
               }
             }
 
           case ExpressionScheme.TextLiteral(List(), trailing) =>
             if (trailing.contains("\n")) {
               val lines = trailing.split("\n").toSeq
-              Right(Seq("", "|") ++ lines)
-            } else Right(Seq(stringEscapeForYaml(trailing, expr)))
+              Right(YamlLines(Seq("", "|") ++ lines))
+            } else Right(YamlLines(Seq(stringEscapeForYaml(trailing, expr))))
 
           case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
-            Right(Seq(expr.print))
+            Right(YamlLines(Seq(expr.print)))
 
           case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) =>
-            Right(Seq(expr.print.toLowerCase))
+            Right(YamlLines(Seq(expr.print.toLowerCase)))
 
           case ExpressionScheme.KeywordSome(expression: Expression) => toYamlLines(expression, indent)
 
-          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(Seq())
+          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(Seq()))
 
           case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print} of type ${tpe.print}")
         }
@@ -125,7 +127,7 @@ object Yaml {
   }
 
   def toYaml(dhallFile: DhallFile, indent: Int = 2): Either[String, String] = {
-    toYamlLines(dhallFile.value, indent).map(_.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
+    toYamlLines(dhallFile.value, indent).map(_.lines.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
   }
 
 }
