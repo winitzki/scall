@@ -130,6 +130,17 @@ class YamlTest extends FunSuite {
     )
   }
 
+  test("yaml output for record of records of strings") {
+    val result = Yaml.toYaml("{a.b =\"e\", a.c = \"f\" }".dhall.betaNormalized, 2).merge
+    expect(
+      result ==
+        """a:
+          |  b: e
+          |  c: f
+          |""".stripMargin
+    )
+  }
+
   test("yaml output for record of length-1 records of strings") {
     val result = Yaml.toYaml("{a.b =\"e\" }".dhall, 2).merge
     expect(
@@ -139,5 +150,4 @@ class YamlTest extends FunSuite {
           |""".stripMargin
     )
   }
-
 }
