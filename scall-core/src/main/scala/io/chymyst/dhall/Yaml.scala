@@ -8,7 +8,7 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
-  final case class YamlOptions(quoteAllStrings: Boolean = false, indent: Int = 2, createDocuments: Boolean = false)
+  final case class YamlOptions(quoteAllStrings: Boolean = false, indent: Int = 2, createDocuments: Boolean = false, jsonFormat: Boolean = false)
 
   sealed trait LineType
 
@@ -104,6 +104,12 @@ object Yaml {
 
           case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(YPrimitive, Seq()))
 
+          case ExpressionScheme.Field(Expression(ExpressionScheme.UnionType(_)), FieldName(name)) =>
+            Right(YamlLines(YPrimitive, Seq(stringEscapeForYaml(name, options))))
+
+          case ExpressionScheme.Application(Expression(ExpressionScheme.Field(Expression(ExpressionScheme.UnionType(_)), FieldName(_))), expr) =>
+            toYamlLines(expr, options)
+
           case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print} of type ${tpe.print}")
         }
     }
@@ -131,6 +137,7 @@ object Yaml {
     if (comments.isEmpty) "" else comments.split("\n").map(line => line.replaceFirst("^[ \\t]*--", "")).mkString("#", "\n#", "\n")
   }
 
+  // It is assumed that `expression` is reduced to its beta-normal form. Unreduced syntax sugar such as `{ a.b = 1 }` will not be accepted.
   def toYaml(expression: Expression, options: YamlOptions): Either[String, String] = {
     toYaml(DhallFile(Seq(), "", expression), options)
   }

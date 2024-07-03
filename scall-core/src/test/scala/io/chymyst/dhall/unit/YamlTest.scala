@@ -180,4 +180,22 @@ class YamlTest extends FunSuite {
       result == Left("List(Inferred type Bool differs from the expected type Natural, expression under type inference: True, type inference context = {})")
     )
   }
+
+  test("yaml should support union type constructor without arguments") {
+    val result = Yaml.toYaml("{a = < A | B>.A }".dhall, options).merge
+    expect(
+      result ==
+        """a: A
+          |""".stripMargin
+    )
+  }
+
+  test("yaml should support union type constructor without arguments") {
+    val result = Yaml.toYaml("{a = < A | B : Natural>.B 123 }".dhall, options).merge
+    expect(
+      result ==
+        """a: 123
+          |""".stripMargin
+    )
+  }
 }
