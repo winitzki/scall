@@ -8,14 +8,20 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
-  final case class YamlLines(lines: Seq[String])
+  sealed trait LineType
+
+  case object YRecord    extends LineType
+  case object YArray     extends LineType
+  case object YPrimitive extends LineType
+
+  final case class YamlLines(ltype: LineType, lines: Seq[String])
 
   private def toYamlLines(expr: Expression, indent: Int): Either[String, YamlLines] =
     expr.inferType match {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
       case TypecheckResult.Valid(tpe)      =>
         // Check if it has type List { mapKey : Text, mapValue : _ }.
-        val isRecordMap = tpe.scheme match {
+        lazy val isRecordMap = tpe.scheme match {
           case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.List)), Expression(ExpressionScheme.RecordType(defs))) =>
             val fieldMap: Map[FieldName, Expression] = defs.toMap
             fieldMap.keySet == Set(FieldName("mapKey"), FieldName("mapValue")) && fieldMap(FieldName("mapKey")) == Expression(ExprBuiltin(Builtin.Text))
@@ -24,7 +30,7 @@ object Yaml {
         }
 
         expr.scheme match {
-          case ExpressionScheme.RecordLiteral(Seq()) => Right(YamlLines(Seq("{}")))
+          case ExpressionScheme.RecordLiteral(Seq()) => Right(YamlLines(YRecord, Seq("{}")))
 
           case ExpressionScheme.RecordLiteral(defs) =>
             val content: Seq[Either[String, (String, YamlLines)]] = defs.map { case (FieldName(name), e: Expression) =>
@@ -35,20 +41,20 @@ object Yaml {
             else {
               val valids                 = content.map { case Right(x) => x }
               val output: Seq[YamlLines] = valids.map {
-                case (_, YamlLines(Seq()))             => YamlLines(Seq[String]())
-                case (name, YamlLines(Seq(firstLine))) => YamlLines(Seq(escapeYamlName(name) + ": " + firstLine))
+                case (_, YamlLines(t, Seq()))                      => YamlLines(t, Seq[String]())
+                case (name, YamlLines(YPrimitive, Seq(firstLine))) => YamlLines(YRecord, Seq(escapeYamlName(name) + ": " + firstLine))
                 // If the value of the record field is a multiline YAML, we will skip a line unless the first line is empty.
-                case (name, YamlLines(lines))          =>
+                case (name, YamlLines(_, lines))                   =>
                   if (lines.head.isEmpty)
-                    YamlLines((escapeYamlName(name) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(indent) + l))
+                    YamlLines(YRecord, (escapeYamlName(name) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(indent) + l))
                   else
-                    YamlLines((escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l))
+                    YamlLines(YRecord, (escapeYamlName(name) + ":") +: lines.map(l => yamlIndent(indent) + l))
               }
-              Right(YamlLines(output.flatMap(_.lines)))
+              Right(YamlLines(YRecord, output.flatMap(_.lines)))
             }
           case ExpressionScheme.EmptyList(_)        =>
             val emptyListOrRecord = if (isRecordMap) "{}" else "[]"
-            Right(YamlLines(Seq(emptyListOrRecord)))
+            Right(YamlLines(if (isRecordMap) YArray else YRecord, Seq(emptyListOrRecord)))
 
           case ExpressionScheme.NonEmptyList(exprs) =>
             if (isRecordMap) { // Each expression in the list is a record { mapKey = x, mapValue = y }.
@@ -68,32 +74,32 @@ object Yaml {
               else {
                 val valids                 = content.map { case Right(x) => x }
                 val output: Seq[YamlLines] = valids.map {
-                  case YamlLines(Seq())          => YamlLines(Seq())
-                  case YamlLines(Seq(firstLine)) => YamlLines(Seq("- " + firstLine))
+                  case YamlLines(t, Seq())          => YamlLines(t, Seq())
+                  case YamlLines(_, Seq(firstLine)) => YamlLines(YArray, Seq("- " + firstLine))
                   // If the value of the list item is a multiline YAML, we will skip the first line if it is empty.
-                  case YamlLines(lines)          =>
+                  case YamlLines(_, lines)          =>
                     val content = if (lines.head.isEmpty) lines.tail else lines
-                    YamlLines(("- " + content.head) +: content.tail.map(l => yamlIndent(indent) + l))
+                    YamlLines(YArray, ("- " + content.head) +: content.tail.map(l => yamlIndent(indent) + l))
                 }
-                Right(YamlLines(output.flatMap(_.lines)))
+                Right(YamlLines(YArray, output.flatMap(_.lines)))
               }
             }
 
           case ExpressionScheme.TextLiteral(List(), trailing) =>
             if (trailing.contains("\n")) {
               val lines = trailing.split("\n").toSeq
-              Right(YamlLines(Seq("", "|") ++ lines))
-            } else Right(YamlLines(Seq(stringEscapeForYaml(trailing, expr))))
+              Right(YamlLines(YPrimitive, Seq("", "|") ++ lines))
+            } else Right(YamlLines(YPrimitive, Seq(stringEscapeForYaml(trailing, expr))))
 
           case ExpressionScheme.NaturalLiteral(_) | ExpressionScheme.DoubleLiteral(_) =>
-            Right(YamlLines(Seq(expr.print)))
+            Right(YamlLines(YPrimitive, Seq(expr.print)))
 
           case ExpressionScheme.ExprConstant(SyntaxConstants.Constant.True) | ExpressionScheme.ExprConstant(SyntaxConstants.Constant.False) =>
-            Right(YamlLines(Seq(expr.print.toLowerCase)))
+            Right(YamlLines(YPrimitive, Seq(expr.print.toLowerCase)))
 
           case ExpressionScheme.KeywordSome(expression: Expression) => toYamlLines(expression, indent)
 
-          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(Seq()))
+          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(YPrimitive, Seq()))
 
           case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print} of type ${tpe.print}")
         }
