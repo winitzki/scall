@@ -2,10 +2,11 @@ package io.chymyst.dhall
 
 import fastparse.Parsed
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
+import io.chymyst.dhall.Yaml.YamlOptions
+import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
 
 import java.io.{FileInputStream, FileOutputStream, InputStream, OutputStream}
 import java.nio.file.{Path, Paths}
-import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
 
 object Main {
 
@@ -20,7 +21,7 @@ object Main {
     case object GetHash extends OutputMode
   }
 
-  def process(path: Path, input: InputStream, output: OutputStream, outputMode: OutputMode): Unit = {
+  def process(path: Path, input: InputStream, output: OutputStream, outputMode: OutputMode, options: YamlOptions): Unit = {
     outputMode match {
       case OutputMode.Decode =>
         // TODO streamline those APIs
@@ -40,7 +41,7 @@ object Main {
                       case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
                   case OutputMode.Yaml    =>
-                    (Yaml.toYaml(dhallFile.copy(value = expr)) match {
+                    (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")
@@ -73,13 +74,21 @@ object Main {
     case _              => OutputMode.Dhall
   }
 
+  val defaultIndent = 2
+
   // $COVERAGE-OFF$
   @main // This method will be called by `ParserForMethods.runOrExist()` automatically.
   def `dhall.jar`(
-    @arg(short = 'f', doc = "Path to the input Dhall file")
+    @arg(short = 'f', doc = "Path to the input Dhall file (default: stdin)")
     file: Option[String],
-    @arg(short = 'o', doc = "Path to the output file")
+    @arg(short = 'o', doc = "Path to the output file (default: stdout)")
     output: Option[String],
+    @arg(short = 'q', doc = "Quote all strings (for Yaml output only; default is false)")
+    quoted: Flag,
+    @arg(short = 'd', doc = "Create a Yaml file with document separators (for Yaml output only; default is false)")
+    documents: Flag,
+    @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
+    indent: Option[Int],
     @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
     command: Leftover[String],
   ): Unit = {
@@ -93,7 +102,13 @@ object Main {
       case Some(outputFile) => new FileOutputStream(outputFile)
       case None             => System.out
     }
-    process(inputPath, inputStream, outputStream, parseArgs(command.value.toArray))
+    process(
+      inputPath,
+      inputStream,
+      outputStream,
+      parseArgs(command.value.toArray),
+      YamlOptions(quoteAllStrings = quoted.value, createDocuments = documents.value, indent = indent.getOrElse(defaultIndent)),
+    )
   }
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
   // $COVERAGE-ON$

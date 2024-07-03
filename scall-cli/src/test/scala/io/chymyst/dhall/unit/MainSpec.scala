@@ -3,6 +3,7 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import io.chymyst.dhall.Main.OutputMode
 import io.chymyst.dhall.Main
+import io.chymyst.dhall.Yaml.YamlOptions
 import io.chymyst.test.{ManyFixtures, ResourceFiles, TestTimings}
 import munit.FunSuite
 
@@ -30,7 +31,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
     val testOut = new ByteArrayOutputStream()
     val testIn  = new ByteArrayInputStream(input)
     try {
-      Main.process(Paths.get("."), testIn, testOut, Main.parseArgs(Array(outputMode)))
+      Main.process(Paths.get("."), testIn, testOut, Main.parseArgs(Array(outputMode)), YamlOptions())
     } finally {
       testOut.close()
       testIn.close()
@@ -174,20 +175,23 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   test("yaml corner cases from dhall-haskell/yaml") {
     val parentPath = resourceAsFile("yaml-corner-cases").get.toPath.getParent
     val results    = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+      val needToQuote     = file.getName == "quoted.dhall"
+      val createDocuments = file.getName matches ".*-document.*"
+      val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
       // val relativePathForTest                 = parentPath.relativize(file.toPath)
-      val testOut      = new ByteArrayOutputStream
+      val testOut         = new ByteArrayOutputStream
       try {
-        Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml)
+        Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml, options)
       } finally {
         testOut.close()
       }
-      val resultYaml   = new String(testOut.toByteArray)
-      val expectedYaml = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
+      val resultYaml      = new String(testOut.toByteArray)
+      val expectedYaml    = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
       if (resultYaml != expectedYaml) println(s"DEBUG failure in $file, resultYaml=$resultYaml")
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(totalTests = 11, results, allowFailures = 4)
+    requireSuccessAtLeast(totalTests = 10, results, allowFailures = 0)
   }
 
   test("parse command-line argument") {

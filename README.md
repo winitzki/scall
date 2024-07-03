@@ -103,18 +103,18 @@ val factorial: BigInt => BigInt = """
 assert(factorial(BigInt(10)) == BigInt(3628800))
 ```
 
-## Goals of the project
+## Goals of this project
 
 1. Fully implement the syntax and semantics of Dhall. All standard tests from
    the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. (This is done.)
-2. Implement JSON and YAML export.
+2. Implement JSON and YAML export. (In progress.)
 2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall
    types (both at run time and at compile time if possible). Most Dhall integrations only support a small subset of
    Dhall, but Scala has a rich type system. We would like to support Scala function types, Scala type constructors,
    higher-kinded types, and other Scala features as much as possible.
 3. Implement tools for converting Dhall values into compiled Scala code (JAR format). JAR dependencies should be a
    transparent replacement of the standard Dhall imports, as far as Scala is concerned.
-4. Optimize Dhall execution further. At the moment, all results of typechecking and beta-normalization are cached. For more optimization, perhaps rewrite the interpreter use HOAS, PHOAS, Normalization-By-Evaluation. Compute different parts of a record in parallel. Perform typechecking and beta normalization of different subexpressions in parallel. Make sure caching is thread-safe.
+4. Optimize Dhall execution further. At the moment, all intermediate results of typechecking and beta-normalization are cached. For more optimization, perhaps rewrite the interpreter use HOAS, PHOAS, or Normalization-By-Evaluation. Compute different parts of a record in parallel. Perform typechecking and beta normalization of different subexpressions in parallel. Make sure caching is thread-safe.
 
 ## Current status
 
@@ -126,9 +126,9 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
       using [fastparse](https://github.com/com-lihaoyi/fastparse), closely
       following [the syntax guidelines](https://github.com/dhall-lang/dhall-lang/blob/master/standard/syntax.md).
 
-    - [x] A serializer and deserializer for CBOR format is implemented using one of the two
+    - [x] A serializer and deserializer for CBOR format is implemented. User may choose one of the two CBOR
       libraries: [cbor-java](https://github.com/c-rack/cbor-java)
-      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). The latter library is 2x faster.
+      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). The latter library is 2x faster. Both libraries work correctly.
 
     - [x] Alpha-normalization is implemented according
       to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
@@ -146,9 +146,11 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
     - [x] All the [Dhall acceptance tests](https://github.com/dhall-lang/dhall-lang/tree/master/tests) pass: parsing,
       CBOR encoding and decoding, alpha-normalization, beta-normalization, type-checking, and imports.
 
-- [x] GitHub Actions are used to test with JDK 8, 11, 17 and Scala 2.13.11.
+- [x] Supporting Scala 2.13 only, for now.
 
-- [ ] Converting Dhall values to Scala values: in progress.
+- [x] GitHub Actions are used to test with JDK 8, 17, 22.
+
+- [x] Converting Dhall values to Scala values: basic support is complete.
 
 ### Experimental features and optimizations
 
@@ -174,9 +176,9 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] Print Dhall values using the standard Dhall syntax.
 
-- [x] Export Dhall values to Yaml for most of the relevant types (numbers, strings, Booleans, lists, records). Limited to a single Yaml document.
+- [x] Export Dhall values to Yaml for most of the relevant types (numbers, strings, Booleans, lists, records).
 
-## Roadmap for future developments
+## Ideas for future developments
 
 1. Implement automatic type inference for certain solvable cases. Omit type annotations from lambdas and omit
    parentheses: `\x -> x + 1` should be sufficient for simple cases. Omit the type argument from curried functions if
@@ -196,14 +198,14 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 8. Extend Dhall on the Scala side (with no changes to the Dhall language definition) so that certain Dhall types or
    values may be interpreted via custom Scala code.
 9. Avoid beta-normalizing under lambda when that would increase the size of a Dhall function body. This is needed to
-   operate efficiently on literal arguments (function body should not be fully rbeta-normalized until applied to a
+   operate efficiently on literal arguments (function body should not be fully beta-normalized until applied to a
    literal argument).
 10. Detect Dhall functions that will ignore some (curried) arguments when given certain values of literal arguments, and
-    implement laziness to make code more efficient. Detect fixpoints of Dhall functions under fold, and stop the
+    implement laziness to make code more efficient. With that, detect fixpoints of Dhall functions under `List/fold` and stop the
     iteration early.
 11. Implement some elementary functions for Natural more efficiently (probably no need to change Dhall language), such
     as gcd, div_mod, int_sqrt.
-12. Implement numerical functions for rational numbers (instead of floating-point).
+12. Implement numerical functions for rational numbers and for floating-point numbers.
 13. Implement higher-kinded types, heterogeneous lists, dependently-typed lists, etc., if possible.
 14. `assert` should be more powerful. Enable comparing types, enable associative simplification, product and co-product rewriting.
 
@@ -228,11 +230,59 @@ So far, there are some issues with the Unicode characters:
   the parser. As a workaround, at the moment, Unicode character `65533` is not allowed in Dhall files and will be
   rejected at parsing time.
 
+- Deeply nested expressions cause stack overflow.
 
-# Building
+# Building a command-line utility
 
-To build a standalone `dhall` executable JAR: `bash make_jar.sh`
+To build a standalone `dhall` executable: `bash make_jar.sh`
+
+This creates the file `./dhall.jar`.
 
 To test the executable: `bash test_jar.sh`
 
 The test script should print "Tests successful." at the end. If it does not print that, some tests failed.
+
+## Using the command-line utility
+
+```bash
+$ java -jar ./dhall.jar --help
+dhall.jar
+  -f --file <str>    Path to the input Dhall file (default: stdin)
+  -q --quoted        Quote all strings (for Yaml output only; default is false)
+  -d --documents     Create a Yaml file with document separators (for Yaml output only; default is
+                     false)
+  -i --indent <int>  Indentation depth for JSON and Yaml (default: 2)
+  -o --output <str>  Path to the output file (default: stdout)
+  command <str>...   Optional command: decode, encode, hash, text, type, yaml
+```
+
+Examples: 
+
+Compute the Dhall normal form of a Dhall expression from a given file.
+```bash
+$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall
+{ True = [1.23, 4.56], a = 2, b = None Bool, c = Some "abc", y = True }
+```
+
+Compute the type of a Dhall expression.
+```bash
+$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall type
+{ True : List Double, a : Natural, b : Optional Bool, c : Optional Text, y : Bool }
+```
+
+Export a Dhall expression to Yaml format.
+```bash
+$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall yaml
+'True':
+  - 1.23
+  - 4.56
+a: 2
+c: abc
+'y': true
+```
+
+Compute the SHA256 hash of a Dhall expression.
+```bash
+$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall hash
+sha256:e06ccdb4df3721dba87291eb49754c87955462d73df626e5e4c77de3af06e87f
+```
