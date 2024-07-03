@@ -19,7 +19,8 @@ object Yaml {
   final case class YamlLines(ltype: LineType, lines: Seq[String])
 
   // This function should ignore options.createDocuments because it is used recursively for sub-document Yaml values.
-  private def toYamlLines(expr: Expression, options: YamlOptions): Either[String, YamlLines] =
+  private def toYamlLines(expr: Expression, options: YamlOptions): Either[String, YamlLines] = {
+    val format = if (options.jsonFormat) "JSON" else "Yaml"
     expr.inferType match {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
       case TypecheckResult.Valid(tpe)      =>
@@ -110,9 +111,10 @@ object Yaml {
           case ExpressionScheme.Application(Expression(ExpressionScheme.Field(Expression(ExpressionScheme.UnionType(_)), FieldName(_))), expr) =>
             toYamlLines(expr, options)
 
-          case _ => Left(s"Error: Unsupported expression type for Yaml export: ${expr.print} of type ${tpe.print}")
+          case _ => Left(s"Error: Unsupported expression type for $format export: ${expr.print} of type ${tpe.print}")
         }
     }
+  }
 
   private val yamlSpecialNames = Set("y", "n", "yes", "no", "on", "off", "true", "false", "null", "~")
 
