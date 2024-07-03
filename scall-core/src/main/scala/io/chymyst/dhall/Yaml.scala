@@ -8,7 +8,7 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
 object Yaml {
   def yamlIndent(indent: Int) = " " * indent
 
-  final case class YamlOptions(quoteAllStrings: Boolean = false, indent: Int = 2)
+  final case class YamlOptions(quoteAllStrings: Boolean = false, indent: Int = 2, createDocuments: Boolean = false)
 
   sealed trait LineType
 
@@ -18,6 +18,7 @@ object Yaml {
 
   final case class YamlLines(ltype: LineType, lines: Seq[String])
 
+  // This function should ignore options.createDocuments because it is used recursively for sub-document Yaml values.
   private def toYamlLines(expr: Expression, options: YamlOptions): Either[String, YamlLines] =
     expr.inferType match {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
@@ -135,7 +136,20 @@ object Yaml {
   }
 
   def toYaml(dhallFile: DhallFile, options: YamlOptions): Either[String, String] = {
-    toYamlLines(dhallFile.value, options).map(_.lines.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
+    val yamlLines = (options.createDocuments, dhallFile.value.scheme) match {
+      case (true, ExpressionScheme.NonEmptyList(exprs)) =>
+        val results = exprs.map { e => toYamlLines(e, options.copy(createDocuments = false)) }
+        val errors  = results.collect { case Left(x) => x }
+        if (errors.isEmpty) {
+          val valids = results.collect { case Right(x) => x }
+          Right(YamlLines(YArray, valids.flatMap { v => "---" +: v.lines }))
+        } else Left(errors.mkString("; "))
+
+      case _ =>
+        val documentPrefix: Seq[String] = if (options.createDocuments) Seq("---") else Seq()
+        toYamlLines(dhallFile.value, options.copy(createDocuments = false)).map(y => y.copy(lines = documentPrefix ++ y.lines))
+    }
+    yamlLines.map(_.lines.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
   }
 
 }
