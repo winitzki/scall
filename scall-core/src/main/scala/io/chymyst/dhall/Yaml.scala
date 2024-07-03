@@ -33,7 +33,7 @@ object Yaml {
         }
 
         expr.scheme match {
-          case ExpressionScheme.RecordLiteral(Seq()) => Right(YamlLines(YRecord, Seq("{}")))
+          case ExpressionScheme.RecordLiteral(Seq()) => Right(YamlLines(YPrimitive, Seq("{}")))
 
           case ExpressionScheme.RecordLiteral(defs) =>
             val content: Seq[Either[String, (String, YamlLines)]] = defs.map { case (FieldName(name), e: Expression) =>
@@ -57,7 +57,7 @@ object Yaml {
             }
           case ExpressionScheme.EmptyList(_)        =>
             val emptyListOrRecord = if (isRecordMap) "{}" else "[]"
-            Right(YamlLines(if (isRecordMap) YArray else YRecord, Seq(emptyListOrRecord)))
+            Right(YamlLines(YPrimitive, Seq(emptyListOrRecord)))
 
           case ExpressionScheme.NonEmptyList(exprs) =>
             if (isRecordMap) { // Each expression in the list is a record { mapKey = x, mapValue = y }.

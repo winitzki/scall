@@ -154,6 +154,26 @@ class YamlTest extends FunSuite {
     )
   }
 
+  test("yaml output for record of length-0 records") {
+    val result = Yaml.toYaml("{a.b = {=} }".dhall, options).merge
+    expect(
+      result ==
+        """a:
+          |  b: {}
+          |""".stripMargin
+    )
+  }
+
+  test("yaml output for record of length-0 lists") {
+    val result = Yaml.toYaml("{a.b = [] : List Bool }".dhall, options).merge
+    expect(
+      result ==
+        """a:
+          |  b: []
+          |""".stripMargin
+    )
+  }
+
   test("yaml should fail if expression does not typecheck") {
     val result = Yaml.toYaml("1 + True".dhall, options)
     expect(
