@@ -108,4 +108,36 @@ class YamlTest extends FunSuite {
     )
   }
 
+  test("yaml output for record of lists of strings") {
+    val result = Yaml.toYaml("{a = [\" - c\",\"d\",\"e\"]}".dhall, 2).merge
+    expect(
+      result ==
+        """a:
+          |  - " - c"
+          |  - d
+          |  - e
+          |""".stripMargin
+    )
+  }
+
+  test("yaml output for record of length-1 lists of strings") {
+    val result = Yaml.toYaml("{a = [\"e\"]}".dhall, 2).merge
+    expect(
+      result ==
+        """a:
+          |  - e
+          |""".stripMargin
+    )
+  }
+
+  test("yaml output for record of length-1 records of strings") {
+    val result = Yaml.toYaml("{a.b =\"e\" }".dhall, 2).merge
+    expect(
+      result ==
+        """a:
+          |  b: e
+          |""".stripMargin
+    )
+  }
+
 }
