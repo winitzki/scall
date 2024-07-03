@@ -74,15 +74,21 @@ object Main {
     case _              => OutputMode.Dhall
   }
 
+  val defaultIndent = 2
+
   // $COVERAGE-OFF$
   @main // This method will be called by `ParserForMethods.runOrExist()` automatically.
   def `dhall.jar`(
-    @arg(short = 'f', doc = "Path to the input Dhall file")
+    @arg(short = 'f', doc = "Path to the input Dhall file (default: stdin)")
     file: Option[String],
-    @arg(short = 'q', doc = "Path to the input Dhall file")
-    quote: Flag,
-    @arg(short = 'o', doc = "Path to the output file")
+    @arg(short = 'o', doc = "Path to the output file (default: stdout)")
     output: Option[String],
+    @arg(short = 'q', doc = "Quote all strings (for Yaml output only; default is false)")
+    quoted: Flag,
+    @arg(short = 'd', doc = "Create a Yaml file with document separators (for Yaml output only; default is false)")
+    documents: Flag,
+    @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
+    indent: Option[Int],
     @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
     command: Leftover[String],
   ): Unit = {
@@ -96,7 +102,13 @@ object Main {
       case Some(outputFile) => new FileOutputStream(outputFile)
       case None             => System.out
     }
-    process(inputPath, inputStream, outputStream, parseArgs(command.value.toArray), YamlOptions(quoteAllStrings = quote.value))
+    process(
+      inputPath,
+      inputStream,
+      outputStream,
+      parseArgs(command.value.toArray),
+      YamlOptions(quoteAllStrings = quoted.value, createDocuments = documents.value, indent = indent.getOrElse(defaultIndent)),
+    )
   }
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
   // $COVERAGE-ON$
