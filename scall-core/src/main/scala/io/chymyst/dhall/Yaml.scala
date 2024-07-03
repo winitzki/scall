@@ -103,7 +103,7 @@ object Yaml {
     if (yamlSpecialNames contains str.toLowerCase) "'" + str + "'"
     else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) "'" + str + "'"
     else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) "'" + str + "'"
-    else if (str.matches("^.*[-\":{}$\\[\\]\\\\*&#?|<>!%@].*$"))
+    else if (str.matches("^(.*[\":{}$\\[\\]\\\\*&#?|<>!%@]|[^A-Za-z0-9_]*-).*$")) // Quote the string if it contains a bare "-" but not if "-" is preceded by an alphanum symbol.
       CString(
         str
       ).toString // \0, \x01, \x02, \x03, \x04, \x05, \x06, \a, \b, \t, \n, \v, \f, \r, \x0e, \x0f, \x10, \x11, \x12, \x13, \x14, \x15, \x16, \x17, \x18, \x19, \x1a, \e, \x1c, \x1d, \x1e, \x1f, \N, \_, \L, \P

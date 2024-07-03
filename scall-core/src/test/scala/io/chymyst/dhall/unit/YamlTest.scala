@@ -64,7 +64,7 @@ class YamlTest extends FunSuite {
     val result2 = Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge
     expect(
       result2 ==
-        """a: "a-b"
+        """a: a-b
         |""".stripMargin
     )
     val result3 = Yaml.toYaml("""{a = "\"abc\""}""".dhall, 2).merge
@@ -100,10 +100,10 @@ class YamlTest extends FunSuite {
   }
 
   test("yaml output for strings with special characters") {
-    val result = Yaml.toYaml("{a = \"a-b\"}".dhall, 2).merge
+    val result = Yaml.toYaml("{a = \"a-b: c\"}".dhall, 2).merge
     expect(
       result ==
-        """a: "a-b"
+        """a: "a-b: c"
         |""".stripMargin
     )
   }
