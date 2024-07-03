@@ -46,13 +46,13 @@ object Yaml {
               val valids                 = content.map { case Right(x) => x }
               val output: Seq[YamlLines] = valids.map {
                 case (_, YamlLines(t, Seq()))                      => YamlLines(t, Seq[String]())
-                case (name, YamlLines(YPrimitive, Seq(firstLine))) => YamlLines(YRecord, Seq(escapeYamlName(name, options) + ": " + firstLine))
+                case (name, YamlLines(YPrimitive, Seq(firstLine))) => YamlLines(YRecord, Seq(escapeSpecialName(name, options) + ": " + firstLine))
                 // If the value of the record field is a multiline YAML, we will skip a line unless the first line is empty.
                 case (name, YamlLines(_, lines))                   =>
                   if (lines.head.isEmpty)
-                    YamlLines(YRecord, (escapeYamlName(name, options) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(options.indent) + l))
+                    YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.tail.head) +: lines.tail.tail.map(l => yamlIndent(options.indent) + l))
                   else
-                    YamlLines(YRecord, (escapeYamlName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
+                    YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
               }
               Right(YamlLines(YRecord, output.flatMap(_.lines)))
             }
@@ -119,11 +119,12 @@ object Yaml {
   private val yamlSpecialNames = Set("y", "n", "yes", "no", "on", "off", "true", "false", "null", "~")
 
   private def stringEscapeForYaml(str: String, options: YamlOptions): String = {
-    if (yamlSpecialNames contains str.toLowerCase) "'" + str + "'"
-    else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) "'" + str + "'"
-    else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) "'" + str + "'"
+    val singleQuote = if (options.jsonFormat) "\"" else "'"
+    if (yamlSpecialNames contains str.toLowerCase) singleQuote + str +  singleQuote
+    else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) singleQuote + str + singleQuote
+    else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) singleQuote + str + singleQuote
     else if (
-      options.quoteAllStrings || str.matches("^(.*[\":{}$\\[\\]\\\\*&#?|<>!%@]|[^A-Za-z0-9_]*-).*$")
+      options.quoteAllStrings || options.jsonFormat || str.matches("^(.*[\":{}$\\[\\]\\\\*&#?|<>!%@]|[^A-Za-z0-9_]*-).*$")
     )            // Quote the string with "..." if the string contains a bare "-" but not if "-" is preceded by an alphanum symbol.
       CString(
         str
@@ -131,12 +132,13 @@ object Yaml {
     else str
   }
 
-  private def escapeYamlName(name: String, options: YamlOptions): String = {
-    if (options.quoteAllStrings || (yamlSpecialNames contains name.toLowerCase)) s"'$name'" else name
+  private def escapeSpecialName(name: String, options: YamlOptions): String = {
+    val singleQuote = if (options.jsonFormat) "\"" else "'"
+    if (options.quoteAllStrings || options.jsonFormat || (yamlSpecialNames contains name.toLowerCase)) singleQuote + name + singleQuote else name
   }
 
-  private def commentsToYaml(comments: String): String = {
-    if (comments.isEmpty) "" else comments.split("\n").map(line => line.replaceFirst("^[ \\t]*--", "")).mkString("#", "\n#", "\n")
+  private def commentsToYaml(comments: String, options: YamlOptions): String = {
+    if (comments.isEmpty || options.jsonFormat) "" else comments.split("\n").map(line => line.replaceFirst("^[ \\t]*--", "")).mkString("#", "\n#", "\n")
   }
 
   // It is assumed that `expression` is reduced to its beta-normal form. Unreduced syntax sugar such as `{ a.b = 1 }` will not be accepted.
@@ -158,7 +160,7 @@ object Yaml {
         val documentPrefix: Seq[String] = if (options.createDocuments) Seq("---") else Seq()
         toYamlLines(dhallFile.value, options.copy(createDocuments = false)).map(y => y.copy(lines = documentPrefix ++ y.lines))
     }
-    yamlLines.map(_.lines.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments) + yaml)
+    yamlLines.map(_.lines.mkString("", "\n", "\n")).map(yaml => commentsToYaml(dhallFile.headerComments, options) + yaml)
   }
 
 }
