@@ -153,4 +153,11 @@ class YamlTest extends FunSuite {
           |""".stripMargin
     )
   }
+
+  test("yaml should fail if expression does not typecheck") {
+    val result = Yaml.toYaml("1 + True".dhall, options)
+    expect(
+      result == Left("List(Inferred type Bool differs from the expected type Natural, expression under type inference: True, type inference context = {})")
+    )
+  }
 }
