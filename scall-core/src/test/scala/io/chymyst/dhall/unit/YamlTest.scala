@@ -46,14 +46,15 @@ class YamlTest extends FunSuite {
         |""".stripMargin
     )
   }
+
   test("yaml output for record of lists with indent") {
     expect(Yaml.toYaml("{a = [1, 2, 3], b= [4, 5]}".dhall, options.copy(indent = 4)).merge == """a:
-                                                              |    - 1
-                                                              |    - 2
-                                                              |    - 3
+                                                              |    -   1
+                                                              |    -   2
+                                                              |    -   3
                                                               |b:
-                                                              |    - 4
-                                                              |    - 5
+                                                              |    -   4
+                                                              |    -   5
                                                               |""".stripMargin)
   }
 
@@ -170,6 +171,16 @@ class YamlTest extends FunSuite {
       result ==
         """a:
           |  b: []
+          |""".stripMargin
+    )
+  }
+
+  test("yaml output for record of length-0 lists with invalid indent override") {
+    val result = Yaml.toYaml("{a.b = [] : List Bool }".dhall, options.copy(indent = 0)).merge
+    expect(
+      result ==
+        """a:
+          | b: []
           |""".stripMargin
     )
   }
