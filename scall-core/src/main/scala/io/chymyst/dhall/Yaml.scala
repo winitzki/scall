@@ -163,14 +163,16 @@ object Yaml {
                 else {
                   val valids                 = content.map { case Right(x) => x }
                   val output: Seq[YamlLines] = valids.map {
-                    case (_, YamlLines(t, Seq()))                          => YamlLines(t, Seq[String]()) // null values are omitted.
-                    case (name, YamlLines(YPrimitive, lines))              =>
+                    case (_, YamlLines(t, Seq())) => YamlLines(t, Seq[String]()) // null values are omitted.
+
+                    case (name, YamlLines(YPrimitive, lines)) =>
                       YamlLines(
                         YRecord,
                         Seq(escapeSpecialName(name, options) + ":" + yamlIndent(math.max(1, options.indent - 1)) + lines.head) ++ lines.tail.map(l =>
                           yamlIndent(options.indent) + l
                         ),
                       )
+
                     case (name, YamlLines(_, lines)) if options.jsonFormat =>
                       YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.head) +: lines.tail)
 
@@ -215,12 +217,12 @@ object Yaml {
                 val delimiter              = if (options.jsonFormat) "" else "-" + yamlIndent(math.max(1, options.indent - 1))
                 val valids                 = content.map { case Right(x) => x }
                 val output: Seq[YamlLines] = valids.map {
-                  case YamlLines(YNull, Seq()) => YamlLines(YNull, Seq(delimiter + "null")) // empty values are represented by `null`.
-                  case YamlLines(t, Seq())     => YamlLines(t, Seq())                       // empty values are omitted.
-                  // If the value of a list item is a multiline YAML, we will skip the first line if it is empty.
-                  case YamlLines(_, lines)     =>
-                    YamlLines(YArray, (delimiter + lines.head) +: lines.tail.map(l => yamlIndent(options.indent) + l))
+                  case YamlLines(YNull, Seq()) => YamlLines(YNull, Seq(delimiter + "null")) // null empty values are represented by `null`.
+                  case YamlLines(t, Seq())     => YamlLines(t, Seq())                       // other empty values are omitted.
+                  case y @ YamlLines(_, lines) =>
+                    if (options.jsonFormat) y else y.copy(lines = (delimiter + lines.head) +: lines.tail.map(l => yamlIndent(options.indent) + l))
                 }
+
                 if (options.jsonFormat) {
                   val (jsonBeginList, jsonEndList) = if (options.jsonFormat) (Seq("["), Seq("]")) else (Seq(), Seq())
                   if (output.isEmpty) Right(YamlLines(YArray, Seq("[]")))

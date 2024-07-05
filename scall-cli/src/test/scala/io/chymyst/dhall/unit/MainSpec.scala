@@ -110,7 +110,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultJson == expectedJson))
     }
 
-    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 4)
+    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 0)
   }
 
   test("yaml main test cases") {
