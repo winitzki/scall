@@ -159,6 +159,9 @@ object Yaml {
                         yamlIndent(options.indent) + l
                       ),
                     )
+                  case (name, YamlLines(_, lines)) if options.jsonFormat =>
+                    YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.head) +: lines.tail)
+
                   case (name, YamlLines(_, lines)) =>
                     YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
                 }
@@ -259,7 +262,7 @@ object Yaml {
       else if (str.matches("^[+-]?([0-9]+|\\.inf|nan|[0-9]*\\.[0-9]*)$")) singleQuote + str + singleQuote
       else if (str.matches("^([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9]:[0-9][0-9]:[0-9][0-9])$")) singleQuote + str + singleQuote
       else if (
-        options.quoteAllStrings || str.matches("^(.*[\":{}$\\[\\]\\\\*&#?|<>!%@]|[^A-Za-z0-9_]*-).*$")
+        options.quoteAllStrings || str.matches("^(.*[\":{}$\\[\\]\\\\*&#?|<>!%]|[^A-Za-z0-9_]*-).*$")
       )            // Quote the string with "..." if the string contains a bare "-" but not if "-" is preceded by an alphanum symbol.
         CString(
           str
