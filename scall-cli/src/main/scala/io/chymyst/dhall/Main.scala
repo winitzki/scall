@@ -15,6 +15,7 @@ object Main {
     case object Dhall   extends OutputMode
     case object Text    extends OutputMode
     case object Yaml    extends OutputMode
+    case object Json    extends OutputMode
     case object Decode  extends OutputMode
     case object Encode  extends OutputMode
     case object GetType extends OutputMode
@@ -34,22 +35,22 @@ object Main {
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
                 outputMode match {
-                  case OutputMode.Dhall   => (expr.print + "\n").getBytes("UTF-8")
-                  case OutputMode.Text    =>
+                  case OutputMode.Dhall                  => (expr.print + "\n").getBytes("UTF-8")
+                  case OutputMode.Text                   =>
                     (expr.scheme match {
                       case ExpressionScheme.TextLiteral(List(), trailing) => trailing + "\n"
                       case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
-                  case OutputMode.Yaml    =>
+                  case OutputMode.Yaml | OutputMode.Json =>
                     (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")
-                  case OutputMode.Encode  =>
+                  case OutputMode.Encode                 =>
                     expr.toCBORmodel.encodeCbor2
-                  case OutputMode.GetType =>
+                  case OutputMode.GetType                =>
                     (tpe.print + "\n").getBytes("UTF-8")
-                  case OutputMode.GetHash =>
+                  case OutputMode.GetHash                =>
                     ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
                 }
 
@@ -67,6 +68,7 @@ object Main {
   def parseArgs(args: Array[String]): OutputMode = args.lastOption match {
     case Some("text")   => OutputMode.Text
     case Some("yaml")   => OutputMode.Yaml
+    case Some("json")   => OutputMode.Json
     case Some("decode") => OutputMode.Decode
     case Some("encode") => OutputMode.Encode
     case Some("type")   => OutputMode.GetType
@@ -77,8 +79,8 @@ object Main {
   val defaultIndent = 2
 
   // $COVERAGE-OFF$
-  @main // This method will be called by `ParserForMethods.runOrExist()` automatically.
-  def `dhall.jar`(
+  @main                                         // This method will be called by `ParserForMethods.runOrExist()` automatically.
+  def `java -jar dhall.jar --flags... command`( // The name `dhall.jar` will be printed at the top of the help text.
     @arg(short = 'f', doc = "Path to the input Dhall file (default: stdin)")
     file: Option[String],
     @arg(short = 'o', doc = "Path to the output file (default: stdout)")
@@ -89,7 +91,7 @@ object Main {
     documents: Flag,
     @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
     indent: Option[Int],
-    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
+    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml, json")
     command: Leftover[String],
   ): Unit = {
     val (inputPath, inputStream) = file match {
@@ -102,12 +104,18 @@ object Main {
       case Some(outputFile) => new FileOutputStream(outputFile)
       case None             => System.out
     }
+    val outputMode               = parseArgs(command.value.toArray)
     process(
       inputPath,
       inputStream,
       outputStream,
-      parseArgs(command.value.toArray),
-      YamlOptions(quoteAllStrings = quoted.value, createDocuments = documents.value, indent = indent.getOrElse(defaultIndent)),
+      outputMode,
+      YamlOptions(
+        quoteAllStrings = quoted.value,
+        createDocuments = documents.value,
+        indent = indent.getOrElse(defaultIndent),
+        jsonFormat = outputMode == OutputMode.Json,
+      ),
     )
   }
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)

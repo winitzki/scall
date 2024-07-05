@@ -87,98 +87,57 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("fail to export yaml if Dhall expression contains unsupported types") {
-    expect(runMain("{ a = 12:00:00, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: 12:00:00 of type Time\n")
+    expect(runMain("{ a = Natural, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: Natural of type Type\n")
     expect(
       runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x of type ∀(x : Bool) → Bool\n"
     )
     expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type of type Kind\n")
   }
 
-  test("yaml output for lists of numbers") {
-    expect(
-      runMain("[1, 2, 3]", "yaml") ==
-        """- 1
-        |- 2
-        |- 3
-        |""".stripMargin
-    )
+  test("json main test cases") {
+    val results = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
+      val createDocuments = file.getName matches ".*-document.*"
+      val options         = YamlOptions(createDocuments = createDocuments)
+      val testOut         = new ByteArrayOutputStream
+      try {
+        Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Json, options.copy(jsonFormat = true))
+      } finally {
+        testOut.close()
+      }
+      val resultJson      = new String(testOut.toByteArray)
+      val expectedJson    = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".json"))))
+      if (resultJson != expectedJson) println(s"DEBUG failure in $file, resultJson=$resultJson")
+      Try(expect(resultJson == expectedJson))
+    }
+
+    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 0)
   }
 
-  test("yaml output for records of numbers") {
-    expect(
-      runMain("{ a = 1, b = 2, c = 3 }", "yaml") ==
-        """a: 1
-        |b: 2
-        |c: 3
-        |""".stripMargin
-    )
-  }
-
-  test("yaml output for lists of lists of numbers") {
-    expect(
-      runMain("[[1, 2, 3], [4, 5]]", "yaml") ==
-        """- - 1
-        |  - 2
-        |  - 3
-        |- - 4
-        |  - 5
-        |""".stripMargin
-    )
-  }
-
-  test("yaml output for record of lists") {
-    expect(runMain("{a = [1, 2, 3], b= [4, 5]}", "yaml") == """a:
-                                    |  - 1
-                                    |  - 2
-                                    |  - 3
-                                    |b:
-                                    |  - 4
-                                    |  - 5
-                                    |""".stripMargin)
-  }
-
-  test("yaml output for list of records, including None") {
-    val result = runMain("[Some {a = 1, b = 2}, None { a : Natural, b : Natural },  Some {a = 3, b = 4}]", "yaml")
-    expect(result == """- a: 1
-                                                                    |  b: 2
-                                                                    |- a: 3
-                                                                    |  b: 4
-                                                                    |""".stripMargin)
-  }
-
-  test("yaml output for record of records") {
-    expect(runMain("{x = {a = 1, b = 2}, y = {c = 3, d = 4}}", "yaml") == """x:
-                                                                            |  a: 1
-                                                                            |  b: 2
-                                                                            |'y':
-                                                                            |  c: 3
-                                                                            |  d: 4
-                                                                            |""".stripMargin)
-  }
-
-  test("yaml for optional values") {
-    expect(runMain("{x = Some {a = 1, b = Some 2, c = None Natural}, z = None Bool, y = {c = Some 3, d = 4}}", "yaml") == """x:
-                                                                            |  a: 1
-                                                                            |  b: 2
-                                                                            |'y':
-                                                                            |  c: 3
-                                                                            |  d: 4
-                                                                            |""".stripMargin)
-  }
-
-  test("yaml for map-typed values") {
-    expect(runMain("[{mapKey=\"a\",mapValue=123},{mapKey=\"b\",mapValue=456}]", "yaml") == """a: 123
-                                                                                             |b: 456
-                                                                                             |""".stripMargin)
-  }
-
-  test("yaml corner cases from dhall-haskell/yaml") {
-    val parentPath = resourceAsFile("yaml-corner-cases").get.toPath.getParent
-    val results    = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+  test("yaml main test cases") {
+    val results = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
       val needToQuote     = file.getName == "quoted.dhall"
       val createDocuments = file.getName matches ".*-document.*"
       val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
-      // val relativePathForTest                 = parentPath.relativize(file.toPath)
+      val testOut         = new ByteArrayOutputStream
+      try {
+        Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml, options)
+      } finally {
+        testOut.close()
+      }
+      val resultYaml      = new String(testOut.toByteArray)
+      val expectedYaml    = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
+      if (resultYaml != expectedYaml) println(s"DEBUG failure in $file, resultYaml=$resultYaml")
+      Try(expect(resultYaml == expectedYaml))
+    }
+
+    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 0)
+  }
+
+  test("yaml corner cases from dhall-haskell/yaml") {
+    val results = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+      val needToQuote     = file.getName == "quoted.dhall"
+      val createDocuments = file.getName matches ".*-document.*"
+      val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
       val testOut         = new ByteArrayOutputStream
       try {
         Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml, options)
