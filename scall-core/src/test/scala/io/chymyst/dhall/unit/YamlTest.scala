@@ -16,8 +16,8 @@ class YamlTest extends FunSuite {
     expect(
       result ==
         """# comment
-        |a: 'True'
-        |""".stripMargin
+          |a: 'True'
+          |""".stripMargin
     )
   }
 
@@ -27,10 +27,10 @@ class YamlTest extends FunSuite {
     expect(
       result ==
         """# comment
-        |#
-        |#  comment
-        |a: 'True'
-        |""".stripMargin
+          |#
+          |#  comment
+          |a: 'True'
+          |""".stripMargin
     )
   }
 
@@ -40,22 +40,25 @@ class YamlTest extends FunSuite {
     expect(
       result ==
         """# comment
-        |# comment
-        |#{- abc -}
-        |a: 'True'
-        |""".stripMargin
+          |# comment
+          |#{- abc -}
+          |a: 'True'
+          |""".stripMargin
     )
   }
 
   test("yaml output for record of lists with indent 4") {
-    expect(Yaml.toYaml("{a = [1, 2, 3], b= [4, 5]}".dhall, options.copy(indent = 4)).merge == """a:
-                                                              |    -   1
-                                                              |    -   2
-                                                              |    -   3
-                                                              |b:
-                                                              |    -   4
-                                                              |    -   5
-                                                              |""".stripMargin)
+    expect(
+      Yaml.toYaml("{a = [1, 2, 3], b= [4, 5]}".dhall, options.copy(indent = 4)).merge ==
+        """a:
+        |    -   1
+        |    -   2
+        |    -   3
+        |b:
+        |    -   4
+        |    -   5
+        |""".stripMargin
+    )
   }
 
   test("yaml output for strings with special characters") {
@@ -63,19 +66,44 @@ class YamlTest extends FunSuite {
     expect(
       result1 ==
         """a: "-"
-        |""".stripMargin
+          |""".stripMargin
     )
     val result2 = Yaml.toYaml("{a = \"a-b\"}".dhall, options).merge
     expect(
       result2 ==
         """a: a-b
-        |""".stripMargin
+          |""".stripMargin
     )
     val result3 = Yaml.toYaml("""{a = "\"abc\""}""".dhall, options).merge
     expect(
       result3 ==
         """a: "\"abc\""
+          |""".stripMargin
+    )
+  }
+
+  test("json output with longer indentation") {
+    expect(
+      Yaml.toYaml("{a = [1, 2, 3], b=True,c= [[4], [5]]}".dhall, options.copy(indent = 4, jsonFormat = true)).merge
+        ==
+          """{
+        |    "a":   [
+        |        1,
+        |        2,
+        |        3
+        |    ],
+        |    "b":   true,
+        |    "c":   [
+        |        [
+        |            4
+        |        ],
+        |        [
+        |            5
+        |        ]
+        |    ]
+        |}
         |""".stripMargin
     )
   }
+
 }

@@ -79,8 +79,8 @@ object Main {
   val defaultIndent = 2
 
   // $COVERAGE-OFF$
-  @main // This method will be called by `ParserForMethods.runOrExist()` automatically.
-  def `dhall.jar`(
+  @main                                         // This method will be called by `ParserForMethods.runOrExist()` automatically.
+  def `java -jar dhall.jar --flags... command`( // The name `dhall.jar` will be printed at the top of the help text.
     @arg(short = 'f', doc = "Path to the input Dhall file (default: stdin)")
     file: Option[String],
     @arg(short = 'o', doc = "Path to the output file (default: stdout)")

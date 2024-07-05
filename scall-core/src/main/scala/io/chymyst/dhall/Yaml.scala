@@ -174,7 +174,7 @@ object Yaml {
                       )
 
                     case (name, YamlLines(_, lines)) if options.jsonFormat =>
-                      YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.head) +: lines.tail)
+                      YamlLines(YRecord, (escapeSpecialName(name, options) + ":" + yamlIndent(math.max(1, options.indent - 1)) + lines.head) +: lines.tail)
 
                     case (name, YamlLines(_, lines)) =>
                       YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
