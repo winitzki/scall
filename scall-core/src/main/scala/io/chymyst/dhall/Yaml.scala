@@ -139,9 +139,9 @@ object Yaml {
                   YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
               }
               if (options.jsonFormat) {
-                val (jsonBeginRecord, jsonEndRecord) = if (options.jsonFormat) (Seq("{"), Seq("}")) else (Seq(), Seq())
                 if (output.isEmpty) Right(YamlLines(YRecord, Seq("{}")))
                 else {
+                  val (jsonBeginRecord, jsonEndRecord) =   (Seq("{"), Seq("}"))
                   val init = output.init.flatMap(y => if (y.lines.isEmpty) y.lines else y.lines.init :+ (y.lines.last + ","))
                   val last = output.last.lines
                   Right(YamlLines(YRecord, jsonBeginRecord ++ (init ++ last).map(l => yamlIndent(options.indent) + l) ++ jsonEndRecord))
@@ -169,15 +169,16 @@ object Yaml {
               val errors  = content.collect { case Left(e) => e }
               if (errors.nonEmpty) Left(errors.mkString("; "))
               else {
-                val delimiter              = if (options.jsonFormat) "" else "-"
+                val delimiter              = if (options.jsonFormat) "" else "-"+ yamlIndent(math.max(1, options.indent - 1))
                 val valids                 = content.map { case Right(x) => x }
                 val output: Seq[YamlLines] = valids.map {
-                  case YamlLines(t, Seq()) => YamlLines(t, Seq()) // null values are omitted.
+                  case YamlLines(YNull, Seq()) => YamlLines(YNull, Seq(delimiter  + "null")) // empty values are represented by `null`.
+                  case YamlLines(t, Seq()) => YamlLines(t, Seq()) // empty values are omitted.
                   // If the value of a list item is a multiline YAML, we will skip the first line if it is empty.
                   case YamlLines(_, lines) =>
                     YamlLines(
                       YArray,
-                      (delimiter + yamlIndent(math.max(1, options.indent - 1)) + lines.head) +: lines.tail.map(l => yamlIndent(options.indent) + l),
+                      (delimiter   + lines.head) +: lines.tail.map(l => yamlIndent(options.indent) + l),
                     )
                 }
                 if (options.jsonFormat) {
