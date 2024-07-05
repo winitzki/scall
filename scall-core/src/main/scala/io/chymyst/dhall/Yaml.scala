@@ -100,7 +100,7 @@ object Yaml {
   final case class YamlLines(ltype: LineType, lines: Seq[String])
 
   sealed trait RecordIsDate
-  case object RecordIsDateTime extends RecordIsDate
+  case object RecordIsDateTime         extends RecordIsDate
   case object RecordIsDateTimeWithZone extends RecordIsDate
 
   // This function should ignore options.createDocuments because it is used recursively for sub-document Yaml values.
@@ -110,7 +110,7 @@ object Yaml {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
       case TypecheckResult.Valid(tpe)      =>
         // Check if it has type List { mapKey : Text, mapValue : _ }.
-        lazy val isRecordMap = tpe.scheme match {
+        lazy val isRecordMap                           = tpe.scheme match {
           case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.List)), Expression(ExpressionScheme.RecordType(defs))) =>
             val fieldMap: Map[FieldName, Expression] = defs.toMap
             fieldMap.keySet == Set(FieldName("mapKey"), FieldName("mapValue")) && fieldMap(FieldName("mapKey")) == Expression(ExprBuiltin(Builtin.Text))
@@ -121,9 +121,16 @@ object Yaml {
         lazy val timestampRecord: Option[RecordIsDate] = tpe.scheme match {
           case ExpressionScheme.RecordType(defs) =>
             val fieldMap: Map[FieldName, Expression] = defs.toMap
-            val isDateTime = fieldMap.keySet == Set(FieldName("date"), FieldName("time")) && fieldMap(FieldName("date")) == Expression(ExprBuiltin(Builtin.Date))&& fieldMap(FieldName("time")) == Expression(ExprBuiltin(Builtin.Time))
-            val isDateTimeWithZone = fieldMap.keySet == Set(FieldName("date"), FieldName("time"), FieldName("timeZone")) && fieldMap(FieldName("date")) == Expression(ExprBuiltin(Builtin.Date))&& fieldMap(FieldName("time")) == Expression(ExprBuiltin(Builtin.Time))&& fieldMap(FieldName("timeZone")) == Expression(ExprBuiltin(Builtin.TimeZone))
-            if (isDateTime) Some(RecordIsDateTime) else if  (isDateTimeWithZone) Some(RecordIsDateTimeWithZone) else None
+            val isDateTime                           =
+              fieldMap.keySet == Set(FieldName("date"), FieldName("time")) && fieldMap(FieldName("date")) == Expression(ExprBuiltin(Builtin.Date)) && fieldMap(
+                FieldName("time")
+              ) == Expression(ExprBuiltin(Builtin.Time))
+            val isDateTimeWithZone                   = fieldMap.keySet == Set(FieldName("date"), FieldName("time"), FieldName("timeZone")) && fieldMap(
+              FieldName("date")
+            ) == Expression(ExprBuiltin(Builtin.Date)) && fieldMap(FieldName("time")) == Expression(ExprBuiltin(Builtin.Time)) && fieldMap(
+              FieldName("timeZone")
+            ) == Expression(ExprBuiltin(Builtin.TimeZone))
+            if (isDateTime) Some(RecordIsDateTime) else if (isDateTimeWithZone) Some(RecordIsDateTimeWithZone) else None
 
           case _ => None
         }
@@ -136,45 +143,53 @@ object Yaml {
           case ExpressionScheme.RecordLiteral(defs) =>
             lazy val fieldMap = defs.toMap
             timestampRecord match {
-              case Some(RecordIsDateTime) =>
-                Right(YamlLines(YPrimitive,Seq("\"" + fieldMap(FieldName("date")).print + "T" + fieldMap(FieldName("time")).print + "\"")))
+              case Some(RecordIsDateTime)         =>
+                Right(YamlLines(YPrimitive, Seq("\"" + fieldMap(FieldName("date")).print + "T" + fieldMap(FieldName("time")).print + "\"")))
               case Some(RecordIsDateTimeWithZone) =>
-                Right(YamlLines(YPrimitive,Seq("\"" + fieldMap(FieldName("date")).print + "T" + fieldMap(FieldName("time")).print + fieldMap(FieldName("timeZone")).print+ "\"")))
+                Right(
+                  YamlLines(
+                    YPrimitive,
+                    Seq("\"" + fieldMap(FieldName("date")).print + "T" + fieldMap(FieldName("time")).print + fieldMap(FieldName("timeZone")).print + "\""),
+                  )
+                )
 
-                  case None =>
-              val content: Seq[Either[String, (String, YamlLines)]] = defs.map { case (FieldName(name), e: Expression) =>
-                toYamlLines(e, options).map(lines => (name, lines))
-              }
-
-              val errors = content.collect { case Left(e) => e }
-              if (errors.nonEmpty) Left(errors.mkString("; "))
-              else {
-                val valids = content.map { case Right(x) => x }
-                val output: Seq[YamlLines] = valids.map {
-                  case (_, YamlLines(t, Seq())) => YamlLines(t, Seq[String]()) // null values are omitted.
-                  case (name, YamlLines(YPrimitive, lines)) =>
-                    YamlLines(
-                      YRecord,
-                      Seq(escapeSpecialName(name, options) + ":" + yamlIndent(math.max(1, options.indent - 1)) + lines.head) ++ lines.tail.map(l =>
-                        yamlIndent(options.indent) + l
-                      ),
-                    )
-                  case (name, YamlLines(_, lines)) if options.jsonFormat =>
-                    YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.head) +: lines.tail)
-
-                  case (name, YamlLines(_, lines)) =>
-                    YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
+              case None => // Not a timestamp record.
+                val content: Seq[Either[String, (String, YamlLines)]] = defs.map { case (FieldName(name), e: Expression) =>
+                  toYamlLines(e, options).map(lines => (name, lines))
                 }
-                if (options.jsonFormat) {
-                  if (output.isEmpty) Right(YamlLines(YRecord, Seq("{}")))
-                  else {
-                    val (jsonBeginRecord, jsonEndRecord) = (Seq("{"), Seq("}"))
-                    val init = output.init.flatMap(y => if (y.lines.isEmpty) y.lines else y.lines.init :+ (y.lines.last + ","))
-                    val last = output.last.lines
-                    Right(YamlLines(YRecord, jsonBeginRecord ++ (init ++ last).map(l => yamlIndent(options.indent) + l) ++ jsonEndRecord))
+
+                val errors = content.collect { case Left(e) => e }
+                if (errors.nonEmpty) Left(errors.mkString("; "))
+                else {
+                  val valids                 = content.map { case Right(x) => x }
+                  val output: Seq[YamlLines] = valids.map {
+                    case (_, YamlLines(t, Seq()))                          => YamlLines(t, Seq[String]()) // null values are omitted.
+                    case (name, YamlLines(YPrimitive, lines))              =>
+                      YamlLines(
+                        YRecord,
+                        Seq(escapeSpecialName(name, options) + ":" + yamlIndent(math.max(1, options.indent - 1)) + lines.head) ++ lines.tail.map(l =>
+                          yamlIndent(options.indent) + l
+                        ),
+                      )
+                    case (name, YamlLines(_, lines)) if options.jsonFormat =>
+                      YamlLines(YRecord, (escapeSpecialName(name, options) + ": " + lines.head) +: lines.tail)
+
+                    case (name, YamlLines(_, lines)) =>
+                      YamlLines(YRecord, (escapeSpecialName(name, options) + ":") +: lines.map(l => yamlIndent(options.indent) + l))
                   }
-                } else Right(YamlLines(YRecord, output.flatMap(_.lines)))
-              }
+                  if (options.jsonFormat) {
+                    if (output.isEmpty) Right(YamlLines(YRecord, Seq("{}")))
+                    else {
+                      val outputWithoutOmittedLines = output.filter(
+                        _.lines.nonEmpty
+                      ) // We should remove those lines right away, or else there will be commas inserted before removed lines, which will make an invalid final comma appear in JSON.
+                      val (jsonBeginRecord, jsonEndRecord) = (Seq("{"), Seq("}"))
+                      val init                             = outputWithoutOmittedLines.init.flatMap(y => if (y.lines.isEmpty) y.lines else y.lines.init :+ (y.lines.last + ","))
+                      val last                             = outputWithoutOmittedLines.last.lines
+                      Right(YamlLines(YRecord, jsonBeginRecord ++ (init ++ last).map(l => yamlIndent(options.indent) + l) ++ jsonEndRecord))
+                    }
+                  } else Right(YamlLines(YRecord, output.flatMap(_.lines)))
+                }
             }
 
           case ExpressionScheme.EmptyList(_) =>

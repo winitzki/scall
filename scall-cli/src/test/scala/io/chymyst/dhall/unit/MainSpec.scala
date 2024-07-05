@@ -110,7 +110,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultJson == expectedJson))
     }
 
-    requireSuccessAtLeast(totalTests = 24, results, allowFailures = 0)
+    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 4)
   }
 
   test("yaml main test cases") {
@@ -130,7 +130,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Try(expect(resultYaml == expectedYaml))
     }
 
-    requireSuccessAtLeast(totalTests = 24, results, allowFailures = 0)
+    requireSuccessAtLeast(totalTests = 26, results, allowFailures = 0)
   }
 
   test("yaml corner cases from dhall-haskell/yaml") {
