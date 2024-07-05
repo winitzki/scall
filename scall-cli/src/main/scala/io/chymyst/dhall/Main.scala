@@ -35,22 +35,22 @@ object Main {
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
                 outputMode match {
-                  case OutputMode.Dhall   => (expr.print + "\n").getBytes("UTF-8")
-                  case OutputMode.Text    =>
+                  case OutputMode.Dhall                  => (expr.print + "\n").getBytes("UTF-8")
+                  case OutputMode.Text                   =>
                     (expr.scheme match {
                       case ExpressionScheme.TextLiteral(List(), trailing) => trailing + "\n"
                       case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
-                  case OutputMode.Yaml | OutputMode.Json   =>
+                  case OutputMode.Yaml | OutputMode.Json =>
                     (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")
-                  case OutputMode.Encode  =>
+                  case OutputMode.Encode                 =>
                     expr.toCBORmodel.encodeCbor2
-                  case OutputMode.GetType =>
+                  case OutputMode.GetType                =>
                     (tpe.print + "\n").getBytes("UTF-8")
-                  case OutputMode.GetHash =>
+                  case OutputMode.GetHash                =>
                     ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
                 }
 
@@ -104,7 +104,7 @@ object Main {
       case Some(outputFile) => new FileOutputStream(outputFile)
       case None             => System.out
     }
-    val outputMode = parseArgs(command.value.toArray)
+    val outputMode               = parseArgs(command.value.toArray)
     process(
       inputPath,
       inputStream,

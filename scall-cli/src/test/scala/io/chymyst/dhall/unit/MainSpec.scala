@@ -95,7 +95,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("json main test cases") {
-    val results    = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
+    val results = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
       val createDocuments = file.getName matches ".*-document.*"
       val options         = YamlOptions(createDocuments = createDocuments)
       val testOut         = new ByteArrayOutputStream
@@ -114,7 +114,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("yaml main test cases") {
-    val results    = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
+    val results = enumerateResourceFiles("yaml-main-cases", Some(".dhall")).map { file =>
       val needToQuote     = file.getName == "quoted.dhall"
       val createDocuments = file.getName matches ".*-document.*"
       val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
@@ -134,7 +134,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("yaml corner cases from dhall-haskell/yaml") {
-    val results    = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
+    val results = enumerateResourceFiles("yaml-corner-cases", Some(".dhall")).map { file =>
       val needToQuote     = file.getName == "quoted.dhall"
       val createDocuments = file.getName matches ".*-document.*"
       val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
