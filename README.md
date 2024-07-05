@@ -264,7 +264,7 @@ $ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall
 { True = [1.23, 4.56], a = 2, b = None Bool, c = Some "abc", y = True }
 ```
 
-Compute the type of a Dhall expression.
+Print the inferred type of a Dhall expression.
 ```bash
 $ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall type
 { True : List Double, a : Natural, b : Optional Bool, c : Optional Text, y : Bool }
@@ -276,7 +276,7 @@ $ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall 
 sha256:e06ccdb4df3721dba87291eb49754c87955462d73df626e5e4c77de3af06e87f
 ```
 
-Export a Dhall expression to Yaml format.
+Export a Dhall expression to Yaml format. Default indentation is 2 spaces.
 ```bash
 $ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall yaml
 'True':
@@ -288,17 +288,17 @@ c: abc
 ```
 
 
-Export a Dhall expression to JSON format.
+Export a Dhall expression to JSON format, with 4 spaces of indentation.
 ```bash
-$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall --indent 3 json
+$ java -jar ./dhall.jar --file ./scall-cli/src/test/resources/jar-tests/3.dhall --indent 4 json
 {
-   "True":  [
-      1.23,
-      4.56
-   ],
-   "a":  2,
-   "c":  "abc",
-   "y":  true
+    "True":   [
+        1.23,
+        4.56
+    ],
+    "a":   2,
+    "c":   "abc",
+    "y":   true
 }
 ```
 
