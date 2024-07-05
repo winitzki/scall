@@ -35,7 +35,7 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
   *     - Empty lists are translated into the Yaml line `[]` except if the empty list has a map type.
   *     - Empty lists of map type `{ mapKey : Text, mapValue : ... }` are translated into the Yaml line `{}`.
   *     - For non-empty lists, each list element is translated into zero or more Yaml lines.
-  *     - If a list element is translated into an empty Yaml, that list element is omitted.
+  *     - If a list element is translated into an empty Yaml, that list element is set to null.
   *     - If a list element is a single Yaml line, it is formatted after the dash:
   *
   * {{{
@@ -63,7 +63,7 @@ import io.chymyst.dhall.SyntaxConstants.{Builtin, FieldName}
   * }}}
   *   - If the field's name is a reserved word, or if the "quote all" option is given, the field's name is put in single quotes.
   *
-  * Reserved words are "true", "false", "null", "~", "yes", "no", "y", "n", "on", "off".
+  * Reserved words are "true", "false", "null", "~", "e", "yes", "no", "y", "n", "on", "off".
   *
   *   - If a field's value is a multi-line string (which is a Yaml primitive type), the beginning separator is formatted after the field's name:
   *
@@ -95,6 +95,7 @@ object Yaml {
   case object YRecord    extends LineType
   case object YArray     extends LineType
   case object YPrimitive extends LineType
+  case object YNull extends LineType
 
   final case class YamlLines(ltype: LineType, lines: Seq[String])
 
@@ -143,7 +144,7 @@ object Yaml {
                 else {
                   val init = output.init.flatMap(y => if (y.lines.isEmpty) y.lines else y.lines.init :+ (y.lines.last + ","))
                   val last = output.last.lines
-                  Right(YamlLines(YRecord, jsonBeginRecord ++ init ++ last ++ jsonEndRecord))
+                  Right(YamlLines(YRecord, jsonBeginRecord ++ (init ++ last).map(l => yamlIndent(options.indent) + l) ++ jsonEndRecord))
                 }
               } else Right(YamlLines(YRecord, output.flatMap(_.lines)))
             }
@@ -185,7 +186,7 @@ object Yaml {
                   else {
                     val init = output.init.flatMap(y => if (y.lines.isEmpty) y.lines else y.lines.init :+ (y.lines.last + ","))
                     val last = output.last.lines
-                    Right(YamlLines(YArray, jsonBeginList ++ init ++ last ++ jsonEndList))
+                    Right(YamlLines(YArray, jsonBeginList ++ (init ++ last).map(l => yamlIndent(options.indent) + l) ++ jsonEndList))
                   }
                 } else Right(YamlLines(YArray, output.flatMap(_.lines)))
               }
@@ -205,7 +206,7 @@ object Yaml {
 
           case ExpressionScheme.KeywordSome(expression: Expression) => toYamlLines(expression, options)
 
-          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(YPrimitive, Seq()))
+          case ExpressionScheme.Application(Expression(ExprBuiltin(Builtin.None)), _) => Right(YamlLines(YNull, Seq()))
 
           case ExpressionScheme.Field(Expression(ExpressionScheme.UnionType(_)), FieldName(name)) =>
             Right(YamlLines(YPrimitive, Seq(stringEscapeForYaml(name, options))))
@@ -218,7 +219,7 @@ object Yaml {
     }
   }
 
-  private val yamlReservedWords = Set("y", "n", "yes", "no", "on", "off", "true", "false", "null", "~")
+  private val yamlReservedWords = Set("y", "n", "e", "yes", "no", "on", "off", "true", "false", "null", "~")
 
   private def stringEscapeForYaml(str: String, options: YamlOptions): String = {
     if (options.jsonFormat) CString(str).toString

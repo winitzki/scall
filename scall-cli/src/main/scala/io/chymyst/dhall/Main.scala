@@ -15,6 +15,7 @@ object Main {
     case object Dhall   extends OutputMode
     case object Text    extends OutputMode
     case object Yaml    extends OutputMode
+    case object Json    extends OutputMode
     case object Decode  extends OutputMode
     case object Encode  extends OutputMode
     case object GetType extends OutputMode
@@ -40,7 +41,7 @@ object Main {
                       case ExpressionScheme.TextLiteral(List(), trailing) => trailing + "\n"
                       case s                                              => s"Error: Dhall expression should have type Text but is instead: $s\n"
                     }).getBytes("UTF-8")
-                  case OutputMode.Yaml    =>
+                  case OutputMode.Yaml | OutputMode.Json   =>
                     (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
@@ -67,6 +68,7 @@ object Main {
   def parseArgs(args: Array[String]): OutputMode = args.lastOption match {
     case Some("text")   => OutputMode.Text
     case Some("yaml")   => OutputMode.Yaml
+    case Some("json")   => OutputMode.Json
     case Some("decode") => OutputMode.Decode
     case Some("encode") => OutputMode.Encode
     case Some("type")   => OutputMode.GetType
@@ -89,7 +91,7 @@ object Main {
     documents: Flag,
     @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
     indent: Option[Int],
-    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml")
+    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml, json")
     command: Leftover[String],
   ): Unit = {
     val (inputPath, inputStream) = file match {
@@ -102,12 +104,18 @@ object Main {
       case Some(outputFile) => new FileOutputStream(outputFile)
       case None             => System.out
     }
+    val outputMode = parseArgs(command.value.toArray)
     process(
       inputPath,
       inputStream,
       outputStream,
-      parseArgs(command.value.toArray),
-      YamlOptions(quoteAllStrings = quoted.value, createDocuments = documents.value, indent = indent.getOrElse(defaultIndent)),
+      outputMode,
+      YamlOptions(
+        quoteAllStrings = quoted.value,
+        createDocuments = documents.value,
+        indent = indent.getOrElse(defaultIndent),
+        jsonFormat = outputMode == OutputMode.Json,
+      ),
     )
   }
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
