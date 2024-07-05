@@ -9,20 +9,26 @@ import munit.FunSuite
 class JsonTest extends FunSuite {
   val options = YamlOptions(jsonFormat = true)
   test("yaml output for record of lists with indent") {
-    expect(Yaml.toYaml("{a = [1, 2, 3], b= [4, 5]}".dhall, options.copy(indent = 4)).merge == """{
-                                                                                                |"a":
-                                                                                                |    [
-                                                                                                |       1,
-                                                                                                |       2,
-                                                                                                |       3
-                                                                                                |    ],
-                                                                                                |"b":
-                                                                                                |    [
-                                                                                                |       4,
-                                                                                                |       5
-                                                                                                |    ]
-                                                                                                |}
-                                                                                                |""".stripMargin)
+    expect(
+      Yaml.toYaml("{a = [1, 2, 3], b= [[4], [5]]}".dhall, options.copy(indent = 4)).merge
+        ==
+          """{
+          |    "a":   [
+          |        1,
+          |        2,
+          |        3
+          |    ],
+          |    "b":   [
+          |        [
+          |            4
+          |        ],
+          |        [
+          |            5
+          |        ]
+          |    ]
+          |}
+          |""".stripMargin
+    )
   }
 
 }
