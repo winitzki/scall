@@ -1,3 +1,4 @@
+
 val scala2V                = "2.13.13"
 val scala212V              = "2.12.19"
 val scala3V                = "3.4.1"
@@ -35,6 +36,22 @@ val kindProjectorPlugin = compilerPlugin(kindProjector)
 
 def scala_reflect(value: String) = "org.scala-lang" % "scala-reflect" % value % Compile
 
+lazy val publishingOptions = Seq(
+  organization               := "io.chymyst",
+  version                    := "0.2.0",
+  licenses := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+  homepage := Some(url("https://github.com/winitzki/scall")),
+  description := "Implementation of the Dhall language in Scala, with Scala language bindings",
+)
+
+lazy val noPublishing = Seq(
+  publishArtifact := false,
+  publishMavenStyle := true,
+  publish := {},
+  publishLocal := {},
+  publish / skip := true
+)
+
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
   val options    = if (jdkVersion exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
@@ -43,10 +60,12 @@ lazy val jdkModuleOptions: Seq[String] = {
 }
 
 lazy val root = (project in file("."))
+  .settings(noPublishing)
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
   .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli)
 
 lazy val scall_core = (project in file("scall-core"))
+  .settings(publishingOptions)
   .settings(
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
@@ -93,7 +112,9 @@ lazy val scall_core = (project in file("scall-core"))
     ),
   ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
 
-lazy val scall_testutils = (project in file("scall-testutils")).settings(
+lazy val scall_testutils = (project in file("scall-testutils"))
+  .settings(publishingOptions)
+  .settings(
   scalaVersion             := scalaV,
   crossScalaVersions       := supportedScalaVersions,
   Test / parallelExecution := true,
@@ -104,6 +125,7 @@ lazy val scall_testutils = (project in file("scall-testutils")).settings(
 )
 
 lazy val dhall_codec = (project in file("dhall-codec"))
+  .settings(publishingOptions)
   .settings(
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
@@ -122,9 +144,8 @@ lazy val dhall_codec = (project in file("dhall-codec"))
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
 lazy val scall_cli = (project in file("scall-cli"))
+  .settings(publishingOptions)
   .settings(
-    organization               := "io.chymyst",
-    version                    := "0.1",
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
@@ -133,7 +154,7 @@ lazy val scall_cli = (project in file("scall-cli"))
     Test / javaOptions ++= jdkModuleOptions,
     libraryDependencies ++= Seq(munitTest, assertVerboseTest, mainargs),
     assembly / mainClass       := Some("io.chymyst.dhall.Main"),
-    assembly / assemblyJarName := "dhall-cli.jar",
+    assembly / assemblyJarName := "dhall.jar",
     assembly / assemblyMergeStrategy ~= (old => {
       case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
       case x                                                             => old(x)
@@ -149,7 +170,9 @@ lazy val abnf = (project in file("abnf")).settings(
   libraryDependencies ++= Seq(fastparse, munitTest, assertVerboseTest),
 )
 
-lazy val scall_macros = (project in file("scall-macros")).settings(
+lazy val scall_macros = (project in file("scall-macros"))
+  .settings(publishingOptions)
+  .settings(
   name                     := "scall-macros",
   scalaVersion             := scalaV,
   crossScalaVersions       := supportedScalaVersions,
@@ -163,7 +186,9 @@ lazy val scall_macros = (project in file("scall-macros")).settings(
     }),
 )
 
-lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
+lazy val scall_typeclasses = (project in file("scall-typeclasses"))
+  .settings(publishingOptions)
+  .settings(
   name                     := "scall-typeclasses",
   scalaVersion             := scalaV,
   crossScalaVersions       := supportedScalaVersions,
@@ -176,3 +201,20 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses")).settings(
       case Some((3, _)) => Seq.empty
     }),
 )
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Publishing to Sonatype Maven repository
+publishMavenStyle := true
+publishTo := sonatypePublishToBundle.value
+/*{
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases" at nexus + "service/local/staging/deploy/maven2")
+}*/
+//
+Test / publishArtifact := false
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////
