@@ -230,7 +230,22 @@ So far, there are some issues with the Unicode characters:
   the parser. As a workaround, at the moment, Unicode character `65533` is not allowed in Dhall files and will be
   rejected at parsing time.
 
-- Deeply nested expressions cause stack overflow.
+- Deeply nested expressions will cause a stack overflow error.
+
+# Release version history
+
+## 0.2.0
+
+- Fixed the regression described in https://github.com/dhall-lang/dhall-haskell/issues/2597
+- Support for Yaml and JSON export
+- Standalone JAR executable `dhall.jar` with command-line options similar to `dhall-haskell`
+- Published to Maven (Scala 2.13 only)
+
+## 0.1 (Not published)
+
+- Full support for Dhall language standard version 23.0.0, submitted corrections to the Dhall standard: https://github.com/dhall-lang/dhall-lang/pull/1362
+- Fixing the bug in CBOR library: https://github.com/peteroupc/CBOR-Java/pull/25 and uptaking CBOR-Java 4.5.3 with the fix.
+- Some extensions (all backward-compatible, with no changes in normal forms)
 
 # Building a command-line utility
 
