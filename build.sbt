@@ -38,21 +38,15 @@ val kindProjectorPlugin = compilerPlugin(kindProjector)
 def scala_reflect(value: String) = "org.scala-lang" % "scala-reflect" % value % Compile
 
 lazy val publishingOptions = Seq(
-  organization               := "io.chymyst",
-  version                    := "0.2.0",
-  licenses := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  homepage := Some(url("https://github.com/winitzki/scall")),
-  description := "Implementation of the Dhall language in Scala, with Scala language bindings",
-  publishTo := sonatypePublishToBundle.value,
+  organization := "io.chymyst",
+  version      := "0.2.0",
+  licenses     := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+  homepage     := Some(url("https://github.com/winitzki/scall")),
+  description  := "Implementation of the Dhall language in Scala, with Scala language bindings",
+  publishTo    := sonatypePublishToBundle.value,
 )
 
-lazy val noPublishing = Seq(
-  publishArtifact := false,
-  publishMavenStyle := true,
-  publish := {},
-  publishLocal := {},
-  publish / skip := true
-)
+lazy val noPublishing = Seq(publishArtifact := false, publishMavenStyle := true, publish := {}, publishLocal := {}, publish / skip := true)
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
@@ -117,14 +111,14 @@ lazy val scall_core = (project in file("scall-core"))
 lazy val scall_testutils = (project in file("scall-testutils"))
   .settings(publishingOptions)
   .settings(
-  scalaVersion             := scalaV,
-  crossScalaVersions       := supportedScalaVersions,
-  Test / parallelExecution := true,
-  Test / fork              := true,
-  testFrameworks += munitFramework,
-  Test / javaOptions ++= jdkModuleOptions,
-  libraryDependencies ++= Seq(munitTest, assertVerboseTest, jnr_posix),
-)
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    Test / fork              := true,
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    libraryDependencies ++= Seq(munitTest, assertVerboseTest, jnr_posix),
+  )
 
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(publishingOptions)
@@ -166,65 +160,57 @@ lazy val scall_cli = (project in file("scall-cli"))
 lazy val abnf = (project in file("abnf"))
   .settings(noPublishing)
   .settings(
-  name                     := "scall-abnf",
-  scalaVersion             := scalaV,
-  crossScalaVersions       := supportedScalaVersions,
-  Test / parallelExecution := true,
-  testFrameworks += munitFramework,
-  libraryDependencies ++= Seq(fastparse, munitTest, assertVerboseTest),
-)
+    name                     := "scall-abnf",
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    testFrameworks += munitFramework,
+    libraryDependencies ++= Seq(fastparse, munitTest, assertVerboseTest),
+  )
 
 lazy val scall_macros = (project in file("scall-macros"))
   .settings(publishingOptions)
   .settings(
-  name                     := "scall-macros",
-  scalaVersion             := scalaV,
-  crossScalaVersions       := supportedScalaVersions,
-  Test / parallelExecution := true,
-  testFrameworks += munitFramework,
-  libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
-  libraryDependencies ++=
-    (CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(scala_reflect(scalaVersion.value), kindProjectorPlugin)
-      case Some((3, _)) => Seq.empty // No need for scala-reflect with Scala 3.
-    }),
-)
+    name                     := "scall-macros",
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    testFrameworks += munitFramework,
+    libraryDependencies ++= Seq(izumi_reflect, munitTest, assertVerboseTest),
+    libraryDependencies ++=
+      (CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq(scala_reflect(scalaVersion.value), kindProjectorPlugin)
+        case Some((3, _)) => Seq.empty // No need for scala-reflect with Scala 3.
+      }),
+  )
 
 lazy val scall_typeclasses = (project in file("scall-typeclasses"))
   .settings(publishingOptions)
   .settings(
-  name                     := "scall-typeclasses",
-  scalaVersion             := scalaV,
-  crossScalaVersions       := supportedScalaVersions,
-  Test / parallelExecution := true,
-  testFrameworks += munitFramework,
-  libraryDependencies ++= Seq(munitTest, assertVerboseTest),
-  libraryDependencies ++=
-    (CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(kindProjectorPlugin)
-      case Some((3, _)) => Seq.empty
-    }),
-)
-
+    name                     := "scall-typeclasses",
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    testFrameworks += munitFramework,
+    libraryDependencies ++= Seq(munitTest, assertVerboseTest),
+    libraryDependencies ++=
+      (CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq(kindProjectorPlugin)
+        case Some((3, _)) => Seq.empty
+      }),
+  )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Publishing to Sonatype Maven repository
-publishMavenStyle := true
-publishTo := sonatypePublishToBundle.value
-sonatypeProfileName := "io.chymyst"
+publishMavenStyle                  := true
+publishTo                          := sonatypePublishToBundle.value
+sonatypeProfileName                := "io.chymyst"
 ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
 
 sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com"))
-homepage := Some(url("https://github.com/winitzki/scall"))
-scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/winitzki/scall"),
-    "scm:git@github.com:winitzki/scall.git"
-  )
-)
-developers := List(
-  Developer(id="winitzki", name="Sergei Winitzki", email="winitzki@gmail.com", url=url("https://sites.google.com/site/winitzki"))
-)
+homepage               := Some(url("https://github.com/winitzki/scall"))
+scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git"))
+developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki")))
 /*{
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
