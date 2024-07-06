@@ -1,3 +1,4 @@
+import xerial.sbt.Sonatype.{GitHubHosting, sonatypeCentralHost}
 
 val scala2V                = "2.13.13"
 val scala212V              = "2.12.19"
@@ -42,6 +43,7 @@ lazy val publishingOptions = Seq(
   licenses := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url("https://github.com/winitzki/scall")),
   description := "Implementation of the Dhall language in Scala, with Scala language bindings",
+  publishTo := sonatypePublishToBundle.value,
 )
 
 lazy val noPublishing = Seq(
@@ -161,7 +163,9 @@ lazy val scall_cli = (project in file("scall-cli"))
     }),
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
-lazy val abnf = (project in file("abnf")).settings(
+lazy val abnf = (project in file("abnf"))
+  .settings(noPublishing)
+  .settings(
   name                     := "scall-abnf",
   scalaVersion             := scalaV,
   crossScalaVersions       := supportedScalaVersions,
@@ -207,6 +211,20 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses"))
 // Publishing to Sonatype Maven repository
 publishMavenStyle := true
 publishTo := sonatypePublishToBundle.value
+sonatypeProfileName := "io.chymyst"
+ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
+
+sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com"))
+homepage := Some(url("https://github.com/winitzki/scall"))
+scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/winitzki/scall"),
+    "scm:git@github.com:winitzki/scall.git"
+  )
+)
+developers := List(
+  Developer(id="winitzki", name="Sergei Winitzki", email="winitzki@gmail.com", url=url("https://sites.google.com/site/winitzki"))
+)
 /*{
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
