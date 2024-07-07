@@ -1,4 +1,11 @@
+import sbt.Keys.{developers, homepage, scmInfo}
+import sbt.url
+import sbtassembly.AssemblyKeys.assembly
 import xerial.sbt.Sonatype.{GitHubHosting, sonatypeCentralHost}
+
+import scala.collection.immutable.List
+
+val thisReleaseVersion = "0.2.0"
 
 val scala2V                = "2.13.13"
 val scala212V              = "2.12.19"
@@ -39,14 +46,19 @@ def scala_reflect(value: String) = "org.scala-lang" % "scala-reflect" % value % 
 
 lazy val publishingOptions = Seq(
   organization := "io.chymyst",
-  version      := "0.2.0",
+  version      := thisReleaseVersion,
+  ThisBuild / version      := thisReleaseVersion,
   licenses     := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage     := Some(url("https://github.com/winitzki/scall")),
   description  := "Implementation of the Dhall language in Scala, with Scala language bindings",
   publishTo    := sonatypePublishToBundle.value,
+  sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com")),
+//    homepage               := Some(url("https://github.com/winitzki/scall")),
+//    scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git")),
+//    developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki"))),
 )
 
-lazy val noPublishing = Seq(publishArtifact := false, publishMavenStyle := true, publish := {}, publishLocal := {}, publish / skip := true)
+lazy val noPublishing = Seq(version      := thisReleaseVersion, publishArtifact := false, publishMavenStyle := true, publish := {}, publishLocal := {}, publish / skip := true)
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
@@ -155,6 +167,11 @@ lazy val scall_cli = (project in file("scall-cli"))
       case PathList("com", "upokecenter", "util", "DataUtilities.class") => MergeStrategy.last
       case x                                                             => old(x)
     }),
+    // Want to publish the application JAR.
+    Compile / assembly / artifact ~= { art: Artifact =>
+      art.withClassifier(Some("assembly"))
+    },
+    addArtifact(Compile / assembly / artifact, assembly),
   ).dependsOn(scall_core, scall_testutils % "test->compile")
 
 lazy val abnf = (project in file("abnf"))
@@ -205,12 +222,8 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses"))
 publishMavenStyle                  := true
 publishTo                          := sonatypePublishToBundle.value
 sonatypeProfileName                := "io.chymyst"
-ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
+//ThisBuild / sonatypeCredentialHost := sonatypeCentralHost  // Not relevant because io.chymyst was created before 2021.
 
-sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com"))
-homepage               := Some(url("https://github.com/winitzki/scall"))
-scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git"))
-developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki")))
 /*{
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
