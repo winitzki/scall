@@ -45,20 +45,21 @@ val kindProjectorPlugin = compilerPlugin(kindProjector)
 def scala_reflect(value: String) = "org.scala-lang" % "scala-reflect" % value % Compile
 
 lazy val publishingOptions = Seq(
-  organization := "io.chymyst",
-  version      := thisReleaseVersion,
-  ThisBuild / version      := thisReleaseVersion,
-  licenses     := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-  homepage     := Some(url("https://github.com/winitzki/scall")),
-  description  := "Implementation of the Dhall language in Scala, with Scala language bindings",
-  publishTo    := sonatypePublishToBundle.value,
+  organization           := "io.chymyst",
+  version                := thisReleaseVersion,
+  ThisBuild / version    := thisReleaseVersion,
+  licenses               := Seq("Apache License, Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+  homepage               := Some(url("https://github.com/winitzki/scall")),
+  description            := "Implementation of the Dhall language in Scala, with Scala language bindings",
+  publishTo              := sonatypePublishToBundle.value,
   sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com")),
 //    homepage               := Some(url("https://github.com/winitzki/scall")),
 //    scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git")),
 //    developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki"))),
 )
 
-lazy val noPublishing = Seq(version      := thisReleaseVersion, publishArtifact := false, publishMavenStyle := true, publish := {}, publishLocal := {}, publish / skip := true)
+lazy val noPublishing =
+  Seq(version := thisReleaseVersion, publishArtifact := false, publishMavenStyle := true, publish := {}, publishLocal := {}, publish / skip := true)
 
 lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
@@ -219,9 +220,9 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses"))
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Publishing to Sonatype Maven repository
-publishMavenStyle                  := true
-publishTo                          := sonatypePublishToBundle.value
-sonatypeProfileName                := "io.chymyst"
+publishMavenStyle   := true
+publishTo           := sonatypePublishToBundle.value
+sonatypeProfileName := "io.chymyst"
 //ThisBuild / sonatypeCredentialHost := sonatypeCentralHost  // Not relevant because io.chymyst was created before 2021.
 
 /*{
