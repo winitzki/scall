@@ -16,6 +16,10 @@
 
 [project-stage-badge: DEPRECATED]: https://img.shields.io/badge/Project%20Stage-%20!%20DEPRECATED%20%20%20!-ff0000.svg
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Github Tag](https://img.shields.io/github/tag/winitzki/scall.svg?label=release&colorB=blue)](https://github.com/winitzki/scall/tags)
+[![Maven Central](https://img.shields.io/maven-central/v/io.chymyst/scall_cli_2.13.svg)](http://search.maven.org/#search%7Cga%7C1%7Cio.chymyst)
+
 # scall - A reference implementation of Dhall in Scala
 
 This project is a Scala implementation of the [Dhall language](https://dhall-lang.org), a purely functional programming
