@@ -113,7 +113,17 @@ lazy val nano_dhall = (project in file("nano-dhall"))
       httpRequest,
       os_lib % Test,
     ),
-  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)
+
+lazy val fastparse_memoize = (project in file("fastparse-memoize"))
+  .settings(publishingOptions)
+  .settings(
+    scalaVersion       := scalaV,
+    crossScalaVersions := supportedScalaVersions,
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    libraryDependencies ++= Seq(fastparse, sourcecode, munitTest, assertVerboseTest),
+  ).dependsOn(scall_testutils % "test->compile")
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(publishingOptions)
@@ -161,7 +171,7 @@ lazy val scall_core = (project in file("scall-core"))
       httpRequest,
       os_lib % Test,
     ),
-  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)
 
 lazy val scall_testutils = (project in file("scall-testutils"))
   .settings(publishingOptions)

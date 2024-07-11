@@ -4,6 +4,7 @@ import fastparse._
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.FieldName
+import io.chymyst.fastparse.Memoize
 
 import java.io.InputStream
 
@@ -17,11 +18,11 @@ object Parser {
     case failure: Parsed.Failure                 => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }
 
-  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhall(source: String): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhall(source: String): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhallStream(source: InputStream): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallStream(source: InputStream): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
   private def localDateTimeZone(dateOption: Option[DateLiteral], timeOption: Option[TimeLiteral], zoneOption: Option[Int]): Expression = {
     val dateR = dateOption.map { date => (FieldName("date"), Expression(date)) }

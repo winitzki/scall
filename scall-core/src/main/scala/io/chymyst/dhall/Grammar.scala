@@ -9,6 +9,7 @@ import io.chymyst.dhall.TypeCheck._Type
 
 import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
+import io.chymyst.fastparse.Memoize.MemoizeParser
 
 object Grammar {
 
@@ -293,7 +294,7 @@ object Grammar {
 
   def double_quote_literal[$: P]: P[TextLiteral[Expression]] = P(
     "\"" ~/ double_quote_chunk.rep ~ "\""
-  ).map(_.map(literalOrInterp => literalOrInterp.map(TextLiteral.ofText).merge).fold(TextLiteral.empty)(_ ++ _))
+  ).map(_.map(literalOrInterp => literalOrInterp.map(TextLiteral.ofText[Expression]).merge).fold(TextLiteral.empty[Expression])(_ ++ _))
 
   def single_quote_continue[$: P]: P[TextLiteral[Expression]] = P(
     (interpolation ~ single_quote_continue).map { case (head, tail) => TextLiteral.ofExpression(head) ++ tail }
@@ -1031,54 +1032,67 @@ object Grammar {
   def equivalent_expression[$: P]: P[Expression] = P(
     import_alt_expression ~ (whsp ~ equivalent ~ whsp ~/ import_alt_expression).rep
   ).withOperator(SyntaxConstants.Operator.Equivalent)
+    .memoize
 
   def import_alt_expression[$: P]: P[Expression] = P(
     or_expression ~ (whsp ~ opAlternative ~ whsp1 ~/ or_expression).rep
   ).withOperator(SyntaxConstants.Operator.Alternative)
+    .memoize
 
   def or_expression[$: P]: P[Expression] = P(
     plus_expression ~ (whsp ~ opOr ~ whsp ~/ plus_expression).rep
   ).withOperator(SyntaxConstants.Operator.Or)
+    .memoize
 
   def plus_expression[$: P]: P[Expression] = P(
     text_append_expression ~ (whsp ~ opPlus ~ whsp1 ~/ text_append_expression).rep
   ).withOperator(SyntaxConstants.Operator.Plus)
+    .memoize
 
   def text_append_expression[$: P]: P[Expression] = P(
     list_append_expression ~ (whsp ~ opTextAppend ~ whsp ~/ list_append_expression).rep
   ).withOperator(SyntaxConstants.Operator.TextAppend)
+    .memoize
 
   def list_append_expression[$: P]: P[Expression] = P(
     and_expression ~ (whsp ~ opListAppend ~ whsp ~/ and_expression).rep
   ).withOperator(SyntaxConstants.Operator.ListAppend)
+    .memoize
 
   def and_expression[$: P]: P[Expression] = P(
     combine_expression ~ (whsp ~ opAnd ~ whsp ~/ combine_expression).rep
   ).withOperator(SyntaxConstants.Operator.And)
+    .memoize
 
   def combine_expression[$: P]: P[Expression] = P(
     prefer_expression ~ (whsp ~ combine ~ whsp ~/ prefer_expression).rep
   ).withOperator(SyntaxConstants.Operator.CombineRecordTerms)
+    .memoize
 
   def prefer_expression[$: P]: P[Expression] = P(
     combine_types_expression ~ (whsp ~ prefer ~ whsp ~/ combine_types_expression).rep
   ).withOperator(SyntaxConstants.Operator.Prefer)
+    .memoize
 
   def combine_types_expression[$: P]: P[Expression] = P(
     times_expression ~ (whsp ~ combine_types ~ whsp ~/ times_expression).rep
   ).withOperator(SyntaxConstants.Operator.CombineRecordTypes)
+    .memoize
 
   def times_expression[$: P]: P[Expression] = P(
     equal_expression ~ (whsp ~ opTimes ~ whsp ~/ equal_expression).rep
   ).withOperator(SyntaxConstants.Operator.Times)
+    .memoize
 
   def equal_expression[$: P]: P[Expression] = P(
     not_equal_expression ~ (whsp ~ opEqual ~ whsp ~ not_equal_expression).rep // Should not cut because == can be confused with ===
   ).withOperator(SyntaxConstants.Operator.Equal)
+    .memoize
 
   def not_equal_expression[$: P]: P[Expression] = P(
     application_expression ~ (whsp ~ opNotEqual ~ whsp ~/ application_expression).rep
   ).withOperator(SyntaxConstants.Operator.NotEqual)
+    .memoize
 
   def application_expression[$: P]: P[Expression] = P(
     first_application_expression ~ (whsp1 ~ import_expression).rep // Do not insert a cut after whsp1 here.
