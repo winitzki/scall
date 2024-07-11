@@ -115,7 +115,6 @@ lazy val nano_dhall = (project in file("nano-dhall"))
     ),
   ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
 
-
 lazy val scall_core = (project in file("scall-core"))
   .settings(publishingOptions)
   .settings(
@@ -263,9 +262,9 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses"))
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Publishing to Sonatype Maven repository
-publishMavenStyle   := true
-publishTo           := sonatypePublishToBundle.value
-sonatypeProfileName := "io.chymyst"
+publishMavenStyle      := true
+publishTo              := sonatypePublishToBundle.value
+sonatypeProfileName    := "io.chymyst"
 //ThisBuild / sonatypeCredentialHost := sonatypeCentralHost  // Not relevant because io.chymyst was created before 2021.
 //
 Test / publishArtifact := false

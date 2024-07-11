@@ -33,8 +33,8 @@ object Main {
       case _ => // In all other modes, we need to evaluate the Dhall file to a normal form.
         val outputBytes = Parser.parseDhallStream(input) match {
           case Parsed.Success(dhallFile: DhallFile, _) =>
-            val resolved = dhallFile.value.resolveImports(path)
-            val valueType = resolved.inferType.map { t =>
+            val resolved            = dhallFile.value.resolveImports(path)
+            val valueType           = resolved.inferType.map { t =>
               val normalForm = resolved.betaNormalized
               (t, normalForm)
             }

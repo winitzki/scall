@@ -10,8 +10,8 @@ trait HashDict[A] {
 }
 
 class LRUHashDict[A](maxSize: Int) extends HashDict[A] {
-  private val valueDict : ConcurrentMap[Int, A] = new ConcurrentHashMap[Int, A]
-  private val keyDict: ConcurrentMap[A, Int] = new ConcurrentHashMap[A, Int]
+  private val valueDict: ConcurrentMap[Int, A] = new ConcurrentHashMap[Int, A]
+  private val keyDict: ConcurrentMap[A, Int]   = new ConcurrentHashMap[A, Int]
 
   override def lookup(key: Int): Option[A] = Option(valueDict.get(key))
 
@@ -23,6 +23,4 @@ class LRUHashDict[A](maxSize: Int) extends HashDict[A] {
   }
 }
 
-object LRUHashDict {
-
-}
+object LRUHashDict {}

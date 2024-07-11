@@ -13,16 +13,11 @@ object Parser {
   }
 
   def parseToExpression(input: String): Expression = parseDhall(input) match {
-    case Parsed.Success(value : DhallFile, index) => value.value
-    case failure: Parsed.Failure      => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
+    case Parsed.Success(value: DhallFile, index) => value.value
+    case failure: Parsed.Failure                 => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }
 
-  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = {
-    val init = System.currentTimeMillis()
-    val result = parse(source, Grammar.complete_dhall_file(_))
-    println(s"DEBUG: parseDhallBytes took ${System.currentTimeMillis() - init} ms")
-    result
-  }
+  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
   def parseDhall(source: String): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
 
