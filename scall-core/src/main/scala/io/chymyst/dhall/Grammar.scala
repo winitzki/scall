@@ -1121,6 +1121,7 @@ object Grammar {
   def import_expression[$: P]: P[Expression] = P(
     import_only | completion_expression
   )
+    .memoize
 
   def completion_expression[$: P]: P[Expression] = P(
     selector_expression ~ (whsp ~ complete ~ whsp ~ selector_expression).?
@@ -1132,6 +1133,7 @@ object Grammar {
   def selector_expression[$: P]: P[Expression] = P(
     primitive_expression ~ (whsp ~ "." ~ whsp ~ /* No cut here, or else (List ./imported.file) cannot be parsed. */ selector).rep
   ).map { case (base, selectors) => selectors.foldLeft(base)((prev, selector) => selector.chooseExpression(prev)) }
+    .memoize
 
   sealed trait ExpressionSelector {
     def chooseExpression(base: Expression): Expression = this match {

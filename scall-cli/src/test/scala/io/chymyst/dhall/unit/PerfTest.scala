@@ -12,20 +12,6 @@ import java.nio.file.{Files, Paths}
 
 class PerfTest extends FunSuite with ResourceFiles with TestTimings {
 
-  test("parse schema.dhall 1") {
-    val file    = resourceAsFile("yaml-perftest/schema.dhall").get
-    val results = (1 to 20).map { i =>
-      val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
-      println(s"iteration $i : schema.dhall parsed in ${elapsed / 1e9} seconds")
-    }
-  }
-
-  test("parse schema.dhall 2") {
-    val file         = resourceAsFile("yaml-perftest/schema.dhall").get
-    val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
-    println(s"schema.dhall parsed in ${elapsed / 1e9} seconds")
-  }
-
   test("create yaml from realistic example 1") {
     val file           = resourceAsFile("yaml-perftest/create_yaml.dhall").get
     val options        = YamlOptions()
@@ -42,6 +28,14 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     val elapsedS       = elapsedNs.toDouble / 1e9
     println(s"Yaml created in $elapsedS seconds")
     expect(resultYaml == expectedYaml)
+  }
+
+  test("parse schema.dhall 20 times") {
+    val file    = resourceAsFile("yaml-perftest/schema.dhall").get
+    val results = (1 to 20).map { i =>
+      val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
+      println(s"iteration $i : schema.dhall parsed in ${elapsed / 1e9} seconds")
+    }
   }
 
   test("parse Prelude/JSON/renderAs.dhall") {
