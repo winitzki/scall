@@ -5,25 +5,26 @@ import fastparse.internal.{Instrument, Msgs}
 
 import scala.collection.mutable
 
+/* See discussion in https://github.com/com-lihaoyi/fastparse/discussions/301 */
+
 final case class PRunData( // Copy all the mutable data from ParsingRun.
-                           terminalMsgs: Msgs,
-                           aggregateMsgs: Msgs,
-                           shortMsg: Msgs,
-                           lastFailureMsg: Msgs,
-                           failureStack: List[(String, Int)],
-                           isSuccess: Boolean,
-                           logDepth: Int,
-                           index: Int,
-                           cut: Boolean,
-                           successValue: Any,
-                           verboseFailures: Boolean,
-                           noDropBuffer: Boolean,
-                           misc: collection.mutable.Map[Any, Any],
-                         ) {
+  terminalMsgs: Msgs,
+  aggregateMsgs: Msgs,
+  shortMsg: Msgs,
+  lastFailureMsg: Msgs,
+  failureStack: List[(String, Int)],
+  isSuccess: Boolean,
+  logDepth: Int,
+  index: Int,
+  cut: Boolean,
+  successValue: Any,
+  verboseFailures: Boolean,
+  noDropBuffer: Boolean,
+  misc: collection.mutable.Map[Any, Any],
+) {
   override def toString: String = {
     s"ParsingRun(index=$index, isSuccess = $isSuccess, successValue = $successValue)"
   }
-
 
 }
 
@@ -62,6 +63,7 @@ object Memoize {
     data.misc.foreach { case (k, v) => pr.misc.put(k, v) }
     pr
   }
+
   private def cacheGrammar[R](cache: mutable.Map[Int, PRunData], parser: => P[_])(implicit p: P[_]): P[R] = {
     // The `parser` has not yet been run! And it is mutable. Do not run it twice!
     val cachedData: PRunData = cache.getOrElseUpdate(p.index, PRunData.ofParsingRun(parser))
@@ -72,12 +74,12 @@ object Memoize {
 
   private val cache = new mutable.HashMap[(sourcecode.File, sourcecode.Line), mutable.Map[Int, PRunData]]
 
-  private def getOrCreateCache(file : sourcecode.File, line: sourcecode.Line): mutable.Map[Int, PRunData] = {
+  private def getOrCreateCache(file: sourcecode.File, line: sourcecode.Line): mutable.Map[Int, PRunData] = {
     cache.getOrElseUpdate((file, line), new mutable.HashMap[Int, PRunData])
   }
 
   implicit class MemoizeParser[A](parser: => P[A]) {
-    def memoize(implicit file : sourcecode.File, line: sourcecode.Line, p: P[_]): P[A] = {
+    def memoize(implicit file: sourcecode.File, line: sourcecode.Line, p: P[_]): P[A] = {
       val cache: mutable.Map[Int, PRunData] = getOrCreateCache(file, line)
       cacheGrammar(cache, parser)
     }
@@ -85,44 +87,30 @@ object Memoize {
 
   def clearAll(): Unit = cache.values.foreach(_.clear())
 
-  def statistics: String = cache.map {case ((file, line), c) => s"$file#$line: ${c.size} entries"}.mkString("\n")
+  def statistics: String = cache.map { case ((file, line), c) => s"$file#$line: ${c.size} entries" }.mkString("\n")
 
-  def parse[T](input: ParserInputSource,
-             parser: P[_] => P[T],
-             verboseFailures: Boolean = false,
-             startIndex: Int = 0,
-             instrument: Instrument = null): Parsed[T] = {
+  def parse[T](
+    input: ParserInputSource,
+    parser: P[_] => P[T],
+    verboseFailures: Boolean = false,
+    startIndex: Int = 0,
+    instrument: Instrument = null,
+  ): Parsed[T] = {
     clearAll()
     fastparse.parse(input, parser, verboseFailures, startIndex, instrument)
   }
 
-  def parseInputRaw[T](input: ParserInput,
-                       parser: P[_] => P[T],
-                       verboseFailures: Boolean = false,
-                       startIndex: Int = 0,
-                       traceIndex: Int = -1,
-                       instrument: Instrument = null,
-                       enableLogging: Boolean = true): ParsingRun[T]  = {
+  def parseInputRaw[T](
+    input: ParserInput,
+    parser: P[_] => P[T],
+    verboseFailures: Boolean = false,
+    startIndex: Int = 0,
+    traceIndex: Int = -1,
+    instrument: Instrument = null,
+    enableLogging: Boolean = true,
+  ): ParsingRun[T] = {
     clearAll()
     fastparse.parseInputRaw(input, parser, verboseFailures, startIndex, traceIndex, instrument, enableLogging)
   }
 
 }
-
-/* See discussion in https://github.com/com-lihaoyi/fastparse/discussions/301
-
-//... other rules of the grammar as above. The changes are only for `x_times` and `x_other`:
-    def x_times[$: P]: P[R]                       = P(x_other_cached ~ ("*" ~ x_other_cached).rep).map { case (i, is) => i * is.product }
-    def x_other[$: P]: P[R]                       = P(number | ("(" ~ expr ~ ")"))
-    def x_other_cached[$](implicit p: P[$]): P[R] = cachedParser(cache_other, x_other)
-
-// Need a separate cache for every memoized parser.
-val cache_other = mutable.Map[Int, PRunData]()
-
-// Need to do cache_other.clear() between different calls to parse an expression.
-val n = 500
-cache_other.clear()
-assert(parse("(" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == 1)
-cache_other.clear()
-assert(parse("1+" + "(1+" * (n - 1) + "1" + ")" * (n - 1), program(_)).get.value == n + 1)
- */

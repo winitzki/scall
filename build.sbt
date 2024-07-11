@@ -67,15 +67,16 @@ lazy val jdkModuleOptions: Seq[String] = {
 lazy val root = (project in file("."))
   .settings(noPublishing)
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli, nano_dhall)
+  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli, nano_dhall, fastparse_memoize)
 
-lazy val nano_dhall = (project in file("nano-dhall"))
+lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
   .settings(noPublishing)
   .settings(
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
     Test / fork              := true,
+    coverageEnabled          := false,
     scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
     testFrameworks += munitFramework,
     Test / javaOptions ++= jdkModuleOptions,
