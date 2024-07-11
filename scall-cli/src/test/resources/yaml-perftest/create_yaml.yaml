@@ -1,13 +1,10 @@
 # nonk8s
-# Schema: https://raw.githubusercontent.com/OpenS/OpenS/main/schemas/v1/openS.schema.json
 apiVersion: v1
 kind: k
 metadata:
   displayName: 0 name1
   labels:
     alert_enabled: false
-    authors:
-      - sergei.winitzki
     item_type: type1
     qwerty_type: type1
     version: 0.0.0

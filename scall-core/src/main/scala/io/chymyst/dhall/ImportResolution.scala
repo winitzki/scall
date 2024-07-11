@@ -17,7 +17,9 @@ import io.chymyst.tc.Applicative
 
 import java.nio.file
 import java.nio.file.{Files, Paths}
+import java.time.LocalDateTime
 import scala.util.{Failure, Success, Try}
+import sourcecode.{File => SourceFile, Line => SourceLine}
 
 object ImportResolution {
 
@@ -395,7 +397,8 @@ object ImportResolution {
                 bytes    <- Try(Files.readAllBytes(javaPath))
               } yield bytes) match {
                 case Failure(exception) => Left(TransientFailure(Seq(s"Failed to read imported file: $exception")))
-                case Success(bytes)     => Right(bytes)
+                case Success(bytes)     =>
+                  Right(bytes)
               }
 
             case ImportType.Env(envVarName) =>
@@ -416,7 +419,7 @@ object ImportResolution {
             _                <- cyclicImportCheck
             _                <- referentialCheck
             readByImportMode <- resolveByImportMode
-            bytes            <- missingOrData
+            bytes            <- missingOrData // This is slow.
             expr             <- Right(readByImportMode(bytes))
             successfullyRead <- expr match {
                                   case Resolved(x) => Right(x)

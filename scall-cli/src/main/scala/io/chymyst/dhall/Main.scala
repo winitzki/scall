@@ -7,6 +7,8 @@ import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
 
 import java.io.{FileInputStream, FileOutputStream, InputStream, OutputStream}
 import java.nio.file.{Path, Paths}
+import java.time.LocalDateTime
+import sourcecode.{File => SourceFile, Line => SourceLine}
 
 object Main {
 
@@ -27,11 +29,15 @@ object Main {
       case OutputMode.Decode =>
         // TODO streamline those APIs
         output.write((Expression(CBORmodel.decodeCbor2(CBOR.java8ReadInputStreamToByteArray(input)).toScheme).print + "\n").getBytes("UTF-8"))
-      case _                 =>
+
+      case _ => // In all other modes, we need to evaluate the Dhall file to a normal form.
         val outputBytes = Parser.parseDhallStream(input) match {
           case Parsed.Success(dhallFile: DhallFile, _) =>
-            val resolved            = dhallFile.value.resolveImports(path)
-            val valueType           = resolved.inferType.map { t => (t, resolved.betaNormalized) }
+            val resolved = dhallFile.value.resolveImports(path)
+            val valueType = resolved.inferType.map { t =>
+              val normalForm = resolved.betaNormalized
+              (t, normalForm)
+            }
             val result: Array[Byte] = valueType match {
               case TypecheckResult.Valid((tpe: Expression, expr: Expression)) =>
                 outputMode match {

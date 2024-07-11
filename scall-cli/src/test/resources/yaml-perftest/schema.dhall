@@ -1,6 +1,5 @@
 let Common =
       ./common.dhall
-        sha256:1263d3625c08893d5391986c1b560342d4d2f87c7486524ffbe335b0710422f1
 
 let L = < C | E >
 
@@ -12,18 +11,18 @@ let Params =
       , max_value : Text
       , unit : Text
       , strategy : M
-      , extra_selectors : Text
+      , extra : Text
       }
 
 let OtherParams =
       { Type =
           { error_q : Text
           , total_q : Text
-          , error_selectors : Text
+          , es : Text
           , flag : Bool
           }
       , default =
-        { error_q = "", total_q = "", error_selectors = "", flag = False }
+        { error_q = "", total_q = "", es = "", flag = False }
       }
 
 let emptyParams
@@ -33,14 +32,14 @@ let emptyParams
       , metric = ""
       , max_value = "0.1"
       , unit = "s"
-      , extra_selectors = ""
+      , extra = ""
       }
 
 let Item =
       { l : L
       , name : Text
       , p10 : Text
-      , latency : Params
+      , param1 : Params
       , other : OtherParams.Type
       }
 
@@ -48,7 +47,7 @@ let emptyItem =
       { l = L.C
       , name = "undefined"
       , p10 = "undefined"
-      , latency = emptyParams
+      , param1 = emptyParams
       , other = OtherParams.default
       }
 
@@ -76,7 +75,6 @@ let S_record_type =
           { displayName : Text
           , labels :
               { alert_enabled : Bool
-              , authors : List Text
               , item_type : Text
               , qwerty_type : Text
               , version : Text

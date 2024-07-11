@@ -3,15 +3,12 @@ let S = ./schema.dhall
 in  λ(item : S.Item) →
       let aggr = S.aggregator_for item
 
-      let author = env:USER as Text
-
       in    { apiVersion = "v1"
             , kind = "k"
             , metadata =
               { displayName = "${S.uppercased item} name1"
               , labels =
                 { alert_enabled = False
-                , authors = [ author ]
                 , item_type = "type1"
                 , qwerty_type = "type1"
                 , version = "0.0.0"

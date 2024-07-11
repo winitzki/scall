@@ -1,5 +1,4 @@
 -- nonk8s
--- Schema: https://raw.githubusercontent.com/OpenS/OpenS/main/schemas/v1/openS.schema.json
 let S = ./schema.dhall
 
 let items = ./items.dhall
