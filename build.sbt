@@ -32,6 +32,7 @@ val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
 val reflections         = "org.reflections" % "reflections"           % "0.10.2"
 val mainargs            = "com.lihaoyi"    %% "mainargs"              % "0.7.0"
+val sourcecode          = "com.lihaoyi"    %% "sourcecode"            % "0.3.0"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
