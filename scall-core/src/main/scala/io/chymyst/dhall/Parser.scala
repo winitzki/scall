@@ -18,7 +18,13 @@ object Parser {
     case failure: Parsed.Failure                 => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }
 
-  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = {
+    val init   = System.nanoTime()
+    val result = Memoize.parse(source, Grammar.complete_dhall_file(_))
+
+    // println(s"DEBUG: elapsed time is ${(System.nanoTime()  - init)/1e9} for dhall bytes: ${new String(source.slice(0, 100))}")
+    result
+  }
 
   def parseDhall(source: String): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
 

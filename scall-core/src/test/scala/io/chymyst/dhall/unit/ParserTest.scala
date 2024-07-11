@@ -1,7 +1,8 @@
 package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import fastparse._
+import fastparse.Parsed
+import io.chymyst.fastparse.Memoize.parse
 import io.chymyst.dhall.Grammar
 import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
