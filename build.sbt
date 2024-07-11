@@ -1,9 +1,7 @@
-import sbt.Keys.{developers, homepage, scmInfo}
+import sbt.Keys.homepage
 import sbt.url
 import sbtassembly.AssemblyKeys.assembly
-import xerial.sbt.Sonatype.{GitHubHosting, sonatypeCentralHost}
-
-import scala.collection.immutable.List
+import xerial.sbt.Sonatype.GitHubHosting
 
 val thisReleaseVersion = "0.2.0"
 
@@ -53,9 +51,6 @@ lazy val publishingOptions = Seq(
   description            := "Implementation of the Dhall language in Scala, with Scala language bindings",
   publishTo              := sonatypePublishToBundle.value,
   sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com")),
-//    homepage               := Some(url("https://github.com/winitzki/scall")),
-//    scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git")),
-//    developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki"))),
 )
 
 lazy val noPublishing =
@@ -71,7 +66,55 @@ lazy val jdkModuleOptions: Seq[String] = {
 lazy val root = (project in file("."))
   .settings(noPublishing)
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli)
+  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli, nano_dhall)
+
+lazy val nano_dhall = (project in file("nano-dhall"))
+  .settings(noPublishing)
+  .settings(
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    Test / fork              := true,
+    scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    Compile / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ydebug")
+        case Some((2, 12 | 13)) => Seq("-Ypatmat-exhaust-depth", "10") // Cannot make it smaller than 10. Want to speed up compilation.
+      }
+    },
+    ThisBuild / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ykind-projector") // Seq("-Ykind-projector:underscores")
+        case Some((2, 12 | 13)) => Seq()                   // Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
+      }
+    },
+    // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
+    // That base directory should contain `./dhall-lang` and all files below that.
+    Test / baseDirectory     := (Test / resourceDirectory).value,
+    // addCompilerPlugin is a shortcut for libraryDependencies += compilerPlugin(dependency)
+    // See https://stackoverflow.com/questions/67579041
+    libraryDependencies ++=
+      (CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq(scala_reflect(scalaVersion.value), kindProjectorPlugin)
+        case Some((3, _)) => Seq.empty // No need for scala-reflect with Scala 3.
+      }),
+    libraryDependencies ++= Seq(
+      fastparse,
+      antlr4,
+      anltr4_formatter,
+      munitTest,
+      assertVerboseTest,
+      enumeratum,
+      cbor2,
+      //      scalahashing,
+      //    cbor3,
+      httpRequest,
+      os_lib % Test,
+    ),
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
+
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(publishingOptions)
@@ -224,14 +267,6 @@ publishMavenStyle   := true
 publishTo           := sonatypePublishToBundle.value
 sonatypeProfileName := "io.chymyst"
 //ThisBuild / sonatypeCredentialHost := sonatypeCentralHost  // Not relevant because io.chymyst was created before 2021.
-
-/*{
-  val nexus = "https://oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-}*/
 //
 Test / publishArtifact := false
 //
