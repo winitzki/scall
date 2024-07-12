@@ -226,7 +226,8 @@ identifier. However, `missing` is a keyword and is matched first. To ensure corr
 for keywords.
 
 To improve parsing performance, the parsing results for some sub-expressions are memoized.
-This is implemented via an add-on library `fastparse-memoize`. 
+This is implemented via an add-on library `fastparse-memoize`.
+See [fastparse-memoise README](fastparse-memoize/README.md) for more information.
 
 #### Limitations
 
