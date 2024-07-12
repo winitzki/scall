@@ -103,9 +103,7 @@ class MemoizeTest extends FunSuite with TestTimings {
     assert(Memoize.parse("123*1-1", program2(_)).get.value == 122)
     assert(Memoize.parse("123*(1-1)", program2(_)).get.value == 0)
 
-    println(
-      s"before memoization: ${elapsed1 / 1e9}, after memoization: ${elapsed2 / 1e9}, speedup: ${elapsed1 / elapsed2}x"
-    )
+    println(s"before memoization: ${elapsed1 / 1e9}, after memoization: ${elapsed2 / 1e9}, speedup: ${elapsed1 / elapsed2}x")
     // Memoization should speed up at least 200 times in this example, after JVM warmup.
     expect(elapsed1 > elapsed2 * 200)
   }
