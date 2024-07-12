@@ -3,7 +3,7 @@ import sbt.url
 import sbtassembly.AssemblyKeys.assembly
 import xerial.sbt.Sonatype.GitHubHosting
 
-val thisReleaseVersion = "0.2.0"
+val thisReleaseVersion = "0.2.1"
 
 val scala2V                = "2.13.13"
 val scala212V              = "2.12.19"
@@ -16,7 +16,7 @@ def munitFramework = new TestFramework("munit.Framework")
 val munitTest         = "org.scalameta"        %% "munit"   % "0.7.29" % Test
 val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty" % "0.16.0" % Test
 
-val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.0.2"
+val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.1.1"
 val antlr4           = "org.antlr"                  % "antlr4-runtime"              % "4.13.1"
 val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalone" % "1.2.1" % Provided
 
