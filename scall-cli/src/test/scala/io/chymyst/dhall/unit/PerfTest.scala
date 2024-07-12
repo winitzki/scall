@@ -38,15 +38,22 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     }
   }
 
-  test("parse Prelude/JSON/renderAs.dhall") {
-    val file         = resourceAsFile("dhall-lang/Prelude/JSON/renderAs.dhall").get
+  test("parse renderAs.dhall") {
+    val file         = resourceAsFile("yaml-perftest/renderAs.dhall").get
     val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
     println(s"Prelude/JSON/renderAs.dhall parsed in ${elapsed / 1e9} seconds")
   }
 
   test("parse largeExpressionA.dhall") {
-    val file         = resourceAsFile("dhall-lang/tests/parser/success/largeExpressionA.dhall").get
+    val file         = resourceAsFile("yaml-perftest/largeExpressionA.dhall").get
     val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
     println(s"largeExpressionA.dhall parsed in ${elapsed / 1e9} seconds")
+  }
+
+  test("parse nested parentheses") {
+    val n            = 30 // More than 30 gives stack overflow.
+    val input        = "(" * n + "1" + ")" * n
+    val (_, elapsed) = elapsedNanos(Parser.parseDhall(input).get.value.value)
+    println(s"$n nested parentheses parsed in ${elapsed / 1e9} seconds")
   }
 }

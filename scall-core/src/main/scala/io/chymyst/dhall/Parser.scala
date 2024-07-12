@@ -15,7 +15,9 @@ object Parser {
 
   def parseToExpression(input: String): Expression = parseDhall(input) match {
     case Parsed.Success(value: DhallFile, index) => value.value
-    case failure: Parsed.Failure                 => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
+    case failure: Parsed.Failure                 =>
+      Memoize.clearAll() // Parser will be re-run on trace(). So, the parser cache needs to be cleared.
+      throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }
 
   def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = {

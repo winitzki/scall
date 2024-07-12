@@ -408,6 +408,7 @@ object Grammar {
         (p1, p2) => implicit ctx: P[_] => P(p1(ctx) | p2(ctx))
       }(implicitly[P[$]]).!
   }
+//    .memoize  // Do not memoize: breaks parsing!
 
   //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
@@ -1202,6 +1203,7 @@ object Grammar {
       //  "( e )"
       | P("(" ~/ complete_expression ~/ ")")
   )
+    .memoize
 
   def record_type_or_literal[$: P]: P[Option[Expression]] = P(
     empty_record_literal.map(Expression.apply).map(Some.apply)
@@ -1262,6 +1264,7 @@ object Grammar {
   def complete_expression[$: P] = P(
     whsp ~ expression ~ whsp
   )
+    .memoize
 
   // Helpers to make sure we are using valid keyword and operator names.
   def requireKeyword[$: P](name: String): P[Unit] = {

@@ -47,6 +47,8 @@ object PRunData { // Copy all the mutable data from a parsing run into a PRunDat
 }
 
 object Memoize {
+  val enable = true
+
   def assignToParsingRun[T](data: PRunData, pr: ParsingRun[T]): ParsingRun[T] = { // Assign the mutable data to a given ParsingRun value.
     pr.terminalMsgs = data.terminalMsgs
     pr.aggregateMsgs = data.aggregateMsgs
@@ -64,7 +66,7 @@ object Memoize {
     pr
   }
 
-  private def cacheGrammar[R](cache: mutable.Map[Int, PRunData], parser: => P[_])(implicit p: P[_]): P[R] = {
+  @inline private def cacheGrammar[R](cache: mutable.Map[Int, PRunData], parser: => P[_])(implicit p: P[_]): P[R] = {
     // The `parser` has not yet been run! And it is mutable. Do not run it twice!
     val cachedData: PRunData = cache.getOrElseUpdate(p.index, PRunData.ofParsingRun(parser))
     // After the `parser` has been run on `p`, the value of `p` changes and becomes equal to the result of running the parser.
@@ -79,10 +81,10 @@ object Memoize {
   }
 
   implicit class MemoizeParser[A](parser: => P[A]) {
-    def memoize(implicit file: sourcecode.File, line: sourcecode.Line, p: P[_]): P[A] = {
+    @inline def memoize(implicit file: sourcecode.File, line: sourcecode.Line, p: P[_]): P[A] = if (enable) {
       val cache: mutable.Map[Int, PRunData] = getOrCreateCache(file, line)
       cacheGrammar(cache, parser)
-    }
+    } else parser
   }
 
   def clearAll(): Unit = cache.values.foreach(_.clear())
