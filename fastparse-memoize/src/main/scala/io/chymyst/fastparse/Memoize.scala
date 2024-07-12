@@ -89,8 +89,6 @@ object Memoize {
 
   def clearAll(): Unit = cache.values.foreach(_.clear())
 
-  def statistics: String = cache.map { case ((file, line), c) => s"$file#$line: ${c.size} entries" }.mkString("\n")
-
   def parse[T](
     input: ParserInputSource,
     parser: P[_] => P[T],
