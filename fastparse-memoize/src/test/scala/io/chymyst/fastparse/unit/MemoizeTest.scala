@@ -38,6 +38,11 @@ class MemoizeTest extends FunSuite with TestTimings {
     def times2[$: P]           = P(other2 ~ ("*" ~ other2).rep).map { case (i, is) => i * is.product }
     def other2[$: P]: P[Int]   = P(number | ("(" ~ expr2 ~ ")")).memoize
 
+    // Warm up JVM.
+    (1 to 10).foreach { _ =>
+      Memoize.parse("(" * (n - 1) + "1" + ")" * (n - 1), program2(_))
+    }
+
     val (result2, elapsed2) = elapsedNanos(Memoize.parse("(" * (n - 1) + "1" + ")" * (n - 1), program2(_)))
     assert(result2.get.value == 1)
     // Verify that the memoized parser works as expected.
@@ -46,8 +51,10 @@ class MemoizeTest extends FunSuite with TestTimings {
     assert(Memoize.parse("123*1-1", program2(_)).get.value == 122)
     assert(Memoize.parse("123*(1-1)", program2(_)).get.value == 0)
 
-    println(s"before memoization: ${elapsed1 / 1e9}, after memoization: ${elapsed2 / 1e9}, statistics: ${Memoize.statistics}")
-    // Memoization should speed up at least 100 times in this example.
-    expect(elapsed1 > elapsed2 * 100)
+    println(
+      s"before memoization: ${elapsed1 / 1e9}, after memoization: ${elapsed2 / 1e9}, speedup: ${elapsed1 / elapsed2}x, Memoize.statistics: ${Memoize.statistics}"
+    )
+    // Memoization should speed up at least 200 times in this example, with JVM warmup.
+    expect(elapsed1 > elapsed2 * 200)
   }
 }

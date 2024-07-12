@@ -25,9 +25,10 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     }
     val resultYaml     = new String(testOut.toByteArray)
     val expectedYaml   = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
-    val elapsedS       = elapsedNs.toDouble / 1e9
-    println(s"Yaml created in $elapsedS seconds")
+    val elapsed        = elapsedNs.toDouble / 1e9
+    println(s"Yaml created in $elapsed seconds")
     expect(resultYaml == expectedYaml)
+    expect(elapsed / 1e9 < 10.0)
   }
 
   test("parse schema.dhall 20 times") {
@@ -35,6 +36,7 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     val results = (1 to 20).map { i =>
       val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
       println(s"iteration $i : schema.dhall parsed in ${elapsed / 1e9} seconds")
+      expect(elapsed / 1e9 < 0.5)
     }
   }
 
@@ -42,12 +44,14 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     val file         = resourceAsFile("yaml-perftest/renderAs.dhall").get
     val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
     println(s"Prelude/JSON/renderAs.dhall parsed in ${elapsed / 1e9} seconds")
+    expect(elapsed / 1e9 < 1.0)
   }
 
   test("parse largeExpressionA.dhall") {
     val file         = resourceAsFile("yaml-perftest/largeExpressionA.dhall").get
     val (_, elapsed) = elapsedNanos(Parser.parseDhallStream(new FileInputStream(file)).get.value.value)
     println(s"largeExpressionA.dhall parsed in ${elapsed / 1e9} seconds")
+    expect(elapsed / 1e9 < 0.5)
   }
 
   test("parse nested parentheses") {
@@ -55,5 +59,6 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     val input        = "(" * n + "1" + ")" * n
     val (_, elapsed) = elapsedNanos(Parser.parseDhall(input).get.value.value)
     println(s"$n nested parentheses parsed in ${elapsed / 1e9} seconds")
+    expect(elapsed / 1e9 < 0.5)
   }
 }

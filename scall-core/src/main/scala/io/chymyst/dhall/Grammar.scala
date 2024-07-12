@@ -112,12 +112,14 @@ object Grammar {
     // U+10FFFD = "\uDBFF\uDFFD"
     // %x10FFFE_10FFFF = non_characters
   )
+    .memoize
 
   def tab[$: P] = P("\t")
 
   def block_comment[$: P] = P(
     "{-" ~/ block_comment_continue // Do not use cut here, because then block comment will fail the entire identifier when parsing "x {- -}" without a following @.
   )
+    .memoize
 
   def block_comment_char[$: P] = P(
     CharIn("\u0020-\u007F")
@@ -125,12 +127,14 @@ object Grammar {
       | tab
       | end_of_line
   )
+    .memoize
 
   def block_comment_continue[$: P]: P[Unit] = P(
     "-}"
       | (block_comment ~/ block_comment_continue)
       | (block_comment_char ~ block_comment_continue)
   )
+    .memoize
 
   def not_end_of_line[$: P] = P(
     CharIn("\u0020-\u007F") | valid_non_ascii | tab
@@ -151,6 +155,7 @@ object Grammar {
       | line_comment
       | block_comment
   )
+    .memoize
 
   def whsp[$: P]: P[Unit] = P(
     NoCut(whitespace_chunk.rep)
@@ -989,6 +994,7 @@ object Grammar {
       //  "x : t"
       | annotated_expression./
   )
+    .memoize
 
   def annotated_expression[$: P]: P[Expression] = P(
     operator_expression ~ (whsp ~ ":" ~ whsp1 ~/ expression).?
@@ -1237,6 +1243,7 @@ object Grammar {
   def record_literal_normal_entry[$: P]: P[(Seq[FieldName], Expression)] = P(
     (whsp ~ "." ~ whsp ~/ any_label_or_some.map(FieldName)).rep ~ whsp ~ "=" ~ whsp ~/ expression
   )
+    .memoize
 
   def union_type[$: P]: P[Expression] = P(
     (union_type_entry ~ (whsp ~ "|" ~ whsp ~ union_type_entry).rep ~ (whsp ~ "|").?).?
@@ -1248,6 +1255,7 @@ object Grammar {
   def union_type_entry[$: P] = P(
     any_label_or_some.map(ConstructorName) ~ (whsp ~ ":" ~/ whsp1 ~/ expression).?
   )
+    .memoize
 
   def non_empty_list_literal[$: P]: P[Expression] = P(
     "[" ~/ whsp ~ ("," ~ whsp).? ~ expression ~ whsp ~ ("," ~ whsp ~ /* No cut here, or else [, ,] cannot be parsed. */ expression ~ whsp).rep ~ ("," ~/ whsp).? ~ "]"

@@ -99,7 +99,9 @@ object Memoize {
     instrument: Instrument = null,
   ): Parsed[T] = {
     clearAll()
-    fastparse.parse(input, parser, verboseFailures, startIndex, instrument)
+    val result = fastparse.parse(input, parser, verboseFailures, startIndex, instrument)
+    clearAll()
+    result
   }
 
   def parseInputRaw[T](
@@ -112,7 +114,9 @@ object Memoize {
     enableLogging: Boolean = true,
   ): ParsingRun[T] = {
     clearAll()
-    fastparse.parseInputRaw(input, parser, verboseFailures, startIndex, traceIndex, instrument, enableLogging)
+    val result = fastparse.parseInputRaw(input, parser, verboseFailures, startIndex, traceIndex, instrument, enableLogging)
+    clearAll()
+    result
   }
 
 }

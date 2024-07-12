@@ -26,7 +26,7 @@ class DhallParserAndCbor1Suite extends DhallTest {
       result
     }
     println(s"Success count: ${results.count(_.isSuccess)}\nFailure count: ${results.count(_.isFailure)}")
-    TestUtils.requireSuccessAtLeast(284, results)
+    TestUtils.requireSuccessAtLeast(286, results)
   }
 
   test("validate CBOR writing for standard examples") {
