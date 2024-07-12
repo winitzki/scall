@@ -72,6 +72,7 @@ lazy val root = (project in file("."))
 lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
   .settings(noPublishing)
   .settings(
+    name                     := "nano-dhall",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -120,6 +121,7 @@ lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
 lazy val fastparse_memoize = (project in file("fastparse-memoize"))
   .settings(publishingOptions)
   .settings(
+    name               := "fastparse-memoize",
     scalaVersion       := scalaV,
     crossScalaVersions := supportedScalaVersions,
     testFrameworks += munitFramework,
@@ -130,6 +132,7 @@ lazy val fastparse_memoize = (project in file("fastparse-memoize"))
 lazy val scall_core = (project in file("scall-core"))
   .settings(publishingOptions)
   .settings(
+    name                     := "dhall-scala-core",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -178,6 +181,7 @@ lazy val scall_core = (project in file("scall-core"))
 lazy val scall_testutils = (project in file("scall-testutils"))
   .settings(publishingOptions)
   .settings(
+    name                     := "dhall-scala-testutils",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -190,6 +194,7 @@ lazy val scall_testutils = (project in file("scall-testutils"))
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(publishingOptions)
   .settings(
+    name                       := "dhall-scala-bindings",
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
@@ -209,6 +214,7 @@ lazy val dhall_codec = (project in file("dhall-codec"))
 lazy val scall_cli = (project in file("scall-cli"))
   .settings(publishingOptions)
   .settings(
+    name                       := "dhall-scala-cli",
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
@@ -232,7 +238,7 @@ lazy val scall_cli = (project in file("scall-cli"))
 lazy val abnf = (project in file("abnf"))
   .settings(noPublishing)
   .settings(
-    name                     := "scall-abnf",
+    name                     := "dhall-scala-abnf",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -243,7 +249,7 @@ lazy val abnf = (project in file("abnf"))
 lazy val scall_macros = (project in file("scall-macros"))
   .settings(publishingOptions)
   .settings(
-    name                     := "scall-macros",
+    name                     := "dhall-scala-macros",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -259,7 +265,7 @@ lazy val scall_macros = (project in file("scall-macros"))
 lazy val scall_typeclasses = (project in file("scall-typeclasses"))
   .settings(publishingOptions)
   .settings(
-    name                     := "scall-typeclasses",
+    name                     := "dhall-scala-typeclasses",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
