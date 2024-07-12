@@ -2,7 +2,7 @@ package io.chymyst.dhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
-import fastparse.{Parsed, parse}
+import fastparse.{Parsed, SingleChar}
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, Text}
@@ -13,6 +13,7 @@ import io.chymyst.dhall.SyntaxConstants.Operator.Equivalent
 import io.chymyst.dhall.SyntaxConstants._
 import io.chymyst.dhall._
 import io.chymyst.dhall.unit.TestUtils.{check, toFail, v}
+import io.chymyst.fastparse.Memoize.parse
 import io.chymyst.test.Throwables.printThrowable
 
 import scala.util.Try
@@ -46,8 +47,8 @@ class SimpleExpressionTest extends DhallTest {
 
     expect(parse("1 in", Grammar.application_expression(_)).get.value.scheme == NaturalLiteral(1))
 
-    import fastparse._
-    import NoWhitespace._
+    import fastparse.P
+    import fastparse.NoWhitespace._
     def grammar1[$: P] = P(Grammar.let_binding)
 
     expect(parse("let x = 1 ", grammar1(_)).get.value == expected)
@@ -97,8 +98,8 @@ class SimpleExpressionTest extends DhallTest {
   }
 
   test("expression followed by comment") {
-    import fastparse._
-    import NoWhitespace._
+    import fastparse.P
+    import fastparse.NoWhitespace._
     val input    = "x {- -}"
     val expected = v("x")
 
@@ -129,7 +130,6 @@ class SimpleExpressionTest extends DhallTest {
   }
 
   test("parse x === y") {
-    import fastparse._
     val input    = "x === y"
     val expected = ExprOperator[Expression](v("x"), Equivalent, v("y"))
 
@@ -230,8 +230,8 @@ class SimpleExpressionTest extends DhallTest {
   test("invalid utf-8") {
     // The byte sequence 0xED, 0xA0, 0x80 is not a valid UTF-8 sequence.
     val input         = Array(0x20, 0xed, 0xa0, 0x80, 0x20).map(_.toByte)
-    import fastparse._
-    import NoWhitespace._
+    import fastparse.P
+    import fastparse.NoWhitespace._
     def grammar[$: P] = P(SingleChar.rep)
 
     val result = parse(input, grammar(_))

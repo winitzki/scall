@@ -104,11 +104,17 @@ class DoNotationTest extends DhallTest {
   test("parse do notation correctly") {
     "as Optional Natural in if a then b else c then d".dhall                    // No test failures.
     "as Optional Natural in if a then b else c with x : Text in y then d".dhall // No test failures.
+  }
+
+  test("parse do notation and detect error 1") {
     expect(
       Try(
         "as Optional Natural in if a then b".dhall
       ).failed.get.getMessage contains "Dhall parser error: Expected complete_dhall_file:1:1 / complete_expression:1:1 / expression:1:1 / expression_as_in:1:1 / expression:1:24 / expression_if_then_else:1:24 / requireKeyword:1:35 / \"else\":1:35"
     )
+  }
+
+  test("parse do notation and detect error 2") {
     expect(
       Try(
         "as Optional Natural in if a then b else c".dhall

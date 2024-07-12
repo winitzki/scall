@@ -9,6 +9,7 @@ import io.chymyst.dhall.TypeCheck._Type
 
 import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
+import io.chymyst.fastparse.Memoize.MemoizeParser
 
 object Grammar {
 
@@ -111,12 +112,14 @@ object Grammar {
     // U+10FFFD = "\uDBFF\uDFFD"
     // %x10FFFE_10FFFF = non_characters
   )
+    .memoize
 
   def tab[$: P] = P("\t")
 
   def block_comment[$: P] = P(
     "{-" ~/ block_comment_continue // Do not use cut here, because then block comment will fail the entire identifier when parsing "x {- -}" without a following @.
   )
+    .memoize
 
   def block_comment_char[$: P] = P(
     CharIn("\u0020-\u007F")
@@ -124,12 +127,14 @@ object Grammar {
       | tab
       | end_of_line
   )
+    .memoize
 
   def block_comment_continue[$: P]: P[Unit] = P(
     "-}"
       | (block_comment ~/ block_comment_continue)
       | (block_comment_char ~ block_comment_continue)
   )
+    .memoize
 
   def not_end_of_line[$: P] = P(
     CharIn("\u0020-\u007F") | valid_non_ascii | tab
@@ -150,6 +155,7 @@ object Grammar {
       | line_comment
       | block_comment
   )
+    .memoize
 
   def whsp[$: P]: P[Unit] = P(
     NoCut(whitespace_chunk.rep)
@@ -293,7 +299,7 @@ object Grammar {
 
   def double_quote_literal[$: P]: P[TextLiteral[Expression]] = P(
     "\"" ~/ double_quote_chunk.rep ~ "\""
-  ).map(_.map(literalOrInterp => literalOrInterp.map(TextLiteral.ofText).merge).fold(TextLiteral.empty)(_ ++ _))
+  ).map(_.map(literalOrInterp => literalOrInterp.map(TextLiteral.ofText[Expression]).merge).fold(TextLiteral.empty[Expression])(_ ++ _))
 
   def single_quote_continue[$: P]: P[TextLiteral[Expression]] = P(
     (interpolation ~ single_quote_continue).map { case (head, tail) => TextLiteral.ofExpression(head) ++ tail }
@@ -407,6 +413,7 @@ object Grammar {
         (p1, p2) => implicit ctx: P[_] => P(p1(ctx) | p2(ctx))
       }(implicitly[P[$]]).!
   }
+//    .memoize  // Do not memoize: breaks parsing!
 
   //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
@@ -987,6 +994,7 @@ object Grammar {
       //  "x : t"
       | annotated_expression./
   )
+    .memoize
 
   def annotated_expression[$: P]: P[Expression] = P(
     operator_expression ~ (whsp ~ ":" ~ whsp1 ~/ expression).?
@@ -1031,54 +1039,67 @@ object Grammar {
   def equivalent_expression[$: P]: P[Expression] = P(
     import_alt_expression ~ (whsp ~ equivalent ~ whsp ~/ import_alt_expression).rep
   ).withOperator(SyntaxConstants.Operator.Equivalent)
+    .memoize
 
   def import_alt_expression[$: P]: P[Expression] = P(
     or_expression ~ (whsp ~ opAlternative ~ whsp1 ~/ or_expression).rep
   ).withOperator(SyntaxConstants.Operator.Alternative)
+    .memoize
 
   def or_expression[$: P]: P[Expression] = P(
     plus_expression ~ (whsp ~ opOr ~ whsp ~/ plus_expression).rep
   ).withOperator(SyntaxConstants.Operator.Or)
+    .memoize
 
   def plus_expression[$: P]: P[Expression] = P(
     text_append_expression ~ (whsp ~ opPlus ~ whsp1 ~/ text_append_expression).rep
   ).withOperator(SyntaxConstants.Operator.Plus)
+    .memoize
 
   def text_append_expression[$: P]: P[Expression] = P(
     list_append_expression ~ (whsp ~ opTextAppend ~ whsp ~/ list_append_expression).rep
   ).withOperator(SyntaxConstants.Operator.TextAppend)
+    .memoize
 
   def list_append_expression[$: P]: P[Expression] = P(
     and_expression ~ (whsp ~ opListAppend ~ whsp ~/ and_expression).rep
   ).withOperator(SyntaxConstants.Operator.ListAppend)
+    .memoize
 
   def and_expression[$: P]: P[Expression] = P(
     combine_expression ~ (whsp ~ opAnd ~ whsp ~/ combine_expression).rep
   ).withOperator(SyntaxConstants.Operator.And)
+    .memoize
 
   def combine_expression[$: P]: P[Expression] = P(
     prefer_expression ~ (whsp ~ combine ~ whsp ~/ prefer_expression).rep
   ).withOperator(SyntaxConstants.Operator.CombineRecordTerms)
+    .memoize
 
   def prefer_expression[$: P]: P[Expression] = P(
     combine_types_expression ~ (whsp ~ prefer ~ whsp ~/ combine_types_expression).rep
   ).withOperator(SyntaxConstants.Operator.Prefer)
+    .memoize
 
   def combine_types_expression[$: P]: P[Expression] = P(
     times_expression ~ (whsp ~ combine_types ~ whsp ~/ times_expression).rep
   ).withOperator(SyntaxConstants.Operator.CombineRecordTypes)
+    .memoize
 
   def times_expression[$: P]: P[Expression] = P(
     equal_expression ~ (whsp ~ opTimes ~ whsp ~/ equal_expression).rep
   ).withOperator(SyntaxConstants.Operator.Times)
+    .memoize
 
   def equal_expression[$: P]: P[Expression] = P(
     not_equal_expression ~ (whsp ~ opEqual ~ whsp ~ not_equal_expression).rep // Should not cut because == can be confused with ===
   ).withOperator(SyntaxConstants.Operator.Equal)
+    .memoize
 
   def not_equal_expression[$: P]: P[Expression] = P(
     application_expression ~ (whsp ~ opNotEqual ~ whsp ~/ application_expression).rep
   ).withOperator(SyntaxConstants.Operator.NotEqual)
+    .memoize
 
   def application_expression[$: P]: P[Expression] = P(
     first_application_expression ~ (whsp1 ~ import_expression).rep // Do not insert a cut after whsp1 here.
@@ -1107,6 +1128,7 @@ object Grammar {
   def import_expression[$: P]: P[Expression] = P(
     import_only | completion_expression
   )
+    .memoize
 
   def completion_expression[$: P]: P[Expression] = P(
     selector_expression ~ (whsp ~ complete ~ whsp ~ selector_expression).?
@@ -1118,6 +1140,7 @@ object Grammar {
   def selector_expression[$: P]: P[Expression] = P(
     primitive_expression ~ (whsp ~ "." ~ whsp ~ /* No cut here, or else (List ./imported.file) cannot be parsed. */ selector).rep
   ).map { case (base, selectors) => selectors.foldLeft(base)((prev, selector) => selector.chooseExpression(prev)) }
+    .memoize
 
   sealed trait ExpressionSelector {
     def chooseExpression(base: Expression): Expression = this match {
@@ -1186,6 +1209,7 @@ object Grammar {
       //  "( e )"
       | P("(" ~/ complete_expression ~/ ")")
   )
+    .memoize
 
   def record_type_or_literal[$: P]: P[Option[Expression]] = P(
     empty_record_literal.map(Expression.apply).map(Some.apply)
@@ -1219,6 +1243,7 @@ object Grammar {
   def record_literal_normal_entry[$: P]: P[(Seq[FieldName], Expression)] = P(
     (whsp ~ "." ~ whsp ~/ any_label_or_some.map(FieldName)).rep ~ whsp ~ "=" ~ whsp ~/ expression
   )
+    .memoize
 
   def union_type[$: P]: P[Expression] = P(
     (union_type_entry ~ (whsp ~ "|" ~ whsp ~ union_type_entry).rep ~ (whsp ~ "|").?).?
@@ -1230,6 +1255,7 @@ object Grammar {
   def union_type_entry[$: P] = P(
     any_label_or_some.map(ConstructorName) ~ (whsp ~ ":" ~/ whsp1 ~/ expression).?
   )
+    .memoize
 
   def non_empty_list_literal[$: P]: P[Expression] = P(
     "[" ~/ whsp ~ ("," ~ whsp).? ~ expression ~ whsp ~ ("," ~ whsp ~ /* No cut here, or else [, ,] cannot be parsed. */ expression ~ whsp).rep ~ ("," ~/ whsp).? ~ "]"
@@ -1246,6 +1272,7 @@ object Grammar {
   def complete_expression[$: P] = P(
     whsp ~ expression ~ whsp
   )
+    .memoize
 
   // Helpers to make sure we are using valid keyword and operator names.
   def requireKeyword[$: P](name: String): P[Unit] = {

@@ -225,6 +225,9 @@ Another feature is that some parses need to fail for others to succeed. For exam
 identifier. However, `missing` is a keyword and is matched first. To ensure correct parsing, negative lookahead is used
 for keywords.
 
+To improve parsing performance, the parsing results for some sub-expressions are memoized.
+This is implemented via an add-on library `fastparse-memoize`. 
+
 #### Limitations
 
 So far, there are some issues with the Unicode characters:
@@ -238,8 +241,15 @@ So far, there are some issues with the Unicode characters:
 
 # Release version history
 
+
+## 0.2.1
+
+- Implemented `fastparse-memoize` to speed up parsing (by 10x and more in some cases).
+- Upgrade to fastparse 3.1.x
+
 ## 0.2.0
 
+- First version published on Sonatype
 - Fixed the regression described in https://github.com/dhall-lang/dhall-haskell/issues/2597
 - Support for Yaml and JSON export
 - Standalone JAR executable `dhall.jar` with command-line options similar to `dhall-haskell`

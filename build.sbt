@@ -1,11 +1,9 @@
-import sbt.Keys.{developers, homepage, scmInfo}
+import sbt.Keys.homepage
 import sbt.url
 import sbtassembly.AssemblyKeys.assembly
-import xerial.sbt.Sonatype.{GitHubHosting, sonatypeCentralHost}
+import xerial.sbt.Sonatype.GitHubHosting
 
-import scala.collection.immutable.List
-
-val thisReleaseVersion = "0.2.0"
+val thisReleaseVersion = "0.2.1"
 
 val scala2V                = "2.13.13"
 val scala212V              = "2.12.19"
@@ -18,7 +16,7 @@ def munitFramework = new TestFramework("munit.Framework")
 val munitTest         = "org.scalameta"        %% "munit"   % "0.7.29" % Test
 val assertVerboseTest = "com.eed3si9n.expecty" %% "expecty" % "0.16.0" % Test
 
-val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.0.2"
+val fastparse        = "com.lihaoyi"               %% "fastparse"                   % "3.1.1"
 val antlr4           = "org.antlr"                  % "antlr4-runtime"              % "4.13.1"
 val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalone" % "1.2.1" % Provided
 
@@ -34,6 +32,7 @@ val cbor1               = "co.nstant.in"    % "cbor"                  % "0.9"
 val cbor2               = "com.upokecenter" % "cbor"                  % "4.5.3"
 val reflections         = "org.reflections" % "reflections"           % "0.10.2"
 val mainargs            = "com.lihaoyi"    %% "mainargs"              % "0.7.0"
+val sourcecode          = "com.lihaoyi"    %% "sourcecode"            % "0.4.2"
 
 // Not used now:
 val flatlaf      = "com.formdev"               % "flatlaf"       % "3.2.2"
@@ -53,9 +52,6 @@ lazy val publishingOptions = Seq(
   description            := "Implementation of the Dhall language in Scala, with Scala language bindings",
   publishTo              := sonatypePublishToBundle.value,
   sonatypeProjectHosting := Some(GitHubHosting("winitzki", "scall", "winitzki@gmail.com")),
-//    homepage               := Some(url("https://github.com/winitzki/scall")),
-//    scmInfo                := Some(ScmInfo(url("https://github.com/winitzki/scall"), "scm:git@github.com:winitzki/scall.git")),
-//    developers             := List(Developer(id = "winitzki", name = "Sergei Winitzki", email = "winitzki@gmail.com", url = url("https://sites.google.com/site/winitzki"))),
 )
 
 lazy val noPublishing =
@@ -71,11 +67,72 @@ lazy val jdkModuleOptions: Seq[String] = {
 lazy val root = (project in file("."))
   .settings(noPublishing)
   .settings(scalaVersion := scalaV, crossScalaVersions := Seq(scalaV), name := "scall-root")
-  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli)
+  .aggregate(scall_core, scall_testutils, dhall_codec, abnf, scall_macros, scall_typeclasses, scall_cli, nano_dhall, fastparse_memoize)
+
+lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
+  .settings(noPublishing)
+  .settings(
+    name                     := "nano-dhall",
+    scalaVersion             := scalaV,
+    crossScalaVersions       := supportedScalaVersions,
+    Test / parallelExecution := true,
+    Test / fork              := true,
+    coverageEnabled          := false,
+    scalafmtFailOnErrors     := false, // Cannot disable the unicode surrogate pair error in Parser.scala?
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    Compile / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ydebug")
+        case Some((2, 12 | 13)) => Seq("-Ypatmat-exhaust-depth", "10") // Cannot make it smaller than 10. Want to speed up compilation.
+      }
+    },
+    ThisBuild / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _))       => Seq("-Ykind-projector") // Seq("-Ykind-projector:underscores")
+        case Some((2, 12 | 13)) => Seq()                   // Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
+      }
+    },
+    // We need to run tests in forked JVM starting with the current directory set to the base resource directory.
+    // That base directory should contain `./dhall-lang` and all files below that.
+    Test / baseDirectory     := (Test / resourceDirectory).value,
+    // addCompilerPlugin is a shortcut for libraryDependencies += compilerPlugin(dependency)
+    // See https://stackoverflow.com/questions/67579041
+    libraryDependencies ++=
+      (CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq(scala_reflect(scalaVersion.value), kindProjectorPlugin)
+        case Some((3, _)) => Seq.empty // No need for scala-reflect with Scala 3.
+      }),
+    libraryDependencies ++= Seq(
+      fastparse,
+      antlr4,
+      anltr4_formatter,
+      munitTest,
+      assertVerboseTest,
+      enumeratum,
+      cbor2,
+      //      scalahashing,
+      //    cbor3,
+      httpRequest,
+      os_lib % Test,
+    ),
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)
+
+lazy val fastparse_memoize = (project in file("fastparse-memoize"))
+  .settings(publishingOptions)
+  .settings(
+    name               := "fastparse-memoize",
+    scalaVersion       := scalaV,
+    crossScalaVersions := supportedScalaVersions,
+    testFrameworks += munitFramework,
+    Test / javaOptions ++= jdkModuleOptions,
+    libraryDependencies ++= Seq(fastparse, sourcecode, munitTest, assertVerboseTest),
+  ).dependsOn(scall_testutils % "test->compile")
 
 lazy val scall_core = (project in file("scall-core"))
   .settings(publishingOptions)
   .settings(
+    name                     := "dhall-scala-core",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -119,11 +176,12 @@ lazy val scall_core = (project in file("scall-core"))
       httpRequest,
       os_lib % Test,
     ),
-  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses)
+  ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)
 
 lazy val scall_testutils = (project in file("scall-testutils"))
   .settings(publishingOptions)
   .settings(
+    name                     := "dhall-scala-testutils",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -136,6 +194,7 @@ lazy val scall_testutils = (project in file("scall-testutils"))
 lazy val dhall_codec = (project in file("dhall-codec"))
   .settings(publishingOptions)
   .settings(
+    name                       := "dhall-scala-bindings",
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
@@ -155,6 +214,7 @@ lazy val dhall_codec = (project in file("dhall-codec"))
 lazy val scall_cli = (project in file("scall-cli"))
   .settings(publishingOptions)
   .settings(
+    name                       := "dhall-scala-cli",
     scalaVersion               := scalaV,
     crossScalaVersions         := supportedScalaVersions,
     Test / parallelExecution   := true,
@@ -178,7 +238,7 @@ lazy val scall_cli = (project in file("scall-cli"))
 lazy val abnf = (project in file("abnf"))
   .settings(noPublishing)
   .settings(
-    name                     := "scall-abnf",
+    name                     := "dhall-scala-abnf",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -189,7 +249,7 @@ lazy val abnf = (project in file("abnf"))
 lazy val scall_macros = (project in file("scall-macros"))
   .settings(publishingOptions)
   .settings(
-    name                     := "scall-macros",
+    name                     := "dhall-scala-macros",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -205,7 +265,7 @@ lazy val scall_macros = (project in file("scall-macros"))
 lazy val scall_typeclasses = (project in file("scall-typeclasses"))
   .settings(publishingOptions)
   .settings(
-    name                     := "scall-typeclasses",
+    name                     := "dhall-scala-typeclasses",
     scalaVersion             := scalaV,
     crossScalaVersions       := supportedScalaVersions,
     Test / parallelExecution := true,
@@ -220,18 +280,10 @@ lazy val scall_typeclasses = (project in file("scall-typeclasses"))
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Publishing to Sonatype Maven repository
-publishMavenStyle   := true
-publishTo           := sonatypePublishToBundle.value
-sonatypeProfileName := "io.chymyst"
+publishMavenStyle      := true
+publishTo              := sonatypePublishToBundle.value
+sonatypeProfileName    := "io.chymyst"
 //ThisBuild / sonatypeCredentialHost := sonatypeCentralHost  // Not relevant because io.chymyst was created before 2021.
-
-/*{
-  val nexus = "https://oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-}*/
 //
 Test / publishArtifact := false
 //

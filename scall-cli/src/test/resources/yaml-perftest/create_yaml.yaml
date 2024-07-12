@@ -1,0 +1,41 @@
+# nonk8s
+apiVersion: v1
+kind: k
+metadata:
+  displayName: 0 name1
+  labels:
+    alert_enabled: false
+    item_type: type1
+    qwerty_type: type1
+    version: 0.0.0
+  name: 0-name1
+spec:
+  b10: method1
+  description: Description of 0
+  indicator:
+    metadata:
+      name: 0-name1
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            spec:
+              query: "begin cluster1 continue \"1\" end"
+              queryType: type2
+              source: source2
+            type: type3
+        total:
+          metricSource:
+            spec:
+              query: "begin cluster1 continue \"1\" end"
+              queryType: type4
+              source: source3
+            type: type5
+  item: '0'
+  objectives:
+    - displayName: 0 name2
+      target: 0.0
+  timeWindow:
+    - duration: '0'
+      isRolling: true

@@ -4,6 +4,7 @@ import fastparse._
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{DhallFile, Expression}
 import io.chymyst.dhall.SyntaxConstants.FieldName
+import io.chymyst.fastparse.Memoize
 
 import java.io.InputStream
 
@@ -13,15 +14,23 @@ object Parser {
   }
 
   def parseToExpression(input: String): Expression = parseDhall(input) match {
-    case Parsed.Success(value, index) => value.value
-    case failure: Parsed.Failure      => throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
+    case Parsed.Success(value: DhallFile, index) => value.value
+    case failure: Parsed.Failure                 =>
+      Memoize.clearAll() // Parser will be re-run on trace(). So, the parser cache needs to be cleared.
+      throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }
 
-  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = {
+    val init   = System.nanoTime()
+    val result = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
-  def parseDhall(source: String): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+    // println(s"DEBUG: elapsed time is ${(System.nanoTime()  - init)/1e9} for dhall bytes: ${new String(source.slice(0, 100))}")
+    result
+  }
 
-  def parseDhallStream(source: InputStream): Parsed[DhallFile] = parse(source, Grammar.complete_dhall_file(_))
+  def parseDhall(source: String): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
+
+  def parseDhallStream(source: InputStream): Parsed[DhallFile] = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
   private def localDateTimeZone(dateOption: Option[DateLiteral], timeOption: Option[TimeLiteral], zoneOption: Option[Int]): Expression = {
     val dateR = dateOption.map { date => (FieldName("date"), Expression(date)) }
