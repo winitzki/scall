@@ -17,7 +17,6 @@ class LRUHashDict[A](maxSize: Int) extends HashDict[A] {
 
   override def store(value: A): Int = {
     val key = keyDict.computeIfAbsent(value, _ => valueDict.size + 1)
-    assert(!valueDict.containsKey(key))
     valueDict.put(key, value)
     key
   }
