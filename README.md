@@ -155,6 +155,8 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 - [x] GitHub Actions are used to test with JDK 8, 17, 22.
 
 - [x] Converting Dhall values to Scala values: basic support is complete.
+- [x] Standalone executable JAR with command-line arguments for type-checking, evaluating, and exporting Dhall expressions. 
+- [x] Converting Dhall to Yaml and JSON: complete.
 
 ### Experimental features and optimizations
 
@@ -179,8 +181,6 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
   tags such as `Tag[String]`, `Tag[Boolean]`, or `Tag[BigInt => BigInt]`.
 
 - [x] Print Dhall values using the standard Dhall syntax.
-
-- [x] Export Dhall values to Yaml for most of the relevant types (numbers, strings, Booleans, lists, records).
 
 ## Ideas for future developments
 
@@ -228,6 +228,7 @@ for keywords.
 To improve parsing performance, the parsing results for some sub-expressions are memoized.
 This is implemented via an add-on library `fastparse-memoize`.
 See [fastparse-memoise README](fastparse-memoize/README.md) for more information.
+That library is published as a separate artifact.
 
 #### Limitations
 
