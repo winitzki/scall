@@ -308,7 +308,7 @@ object Grammar {
       | (escaped_interpolation ~ single_quote_continue).map { case (a, b) => a ++ b }
       | P("''").map(_ => TextLiteral.empty) // End of text literal.
       | (single_quote_char ~ single_quote_continue).map { case (char, tail) => TextLiteral.ofString[Expression](char) ++ tail }
-  )// Do not memoize here: stack overflow!
+  ) // Do not memoize here: stack overflow!
 
   def escaped_quote_pair[$: P]: P[TextLiteral[Expression]] = P(
     "'''".!.map(_ => TextLiteral.ofString(s"''"))
@@ -419,6 +419,7 @@ object Grammar {
   //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
   def keyword[$: P]: P[String] = concatKeywords(simpleKeywords)
+    .memoize
 
   val builtinSymbolNames = SyntaxConstants.Builtin.namesToValuesMap.keys.toSeq
   val builtinSymbolNamesSet = SyntaxConstants.Builtin.namesToValuesMap.keySet
@@ -434,7 +435,7 @@ object Grammar {
     (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)
       | concatKeywords(constantSymbolNames).map(SyntaxConstants.Constant.withName).map(ExprConstant)
       ).map(Expression.apply)
-  }
+  }.memoize
 
   def combine[$: P] = P(
     "\u2227" | "/\\"
