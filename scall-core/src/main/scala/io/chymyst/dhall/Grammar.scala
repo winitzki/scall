@@ -308,7 +308,7 @@ object Grammar {
       | (escaped_interpolation ~ single_quote_continue).map { case (a, b) => a ++ b }
       | P("''").map(_ => TextLiteral.empty) // End of text literal.
       | (single_quote_char ~ single_quote_continue).map { case (char, tail) => TextLiteral.ofString[Expression](char) ++ tail }
-  ).memoize
+  )// Do not memoize here: stack overflow!
 
   def escaped_quote_pair[$: P]: P[TextLiteral[Expression]] = P(
     "'''".!.map(_ => TextLiteral.ofString(s"''"))
@@ -331,7 +331,7 @@ object Grammar {
 
   def interpolation[$: P]: P[Expression] = P(
     "${" ~ complete_expression ~/ "}"
-  ).memoize
+  )
 
   def text_literal[$: P]: P[TextLiteral[Expression]] = P(
     double_quote_literal
@@ -1215,7 +1215,7 @@ object Grammar {
   def record_type_or_literal[$: P]: P[Option[Expression]] = P(
     empty_record_literal.map(Expression.apply).map(Some.apply)
       | non_empty_record_type_or_literal.?
-  )
+  ).memoize
 
   def empty_record_literal[$: P]: P[RecordLiteral[Expression]] = P(
     "=" ~/ (whsp ~ ",").?
@@ -1223,7 +1223,7 @@ object Grammar {
 
   def non_empty_record_type_or_literal[$: P]: P[Expression] = P(
     non_empty_record_type | non_empty_record_literal
-  ).map(Expression.apply)
+  ).memoize.map(Expression.apply)
 
   def non_empty_record_type[$: P]: P[RecordType[Expression]] = P(
     record_type_entry ~ (whsp ~ "," ~ whsp ~ record_type_entry).rep ~ (whsp ~ ",").?
