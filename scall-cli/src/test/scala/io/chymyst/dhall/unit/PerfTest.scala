@@ -41,7 +41,7 @@ class PerfTest extends FunSuite with ResourceFiles with TestTimings {
     val resultYaml     = new String(testOut.toByteArray)
     val expectedYaml   = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath.replace(".dhall", ".yaml"))))
     val elapsed        = elapsedNs.toDouble / 1e9
-    println(s"Yaml created in $elapsed seconds")
+    println(s"Yaml created in $elapsed seconds; expect around 3 seconds on MacBook Pro")
     expect(resultYaml == expectedYaml)
     expect(elapsed / 1e9 < 10.0)
   }
