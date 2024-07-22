@@ -12,13 +12,18 @@ class SymbolicGraphTest extends FunSuite {
     def c: RuleDef = lit("y") ~ a | b
 
     expect(a.name == "a")
-    expect(a.grammarRule  match {
+    expect(a.grammarRule match {
       case LiteralMatch("x") => true
     })
 
     expect(b.name == "b")
     expect(b.grammarRule match {
       case And(LiteralMatch("y"), GrammarSymbol("a", _)) => true
+    })
+
+    expect(c.name == "c")
+    expect(c.grammarRule match {
+      case Or(And(LiteralMatch("y"), GrammarSymbol("a", _)), GrammarSymbol("b", _)) => true
     })
   }
 
@@ -54,10 +59,15 @@ class SymbolicGraphTest extends FunSuite {
     expect(b.name == "b")
     expect(c.name == "c")
 
-//    expect(a == new RuleDef(name = "a", rule = () => And(GrammarSymbol("b", () => b), GrammarSymbol("c", () => c))))
-//    expect(
-//      b == new RuleDef(name = "b", rule = () => Or(And(And(LiteralMatch("x"), GrammarSymbol("a", () => a)), GrammarSymbol("b", () => b)), LiteralMatch("y")))
-//    )
-//    expect(c == new RuleDef(name = "c", rule = () => And(LiteralMatch("z"), GrammarSymbol("a", () => a))))
+    expect(a.grammarRule match {
+      case And(GrammarSymbol("b", bx), GrammarSymbol("c", cx)) => true
+    })
+    expect(b.grammarRule match {
+      case Or(And(And(LiteralMatch("x"), GrammarSymbol("a", _)), GrammarSymbol("b", _)), LiteralMatch("y")) => true
+    })
+    expect(c.grammarRule match {
+      case And(LiteralMatch("z"), GrammarSymbol("a", _)) => true
+    })
+
   }
 }
