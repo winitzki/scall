@@ -12,16 +12,16 @@ object SymbolicGraph {
   }
 
   sealed trait GrammarRule
-
   final case class LiteralMatch(text: String) extends GrammarRule
-
   final case class GrammarSymbol(  name: String, rule: () => RuleDef) extends GrammarRule {
     override def equals(obj: Any): Boolean = obj match {
-      case s: GrammarSymbol => name == s.name
+      case  GrammarSymbol(`name`, _)  => true
       case _                => false
     }
 
   }
+  final case class And(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
+  final case class Or(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
 
   implicit class SymbolicGraphOps(r: => RuleDef) {
     def ~(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
@@ -32,7 +32,4 @@ object SymbolicGraph {
 
   def lit(s: String)(implicit file: File, line: Line, varName: Name): RuleDef = new RuleDef(name = varName.value, rule =   LiteralMatch(s))
 
-  final case class And(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
-
-  final case class Or(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
 }
