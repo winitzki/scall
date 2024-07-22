@@ -15,8 +15,8 @@ class SymbolicGraphTest extends FunSuite {
     expect(a.name == "a")
     expect(b.name == "b")
 
-    expect(a == new RuleDef(name = "a", rule = () => LiteralMatch("x")))
-    expect(b == new RuleDef(name = "b", rule = () => Or(And(LiteralMatch("y"), new GrammarSymbol("b", () => b)), LiteralMatch("z"))))
+    expect(a == new RuleDef(name = "a", rule =   LiteralMatch("x")))
+    expect(b == new RuleDef(name = "b", rule =   Or(And(LiteralMatch("y"), new GrammarSymbol("b", () => b)), LiteralMatch("z"))))
   }
 
   test("circular dependencies do not create an infinite loop 2") {
@@ -31,13 +31,13 @@ class SymbolicGraphTest extends FunSuite {
     expect(b.name == "b")
     expect(c.name == "c")
 
-    expect(a == new RuleDef(name = "a", rule = () => And(new GrammarSymbol("b", () => b), new GrammarSymbol("c", () => c))))
+    expect(a == new RuleDef(name = "a", rule =  And(new GrammarSymbol("b", () => b), new GrammarSymbol("c", () => c))))
     expect(
       b == new RuleDef(
         name = "b",
-        rule = () => Or(And(And(LiteralMatch("x"), new GrammarSymbol("a", () => a)), new GrammarSymbol("b", () => b)), LiteralMatch("y")),
+        rule =  Or(And(And(LiteralMatch("x"), new GrammarSymbol("a", () => a)), new GrammarSymbol("b", () => b)), LiteralMatch("y")),
       )
     )
-    expect(c == new RuleDef(name = "c", rule = () => And(LiteralMatch("z"), new GrammarSymbol("a", () => a))))
+    expect(c == new RuleDef(name = "c", rule =   And(LiteralMatch("z"), new GrammarSymbol("a", () => a))))
   }
 }
