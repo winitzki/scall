@@ -3,44 +3,35 @@ package io.chymyst.nanodhall
 import sourcecode.{File, Line, Name}
 
 object SymbolicGraph {
-  sealed trait Rule
-
-  final case class LiteralMatch(text: String)  extends Rule
-
-  final class GrammarSymbol(name: String, rule: => RuleDef) extends Rule
-
-  implicit class SymbolicGraphOps(r: => Rule) {
-    def ~(next: => Rule)
+  final case class RuleDef(val name: String, rule: () => GrammarRule) {
+    override def equals(obj: Any): Boolean = obj match {
+      case r: RuleDef => name == r.name
+      case _          => false
+    }
   }
 
-  def chars(x : String) = ???
+  sealed trait GrammarRule
 
-  sealed trait RuleDef {
-def name: String = "undefined"
-//    def ~(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
-//      new And(varName.value, Seq(this, next))
-//
-//    def |(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
-//      new Or(varName.value, Seq(this, next))
+  final case class LiteralMatch(text: String) extends GrammarRule
 
-    def print: String
+  final case class GrammarSymbol(val name: String, rule: () => RuleDef) extends GrammarRule {
+    override def equals(obj: Any): Boolean = obj match {
+      case s: GrammarSymbol => name == s.name
+      case _                => false
+    }
+
   }
 
-  final case class Literal(matcher: LiteralMatch)(implicit file: File, line: Line, varName: Name) extends RuleDef {
-    val name: String = varName.value
-    def print: String = s""
-  }
-//
-//  final class RuleX(val name: String, definition: => RuleDef) extends RuleDef {
-//    def print: String = s"$name := ${definition.print}"
-//  }
+  implicit class SymbolicGraphOps(r: => RuleDef) {
+    def ~(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
+      new RuleDef(name = varName.value, rule = () => And(r.rule(), next.rule()))
 
-  final class And( rules:   Seq[Rule ]) extends RuleDef {
-
-    def print: String = s""
+    def |(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef = new RuleDef(name = varName.value, rule = () => Or(r.rule(), next.rule()))
   }
 
-  final class Or(  rules:  Seq[Rule]) extends RuleDef {
-    def print: String = s""
-  }
+  def lit(s: String)(implicit file: File, line: Line, varName: Name): RuleDef = new RuleDef(name = varName.value, rule = () => LiteralMatch(s))
+
+  final case class And(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
+
+  final case class Or(rule1: GrammarRule, rule2: GrammarRule) extends GrammarRule
 }
