@@ -2801,6 +2801,105 @@ let monadList : MonadFP List =
       }
 ```
 
+## Programming with Leibniz equality types
+
+Dhall's `assert` feature provides static checks that some expressions are equal.
+That feature can be seen as syntax sugar for a general facility known as **Leibniz equality** types.
+
+### Definition and first examples
+
+By definition, a Leibniz equality type has the following form:
+
+```dhall
+let LeibnizEqual =
+  λ(T : Type) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
+```
+This complicated type expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
+It is far from obvious how to work with types of the form `LeibnizEqual`.
+To explain this, we begin by considering an example where `T = Natural`.
+Define the type `LeibnizEqNat` by:
+
+```dhall
+let LeibnizEqNat =
+   λ(a : Natural) → λ(b : Natural) → ∀(f : Natural → Type) → f a → f b
+```
+
+The crucial property of that type is that we can have a value of type `LeibnizEqNat x y` _only if_ the natural numbers `x` and `y` are equal to each other.
+
+To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1`:
+
+```dhall
+let _ = assert : LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
+let _ = assert : LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
+```
+We can easily implement a value of type `LeibnizEqNat 0 0`:
+
+```dhall
+let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(f0 : f 0) → f0
+```
+However, it is impossible to implement any values of type `LeibnizEqNat 0 1`.
+The reason is that a value of that type would be able to return a function of type `f 0 → f 1` for any `f : Natural → Type`. Note that `f 0` and `f 1` are two types that are essentially unknown: these two types are computed by a given function `f` that converts natural numbers into types in an arbitrary and unknown way. 
+So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
+It is impossible to implement such a function.
+
+To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`.
+```dhall
+let f_contradiction : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
+let _ = assert : f_contradiction 0 === {}
+let _ = assert : f_contradiction 1 === <>
+```
+
+If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `f_contradiction` and to a unit value `{=}` and obtain a value of the void type.
+That would be a contradiction in the type system.
+Dhall does not allow us to write such code.
+
+These results generalize to any type `T`.
+For any `t : T`, we can implement a value of type `LeibnizEqual T t t`.
+That value is commonly denoted `refl`:
+
+```dhall
+let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
+  = λ(T : Type) → λ(t : T) → λ(f : T → Type) → λ(ft : f t) → ft
+```
+
+But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y` are different values.
+More precisely, this will happen for any `x` and `y` such that the Dhall type-checker will think that `f x` and `f y` are not the same type.
+
+Keep in mind that the Dhall type-checker will not always detect semantic equality in situations where the expressions are syntactically different.
+For example, `y * 2` will always evaluate to the same natural number as `y + y`, but the Dhall type-checker will not recognize that in situations where `y` is a bound variable whose value is not yet known.
+As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
+This is one of the limitations of the Dhall interpreter with respect to dependent types.
+
+To summarize, Leibniz equality types have the following properties:
+
+- One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
+- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x x`.
+- If values `x : T` and `y : T` are semantically different, and if Dhall can compare values of type `T`, one can implement a Dhall function of type `LeibnizEqual T x y → <>`.
+
+
+### Leibniz equality and the "assert" feature
+
+The "assert" feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
+The expression `assert : x === y` will type-check only if `x` and `y` have the same type (say, `T`) and the same normal forms.
+
+This constraint can be translated into the property that `f x` and `f y` are the same type for any function `f : T → Type`.
+If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having type `LeibnizEqual T x y`.
+We can write that constraint as a type annotation (which is also validated at type-checking time) in the form `refl T x : LeibnizEqual T x y`.
+That type annotation is valid only when `x` equals `y` at type-checking time.
+
+As an example, here is how we can assert that `123` equals `100 + 20 + 3`:
+```dhall
+let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
+```
+This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
+In this way, we see that Leibniz equality types reproduce Dhall's "assert" functionality.
+
+### Constraining a function argument value
+
+We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
+
+TODO
+
 ## Church encoding for recursive types and type constructors
 
 ### Recursion schemes

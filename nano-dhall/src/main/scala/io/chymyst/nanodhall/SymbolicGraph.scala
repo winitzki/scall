@@ -34,19 +34,20 @@ object SymbolicGraph {
           And(r.grammarRule, next.grammarRule)
         },
       )
-      def ~(next: RuleLiteral)(implicit file: File, line: Line, varName: Name): RuleDef =
     }
-
-    def |(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
-      new RuleDef(
-        name = varName.value,
-        rule = { () =>
-          println(s"DEBUG: evaluating Or(${r.name}, ${next.name}")
-          Or(r.grammarRule, next.grammarRule)
-        },
-      )
+//      def ~(next: RuleLiteral)(implicit file: File, line: Line, varName: Name): RuleDef =
+//    }
+//
+//    def |(next: => RuleDef)(implicit file: File, line: Line, varName: Name): RuleDef =
+//      new RuleDef(
+//        name = varName.value,
+//        rule = { () =>
+//          println(s"DEBUG: evaluating Or(${r.name}, ${next.name}")
+//          Or(r.grammarRule, next.grammarRule)
+//        },
+//      )
   }
 
-  def lit(s: String)(implicit file: File, line: Line, varName: Name): RuleDef = new RuleDef(name = varName.value, rule = () => LiteralMatch(s))
+  //def lit(s: String)(implicit file: File, line: Line, varName: Name): RuleDef = new RuleDef(name = varName.value, rule = () => LiteralMatch(s))
 
 }
