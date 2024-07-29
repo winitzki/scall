@@ -61,8 +61,10 @@ System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x
 
 ### Guaranteed termination
 
-The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
+The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
+
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
+It is guaranteed that the correct normal form will be computed (although the computation may take a long time).
 
 Invalid Dhall programs will be rejected at the type-checking phase.
 Any Dhall program that passes type-checking will be guaranteed to evaluate to a canonical (unique) normal form within finite time.
@@ -1329,9 +1331,10 @@ The code will ensure that any further iterations will not modify the final resul
 The code is:
 
 ```dhall
--- unsafeDiv x y means x / y but it will return wrong results when y = 0.
+let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+
+-- unsafeDiv x y means x / y, but it will return wrong results when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
-  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
   let Accum = { result : Natural, sub : Natural, done : Bool }
   in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = {result = 0, sub = x, done = False}
@@ -2892,13 +2895,52 @@ As an example, here is how we can assert that `123` equals `100 + 20 + 3`:
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
 This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
-In this way, we see that Leibniz equality types reproduce Dhall's "assert" functionality.
 
-### Constraining a function argument value
+Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`:
+
+```dhall
+let toAssert
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
+    leq (λ(a : T) → x === a) (assert : x === x)
+```
+
+In this way, Leibniz equality types reproduce Dhall's assertion functionality.
+Dhall's `assert` keyword and types of the form `x === y` give convenient syntactic sugar for using Leibniz equality types.
+
+
+### Constraining a function argument's value
 
 We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
+To achieve that, we add an extra "evidence" argument to the function.
+The user can call the function only when an evidence value value can be provided.
 
-TODO
+For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y` are the same.
+So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
+
+A function with an argument of type `LeibnizEqual T x y → <>` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality.
+
+Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
+In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
+The type `Nonzero y` is equivalent to the type `LeibnizEqual Natural 0 y → <>`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
+In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
+
+Another way of using Leibniz equality is for imposing the requirement that some Boolean-valued function is `True`.
+For example, suppose we need to implement a function with two `Natural` arguments, and we need to ensure that `f x y` will be called only when `x + y < 100`.
+We write:
+
+```dhall
+let Natural/lessThan
+let f = λ(x : Natural) → λ(y : Natural) →
+  λ(constraint : LeibnizEqual Bool True (Natural/lessThan (x + y) 100)) →
+    x + y  -- Whatever the function is supposed to do with x and y.
+let _ = assert : f 10 10 (refl Bool True) === 20
+```
+
+To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
+There is only one value of that type, and that value is produced by `refl Bool True`.
+The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
+But trying to call `f 100 100 (refl Bool True)` will be a type error.
 
 ## Church encoding for recursive types and type constructors
 
