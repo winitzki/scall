@@ -2987,7 +2987,156 @@ That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but 
 
 ### Symbolic reasoning with Leibniz equality
 
-TODO
+One can implement "equality combinators" that manipulate Leibniz equality types and enable symbolic reasoning about equal values.
+The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
+
+The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
+We will focus on equality between values; equality between types has the same properties.
+
+#### Reflexivity
+
+The reflexivity property is that any value `x` equals itself.
+Translated into equality types, it means that for any `x : T` there must exist a value of type `LeibnizEqual T x x`.
+Indeed, we have seen that such a value is created as `refl T x`.
+
+So, `refl` is the reflexivity combinator.
+
+#### Symmetry
+
+The symmetry property is that if `x` equals `y` then also `y` equals `x`.
+Translated into the language of equality types, it means that for any value of type `LeibnizEqual T x y` we should be able to construct a value of type `LeibnizEqual T y x`.
+
+So, the symmetry combinator is a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
+How can we implement that function?
+```dhall
+let symmetryLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → LeibnizEqual T y x
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual T y x
+```
+We need to return a value of type `LeibnizEqual T y x`.
+The only way for us to get that value is to apply the given evidence `x_eq_y` to some arguments.
+According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
+The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
+But we are required to compute a value of type `LeibnizEqual T y x`.
+We will achieve that by evaluating `x_eq_y g h` only if the output type `g y` is the same as the required type `LeibnizEqual T y x`.
+To achieve that, we define `g t = LeibnizEqual T t x` and notice that the type `g x` is then just `LeibnizEqual T x x`.
+A suitable value `h : g x` is found as `refl T x`.
+
+Putting the code together, we get:
+
+```dhall
+let symmetryLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → LeibnizEqual T y x
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) →
+    let g = λ(t : T) → LeibnizEqual T t x
+    let h : g x = refl T x
+    in x_eq_y g h
+```
+
+#### Transitivity
+
+The transitivity property is that if `x` equals `y` and `y` equals `z` then also `x` equals `z`.
+In the language of equality types, it means we should expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
+How can we implement that function?
+```dhall
+let transitivityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(z : T) →
+    LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(z : T) → λ(x_eq_y : LeibnizEqual T x y) → λ(y_eq_z : LeibnizEqual T y z) → ??? : LeibnizEqual T x z
+```
+We need to return a value of type `LeibnizEqual T x z`.
+The only way for us to get that value is to apply the given evidence values `x_eq_y` and `y_eq_z` to some arguments.
+At the top level, we need to apply `y_eq_z`, because we need to get a type involving the value `z`.
+```dhall
+??? : LeibnizEqual T x z = y_eq_z g h
+```
+The required output type `LeibnizEqual T x z` must be the same as the type `g z`.
+This will be achieved if we define the type constructor `g : T → Type` by `g t = LeibnizEqual T x t`.
+Then the value `h` must have type `g y`, which is `LeibnizEqual T x y`.
+The given argument `x_eq_y` has precisely that type.
+So, we obtain the complete code of `transitivityLeibnizEqual`:
+```dhall
+let transitivityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(z : T) →
+    LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(z : T) → λ(x_eq_y : LeibnizEqual T x y) → λ(y_eq_z : LeibnizEqual T y z) →
+    let g = λ(t : T) → LeibnizEqual T x t
+    let h : g y = x_eq_y
+    in y_eq_z g h
+```
+
+#### Value identity
+
+If we know that `x` equals `y`, we also know that `f x` equals `f y` for any function `f`.
+This is translated into the following combinator:
+
+```dhall
+let identityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(U : Type) → ∀(f : T → U) → LeibnizEqual T x y → LeibnizEqual U (f x) (f y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) →
+    λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual U (f x) (f y)
+```
+
+We derive the code for this combinator using the same technique: find a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
+That last type should be the same as `g y`.
+We achieve that by defining `g t = LeibnizEqual U (f x) (f t)`.
+Then a suitable value `h : g x` is obtained with `refl`.
+The code becomes:
+```dhall
+let identityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(U : Type) → ∀(f : T → U) → LeibnizEqual T x y → LeibnizEqual U (f x) (f y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) → λ(x_eq_y : LeibnizEqual T x y) →
+    let g = λ(t : T) → LeibnizEqual U (f x) (f t)
+    let h : g x = refl U (f x)
+    in x_eq_y g h
+```
+
+#### Function extensionality
+
+The principle of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
+In other words, `f === g` if and only if we have `f x === g x` for all `x` .
+
+In the language of equality types, this translates into a combinator with the type signature `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`.
+```dhall
+let extensionalityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(U : Type) → ∀(f : T → U) → ∀(g : T → U) → LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)
+  = λ(T : Type) → λ(x : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(f_eq_g : LeibnizEqual (T → U) f g) → ??? : LeibnizEqual U (f x) (g x)
+```
+To derive the code, we look for a suitable type constructor `k : (T → U) → Type` and a value `h : k f` such that evaluating `f_eq_g k f` will give a value of the required output type `LeibnizEqual U (f x) (g x)`.
+That last type should be the same as `k g`.
+We achieve that by defining `k t = LeibnizEqual U (f x) (t x)`.
+Then a suitable value `h : k f` is obtained with `refl`.
+The code becomes:
+```dhall
+let extensionalityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(U : Type) → ∀(f : T → U) → ∀(g : T → U) → LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)
+  = λ(T : Type) → λ(x : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(f_eq_g : LeibnizEqual (T → U) f g) →
+    let k = λ(t : T → U) → LeibnizEqual U (f x) (t x)
+    let h : k f = refl U (f x)
+    in f_eq_g k h
+```
+
+#### Symbolic reasoning
+
+To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
+It is clear that `f x = g y` in that case.
+Can we produce an evidence value for that?
+
+Dhall cannot do that with its built-in equality types.
+It turns out that Leibniz equality types and the standard combinators shown above will allows us to perform that computation.
+Namely, we can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
+It remains to use the "transitivity" combinator to establish that `f x === g y`.
+
+The code that computes evidence of type `f x === g y` is:
+```dhall
+let extensional_equality
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(x_eq_y : LeibnizEqual T x y) → λ(f_eq_g : LeibnizEqual (T → U) f g) →
+    let f_x_eq_g_x : LeibnizEqual U (f x) (g x) = extensionalityLeibnizEqual T x U f g f_eq_g
+    let g_x_eq_g_y : LeibnizEqual U (g x) (g y) = identityLeibnizEqual T x y U g x_eq_y
+    let result : LeibnizEqual U (f x) (g y) = transitivityLeibnizEqual U (f x) (g x) (g y) f_x_eq_g_x g_x_eq_g_y
+    in result
+```
+
 
 ## Church encoding for recursive types and type constructors
 
