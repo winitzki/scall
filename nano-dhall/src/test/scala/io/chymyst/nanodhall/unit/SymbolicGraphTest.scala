@@ -11,19 +11,19 @@ object SGraph {
 
   implicit def toRuleDef(rule: LiteralMatch)(implicit varName: Name): RuleDef = RuleDef(varName.value, () => rule)
 
-  final case class RuleDef(name: String, grammarRule: () =>  GrammarExpr) {
+  final case class RuleDef(name: String, grammarRule: () => GrammarExpr) {
     lazy val rule: GrammarExpr = grammarRule()
   }
 
   sealed trait GrammarExpr
-  final case class LiteralMatch(s: String) extends GrammarExpr
+  final case class LiteralMatch(s: String)                              extends GrammarExpr
   final case class GrammarSymbol(name: String, rule: () => GrammarExpr) extends GrammarExpr
-  final case class And(l: GrammarExpr, r: GrammarExpr) extends GrammarExpr
-  final case class Or(l: GrammarExpr, r: GrammarExpr) extends GrammarExpr
+  final case class And(l: GrammarExpr, r: GrammarExpr)                  extends GrammarExpr
+  final case class Or(l: GrammarExpr, r: GrammarExpr)                   extends GrammarExpr
 
-  implicit class RuleDefOps(r:  => RuleDef) {
-    def ~(next : => RuleDef)(implicit varName: Name): RuleDef = RuleDef(varName.value, () => And(r.rule, next.rule))
-    def |(next : => RuleDef)(implicit varName: Name): RuleDef = RuleDef(varName.value, () => Or(r.rule, next.rule))
+  implicit class RuleDefOps(r: => RuleDef) {
+    def ~(next: => RuleDef)(implicit varName: Name): RuleDef = RuleDef(varName.value, () => And(r.rule, next.rule))
+    def |(next: => RuleDef)(implicit varName: Name): RuleDef = RuleDef(varName.value, () => Or(r.rule, next.rule))
   }
 
 }
@@ -33,24 +33,23 @@ class SymbolicGraphTest extends FunSuite {
   test("graph with only symbol names") {
     final case class RD(name: String)
     sealed trait GrammarExp
-    final case class LM(s: String) extends GrammarExp
-    final case class GS(name: String) extends GrammarExp
+    final case class LM(s: String)                        extends GrammarExp
+    final case class GS(name: String)                     extends GrammarExp
     final case class Andx(l: GrammarExpr, r: GrammarExpr) extends GrammarExp
-    final case class Orx(l: GrammarExpr, r: GrammarExpr) extends GrammarExp
+    final case class Orx(l: GrammarExpr, r: GrammarExpr)  extends GrammarExp
 
-    implicit class RuleDefOpsx(r:  => RD) {
-      def ~(next : => RD)(implicit varName: Name): RD = RD(varName.value)
-      def |(next : => RD)(implicit varName: Name): RD = RD(varName.value)
+    implicit class RuleDefOpsx(r: => RD) {
+      def ~(next: => RD)(implicit varName: Name): RD = RD(varName.value)
+      def |(next: => RD)(implicit varName: Name): RD = RD(varName.value)
     }
-
 
     def litx(s: String)(implicit varName: Name): RD = RD(varName.value)
 
-    lazy val a: RD= litx("x")
-    lazy val b: RD= litx("y") ~ a
-    lazy val c: RD= litx("y") ~ a | b
-    lazy val d: RD= litx("z") ~ d | b | e
-    lazy val e: RD= litx("z") ~ e | (b ~ d)
+    lazy val a: RD = litx("x")
+    lazy val b: RD = litx("y") ~ a
+    lazy val c: RD = litx("y") ~ a | b
+    lazy val d: RD = litx("z") ~ d | b | e
+    lazy val e: RD = litx("z") ~ e | (b ~ d)
     expect(a.name == "a")
     expect(b.name == "b")
     expect(c.name == "c")
