@@ -2811,7 +2811,7 @@ That feature can be seen as syntax sugar for a general facility known as **Leibn
 
 ### Definition and first examples
 
-By definition, a Leibniz equality type has the following form:
+By definition, a **Leibniz equality type** has the following form:
 
 ```dhall
 let LeibnizEqual =
@@ -2819,7 +2819,8 @@ let LeibnizEqual =
 ```
 This complicated type expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
 It is far from obvious how to work with types of the form `LeibnizEqual`.
-To explain this, we begin by considering an example where `T = Natural`.
+
+To explain that, we begin by considering an example where `T = Natural`.
 Define the type `LeibnizEqNat` by:
 
 ```dhall
@@ -2832,20 +2833,21 @@ The crucial property of that type is that we can have a value of type `LeibnizEq
 To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1`:
 
 ```dhall
-let _ = assert : LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
-let _ = assert : LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
+-- Symbolic derivation.
+LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
+LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
 ```
 We can easily implement a value of type `LeibnizEqNat 0 0`:
 
 ```dhall
-let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(f0 : f 0) → f0
+let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(p : f 0) → p
 ```
 However, it is impossible to implement any values of type `LeibnizEqNat 0 1`.
 The reason is that a value of that type would be able to return a function of type `f 0 → f 1` for any `f : Natural → Type`. Note that `f 0` and `f 1` are two types that are essentially unknown: these two types are computed by a given function `f` that converts natural numbers into types in an arbitrary and unknown way. 
 So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
 It is impossible to implement such a function.
 
-To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`.
+To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `f_contradiction`:
 ```dhall
 let f_contradiction : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
 let _ = assert : f_contradiction 0 === {}
@@ -2853,16 +2855,16 @@ let _ = assert : f_contradiction 1 === <>
 ```
 
 If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `f_contradiction` and to a unit value `{=}` and obtain a value of the void type.
-That would be a contradiction in the type system.
+That would be a contradiction in the type system (a value of a type that, by definition, has no values).
 Dhall does not allow us to write such code.
 
 These results generalize to any type `T`.
-For any `t : T`, we can implement a value of type `LeibnizEqual T t t`.
+For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
 That value is commonly denoted `refl`:
 
 ```dhall
 let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
-  = λ(T : Type) → λ(t : T) → λ(f : T → Type) → λ(ft : f t) → ft
+  = λ(T : Type) → λ(t : T) → λ(f : T → Type) → λ(p : f t) → p
 ```
 
 But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y` are different values.
@@ -2896,18 +2898,19 @@ let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
 This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
 
-Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`:
+Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`.
+To achieve that, we may write a general function `toAssertType`:
 
 ```dhall
-let toAssert
+let toAssertType
   : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
     leq (λ(a : T) → x === a) (assert : x === x)
 ```
+With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is the same Dhall value as `assert : 1 === 1`.
 
 In this way, Leibniz equality types reproduce Dhall's assertion functionality.
 Dhall's `assert` keyword and types of the form `x === y` give convenient syntactic sugar for using Leibniz equality types.
-
 
 ### Constraining a function argument's value
 
@@ -2941,6 +2944,51 @@ To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
 There is only one value of that type, and that value is produced by `refl Bool True`.
 The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
 But trying to call `f 100 100 (refl Bool True)` will be a type error.
+
+### Leibniz equality for types
+
+Dhall's `assert` feature is limited to values; it does not work for types or kinds.
+The expression `assert : Natural === Natural` (and even the type `Natural === Natural` alone) is rejected by Dhall.
+
+One can define a form of a Leibniz equality type for comparing types instead of values:
+
+```dhall
+let LeibnizEqualT =
+  λ(T : Kind) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
+
+let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
+```
+
+Now the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
+The type `LeibnizEqualT Type Bool Bool` will not be void because there will be a value `reflT Type Bool` of that type.
+
+We can use `LeibnizEqualT` to implement an `assert`-like functionality for types:
+
+```dhall
+-- This is analogous to assert : Bool === Bool.
+let _ = relfT Type Bool : LeibnizEqualT Type Bool Bool
+```
+
+To give another example, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal:
+
+
+```dhall
+let t1 = LeibnizEqNat 0 1
+let t2 = ∀(f : Natural → Type) → f 0 → f 1
+let _ = relfT Type t1 : LeibnizEqualT Type t1 t2
+```
+The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
+
+Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
+We need to use `LeibnizEqual` (and `refl`) when comparing values and `LeibnizEqualT` (and `reflT`) when comparing types.
+
+We also cannot define a Leibniz equality type for comparing kinds.
+That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type.
+(Function types are required to have a type themselves.)
+
+### Symbolic reasoning with Leibniz equality
+
+TODO
 
 ## Church encoding for recursive types and type constructors
 
@@ -5754,9 +5802,11 @@ That law was called a **free theorem** in the paper ["Theorems for free" by P. 
 
 The general formulation and proof of the parametricity theorem are beyond the scope of this book.
 For more details, see ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
-In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
+In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall.
+(The relevant subset of Dhall excludes dependent type constructors or quantifiers for type-valued functions.
+For example, Leibniz equality types are not supported by the parametricity theorem, as they allow us to implement functions that do not work in the same way for all choices of type parameters.)
 
-For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
+For natural transformations (functions of type `∀(A : Type) → F A → G A`), the automatic law will be the naturality law.
 
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
@@ -5798,7 +5848,7 @@ That law can be written in Dhall syntax as:
 ```
 
 
-To summarize: the parametricity theorem applies to all Dhall values.
+To summarize: the parametricity theorem applies to any Dhall value implemented via fully parametric code.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
 
 That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
