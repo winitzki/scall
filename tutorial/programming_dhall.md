@@ -2850,8 +2850,8 @@ It is impossible to implement such a function.
 To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `f_contradiction`:
 ```dhall
 let f_contradiction : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
-let _ = assert : f_contradiction 0 === {}
-let _ = assert : f_contradiction 1 === <>
+-- f_contradiction 0 evaluates to {}
+-- f_contradiction 1 evaluates to <>
 ```
 
 If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `f_contradiction` and to a unit value `{=}` and obtain a value of the void type.
@@ -2933,7 +2933,6 @@ For example, suppose we need to implement a function with two `Natural` argument
 We write:
 
 ```dhall
-let Natural/lessThan
 let f = λ(x : Natural) → λ(y : Natural) →
   λ(constraint : LeibnizEqual Bool True (Natural/lessThan (x + y) 100)) →
     x + y  -- Whatever the function is supposed to do with x and y.
@@ -2966,7 +2965,7 @@ We can use `LeibnizEqualT` to implement an `assert`-like functionality for types
 
 ```dhall
 -- This is analogous to assert : Bool === Bool.
-let _ = relfT Type Bool : LeibnizEqualT Type Bool Bool
+let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
 To give another example, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal:
@@ -2975,7 +2974,7 @@ To give another example, let us verify that the types `LeibnizEqNat 0 1` and `�
 ```dhall
 let t1 = LeibnizEqNat 0 1
 let t2 = ∀(f : Natural → Type) → f 0 → f 1
-let _ = relfT Type t1 : LeibnizEqualT Type t1 t2
+let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 ```
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
 

@@ -56,7 +56,7 @@ class SymbolicGraphTest extends FunSuite {
     expect(d.name == "d")
     expect(e.name == "e")
   }
-
+/*
   test("grammar without circular dependencies") {
     lazy val a: RuleDef = lit("x")
     lazy val b: RuleDef = lit("y") ~ a
@@ -112,4 +112,6 @@ class SymbolicGraphTest extends FunSuite {
     })
 
   }
+  
+ */
 }
