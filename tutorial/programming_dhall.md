@@ -3119,12 +3119,14 @@ let extensionalityLeibnizEqual
 #### Symbolic reasoning
 
 To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
-It is clear that `f x = g y` in that case.
+It is clear that `f x === g y` in that case.
 Can we produce an evidence value for that?
 
-Dhall cannot do that with its built-in equality types.
-It turns out that Leibniz equality types and the standard combinators shown above will allows us to perform that computation.
-Namely, we can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
+Dhall cannot manipulate values of its built-in equality types.
+There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that.
+
+But Leibniz equality types and the standard combinators allow us to perform such computations.
+We can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
 It remains to use the "transitivity" combinator to establish that `f x === g y`.
 
 The code that computes evidence of type `f x === g y` is:
@@ -3144,7 +3146,7 @@ let extensional_equality
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
-However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
+However, the Church encoding technique provides a wide range of user-defined recursive types and recursive functions in Dhall.
 
 Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
 Here, we summarize that technique more briefly.
@@ -3180,14 +3182,15 @@ The **Church encoding** of `T` is the following type expression:
 let C : Type = ∀(r : Type) → (F r → r) → r 
 ```
 
-The type `C` is still non-recursive, so Dhall will accept this definition.
+This definition of the type `C` is _non-recursive_, and so Dhall will accept it.
 
 Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`.
 The type `C` is not a type constructor; it is a type of a function with a type parameter.
-When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
+
+When we define `F` as above, it turns out that the type `C` is _equivalent_ to the type of (finite) lists with integer values.
 
 The Church encoding construction works in the same way for any recursion scheme `F`.
-Given a recursion scheme `F`, one defines a non-recursive type `C`:
+Given a recursion scheme `F`, one defines the corresponding Church-encoded type `C`:
 
 ```dhall
 let C = ∀(r : Type) → (F r → r) → r
