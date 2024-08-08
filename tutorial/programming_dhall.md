@@ -1348,8 +1348,7 @@ let _ = assert : factorial 10 === 3628800
 
 
 ### Integer division
-
-Let us implement division for natural numbers.
+As another example, we implement division for natural numbers.
 
 A simple iterative algorithm that uses only subtraction runs like this.
 Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative.
@@ -2957,6 +2956,7 @@ For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y`
 So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
 
 A function with an argument of type `LeibnizEqual T x y → <>` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality.
+(Note that Dhall's `assert` feature is not able to require that some values be unequal.)
 
 Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
