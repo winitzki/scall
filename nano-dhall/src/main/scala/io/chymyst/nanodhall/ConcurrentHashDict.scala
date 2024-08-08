@@ -9,7 +9,7 @@ trait HashDict[A] {
   def store(value: A): Int
 }
 
-class LRUHashDict[A](maxSize: Int) extends HashDict[A] {
+class ConcurrentHashDict[A](maxSize: Int) extends HashDict[A] {
   private val valueDict: ConcurrentMap[Int, A] = new ConcurrentHashMap[Int, A]
   private val keyDict: ConcurrentMap[A, Int]   = new ConcurrentHashMap[A, Int]
 
@@ -21,5 +21,3 @@ class LRUHashDict[A](maxSize: Int) extends HashDict[A] {
     key
   }
 }
-
-object LRUHashDict {}

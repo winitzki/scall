@@ -1,4 +1,4 @@
-//> using dep com.lihaoyi::fastparse:3.1.0
+//> using dep com.lihaoyi::fastparse:3.1.1
 
 //> using scala 3.4.1
 

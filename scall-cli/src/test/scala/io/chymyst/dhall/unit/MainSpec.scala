@@ -120,6 +120,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       val options         = YamlOptions(quoteAllStrings = needToQuote, createDocuments = createDocuments)
       val testOut         = new ByteArrayOutputStream
       try {
+        println(s"Processing $file in yaml main test cases")
         Main.process(file.toPath, new FileInputStream(file), testOut, OutputMode.Yaml, options)
       } finally {
         testOut.close()
