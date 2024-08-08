@@ -1312,6 +1312,41 @@ The current Haskell and Scala implementations of Dhall will detect that and comp
 
 In the next subsections, we will show examples of algorithms implemented via `Natural/fold`.
 
+### Factorial
+
+A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
+Since Dhall does not directly support recursion, we need to reformulate this computation through repeated application of a certain function.
+The factorial function must be expressed through a computation of the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
+We need to find `A`, `s`, and `z` that would allow us to implement the factorial function in that way.
+
+We expect to iterate over `1, 2, ..., n` while computing the factorial.
+It is clear that the type `A` must hold both the current partial result and the iteration count.
+So, let us define the accumulator type `A` as a pair `{ current : Natural, iteration : Natural }`.
+```dhall
+let Accum = { current : Natural, iteration : Natural }
+```
+Each iteration will multiply the current result by the iteraction count and increment that count.
+We define the function `s` accordingly.
+The complete code is:
+
+```dhall
+let factorial = λ(n : Natural) →
+  let init : Accum = { current = 1, iteration = 1 }
+  let s : Accum → Accum = λ(acc : Accum) → {
+    current = acc.current * acc.iteration,
+    iteration = acc.iteration + 1,
+  }
+  let result : Accum = Natural/fold n Accum s init
+  in result.current
+```
+
+Let us test this code:
+
+```dhall
+let _ = assert : factorial 10 === 3628800
+```
+
+
 ### Integer division
 
 Let us implement division for natural numbers.
@@ -3182,7 +3217,7 @@ The **Church encoding** of `T` is the following type expression:
 let C : Type = ∀(r : Type) → (F r → r) → r 
 ```
 
-This definition of the type `C` is _non-recursive_, and so Dhall will accept it.
+This definition of the type `C` is _non-recursive_, and so Dhall will also accept it.
 
 Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`.
 The type `C` is not a type constructor; it is a type of a function with a type parameter.
@@ -3190,7 +3225,7 @@ The type `C` is not a type constructor; it is a type of a function with a type p
 When we define `F` as above, it turns out that the type `C` is _equivalent_ to the type of (finite) lists with integer values.
 
 The Church encoding construction works in the same way for any recursion scheme `F`.
-Given a recursion scheme `F`, one defines the corresponding Church-encoded type `C`:
+Given `F`, one defines the corresponding Church-encoded type `C` by:
 
 ```dhall
 let C = ∀(r : Type) → (F r → r) → r
