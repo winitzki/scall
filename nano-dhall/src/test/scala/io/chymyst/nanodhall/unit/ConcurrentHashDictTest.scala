@@ -1,12 +1,12 @@
 package io.chymyst.nanodhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.dhall.LRUHashDict
+import io.chymyst.dhall.ConcurrentHashDict
 import munit.FunSuite
 
-class LRUHashDictTest extends FunSuite {
+class ConcurrentHashDictTest extends FunSuite {
   test("hash strings") {
-    val dict = new LRUHashDict[String](10)
+    val dict = new ConcurrentHashDict[String](10)
     val abc  = dict.store("abc")
     val cde  = dict.store("cde")
     expect(abc != cde)

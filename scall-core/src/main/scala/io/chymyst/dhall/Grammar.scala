@@ -163,23 +163,23 @@ object Grammar {
 
   def whsp1[$: P]: P[Unit] = P(
     NoCut(whitespace_chunk.rep(1))
-  )
+  ).memoize
 
   def ALPHANUM[$: P] = P(
     ALPHA | DIGIT
-  )
+  ).memoize
 
   def hexdigitAnyCase[$: P] = P(
     CharIn("0-9A-Fa-f")
-  )
+  ).memoize
 
   def simple_label_first_char[$: P] = P(
     ALPHA | "_"
-  )
+  ).memoize
 
   def simple_label_next_char[$: P] = P(
     ALPHANUM | "-" | "/" | "_"
-  )
+  ).memoize
 
   /*
   ; A simple label cannot be one of the reserved keywords
@@ -193,7 +193,7 @@ object Grammar {
   def simple_label[$: P]: P[String] = P(
     (keyword.map(_ => ()) ~ simple_label_next_char.rep(1)) // Do not insert a cut after keyword.
       | (!keyword ~ simple_label_first_char ~ simple_label_next_char.rep)
-  ).!
+  ).!.memoize
 
   // Any printable character other than the backquote.
   def quoted_label_char[$: P] = P(
@@ -223,11 +223,11 @@ object Grammar {
 
   def any_label_or_some[$: P]: P[String] = P(
     any_label | requireKeyword("Some").!
-  )
+  ).memoize
 
   def with_component[$: P]: P[String] = P(
     any_label_or_some | "?".!
-  ).!
+  ).!.memoize
 
   final case class TextLiteralNoInterp(value: String) extends AnyVal
 
@@ -237,7 +237,7 @@ object Grammar {
       // '\'    Beginning of escape sequence
       | ("\\" ~/ double_quote_escaped).map(TextLiteralNoInterp.apply).map(Right.apply)
       | double_quote_char.!.map(TextLiteralNoInterp.apply).map(Right.apply)
-  )
+  ).memoize
 
   def double_quote_escaped[$: P]: P[String] = P(
     //    CharIn("\"$\\/bfnrt")
@@ -252,7 +252,7 @@ object Grammar {
       | "t".!.map(_ => "\t") // 't'    tab             U+0009
       | ("u" ~ unicode_escape.map(hex => new String(Character.toChars(Integer.parseInt(hex, 16))))) // 'uXXXX' | 'u{XXXX}'    U+XXXX
     // See https://stackoverflow.com/questions/5585919/creating-unicode-character-from-its-number
-  )
+  ).memoize
 
   def unicode_escape[$: P]: P[String] = P(
     unbraced_escape.! | ("{" ~/ braced_escape.! ~ "}")
@@ -300,6 +300,7 @@ object Grammar {
   def double_quote_literal[$: P]: P[TextLiteral[Expression]] = P(
     "\"" ~/ double_quote_chunk.rep ~ "\""
   ).map(_.map(literalOrInterp => literalOrInterp.map(TextLiteral.ofText[Expression]).merge).fold(TextLiteral.empty[Expression])(_ ++ _))
+    .memoize
 
   def single_quote_continue[$: P]: P[TextLiteral[Expression]] = P(
     (interpolation ~ single_quote_continue).map { case (head, tail) => TextLiteral.ofExpression(head) ++ tail }
@@ -307,7 +308,7 @@ object Grammar {
       | (escaped_interpolation ~ single_quote_continue).map { case (a, b) => a ++ b }
       | P("''").map(_ => TextLiteral.empty) // End of text literal.
       | (single_quote_char ~ single_quote_continue).map { case (char, tail) => TextLiteral.ofString[Expression](char) ++ tail }
-  )
+  ) // Do not memoize here: stack overflow!
 
   def escaped_quote_pair[$: P]: P[TextLiteral[Expression]] = P(
     "'''".!.map(_ => TextLiteral.ofString(s"''"))
@@ -322,7 +323,7 @@ object Grammar {
       | valid_non_ascii
       | tab
       | end_of_line
-  ).!
+  ).!.memoize
 
   def single_quote_literal[$: P]: P[TextLiteral[Expression]] = P(
     "''" ~ end_of_line ~/ single_quote_continue
@@ -335,7 +336,7 @@ object Grammar {
   def text_literal[$: P]: P[TextLiteral[Expression]] = P(
     double_quote_literal
       | single_quote_literal
-  )
+  ).memoize
 
   // See https://stackoverflow.com/questions/140131/convert-a-string-representation-of-a-hex-dump-to-a-byte-array-using-java
   def hexStringToByteArray(s: String): Array[Byte] = { // `s` must be a String of even length.
@@ -418,6 +419,7 @@ object Grammar {
   //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
   def keyword[$: P]: P[String] = concatKeywords(simpleKeywords)
+    .memoize
 
   val builtinSymbolNames = SyntaxConstants.Builtin.namesToValuesMap.keys.toSeq
   val builtinSymbolNamesSet = SyntaxConstants.Builtin.namesToValuesMap.keySet
@@ -433,7 +435,7 @@ object Grammar {
     (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)
       | concatKeywords(constantSymbolNames).map(SyntaxConstants.Constant.withName).map(ExprConstant)
       ).map(Expression.apply)
-  }
+  }.memoize
 
   def combine[$: P] = P(
     "\u2227" | "/\\"
@@ -1214,7 +1216,7 @@ object Grammar {
   def record_type_or_literal[$: P]: P[Option[Expression]] = P(
     empty_record_literal.map(Expression.apply).map(Some.apply)
       | non_empty_record_type_or_literal.?
-  )
+  ).memoize
 
   def empty_record_literal[$: P]: P[RecordLiteral[Expression]] = P(
     "=" ~/ (whsp ~ ",").?
@@ -1222,7 +1224,7 @@ object Grammar {
 
   def non_empty_record_type_or_literal[$: P]: P[Expression] = P(
     non_empty_record_type | non_empty_record_literal
-  ).map(Expression.apply)
+  ).memoize.map(Expression.apply)
 
   def non_empty_record_type[$: P]: P[RecordType[Expression]] = P(
     record_type_entry ~ (whsp ~ "," ~ whsp ~ record_type_entry).rep ~ (whsp ~ ",").?

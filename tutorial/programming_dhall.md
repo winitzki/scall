@@ -61,8 +61,10 @@ System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x
 
 ### Guaranteed termination
 
-The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique, correct "normal form" expression.
+The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
+
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
+It is guaranteed that the correct normal form will be computed (although the computation may take a long time).
 
 Invalid Dhall programs will be rejected at the type-checking phase.
 Any Dhall program that passes type-checking will be guaranteed to evaluate to a canonical (unique) normal form within finite time.
@@ -1310,9 +1312,43 @@ The current Haskell and Scala implementations of Dhall will detect that and comp
 
 In the next subsections, we will show examples of algorithms implemented via `Natural/fold`.
 
-### Integer division
+### Factorial
 
-Let us implement division for natural numbers.
+A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
+Since Dhall does not directly support recursion, we need to reformulate this computation through repeated application of a certain function.
+The factorial function must be expressed through a computation of the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
+We need to find `A`, `s`, and `z` that would allow us to implement the factorial function in that way.
+
+We expect to iterate over `1, 2, ..., n` while computing the factorial.
+It is clear that the type `A` must hold both the current partial result and the iteration count.
+So, let us define the accumulator type `A` as a pair `{ current : Natural, iteration : Natural }`.
+```dhall
+let Accum = { current : Natural, iteration : Natural }
+```
+Each iteration will multiply the current result by the iteraction count and increment that count.
+We define the function `s` accordingly.
+The complete code is:
+
+```dhall
+let factorial = λ(n : Natural) →
+  let init : Accum = { current = 1, iteration = 1 }
+  let s : Accum → Accum = λ(acc : Accum) → {
+    current = acc.current * acc.iteration,
+    iteration = acc.iteration + 1,
+  }
+  let result : Accum = Natural/fold n Accum s init
+  in result.current
+```
+
+Let us test this code:
+
+```dhall
+let _ = assert : factorial 10 === 3628800
+```
+
+
+### Integer division
+As another example, we implement division for natural numbers.
 
 A simple iterative algorithm that uses only subtraction runs like this.
 Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative.
@@ -1329,9 +1365,10 @@ The code will ensure that any further iterations will not modify the final resul
 The code is:
 
 ```dhall
--- unsafeDiv x y means x / y but it will return wrong results when y = 0.
+let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+
+-- unsafeDiv x y means x / y, but it will return wrong results when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
-  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
   let Accum = { result : Natural, sub : Natural, done : Bool }
   in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = {result = 0, sub = x, done = False}
@@ -2801,13 +2838,351 @@ let monadList : MonadFP List =
       }
 ```
 
+## Programming with Leibniz equality types
+
+Dhall's `assert` feature provides a static check that some expressions are equal.
+That feature can be seen as syntax sugar for a general facility known as **Leibniz equality**.
+
+### Definition and first examples
+
+By definition, a **Leibniz equality type** has the following form:
+
+```dhall
+let LeibnizEqual =
+  λ(T : Type) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
+```
+This complicated type expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
+It is not obvious how to work with types of the form `LeibnizEqual`.
+
+To explain that, we begin by considering an example where `T = Natural`.
+Define the type `LeibnizEqNat` by:
+
+```dhall
+let LeibnizEqNat =
+   λ(a : Natural) → λ(b : Natural) → ∀(f : Natural → Type) → f a → f b
+```
+
+The crucial property of that type is that we can have a value of type `LeibnizEqNat x y` _only if_ the natural numbers `x` and `y` are equal to each other.
+
+To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1`:
+
+```dhall
+-- Symbolic derivation.
+LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
+LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
+```
+We can easily implement a value of type `LeibnizEqNat 0 0`:
+
+```dhall
+let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(p : f 0) → p
+```
+However, it is impossible to implement any values of type `LeibnizEqNat 0 1`.
+The reason is that a value of that type would be able to return a function of type `f 0 → f 1` for any `f : Natural → Type`. Note that `f 0` and `f 1` are two types that are essentially unknown: these two types are computed by a given function `f` that converts natural numbers into types in an arbitrary and unknown way. 
+So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
+It is impossible to implement such a function.
+
+To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `f_contradiction`:
+```dhall
+let f_contradiction : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
+-- f_contradiction 0 evaluates to {}
+-- f_contradiction 1 evaluates to <>
+```
+
+If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `f_contradiction` and to a unit value `{=}` and obtain a value of the void type.
+That would be a contradiction in the type system (a value of a type that, by definition, has no values).
+Dhall does not allow us to write such code.
+
+These results generalize to any type `T`.
+For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
+That value is commonly denoted `refl`:
+
+```dhall
+let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
+  = λ(T : Type) → λ(t : T) → λ(f : T → Type) → λ(p : f t) → p
+```
+
+But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y` are different values.
+More precisely, this will happen for any `x` and `y` such that the Dhall type-checker will think that `f x` and `f y` are not the same type.
+
+Keep in mind that the Dhall type-checker will not always detect semantic equality in situations where the expressions are syntactically different.
+For example, `y * 2` will always evaluate to the same natural number as `y + y`, but the Dhall type-checker will not recognize that in situations where `y` is a bound variable whose value is not yet known.
+As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
+This is one of the limitations of the Dhall interpreter with respect to dependent types.
+
+To summarize, Leibniz equality types have the following properties:
+
+- One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
+- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x x`.
+- If values `x : T` and `y : T` are semantically different, and if Dhall can compare values of type `T`, one can implement a Dhall function of type `LeibnizEqual T x y → <>`.
+
+
+### Leibniz equality and the "assert" feature
+
+The "assert" feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
+The expression `assert : x === y` will type-check only if `x` and `y` have the same type (say, `T`) and the same normal forms.
+
+This constraint can be translated into the property that `f x` and `f y` are the same type for any function `f : T → Type`.
+If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having type `LeibnizEqual T x y`.
+We can write that constraint as a type annotation (which is also validated at type-checking time) in the form `refl T x : LeibnizEqual T x y`.
+That type annotation is valid only when `x` equals `y` at type-checking time.
+
+As an example, here is how we can assert that `123` equals `100 + 20 + 3`:
+```dhall
+let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
+```
+This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
+This example shows why Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
+
+Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`.
+To achieve that, we may write a general function `toAssertType`:
+
+```dhall
+let toAssertType
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
+    leq (λ(a : T) → x === a) (assert : x === x)
+```
+With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is the same Dhall value as `assert : 1 === 1`.
+
+In this way, Leibniz equality types reproduce Dhall's assertion functionality.
+Dhall's `assert` keyword and types of the form `x === y` give convenient syntactic sugar for using Leibniz equality types.
+
+### Constraining a function argument's value
+
+We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
+To achieve that, we add an extra "evidence" argument to the function.
+The user can call the function only when an evidence value of the required type can be provided.
+
+For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y` are the same.
+So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
+
+A function with an argument of type `LeibnizEqual T x y → <>` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality.
+(Note that Dhall's `assert` feature is _not_ able to require that some values be unequal.)
+
+Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
+In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
+The type `Nonzero y` is equivalent to the type `LeibnizEqual Natural 0 y → <>`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
+In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
+
+Another way of using Leibniz equality is for imposing the requirement that some Boolean-valued function is `True`.
+For example, suppose we need to implement a function with two `Natural` arguments, and we need to ensure that `f x y` will be called only when `x + y < 100`.
+We write:
+
+```dhall
+let f = λ(x : Natural) → λ(y : Natural) →
+  λ(constraint : LeibnizEqual Bool True (Natural/lessThan (x + y) 100)) →
+    x + y  -- Whatever the function is supposed to do with x and y.
+let _ = assert : f 10 10 (refl Bool True) === 20
+```
+
+To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
+There is only one value of that type, and that value is produced by `refl Bool True`.
+The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
+But trying to call `f 100 100 (refl Bool True)` will be a type error.
+
+### Leibniz equality for types
+
+Dhall's `assert` feature is limited to values; it does not work for types or kinds.
+The expression `assert : Natural === Natural` (and even the type `Natural === Natural` alone) is rejected by Dhall.
+
+One can define a form of a Leibniz equality type for comparing types instead of values:
+
+```dhall
+let LeibnizEqualT =
+  λ(T : Kind) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
+
+let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
+```
+
+Now the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
+The type `LeibnizEqualT Type Bool Bool` will not be void because there will be a value `reflT Type Bool` of that type.
+
+We can use `LeibnizEqualT` to implement an `assert`-like functionality for types:
+
+```dhall
+-- This is analogous to assert : Bool === Bool.
+let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
+```
+
+To give another example, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal:
+
+
+```dhall
+let t1 = LeibnizEqNat 0 1
+let t2 = ∀(f : Natural → Type) → f 0 → f 1
+let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
+```
+The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
+
+Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
+We need to use `LeibnizEqual` (and `refl`) when comparing values and `LeibnizEqualT` (and `reflT`) when comparing types.
+
+We also cannot define a Leibniz equality type for comparing kinds.
+That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type.
+(Function types are required to have a type themselves.)
+
+### Symbolic reasoning with Leibniz equality
+
+One can implement "equality combinators" that manipulate Leibniz equality types and enable symbolic reasoning about equal values.
+The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
+
+The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
+We will focus on equality between values; equality between types has the same properties.
+
+#### Reflexivity
+
+The reflexivity property is that any value `x` equals itself.
+Translated into equality types, it means that for any `x : T` there must exist a value of type `LeibnizEqual T x x`.
+Indeed, we have seen that such a value is created as `refl T x`.
+
+So, `refl` is the reflexivity combinator.
+
+#### Symmetry
+
+The symmetry property is that if `x` equals `y` then also `y` equals `x`.
+Translated into the language of equality types, it means that for any value of type `LeibnizEqual T x y` we should be able to construct a value of type `LeibnizEqual T y x`.
+
+So, the symmetry combinator is a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
+How can we implement that function?
+```dhall
+let symmetryLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → LeibnizEqual T y x
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual T y x
+```
+We need to return a value of type `LeibnizEqual T y x`.
+The only way for us to get that value is to apply the given evidence `x_eq_y` to some arguments.
+According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
+The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
+But we are required to compute a value of type `LeibnizEqual T y x`.
+We will achieve that by evaluating `x_eq_y g h` only if the output type `g y` is the same as the required type `LeibnizEqual T y x`.
+To achieve that, we define `g t = LeibnizEqual T t x` and notice that the type `g x` is then just `LeibnizEqual T x x`.
+A suitable value `h : g x` is found as `refl T x`.
+
+Putting the code together, we get:
+
+```dhall
+let symmetryLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → LeibnizEqual T y x
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) →
+    let g = λ(t : T) → LeibnizEqual T t x
+    let h : g x = refl T x
+    in x_eq_y g h
+```
+
+#### Transitivity
+
+The transitivity property is that if `x` equals `y` and `y` equals `z` then also `x` equals `z`.
+In the language of equality types, it means we should expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
+How can we implement that function?
+```dhall
+let transitivityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(z : T) →
+    LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(z : T) → λ(x_eq_y : LeibnizEqual T x y) → λ(y_eq_z : LeibnizEqual T y z) → ??? : LeibnizEqual T x z
+```
+We need to return a value of type `LeibnizEqual T x z`.
+The only way for us to get that value is to apply the given evidence values `x_eq_y` and `y_eq_z` to some arguments.
+At the top level, we need to apply `y_eq_z`, because we need to get a type involving the value `z`.
+```dhall
+??? : LeibnizEqual T x z = y_eq_z g h
+```
+The required output type `LeibnizEqual T x z` must be the same as the type `g z`.
+This will be achieved if we define the type constructor `g : T → Type` by `g t = LeibnizEqual T x t`.
+Then the value `h` must have type `g y`, which is `LeibnizEqual T x y`.
+The given argument `x_eq_y` has precisely that type.
+So, we obtain the complete code of `transitivityLeibnizEqual`:
+```dhall
+let transitivityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(z : T) →
+    LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(z : T) → λ(x_eq_y : LeibnizEqual T x y) → λ(y_eq_z : LeibnizEqual T y z) →
+    let g = λ(t : T) → LeibnizEqual T x t
+    let h : g y = x_eq_y
+    in y_eq_z g h
+```
+
+#### Value identity
+
+If we know that `x` equals `y`, we also know that `f x` equals `f y` for any function `f`.
+This is translated into the following combinator:
+
+```dhall
+let identityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(U : Type) → ∀(f : T → U) → LeibnizEqual T x y → LeibnizEqual U (f x) (f y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) →
+    λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual U (f x) (f y)
+```
+
+We derive the code for this combinator using the same technique: find a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
+That last type should be the same as `g y`.
+We achieve that by defining `g t = LeibnizEqual U (f x) (f t)`.
+Then a suitable value `h : g x` is obtained with `refl`.
+The code becomes:
+```dhall
+let identityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(U : Type) → ∀(f : T → U) → LeibnizEqual T x y → LeibnizEqual U (f x) (f y)
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) → λ(x_eq_y : LeibnizEqual T x y) →
+    let g = λ(t : T) → LeibnizEqual U (f x) (f t)
+    let h : g x = refl U (f x)
+    in x_eq_y g h
+```
+
+#### Function extensionality
+
+The principle of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
+In other words, `f === g` if and only if we have `f x === g x` for all `x` .
+
+In the language of equality types, this translates into a combinator with the type signature `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`.
+```dhall
+let extensionalityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(U : Type) → ∀(f : T → U) → ∀(g : T → U) → LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)
+  = λ(T : Type) → λ(x : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(f_eq_g : LeibnizEqual (T → U) f g) → ??? : LeibnizEqual U (f x) (g x)
+```
+To derive the code, we look for a suitable type constructor `k : (T → U) → Type` and a value `h : k f` such that evaluating `f_eq_g k f` will give a value of the required output type `LeibnizEqual U (f x) (g x)`.
+That last type should be the same as `k g`.
+We achieve that by defining `k t = LeibnizEqual U (f x) (t x)`.
+Then a suitable value `h : k f` is obtained with `refl`.
+The code becomes:
+```dhall
+let extensionalityLeibnizEqual
+  : ∀(T : Type) → ∀(x : T) → ∀(U : Type) → ∀(f : T → U) → ∀(g : T → U) → LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)
+  = λ(T : Type) → λ(x : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(f_eq_g : LeibnizEqual (T → U) f g) →
+    let k = λ(t : T → U) → LeibnizEqual U (f x) (t x)
+    let h : k f = refl U (f x)
+    in f_eq_g k h
+```
+
+#### Symbolic reasoning
+
+To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
+It is clear that `f x === g y` in that case.
+Can we produce an evidence value for that?
+
+Dhall cannot manipulate values of its built-in equality types.
+There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that.
+
+But Leibniz equality types and the standard combinators allow us to perform such computations.
+We can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
+It remains to use the "transitivity" combinator to establish that `f x === g y`.
+
+The code that computes evidence of type `f x === g y` is:
+```dhall
+let extensional_equality
+  = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(x_eq_y : LeibnizEqual T x y) → λ(f_eq_g : LeibnizEqual (T → U) f g) →
+    let f_x_eq_g_x : LeibnizEqual U (f x) (g x) = extensionalityLeibnizEqual T x U f g f_eq_g
+    let g_x_eq_g_y : LeibnizEqual U (g x) (g y) = identityLeibnizEqual T x y U g x_eq_y
+    let result : LeibnizEqual U (f x) (g y) = transitivityLeibnizEqual U (f x) (g x) (g y) f_x_eq_g_x g_x_eq_g_y
+    in result
+```
+
+
 ## Church encoding for recursive types and type constructors
 
 ### Recursion schemes
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive type is a built-in `List` type. 
-However, user-defined recursive types and a certain limited class of recursive functions can be implemented in Dhall via the Church encoding techniques. 
+However, the Church encoding technique provides a wide range of user-defined recursive types and recursive functions in Dhall.
 
 Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
 Here, we summarize that technique more briefly.
@@ -2843,14 +3218,15 @@ The **Church encoding** of `T` is the following type expression:
 let C : Type = ∀(r : Type) → (F r → r) → r 
 ```
 
-The type `C` is still non-recursive, so Dhall will accept this definition.
+This definition of the type `C` is _non-recursive_, and so Dhall will also accept it.
 
 Note that we are using `∀(r : Type)` and not `λ(r : Type)` when we define `C`.
 The type `C` is not a type constructor; it is a type of a function with a type parameter.
-When we define `F` as above, it turns out that the type `C` equivalent to the type of (finite) lists with integer values.
+
+When we define `F` as above, it turns out that the type `C` is _equivalent_ to the type of (finite) lists with integer values.
 
 The Church encoding construction works in the same way for any recursion scheme `F`.
-Given a recursion scheme `F`, one defines a non-recursive type `C`:
+Given `F`, one defines the corresponding Church-encoded type `C` by:
 
 ```dhall
 let C = ∀(r : Type) → (F r → r) → r
@@ -4937,8 +5313,8 @@ If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'
 
 `GFix F → ∀(r : Type) → (F r → r) → r`
 
-Note that this type is a function from an existential type in `GFix F`.
-Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
+Note that this type is a function from an existential type, which is used to define `GFix F`.
+Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types"):
 
 ```dhall
 GFix F → Q      -- Symbolic derivation.
@@ -5613,9 +5989,11 @@ That law was called a **free theorem** in the paper ["Theorems for free" by P. 
 
 The general formulation and proof of the parametricity theorem are beyond the scope of this book.
 For more details, see ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
-In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall (not including type constructors and other type-valued functions).
+In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall.
+(The relevant subset of Dhall excludes dependent type constructors or quantifiers for type-valued functions.
+For example, Leibniz equality types are not supported by the parametricity theorem, as they allow us to implement functions that do not work in the same way for all choices of type parameters.)
 
-For natural transformations (functions of type `∀(A : Type) → F A → G A`), the corresponding law will be the naturality law.
+For natural transformations (functions of type `∀(A : Type) → F A → G A`), the automatic law will be the naturality law.
 
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
@@ -5657,7 +6035,7 @@ That law can be written in Dhall syntax as:
 ```
 
 
-To summarize: the parametricity theorem applies to all Dhall values.
+To summarize: the parametricity theorem applies to any Dhall value implemented via fully parametric code.
 For any Dhall type signature that involves type parameters, the parametricity theorem gives a law automatically satisfied by all Dhall values of that type signature.
 
 That law is determined by the type signature alone and can be written in advance, without knowing the code of the Dhall function.
@@ -7372,203 +7750,4 @@ Church-co-Yoneda identity (for covariant functors `P` and `Q`):
 Exists (λ(a : Type) → { seed : Q a, step : a → P a})  ≅  Q (GFix P)
 ```
 $$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
-
-## Appendix: Specification and implementation of "Nano-Dhall"
-
-This Appendix illustrates how a (very small) functional programming language can be specified and implemented.
-We will consider a subset of Dhall, called "Nano-Dhall".
-It is similar to Dhall but limited to:
-
-- Function types `∀(a : t1) → t2` and function values `λ(a : t) → b`.
-- Function application: `f x`, grouping to the left, so that `f x y = (f x) y`.
-- Built-in type `Natural` with operations `a + b`, `a * b`, and `Natural/fold`
-- Built-in type `Text` with the concatenation operation (`x ++ y`).
-- Type universes `Type` and `Kind`, so that we have typing judgments `Nat : Type` and `Type : Kind`. (The symbol `Kind` has no type.)
-
-We have omitted records, union types, imports and many other features of Dhall.
-But all of those features (except imports) can be encoded in Nano-Dhall using just functions and types.
-
-The syntax of Nano-Dhall is simplified so that there are fewer keywords and fewer equivalent ways of writing the same things.
-
-We kept just two built-in types (`Nat` and `Text`) with some built-in operations, in order to show how such features are implemented.
-
-For clarity, the impementation will be as simple and straightforward as possible.
-
-### Encoding various features in Nano-Dhall
-
-Here we will briefly show examples of Nano-Dhall code that reproduce some of the missing features.
-
-- Void type: `∀(a : Type) → a` (instead of Dhall's `<>`)
-- Unit type:  `∀(a : Type) → ∀(x : a) → a` instead of Dhall's `{}`
-- Unit value: `λ(a : Type) → λ(x : a) → x` instead of Dhall's `{=}`
-- "Let"-expression: `(λ(a : t) → b) x` instead of Dhall's `let a : t = x in b`. We will replace "let"-expressions by "lambda"-expressions at parsing time.
-- Pair type: `λ(a : Type) → λ(b : Type) → ∀(r : Type) → ∀(k : a → b → r) → r` instead of Dhall's `λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b}`
-- Pair value: `λ(a : Type) → λ(b : Type) → λ(r : Type) → λ(k : a → b → r) → r`
-
-### Syntax and parsing into the syntax tree
-
-The syntax of Nano-Dhall is described in the ABNF format.
-This is a greatly simplified version of `dhall.abnf`.
-
-The main entry point is `complete-expression`.
-
-```
-complete-expression = whsp expression whsp
-
-; Optional whitespace: zero or more whitespace characters.
-whsp = *whitespace-chunk
-
-; Non-empty whitespace: one or more whitespace characters.
-whsp1 = 1*whitespace-chunk
-
-whitespace-chunk =
-      " "
-    / tab
-    / end-of-line
-
-
-expression =
-  lambda whsp "(" whsp identifier whsp ":" whsp1 expression whsp ")" whsp arrow whsp expression
-  / forall whsp "(" whsp identifier whsp ":" whsp1 expression whsp ")" whsp arrow whsp expression
-  / let whsp1 identifier whsp ":" whsp1 expression whsp "=" whsp expression whsp1 "in" whsp1 expression
-  / expression0
-
-lambda        = %x3BB  / "\"
-arrow         = %x2192 / "->"
-forall        = "forall" / %x2200
-
-keyword = forall / "let" / "in" ; We have just these keywords, for now.
-
-; Precedence tower.
-expression0 = expression1 [ whsp ":" whsp1 expression ] ; Type annotation.
-
-expression1 = expression2 *(whsp "+" whsp expression2) ; Nat + Nat
-
-expression2 = expression3 *(whsp "++" whsp expression3) ; Text ++ Text
-
-expression3 = expression4 *(whsp "*" whsp expression4) ; Nat * Nat
-
-expression4 = expression5 *(whsp1 expression5) ; Function application.
-; End of precedence tower.
-expression5 = primitive-expression
-
-primitive-expression = natural-literal / text-literal / builtin / identifier / "(" complete-expression ")"
-
-natural-literal = NONZERODIGIT *DIGIT / "0"
-
-builtin =  "Natural/fold" / "Natural" / "Text" / "Type" / "Kind"
-
-identifier = builtin 1*label-next-char / !builtin label
-
-label =
-       keyword 1*label-next-char
-     / !keyword (label-first-char *label-next-char)
-label-first-char = ALPHA / "_"
-label-next-char = ALPHANUM / "-" / "/" / "_"
-
-; Uppercase or lowercase ASCII letter.
-ALPHA = %x41-5A / %x61-7A
-
-; ASCII digit
-DIGIT = %x30-39  ; 0-9
-
-NONZERODIGIT = %x31-39
-
-ALPHANUM = ALPHA / DIGIT
-
-text-literal = %x22 *inside-double-quote %x22
-
-; Printable characters except double quote and backslash.
-inside-double-quote =
-      %x20-21
-        ; %x22 = '"'
-    / %x23-5B
-        ; %x5C = "\"
-    / %x5D-7F
-    / valid-non-ascii
-
-valid-non-ascii =    ; Let us just support some Unicode.
-      %x80-D7FF
-    ; %xD800-DFFF = surrogate pairs
-    / %xE000-FFFD
-    ; %xFFFE-FFFF = non-characters
-    / %x10000-1FFFD
-```
-
-The result of parsing is a syntax tree. The data type for the tree could look like this (Haskell) code:
-
-```haskell
-type Ident = String
-type Operator = Plus | Concat | Times
-data Expr = Lambda Ident Expr Expr  -- λ(ident : expr1) → expr2
-   | Forall Ident Expr Expr         -- ∀(ident : expr1) → expr2
-   | Annot Expr Expr                -- expr1 : expr2
-   | Op Expr Operator Expr          -- expr1 operator expr2
-   | App Expr Expr                  -- expr1 expr2
-   | NaturalLit Int                 -- 123
-   | TextLit String                 -- "abc"
-   | Var Ident Int   -- A variable with a de Bruijn index. In Dhall, `x@1`.
-   | Builtin String  -- One of the built-in symbols (`Natural`, `Type`, etc.).
-```
-
-Remarks:
-
-- Types and values are both represented by an expression (`Expr`).
-Later, the type-checking procedure will figure out which is which.
-This allows us to write code like `λ(a : Type) → λ(x : a) → ...`
-
-- Multiple-arity operations are parsed into left-associative, nested binary operations.
-For example, `1 + 2 + 3` is parsed into the following expression tree:
-
-```haskell
-Op (Op (NaturalLit 1) Plus (NaturalLit 2)) Plus (NaturalLit 3)
-```
-
-- All "let"-expressions are immediately rewritten as `App` terms.
-
-- All built-in operations are associative (as in Dhall).
-
-- Nano-Dhall does not support explicit de Bruijn indices in the syntax; but internally, all variables must have a de Bruijn index.
-Parsing `x` will produce `Var "x" 0`, with the de Bruijn index equal to `0`.
-
-Any parsing library can be used to implement parsing.
-The parsing procedure uses negative lookahead in some places, to prevent variable names from being keywords or built-in symbols.
-
-### Type checking
-
-Type checking in Nano-Dhall is a function from an input pair `(context, expression)` to an output .
-
-The input `context` is a set of `(variable, expression)` pairs, showing all the variables whose types are already known.
-The input `expression` is a Nano-Dhall expression with or without existing type annotations.
-
-The output of typechecking is either a success with an output `expression` or a failure with a message describing a type error.
-In case of success, the output `expression` has a type annotation indicating the type of the expression.
-
-For example, the typechecking of `(context = [y : Natural], λ(x : Natural) → x + 1) ` succeeds and outputs:
-
-`(λ(x : Natural) → x + 1) : ∀(x : Natural) → Natural`
-
-This typechecking function is different from what is described in the Dhall standard.
-There, typechecking does not modify the original expression but merely computes its type (or determines that there is a type error).
-
-Making the typechecker return a different expression opens further possibilities for improving the language's usability and tooling:
-
-- One could return partial type-checking results (with type annotations at valid sub-expressions) even when there are type errors in the input.
-- The evaluator can do more simplification if type information is embedded into the expression being evaluated. Currently, Dhall's evaluator (beta-normalization) is designed to work entirely without any type information. This limits its ability to perform certain simplifications that are possible only if types of certain sub-expressions are known.
-- Type inference and/or term inference can be performed at the type-checking stage. The output of type checking can be an expression not only with additional type annotations, but also with some additional terms; for instance, automatically inferred type parameters or other inferrable terms.
-
-The type-checking algorithm proceeds recursively through the structure of the given expression.
-When a sub-expression is a function or a function type, a new variable is bound.
-So, the type-checking for the function body will proceed with the context that contains the new variable.
-To avoid name clashes, the body needs to be modified if it already contains a variable with the same name.
-
-
-
-### Alpha-normalization
-
-### Beta-normalization
-
-### One-place type inference
-
-
 
