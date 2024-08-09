@@ -2840,8 +2840,8 @@ let monadList : MonadFP List =
 
 ## Programming with Leibniz equality types
 
-Dhall's `assert` feature provides static checks that some expressions are equal.
-That feature can be seen as syntax sugar for a general facility known as **Leibniz equality** types.
+Dhall's `assert` feature provides a static check that some expressions are equal.
+That feature can be seen as syntax sugar for a general facility known as **Leibniz equality**.
 
 ### Definition and first examples
 
@@ -2852,7 +2852,7 @@ let LeibnizEqual =
   λ(T : Type) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
 ```
 This complicated type expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
-It is far from obvious how to work with types of the form `LeibnizEqual`.
+It is not obvious how to work with types of the form `LeibnizEqual`.
 
 To explain that, we begin by considering an example where `T = Natural`.
 Define the type `LeibnizEqNat` by:
@@ -2931,6 +2931,7 @@ As an example, here is how we can assert that `123` equals `100 + 20 + 3`:
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
 This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
+This example shows why Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
 
 Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`.
 To achieve that, we may write a general function `toAssertType`:
@@ -2950,13 +2951,13 @@ Dhall's `assert` keyword and types of the form `x === y` give convenient syntact
 
 We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
 To achieve that, we add an extra "evidence" argument to the function.
-The user can call the function only when an evidence value value can be provided.
+The user can call the function only when an evidence value of the required type can be provided.
 
 For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y` are the same.
 So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
 
 A function with an argument of type `LeibnizEqual T x y → <>` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality.
-(Note that Dhall's `assert` feature is not able to require that some values be unequal.)
+(Note that Dhall's `assert` feature is _not_ able to require that some values be unequal.)
 
 Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
@@ -5312,8 +5313,8 @@ If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'
 
 `GFix F → ∀(r : Type) → (F r → r) → r`
 
-Note that this type is a function from an existential type in `GFix F`.
-Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types" above):
+Note that this type is a function from an existential type, which is used to define `GFix F`.
+Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types"):
 
 ```dhall
 GFix F → Q      -- Symbolic derivation.
