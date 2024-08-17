@@ -996,9 +996,8 @@ object Syntax {
       case _                            => None
     }
 
-    // TODO: count usages of these lazy vals and determine if they are actually important for efficiency
-    lazy val alphaNormalized: Expression = Semantics.alphaNormalize(this)
-    lazy val betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default)
+    @inline def alphaNormalized: Expression = Semantics.alphaNormalize(this)
+    @inline def betaNormalized: Expression  = Semantics.betaNormalizeAndExpand(this, BetaNormalizingOptions.default)
 
     /** Print `this` to Dhall syntax.
       *
