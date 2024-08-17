@@ -4566,6 +4566,8 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
 Indeed, one can prove regorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
+We call this isomorphism the **function extension rule** for existential types.
+
 The function `inE` shown above gives one direction of the isomorphism.
 The other direction is the function `outE`:
 
@@ -4576,11 +4578,9 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     in consume ep
 ```
 
-We will prove below (in the appendix "Naturality and parametricity") that the functions `inE r` and `outE r` are inverses of each other.
+We will prove in the appendix "Naturality and parametricity" that the functions `inE r` and `outE r` are indeed inverses of each other.
 
 Because of this type isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
-
-We call this equivalence the **function extension rule** for existential types.
 
 #### Differences between existential and universal quantifiers
 
