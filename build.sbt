@@ -172,7 +172,7 @@ lazy val scall_core = (project in file("scall-core"))
       cbor1,
       cbor2,
 //      scalahashing,
-      //    cbor3,
+      cbor3,
       httpRequest,
       os_lib % Test,
     ),

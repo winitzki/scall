@@ -92,5 +92,20 @@ Whenever the same parsing rule is tried again at the same position in the input 
 
 This works for most rules that do not have user-visible side effects.
 
-Memoization should be applied carefully and tested.
-In some cases, memoization leads to incorrect parsing results.
+## Limitations
+
+1. For some `fastparse` grammars, memoization of certain rules will lead to incorrect parsing results (while memoizing other rules is perfectly fine).
+To maintain correctness of parsing, memoization should be not be applied indiscriminately to all rules.
+After adding some `memoize` calls, the resulting grammar should be tested against a comprehensive set of positive and negative parsing examples.
+
+2. It will not be always obvious which parsing rules should be selected for memoization.
+Performance may improve after memoizing some rules but not after memoizing some other rules.
+Memoization should be stress-tested on realistic parsing examples to verify that parsing performance is actually improved.
+
+3. Currently, `fastparse` has no protection against stack overflow.
+Each memoization call introduces an extra function call between rule invocations.
+This will make stack overflow occur earlier when parsing deeply nested input using memoized rules.
+For this reason, a `fastparse` grammar with many memoized rules may actually create the stack overflow error on much smaller inputs than the same grammar without memoization.
+
+The conclusion is that memoization should be applied only to a carefully selected, small subset of parsing rules and tested comprehensively (both for parsing correctness and for performance).
+The memoized rules should be selected as the smallest set of rules such that the parsing performance improves after memoization while correctness is maintained.
