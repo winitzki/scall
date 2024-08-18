@@ -114,4 +114,47 @@ class SymbolicGraphTest extends FunSuite {
   }
 
    */
+
+  test("another take on graph") {
+    class Rul(val name: String, val ruleDef: () => GrammarExpr)
+    object Rul                           {
+      def apply(x: => GrammarExpr)(implicit valName: Name): Rul = new Rul(name = valName.value, ruleDef = () => x)
+    }
+    def li(x: String) = LiteralMatch(x)
+    implicit class GOps(ge: GrammarExpr) {
+      def ~(o: Rul)         = And(ge, GrammarSymbol(o.name, o.ruleDef))
+      def |(o: Rul)         = Or(ge, GrammarSymbol(o.name, o.ruleDef))
+      def ~(o: GrammarExpr) = And(ge, o)
+      def |(o: GrammarExpr) = Or(ge, o)
+    }
+    implicit class ROps(r: Rul)          {
+      def ~(o: Rul)         = And(GrammarSymbol(r.name, r.ruleDef), GrammarSymbol(o.name, o.ruleDef))
+      def ~(o: GrammarExpr) = And(GrammarSymbol(r.name, r.ruleDef), o)
+      def |(o: Rul)         = Or(GrammarSymbol(r.name, r.ruleDef), GrammarSymbol(o.name, o.ruleDef))
+      def |(o: GrammarExpr) = Or(GrammarSymbol(r.name, r.ruleDef), o)
+    }
+
+    def a: Rul = Rul(li("x") ~ a ~ b)
+    def b: Rul = Rul(b ~ li("y") | a)
+
+    expect(a.name == "a")
+    expect(b.name == "b")
+
+    expect(a.ruleDef() match {
+      case And(And(LiteralMatch("x"), GrammarSymbol("a", ax)), GrammarSymbol("b", bx)) =>
+        (ax() match {
+          case And(And(LiteralMatch("x"), GrammarSymbol("a", ax)), GrammarSymbol("b", bx)) => true
+        }) && (bx() match {
+          case Or(And(GrammarSymbol("b", bx), LiteralMatch("y")), GrammarSymbol("a", ax)) => true
+        })
+    })
+    expect(b.ruleDef() match {
+      case Or(And(GrammarSymbol("b", bx), LiteralMatch("y")), GrammarSymbol("a", ax)) =>
+        (bx() match {
+          case Or(And(GrammarSymbol("b", bx), LiteralMatch("y")), GrammarSymbol("a", ax)) => true
+        }) && (ax() match {
+          case And(And(LiteralMatch("x"), GrammarSymbol("a", ax)), GrammarSymbol("b", bx)) => true
+        })
+    })
+  }
 }
