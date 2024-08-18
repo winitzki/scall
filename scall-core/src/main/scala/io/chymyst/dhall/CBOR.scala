@@ -264,15 +264,48 @@ object CBORmodel {
     }
   }
 
-  val decodeCBORModel: Decoder[CBORmodel] = Decoder { reader =>
-    if (reader.hasSimpleValue(SimpleValueType.NULL.getValue)) {
-      CNull
-    } else if (reader.hasSimpleValue(SimpleValueType.FALSE.getValue)) {
-      CFalse
-    } else if (reader.hasSimpleValue(SimpleValueType.TRUE.getValue)) {
-      CTrue
-    } else ???
+  private def when[A, B](x: => A)(y: A => B): Either[B, Throwable] = Try(x) match {
+    case Failure(exception) => Right(exception)
+    case Success(v)         => Left(y(v))
+  }
 
+  def decodeCBORModel: Decoder[CBORmodel] = Decoder { reader =>
+    val result = for {
+      _ <- when(reader.readSimpleValue(SimpleValueType.NULL.getValue))(_ => CNull)
+      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
+      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
+      _ <- when(reader.readString())(CString.apply)
+      _ <- when(reader.readBytes[Array[Byte]]())(CBytes.apply)
+      _ <- when(reader.readFloat16().toDouble)(CDouble.apply)
+      _ <- when(reader.readFloat().toDouble)(CDouble.apply)
+      _ <- when(reader.readDouble())(CDouble.apply)
+      _ <- when {
+             val tag              = reader.readTag().code.toInt
+             val model: CBORmodel = reader.read[CBORmodel]()(decodeCBORModel)
+             (tag, model)
+           } { case (tag, model) => CTagged(tag, model) }
+      _ <- when {
+             reader.readArrayStart()
+             val length                   = reader.readArrayHeader().toInt
+             val result: Array[CBORmodel] = (1 to length).map { i =>
+               reader.read[CBORmodel]()(decodeCBORModel)
+             }.toArray
+             reader.readArrayClose(unbounded = false, result)
+           }(CArray.apply)
+      _ <- when {
+             reader.readMapStart()
+             val length                         = reader.readMapHeader().toInt
+             val result: Map[String, CBORmodel] = (1 to length).map { i =>
+               reader.readString() ->
+                 reader.read[CBORmodel]()(decodeCBORModel)
+             }.toMap
+             reader.readMapClose(unbounded = false, result)
+           }(CMap.apply)
+    } yield ()
+    result match {
+      case Left(value) => value
+      case Right(_)    => throw new Exception(s"Failed to decode CBOR3 model")
+    }
   }
 
   def decodeCbor3(bytes: Array[Byte]): CBORmodel = Cbor.decode(bytes).to[CBORmodel](decodeCBORModel).value
@@ -485,7 +518,7 @@ object CBORmodel {
     override def toCbor1: DataItem = data.foldLeft(new Cbor1Array(data.length))((prev, m) => prev.add(m.toCbor1))
 
     override val toCbor3: Writer => Writer = { writer =>
-      writer.writeArrayOpen(data.size)
+      writer.writeArrayOpen(data.length)
       data.foreach { d => writer.write(d)(d.encoder3) } // TODO make sure this works
       writer.writeArrayClose()
     }
