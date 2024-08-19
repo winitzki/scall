@@ -61,7 +61,7 @@ class DhallParserAndCbor3Suite extends DhallTest {
         case _                                        => None
       }
       val result                = r.map { expr => Try(expr.toCBORmodel.encodeCbor3) }
-      if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR: ${result.get.failed.get.getMessage}")
+      if (result.exists(_.isFailure)) println(s"${file.getName}: failed parsing or converting file to CBOR3: ${result.get.failed.get.getMessage}")
       result
     }
     TestUtils.requireSuccessAtLeast(286, results)

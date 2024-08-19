@@ -5,11 +5,8 @@ import co.nstant.in.cbor.model.{Array => Cbor1Array, Map => Cbor1Map, _}
 import co.nstant.in.cbor.{CborBuilder, CborDecoder, CborEncoder}
 import com.upokecenter.cbor.{CBORObject, CBORType}
 import com.upokecenter.numbers.EInteger
-import fastparse.ParserInputSource.fromReadable
-import io.bullet.borer
-import io.bullet.borer.DataItem.Tag
 import io.bullet.borer.Tag.Other
-import io.bullet.borer.{Cbor, Decoder, Encoder, TaggedValue, Writer}
+import io.bullet.borer.{Cbor => Cbor3, Decoder, Encoder, TaggedValue, Writer}
 import io.chymyst.dhall.CBORmodel.CBytes.byteArrayToHexString
 import io.chymyst.dhall.CBORmodel._
 import io.chymyst.dhall.Syntax.ExpressionScheme._
@@ -18,7 +15,6 @@ import io.chymyst.dhall.SyntaxConstants._
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import scala.annotation.tailrec
-import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
 import scala.util.{Failure, Success, Try}
 
@@ -40,7 +36,7 @@ sealed trait CBORmodel {
 
   implicit final val encoder3: Encoder[CBORmodel] = Encoder { (writer, t) => t.toCbor3(writer) }
 
-  final def encodeCbor3: Array[Byte] = Cbor.encode[CBORmodel](this).toByteArray
+  final def encodeCbor3: Array[Byte] = Cbor3.encode[CBORmodel](this).toByteArray
 
   final def encodeCbor2: Array[Byte] = this.toCbor2.EncodeToBytes()
 
@@ -271,14 +267,16 @@ object CBORmodel {
 
   def decodeCBORModel: Decoder[CBORmodel] = Decoder { reader =>
     val result = for {
-      _ <- when(reader.readSimpleValue(SimpleValueType.NULL.getValue))(_ => CNull)
-      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
-      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
-      _ <- when(reader.readString())(CString.apply)
-      _ <- when(reader.readBytes[Array[Byte]]())(CBytes.apply)
       _ <- when(reader.readFloat16().toDouble)(CDouble.apply)
       _ <- when(reader.readFloat().toDouble)(CDouble.apply)
       _ <- when(reader.readDouble())(CDouble.apply)
+      _ <- when(reader.readNull())(_ => CNull)
+      _ <- when(reader.readBoolean())(b => if (b) CTrue else CFalse)
+//      _ <- when(reader.readSimpleValue(SimpleValueType.NULL.getValue))(_ => CNull)
+//      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
+//      _ <- when(reader.readSimpleValue(SimpleValueType.TRUE.getValue))(_ => CTrue)
+      _ <- when(reader.readString())(CString.apply)
+      _ <- when(reader.readBytes[Array[Byte]]())(CBytes.apply)
       _ <- when {
              val tag              = reader.readTag().code.toInt
              val model: CBORmodel = reader.read[CBORmodel]()(decodeCBORModel)
@@ -304,11 +302,11 @@ object CBORmodel {
     } yield ()
     result match {
       case Left(value) => value
-      case Right(_)    => throw new Exception(s"Failed to decode CBOR3 model")
+      case Right(_)    => throw new Exception(s"Failed to decode CBOR3 data to CBORmodel")
     }
   }
 
-  def decodeCbor3(bytes: Array[Byte]): CBORmodel = Cbor.decode(bytes).to[CBORmodel](decodeCBORModel).value
+  def decodeCbor3(bytes: Array[Byte]): CBORmodel = Cbor3.decode(bytes).to[CBORmodel](decodeCBORModel).value
 
   def decodeCbor2(bytes: Array[Byte]): CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(bytes))
 
@@ -421,7 +419,7 @@ object CBORmodel {
 
     override def toCbor1: DataItem = SimpleValue.NULL
 
-    override val toCbor3: Writer => Writer = _.writeSimpleValue(SimpleValueType.NULL.getValue)
+    override val toCbor3: Writer => Writer = _.writeNull() // _.writeSimpleValue(SimpleValueType.NULL.getValue)
   }
 
   case object CTrue extends CBORmodel {
@@ -431,7 +429,7 @@ object CBORmodel {
 
     override def toCbor1: DataItem = SimpleValue.TRUE
 
-    override val toCbor3: Writer => Writer = _.writeSimpleValue(SimpleValueType.TRUE.getValue)
+    override val toCbor3: Writer => Writer = _.writeBoolean(true) // _.writeSimpleValue(SimpleValueType.TRUE.getValue)
   }
 
   case object CFalse extends CBORmodel {
@@ -441,7 +439,7 @@ object CBORmodel {
 
     override def toCbor1: DataItem = SimpleValue.FALSE
 
-    override val toCbor3: Writer => Writer = _.writeSimpleValue(SimpleValueType.FALSE.getValue)
+    override val toCbor3: Writer => Writer = _.writeBoolean(true) // _.writeSimpleValue(SimpleValueType.FALSE.getValue)
   }
 
   // Pattern-match CInt with an integer value. (Note: BigInt does not have `unapply`.)

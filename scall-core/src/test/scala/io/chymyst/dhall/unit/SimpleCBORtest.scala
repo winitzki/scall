@@ -109,4 +109,10 @@ class SimpleCBORtest extends DhallTest {
     expect(s == sAfterBytes)
     expect(s.toString == "\"\\n\"")
   }
+
+  test("CBOR3 for Double") {
+    val s1 = CDouble(1.0)
+    val s2 = CBORmodel.decodeCbor3(s1.encodeCbor1)
+    print(s"s1 = $s1, s2 = $s2")
+  }
 }

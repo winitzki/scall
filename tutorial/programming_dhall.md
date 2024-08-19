@@ -5291,6 +5291,8 @@ The equivalence between `scan` and `scanMap` is analogous to the equivalence bet
 
 ### Hylomorphisms with bounded recursion depth
 
+#### Motivation for hylomorphisms
+
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 (The size limit guarantees termination.)

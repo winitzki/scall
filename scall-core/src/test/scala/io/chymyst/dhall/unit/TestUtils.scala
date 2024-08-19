@@ -96,7 +96,7 @@ object TestUtils extends ManyFixtures {
 
   def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
     val (failures, successes) = failureAndSuccessCounts(totalTests, results, allowFailures)
-    expect(failures <= allowFailures && successes >= totalTests - allowFailures)
+    expect(failures <= allowFailures, successes >= totalTests - allowFailures)
   }
 
   def cacheStatistics(): String = {

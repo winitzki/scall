@@ -1,7 +1,6 @@
 package io.chymyst.nanodhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import SGraph._
 import munit.FunSuite
 import sourcecode.Name
 
@@ -29,7 +28,7 @@ object SGraph {
 }
 
 class SymbolicGraphTest extends FunSuite {
-
+  /*
   test("graph with only symbol names") {
     final case class RD(name: String)
     sealed trait GrammarExp
@@ -56,7 +55,7 @@ class SymbolicGraphTest extends FunSuite {
     expect(d.name == "d")
     expect(e.name == "e")
   }
-  /*
+
   test("grammar without circular dependencies") {
     lazy val a: RuleDef = lit("x")
     lazy val b: RuleDef = lit("y") ~ a
@@ -113,7 +112,7 @@ class SymbolicGraphTest extends FunSuite {
 
   }
 
-   */
+
 
   test("another take on graph") {
     class Rul(val name: String, val ruleDef: () => GrammarExpr)
@@ -157,4 +156,45 @@ class SymbolicGraphTest extends FunSuite {
         })
     })
   }
+   */
+  test("refactor the working example") {
+
+    sealed trait GrammarExpr {
+      def ~(o: GrammarExpr): GrammarExpr = GrammarExpr.~(this, o)
+      def /(o: GrammarExpr): GrammarExpr = GrammarExpr./(this, o)
+    }
+    object GrammarExpr       {
+      final case class Li(s: String) extends GrammarExpr
+
+      final case class Rul(name: String, rule: () => GrammarExpr) extends GrammarExpr
+
+      final case class ~(l: GrammarExpr, r: GrammarExpr) extends GrammarExpr
+
+      final case class /(l: GrammarExpr, r: GrammarExpr) extends GrammarExpr
+    }
+
+    import GrammarExpr._
+    def rul(x: => GrammarExpr)(implicit valName: Name): Rul = Rul(name = valName.value, rule = () => x)
+
+    def a: Rul = rul(Li("x") ~ a ~ b)
+    def b: Rul = rul(b ~ Li("y") / a)
+
+    expect(a.rule() match {
+      case Li("x") ~ Rul("a", ax) ~ Rul("b", bx) =>
+        (ax() match {
+          case Li("x") ~ Rul("a", ax) ~ Rul("b", bx) => true
+        }) && (bx() match {
+          case Rul("b", bx) ~ Li("y") / Rul("a", ax) => true
+        })
+    })
+    expect(b.rule() match {
+      case Rul("b", bx) ~ Li("y") / Rul("a", ax) =>
+        (bx() match {
+          case Rul("b", bx) ~ Li("y") / Rul("a", ax) => true
+        }) && (ax() match {
+          case Li("x") ~ Rul("a", ax) ~ Rul("b", bx) => true
+        })
+    })
+  }
+
 }
