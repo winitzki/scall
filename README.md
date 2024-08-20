@@ -130,9 +130,10 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
       using [fastparse](https://github.com/com-lihaoyi/fastparse), closely
       following [the syntax guidelines](https://github.com/dhall-lang/dhall-lang/blob/master/standard/syntax.md).
 
-    - [x] A serializer and deserializer for CBOR format is implemented. User may choose one of the two CBOR
-      libraries: [cbor-java](https://github.com/c-rack/cbor-java)
-      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). The latter library is 2x faster. Both libraries work correctly.
+    - [x] A serializer and deserializer for CBOR format is implemented. User may choose one of the three CBOR
+      libraries: [cbor-java](https://github.com/c-rack/cbor-java),
+      [CBOR-Java](https://github.com/peteroupc/CBOR-Java), or [borer](https://github.com/sirthias/borer).
+      The fastest of them is CBOR-Java.
 
     - [x] Alpha-normalization is implemented according
       to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).

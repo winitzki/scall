@@ -11,8 +11,6 @@ import io.chymyst.dhall.SyntaxConstants.Constant.True
 import io.chymyst.dhall.unit.SimpleCBORtest.cborRoundtrip
 import io.chymyst.dhall.{CBOR, CBORmodel, Grammar}
 
-import java.util.Locale
-
 object SimpleCBORtest {
   def cborRoundtrip(expr: Expression) = {
     val aModel = CBOR.toCborModel(expr)

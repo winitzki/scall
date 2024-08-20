@@ -6,7 +6,7 @@ import io.chymyst.dhall.Syntax.Expression
 import io.chymyst.dhall.Syntax.Expression.v
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.SyntaxConstants.Builtin.{Natural, NaturalFold}
-import io.chymyst.dhall.unit.SimpleCBORperformanceTest.{cborRoundtrip1, cborRoundtrip2}
+import io.chymyst.dhall.unit.SimpleCBORperformanceTest.{cborRoundtrip1, cborRoundtrip2, cborRoundtrip3}
 import io.chymyst.dhall.{CBOR, CBORmodel}
 
 import scala.collection.mutable
@@ -28,6 +28,17 @@ object SimpleCBORperformanceTest {
 
     val aBytes: Array[Byte] = aModel.encodeCbor2
     val bModel: CBORmodel   = CBORmodel.decodeCbor2(aBytes)
+
+    val aModelString = aModel.toString
+    val bModelString = bModel.toString
+    expect(aModelString == bModelString)
+  }
+
+  def cborRoundtrip3(expr: Expression) = {
+    val aModel = CBOR.toCborModel(expr)
+
+    val aBytes: Array[Byte] = aModel.encodeCbor3
+    val bModel: CBORmodel   = CBORmodel.decodeCbor3(aBytes)
 
     val aModelString = aModel.toString
     val bModelString = bModel.toString
@@ -65,7 +76,8 @@ class SimpleCBORperformanceTest extends DhallTest {
     //    expr.typeCheckAndBetaNormalize().unsafeGet
     val elapsed1 = elapsedNanos(cborRoundtrip1(expr))._2 / 1000000.0
     val elapsed2 = elapsedNanos(cborRoundtrip2(expr))._2 / 1000000.0
-    println(s"cbor1 : $elapsed1 ms, cbor2 : $elapsed2 ms")
+    val elapsed3 = elapsedNanos(cborRoundtrip3(expr))._2 / 1000000.0
+    println(s"cbor1: $elapsed1 ms, cbor2: $elapsed2 ms, cbor3: $elapsed3 ms")
     expect(elapsed1 > elapsed2 * 1.3) // cbor1 is about 2x slower than cbor2
   }
 
