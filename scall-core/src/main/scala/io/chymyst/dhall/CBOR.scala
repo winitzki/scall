@@ -556,7 +556,7 @@ object CBORmodel {
 
     override val toCbor3: Writer => Writer = { writer =>
       writer.writeMapOpen(data.size)
-      data.foreach { case (k, v) => writer.writeMapMember(k, v) }
+      data.toSeq.sortBy(_._1).foreach { case (k, v) => writer.writeString(k).write[CBORmodel](v)(encoder3) }
       writer.writeMapClose()
     }
   }

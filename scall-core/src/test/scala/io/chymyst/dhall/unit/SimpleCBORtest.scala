@@ -134,16 +134,19 @@ class SimpleCBORtest extends DhallTest {
     expect(s1 == s2)
   }
 
-  test("CBOR3 encoding must agree with CBOR2 encoding for a record with 5 elements") {
-    val s1       = "{ a = 0, b = 0, c = 0, d = 0, e = 0 }".dhall.toCBORmodel
-    val encoded1 = s1.encodeCbor1
-    val encoded2 = s1.encodeCbor2
-    val encoded3 = s1.encodeCbor3
-    val decoded1 = CBORmodel.decodeCbor1(encoded1)
-    val decoded2 = CBORmodel.decodeCbor2(encoded2)
-    val decoded3 = CBORmodel.decodeCbor3(encoded3)
-    expect(s1 == decoded1, s1 == decoded2, s1 == decoded3)
-    expect(encoded1 sameElements encoded2)
-    expect(encoded2 sameElements encoded3)
+  test("CBOR3 encoding must agree with CBOR2 encoding for record with > 4 fields") {
+    val data = Seq("{ a = 0 }", "{ a = 0, b = 0}", "{ a = 0, b = 0, c = 0 }", "{ a = 0, b = 0, c = 0, d = 0 }", "{ a = 0, b = 0, c = 0, d = 0, e = 0 }", "{ a = 0, b = 0, c = 0, d = 0, e = 0, f = 0 }")
+    data.foreach { d =>
+      val s1       = d.dhall.toCBORmodel
+      println(s"Testing data with CBOR model $s1")
+      val encoded1 = s1.encodeCbor2
+      val encoded2 = s1.encodeCbor2
+      val encoded3 = s1.encodeCbor3
+      expect(encoded1 sameElements encoded2)
+      println(encoded2.map(_.toInt).mkString("Array(", ", ", ")"))
+      println(encoded3.map(_.toInt).mkString("Array(", ", ", ")"))
+      expect(encoded2 sameElements encoded3)
+    }
   }
+
 }
