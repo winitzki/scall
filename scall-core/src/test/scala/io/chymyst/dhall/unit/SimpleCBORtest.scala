@@ -135,7 +135,14 @@ class SimpleCBORtest extends DhallTest {
   }
 
   test("CBOR3 encoding must agree with CBOR2 encoding for record with > 4 fields") {
-    val data = Seq("{ a = 0 }", "{ a = 0, b = 0}", "{ a = 0, b = 0, c = 0 }", "{ a = 0, b = 0, c = 0, d = 0 }", "{ a = 0, b = 0, c = 0, d = 0, e = 0 }", "{ a = 0, b = 0, c = 0, d = 0, e = 0, f = 0 }")
+    val data = Seq(
+      "{ a = 0 }",
+      "{ a = 0, b = 0}",
+      "{ a = 0, b = 0, c = 0 }",
+      "{ a = 0, b = 0, c = 0, d = 0 }",
+      "{ a = 0, b = 0, c = 0, d = 0, e = 0 }",
+      "{ a = 0, b = 0, c = 0, d = 0, e = 0, f = 0 }",
+    )
     data.foreach { d =>
       val s1       = d.dhall.toCBORmodel
       println(s"Testing data with CBOR model $s1")
