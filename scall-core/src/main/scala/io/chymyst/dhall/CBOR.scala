@@ -267,14 +267,13 @@ object CBORmodel {
 
   def decodeCBORModel: Decoder[CBORmodel] = Decoder { reader =>
     val result = for {
+      _ <- when(reader.read[BigInt]())(i => CInt(i))
+      _ <- when(reader.readInt())(i => CInt(BigInt(i)))
       _ <- when(reader.readFloat16().toDouble)(CDouble.apply)
       _ <- when(reader.readFloat().toDouble)(CDouble.apply)
       _ <- when(reader.readDouble())(CDouble.apply)
       _ <- when(reader.readNull())(_ => CNull)
       _ <- when(reader.readBoolean())(b => if (b) CTrue else CFalse)
-//      _ <- when(reader.readSimpleValue(SimpleValueType.NULL.getValue))(_ => CNull)
-//      _ <- when(reader.readSimpleValue(SimpleValueType.FALSE.getValue))(_ => CFalse)
-//      _ <- when(reader.readSimpleValue(SimpleValueType.TRUE.getValue))(_ => CTrue)
       _ <- when(reader.readString())(CString.apply)
       _ <- when(reader.readBytes[Array[Byte]]())(CBytes.apply)
       _ <- when {

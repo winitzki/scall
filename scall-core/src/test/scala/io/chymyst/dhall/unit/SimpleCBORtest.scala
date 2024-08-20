@@ -3,12 +3,15 @@ package io.chymyst.dhall.unit
 import com.eed3si9n.expecty.Expecty.expect
 import com.upokecenter.cbor.CBORObject
 import io.chymyst.dhall.CBORmodel.{CDouble, CMap, CString, CTagged}
+import io.chymyst.dhall.Parser.StringAsDhallExpression
 import io.chymyst.dhall.Syntax.ExpressionScheme._
 import io.chymyst.dhall.Syntax.{Expression, ExpressionScheme}
 import io.chymyst.dhall.SyntaxConstants.Builtin
 import io.chymyst.dhall.SyntaxConstants.Constant.True
 import io.chymyst.dhall.unit.SimpleCBORtest.cborRoundtrip
 import io.chymyst.dhall.{CBOR, CBORmodel, Grammar}
+
+import java.util.Locale
 
 object SimpleCBORtest {
   def cborRoundtrip(expr: Expression) = {
@@ -113,6 +116,21 @@ class SimpleCBORtest extends DhallTest {
   test("CBOR3 for Double") {
     val s1 = CDouble(1.0)
     val s2 = CBORmodel.decodeCbor3(s1.encodeCbor1)
-    print(s"s1 = $s1, s2 = $s2")
+    println(s"s1 = $s1, s2 = $s2")
+    expect(s1 == s2)
+  }
+
+  test("CBOR3 for simple integer encoding of variables") {
+    val s1 = "_".dhall.toCBORmodel
+    val s2 = CBORmodel.decodeCbor3(s1.encodeCbor1)
+    println(s"s1 = $s1, s2 = $s2")
+    expect(s1 == s2)
+  }
+
+  test("CBOR3 for simple integer encoding of variables") {
+    val s1 = "_@3".dhall.toCBORmodel
+    val s2 = CBORmodel.decodeCbor3(s1.encodeCbor1)
+    println(s"s1 = $s1, s2 = $s2")
+    expect(s1 == s2)
   }
 }
