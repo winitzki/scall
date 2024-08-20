@@ -456,7 +456,7 @@ object CBORmodel {
     override def toCbor1: DataItem = if (data < 0) new NegativeInteger(data.bigInteger) else new UnsignedInteger(data.bigInteger)
 
     override val toCbor3: Writer => Writer = { writer =>
-      writer.write(data)
+      writer.write[BigInt](data)
     }
   }
 
@@ -631,7 +631,7 @@ object CBOR {
     if (index < maxCborNumberAsCInt)
       CBORObject.FromObject(index.bigInteger)
     else
-      CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // TODO: Does this work correctly? Do we need to set littleEndian = true?
+      CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // Tests pass, so it looks like we do not need to set littleEndian = true?
 
   def toCborModel(e: Expression): CBORmodel = e.scheme match {
     case Variable(name, index) => if (name == underscore) CInt(index) else array(name.name, index)
