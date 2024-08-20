@@ -139,10 +139,28 @@ class SimpleCBORtest extends DhallTest {
     data.foreach { d =>
       val s1       = d.dhall.toCBORmodel
       println(s"Testing data with CBOR model $s1")
-      val encoded1 = s1.encodeCbor2
+      val encoded1 = s1.encodeCbor1
       val encoded2 = s1.encodeCbor2
       val encoded3 = s1.encodeCbor3
       expect(encoded1 sameElements encoded2)
+      println(encoded2.map(_.toInt).mkString("Array(", ", ", ")"))
+      println(encoded3.map(_.toInt).mkString("Array(", ", ", ")"))
+      expect(encoded2 sameElements encoded3)
+    }
+  }
+
+  test("CBOR3 encoding of map needs correct sorting") {
+    Seq(
+      "{ a = 1, b = 2 }",
+      "{ a = 1, b = 2, ab = 3 }",
+      "{ a = 1, b = 2, ba = 3, ab = 4 }",
+      "{ a = 1, b = 2, ab = 3, ba = 4 }",
+      "{ date = 1, time = 2, timeZone = 3 }",
+      "{ a = 0, b = 0, c = 0, d = 0, e = 0 }",
+    ).foreach { d =>
+      val s1       = d.dhall.toCBORmodel
+      val encoded2 = s1.encodeCbor2
+      val encoded3 = s1.encodeCbor3
       println(encoded2.map(_.toInt).mkString("Array(", ", ", ")"))
       println(encoded3.map(_.toInt).mkString("Array(", ", ", ")"))
       expect(encoded2 sameElements encoded3)
