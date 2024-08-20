@@ -136,6 +136,7 @@ class SimpleCBORtest extends DhallTest {
 
   test("CBOR3 encoding must agree with CBOR2 encoding for record with > 4 fields") {
     val data = Seq(
+      "True",
       "{ a = 0 }",
       "{ a = 0, b = 0}",
       "{ a = 0, b = 0, c = 0 }",
@@ -156,21 +157,16 @@ class SimpleCBORtest extends DhallTest {
     }
   }
 
-  test("CBOR3 encoding of map needs correct sorting") {
-    Seq(
-      "{ a = 1, b = 2 }",
-      "{ a = 1, b = 2, ab = 3 }",
-      "{ a = 1, b = 2, ba = 3, ab = 4 }",
-      "{ a = 1, b = 2, ab = 3, ba = 4 }",
-      "{ date = 1, time = 2, timeZone = 3 }",
-      "{ a = 0, b = 0, c = 0, d = 0, e = 0 }",
-    ).foreach { d =>
+  test("CBOR3 encoding edge cases") {
+    Seq("False", "-08:00").foreach { d =>
       val s1       = d.dhall.toCBORmodel
       val encoded2 = s1.encodeCbor2
       val encoded3 = s1.encodeCbor3
-      println(encoded2.map(_.toInt).mkString("Array(", ", ", ")"))
-      println(encoded3.map(_.toInt).mkString("Array(", ", ", ")"))
+      println(s"Dhall expression: $d")
+      println("   " + encoded2.map(_.toInt).mkString("Array(", ", ", ")"))
+      println("   " + encoded3.map(_.toInt).mkString("Array(", ", ", ")"))
       expect(encoded2 sameElements encoded3)
+      println("   Comparison is OK")
     }
   }
 
