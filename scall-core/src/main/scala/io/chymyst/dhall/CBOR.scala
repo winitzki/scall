@@ -282,7 +282,7 @@ object CBORmodel {
              (tag, model)
            } { case (tag, model) => CTagged(tag, model) }
       _ <- when {
-             reader.readArrayStart()
+//             reader.readArrayStart()
              val length                   = reader.readArrayHeader().toInt
              val result: Array[CBORmodel] = (1 to length).map { i =>
                reader.read[CBORmodel]()(decodeCBORModel)
@@ -290,7 +290,7 @@ object CBORmodel {
              reader.readArrayClose(unbounded = false, result)
            }(CArray.apply)
       _ <- when {
-             reader.readMapStart()
+//             reader.readMapStart()
              val length                         = reader.readMapHeader().toInt
              val result: Map[String, CBORmodel] = (1 to length).map { i =>
                reader.readString() ->
