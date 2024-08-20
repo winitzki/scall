@@ -139,8 +139,11 @@ class SimpleCBORtest extends DhallTest {
     val encoded1 = s1.encodeCbor1
     val encoded2 = s1.encodeCbor2
     val encoded3 = s1.encodeCbor3
-    expect(encoded1 sameElements encoded2, encoded2 sameElements encoded3)
+    val decoded1 = CBORmodel.decodeCbor1(encoded1)
+    val decoded2 = CBORmodel.decodeCbor2(encoded2)
     val decoded3 = CBORmodel.decodeCbor3(encoded3)
-    expect(s1 == decoded3)
+    expect(s1 == decoded1, s1 == decoded2, s1 == decoded3)
+    expect(encoded1 sameElements encoded2)
+    expect(encoded2 sameElements encoded3)
   }
 }
