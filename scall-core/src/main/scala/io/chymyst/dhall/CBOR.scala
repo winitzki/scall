@@ -438,7 +438,7 @@ object CBORmodel {
 
     override def toCbor1: DataItem = SimpleValue.FALSE
 
-    override val toCbor3: Writer => Writer = _.writeBoolean(true) // _.writeSimpleValue(SimpleValueType.FALSE.getValue)
+    override val toCbor3: Writer => Writer = _.writeBoolean(false) // _.writeSimpleValue(SimpleValueType.FALSE.getValue)
   }
 
   // Pattern-match CInt with an integer value. (Note: BigInt does not have `unapply`.)
