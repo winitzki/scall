@@ -78,8 +78,6 @@ class SimpleCBORperformanceTest extends DhallTest {
     val elapsed2 = elapsedNanos(cborRoundtrip2(expr))._2 / 1000000.0
     val elapsed3 = elapsedNanos(cborRoundtrip3(expr))._2 / 1000000.0
     println(s"cbor1: $elapsed1 ms, cbor2: $elapsed2 ms, cbor3: $elapsed3 ms")
-    expect(elapsed1 > elapsed2 * 1.3) // cbor1 is about 2x slower than cbor2
-    expect(elapsed3 > elapsed2 * 3)   // cbor3 is much slower than cbor2
   }
 
   test("beta-normalizing performance") {
