@@ -5,16 +5,22 @@
 This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for software engineers already familiar with the functional programming (FP) paradigm,
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
+Dhall is positioned as an open-source language for programmable configuration files.
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
+The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall.
+
+This book's view is that Dhall is a powerful, purely functional programming language that has different applications:
+- a template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
+- a fully specified and tested industry-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
+- a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
+
+The book focuses on the last two applications.
+
 Although most code examples are in Dhall, much of the material of the book has a wider applicability.
-It studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
+The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
 which is known in the academic literature as "System Fω".
 
-Dhall is positioned as an open-source language for programmable configuration files.
-The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall. 
-
-The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
-
-From the point of view of type theory, Dhall implements a type system similar to System Fω with some additional features, using a Haskell-like syntax.
+From the point of view of programming language theory, Dhall implements System Fω with some additional features, using a Haskell-like syntax.
 
 For a more theoretical introduction to various forms of typed lambda calculus, System F, and System Fω, see:
 
@@ -23,13 +29,6 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 
 Most of that theory is beyond the scope of this book.
 Instead, the book focuses on issues arising in practical programming.
-
-To summarize, Dhall is a powerful, purely functional programming language that has several applications:
-- a generator for flexible, programmable, but strictly validated YAML and JSON configuration files
-- an industry-strength System Fω interpreter for studying various language-independent aspects of functional programming
-- a high-level scripting DSL interfacing with a runtime that implements side effects and low-level details
-
-This book focuses on the last two applications.
 
 ## Overview of Dhall
 
@@ -62,12 +61,12 @@ System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x
 ### Guaranteed termination
 
 The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
+(A "normal form" is an expression that cannot be simplified any further.)
 
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
 It is guaranteed that the correct normal form will be computed (although the computation may take a long time).
 
 Invalid Dhall programs will be rejected at the type-checking phase.
-Any Dhall program that passes type-checking will be guaranteed to evaluate to a canonical (unique) normal form within finite time.
 The type-checking itself is also guaranteed to complete within finite time.
 
 The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
@@ -77,8 +76,16 @@ But this is not a significant limitation for a wide scope of Dhall usage, as thi
 
 Identifiers may contain dash and slash characters; for example, `List/map` and `start-here` are valid identifiers.
 
-This is helpful when organizing library functions into modules.
+This feature is helpful when organizing library functions into modules.
 One can have suggestive names such as `List/map`, `Optional/map`, etc.
+
+Identifiers with dashes can be used, for example, as record field names, as it is often seen in configuration files:
+
+```dhall
+⊢ { first-name = "John", last-name = "Reynolds" }
+
+{ first-name = "John", last-name = "Reynolds" }
+```
 
 Identifiers may be arbitrary characters (even keywords or whitespace) if escaped in backquotes.
 
@@ -92,18 +99,24 @@ Identifiers may be arbitrary characters (even keywords or whitespace) if escaped
 3
 ```
 
-The standalone underscore character `_` in Haskell and Scala is a syntax for a special "unused" variable.
-But in Dhall, the variable named `_` is a variable like any other.
+The standalone underscore character `_` in OCaml, Haskell, and Scala is a syntax for a special "unused" variable.
+But in Dhall, the variable named `_` is a variable like any other:
+
+```dhall
+⊢ let _ = 123 in _ + _
+
+246
+```
 
 ### Primitive types
 
-Integers must have a sign (`+1` or `-1`) while `Natural` numbers may not have a sign (`123`).
+Integers must have a sign (`+1` or `-1`) while `Natural` numbers _may not_ have a sign (`123`).
 
 Values of types `Natural` and `Integer` have unbounded size.
 There is no overflow.
-Dhall does not support 32-bit or 64-bit integers with overflow, as is common in other programming languages.
+Dhall does not support 32-bit or 64-bit integers with overflow, as it is commonly done in other programming languages.
 
-Dhall supports other numeric types, such as `Double` or `Time`, but there is very little one can do with those values other than print them.
+Dhall supports other numeric types, such as `Double` or `Time`, but there is little one can do with those values other than print them.
 For instance, Dhall does not directly support floating-point arithmetic on `Double` values.
 
 Strings have type `Text` and support string interpolation: `"The answer is ${answer}"`.
@@ -131,9 +144,9 @@ tuple : { _1 : Integer, _2 : Text }
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
-Record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
+It is important that Dhall's record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
 For instance, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
-There is no way of assigning a permanent unique name to the record type itself, as it is done in Haskell and Scala in order to distinguish one record type from another.
+There is no way of assigning a permanent unique name to the record type itself, as it is done in OCaml, Haskell, and Scala in order to distinguish one record type from another.
 
 For convenience, a Dhall program may define local names for types:
 
@@ -144,7 +157,7 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
-But the names `RecordType1` and `RecordType2` are no more than type aliases.
+But the names `RecordType1` and `RecordType2` are no more than (locally defined) values that may be used as type aliases.
 Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
 (The order of record fields is not significant.) 
 So, the values `x` and `y` actually have the same type in that code.
@@ -173,9 +186,9 @@ Union types can have empty constructors.
 For example, the union type `< X : Natural | Y >` has values written either as `< X : Natural | Y >.X 123` or `< X : Natural | Y >.Y`.
 Both these values have type `< X : Natural | Y >`.
 
-Union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
+It is important that Dhall's union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
 For instance, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated.
-There is no way of assigning a permanent unique name to the union type itself, as it is done in Haskell and Scala to distinguish that union type from others.
+There is no way of assigning a permanent unique name to the union type itself, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
 
 For convenience, a Dhall program may define local names for types, for example:
 
@@ -184,13 +197,12 @@ let MyType1 = < X : Natural | Y : Bool >
 let x : MyType1 = MyType1.X 123
 ```
 
-But the name `MyType1` is no more than a type alias.
+But the name `MyType1` is no more than a (locally defined) value that may be used as a type alias.
 Dhall will consider `MyType1` to be the same as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`.
-(The order of a union type's constructors is not significant.) 
+(The order of a union type's constructors is not significant.)
 
-
-Dhall requires the union type's constructors to be explicitly connected with the full union type.
-In Haskell or Scala, we would simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
+Dhall requires the union type's constructors to be explicitly annotated with the full union types.
+In Haskell or Scala, one may simply write `Left(t)` and `Right(f(x))` and let the compiler fill in the type parameters.
 But Dhall requires us to write a complete type annotation such as `< Left : Text | Right : Bool >.Left t` and `< Left : Text | Right : Bool >.Right (f x)` in order to specify the complete union type being constructed.
 
 To shorten the code, one normally defines a type alias and writes:
@@ -213,15 +225,15 @@ let x : Union1 = Union1.Right
 let y : Union2 = Union2.Right True
 ```
 
-The types `Union1` and `Union2` are different because the constructor named `Right` requires different data types.
+The types `Union1` and `Union2` are different because the constructor named `Right` requires different data types within `Union1` and `Union2`.
 Because constructor names are used always together with the union type, there is no conflict between `Union1.Left` and `Union2.Left`, and between `Union1.Right` and `Union2.Right`.
-(A conflict would exist if we could write simply `Left` for those constructors, but Dhall does not allow that.)
+A conflict would occur if we could write simply `Left` for those constructors, but Dhall does not allow that.
 
 ### Pattern matching
 
 Pattern matching is available for union types.
 Dhall implements pattern matching via `merge` expressions.
-The `merge` expressions are similar to `case` expressions in Haskell and `match/case` expressions in Scala.
+The `merge` expressions are similar to `match/with` expressions in OCaml, `case/of` expressions in Haskell, and `match/case` expressions in Scala.
 
 One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation.
 
@@ -248,8 +260,6 @@ The corresponding type is defined in Dhall by:
 let P = < X : Natural | Y : Bool | Z >
 ```
 
-Dhall's pattern matching is similar to the Haskell code, except for putting the value `x` after all the cases.
-
 Here is the Dhall code for a function `toText : < X : Natural | Y : Bool | Z > → Text` that prints a value of type `P`:
 
 ```dhall
@@ -260,6 +270,13 @@ let toText : P → Text = λ(x : P) →
           Z = "Z",
         } x
 ```
+
+Dhall's pattern matching syntax is somewhat similar to the Haskell code.
+The `merge` keyword plays the role of a function whose
+argument is a _record value_.
+The field names of that record must correspond to all the constructor names in the union type.
+The values inside the record are explicit `λ`-delimited functions that describe what to compute in each case where the union type's constructor has arguments.
+Otherwise (as for the constructor `Z` in the example shown above) the value inside the record does not need to be a function.
 
 ### The "Optional" type
 
@@ -273,7 +290,7 @@ let y : MyOptional Text = (MyOptional Text).MyNone
 
 The built-in `Optional` type is equivalent but less verbose.
 Instead of `(MyOptional Text).MyNone` one writes `None Text`.
-Instead of `(MyOptional Natural).MySome 123` one writes just `Some 123`.
+Instead of `(MyOptional Natural).MySome 123` one writes `Some 123`.
 (The type parameter `Natural` is determined automatically by Dhall.)
 Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
 
@@ -288,6 +305,10 @@ let getOrElse : ∀(a : Type) → Optional a → a → a
           } oa
 ```
 
+The `Optional` type is a built-in Dhall type rather than a library-defined type for pragmatic reasons.
+First, a built-in type is integrated with the typechecker and supports more concise code (`Some 123` instead of `(Optional Natural).Some 123`).
+Second, the `Optional` type plays a special role when exporting data to JSON and YAML formats: record fields with `None` values are typically omitted from the generated configuration files.
+
 ### The void type and its use
 
 The **void type** is a type that cannot have any values.
@@ -298,7 +319,7 @@ So, no Dhall code will ever be able to create a value of type `< >`.
 
 If a value of the void type existed, one would be able to compute from it a value of _any other type_.
 This is absurd, but this is indeed an important property of the void type.
-This property of the void type can be expressed formally via the function called `absurd`.
+This property of the void type can be expressed formally via the function that we may denote `absurd`.
 That function computes a value of an arbitrary type `A` given a value of the void type `< >`:
 
 ```dhall
@@ -3015,7 +3036,7 @@ let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
 
 Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
-We need to use `LeibnizEqual` (and `refl`) when comparing values and `LeibnizEqualT` (and `reflT`) when comparing types.
+We need to use `LeibnizEqual` and `refl` when comparing values and `LeibnizEqualT` and `reflT` when comparing types.
 
 We also cannot define a Leibniz equality type for comparing kinds.
 That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type.
@@ -3027,7 +3048,7 @@ One can implement "equality combinators" that manipulate Leibniz equality types 
 The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
 
 The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
-We will focus on equality between values; equality between types has the same properties.
+We will focus on Leibniz equality between values, as Leibniz equality between types has similar properties.
 
 #### Reflexivity
 
@@ -3035,7 +3056,7 @@ The reflexivity property is that any value `x` equals itself.
 Translated into equality types, it means that for any `x : T` there must exist a value of type `LeibnizEqual T x x`.
 Indeed, we have seen that such a value is created as `refl T x`.
 
-So, `refl` is the reflexivity combinator.
+So, we view `refl` as the "reflexivity constructor".
 
 #### Symmetry
 
@@ -3127,10 +3148,22 @@ let identityLeibnizEqual
     in x_eq_y g h
 ```
 
+The analogous property for Leibniz _type_ equality is formulated as the "type identity" and uses an arbitrary type constructor `F` instead of an arbitrary function `f`.
+
+```dhall
+let identityLeibnizEqualT
+  : ∀(T : Kind) → ∀(x : T) → ∀(y : T) → ∀(U : Kind) → ∀(F : T → U) → LeibnizEqualT T x y → LeibnizEqualT U (F x) (F y)
+  = λ(T : Kind) → λ(x : T) → λ(y : T) → λ(U : Kind) → λ(F : T → U) → λ(x_eq_y : LeibnizEqualT T x y) →
+    let g = λ(t : T) → LeibnizEqualT U (F x) (F t)
+    let h : g x = reflT U (F x)
+    in x_eq_y g h
+```
+
+
 #### Function extensionality
 
-The principle of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
-In other words, `f === g` if and only if we have `f x === g x` for all `x` .
+The property of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
+In other words, `f === g` if and only if we have `f x === g x` for all `x`.
 
 In the language of equality types, this translates into a combinator with the type signature `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`.
 ```dhall
@@ -5290,6 +5323,8 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 
 ### Hylomorphisms with bounded recursion depth
+
+#### Motivation for hylomorphisms
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.

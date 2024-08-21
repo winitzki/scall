@@ -11,6 +11,7 @@ import io.chymyst.test.Throwables.printThrowable
 import munit.FunSuite
 
 import java.nio.file.{Files, Path, Paths}
+import java.util.Locale
 import scala.util.Try
 
 object TestUtils extends ManyFixtures {
@@ -96,7 +97,7 @@ object TestUtils extends ManyFixtures {
 
   def requireSuccessAtLeast(totalTests: Int, results: Seq[Try[_]], allowFailures: Int = 0) = {
     val (failures, successes) = failureAndSuccessCounts(totalTests, results, allowFailures)
-    expect(failures <= allowFailures && successes >= totalTests - allowFailures)
+    expect(failures <= allowFailures, successes >= totalTests - allowFailures)
   }
 
   def cacheStatistics(): String = {
@@ -106,4 +107,6 @@ object TestUtils extends ManyFixtures {
 
 }
 
-trait DhallTest extends FunSuite with TestTimings // Add more options here by mixing other traits.
+trait DhallTest extends FunSuite with TestTimings { // Add more options here by mixing other traits.
+  Locale.setDefault(Locale.US) // Or else CDouble is not rendered according to the Dhall standard.
+}

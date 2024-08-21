@@ -5,6 +5,8 @@ import co.nstant.in.cbor.model.{Array => Cbor1Array, Map => Cbor1Map, _}
 import co.nstant.in.cbor.{CborBuilder, CborDecoder, CborEncoder}
 import com.upokecenter.cbor.{CBORObject, CBORType}
 import com.upokecenter.numbers.EInteger
+import io.bullet.borer.Tag.Other
+import io.bullet.borer.{Cbor => Cbor3, Decoder, Encoder, TaggedValue, Writer}
 import io.chymyst.dhall.CBORmodel.CBytes.byteArrayToHexString
 import io.chymyst.dhall.CBORmodel._
 import io.chymyst.dhall.Syntax.ExpressionScheme._
@@ -13,7 +15,6 @@ import io.chymyst.dhall.SyntaxConstants._
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import scala.annotation.tailrec
-import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala, MapHasAsScala}
 import scala.util.{Failure, Success, Try}
 
@@ -23,6 +24,8 @@ sealed trait CBORmodel {
 
   def toCbor1: DataItem
 
+  val toCbor3: Writer => Writer
+
   final def encodeCbor1: Array[Byte] = {
     val baos     = new ByteArrayOutputStream
     val dataItem = this.toCbor1
@@ -30,6 +33,10 @@ sealed trait CBORmodel {
     new CborEncoder(baos).nonCanonical.encode(new CborBuilder().add(dataItem).build)
     baos.toByteArray
   }
+
+  implicit final val encoder3: Encoder[CBORmodel] = Encoder { (writer, t) => t.toCbor3(writer) }
+
+  final def encodeCbor3: Array[Byte] = Cbor3.encode[CBORmodel](this).toByteArray
 
   final def encodeCbor2: Array[Byte] = this.toCbor2.EncodeToBytes()
 
@@ -221,7 +228,7 @@ sealed trait CBORmodel {
     case CBytes(_) | CMap(_) => ().die(s"Unexpected top-level CBOR object: $this")
   }
 
-  def asString: String = (this.asInstanceOf[CString].data).or(s"This CBORmodel is $this and not a CString")
+  private def asString: String = (this.asInstanceOf[CString].data).or(s"This CBORmodel is $this and not a CString")
 }
 
 // In the library "cbor1" there is no constructor for double values with automatic downgrading of precision. This code provides that function.
@@ -252,6 +259,53 @@ object CBORmodel {
       case _                        => None
     }
   }
+
+  private def when[A, B](x: => A)(y: A => B): Either[B, Throwable] = Try(x) match {
+    case Failure(exception) => Right(exception)
+    case Success(v)         => Left(y(v))
+  }
+
+  def decodeCBORModel: Decoder[CBORmodel] = Decoder { reader =>
+    val result = for {
+      _ <- when(reader.read[BigInt]())(i => CInt(i))
+      _ <- when(reader.readInt())(i => CInt(BigInt(i)))
+      _ <- when(reader.readFloat16().toDouble)(CDouble.apply)
+      _ <- when(reader.readFloat().toDouble)(CDouble.apply)
+      _ <- when(reader.readDouble())(CDouble.apply)
+      _ <- when(reader.readNull())(_ => CNull)
+      _ <- when(reader.readBoolean())(b => if (b) CTrue else CFalse)
+      _ <- when(reader.readString())(CString.apply)
+      _ <- when(reader.readBytes[Array[Byte]]())(CBytes.apply)
+      _ <- when {
+             val tag              = reader.readTag().code.toInt
+             val model: CBORmodel = reader.read[CBORmodel]()(decodeCBORModel)
+             (tag, model)
+           } { case (tag, model) => CTagged(tag, model) }
+      _ <- when {
+//             reader.readArrayStart()
+             val length                   = reader.readArrayHeader().toInt
+             val result: Array[CBORmodel] = (1 to length).map { i =>
+               reader.read[CBORmodel]()(decodeCBORModel)
+             }.toArray
+             reader.readArrayClose(unbounded = false, result)
+           }(CArray.apply)
+      _ <- when {
+//             reader.readMapStart()
+             val length                         = reader.readMapHeader().toInt
+             val result: Map[String, CBORmodel] = (1 to length).map { i =>
+               reader.readString() ->
+                 reader.read[CBORmodel]()(decodeCBORModel)
+             }.toMap
+             reader.readMapClose(unbounded = false, result)
+           }(CMap.apply)
+    } yield ()
+    result match {
+      case Left(value) => value
+      case Right(_)    => throw new Exception(s"Failed to decode CBOR3 data to CBORmodel")
+    }
+  }
+
+  def decodeCbor3(bytes: Array[Byte]): CBORmodel = Cbor3.decode(bytes).to[CBORmodel](decodeCBORModel).value
 
   def decodeCbor2(bytes: Array[Byte]): CBORmodel = fromCbor2(CBORObject.DecodeFromBytes(bytes))
 
@@ -313,7 +367,7 @@ object CBORmodel {
   def fromCbor2(obj: CBORObject): CBORmodel = if (obj == null) CNull
   else {
     val decoded: CBORmodel = obj.getType match {
-      case CBORType.Number => throw new Exception(s"Unexpected CBOR type Number in object $obj")
+//      case CBORType.Number => throw new Exception(s"Unexpected CBOR type Number in object $obj")
 
       case CBORType.Boolean =>
         obj.getSimpleValue match {
@@ -363,6 +417,8 @@ object CBORmodel {
     override def toString: String = "null"
 
     override def toCbor1: DataItem = SimpleValue.NULL
+
+    override val toCbor3: Writer => Writer = _.writeNull() // _.writeSimpleValue(SimpleValueType.NULL.getValue)
   }
 
   case object CTrue extends CBORmodel {
@@ -371,6 +427,8 @@ object CBORmodel {
     override def toString: String = "true"
 
     override def toCbor1: DataItem = SimpleValue.TRUE
+
+    override val toCbor3: Writer => Writer = _.writeBoolean(true) // _.writeSimpleValue(SimpleValueType.TRUE.getValue)
   }
 
   case object CFalse extends CBORmodel {
@@ -379,6 +437,8 @@ object CBORmodel {
     override def toString: String = "false"
 
     override def toCbor1: DataItem = SimpleValue.FALSE
+
+    override val toCbor3: Writer => Writer = _.writeBoolean(false) // _.writeSimpleValue(SimpleValueType.FALSE.getValue)
   }
 
   // Pattern-match CInt with an integer value. (Note: BigInt does not have `unapply`.)
@@ -394,6 +454,10 @@ object CBORmodel {
     override def toString: String = data.toString
 
     override def toCbor1: DataItem = if (data < 0) new NegativeInteger(data.bigInteger) else new UnsignedInteger(data.bigInteger)
+
+    override val toCbor3: Writer => Writer = { writer =>
+      writer.write[BigInt](data)
+    }
   }
 
   final case class CDouble(data: Double) extends CBORmodel {
@@ -413,6 +477,8 @@ object CBORmodel {
     override def toString: String = f"$data%.1f"
 
     override def toCbor1: DataItem = CBOR1fix.createDataItemForDoubleAtMinimumPrecision(data)
+
+    override val toCbor3: Writer => Writer = _.writeDouble(data)
   }
 
   final case class CString(data: String) extends CBORmodel {
@@ -433,6 +499,8 @@ object CBORmodel {
     }
 
     override def toCbor1: DataItem = new UnicodeString(data)
+
+    override val toCbor3: Writer => Writer = _.writeString(data)
   }
 
   final case class CArray(data: Array[CBORmodel]) extends CBORmodel {
@@ -445,6 +513,12 @@ object CBORmodel {
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CArray] && (obj.asInstanceOf[CArray].data.zip(data).forall { case (x, y) => x equals y })
 
     override def toCbor1: DataItem = data.foldLeft(new Cbor1Array(data.length))((prev, m) => prev.add(m.toCbor1))
+
+    override val toCbor3: Writer => Writer = { writer =>
+      writer.writeArrayOpen(data.length)
+      data.foreach { d => writer.write(d)(d.encoder3) } // TODO make sure this works
+      writer.writeArrayClose()
+    }
   }
 
   object CBytes {
@@ -459,6 +533,8 @@ object CBORmodel {
     override def equals(obj: Any): Boolean = obj.isInstanceOf[CBytes] && (obj.asInstanceOf[CBytes].data sameElements data)
 
     override def toCbor1: DataItem = new ByteString(data)
+
+    override val toCbor3: Writer => Writer = _.write(data)
   }
 
   final case class CMap(data: Map[String, CBORmodel]) extends CBORmodel {
@@ -477,6 +553,12 @@ object CBORmodel {
 
     override def toCbor1: DataItem =
       data.toSeq.sortBy(_._1).foldLeft(new Cbor1Map(data.size)) { case (prev, (k, v)) => prev.put(new UnicodeString(k), v.toCbor1) }
+
+    override val toCbor3: Writer => Writer = { writer =>
+      writer.writeMapOpen(data.size)
+      data.toSeq.sortBy(_._1).foreach { case (k, v) => writer.writeString(k).write[CBORmodel](v)(encoder3) }
+      writer.writeMapClose()
+    }
   }
 
   final case class CTagged(tag: Int, data: CBORmodel) extends CBORmodel {
@@ -502,6 +584,10 @@ object CBORmodel {
       val cbor1 = data.toCbor1
       cbor1.setTag(tag.toLong)
       cbor1
+    }
+
+    override val toCbor3: Writer => Writer = { writer =>
+      writer.write(TaggedValue(Other(tag), data))
     }
   }
 
@@ -545,7 +631,7 @@ object CBOR {
     if (index < maxCborNumberAsCInt)
       CBORObject.FromObject(index.bigInteger)
     else
-      CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // TODO: Does this work correctly? Do we need to set littleEndian = true?
+      CBORObject.FromObject(EInteger.FromBytes(index.toByteArray, false)) // Tests pass, so it looks like we do not need to set littleEndian = true?
 
   def toCborModel(e: Expression): CBORmodel = e.scheme match {
     case Variable(name, index) => if (name == underscore) CInt(index) else array(name.name, index)
@@ -565,11 +651,11 @@ object CBOR {
     case ExpressionScheme.If(cond, ifTrue, ifFalse) => array(14, cond, ifTrue, ifFalse)
 
     case ExpressionScheme.Merge(record, update, tipe) =>
-      val args: Seq[Expression] = Seq(record, update) ++ tipe.toSeq
+      val args = Seq(record, update) ++ tipe.toSeq
       array(6 +: args: _*)
 
     case ExpressionScheme.ToMap(data, tipe) =>
-      val args: Seq[Expression] = Seq(data) ++ tipe.toSeq
+      val args = Seq(data) ++ tipe.toSeq
       array(27 +: args: _*)
 
     case ExpressionScheme.EmptyList(Expression(ExpressionScheme.Application(Expression(ExpressionScheme.ExprBuiltin(SyntaxConstants.Builtin.List)), tipe))) =>
@@ -608,8 +694,7 @@ object CBOR {
       }
       array(29, data, array(path: _*), body)
 
-    case ExpressionScheme.DoubleLiteral(value) =>
-      CDouble(value) // TODO: this does not work correctly for value = -0.0 or value = +0.0 because of CBOR-java issue #24
+    case ExpressionScheme.DoubleLiteral(value) => CDouble(value)
 
     case ExpressionScheme.NaturalLiteral(value) => array(15, value)
 

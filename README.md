@@ -111,8 +111,8 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 1. Fully implement the syntax and semantics of Dhall. All standard tests from
    the [dhall-lang repository](https://github.com/dhall-lang/dhall-lang) must pass. (This is done.)
-2. Implement JSON and YAML export. (In progress.)
-2. Implement tools for working with Dhall values in Scala conveniently. Convert between ordinary Scala types and Dhall
+2. Implement JSON and YAML export. (This is done.)
+2. Implement tools for working with Dhall values in Scala conveniently (this is in progress). Convert between ordinary Scala types and Dhall
    types (both at run time and at compile time if possible). Most Dhall integrations only support a small subset of
    Dhall, but Scala has a rich type system. We would like to support Scala function types, Scala type constructors,
    higher-kinded types, and other Scala features as much as possible.
@@ -130,9 +130,10 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
       using [fastparse](https://github.com/com-lihaoyi/fastparse), closely
       following [the syntax guidelines](https://github.com/dhall-lang/dhall-lang/blob/master/standard/syntax.md).
 
-    - [x] A serializer and deserializer for CBOR format is implemented. User may choose one of the two CBOR
-      libraries: [cbor-java](https://github.com/c-rack/cbor-java)
-      and [CBOR-Java](https://github.com/peteroupc/CBOR-Java). The latter library is 2x faster. Both libraries work correctly.
+    - [x] A serializer and deserializer for CBOR format is implemented. User may choose one of the three CBOR
+      libraries: [cbor-java](https://github.com/c-rack/cbor-java),
+      [CBOR-Java](https://github.com/peteroupc/CBOR-Java), or [borer](https://github.com/sirthias/borer).
+      The fastest of them is CBOR-Java.
 
     - [x] Alpha-normalization is implemented according
       to [the Dhall specification](https://github.com/dhall-lang/dhall-lang/blob/master/standard/alpha-normalization.md).
@@ -156,7 +157,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 
 - [x] Converting Dhall values to Scala values: basic support is complete.
 - [x] Standalone executable JAR with command-line arguments for type-checking, evaluating, and exporting Dhall expressions. 
-- [x] Converting Dhall to Yaml and JSON: complete.
+- [x] Converting Dhall to YAML and JSON: complete.
 
 ### Experimental features and optimizations
 
