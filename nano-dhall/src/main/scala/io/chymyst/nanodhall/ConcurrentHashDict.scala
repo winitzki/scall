@@ -1,4 +1,4 @@
-package io.chymyst.dhall
+package io.chymyst.nanodhall
 
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
