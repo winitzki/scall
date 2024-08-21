@@ -1324,14 +1324,14 @@ For example, consider this code:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 10000000000 Natural f 0
-let _ = assert : result === 1
+-- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
 ```
 
 Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
 But in this example, the function `f` quickly stops changing its argument, so the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
-In the next subsections, we will show examples of algorithms implemented via `Natural/fold`.
+In the next subsections, we will show some examples of algorithms implemented via `Natural/fold`.
 
 ### Factorial
 
@@ -5504,8 +5504,8 @@ In fact, a function with the type signature of `hylo` cannot be implemented in D
 
 #### Depth-limited hylomorphisms
 
-Implementing hylomorphisms in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
-One possibility, [shown on an example in the blog post here](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
+Implementing hylomorphism-like functions in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
+One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
 The stop-gap value will be used when the recursion bound is smaller than the recursion depth of the data.
 If the recursion bound is large enough, the hylomorphism's output value will be actually independent of the stop-gap value.
 
@@ -5544,7 +5544,14 @@ The function `hylo_Nat` is a general fold-like aggregation function that can be 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see a simple example of using `hylo_Nat`.  TODO
+For now, let us see a simple example of using `hylo_Nat`.
+
+#### Euclidean division algorithm
+
+An for integer division with remainder can be written via recursive code like this:
+
+TODO
+
 
 #### Hylomorphisms driven by a Church-encoded template
 
