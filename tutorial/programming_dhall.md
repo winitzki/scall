@@ -1305,18 +1305,18 @@ The application of `s` will be repeated `n` times, evaluating `s(s(...(s(z))...)
 For example:
 ```bash
 $ dhall repl
-⊢ let succ = λ(a : Text) → a ++ "1230" in Natural/fold 4 Text succ "Q" 
+⊢ let succ = λ(a : Text) → a ++ " world" in Natural/fold 4 Text succ "Hello,"
 
-"Q1230123012301230"
+"Hello, world world world world"
 ```
 
-In this way, Dhall can perform many arithmetic operations for natural numbers that are usually implemented via loops.
+In this way, Dhall can perform many operations that are usually implemented via loops.
 However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
 The number of iterations must be specified in advance as the first argument of `Natural/fold`.
 
 When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run further iterations without changing the result.
 
-In many cases, the estimated number of iterations will be much larger than the actually required number.
+In many cases, the estimated number of iterations will be larger than the actually required number.
 Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.
 
 For example, consider this code:
@@ -1324,7 +1324,7 @@ For example, consider this code:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 10000000000 Natural f 0
- -- in assert : result === 1
+let _ = assert : result === 1
 ```
 
 Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
