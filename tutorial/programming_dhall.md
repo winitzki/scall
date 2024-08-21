@@ -5370,7 +5370,7 @@ Functions of that type are called **hylomorphisms**.
 See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
-So, Dhall does not support hylomorphisms as they are usually written.
+So, Dhall does not support hylomorphisms as they are usually defined.
 Let us examine that problem is more detail.
 
 #### Example: why hylomorphisms terminate (in Haskell)
@@ -5421,8 +5421,8 @@ unfix Branch x y -> FBranch x y
 
 We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
-Because `fix` and `unfix` leave data unchanged, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
-In this example of applying `hylo`, the trees remain unchanged because we are unpacking the tree's recursive type (`TreeText → F TreeText`) and then packing it back (`F TreeText → TreeText`) with no changes.
+Because `fix` and `unfix` are isomorphisms, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
+In this example of applying `hylo`, the trees remain unchanged because the function unpacks the tree's recursive type (`TreeText → F TreeText`) and then packs it back (`F TreeText → TreeText`) with no changes.
 (We are using this artificial example only for understanding how the recursion can terminate in `hylo`.)
 
 Choose some value `t0` of type `TreeText`:
@@ -5459,7 +5459,7 @@ Let us compute `c0`:
 ```haskell
 unfix t0 == FBranch (Leaf "a") (Leaf "b")
 
-c0 = fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
+c0 == fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
 ```
 
 We note that each application of `unfix` replaces one layer of `TreeText`'s constructors by one layer of `F`'s constructors.
@@ -5544,11 +5544,26 @@ The function `hylo_Nat` is a general fold-like aggregation function that can be 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see a simple example of using `hylo_Nat`.
+For now, let us see an example of using `hylo_Nat`.
 
-#### Euclidean division algorithm
+#### Egyptian division algorithm
 
-An for integer division with remainder can be written via recursive code like this:
+The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) with remainder can be written via recursive code like this:
+
+```haskell
+-- Haskell.
+egyptian_div_mod :: Int -> Int -> (Int, Int)
+egyptian_div_mod a b = if a < b then (0, a) else if a - b < b then (1, a - b)
+  else
+    let (quotient, remainder) = egyptian_div_mod a (2 * b) -- recursive call
+    in
+      if remainder < b then (2 * quotient, remainder)
+      else (2 * quotient + 1, remainder - b)
+```
+
+The function `egyptian_div_mod` is recursive and cannot be directly translated to Dhall.
+Instead of trying to guess how to convert `egyptian_div_mod` into a call to `Natural/fold`, we will use a general procedure for converting recursive code to hylomorphisms.
+That procedure is explained in the paper ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507) and applies to a wide range of recursive functions.
 
 TODO
 
