@@ -5553,7 +5553,7 @@ For now, let us see some examples of using `hylo_Nat`.
 
 #### Example: the Egyptian division algorithm
 
-The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) with remainder can be written via recursive code like this:
+The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
 
 ```haskell
 egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
