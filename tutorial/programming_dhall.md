@@ -5761,7 +5761,7 @@ Other alternatives (P1, P2, etc.) do require one or more recursive calls to `f`.
 The arguments for those recursive calls are computed from the available data (`a1`, `a2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
 After the recursive calls are completed, the post-processing functions (post_1, post_2, etc.) are applied in order to compute the final results.
 
-Starting from Haskell code for `f` as shown above, we will now derive an equivalent formulation for `f` as a hylomorphism.
+Starting from Haskell code for `f` as shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
 
 TODO
 
