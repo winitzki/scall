@@ -5549,7 +5549,7 @@ The function `hylo_Nat` is a general fold-like aggregation function that can be 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see an example of using `hylo_Nat`.
+For now, let us see some examples of using `hylo_Nat`.
 
 #### Example: the Egyptian division algorithm
 
@@ -5662,22 +5662,24 @@ alg (P2 ((quotient, remainder), b)) = postprocess2 ((quotient, remainder), b)
 ```
 
 This code can be rewritten in Dhall straightforwardly.
-For convenience, we add an extra argument to some functions for supplying a value of `a`:
+For convenience, we define a record type `Result` that holds the quotient and the remainder.
+Also, we add an extra argument to some functions for supplying a value of `a`:
 
 ```dhall
+let Result = { div : Natural, rem : Natural }
 let postprocess1 = λ(a : Natural) → λ(b : Natural) →
   -- if a < b then (0, a) else (1, a - b)
-  if Natural/lessThan a b then { _1 = 0, _2 = a }
-  else { _1 = 1, _2 = Natural/subtract b a }
-let postprocess2 = λ(p2 : { p : { _1 : Natural, _2 : Natural }, b : Natural }) →
+  if Natural/lessThan a b then { div = 0, rem = a }
+  else { div = 1, rem = Natural/subtract b a }
+let postprocess2 = λ(p2 : { p : Result, b : Natural }) →
     -- if remainder < b then (2 * quotient, remainder) else (2 * quotient + 1, remainder - b)
-  let quotient = p2.p._1
-  let remainder = p2.p._2
-  in if Natural/lessThan remainder p2.b then { _1 = 2 * quotient, _2 = remainder }
-     else { _1 = 2 * quotient + 1 , _2 = Natural/subtract p2.b remainder }
+  let quotient = p2.p.div
+  let remainder = p2.p.rem
+  in if Natural/lessThan remainder p2.b then { div = 2 * quotient, rem = remainder }
+     else { div = 2 * quotient + 1 , rem = Natural/subtract p2.b remainder }
 
-let alg : Natural → P (Pair Natural Natural) → Pair Natural Natural
-  = λ(a : Natural) → λ(pp : P (Pair Natural Natural)) → merge {
+let alg : Natural → P Result → Result
+  = λ(a : Natural) → λ(pp : P Result) → merge {
     P1 = postprocess1 a,
     P2 = postprocess2,
   } pp
@@ -5703,7 +5705,7 @@ let coalg : Natural → Natural → P Natural
     else (P Natural).P2 { p = 2 * b, b = b }
 ```
 
-This completes the rewriting of `e_div_mod` as a hylomorphism:
+This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell code would be:
 
 ```haskell
 e_div_mod = hylo coalg alg  -- Haskell
@@ -5712,20 +5714,23 @@ e_div_mod = hylo coalg alg  -- Haskell
 Now we can implement `e_div_mod` in Dhall using `hylo_Nat` with appropriate extra arguments:
 
 ```dhall
-let egyptian_div_mod : Natural → Natural → Pair Natural Natural
+let egyptian_div_mod : Natural → Natural → Result
   = λ(a : Natural) → λ(b : Natural) →
-    let stopgap : Natural → Pair Natural Natural = λ(b : Natural) →
-       { _1 = 0, _2 = b }   -- An obviously wrong result: remainder cannot be b.
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
     let limit = a
-    in hylo_Nat P functorP limit Natural b (coalg a) (Pair Natural Natural) (alg a) stopgap
-let _ = assert : egyptian_div_mod 11 2 === { _1 = 5, _2 = 1 }
+    in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test this code:
+let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 ```
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to produce useful upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
-This gives another motivation for using hylomorphisms in Dhall.
+In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
+This is another practical motivation for studying hylomorphisms.
 
-#### Calculating the maximum recursion depth for a hylomorphism
+#### Calculating the recursion depth for a hylomorphism
+
+
 
 TODO
 
