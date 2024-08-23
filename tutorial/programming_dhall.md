@@ -5369,8 +5369,13 @@ Rewrite that type by replacing the record by two curried arguments:
 Functions of that type are called **hylomorphisms**.
 See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
-The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
-So, Dhall does not support hylomorphisms as they are usually defined.
+So far, we have motivated hylomorphisms as fold-like functions for greatest fixpoint types.
+Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and functions of types `t → F t` and `F r → r`.
+An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the output data (of type `r`) from that tree-like structure.
+
+Now we turn to the question of implementing hylomorphisms in Dhall.
+An immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
+So, Dhall cannot support hylomorphisms as they are usually defined.
 Let us examine that problem is more detail.
 
 #### Example: why hylomorphisms terminate (in Haskell)
@@ -5546,7 +5551,7 @@ This function will be used later in this book when implementing the `zip` method
 
 For now, let us see an example of using `hylo_Nat`.
 
-#### Egyptian division algorithm
+#### Example: the Egyptian division algorithm
 
 The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) with remainder can be written via recursive code like this:
 
@@ -5716,13 +5721,53 @@ let egyptian_div_mod : Natural → Natural → Pair Natural Natural
 let _ = assert : egyptian_div_mod 11 2 === { _1 = 5, _2 = 1 }
 ```
 
-This example shows another motivation for using hylomorphisms:
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to produce useful upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which will guarantee termination and allow us to translate the recursive code into Dhall.
+In most cases, we will be able to produce useful upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
+This gives another motivation for using hylomorphisms in Dhall.
+
+#### Calculating the maximum recursion depth for a hylomorphism
+
+TODO
+
+#### Converting recursive code to hylomorphisms: the HIT algorighm
+
+The [HIT paper](https://www.researchgate.net/publication/2813507) gives a general algorithm for converting recursive code into a hylomorphism.
+[Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
+Here, we will limit our consideration to the HIT algorithm for single recursive functions.
+
+The HIT algorithm works for recursive code of a certain restricted form:
+
+- There is one top-level pattern-matching expression that decides whether recursive calls are needed.
+- Each pattern-matching alternative has zero or more recursive calls. The number of recursive calls is known _statically_ within each pattern-matching alternative.
+- Recursive calls are not nested (the arguments of recursive calls do not use results of previous recursive calls).
+
+Code of that form can be described by this Haskell snippet:
+
+```haskell
+-- Haskell. A recursive function f is defined by:
+f :: A -> B
+f x = case do_choice x of
+  P0 a0 -> post_0 a0
+  P1 a1 -> post_1 a1 (f (pre_1_1 a1)) (f (pre_1_2 a1)) ...
+  P2 a2 -> post_2 a2 (f (pre_2_1 a2)) (f (pre_2_2 a2)) ...
+  ...
+```
+Here, the function `do_choice` has type `A -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
+
+One of the alternatives (`P0 a0 -> ...`) does not require any recursive calls of `f` and computes the result immediately as `post_0 a0`.
+If the code of `f` contains several such alternatives, we will redefine the functor `P` so that all those alternatives are combined into a single one with the constructor that we denoted by `P0`.
+
+Other alternatives (P1, P2, etc.) do require one or more recursive calls to `f`.
+The arguments for those recursive calls are computed from the available data (`a1`, `a2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
+After the recursive calls are completed, the post-processing functions (post_1, post_2, etc.) are applied in order to compute the final results.
+
+Starting from Haskell code for `f` as shown above, we will now derive an equivalent formulation for `f` as a hylomorphism.
+
+TODO
 
 #### Hylomorphisms driven by a Church-encoded template
 
-In the code for `hylo_N`, the total number of iterations was limited by a given natural number.
+In the code for `hylo_Nat`, the total number of iterations was limited by a given natural number.
 To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
 
 Note that `Natural` is a recursive type whose `fold` method is a Dhall built-in.
