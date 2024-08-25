@@ -4047,7 +4047,7 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
-### Performance
+### Performance of "unfix"
 
 Note that `unfix` is implemented by applying the Church-encoded argument to some function.
 In practice, this means that `unfix` will to traverse the entire data structure.
@@ -5551,6 +5551,30 @@ This function will be used later in this book when implementing the `zip` method
 
 For now, let us see some examples of using `hylo_Nat`.
 
+#### Example: Determining the recursion depth
+
+The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify the maximum recursion depth (the total number of iterations for `Natural/fold`) in advance.
+
+If the given number of iterations in `Natural/fold` is too high, the Dhall interpreter may stop the iterations earlier if the current intermediate result stops changing.
+This mechanism works well for calculations with numbers but does not work for `hylo_Nat` because the intermediate result is a function (of type `t → r`).
+Each iteration changes that function, adding a layer of `fmap` and a composition with other functions (`coalg` and `alg`).
+So, this function itself is different at each iteration, and `Natural/fold` will not detect an early termination of the loop, --- even though the result of applying that function to a particular argument may no longer change after a certain number of iterations.
+
+There are two approaches to resolving this issue:
+
+- Implement a separate function for computing the required recursion depth before running the main computation of `hylo_Nat`.
+- Modify `hylo_Nat` so that the iterations stop whenever the maximum required recursion depth is reached.
+
+In this subsection, we will implement the first approach.
+A function that computes the maximum required recursion depth turns out to be a hylomorphism that can be expressed via `hylo_Nat`.
+
+Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that `fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
+This happens when some constructors of the union type `F t` do not store any values of type `t`.
+To detect that condition, we need to be able to check if any values of type `t` are stored in a given value `p : F (F (... (F t)...))`.
+We begin by implementing a function for that check:
+
+TODO
+
 #### Example: the Egyptian division algorithm
 
 The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
@@ -5727,12 +5751,6 @@ let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
 In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
 This is another practical motivation for studying hylomorphisms.
-
-#### Calculating the recursion depth for a hylomorphism
-
-
-
-TODO
 
 #### Converting recursive code to hylomorphisms: the HIT algorighm
 
