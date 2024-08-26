@@ -1397,11 +1397,11 @@ let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
 let unsafeDiv : Natural → Natural → Natural =
   let Accum = { result : Natural, sub : Natural, done : Bool }
   in λ(x : Natural) → λ(y : Natural) →
-         let init : Accum = {result = 0, sub = x, done = False}
+         let init : Accum = { result = 0, sub = x, done = False}
          let update : Accum → Accum = λ(acc : Accum) →
              if acc.done then acc
-             else if Natural/lessThan acc.sub y then acc // {done = True}
-             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
+             else if Natural/lessThan acc.sub y then acc // { done = True }
+             else acc // { result = acc.result + 1, sub = Natural/subtract y acc.sub }
          let r : Accum = Natural/fold x Accum update init
          in r.result
 
@@ -5167,7 +5167,7 @@ We can stop a given stream after a given number `n` of items, creating a new val
 ```dhall
 let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
  = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
-   let State = { remaining : Natural, stream : Stream a}    -- Internal state of the new stream.
+   let State = { remaining : Natural, stream : Stream a }    -- Internal state of the new stream.
    let StepT = < Nil | Cons : { head : a, tail : State } >
    let step : State → StepT = λ(state : State) →
      if Natural/isZero state.remaining then StepT.Nil else merge {
@@ -6934,6 +6934,7 @@ fmap_F c2r (unfix_C c) === unfix_R (c2r c)
 ```
 We obtain equation (2).
 
+The next statement gives a necessary and sufficient condition for the existence of the least fixpoint of a given functor.
 
 ###### Statement 6
 
@@ -6973,7 +6974,7 @@ Notice that we _do_ have a value of type `<> → <>`, namely, an identity functi
 So, the type `<> → <>` is not void.
 It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
 
-In other words, the type `(<> → <>) → <>` is void.
+In other words, the type `(<> → <>) → <>` is void, and so is `LFix F <>`.
 
 Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
 Applying that value `c` to the void type, we will get a value `c <>` of type `LFix F <>`.
@@ -7974,7 +7975,7 @@ Now that we have gotten rid of `U` and obtained a fixpoint equation for `T` alon
 -- For the greatest fixpoints:
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 -- Written out in full:
-let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → {seed : y , step : y → G x y })) })
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → { seed : y , step : y → G x y })) })
 -- For the least fixpoints:
 let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 -- Written out in full:
@@ -8107,6 +8108,14 @@ Church encoding of least fixpoints (for a covariant functor `P`):
 ```
 $$ \forall x.~(P~x \to x)\to x \cong \mu x.~P~x $$
 
+Existence of least fixpoints:
+
+```dhall
+LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
+```
+$$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
+
+
 Church-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
@@ -8117,28 +8126,28 @@ $$ \forall x.~(P~x \to x)\to Q~x \cong Q(\mu x.~P~x) $$
 Church encoding of greatest fixpoints (for a covariant functor `P`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : a, step : a → P a})  ≅  GFix P
+Exists (λ(a : Type) → { seed : a, step : a → P a })  ≅  GFix P
 ```
 $$ \exists a.~a \times (a\to P~a) \cong \nu x.~P~x $$
 
 Co-Yoneda identity (for a covariant functor `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : a → r})  ≅  Q a
+Exists (λ(a : Type) → { seed : Q a, step : a → r })  ≅  Q a
 ```
 $$ \exists a.~Q~a \times (a\to r) \cong Q~a $$
 
 Co-Yoneda identity (for a contravariant functor `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : r → a})  ≅  Q a
+Exists (λ(a : Type) → { seed : Q a, step : r → a })  ≅  Q a
 ```
 $$ \exists a.~Q~a \times (r\to a) \cong Q~a $$
 
 Church-co-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : a → P a})  ≅  Q (GFix P)
+Exists (λ(a : Type) → { seed : Q a, step : a → P a })  ≅  Q (GFix P)
 ```
 $$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
 
