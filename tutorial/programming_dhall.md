@@ -108,6 +108,9 @@ But in Dhall, the variable named `_` is a variable like any other:
 246
 ```
 
+Of course, one may still use the symbol `_` in Dhall code to denote an unused variable.
+However, the Dhall interpreter will not treat the variable `_` in any special way and, for instance, will not verify that the variable `_` actually remains unused.
+
 ### Primitive types
 
 Integers must have a sign (`+1` or `-1`) while `Natural` numbers _may not_ have a sign (`123`).
@@ -2742,7 +2745,7 @@ let pointedMonoid : PointedU Monoid =
 ```
 
 The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
-(This turns out to be true, as the monoid laws will hold for the new monoid automatically.)
+(This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.)
 
 Below we will study more systematically the various ways of making new monoids out of old ones.
 For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
@@ -2774,30 +2777,46 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
       in pointedC /\ { zip }
 ```
 
-### Traversable functors
+### Foldable and traversable functors
+
+A functor `F` is foldable if one can extract all data of type `t` out of a value of type `F t`.
+This is often represented as a method `toList` with the type signature `F t → List t`.
+
+A quite different but equivalent formulation of the foldable property is through the `reduce` method with the type signature `Monoid m → F m → m`.
+We will use that formulation to define the `Foldable` typeclass in Dhall:
+```dhall
+let Foldable = λ(F : Type → Type) → { reduce : ∀(M : Type) → Monoid M → F M → M }
+```
 
 A functor is traversable if it supports a method called `traverse` with the type signature written in Haskell like this:
 
 ```haskell
 -- Haskell:
-traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
+traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
 ```
-Here `t` is a traversable functor.
+It is important that this method is parameterized by an arbitrary applicative functor `L`. If this method exists, `F` is a traversable functor.
 
-Rewriting this type signature in Dhall and making `t` an explicit type parameter, we get the following type signature:
+Rewriting this type signature in Dhall and making `F` an explicit type parameter, we get the following type signature:
 
 ```dhall
-let TraverseTypeSignature = λ(t : Type → Type) → ∀(f : Type → Type) → Applicative f → ∀(a : Type) → ∀(b : Type) →
-  (a → f b) → t a → f (t b)
+let TraverseTypeSignature = λ(F : Type → Type) → ∀(L : Type → Type) → Applicative L → ∀(a : Type) → ∀(b : Type) →
+  (a → L b) → F a → F (L b)
 ```
 
 The requirement of having a `traverse` method can be formulated via a `Traversable` typeclass:
 
 ```dhall
-let Traversable = λ(t : Type → Type) → { traverse : TraverseTypeSignature t }
+let Traversable = λ(F : Type → Type) → { traverse : TraverseTypeSignature F }
 ```
 
-Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `f` (even if `f` is not covariant).
+Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `L` (even if `L` is not covariant).
+
+We remark without proof that:
+
+- Any traversable functor is also foldable.
+- The formulation of the "foldable" property via `reduce` and via `toList` are equivalent.
+- Any polynomial functor is both foldable and traversable. Any traversable functor is polynomial.
+
 
 ### Inheritance of typeclasses
 
@@ -5369,9 +5388,10 @@ Rewrite that type by replacing the record by two curried arguments:
 Functions of that type are called **hylomorphisms**.
 See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
-So far, we have motivated hylomorphisms as fold-like functions for greatest fixpoint types.
-Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and functions of types `t → F t` and `F r → r`.
-An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the output data (of type `r`) from that tree-like structure.
+So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types instead of least fixpoints.
+Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
+An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output data (of type `r`) from that tree-like structure.
+The types `t` and `r` do not need to be fixpoint types.
 
 Now we turn to the question of implementing hylomorphisms in Dhall.
 An immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
@@ -5571,7 +5591,50 @@ A function that computes the maximum required recursion depth turns out to be a 
 Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that `fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
 This happens when some constructors of the union type `F t` do not store any values of type `t`.
 To detect that condition, we need to be able to check if any values of type `t` are stored in a given value `p : F (F (... (F t)...))`.
-We begin by implementing a function for that check:
+
+We begin by implementing a function `contains_t` for checking whether a value of type `F t` contains any values of type `t`.
+For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
+This functionality will be available if the functor `F` is foldable.
+We will require `Functor` and `Foldable` typeclass evidence for `F` (such evidence can be created for any polynomial type constructor `F`).
+
+Suppose `p : F t` is a given value.
+As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
+(The Haskell code would be `fmap (\_ -> True) p`.)
+The result is a value of type `F Bool`.
+Then we use `F`'s `reduce` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
+For that, we need to use the type `Bool` as a monoid with the empty value equal to `False` and the binary operation chosen as `||`.
+The resulting value will be `True` if the data structure contains any `True` values.
+The Dhall code is:
+```dhall
+let monoidBoolOr : Monoid Bool = { empty = False, append = λ(x : Bool) → λ(y : Bool) → x || y }
+let contains_t
+  : ∀(F : Type → Type) → Functor F → Foldable F → ∀(t : Type) → F t → Bool
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(t : Type) → λ(p : F t) →
+    let replaceByTrue : F t → F Bool = functorF.fmap t Bool (λ(_ : t) → True)
+    let findTrueValues : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+    in findTrueValues (replaceByTrue p)
+```
+
+To test this code, we define the following functor `F` (which is the recursion scheme of a binary tree with `Natural` leaf values):
+
+```dhall
+let F1 = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
+let functorF1 = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(f1a : F1 a) → merge { Leaf = (F1 b).Leaf, Branch = λ(branch : { left : a, right : a }) → (F1 b).Branch { left = f branch.left, right = f branch.right } } f1a }
+let foldableF1 = { reduce = λ(M : Type) → λ(monoidM : Monoid M) → λ(f1m : F1 M) → merge { Leaf = λ(_ : Natural) → monoidM.empty, Branch = λ(branch : { left : M, right : M }) → monoidM.append branch.left branch.right } f1m }
+```
+
+To see that the function `contains_t` works as expected, let us test it on some values of type `F1 t`:
+```dhall
+let _ =
+  let t = Text
+  let check : F1 t → Bool = contains_t F1 functorF1 foldableF1 t
+  let test1 : F1 t = (F1 t).Leaf 123   -- Does not contain values of type t.
+  let test2 : F1 t = (F1 t).Branch { left = "a", right = "b" } -- Contains values of type t.
+in { _1 = assert : check test1 === False, _2 = assert : check test2 === True }
+```
+
+The next step is to check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` with arbitrarily deeply nested type constructors `F`.
+To achieve that, we 
 
 TODO
 
@@ -5672,7 +5735,7 @@ let P = λ(X : Type) → < P1 : Natural | P2 : { p : X, b : Natural } >
 let fmap_P : Fmap_t P
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
     merge {
-      P1 = λ(i : Natural) → (P b).P1 i,
+      P1 = (P b).P1,
       P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b }
     } pa
 let functorP : Functor P = { fmap = fmap_P }
@@ -5785,6 +5848,7 @@ The arguments for those recursive calls are computed from the available data (`a
 After the recursive calls are completed, the post-processing functions (post_1, post_2, etc.) are applied in order to compute the final results.
 
 Starting from Haskell code for `f` as shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
+The functor `F` for the hylomorphism is derived from the structure of the recursive code (which must be in the form shown above).
 
 TODO
 
