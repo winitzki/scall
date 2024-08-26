@@ -27,8 +27,7 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
-Most of that theory is beyond the scope of this book.
-Instead, the book focuses on issues arising in practical programming.
+Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
 
 ## Overview of Dhall
 
@@ -215,7 +214,9 @@ let MyUnionType = < Left : Text | Right : Bool >
 let x = MyUnionType.Left "abc"
 ```
 
-The advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
+The Dhall expression `MyUnionType.Left` is type-checked as a _function_ of type `Text → MyUnionType`.
+
+An advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
 In Dhall, each union type may define arbitrary constructor names.
 For example, consider this code:
 
@@ -275,11 +276,13 @@ let toText : P → Text = λ(x : P) →
 ```
 
 Dhall's pattern matching syntax is somewhat similar to the Haskell code.
-The `merge` keyword plays the role of a function whose
-argument is a _record value_.
+The `merge` keyword looks like a curried function whose first argument is a _record value_.
 The field names of that record must correspond to all the constructor names in the union type.
 The values inside the record are explicit `λ`-delimited functions that describe what to compute in each case where the union type's constructor has arguments.
 Otherwise (as for the constructor `Z` in the example shown above) the value inside the record does not need to be a function.
+
+The second argument of `merge` is a value of a union type on which the pattern matching will be done.
+(Note that `merge` in Dhall is a special keyword, not a function, although its syntax looks like that of a curried function.)
 
 ### The "Optional" type
 
@@ -333,20 +336,20 @@ let absurd : ∀(A : Type) → < > → A
 Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `< >`.
 Nevertheless, the existence of the void type and a function of type `∀(A : Type) → < > → A` is useful in some situations, as we will see below.
 
-The type signature of `absurd` can be rewritten equivalently as:
+If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we will call `void_to_any`:
 
 ```dhall
-let absurd : < > → ∀(A : Type) → A
+let void_to_any : < > → ∀(A : Type) → A
   = λ(x : < >) → λ(A : Type) → merge {=} x : A 
 ```
 
-This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
+The type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
 
-Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametricity arguments).
+Indeed, the type `∀(A : Type) → A` is void.
+If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x < >` of type `< >`.
+But that is impossible, as the type `< >` has no values.
+
 So, the type expression `∀(A : Type) → A` is equivalent to `< >` and can be used equally well to denote the void type.
-
-Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
-See the Appendix "Naturality and parametricity" for more details.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -359,21 +362,21 @@ let our_program = λ(void : < >) → True
 ```
 
 Now suppose we need a value `x` of any given type `X` in our code, but we do not yet know how to implement that value.
-Then we write `let x : X = absurd void X` in the body of `our_program`.
+Then we write `let x : X = void_to_any void X` in the body of `our_program`.
 
 ```dhall
 let our_program = λ(void : < >) →
-  let x : Integer = absurd void Integer
+  let x : Integer = void_to_any void Integer
   in { x }    -- Whatever.
 ```
 The typechecker will accept this program.
 Of course, we can never supply a value for the `void : < >` argument.
-So, our program will not be evaluated until we replace the `absurd void X` by correct code computing a value of type `X`.
+So, our program will not be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
 
-To shorten the code, define `let TODO = absurd void`.
+To shorten the code, define `let TODO = void_to_any void`.
 We can then write `TODO X` and pretend to obtain a value of any type `X`.
 
-Note that the partially applied function `absurd void` is a value of type `∀(A : Type) → A`.
+Note that the partially applied function `void_to_any void` is a value of type `∀(A : Type) → A`.
 So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` in our program:
 
 ```dhall
@@ -516,7 +519,6 @@ In this example, the type signature of `swap` has two type parameters (`a`, `b`)
 
 As a further example, conider the standard `map` function for `List`.
 The type signature of that function is `∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b`.
-
 
 When applying that function, the code must specify both type parameters (`a`, `b`):
 
@@ -6840,7 +6842,7 @@ satisfies the $F$-algebra morphism law:
 `∀(fc : F C) → f (fix F functorF fc) === frr (functorF.fmap C R f fc)`
 
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
-(By Statement 1, that function already satisfies the $F$-algebra morphism law.)
+(By Statement 1, that function satisfies the $F$-algebra morphism law.)
 
 ###### Proof
 
@@ -6930,7 +6932,54 @@ unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
   -- Use the isomorphism law: unfix_R (fix_R fr) === fr
 fmap_F c2r (unfix_C c) === unfix_R (c2r c)
 ```
-We obtained equation (2).
+We obtain equation (2).
+
+
+###### Statement 6
+
+For any (covariant) functor `F`, the least fixpoint type `LFix F` is non-void if and only if the type `F <>` is non-void (here, `<>` is Dhall's representation of the void type).
+
+The intuitive picture is that the type `F <>` supplies the base cases of induction on which the definition of the least fixpoint is based.
+
+###### Proof
+
+The proof needs two parts:
+
+1. To show that `LFix F` is non-void if `F <>` is non-void.
+2. To show that `LFix F` is void if `F <>` is void.
+
+The proof of part (1) is constructive: we can explicitly create a value of type `LFix F` out of a value of type `F <>`.
+For that, we just implement a function with the type signature `F <> → LFix F`:
+
+```dhall
+let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fv : F <>) → λ(r : Type) → λ(frr : F r → r) →
+    frr (functorF.fmap <> r (absurd r) fv)
+```
+
+The proof of part (2) is _not_ constructive: we cannot implement a function of type `LFix F → F <>` that explicitly derives a value of type `F <>` out of a given value of type `LFix F`.
+Instead, the proof goes by assuming that `F <>` is void and then showing (by contradiction) that `LFix F` is also void.
+
+Apply the type `LFix F = ∀(r : Type) → (F r → r) → r` to the void type (`r = <>`):
+
+`LFix F <> = (F <> → <>) → <>`
+
+By assumption, `F <> ≅ <>`, and so we get:
+
+`LFix F <> ≅ (<> → <>) → <>`
+
+Notice that we _do_ have a value of type `<> → <>`, namely, an identity function for the void type (`identity <>`).
+
+So, the type `<> → <>` is not void.
+It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
+In other words, the type `(<> → <>) → <>` is void.
+
+Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
+Applying that value `c` to the void type, we will get a value `c <>` of type `LFix F <>`.
+But we just showed that the type `LFix F <>` is void and cannot have any values.
+
+So, our assumptions cannot be correct: if `F <>` is void then `LFix F` cannot be non-void.
+This contradiction proves the statement.
 
 ### The Church-Yoneda identity
 
@@ -6952,7 +7001,7 @@ In the next subsection, we will use that identity to prove the Church encoding f
 
 Here is a proof of the Church-Yoneda identity that assumes that the parametricity theorem holds for all values.
 
-To make the proof shorter, let us define the "Church-Yoneda" type constructor:
+To make the proof shorter, let us define the "Church-Yoneda" type constructor, which we will denote by `CY`:
 ```dhall
 let CY = λ(F : Type → Type) → λ(G : Type → Type) → ∀(R : Type) → (F R → R) → G R
 ```
