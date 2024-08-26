@@ -319,37 +319,37 @@ Second, the `Optional` type plays a special role when exporting data to JSON and
 
 The **void type** is a type that cannot have any values.
 
-Dhall's empty union type `< >` is an example of a void type.
-Values of union types may be created only via constructors, but the type `< >` has no constructors.
-So, no Dhall code will ever be able to create a value of type `< >`.
+Dhall's empty union type (denoted by `<>`) is an example of a void type.
+Values of union types may be created only via constructors, but the type `<>` has no constructors.
+So, no Dhall code will ever be able to create a value of type `<>`.
 
 If a value of the void type existed, one would be able to compute from it a value of _any other type_.
 This is absurd, but this is indeed an important property of the void type.
 This property of the void type can be expressed formally via the function that we may denote `absurd`.
-That function computes a value of an arbitrary type `A` given a value of the void type `< >`:
+That function computes a value of an arbitrary type `A` given a value of the void type `<>`:
 
 ```dhall
-let absurd : ∀(A : Type) → < > → A
-  = λ(A : Type) → λ(x : < >) → merge {=} x : A 
+let absurd : ∀(A : Type) → <> → A
+  = λ(A : Type) → λ(x : <>) → merge {=} x : A 
 ```
 
-Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `< >`.
-Nevertheless, the existence of the void type and a function of type `∀(A : Type) → < > → A` is useful in some situations, as we will see below.
+Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
+Nevertheless, the existence of the void type and a function of type `∀(A : Type) → <> → A` is useful in some situations, as we will see below.
 
 If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we will call `void_to_any`:
 
 ```dhall
-let void_to_any : < > → ∀(A : Type) → A
-  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
+let void_to_any : <> → ∀(A : Type) → A
+  = λ(x : <>) → λ(A : Type) → merge {=} x : A 
 ```
 
-The type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
+The type signature suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
 Indeed, the type `∀(A : Type) → A` is void.
-If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x < >` of type `< >`.
-But that is impossible, as the type `< >` has no values.
+If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
+But that is impossible, as the type `<>` has no values.
 
-So, the type expression `∀(A : Type) → A` is equivalent to `< >` and can be used equally well to denote the void type.
+So, the type expression `∀(A : Type) → A` is equivalent to `<>` and can be used equally well to denote the void type.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -358,19 +358,19 @@ However, we still need to satisfy Dhall's type checker and provide a value that 
 To achieve that, we write our code as a function with an argument of the void type:
 
 ```dhall
-let our_program = λ(void : < >) → True
+let our_program = λ(void : <>) → True
 ```
 
 Now suppose we need a value `x` of any given type `X` in our code, but we do not yet know how to implement that value.
 Then we write `let x : X = void_to_any void X` in the body of `our_program`.
 
 ```dhall
-let our_program = λ(void : < >) →
+let our_program = λ(void : <>) →
   let x : Integer = void_to_any void Integer
   in { x }    -- Whatever.
 ```
 The typechecker will accept this program.
-Of course, we can never supply a value for the `void : < >` argument.
+Of course, we can never supply a value for the `void : <>` argument.
 So, our program will not be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
 
 To shorten the code, define `let TODO = void_to_any void`.
@@ -1419,11 +1419,11 @@ To ensure that we never divide by zero, we may use a technique based on dependen
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
 ```dhall
-let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
+let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then <> else {}
 ```
 
 This `Nonzero` is a type function that returns one or another type given a `Natural` value.
-For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
+For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
 
 We will use that function to implement safe division (`safeDiv`):
@@ -1438,7 +1438,7 @@ When we use `safeDiv` for dividing by a nonzero value, we specify a third argume
 That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
 So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
-If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values.
+If we try dividing by zero, we will be obliged to pass a third argument of type `<>`, but there are no such values.
 Passing an argument of any other type will raise a type error.
 
 ```dhall
@@ -1454,7 +1454,7 @@ In this way, dependently-typed evidence values enforce value constraints at comp
 If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has type `{}`, but we expected type `<>`".
 This message is not particularly helpful.
 We can define the dependent type `Nonzero` in a different way, so that the error message clearly shows why the assertion failed.
-For that, we replace the void type `< >` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
+For that, we replace the void type `<>` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
 Those strings will be printed by Dhall as part of the error message.
 
 To implement this idea, let us replace the definition of `Nonzero` by this code:
@@ -6972,6 +6972,7 @@ Notice that we _do_ have a value of type `<> → <>`, namely, an identity functi
 
 So, the type `<> → <>` is not void.
 It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
+
 In other words, the type `(<> → <>) → <>` is void.
 
 Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
