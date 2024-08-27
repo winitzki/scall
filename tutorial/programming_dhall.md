@@ -5617,26 +5617,106 @@ let contains_t
     in findTrueValues (replaceByTrue p)
 ```
 
-To test this code, we define the following functor `F` (which is the recursion scheme of a binary tree with `Natural` leaf values):
+To test this code, we define the following functor `FT`, which is the recursion scheme of a binary tree with `Natural` leaf values:
 
 ```dhall
-let F1 = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
-let functorF1 = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(f1a : F1 a) → merge { Leaf = (F1 b).Leaf, Branch = λ(branch : { left : a, right : a }) → (F1 b).Branch { left = f branch.left, right = f branch.right } } f1a }
-let foldableF1 = { reduce = λ(M : Type) → λ(monoidM : Monoid M) → λ(f1m : F1 M) → merge { Leaf = λ(_ : Natural) → monoidM.empty, Branch = λ(branch : { left : M, right : M }) → monoidM.append branch.left branch.right } f1m }
+let FT = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
+let functorFT = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(f1a : FT a) → merge { Leaf = (FT b).Leaf, Branch = λ(branch : { left : a, right : a }) → (FT b).Branch { left = f branch.left, right = f branch.right } } f1a }
+let foldableFT = { reduce = λ(M : Type) → λ(monoidM : Monoid M) → λ(f1m : FT M) → merge { Leaf = λ(_ : Natural) → monoidM.empty, Branch = λ(branch : { left : M, right : M }) → monoidM.append branch.left branch.right } f1m }
 ```
 
-To see that the function `contains_t` works as expected, let us test it on some values of type `F1 t`:
+To see that the function `contains_t` works as expected, let us test it on some values of type `FT t`:
 ```dhall
 let _ =
   let t = Text
-  let check : F1 t → Bool = contains_t F1 functorF1 foldableF1 t
-  let test1 : F1 t = (F1 t).Leaf 123   -- Does not contain values of type t.
-  let test2 : F1 t = (F1 t).Branch { left = "a", right = "b" } -- Contains values of type t.
+  let check : FT t → Bool = contains_t FT functorFT foldableFT t
+  let test1 : FT t = (FT t).Leaf 123   -- Does not contain values of type t.
+  let test2 : FT t = (FT t).Branch { left = "a", right = "b" } -- Contains values of type t.
 in { _1 = assert : check test1 === False, _2 = assert : check test2 === True }
 ```
 
-The next step is to check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` with arbitrarily deeply nested type constructors `F`.
-To achieve that, we 
+The next step is to implement a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
+To achieve that, we first need to apply `fmap_F` $n$ times to the function `λ(_ : t) → True`.
+This gives a function that replaces values of type `t` by `True` at the deepest nesting level in the data structure:
+
+`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...))` {- n times -}
+
+Then we need to apply `fmap_F` $n-1$ times to the function `findTrueValues` shown above:
+
+`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
+
+Applying that function will reduce by $1$ the number of nested layers of `F`.
+We need to keep doing this until we remove all layers of `F` and obtain a `Bool` value.
+We may describe the procedure symbolically like this:
+
+```haskell
+findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+replace = λ(_ : t) → True
+
+h0 : t → Bool = replace
+h1 : F t → Bool = findTrue . fmap_F h0
+h2 : F (F t) → Bool = findTrue . fmap_F h1
+h3 : F (F (F t)) → Bool = findTrue . fmap_F h2
+hN : F (F (... (F t)...)) {- n times -} → Bool = findTrue . fmap_F hN-1
+```
+
+The function `hN` will be applied to a value obtained by repeatedly applying `coalg : t → F t` to some initial value `p : t`.
+We can describe that by:
+
+```haskell
+c1 : t → F t = coalg
+c2 : t → F (F t) = fmap_F c1
+c3 : t → F (F (F t)) = fmap_F c2
+...
+```
+
+Now we notice that the composition `hN . cN` is equivalent to the code of a depth-limited hylomorphism with a stop-gap value, that is, `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
+After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...)) {- n times -}` and then back into a `Bool` value via `hN`.
+
+The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
+For that, we of course need an absolute upper bound on possible `N`.
+Given that bound, we write a loop using `Natural/fold` such that the current accumulated value stops changing when the value `hN (cN p)` first becomes `False`:
+
+```dhall
+let max_depth
+  : ∀(F : Type → Type) → Functor F → Foldable F → Natural → ∀(t : Type) → (t → F t) → t → Natural
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(limit : Natural) → λ(t : Type) → λ(coalg : t → F t) → λ(p : t) →
+    let replace : t → Bool = λ(_ : t) → True
+    let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+    let Acc = { depth : Natural, hylo : t → Bool }
+    let update : Acc → Acc = λ(r : Acc) →
+      let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool r.hylo (coalg x))
+      let hasValuesT = newHylo p
+      in if hasValuesT then { depth = r.depth + 1, hylo = newHylo } else r
+    let init : Acc = { depth = 0, hylo = replace }
+    let result = Natural/fold limit Acc update init
+    in result.depth
+```
+
+To test this code, we use the functor `FT` defined above and implement a function `coalg : Natural → FT Natural` such that iterating `coalg n` beyond depth `n` will no longer put values of type `t` into trees of type `FT (FT (... (FT t)...))`.
+```dhall
+-- FT t = < Leaf : Natural | Branch : { left : t, right : t } >
+let FNat = FT Natural
+let coalg : Natural → FT Natural = λ(n : Natural) →
+  let n-1 = Natural/subtract 1 n
+  in if Natural/isZero n then FNat.Leaf 0
+     else FNat.Branch { left = n-1, right = n-1 }
+let tests =
+  let FFNat = FT (FT Natural)
+  let FFFNat = FT (FT (FT Natural))
+  let fmapCoalg : FNat → FFNat = functorFT.fmap Natural FNat coalg
+  let fmapFmapCoalg : FFNat → FFFNat = functorFT.fmap FNat FFNat fmapCoalg
+  let _ = assert : coalg 0 === FNat.Leaf 0
+  let _ = assert : coalg 1 === FNat.Branch { left = 0, right = 0 }
+  let _ = assert : fmapCoalg (coalg 1) === FFNat.Branch { left = FNat.Leaf 0, right = FNat.Leaf 0 }
+  let _ = assert : fmapFmapCoalg (fmapCoalg (coalg 1)) === FFFNat.Branch { left = FFNat.Leaf 0, right = FFNat.Leaf 0 }
+  in "tests pass"
+```
+The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the first `fmap`.
+So, we expect `max_depth` to be `1` for that function:
+```dhall
+let _ = assert : max_depth FT functorFT foldableFT 10 Natural coalg 1 === 1
+```
 
 TODO
 
@@ -6187,7 +6267,7 @@ The properties known as "naturality" and "parametricity" are rigorous mathematic
 
 This appendix will describe some results of the theory that studies those properties, applied to Dhall programs.
 
-To make the presentation easier to follow, we will denote all types by capital letters and all values by lowercase letters.
+To make the presentation easier to follow, we will denote all types by capital letters and all values by lowercase letters (although Dhall does not require that convention and does not use it in its own libraries).
 
 ### Natural transformations
 
@@ -6203,7 +6283,7 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 
 ∀(a : Type) → ∀(x : Optional (Optional a)) → Optional a
 ```
-In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F a = Optional (Optional a)` and set `G = Optional`. 
+In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
 Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant.
 
@@ -6221,7 +6301,7 @@ To see that `List/map` is a natural transformation, we first fix the type parame
 That is, we remove `∀(B : Type)` from the type signature and assume that the type `B` is defined and fixed.
 Then we rewrite the type signature of `List/map` as `∀(A : Type) → F A → G A`, where the type constructors `F` and `G` are defined by `F X = X → B` and `G X = List X → List B`.
 Both types `F X` and `G X` are _contravariant_ with respect to `X`.
-So, `List/map` is a (contravariant) natural transformation with respect to the type parameter `A`.
+So, in this way we express `List/map` as a (contravariant) natural transformation with respect to the type parameter `A`.
 
 Considering now the type parameter `B` as varying, we fix `A` and rewrite the type signature of `List/map` as `∀(B : Type) → K B → L B`, where `K` and `L` are defined by `K X = A → X` and `L X = List A → List X`.
 Both `K` and `L` are covariant.
