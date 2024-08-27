@@ -5737,7 +5737,7 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
       let update : Acc → Acc = λ(acc : Acc) →
         let newDepthHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.depthHylo (coalg x))
         let newResultHylo : t → r = λ(y : t) → alg (functorF.fmap t r acc.resultHylo (coalg y))
-        let hasValuesT = newDepthHylo seed
+        let hasValuesT = acc.depthHylo seed
         in if hasValuesT then { depthHylo = newDepthHylo, resultHylo = newResultHylo } else acc
       let init : Acc = { depthHylo = replace, resultHylo = stopgap }
       let result = Natural/fold limit Acc update init
@@ -5764,7 +5764,7 @@ The function `egyptian_div_mod` is recursive and cannot be directly translated t
 Instead of trying to guess how to convert `egyptian_div_mod` into a call to `Natural/fold`, we will use a general procedure for rewriting recursive code as a hylomorphism.
 That procedure is explained in the paper by Hu, Iwasaki, and Takeichi (HIT), ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507) and applies to a wide range of recursive functions.
 
-Once we have a hylomorphism, we will replace it by a depth-bounded function `hylo_Nat`.
+Once we find a hylomorphism, we will replace it by a depth-bounded function `hylo_Nat`.
 
 The HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
 So, let us first refactor `egyptian_div_mod` via a recursive function of a single argument,
@@ -5843,9 +5843,15 @@ let fmap_P : Fmap_t P
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
     merge {
       P1 = (P b).P1,
-      P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b }
+      P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b },
     } pa
 let functorP : Functor P = { fmap = fmap_P }
+let reduce_P : ∀(M : Type) → Monoid M → P M → M
+  = λ(M : Type) → λ(monoidM : Monoid M) → λ(pm : P M) → merge {
+      P1 = λ(_ : Natural) → monoidM.empty,
+      P2 = λ(x : { p : M, b : Natural }) → x.p,
+  } pm
+let foldableP : Foldable P = { reduce = reduce_P }
 ```
 
 The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) -> (Int, Int)` implemented in Haskell as:
@@ -5905,7 +5911,7 @@ This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell cod
 e_div_mod = hylo coalg alg  -- Haskell
 ```
 
-Now we can implement `e_div_mod` in Dhall using `hylo_Nat` with appropriate extra arguments:
+Now we can implement `e_div_mod` in Dhall using `hylo_Nat` or `hylo_N` with appropriate extra arguments:
 
 ```dhall
 let egyptian_div_mod : Natural → Natural → Result
@@ -5914,9 +5920,23 @@ let egyptian_div_mod : Natural → Natural → Result
        { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
     let limit = a
     in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
--- Test this code:
+-- Test:
 let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 ```
+
+We may also use `hylo_N` instead of `hylo_Nat`, with an automatic detection of recursion depth and early termination:
+
+```dhall
+let egyptian_div_mod : Natural → Natural → Result
+  = λ(a : Natural) → λ(b : Natural) →
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
+    let limit = a
+    in hylo_N P functorP foldableP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test:
+let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
+```
+
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
 In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
