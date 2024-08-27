@@ -5687,7 +5687,7 @@ let hylo_max_depth
     let Acc = { depth : Natural, hylo : t → Bool }
     let update : Acc → Acc = λ(acc : Acc) →
       let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.hylo (coalg x))
-      let hasValuesT = newHylo p
+      let hasValuesT = acc.hylo p
       in if hasValuesT then { depth = acc.depth + 1, hylo = newHylo } else acc
     let init : Acc = { depth = 0, hylo = replace }
     let result = Natural/fold limit Acc update init
@@ -5713,10 +5713,10 @@ let tests =
   let _ = assert : fmapFmapCoalg (fmapCoalg (coalg 1)) === FFFNat.Branch { left = FFNat.Leaf 0, right = FFNat.Leaf 0 }
   in "tests pass"
 ```
-The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the first `fmap`.
-So, we expect `hylo_max_depth` to return `1` when applied to that `coalg`:
+The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the second `fmap`.
+So, we expect `hylo_max_depth` to return `2` when applied to that `coalg`:
 ```dhall
-let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 === 1
+let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 === 2
 ```
 
 Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
@@ -5744,6 +5744,7 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
       in result.resultHylo seed
 ```
 
+Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately.
 
 #### Example: the Egyptian division algorithm
 
@@ -5918,7 +5919,7 @@ let egyptian_div_mod : Natural → Natural → Result
   = λ(a : Natural) → λ(b : Natural) →
     let stopgap : Natural → Result = λ(b : Natural) →
        { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
-    let limit = a
+    let limit = a    -- A very imprecise upper bound on the number of iterations.
     in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
 -- Test:
 let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
@@ -5937,6 +5938,16 @@ let egyptian_div_mod : Natural → Natural → Result
 let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 ```
 
+This function is fast enough to divide very large numbers. The following test takes about 4 seconds:
+
+```dhall
+⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
+
+{ div =
+    333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+, rem = 1
+}
+```
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
 In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
@@ -5980,19 +5991,17 @@ After the recursive calls are completed, the post-processing functions (post_1, 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
 
 We begin by deriving the functor `F` for the hylomorphism.
-Note that a hylomorphism's code contains recursion only at one place:
-
+It is important that a hylomorphism's code contains recursion only at one place:
 ```haskell
-hylo = alg . (fmap hylo) . coalg
+hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg
 ```
-
 The function `hylo` calls itself only via `fmap_F hylo`.
-So, recursive calls correspond to places where the data structure of type `F t` stores values of type `t`.
-Those stored values are then used as arguments of the recursive calls.
+So, the recursive calls correspond to places where the data structure of type `F t` stores values of type `t`.
+Those stored values are then used as _arguments_ of the recursive calls.
 
 It follows that we need to choose `F` such that `F t` stores a value of type `t` for each recursive call.
 The data type `F t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
-For the code skeleton shown above, we would need to define:
+For the code skeleton shown above, we would need to define `F` as:
 
 ```dhall
 let F = λ(t : Type) → < P0 : A0
@@ -6000,7 +6009,9 @@ let F = λ(t : Type) → < P0 : A0
  | P2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t }
  | ???  >
 ```
+We will also need to define `Functor` and `Foldable` typeclass instances for the chosen `F`.
 
+The next step is to define suitable functions `coalg : A -> F A` and `alg : F B -> B` such that the code of `f` is equivalent to `hylo coalg alg`.
 
 TODO
 
