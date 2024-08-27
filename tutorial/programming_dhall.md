@@ -5954,28 +5954,52 @@ The HIT algorithm works for recursive code of a certain restricted form:
 - Each pattern-matching alternative has zero or more recursive calls. The number of recursive calls is known _statically_ within each pattern-matching alternative.
 - Recursive calls are not nested (the arguments of recursive calls do not use results of previous recursive calls).
 
-Code of that form can be described by this Haskell snippet:
+Code of that form can be described by this Haskell skeleton:
 
 ```haskell
 -- Haskell. A recursive function f is defined by:
 f :: A -> B
 f x = case do_choice x of
   P0 a0 -> post_0 a0
-  P1 a1 -> post_1 a1 (f (pre_1_1 a1)) (f (pre_1_2 a1)) ...
-  P2 a2 -> post_2 a2 (f (pre_2_1 a2)) (f (pre_2_2 a2)) ...
+  P1 a1 -> post_1 a1 (f (pre_1_1 a1)) (f (pre_1_2 a1)) ... (f (pre_1_n1 a1))
+  P2 a2 -> post_2 a2 (f (pre_2_1 a2)) (f (pre_2_2 a2)) ... (f (pre_2_n2 a1))
   ...
 ```
 Here, the function `do_choice` has type `A -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
+We assume that values `a0`, `a1`, etc., have known types `A0`, `A1`, etc.
+The functions `pre_1_n` have types `A1 -> A`, the functions `pre_2_n` have types `A2 -> A`, etc.
+The functions `post_n` have types `An -> B -> B -> ... -> B` with as many arguments of type `B` as recursive calls of the function `f` in the corresponding alternative.
 
-One of the alternatives (`P0 a0 -> ...`) does not require any recursive calls of `f` and computes the result immediately as `post_0 a0`.
+The first of the alternatives (`P0 a0 -> ...`) does not use any recursive calls of `f` and computes the result immediately as `post_0 a0`.
 If the code of `f` contains several such alternatives, we will redefine the functor `P` so that all those alternatives are combined into a single one with the constructor that we denoted by `P0`.
 
 Other alternatives (P1, P2, etc.) do require one or more recursive calls to `f`.
 The arguments for those recursive calls are computed from the available data (`a1`, `a2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
 After the recursive calls are completed, the post-processing functions (post_1, post_2, etc.) are applied in order to compute the final results.
 
-Starting from Haskell code for `f` as shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
-The functor `F` for the hylomorphism is derived from the structure of the recursive code (which must be in the form shown above).
+Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
+
+We begin by deriving the functor `F` for the hylomorphism.
+Note that a hylomorphism's code contains recursion only at one place:
+
+```haskell
+hylo = alg . (fmap hylo) . coalg
+```
+
+The function `hylo` calls itself only via `fmap_F hylo`.
+So, recursive calls correspond to places where the data structure of type `F t` stores values of type `t`.
+Those stored values are then used as arguments of the recursive calls.
+
+It follows that we need to choose `F` such that `F t` stores a value of type `t` for each recursive call.
+The data type `F t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
+For the code skeleton shown above, we define:
+
+```dhall
+let F = λ(t : Type) → < P0 : A0 |
+  P1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t } |
+  P2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t } | ... >
+```
+
 
 TODO
 
@@ -6010,7 +6034,7 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
-As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
+As long as the recursion scheme `F` is applicative (all polynomial functors are), we will be able to implement `hylo_T` for `F`.
 
 TODO example of usage
 
