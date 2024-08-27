@@ -75,7 +75,7 @@ let coalg
         then  (P Natural).P1 b
         else  (P Natural).P2 { p = 2 * b, b }
 
-let egyptian_div_mod
+let egyptian_div_mod_do-not-use-this-is-very-slow
     : Natural → Natural → Result
     = λ(a : Natural) →
       λ(b : Natural) →
@@ -96,7 +96,10 @@ let egyptian_div_mod
               (alg a)
               stopgap
 
-let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
+let _ =
+        assert
+      :   egyptian_div_mod_do-not-use-this-is-very-slow 11 2
+        ≡ { div = 5, rem = 1 }
 
 let egyptian_div_mod_N
     : Natural → Natural → Result
@@ -121,12 +124,30 @@ let egyptian_div_mod_N
               stopgap
 
 let _ = assert : egyptian_div_mod_N 11 2 ≡ { div = 5, rem = 1 }
-let egyptian_div_mod_A : Natural → Natural → Result =  λ(a : Natural) →
-                                                             λ(b : Natural) →
-                                                              let stopgap
-                                                                         : Natural → Result
-                                                                         = λ(b : Natural) → { div = 0, rem = b }
-                                                             let limit : Natural = H.hylo_max_depth P functorP foldableP a Natural (coalg a) b
-                                                             in H.hylo_Nat P functorP limit Natural b (coalg a)  Result (alg a) stopgap
-                                                             let _ = assert : egyptian_div_mod_A 11 2 ≡ { div = 5, rem = 1 }
-in  { egyptian_div_mod, egyptian_div_mod_A, egyptian_div_mod_N }
+
+let egyptian_div_mod_A
+    : Natural → Natural → Result
+    = λ(a : Natural) →
+      λ(b : Natural) →
+        let stopgap
+            : Natural → Result
+            = λ(b : Natural) → { div = 0, rem = b }
+
+        let limit
+            : Natural
+            = H.hylo_max_depth P functorP foldableP a Natural (coalg a) b
+
+        in  H.hylo_Nat
+              P
+              functorP
+              limit
+              Natural
+              b
+              (coalg a)
+              Result
+              (alg a)
+              stopgap
+
+let _ = assert : egyptian_div_mod_A 11 2 ≡ { div = 5, rem = 1 }
+
+in  { egyptian_div_mod_A, egyptian_div_mod_N }
