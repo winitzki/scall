@@ -5582,13 +5582,12 @@ This mechanism works well for calculations with numbers but does not work for `h
 Each iteration changes that function, adding a layer of `fmap` and a composition with other functions (`coalg` and `alg`).
 So, this function itself is different at each iteration, and `Natural/fold` will not detect an early termination of the loop, --- even though the result of applying that function to a particular argument may no longer change after a certain number of iterations.
 
-There are two approaches to resolving this issue:
+We will proceed in two phases:
 
-- Implement a separate function for computing the required recursion depth before running the main computation of `hylo_Nat`.
-- Modify `hylo_Nat` so that the iterations stop whenever the maximum required recursion depth is reached.
+- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation of `hylo_Nat`.
+- Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
 
-In this subsection, we will implement the first approach.
-A function that computes the maximum required recursion depth turns out to be a hylomorphism that can be expressed via `hylo_Nat`.
+We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
 
 Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that `fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
 This happens when some constructors of the union type `F t` do not store any values of type `t`.
@@ -5674,20 +5673,22 @@ Now we notice that the composition `hN . cN` is equivalent to the code of a dept
 After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...)) {- n times -}` and then back into a `Bool` value via `hN`.
 
 The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
-For that, we of course need an absolute upper bound on possible `N`.
-Given that bound, we write a loop using `Natural/fold` such that the current accumulated value stops changing when the value `hN (cN p)` first becomes `False`:
-
+For that, we will of course need an absolute upper bound on possible `N`.
+Given that bound, we write a loop using `Natural/fold` such that the current accumulated value stops changing when the value `hN (cN p)` first becomes `False`.
+The loop accumulates a hylomorphism of type `t → Bool` that we use to detect the presence of values of type `t`.
+When no values of type `t` are present, we stop changing the accumulated value.
+The code is:
 ```dhall
-let max_depth
+let hylo_max_depth
   : ∀(F : Type → Type) → Functor F → Foldable F → Natural → ∀(t : Type) → (t → F t) → t → Natural
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(limit : Natural) → λ(t : Type) → λ(coalg : t → F t) → λ(p : t) →
     let replace : t → Bool = λ(_ : t) → True
     let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
     let Acc = { depth : Natural, hylo : t → Bool }
-    let update : Acc → Acc = λ(r : Acc) →
-      let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool r.hylo (coalg x))
+    let update : Acc → Acc = λ(acc : Acc) →
+      let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.hylo (coalg x))
       let hasValuesT = newHylo p
-      in if hasValuesT then { depth = r.depth + 1, hylo = newHylo } else r
+      in if hasValuesT then { depth = acc.depth + 1, hylo = newHylo } else acc
     let init : Acc = { depth = 0, hylo = replace }
     let result = Natural/fold limit Acc update init
     in result.depth
@@ -5713,12 +5714,36 @@ let tests =
   in "tests pass"
 ```
 The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the first `fmap`.
-So, we expect `max_depth` to be `1` for that function:
+So, we expect `hylo_max_depth` to return `1` when applied to that `coalg`:
 ```dhall
-let _ = assert : max_depth FT functorFT foldableFT 10 Natural coalg 1 === 1
+let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 === 1
 ```
 
-TODO
+Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
+
+To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is applied automatically.
+We will not compute the recursion depth separately.
+Instead, we will accumulate two depth-limited hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
+We will stop changing the accumulated value when the maximum recursion depth is reached.
+The resulting function is `hylo_N`:
+```dhall
+let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
+    Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) →
+    λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
+      let replace : t → Bool = λ(_ : t) → True
+      let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+      let Acc = { depthHylo : t → Bool, resultHylo : t → r }
+      let update : Acc → Acc = λ(acc : Acc) →
+        let newDepthHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.depthHylo (coalg x))
+        let newResultHylo : t → r = λ(y : t) → alg (functorF.fmap t r acc.resultHylo (coalg y))
+        let hasValuesT = newDepthHylo seed
+        in if hasValuesT then { depthHylo = newDepthHylo, resultHylo = newResultHylo } else acc
+      let init : Acc = { depthHylo = replace, resultHylo = stopgap }
+      let result = Natural/fold limit Acc update init
+      in result.resultHylo seed
+```
+
 
 #### Example: the Egyptian division algorithm
 
