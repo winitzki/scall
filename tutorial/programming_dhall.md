@@ -5992,12 +5992,13 @@ Those stored values are then used as arguments of the recursive calls.
 
 It follows that we need to choose `F` such that `F t` stores a value of type `t` for each recursive call.
 The data type `F t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
-For the code skeleton shown above, we define:
+For the code skeleton shown above, we would need to define:
 
 ```dhall
-let F = λ(t : Type) → < P0 : A0 |
-  P1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t } |
-  P2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t } | ... >
+let F = λ(t : Type) → < P0 : A0
+ | P1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t }
+ | P2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t }
+ | ???  >
 ```
 
 
