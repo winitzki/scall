@@ -6091,7 +6091,7 @@ As long as the recursion scheme `F` is applicative (all polynomial functors are)
 ### Converting from the least fixpoint to the greatest fixpoint
 
 A hylomorphism can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
-Previous sections showed how to adapt hylomorphisms to the recursion-less programming style of System Fω and Dhall.
+Previous sections showed how to adapt hylomorphisms to the recursion-less programming style of System Fω as implemented by Dhall.
 
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
@@ -6104,7 +6104,7 @@ let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
     makeGFix F (LFix F) x (unfix F functorF)
 ```
 
-TODO example and note about performance
+Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
 
 
 ## Combinators for functors and contrafunctors
@@ -6302,6 +6302,8 @@ let contrafunctorCoProduct
 
 
 ### Function types with functors and contrafunctors
+
+TODO
 
 ### Universal and existential type quantifiers
 
