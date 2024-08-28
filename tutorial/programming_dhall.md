@@ -2498,6 +2498,14 @@ let Profunctor : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
 ```
 
+By analogy, we define the `Bicontrafunctor` typeclass describing type constructors that are contravariant in two type parameters:
+
+
+```dhall
+let Bicontrafunctor : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → { bicmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F c d → F a b }
+```
+
 ### Pointed functors and contrafunctors
 
 A functor `F` is pointed if it has a method called `pure` with the type signature `∀(a : Type) → a → F a`.
