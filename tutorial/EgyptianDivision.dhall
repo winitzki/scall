@@ -150,4 +150,59 @@ let egyptian_div_mod_A
 
 let _ = assert : egyptian_div_mod_A 11 2 ≡ { div = 5, rem = 1 }
 
-in  { egyptian_div_mod_A, egyptian_div_mod_N }
+let powersOf2Until
+    -- create a list [1, 2, 4, 8, ..., 2^p] such that a < b * 2 ^ (p + 1) .
+    : Natural → Natural → List Natural
+    = λ(a : Natural) →
+      λ(b : Natural) →
+        let TableT = { result : List Natural, power2 : Natural }
+
+        let succ =
+              λ(prev : TableT) →
+                if    Natural/lessThan a (prev.power2 * b * 2)
+                then  prev
+                else  let newPower2 = prev.power2 * 2
+
+                      in  { result = prev.result # [ newPower2 ]
+                          , power2 = newPower2
+                          }
+
+        in  (Natural/fold a TableT succ { result = [ 1 ], power2 = 1 }).result
+
+let egyptian_div_mod
+    : Natural → Natural → Result
+    = λ(a : Natural) →
+      λ(b : Natural) →
+        let powers2 = powersOf2Until a b
+
+        let update
+            : Natural → Result → Result
+            = λ(power2 : Natural) →
+              λ(prev : Result) →
+                if    Natural/lessThan prev.rem (power2 * b)
+                then  prev
+                else  { div = prev.div + power2
+                      , rem = Natural/subtract (power2 * b) prev.rem
+                      }
+
+        in  List/fold Natural powers2 Result update { div = 0, rem = a }
+
+let _ = assert : powersOf2Until 15 1 ≡ [ 1, 2, 4, 8 ]
+
+let _ = assert : powersOf2Until 16 1 ≡ [ 1, 2, 4, 8, 16 ]
+
+let _ = assert : powersOf2Until 17 1 ≡ [ 1, 2, 4, 8, 16 ]
+
+let _ = assert : powersOf2Until 11 2 ≡ [ 1, 2, 4 ]
+
+let _ = assert : egyptian_div_mod 10 1 ≡ { div = 10, rem = 0 }
+
+let _ = assert : egyptian_div_mod 10 10 ≡ { div = 1, rem = 0 }
+
+let _ = assert : egyptian_div_mod 10 11 ≡ { div = 0, rem = 10 }
+
+let _ = assert : egyptian_div_mod 10 2 ≡ { div = 5, rem = 0 }
+
+let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
+
+in  { egyptian_div_mod, egyptian_div_mod_A, egyptian_div_mod_N }

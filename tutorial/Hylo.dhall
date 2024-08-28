@@ -68,15 +68,16 @@ let hylo_max_depth
         let update
             : Acc → Acc
             = λ(acc : Acc) →
-                let newHylo
-                    : t → Bool
-                    = λ(x : t) →
-                        findTrue (functorF.fmap t Bool acc.hylo (coalg x))
-
                 let hasValuesT = acc.hylo p
 
                 in  if    hasValuesT
-                    then  { depth = acc.depth + 1, hylo = newHylo }
+                    then  let newHylo
+                              : t → Bool
+                              = λ(x : t) →
+                                  findTrue
+                                    (functorF.fmap t Bool acc.hylo (coalg x))
+
+                          in  { depth = acc.depth + 1, hylo = newHylo }
                     else  acc
 
         let init
@@ -122,22 +123,29 @@ let hylo_N
         let update
             : Acc → Acc
             = λ(acc : Acc) →
-                let newDepthHylo
-                    : t → Bool
-                    = λ(x : t) →
-                        findTrue (functorF.fmap t Bool acc.depthHylo (coalg x))
-
-                let newResultHylo
-                    : t → r
-                    = λ(y : t) →
-                        alg (functorF.fmap t r acc.resultHylo (coalg y))
-
                 let hasValuesT = acc.depthHylo seed
 
                 in  if    hasValuesT
-                    then  { depthHylo = newDepthHylo
-                          , resultHylo = newResultHylo
-                          }
+                    then  let newDepthHylo
+                              : t → Bool
+                              = λ(x : t) →
+                                  findTrue
+                                    ( functorF.fmap
+                                        t
+                                        Bool
+                                        acc.depthHylo
+                                        (coalg x)
+                                    )
+
+                          let newResultHylo
+                              : t → r
+                              = λ(y : t) →
+                                  alg
+                                    (functorF.fmap t r acc.resultHylo (coalg y))
+
+                          in  { depthHylo = newDepthHylo
+                              , resultHylo = newResultHylo
+                              }
                     else  acc
 
         let init
