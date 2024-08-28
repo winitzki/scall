@@ -244,7 +244,7 @@ One difference is that each case of a `merge` expression must specify an explici
 As an example, consider a union type defined in Haskell by:
 
 ```haskell
-data P = X Int | Y Bool | Z    -- Haskell
+data P = X Int | Y Bool | Z    -- Haskell.
 ```
 
 A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
@@ -3248,13 +3248,13 @@ For example, suppose `T` is the type of lists with integer values.
 A recursive definition of `T` in Haskell could look like this:
 
 ```haskell
-data T = Nil | Cons Int T     -- Haskell
+data T = Nil | Cons Int T     -- Haskell.
 ```
 
 This definition of `T` has the form of a "recursive type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by: 
 
 ```haskell
-type F a = Nil | Cons Int a     -- Haskell
+type F a = Nil | Cons Int a     -- Haskell.
 ```
 
 The type constructor `F` is called the **recursion scheme** for the definition of `T`.
@@ -5762,19 +5762,23 @@ egyptian_div_mod a b =  -- Divide a / b assuming that b > 0.
 ```
 
 The function `egyptian_div_mod` is recursive and cannot be directly translated to Dhall.
-Instead of trying to guess how to convert `egyptian_div_mod` into a call to `Natural/fold`, we will use a general procedure for rewriting recursive code as a hylomorphism.
-That procedure is explained in the paper by Hu, Iwasaki, and Takeichi (HIT), ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507) and applies to a wide range of recursive functions.
+We have two options:
+- By trial and error, we can perhaps guess how to convert `egyptian_div_mod` into some calls to `Natural/fold` that Dhall accepts.
+- Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
 
-Once we find a hylomorphism, we will replace it by a depth-bounded function `hylo_Nat`.
+The general procedure for converting recursive code to hylomorphisms is explained in the paper by Hu, Iwasaki, and Takeichi (HIT), ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507).
+The HIT derivation procedure applies to a wide range of recursive functions including the egyptian division algorithm.
+We will now follow that procedure for the code of `egyptian_div_mod` shown above.
 
-The HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
-So, let us first refactor `egyptian_div_mod` via a recursive function of a single argument,
-using the fact that recursive calls to `egyptian_div_mod` only change the value of the argument `b`, while the value of `a` remains the same for all recursive calls.
+A first problem is that
+the HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
+So, let us first refactor `egyptian_div_mod` into a recursive function of a single argument.
+Notice that recursive calls to `egyptian_div_mod` only change the value of the argument `b`, while the value of `a` remains the same for all recursive calls.
 We will define `egyptian_div_mod a b = e_div_mod b` where `e_div_mod` is defined within the scope of `egyptian_div_mod` so that it captures the value of `a`.
 We will also introduce helper functions `postprocess1` and `postprocess2` to make the structure of the code more transparent:
 
 ```haskell
-egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell
+egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
 egyptian_div_mod a b =
   let
     postprocess1 :: Int -> (Int, Int)
@@ -5857,7 +5861,7 @@ let foldableP : Foldable P = { reduce = reduce_P }
 
 The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) -> (Int, Int)` implemented in Haskell as:
 ```haskell
-alg :: P (Int, Int) -> (Int, Int)  -- Haskell
+alg :: P (Int, Int) -> (Int, Int)  -- Haskell.
 alg (P1 b) = postprocess1 b
 alg (P2 ((quotient, remainder), b)) = postprocess2 ((quotient, remainder), b)
 ```
@@ -5892,7 +5896,7 @@ Second, in case the calculation must use a recursive call, `coalg` must prepare 
 
 A Haskell implementation of `coalg` is:
 ```haskell
-coalg :: Int -> P Int   -- Haskell
+coalg :: Int -> P Int   -- Haskell.
 coalg b = if a - b < b then P1 b else P2 (2 * b, b)
 ```
 Here, the value `P2 (2 * b, b)` contains at once the argument `2 * b` for the recursive call of `e_div_mod` and the extra value `b` needed for `postprocess2`.
@@ -5909,7 +5913,7 @@ let coalg : Natural → Natural → P Natural
 This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell code would be:
 
 ```haskell
-e_div_mod = hylo coalg alg  -- Haskell
+e_div_mod = hylo coalg alg  -- Haskell.
 ```
 
 Now we can implement `e_div_mod` in Dhall using `hylo_Nat` or `hylo_N` with appropriate extra arguments:
@@ -5938,7 +5942,7 @@ let egyptian_div_mod : Natural → Natural → Result
 let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 ```
 
-This function is fast enough to divide very large numbers. The following test takes about 4 seconds:
+This function is fast enough to divide very large numbers. The following test takes just a few seconds:
 
 ```dhall
 ⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
@@ -5961,14 +5965,14 @@ Here, we will limit our consideration to the HIT algorithm for single recursive 
 
 The HIT algorithm works for recursive code of a certain restricted form:
 
-- There is one top-level pattern-matching expression that decides whether recursive calls are needed.
+- The code has one top-level pattern-matching expression that decides whether recursive calls are needed and how many.
 - Each pattern-matching alternative has zero or more recursive calls. The number of recursive calls is known _statically_ within each pattern-matching alternative.
 - Recursive calls are not nested (the arguments of recursive calls do not use results of previous recursive calls).
 
 Code of that form can be described by this Haskell skeleton:
 
 ```haskell
--- Haskell. A recursive function f is defined by:
+-- Haskell. A recursive function f of type X → Y is defined by:
 f :: A -> B
 f x = case do_choice x of
   P0 a0 -> post_0 a0
@@ -5976,10 +5980,11 @@ f x = case do_choice x of
   P2 a2 -> post_2 a2 (f (pre_2_1 a2)) (f (pre_2_2 a2)) ... (f (pre_2_n2 a1))
   ...
 ```
-Here, the function `do_choice` has type `A -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
+Here, the function `do_choice` has type `X -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
 We assume that values `a0`, `a1`, etc., have known types `A0`, `A1`, etc.
-The functions `pre_1_n` have types `A1 -> A`, the functions `pre_2_n` have types `A2 -> A`, etc.
-The functions `post_n` have types `An -> B -> B -> ... -> B` with as many arguments of type `B` as recursive calls of the function `f` in the corresponding alternative.
+The functions `pre_1_n` have types `A1 -> X`, the functions `pre_2_n` have types `A2 -> X`, etc.
+The functions `post_n` have types `An -> Y -> Y -> ... -> Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
+In the first alternative, there are no recursive calls, so we have `post_0 : A0 → Y`.
 
 The first of the alternatives (`P0 a0 -> ...`) does not use any recursive calls of `f` and computes the result immediately as `post_0 a0`.
 If the code of `f` contains several such alternatives, we will redefine the functor `P` so that all those alternatives are combined into a single one with the constructor that we denoted by `P0`.
@@ -5990,30 +5995,65 @@ After the recursive calls are completed, the post-processing functions (post_1, 
 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
 
-We begin by deriving the functor `F` for the hylomorphism.
-It is important that a hylomorphism's code contains recursion only at one place:
+We begin by deriving the functor `P` to mimick the given code of `f`.
+
+
+```dhall
+let P = λ(t : Type) →  -- Define the functor P as in the code of `f`.
+< | P0 : A0,
+  | P1 : A1,
+  | P1 : A1,
+  | ???  -- And so on.
+>
+```
+
+We also need to define a functor `F` that will be used for defining the hylomorphism.
+To figure that out, notice that a hylomorphism's code contains recursion at _only one_ place:
 ```haskell
 hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg
 ```
 The function `hylo` calls itself only via `fmap_F hylo`.
 So, the recursive calls correspond to places where the data structure of type `F t` stores values of type `t`.
-Those stored values are then used as _arguments_ of the recursive calls.
+Those stored values are actually used as _arguments_ of the recursive calls (because that's how `fmap` works).
 
-It follows that we need to choose `F` such that `F t` stores a value of type `t` for each recursive call.
+It follows that we need to choose `F` such that `F t` stores a separate value of type `t` for each recursive call.
 The data type `F t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
 For the code skeleton shown above, we would need to define `F` as:
 
 ```dhall
-let F = λ(t : Type) → < P0 : A0
- | P1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t }
- | P2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t }
- | ???  >
+let F = λ(t : Type) →
+< | F0 : A0
+  | F1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t }
+  | F2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t }
+  | ???  -- And so on.
+>
 ```
 We will also need to define `Functor` and `Foldable` typeclass instances for the chosen `F`.
 
-The next step is to define suitable functions `coalg : A -> F A` and `alg : F B -> B` such that the code of `f` is equivalent to `hylo coalg alg`.
+The next step is to define suitable functions `coalg : X -> F X` and `alg : F Y -> Y` such that the code of `f` is equivalent to `hylo coalg alg`.
+The function `coalg` will prepare the arguments for the recursive calls, and the function `alg` will perform the post-processing after the recursive calls are done:
+```dhall
+let coalg : X → F X = λ(x : X) →
+  let choice : P A = do_choice x  -- Following the code of `f`.
+  merge { -- Prepare the function arguments for recursive calls.
+    P0 = λ(a0 : A0) → (F A).F0 a0,
+    P1 = λ(a1 : A1) → (F A).F1 { a1 = a1, call_1 = pre_1_1 a1, ..., call_n1 = pre_1_n1 a1 },
+    P2 = λ(a2 : A2) → (F A).F2 { a2 = a1, call_1 = pre_2_1 a1, ..., call_n2 = pre_2_n2 a2 },
+    ???  -- And so on.
+  } choice
 
-TODO
+let alg : F Y → Y = λ(fy : F Y) →
+  merge {
+    F0 = λ(a0 : A0) → post_0 a0,
+    F1 = λ(r1 : { a1 : A1, call_1 : Y, call_2 : Y, ..., call_n1 : Y }) → post_1 r1.a1 r1.call_1 r1.call_2 ... r1.call_n1,
+    F2 = λ(r2 : { a2 : A2, call_1 : Y, call_2 : Y, ..., call_n2 : Y }) → post_2 r2.a2 r2.call_1 r2.call_2 ... r2.call_n2,
+    ???  -- And so on.
+  } fy
+```
+
+In this way, the HIT algorithm rewrites the code of `f` in terms of a hylomorphism.
+It remains to estimate an upper bound for the number of iterations and apply `hylo_Nat` or `hylo_N` with a suitable stop-gap argument.
+
 
 #### Hylomorphisms driven by a Church-encoded template
 
@@ -6047,8 +6087,6 @@ In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
 As long as the recursion scheme `F` is applicative (all polynomial functors are), we will be able to implement `hylo_T` for `F`.
-
-TODO example of usage
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
