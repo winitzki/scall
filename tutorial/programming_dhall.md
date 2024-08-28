@@ -6156,7 +6156,7 @@ let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
 
 The **identity functor** is the type constructor `Id` such that `Id a = a`.
 
-The functor evidence value for `Id` can be implemented as:
+A `Functor` evidence value for `Id` can be implemented as:
 
 ```dhall
 let Id = λ(a : Type) → a
@@ -6303,7 +6303,31 @@ let contrafunctorCoProduct
 
 ### Function types with functors and contrafunctors
 
-TODO
+The function-type functor `H a = F a → G a` is covariant If `F` is contravariant and `G` is covariant.
+Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
+
+For convenience, we define the `Arrow` combinator:
+```dhall
+let Arrow : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F a → G a
+```
+
+We can automatically construct the evidence values for the cases we just described:
+
+```dhall
+let contrafunctorFunctorArrow
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Functor G → Functor (Arrow F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowA : F a → G a) → λ(fb : F b) →
+        functorG.fmap a b f (arrowA (contrafunctorF.cmap a b f fb))
+    }
+let functorContrafunctorArrow
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Arrow F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowB : F b → G b) → λ(fa : F a) →
+        contrafunctorG.cmap a b f (arrowB (functorF.fmap a b f fa))
+    }
+```
 
 ### Universal and existential type quantifiers
 
@@ -6348,7 +6372,7 @@ If we define `G` by `G a = ∃b. F a b` then `G` will be covariant if `F a b` is
 
 TODO
 
-### Least and greatest fixpoints
+### Church-encoded fixpoints
 
 ## Filterable functors and contrafunctors, and their combinators
 
