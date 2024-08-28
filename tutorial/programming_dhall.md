@@ -2498,7 +2498,7 @@ let Profunctor : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
 ```
 
-By analogy, we define the `Bicontrafunctor` typeclass describing type constructors that are contravariant in two type parameters:
+By analogy, we also define the `Bicontrafunctor` typeclass describing type constructors that are contravariant in two type parameters:
 
 
 ```dhall
