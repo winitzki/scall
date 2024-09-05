@@ -3513,11 +3513,11 @@ We will assume that `F` and `fmap_F` are given, and we will implement various fu
 ### The isomorphism `C = F C`: the functions `fix` and `unfix` 
 
 The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C = F C`.
-Being a fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, and those functions are inverses of each other.
+A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 Those two functions implement an isomorphism between `C` and `F C`.
 The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data), which is one way of understanding why `C` is a fixpoint of the type equation `C = F C`.
 
-Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C = LFix F`.
+Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` once for all recursion schemes `F` and the corresponding types `C = LFix F`.
 
 The basic technique of working directly with any Church-encoded data `c : C` is to use `c` as a curried higher-order function.
 That function has two arguments: a type parameter `r` and a function of type `F r → r`.
