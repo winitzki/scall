@@ -5351,9 +5351,19 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 
 The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 
-### Hylomorphisms with bounded recursion depth
+## Translating recursive code into Dhall
 
-#### Motivation for hylomorphisms
+Dhall does not directly support recursive code.
+In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may not recursively refer to the same `x` being defined.
+Nevertheless, one can translate a wide range of recursive code into Dhall.
+This is achieved by a procedure known as the Hu-Iwasaki-Takeichi ("HIT") algorithm.
+The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, called a "hylomorphism".
+To adapt the resulting hylomorphism to Dhall, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
+In most cases, those modifications are straightforward.
+
+We will begin by motivating the notion of hylomorphisms and by showing examples of how recursive code can be converted to a hylomorphism.
+
+### Motivation for hylomorphisms
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
@@ -5399,16 +5409,16 @@ Functions of that type are called **hylomorphisms**.
 See also [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 
-So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types instead of least fixpoints.
+So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types (instead of least fixpoints).
 Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
-An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output data (of type `r`) from that tree-like structure.
+An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
 The types `t` and `r` do not need to be fixpoint types.
 
-Another way of understanding hylomorphisms is to rewrite the type signature as:
+Another way of understanding hylomorphisms is to rewrite their type signature as:
 
 `GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
 
-This can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+This can be now seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
 
 Now we turn to the question of implementing hylomorphisms in Dhall.
@@ -5421,7 +5431,7 @@ A hylomorphism's code will try to extract all data from an unbounded list, which
 So, Dhall cannot directly support hylomorphisms as they are usually defined.
 We will now examine that problem is more detail and show some solutions.
 
-#### Example: why hylomorphisms terminate (in Haskell)
+### Why hylomorphisms terminate: a Haskell example
 
 For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
@@ -5467,13 +5477,13 @@ unfix Leaf t -> FLeaf t
 unfix Branch x y -> FBranch x y
 ```
 
-We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
+We may substitute `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
 Because `fix` and `unfix` are isomorphisms, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
-In this example of applying `hylo`, the trees remain unchanged because the function unpacks the tree's recursive type (`TreeText → F TreeText`) and then packs it back (`F TreeText → TreeText`) with no changes.
-(We are using this artificial example only for understanding how the recursion can terminate in `hylo`.)
+In this example of applying `hylo`, the input tree will remain unchanged because the function just unpacks the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then packs it back (applying `F TreeText → TreeText`) with no changes.
+We are using this artificial example only for understanding how the recursion can terminate in the Haskell code of `hylo`.
 
-Choose some value `t0` of type `TreeText`:
+Choose some input value `t0` of type `TreeText`:
 
 ```haskell
 -- Haskell:
@@ -5511,9 +5521,9 @@ c0 == fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
 ```
 
 We note that each application of `unfix` replaces one layer of `TreeText`'s constructors by one layer of `F`'s constructors.
-All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0`.
+All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0` requires.
 
-At that point, the value `c0` no longer contains any constructors of `TreeText`; it is built only with `F`'s constructors.
+After that, the value `c0` will no longer contain any constructors of `TreeText`; it is built only with `F`'s constructors.
 For that reason, `c0` will _remain unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
 In other words:
 
@@ -5521,14 +5531,14 @@ In other words:
 fmap (fmap f) c0 == c0
 ```
 
-It follows that the computation `fmap (fmap f) c0` does not use the value `f`.
+It follows that the computation `fmap (fmap f) c0` _does not use_ the value `f`.
 
 Our code for `h t0` needs to compute `fmap (fmap h) c0`.
-Because that computation does not need the value `h`, Haskell will not perform any more recursive calls to `h`.
+Because that computation does not use the value `h`, and because Haskell's evaluation is lazy, Haskell will not perform any recursive calls to `h`.
 This is why the recursion terminates in the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
-The required number of recursive calls is equal to the "depth" of the value `t0`.
+The required number of recursive calls is equal to the "recursion depth" of the value `t0`.
 (The subsection "Example: Sizing a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
 
 We can now generalize this example to an arbitrary application of a hylomorphism.
@@ -5546,22 +5556,23 @@ These repeated applications create a data structure of a deeply nested type: `f 
 
 We find that the hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
 
-However, it is impossible to assure up front that a given data structure of type `GFix F` is finite.
+However, it is impossible to assure up front that a given data structure of type `GFix F` is in fact finite.
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
-In fact, a function with the type signature of `hylo` cannot be implemented in Dhall.
+A function with the type signature of `hylo` cannot be implemented in Dhall.
 
-#### Depth-bounded hylomorphisms
+### Depth-bounded hylomorphisms
 
 Implementing hylomorphism-like functions in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
-One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
+One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value.
 The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
 If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 
-To show how that works, we will first write Haskell code for the depth-bounded hylomorphism.
+To show how that works, we begin with the Haskell code for the depth-bounded hylomorphism.
 Then we will translate that code to Dhall.
 
 The idea of depth-bounded hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
-To be able to do that, we begin by setting `h = stopgap` as the initial value (where `stopgap : t → r` is a given default value) and then expand the recursive definition repeatedly.
+To be able to do that, we begin by setting `h = stopgap`, where a value `stopgap : t → r` must be supplied.
+Then we expand the recursive definition repeatedly, up to the given depth bound.
 For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
 ```haskell
@@ -5594,7 +5605,7 @@ This function will be used later in this book when implementing the `zip` method
 
 For now, let us see some examples of using `hylo_Nat`.
 
-#### Example: Determining the recursion depth
+### Example: Determining the recursion depth
 
 The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify the maximum recursion depth (the total number of iterations for `Natural/fold`) in advance.
 
@@ -5767,7 +5778,7 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
 
 Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately.
 
-#### Example: the Egyptian division algorithm
+### Example: the Egyptian division algorithm
 
 The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
 
@@ -5978,7 +5989,7 @@ The HIT procedure can convert a wide class of recursive functions into hylomorph
 In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
 This is another practical motivation for studying hylomorphisms.
 
-#### Converting recursive code to hylomorphisms: the HIT algorighm
+### Converting recursive code to hylomorphisms: the HIT algorighm
 
 The [HIT paper](https://www.researchgate.net/publication/2813507) gives a general algorithm for converting recursive code into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
@@ -6076,7 +6087,7 @@ In this way, the HIT algorithm rewrites the code of `f` in terms of a hylomorphi
 It remains to estimate an upper bound for the number of iterations and apply `hylo_Nat` or `hylo_N` with a suitable stop-gap argument.
 
 
-#### Hylomorphisms driven by a Church-encoded template
+### Hylomorphisms driven by a Church-encoded template
 
 In the code for `hylo_Nat`, the total number of iterations was limited by a given natural number.
 To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
