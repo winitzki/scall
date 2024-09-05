@@ -6,7 +6,7 @@ This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for s
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
 Dhall is positioned as an open-source language for programmable configuration files.
-The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other templated or programmable configuration formats.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall.
 
 This book's view is that Dhall is a powerful, purely functional programming language that has different applications:
