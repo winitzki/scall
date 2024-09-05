@@ -3054,7 +3054,7 @@ We can use `LeibnizEqualT` to implement an `assert`-like functionality for types
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
-To give another example, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal:
+As another example of using `LeibnizEqualT`, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal by creating an evidence value for their equality:
 
 
 ```dhall
@@ -3065,11 +3065,30 @@ let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
 
 Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
-We need to use `LeibnizEqual` and `refl` when comparing values and `LeibnizEqualT` and `reflT` when comparing types.
+We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
-We also cannot define a Leibniz equality type for comparing kinds.
-That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type.
-(Function types are required to have a type themselves.)
+We also cannot define a Leibniz equality type for comparing arbitrary kinds.
+That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
+while all function types are required to have a type themselves.
+
+How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
+We note that the type of `Type` and of `Type → Type` is not just an arbitrary sort, but it is the symbol `Kind`.
+So, we may use a restricted version of Leibniz equality that we will call `LeibnizEqualK` for comparing specific kinds:
+
+```dhall
+let LeibnizEqualK =
+  λ(a : Kind) → λ(b : Kind) → ∀(f : Kind → Type) → f a → f b
+
+let reflK = λ(a : Kind) → λ(f : Kind → Type) → λ(p : f a) → p
+```
+
+Now we can provide evidence for kind equality like this:
+
+```dhall
+let k1 = Type
+let k2 = Type
+let _ = reflK k1 : LeibnizEqualK k1 k2 
+```
 
 ### Symbolic reasoning with Leibniz equality
 
