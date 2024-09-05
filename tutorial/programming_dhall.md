@@ -9,12 +9,12 @@ Dhall is positioned as an open-source language for programmable configuration fi
 The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other templated or programmable configuration formats.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall.
 
-This book's view is that Dhall is a powerful, purely functional programming language that has different applications:
-- a template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
+This book's view is that Dhall may be used as:
+- a powerful template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
 - a fully specified and tested industry-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
 - a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
 
-The book focuses on the last two applications.
+The book focuses on the last two use cases.
 
 Although most code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
@@ -28,6 +28,8 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
+
+The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
 
 ## Overview of Dhall
 
@@ -6524,14 +6526,16 @@ So, `List/map` is a (covariant) natural transformation with respect to the type 
 
 ### Naturality laws
 
-Suppose both `F` and `G` are covariant functors and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
+Suppose both `F` and `G` are covariant functors, and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
 
-Typically, a covariant functor represents a data structure, so that `F A` is a type that can store data of an arbitrary type `A`.
+Often, a covariant functor represents a generic data structure such that `F A` is a type that can store data of an arbitrary type `A`.
 One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for that data to be stored in `G A`.
-The function `t` may omit or duplicate or reorder some data items, but no data may be changed.
-This is because the function `t` does not know anything about the type `A`.
-The code of `t` can make decisions neither based on specific values `x : A` stored in `F A`, nor based on the type `A` itself.
-The function `t` must work in the same way for all types `A` and for all values of those types.
+
+The function `t` must implement an algorithm that works in the same way for all types `A` and for all values of those types.
+The code of `t` cannot make any algorithmic decisions either based on specific values `x : A` stored in `F A`, or based on the type `A` itself.
+The function `t` may omit, duplicate, or reorder some data items, but no data may be changed, and no new data may be added.
+This is because the function `t` does not know anything about the type `A` and so cannot compute new values of type `A`.
+All values of type `A` to be stored in the data structure `G A` are those that were already stored in `F A`.
 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
