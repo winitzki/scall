@@ -5351,13 +5351,32 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 
 The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 
+
+### Converting from the least fixpoint to the greatest fixpoint
+
+A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
+
+Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
+The least fixpoint type `LFix F` already has that function (`unfix`).
+So, we can implement a conversion function:
+
+```dhall
+let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
+    makeGFix F (LFix F) x (unfix F functorF)
+```
+
+Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
+
+
 ## Translating recursive code into Dhall
 
 Dhall does not directly support recursive code.
 In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may not recursively refer to the same `x` being defined.
+
 Nevertheless, one can translate a wide range of recursive code into Dhall.
-This is achieved by a procedure known as the Hu-Iwasaki-Takeichi ("HIT") algorithm.
-The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, called a "hylomorphism".
+This is achieved by a procedure we call the Hu-Iwasaki-Takeichi ("HIT") algorithm.
+The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, known as a "hylomorphism".
 To adapt the resulting hylomorphism to Dhall, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
 In most cases, those modifications are straightforward.
 
@@ -6119,23 +6138,6 @@ In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
 As long as the recursion scheme `F` is applicative (all polynomial functors are), we will be able to implement `hylo_T` for `F`.
-
-### Converting from the least fixpoint to the greatest fixpoint
-
-A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
-
-Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
-The least fixpoint type `LFix F` already has that function (`unfix`).
-So, we can implement a conversion function:
-
-```dhall
-let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
-    makeGFix F (LFix F) x (unfix F functorF)
-```
-
-Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
-
 
 ## Combinators for functors and contrafunctors
 
