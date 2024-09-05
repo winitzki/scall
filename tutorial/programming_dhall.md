@@ -5396,17 +5396,30 @@ Rewrite that type by replacing the record by two curried arguments:
 `∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
 Functions of that type are called **hylomorphisms**.
-See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
+See also [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
+
 
 So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types instead of least fixpoints.
 Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
 An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output data (of type `r`) from that tree-like structure.
 The types `t` and `r` do not need to be fixpoint types.
 
+Another way of understanding hylomorphisms is to rewrite the type signature as:
+
+`GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
+
+This can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
+
 Now we turn to the question of implementing hylomorphisms in Dhall.
-An immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
-So, Dhall cannot support hylomorphisms as they are usually defined.
-Let us examine that problem is more detail.
+An immediate problem for Dhall is that termination of hylomorphisms is not (and _cannot_ be) guaranteed.
+To see why, note that a hylomorphism converts `GFix F` to `LFix F` in a way that is natural in `F` (i.e., it works in the same way for all recursion schemes `F`).
+This sort of conversion can be done only by copying all values from one data structure to another, completely preserving the recursive structure.
+However, a value of a greatest fixpoint type (for example, an unbounded list or an unbounded tree) could allow us to extract an unbounded number of data items, while values of least fixpoint types are always bounded (that is, the data size must be known in advance). 
+A hylomorphism's code will try to extract all data from an unbounded list, which cannot terminate.
+
+So, Dhall cannot directly support hylomorphisms as they are usually defined.
+We will now examine that problem is more detail and show some solutions.
 
 #### Example: why hylomorphisms terminate (in Haskell)
 
@@ -5537,17 +5550,17 @@ However, it is impossible to assure up front that a given data structure of type
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
 In fact, a function with the type signature of `hylo` cannot be implemented in Dhall.
 
-#### Depth-limited hylomorphisms
+#### Depth-bounded hylomorphisms
 
 Implementing hylomorphism-like functions in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
 One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
-The stop-gap value will be used when the recursion bound is smaller than the recursion depth of the data.
-If the recursion bound is large enough, the hylomorphism's output value will be actually independent of the stop-gap value.
+The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
+If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 
-To show how that works, we will first write Haskell code for the depth-limited hylomorphism.
+To show how that works, we will first write Haskell code for the depth-bounded hylomorphism.
 Then we will translate that code to Dhall.
 
-The idea of depth-limited hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
+The idea of depth-bounded hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
 To be able to do that, we begin by setting `h = stopgap` as the initial value (where `stopgap : t → r` is a given default value) and then expand the recursive definition repeatedly.
 For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
@@ -5677,7 +5690,7 @@ c3 : t → F (F (F t)) = fmap_F c2
 ...
 ```
 
-Now we notice that the composition `hN . cN` is equivalent to the code of a depth-limited hylomorphism with a stop-gap value, that is, `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
+Now we notice that the composition `hN . cN` is equivalent to the code of a depth-bounded hylomorphism with a stop-gap value, that is, `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
 After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...)) {- n times -}` and then back into a `Bool` value via `hN`.
 
 The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
@@ -5731,7 +5744,7 @@ Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we 
 
 To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is applied automatically.
 We will not compute the recursion depth separately.
-Instead, we will accumulate two depth-limited hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
+Instead, we will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
 We will stop changing the accumulated value when the maximum recursion depth is reached.
 The resulting function is `hylo_N`:
 ```dhall
@@ -6098,10 +6111,8 @@ As long as the recursion scheme `F` is applicative (all polynomial functors are)
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
-A hylomorphism can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
-Previous sections showed how to adapt hylomorphisms to the recursion-less programming style of System Fω as implemented by Dhall.
+A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
 
-The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
 The least fixpoint type `LFix F` already has that function (`unfix`).
 So, we can implement a conversion function:
@@ -6388,7 +6399,7 @@ let contrafunctorForall1
     in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
         let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
         in gd
-      }
+       }
 ```
 
 Existential quantifiers have similar properties.
