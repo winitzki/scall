@@ -6344,7 +6344,7 @@ Imposing type quantifiers will not change the covariance properties of the type 
 In this way, we may produce functors or contrafunctors that have type quantifiers.
 
 Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the second type parameter of `F`.
-In a mathematical notation, the definition of `G` is `G a = ∀b. F a b`.
+In a mathematical notation, the definition of `G` is $G ~a = \forall b.~ F~ a~ b$.
 The corresponding Dhall code is:
 
 ```dhall
@@ -6378,8 +6378,22 @@ let functorForall1
       }
 ```
 
+To implement the contrafunctor evidence in case `F a b` is contravariant in `b`:
+
+```dhall
+let contrafunctorForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G = λ(a : Type) → ∀(b : Type) → F a b
+    in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
+        let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
+        in gd
+      }
+```
+
 Existential quantifiers have similar properties.
 If we define `G` by `G a = ∃b. F a b` then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
+It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
 
 TODO
 
