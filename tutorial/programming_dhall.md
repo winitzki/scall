@@ -6355,7 +6355,7 @@ let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
 If `F a b` is covariant with respect to `a` then so is `G a`; if `F a b` is contravariant with respect to `a` then so is `G a`.
 
 Note that `F a b` could be covariant, contravariant, or neither with respect to the second type parameter (`b`).
-To derive the (co/contra)variant functor property of `G`, we need to require properties of `F` with respect to the first type parameter only.
+To derive the (co/contra)variant functor property of `G`, we need properties of `F` with respect to the first type parameter only.
 
 To express the requirement that `F a b` is covariant with respect to `a` (while `F` could be anything with respect to `b`), we write a `Functor` evidence value for the type constructor `λ(a : Type) → F a b` while keeping `b` fixed:
 
@@ -6392,7 +6392,7 @@ let contrafunctorForall1
 ```
 
 Existential quantifiers have similar properties.
-If we define `G` by `G a = ∃b. F a b` then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
+If we define `G` by $G ~a = \exists b.~ F~ a~ b$ then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
 It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
 
 TODO
