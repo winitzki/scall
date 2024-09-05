@@ -3242,7 +3242,7 @@ It is clear that `f x === g y` in that case.
 Can we produce an evidence value for that?
 
 Dhall cannot manipulate values of its built-in equality types.
-There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that.
+There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that value.
 
 But Leibniz equality types and the standard combinators allow us to perform such computations.
 We can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
@@ -3368,20 +3368,19 @@ let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 ```
 
 The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = K C`.
-This remains true even when `KF` does not depend on its type parameter.
+This remains true even when `K` does not depend on its type parameter.
 So, now we have `K C = { x : Text, y : Bool }` independently of `C`.
 The type equation `C = K C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
-We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
+We see that Church encodings generally do not bring any advantages when used with simple, non-recursive types.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
 ```dhall
-∀(r : Type) → (p → r) → r ≅ p
+∀(r : Type) → (p → r) → r  ≅  p
 ```
-
 This type equivalence is a special case of one of the **Yoneda identities**:
 
 ```dhall
