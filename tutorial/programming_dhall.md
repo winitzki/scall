@@ -3235,7 +3235,7 @@ let extensionalityLeibnizEqual
     in f_eq_g k h
 ```
 
-#### Symbolic reasoning
+#### Example
 
 To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
 It is clear that `f x === g y` in that case.
