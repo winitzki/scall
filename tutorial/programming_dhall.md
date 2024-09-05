@@ -3030,10 +3030,10 @@ There is only one value of that type, and that value is produced by `refl Bool T
 The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
 But trying to call `f 100 100 (refl Bool True)` will be a type error.
 
-### Leibniz equality for types
+### Leibniz equality at type level
 
 Dhall's `assert` feature is limited to values; it does not work for types or kinds.
-The expression `assert : Natural === Natural` (and even the type `Natural === Natural` alone) is rejected by Dhall.
+The expression `assert : Natural === Natural` (and even just the type `Natural === Natural`) is rejected by Dhall.
 
 One can define a form of a Leibniz equality type for comparing types instead of values:
 
@@ -3044,8 +3044,8 @@ let LeibnizEqualT =
 let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
 ```
 
-Now the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
-The type `LeibnizEqualT Type Bool Bool` will not be void because there will be a value `reflT Type Bool` of that type.
+Now, the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
+But the type `LeibnizEqualT Type Bool Bool` will _not_ be void because there will be a value `reflT Type Bool` of that type.
 
 We can use `LeibnizEqualT` to implement an `assert`-like functionality for types:
 
