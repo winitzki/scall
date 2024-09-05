@@ -3396,7 +3396,10 @@ See the Appendix "Naturality and parametricity" for more details.
 We can use certain type equivalence identities to rewrite the type `ListInt` in a form more convenient for practical applications.
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
-So, the type `F r → r`, written in full as `< Nil | Cons : { head : Integer, tail : r } > → r`,
+So, the type `F r → r`, written in full as:
+
+`< Nil | Cons : { head : Integer, tail : r } > → r`
+
 is equivalent to a pair of functions of types `{ head : Integer, tail : r } → r` and  `< Nil > → r`.
 
 The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
