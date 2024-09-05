@@ -3072,8 +3072,8 @@ That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but 
 while all function types are required to have a type themselves.
 
 How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
-We note that the type of `Type` and of `Type → Type` is not just an arbitrary sort, but it is the symbol `Kind`.
-So, we may use a restricted version of Leibniz equality that we will call `LeibnizEqualK` for comparing specific kinds:
+We note that the type of `Type` and of `Type → Type` is the symbol `Kind` and not just an arbitrary `Sort`. 
+So, we may compare specific kinds of that type by defining a restricted version of Leibniz equality that we will call `LeibnizEqualK`:
 
 ```dhall
 let LeibnizEqualK =
@@ -3087,7 +3087,7 @@ Now we can provide evidence for kind equality like this:
 ```dhall
 let k1 = Type
 let k2 = Type
-let _ = reflK k1 : LeibnizEqualK k1 k2 
+let _ = reflK k1 : LeibnizEqualK k1 k2 -- Mimicks `assert : k1 === k2`.
 ```
 
 ### Symbolic reasoning with Leibniz equality
@@ -3096,7 +3096,7 @@ One can implement "equality combinators" that manipulate Leibniz equality types 
 The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
 
 The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
-We will focus on Leibniz equality between values, as Leibniz equality between types has similar properties.
+We will focus on Leibniz equality between values, as Leibniz equality between types or kinds will have similar properties.
 
 #### Reflexivity
 
@@ -3119,7 +3119,7 @@ let symmetryLeibnizEqual
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual T y x
 ```
 We need to return a value of type `LeibnizEqual T y x`.
-The only way for us to get that value is to apply the given evidence `x_eq_y` to some arguments.
+The only way for us to obtain that value is to apply the given evidence value `x_eq_y` to some arguments.
 According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
 The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
 But we are required to compute a value of type `LeibnizEqual T y x`.
