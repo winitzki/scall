@@ -6472,7 +6472,22 @@ let contafunctorExists1
 
 In previous chapters, we have seen that least fixpoints and greatest fixpoints can be Church-encoded in Dhall.
 Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
-So, we have already seen how to construct functor and contrafunctor instances 
+The constructions in the previous subsections show how to build functor and contrafunctor instances for those types.
+So, in principle that is sufficient for building functor and contrafunctor instances for Church-encoded type constructors.
+
+However, for illustration we will show the Dhall code for those instances.
+
+A least-fixpoint type constructor is defined via a recursion scheme that needs to be a type constructor with two type parameters.
+The first type parameter remains free in the type constructor, while the second type parameter is used for recursion.
+(See the section "Recursive type constructors" for more details.)
+
+For brevity, we will assume that `F` is a given recursion scheme with two type parameters.
+Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
+and the type constructor `D` as the greatest fixpoint of the same type equation: `D a = F a (D a)`.
+
+Using the notation `LFix` and `GFix` for the least and the greatest fixpoints, we may write `C a = LFix (F a)` and `D a = GFix (F a)`.
+
+
 
 TODO
 
