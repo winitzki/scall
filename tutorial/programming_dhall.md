@@ -6445,7 +6445,7 @@ Existential quantifiers have similar properties.
 If we define `G` by $G ~a = \exists b.~ F~ a~ b$ then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
 It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
 
-The following code defines the functor instance for the type constructor `G`:
+The following code defines the functor or the contrafunctor instances (as appropriate) for the type constructor `G`:
 ```dhall
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
@@ -6456,11 +6456,23 @@ let functorExists1
         let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
         in gd
       }
+let contafunctorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
+        let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) → gd r (λ(t_ : Type) → λ(fdt : F d t_) → pack_ t_ ( (contrafunctorF1 t_).cmap c d f fdt ))
+        in gc
+      }
 ```
 
-TODO
 
 ### Church-encoded fixpoints as type constructors
+
+In previous chapters, we have seen that least fixpoints and greatest fixpoints can be Church-encoded in Dhall.
+Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
+So, we have already seen how to construct functor and contrafunctor instances 
 
 TODO
 
