@@ -6421,9 +6421,9 @@ let functorForall1
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let G = λ(a : Type) → ∀(b : Type) → F a b
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-        let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
-        in gd
-      }
+          let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
+          in gd
+       }
 ```
 
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
@@ -6436,8 +6436,8 @@ let contrafunctorForall1
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let G = λ(a : Type) → ∀(b : Type) → F a b
     in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
-        let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
-        in gd
+          let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
+          in gd
        }
 ```
 
@@ -6453,43 +6453,58 @@ let functorExists1
     let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-        let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
-        in gd
-      }
+          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
+          in gd
+       }
 let contafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
-        let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) → gd r (λ(t_ : Type) → λ(fdt : F d t_) → pack_ t_ ( (contrafunctorF1 t_).cmap c d f fdt ))
-        in gc
-      }
+          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) → gd r (λ(t_ : Type) → λ(fdt : F d t_) → pack_ t_ ( (contrafunctorF1 t_).cmap c d f fdt ))
+          in gc
+       }
 ```
 
 
-### Church-encoded fixpoints as type constructors
+### Recursive type constructors
 
-In previous chapters, we have seen that least fixpoints and greatest fixpoints can be Church-encoded in Dhall.
+Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
 Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
 The constructions in the previous subsections show how to build functor and contrafunctor instances for those types.
-So, in principle that is sufficient for building functor and contrafunctor instances for Church-encoded type constructors.
+So, in principle we already know enough to build functor or contrafunctor instances (as appropriate) for arbitrary recursive type constructors.
 
 However, for illustration we will show the Dhall code for those instances.
 
-A least-fixpoint type constructor is defined via a recursion scheme that needs to be a type constructor with two type parameters.
-The first type parameter remains free in the type constructor, while the second type parameter is used for recursion.
+A least-fixpoint type constructor is defined via a recursion scheme that must be a type constructor with two type parameters.
+The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
 (See the section "Recursive type constructors" for more details.)
 
-For brevity, we will assume that `F` is a given recursion scheme with two type parameters.
+Suppose `F` is a given recursion scheme with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
 and the type constructor `D` as the greatest fixpoint of the same type equation: `D a = F a (D a)`.
 
-Using the notation `LFix` and `GFix` for the least and the greatest fixpoints, we may write `C a = LFix (F a)` and `D a = GFix (F a)`.
+Using the notation `LFix` and `GFix` for the least and the greatest fixpoints, we may also write `C a = LFix (F a)` and `D a = GFix (F a)`.
 
+If `F a b` is covariant in `a` then `C` and `D` will be also covariant and will have `Functor` instances.
+If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant and will have `Contrafunctor` instances.
+For those properties to hold, it does not matter whether `F a b` is covariant or contravariant in `b` (or neither).
 
+We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
 
-TODO
+```dhall
+let functorLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let C = λ(a : Type) → LFix (F a)
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : C c) →
+        let y : C d = λ(b : Type) → (functorF1 b).fmap c d f (x b)
+        in y ???
+       }
+```
+
+Contrafunctor instances are computed by similar code that we will omit.
 
 ## Filterable functors and contrafunctors, and their combinators
 
