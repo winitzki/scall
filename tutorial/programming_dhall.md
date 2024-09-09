@@ -3564,12 +3564,10 @@ The function `fix : F C → C` (sometimes also called `build`) provides a genera
 
 As the type `F C` is almost always a union type, it is convenient to rewrite the function type `F C → C` as a product of simpler functions.
 We can write this in a mathematical notation:
+$$F ~C \to C  ~≅~  (F_1 ~C \to C) \times (F_2 ~C \to C) \times ... $$
+where each of $F_1 ~ C$, $F_2 ~C$, etc., are product types such as $C \times C$ or $\mathrm{Text} \times  C$, etc.
 
-`F C → C  ≅  (F1 C → C) × (F2 C → C) × ... `
-
-where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, etc.
-
-Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
+Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
 In this way, we will replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
 
 The code for the constructors can be derived mechanically from the general code of `fix`.
@@ -4492,9 +4490,11 @@ let functorLFix
   }
 ```
 
+In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on, implementing typeclass evidence for Church-encoded type constructors whenever possible.
+
 ### Existentially quantified types
 
-By definition, a value `x` has an **existentially quantified** type, denoted mathematically by `∃ t. P t`, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
+By definition, a value `x` has an **existentially quantified** type, denoted mathematically by $\exists t.~P~t$, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
 
 An example is the following type definition in Haskell:
 
@@ -4553,12 +4553,12 @@ So, the final code for the Church encoding of `F` becomes:
 let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
 ```
 
-It is important that the universal quantifier `∀(t : Type)` is _inside_ the type of an argument of `F`.
+It is important that the universal quantifier `∀(t : Type)` is _inside the type_ of an argument of `F`.
 Otherwise, the encoding would not work.
 
 To see an example of how to construct a value of type `F a`, let us set `a = Natural`.
 The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r`.
-We construct a value `x : F Natural` like this:
+An example value `x : F Natural` is constructed like this:
 
 ```dhall
 let Integer/greaterThan = https://prelude.dhall-lang.org/Integer/greaterThan
@@ -4580,7 +4580,7 @@ Here `a` needs to be viewed as a fixed type; for instance, if `a = Natural` we w
 let P = λ(t : Type) → { _1 : t → Bool, _2 : t → Natural }
 ```
 
-It follows that the Church encoding of `∃ t. P t` is a type we denote by `Exists P`:
+It follows that the Church encoding of $\exists t.~P~t$ is the following type (denoted by `Exists P`):
 
 ```dhall
 let Exists = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
@@ -4602,15 +4602,15 @@ We will now study the constructor functions `Exists` and `pack` in more detail.
 To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
 
-The function call `Exists P` creates the type corresponding to the Church encoding of the type `∃ t. P t`.
-The argument of `Exists` is a type constructor `P`.
+The function call `Exists P` creates the type corresponding to the Church encoding of the type $\exists t.~P~t$.
+The argument of `Exists` is a _type constructor_ such as `P`.
 
 ```dhall
 let Exists : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
 ```
 
-The function `Exists` replaces the mathematical notation `∃ t. P t` by a similar formula: `Exists (λ(t : Type) → P t)`. 
+The function `Exists` replaces the mathematical notation $\exists t.~P~t$ by a similar formula: `Exists (λ(t : Type) → P t)`. 
 
 The function `pack` creates a value of type `Exists P` from a type `t`, a type constructor `P`, and a value of type `P t`.
 
@@ -6388,9 +6388,10 @@ let functorContrafunctorArrow
 
 Given a type constructor with multiple type parameters, we may impose a type quantifier on some of the parameters and obtain a type constructor with fewer type parameters.
 Imposing type quantifiers will not change the covariance properties of the type constructor.
-In this way, we may produce functors or contrafunctors that have type quantifiers.
+In this way, we may produce new functors or contrafunctors.
 
 Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the second type parameter of `F`.
+(The first type parameter remains free.)
 In a mathematical notation, the definition of `G` is $G ~a = \forall b.~ F~ a~ b$.
 The corresponding Dhall code is:
 
@@ -6425,7 +6426,9 @@ let functorForall1
       }
 ```
 
-To implement the contrafunctor evidence in case `F a b` is contravariant in `b`:
+Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
+
+To implement the _contrafunctor_ evidence in case `F a b` is contravariant in `b`, we write this code:
 
 ```dhall
 let contrafunctorForall1
@@ -6441,6 +6444,19 @@ let contrafunctorForall1
 Existential quantifiers have similar properties.
 If we define `G` by $G ~a = \exists b.~ F~ a~ b$ then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
 It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
+
+The following code defines the functor instance for the type constructor `G`:
+```dhall
+let functorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
+        let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
+        in gd
+      }
+```
 
 TODO
 
