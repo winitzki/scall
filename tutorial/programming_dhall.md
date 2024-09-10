@@ -287,9 +287,9 @@ Otherwise (as for the constructor `Z` in the example shown above) the value insi
 The second argument of `merge` is a value of a union type on which the pattern matching will be done.
 (Note that `merge` in Dhall is a special keyword, not a function, although its syntax looks like that of a curried function.)
 
-### The "Optional" type
+### The `Optional` type
 
-The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
+An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
@@ -297,7 +297,7 @@ let x : MyOptional Natural = (MyOptional Natural).MySome 123
 let y : MyOptional Text = (MyOptional Text).MyNone
 ```
 
-The built-in `Optional` type is equivalent but less verbose.
+The built-in `Optional` type is a less verbose equivalent of this code.
 Instead of `(MyOptional Text).MyNone` one writes `None Text`.
 Instead of `(MyOptional Natural).MySome 123` one writes `Some 123`.
 (The type parameter `Natural` is determined automatically by Dhall.)
@@ -6522,7 +6522,7 @@ let functorGFix
        }
 ```
 
-Contrafunctor instances are computed by similar code that we will omit.
+Contrafunctor instances can be computed by similar code that we will omit.
 
 ## Filterable functors and contrafunctors, and their combinators
 
