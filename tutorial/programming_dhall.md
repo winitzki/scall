@@ -590,14 +590,14 @@ Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`,
 
 For additional clarity, we will sometimes write type parameters `A`, `B`, etc.
 
-#### No type inference
+#### Almost no type inference
 
 Dhall has almost no type inference.
 The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
 Other than in `let` bindings, all types of bound variables must be written explicitly.
 
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
-In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and sometimes even to write type annotations for _types_ (such as, `F : Type → Type`).
 This verbosity may help in learning some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation are the same
@@ -855,7 +855,7 @@ Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTup
 
 For values other than booleans and natural numbers, equality testing is not available as a function.
 However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
-That feature is designed for basic sanity checks:
+That feature is mainly intended for implementing basic sanity checks:
 
 ```dhall
 let x : Text = "123"
@@ -867,19 +867,19 @@ in x ++ "1"
 The `assert` construction is a special Dhall syntax that implements the "equality type" (known from dependently typed languages).
 The Unicode symbol `≡` may be used instead of `===`.
 
-The Dhall expression `a === b` is a special type that depends on the values `a` and `b`.
+The Dhall expression `a === b` is a special _type_ that depends on the values `a` and `b`.
 The type `a === b` is different for each pair `a`, `b`.
 
 The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
-For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
+For example, the types `1 === 2` and `λ(x : Text) → λ(y : Text) → x === λ(x : Text) → λ(y : Text) → y` are void.
 (We will never be able to create any values of those types.) 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is considered to be non-void.
+If `a` and `b` evaluate to the same normal form, the type `a === b` is defined to be non-void.
 That is, there exists a value of the type `a === b`.
 
 If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a === b`.
 This expression is valid only if the two sides are equal after reducing them to their normal forms.
-If the two sides are not equal, this expression _fails to type-check_, meaning that the entire program will fail to compile.
+If the two sides are not equal after reduction to normal forms, the expression `assert : a === b` will _fail to typecheck_, meaning that the entire program will fail to compile.
 
 When an `assert` value is valid, we can assign that value to a variable:
 
@@ -891,8 +891,8 @@ In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after red
 The resulting type `3 === 3` is non-void and has a value.
 We assigned that value to `test1`.
 
-It is not actually possible to print the value of type `3 === 3` or to examine it in any other way.
-We just know that that value exists, because the `assert` expression was accepted by Dhall.
+It is not actually possible to print the value `test1` of type `3 === 3` or to examine it in any other way.
+That value exists, because the `assert` expression was accepted by Dhall, but that's all we know.
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
@@ -911,10 +911,11 @@ The normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) �
 The normal form of `print y` is the same Dhall expression.
 So, the assertion is valid.
 
+The fact that `assert` expressions are checked "early" (before evaluating other expressions) has implications for using the `assert` feature in Dhall programs.
 Most often, it does not make sense to use `assert` inside function bodies.
+In particular, one cannot use `assert` expressions for implementing a function for comparing two arbitrary values given as arguments.
 
-Because `assert` expressions are checked at compile time, they cannot be used for implementing a _function_ comparing, say, two arbitrary `Text` values given as arguments.
-Try writing this code:
+To see why, try writing this code:
 
 ```dhall
 let compareTextValues : Text → Text → Bool
@@ -923,39 +924,42 @@ let compareTextValues : Text → Text → Bool
     in True
 ```
 
-This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the parameters `a` and `b` are just the _symbols_ `a` and `b`, and those two symbols are not equal.
+This code will fail to typecheck because, within the definition of `compareTextValues`, the normal forms of the parameters `a` and `b` are just the _symbols_ `a` and `b`, and those two symbols are not equal.
 Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
 
-We cannot even write a Dhall function that checks whether a string is empty.
-An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` is a an empty string.
+As another example: we cannot write a Dhall function that checks whether a string is empty.
+An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` (that can be computed) is an empty string.
 
 The `assert` keyword is most often used to implement unit tests or other static sanity checks on Dhall code.
 In that case, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
-So, we may write unit tests like this:
+So, we will usually write unit tests like this:
 
 ```dhall
-let f = λ(a : Text) → "(" ++ a ++ ")"
-let _ = assert : f "x" === "(x)"    -- OK.
+let f = λ(a : Text) → "(" ++ a ++ ")" -- Define a function.
+
+let _ = assert : f "x" === "(x)"  -- OK.
 let _ = assert : f "" === "()"    -- OK.
 -- Continue writing code.
 ```
 
 ### Types, kinds, sorts
 
-Types are different from values because each value has an assigned type, which is verified during typechecking.
-Other than that, Dhall treats types and values in similar way.
-Types may be assigned to variables, stored in records, and passed as function parameters.
+Types are different from values because each value has an assigned type.
+(It is not true that each type has only one assigned value.)
+Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given. 
+
+Other than that, Dhall treats types and values in a largely similar way.
+Types may be assigned to variables, stored in records, and passed as function parameters using the same syntax as when working with values.
 
 For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
-Here we use the type `Bool` as a type annotation for the variable `x`.
+Here, we used the type `Bool` as a type annotation for the variable `x`.
 But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
-
-Then we may use `y` in typechecking expressions such as `x : y`.
+Then we will be able to use `y` in type annotations, such as `x : y`.
 The type of `y` itself will be `Type`.
 
-To see the type of an expression, one can write `:type` in the Dhall interpreter:
+To find out the type of an expression, one can write `:type` in the Dhall interpreter:
 
 ```dhall
 $ dhall repl
@@ -1006,7 +1010,8 @@ a : List Natural
 Error: Invalid type for ❰List❱
 ```
 
-If a "list of types" is desired, such a data structure needs to be defined separately.
+If a "list of types" is desired, such a data structure needs to be defined by the user.
+(This book will show how to do that.)
 
 The symbol `Type` is itself treated as a special value whose type is `Kind`:
 
@@ -1028,7 +1033,7 @@ Kind
 Kind
 ```
 
-As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`.
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
 The type of _that_ is `Kind`:
 
 ```dhall
@@ -1061,7 +1066,7 @@ Type → Type
 (Type → Type) → Type → Type
 ```
 
-In turn, the symbol `Kind` is a special value of type `Sort`.
+In turn, the symbol `Kind` is treated as a special value of type `Sort`.
 Other type expressions involving `Kind` are also of type `Sort`:
 
 ```dhall
@@ -1082,7 +1087,7 @@ Sort
 Sort
 ```
 
-The symbol `Sort` is special: it _does not_ itself have a type.
+The symbol `Sort` is even more special: it _does not_ itself have a type.
 Because of that, it is a type error to use `Sort` in Dhall code in any way:
 
 ```dhall
@@ -1096,15 +1101,15 @@ Error: ❰Sort❱ has no type, kind, or sort
 ```
 
 This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
-That is needed in programming languages with full support for dependent types.
+That hierarchy is needed in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
-Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.
+Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
 
-Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
+Dhall's type system has enough abstraction to support powerful types and to treat types and values in a uniform manner, while avoiding the complications with infinitely many type universes.
 
 Because of this design, Dhall does not support operating on the symbol `Kind` itself.
-Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
-One can assign such values to variables, but that's about it.
+Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
+One can assign such expressions to variables, but that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -1118,18 +1123,18 @@ a : Sort
 Error: ❰Sort❱ has no type, kind, or sort
 ```
 
-This is because Dhall requires a function's type itself to have a type.
+This error occurs because Dhall requires a function's type _itself_ to have a type.
 The symbol `Kind` has type `Sort`, 
 so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
-Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not _itself_ have a type.
+Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
 
-Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol ∀ (or equivalently the keyword `forall`) to denote _types_ of functions.
+Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol `∀` (or equivalently the keyword `forall`) to denote _types_ of functions.
 
 An expression of the form `λ(x : sometype1) → something2` is a function: it is something that can be applied to an argument to compute a new value.
 
@@ -1137,7 +1142,7 @@ An expression of the form `∀(x : sometype1) → sometype2` is a _type_: it is 
 
 Expressions of the form `∀(x : sometype1) → sometype2` are used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 
-For example, the function that appends "..." to a string argument is written like this:
+For example, the function that appends `"..."` to a string argument is written like this:
 
 ```dhall
 let f = λ(x : Text) → "${x}..."
