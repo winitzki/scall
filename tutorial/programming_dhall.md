@@ -4103,7 +4103,7 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
-### Performance of "unfix"
+### Performance of `unfix`
 
 Note that `unfix` is implemented by applying the Church-encoded argument to some function.
 In practice, this means that `unfix` will to traverse the entire data structure.
@@ -5259,8 +5259,8 @@ The result is a stream where _every_ operation (even just producing the next ite
 
 ### Running aggregations ("scan" and "scanMap")
 
-A typical task for streams is to perform "running aggregations".
-A "running aggregation" extracts each new value from a source stream and updates an aggregated value in some way.
+A typical task for streams is to perform **running aggregations**.
+A running aggregation extracts each new value from a source stream and updates an aggregated value in some way.
 This results in a new stream of aggregated values computed after consuming each value from the source stream.
 So, running aggregations may be viewed as transformations of type `Stream a → Stream b`.
 Each value in the result stream may depend in some way on the previously seen values in the source stream.
@@ -7498,7 +7498,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Existential types: "pack" is a left inverse of "unpack"
+### Existential types: `pack` is a left inverse of `unpack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
