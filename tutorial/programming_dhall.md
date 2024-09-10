@@ -28,6 +28,7 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
+The book contains many code examples, which can be evaluated by the Dhall interpreter after exporting them into a single Dhall file. 
 
 The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
 
@@ -6419,7 +6420,7 @@ Then we can express the functor property of `∀b. F a b` as a function that tra
 let functorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G = λ(a : Type) → ∀(b : Type) → F a b
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
           let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
           in gd
@@ -6434,7 +6435,7 @@ To implement the _contrafunctor_ evidence in case `F a b` is contravariant in `b
 let contrafunctorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G = λ(a : Type) → ∀(b : Type) → F a b
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
     in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
           let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
           in gd
@@ -6450,7 +6451,7 @@ The following code defines the functor or the contrafunctor instances (as approp
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
           let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
@@ -6459,7 +6460,7 @@ let functorExists1
 let contafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
           let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) → gd r (λ(t_ : Type) → λ(fdt : F d t_) → pack_ t_ ( (contrafunctorF1 t_).cmap c d f fdt ))
@@ -6497,10 +6498,11 @@ We will now show code that takes a `Functor` instance for `F a b` with respect t
 let functorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let C = λ(a : Type) → LFix (F a)
+    let C : Type → Type = λ(a : Type) → LFix (F a)
+    -- C c is the type ∀(r : Type) → (F c r → r) → r
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : C c) →
-        let y : C d = λ(b : Type) → (functorF1 b).fmap c d f (x b)
-        in y ???
+        let y : C d = λ(r : Type) → λ(fdrr : F d r → r) → x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
+        in y
        }
 ```
 
