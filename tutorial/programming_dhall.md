@@ -6454,7 +6454,8 @@ let functorExists1
     let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) → gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
+          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) →
+            gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
           in gd
        }
 let contafunctorExists1
@@ -6463,7 +6464,8 @@ let contafunctorExists1
     let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
-          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) → gd r (λ(t_ : Type) → λ(fdt : F d t_) → pack_ t_ ( (contrafunctorF1 t_).cmap c d f fdt ))
+          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) →
+            gd r (λ(t : Type) → λ(fdt : F d t) → pack_ t ( (contrafunctorF1 t).cmap c d f fdt ))
           in gc
        }
 ```
@@ -6493,7 +6495,6 @@ If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant a
 For those properties to hold, it does not matter whether `F a b` is covariant or contravariant in `b` (or neither).
 
 We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
-
 ```dhall
 let functorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
@@ -6501,8 +6502,23 @@ let functorLFix
     let C : Type → Type = λ(a : Type) → LFix (F a)
     -- C c is the type ∀(r : Type) → (F c r → r) → r
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : C c) →
-        let y : C d = λ(r : Type) → λ(fdrr : F d r → r) → x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
-        in y
+          let y : C d = λ(r : Type) → λ(fdrr : F d r → r) →
+            x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
+          in y
+       }
+let functorGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let D : Type → Type = λ(a : Type) → GFix (F a)
+    -- D c is the type Exists (λ(r : Type) → { seed : r, step : r → F c r }), which is expanded as:
+    -- ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F c t } → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : D c) →
+          let y : D d = λ(r : Type) → λ(pack_ : ∀(t : Type) → { seed : t, step : t → F d t } → r) →
+            x r (
+              λ(t : Type) → λ(p : { seed : t, step : t → F c t }) →
+                pack_ t (p with step = (λ(a : t) → (functorF1 t).fmap c d f (p.step a)))
+            ) 
+          in y
        }
 ```
 
