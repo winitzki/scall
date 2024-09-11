@@ -6100,7 +6100,9 @@ f x = case do_choice x of
 ```
 Here, the function `do_choice` has type `X -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
 We assume that values `a0`, `a1`, etc., have known types `A0`, `A1`, etc.
+
 The functions `pre_1_n` have types `A1 -> X`, the functions `pre_2_n` have types `A2 -> X`, etc.
+
 The functions `post_n` have types `An -> Y -> Y -> ... -> Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
 In the first alternative, there are no recursive calls, so we have `post_0 : A0 → Y`.
 
@@ -6117,15 +6119,15 @@ We begin by deriving the functor `P` to mimick the given code of `f`.
 
 
 ```dhall
-let P = λ(t : Type) →  -- Define the functor P as in the code of `f`.
+let P = λ(t : Type) →  -- Define the functor P following the code of `f`.
 < | P0 : A0,
   | P1 : A1,
-  | P1 : A1,
+  | P2 : A2,
   | ???  -- And so on.
 >
 ```
 
-We also need to define a functor `F` that will be used for defining the hylomorphism.
+Then we need to define a functor `F` that will be used for defining the hylomorphism.
 To figure that out, notice that a hylomorphism's code contains recursion at _only one_ place:
 ```haskell
 hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg
@@ -6184,6 +6186,8 @@ fibonacci n = if n < 3 then 1 else fibonacci (n - 1) + fibonacci (n - 2)
 
 This code is not acceptable in Dhall because `fibonacci` is defined recursively.
 Let us now apply the HIT algorithm to the code shown above.
+
+The first step is to define the functors `P`, `F`, the types `X`, `Y`, and the functions `do_choice : X → P A`. What is A???
 
 TODO
 
