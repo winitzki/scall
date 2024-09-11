@@ -5436,16 +5436,18 @@ Because of the use of `unfix`, the resulting fixpoint value will have poor perfo
 
 ## Translating recursive code into Dhall
 
-Dhall does not directly support recursive code.
-In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may not recursively refer to the same `x` being defined.
+In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may _not_ recursively refer to the same `x` being defined.
+The lack of support for recursion applies both to types and to values.
 
-Nevertheless, one can translate a wide range of recursive code into Dhall.
+Nevertheless, we have seen that Dhall can work with recursive types if one uses a trick known as the Church encoding of fixpoints. 
+
+In this chapter, we will see that Dhall can also accept a wide range of recursive _code_, including code that does not use any recursive types.
 This is achieved by a procedure we call the Hu-Iwasaki-Takeichi ("HIT") algorithm.
 The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, known as a "hylomorphism".
-To adapt the resulting hylomorphism to Dhall, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
-In most cases, those modifications are straightforward.
+To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
+In many cases, those modifications are straightforward.
 
-We will begin by motivating the notion of hylomorphisms and by showing examples of how recursive code can be converted to a hylomorphism.
+We will begin by explaining the notion of a "hylomorphism" and giving some examples.
 
 ### Motivation for hylomorphisms
 
@@ -5457,7 +5459,7 @@ We will now generalize size-limited aggregations from lists to arbitrary greates
 The result will be a `fold`-like function whose recursion depth is limited in advance.
 That limitation will ensure that all computations terminate, as Dhall requires.
 
-The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
+The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
 
 `fold : LFix F → ∀(r : Type) → (F r → r) → r`
@@ -5489,7 +5491,7 @@ Rewrite that type by replacing the record by two curried arguments:
 
 `∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
-Functions of that type are called **hylomorphisms**.
+Functions with this type signature are called **hylomorphisms**.
 See also [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 
@@ -5687,9 +5689,9 @@ The function `hylo_Nat` is a general fold-like aggregation function that can be 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see some examples of using `hylo_Nat`.
+For now, let us see some examples of using `hylo_Nat` with an explicit bound on the recursion depth.
 
-### Example: Determining the recursion depth
+### Determining the recursion depth
 
 The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify the maximum recursion depth (the total number of iterations for `Natural/fold`) in advance.
 
@@ -6169,7 +6171,21 @@ let alg : F Y → Y = λ(fy : F Y) →
 
 In this way, the HIT algorithm rewrites the code of `f` in terms of a hylomorphism.
 It remains to estimate an upper bound for the number of iterations and apply `hylo_Nat` or `hylo_N` with a suitable stop-gap argument.
+That will guarantee termination, and the resulting code will be accepted by Dhall.
 
+### Example: Fibonacci numbers
+
+As an example of recursive code that does not use any recursive types, consider a straightforward (and inefficient) implementation of a function that computes the $n$-th Fibonacci number:
+
+```haskell
+fibonacci :: Int -> Int  -- Haskell.
+fibonacci n = if n < 3 then 1 else fibonacci (n - 1) + fibonacci (n - 2)
+```
+
+This code is not acceptable in Dhall because `fibonacci` is defined recursively.
+Let us now apply the HIT algorithm to the code shown above.
+
+TODO
 
 ### Hylomorphisms driven by a Church-encoded template
 
