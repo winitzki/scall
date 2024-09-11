@@ -2240,6 +2240,40 @@ For instance, Haskell will do that if the programmer just writes `deriving Funct
 But Dhall does not have any code generation facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
+Now we can write code that works in the same way for any functor.
+
+
+###### Example: a function with a typeclass constraint
+
+Implement a function `inject1` that (for any types `a` and `b` and for any functor `F`) converts a value of type `{ _1 : a, _2 : F b }` into a value of type `F { _1 : a, _2 : b }`.
+
+###### Solution
+
+The type signature of the function `inject1` must include the given type constructor `F` and a functor evidence value for it:
+
+`∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → { _1 : a, _2 : F b } → F { _1 : a, _2 : b }`
+
+The implementation is based on the idea that, given a fixed value `x : a`, we can write a function of type `b → { _1 : a, _2 : b }`.
+Then can we use the functor property of `F` and lift that function to the type `F b → F { _1 : a, _2 : b }`.
+This is almost all we need. The complete code is:
+```dhall
+let inject1 : ∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → { _1 : a, _2 : F b } → F { _1 : a, _2 : b }
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    λ(a : Type) → λ(b : Type) → λ(p : { _1 : a, _2 : F b }) →
+      let PairAB : Type = { _1 : a, _2 : b }
+      let x : a = p._1
+      let fb : F b = p._2
+      in functorF.fmap b PairAB (λ(y : b) → { _1 = x, _2 = y }) fb
+```
+
+###### Exercises
+
+The following functions need to work in the same way for any types `a` and `b` and for any functor `F`.
+
+1. Implement a function `narrow1` that converts a value of type `{ _1 : a, _2 : F < Left : a | Right : b > }` into a value of type `F a`.
+2. Implement a function `unzip` that converts a value of type `F { _1 : a, _2 : b }` into a value of type `{ _1 : F a, _2 : F b }`. 
+3. Implement a function `widen1` that converts a value of type `F a` into a value of type  `F < Left : a | Right : b >`.
+4. Implement a function `expand` that converts a value of type `< Left : F a | Right : F b >` into a value of type  `F < Left : a | Right : b >`.
 
 ### Verifying the laws of functors
 
@@ -2597,10 +2631,12 @@ let pointedC : ∀(r : Type) → PointedU (C r)
 
 The intuition behind pointed contrafunctors is that they are able to consume an empty value (of unit type),
 and we know what result that would give.
-The method analogous to `pure` for contrafunctors is `cpure`.
-It is a value of type `∀(a : Type) → C a` that describes a consumer that ignores its input data (of an arbitrary type `a`).
 
-We can define a value `cpure` for an arbitrary pointed contrafunctor like this:
+Similarly to the method `pure` for pointed functors, pointed contrafunctors have the method we call `cpure`.
+Its type is `∀(a : Type) → C a`.
+This describes a "consumer" that ignores its input data (of an arbitrary type `a`).
+
+We can define `cpure` for an arbitrary pointed contrafunctor like this:
 
 ```dhall
 let cpure : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a : Type) → C a
@@ -6174,8 +6210,9 @@ Functors and contrafunctors may be constructed only in a fixed number of ways, b
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from parts.
 
-All of the combinators preserve functor laws; the created new functors are automatically lawful.
-The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp).
+All the combinators preserve functor laws; the created new functors are automatically lawful.
+The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+We will only show the Dhall code that creates the typeclass evidence values for all the combinators.
 
 ### Constant (contra)functors
 
@@ -6530,6 +6567,19 @@ let functorGFix
 Contrafunctor instances can be computed by similar code that we will omit.
 
 ## Filterable functors and contrafunctors, and their combinators
+
+A **filterable functor** `F` has a method called `deflate`, with the following type signature:
+
+`deflate : F (Optional a) → F a`
+
+A **filterable contrafunctor** `C` has a method called `inflate`, with the following type signature:
+
+`inflate : C a → C (Optional a)`
+
+The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
+Here, we will focus on implementing those functions for various type constructors and their combinations.
+
+### Constant filterable (contra)functors
 
 ## Applicative functors and contrafunctors, and their combinators
 
