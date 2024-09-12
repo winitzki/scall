@@ -6259,7 +6259,7 @@ We have obtained the complete Dhall code for the Fibonacci number calculation:
 ```dhall
 let fibonacci : Natural → Natural
   = λ(n : Natural) → hylo_Nat P functorP n Natural n coalgFib Natural algFib (const Natural Natural 0)
-let _ = assert : fibonacci 6 === 8
+let _ = assert : fibonacci 8 === 21
 ```
 
 The time complexity of the hylomorphism-based `fibonacci` function is linear in `n`, unlike the initial recursive code that was exponential in `n`.
