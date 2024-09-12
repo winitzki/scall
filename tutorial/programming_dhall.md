@@ -5842,7 +5842,9 @@ Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we 
 To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is applied automatically.
 We will not compute the recursion depth separately.
 Instead, we will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
-We will stop changing the accumulated value when the maximum recursion depth is reached.
+We will keep the accumulated value unchanged once the maximum recursion depth is reached.
+The shortcut detection mechanism in `Natural/fold` will then automatically stop the iterations.
+
 The resulting function is `hylo_N`:
 ```dhall
 let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
@@ -6060,7 +6062,8 @@ let egyptian_div_mod : Natural → Natural → Result
 let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
 ```
 
-This function is fast enough to divide very large numbers. The following test takes just a few seconds:
+This function is fast enough to divide even very large numbers.
+The following test takes just a few seconds (when using Dhall version 1.42.2 or later):
 
 ```dhall
 ⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
@@ -6072,101 +6075,96 @@ This function is fast enough to divide very large numbers. The following test ta
 ```
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to choose appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination and allows us to translate the recursive code into Dhall.
+In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
 This is another practical motivation for studying hylomorphisms.
 
 ### Converting recursive code to hylomorphisms: the HIT algorighm
 
-The [HIT paper](https://www.researchgate.net/publication/2813507) gives a general algorithm for converting recursive code into a hylomorphism.
+The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
-Here, we will limit our consideration to the HIT algorithm for single recursive functions.
+In this book, we will limit our consideration to the simple HIT algorithm for a single recursive function.
 
-The HIT algorithm works for recursive code of a certain restricted form:
+The HIT algorithm works only for recursive code of a certain restricted form:
 
-- The code has one top-level pattern-matching expression that decides whether recursive calls are needed and how many.
-- Each pattern-matching alternative has zero or more recursive calls. The number of recursive calls is known _statically_ within each pattern-matching alternative.
+- The code must have a single top-level pattern-matching expression that decides whether (and how many) recursive calls are needed.
+- Each pattern-matching alternative may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching alternative.
 - Recursive calls are not nested (the arguments of recursive calls do not use results of previous recursive calls).
 
 Code of that form can be described by this Haskell skeleton:
 
 ```haskell
 -- Haskell. A recursive function f of type X → Y is defined by:
-f :: A -> B
+f :: X -> Y
 f x = case do_choice x of
-  P0 a0 -> post_0 a0
-  P1 a1 -> post_1 a1 (f (pre_1_1 a1)) (f (pre_1_2 a1)) ... (f (pre_1_n1 a1))
-  P2 a2 -> post_2 a2 (f (pre_2_1 a2)) (f (pre_2_2 a2)) ... (f (pre_2_n2 a1))
+  C0 x0 -> post_0 x0
+  C1 x1 -> post_1 x1 (f (pre_1_1 x1)) (f (pre_1_2 x1)) ... (f (pre_1_n1 x1))
+  C2 x2 -> post_2 x2 (f (pre_2_1 x2)) (f (pre_2_2 x2)) ... (f (pre_2_n2 x1))
   ...
 ```
-Here, the function `do_choice` has type `X -> P A`, where `P` is a functor such that `P A` is a union type with alternatives `P0`, `P1`, `P2`, etc.
-We assume that values `a0`, `a1`, etc., have known types `A0`, `A1`, etc.
+Here, the function `do_choice` has type `X → C`, where `C` is a union type with alternatives `C0`, `C1`, `C2`, etc.
+We assume that values `x0`, `x1`, etc., have known types `A0`, `A1`, etc., so that the union type `C` may be defined in Dhall as:
+```dhall
+let C = < C0 : A0 | C1 : A1 | C2 : A2 | ??? and so on >
+```
+The values `x0`, `x1`, etc., must carry all the information needed for the remaining computations in each of the choice brances.
 
-The functions `pre_1_n` have types `A1 -> X`, the functions `pre_2_n` have types `A2 -> X`, etc.
+The functions `pre_1_n` (with $n=1,2,...$) have types `A1 → X`, the functions `pre_2_n` (with $n=1,2,...$) have types `A2 → X`, etc.
 
-The functions `post_n` have types `An -> Y -> Y -> ... -> Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
+The functions `post_n` (with $n=1,2,...$) have types `An → Y → Y → ... → Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
 In the first alternative, there are no recursive calls, so we have `post_0 : A0 → Y`.
 
-The first of the alternatives (`P0 a0 -> ...`) does not use any recursive calls of `f` and computes the result immediately as `post_0 a0`.
-If the code of `f` contains several such alternatives, we will redefine the functor `P` so that all those alternatives are combined into a single one with the constructor that we denoted by `P0`.
+The first of the alternatives (the Haskell code line `P0 x0 -> ...`) does not use any recursive calls of `f` and computes the result immediately as `post_0 x0`.
+If the code of `f` contains several such alternatives, we will redefine the type `C` so that all those alternatives are combined into a single one with the constructor that we denoted by `C0`.
 
-Other alternatives (P1, P2, etc.) do require one or more recursive calls to `f`.
-The arguments for those recursive calls are computed from the available data (`a1`, `a2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
-After the recursive calls are completed, the post-processing functions (post_1, post_2, etc.) are applied in order to compute the final results.
+Other alternatives (`C1`, `C2`, etc.) _do_ require one or more recursive calls to `f`.
+The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
+Once the recursive calls are completed, the post-processing functions (`post_1`, `post_2`, etc.) are used to compute the final results.
 
-Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent formulation for `f` as a hylomorphism.
+Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
 
-We begin by deriving the functor `P` to mimick the given code of `f`.
+We begin by defining the union type `C` and the function `do_choice: X → C` by following the Haskell code of `f` as indicated above.
 
-
-```dhall
-let P = λ(t : Type) →  -- Define the functor P following the code of `f`.
-< | P0 : A0,
-  | P1 : A1,
-  | P2 : A2,
-  | ???  -- And so on.
->
-```
-
-Then we need to define a functor `F` that will be used for defining the hylomorphism.
-To figure that out, notice that a hylomorphism's code contains recursion at _only one_ place:
+The next step is to determine a suitable functor `P` that will be used for defining the hylomorphism.
+To figure that out, notice that a hylomorphism's Haskell code contains recursion at _only one_ place:
 ```haskell
-hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg
+hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg  -- Haskell.
 ```
-The function `hylo` calls itself only via `fmap_F hylo`.
-So, the recursive calls correspond to places where the data structure of type `F t` stores values of type `t`.
+The function `hylo` calls itself only via `fmap hylo`.
+So, the recursive calls correspond to places where the data structure of type `P t` stores values of type `t`.
 Those stored values are actually used as _arguments_ of the recursive calls (because that's how `fmap` works).
 
-It follows that we need to choose `F` such that `F t` stores a separate value of type `t` for each recursive call.
-The data type `F t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
-For the code skeleton shown above, we would need to define `F` as:
+It follows that we need to choose `P` such that `P t` stores a separate value of type `t` for each recursive call.
+The data type `P t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
+For the code skeleton shown above, we would need to define `P` as:
 
 ```dhall
-let F = λ(t : Type) →
-< | F0 : A0
-  | F1 : { a1 : A1, call_1 : t, call_2 : t, ..., call_n1 : t }
-  | F2 : { a2 : A2, call_1 : t, call_2 : t, ..., call_n2 : t }
+let P = λ(T : Type) →
+< | P0 : A0
+  | P1 : { a1 : A1, call_1 : T, call_2 : T, ..., call_n1 : T }
+  | P2 : { a2 : A2, call_1 : T, call_2 : T, ..., call_n2 : T }
   | ???  -- And so on.
 >
 ```
-We will also need to define `Functor` and `Foldable` typeclass instances for the chosen `F`.
+We will also need to define `Functor` and `Foldable` typeclass instances for the chosen functor `P`.
+(Later chapters in this book show general procedures for defining such typeclass instances for all functors `P` of the required form.)
 
-The next step is to define suitable functions `coalg : X -> F X` and `alg : F Y -> Y` such that the code of `f` is equivalent to `hylo coalg alg`.
-The function `coalg` will prepare the arguments for the recursive calls, and the function `alg` will perform the post-processing after the recursive calls are done:
+The next step is to define suitable functions `coalg : X -> P X` and `alg : P Y -> Y` such that the code of `f` is equivalent to `hylo coalg alg`.
+The function `coalg` prepares the arguments for the recursive calls, and the function `alg` performs the post-processing after the recursive calls are done:
 ```dhall
-let coalg : X → F X = λ(x : X) →
-  let choice : P A = do_choice x  -- Following the code of `f`.
+let coalg : X → P X = λ(x : X) →
+  let choice : C = do_choice x  -- As in the code of `f`.
   merge { -- Prepare the function arguments for recursive calls.
-    P0 = λ(a0 : A0) → (F A).F0 a0,
-    P1 = λ(a1 : A1) → (F A).F1 { a1 = a1, call_1 = pre_1_1 a1, ..., call_n1 = pre_1_n1 a1 },
-    P2 = λ(a2 : A2) → (F A).F2 { a2 = a1, call_1 = pre_2_1 a1, ..., call_n2 = pre_2_n2 a2 },
+    C0 = λ(x0 : A0) → (P X).P0 x0,
+    C1 = λ(x1 : A1) → (P X).P1 { a1 = x1, call_1 = pre_1_1 x1, ..., call_n1 = pre_1_n1 x1 },
+    C2 = λ(x2 : A2) → (P X).P2 { a2 = x2, call_1 = pre_2_1 x2, ..., call_n2 = pre_2_n2 x2 },
     ???  -- And so on.
   } choice
 
-let alg : F Y → Y = λ(fy : F Y) →
+let alg : P Y → Y = λ(fy : P Y) →
   merge {
-    F0 = λ(a0 : A0) → post_0 a0,
-    F1 = λ(r1 : { a1 : A1, call_1 : Y, call_2 : Y, ..., call_n1 : Y }) → post_1 r1.a1 r1.call_1 r1.call_2 ... r1.call_n1,
-    F2 = λ(r2 : { a2 : A2, call_1 : Y, call_2 : Y, ..., call_n2 : Y }) → post_2 r2.a2 r2.call_1 r2.call_2 ... r2.call_n2,
+    P0 = λ(r0 : A0) → post_0 r0,
+    P1 = λ(r1 : { a1 : A1, call_1 : Y, call_2 : Y, ..., call_n1 : Y }) → post_1 r1.a1 r1.call_1 r1.call_2 ... r1.call_n1,
+    P2 = λ(r2 : { a2 : A2, call_1 : Y, call_2 : Y, ..., call_n2 : Y }) → post_2 r2.a2 r2.call_1 r2.call_2 ... r2.call_n2,
     ???  -- And so on.
   } fy
 ```
@@ -6177,7 +6175,7 @@ That will guarantee termination, and the resulting code will be accepted by Dhal
 
 ### Example: Fibonacci numbers
 
-As an example of recursive code that does not use any recursive types, consider a straightforward (and inefficient) implementation of a function that computes the $n$-th Fibonacci number:
+As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (if quite inefficient) implementation of a function that computes the $n$-th Fibonacci number:
 
 ```haskell
 fibonacci :: Int -> Int  -- Haskell.
@@ -6187,9 +6185,85 @@ fibonacci n = if n < 3 then 1 else fibonacci (n - 1) + fibonacci (n - 2)
 This code is not acceptable in Dhall because `fibonacci` is defined recursively.
 Let us now apply the HIT algorithm to the code shown above.
 
-The first step is to define the functors `P`, `F`, the types `X`, `Y`, and the functions `do_choice : X → P A`. What is A???
+We set the types `X = Y = Natural`.
+The first step is to define the type `C` and the function `do_choice : X → C`.
+The type `C` should be a union type that describes the possible choices in making the recursive calls.
+The code of `fibonacci` chooses between no recursive calls and 2 recursive calls.
+However, the input type `X = Natural` is not a union type, and we do not need to extract any information from it.
+So, we could define the type `C` as a union type with two parts carrying no information:
+```dhall
+let C = < BaseCase | RecCase > 
+```
+or even simpler:
+```dhall
+let C = Bool
+let do_choice : Natural → Bool = λ(n : Natural) → Natural/lessThan n 3 
+```
+The types `A0` and `A1` are just unit types, and we may just omit the values `x0 : A0` and `x1 : A1`.
 
-TODO
+The next step is to define the functor `P`.
+The type `P A` must be a union type with two alternatives:
+```dhall
+let P : Type → Type = λ(A : Type) → < P0 : ??? | P1 : ??? > 
+```
+
+The first alternative (`P0`) corresponds to the clause without recursive calls.
+The output value in that clause is always just `1`.
+So, we do not need `P0` to carry any values.
+
+The second alternative (`P1`) needs to carry the values needed for the arguments of the recursive calls.
+(Those values are $n-1$ and $n-2$.)
+So, we define `P` as:
+```dhall
+let P : Type → Type = λ(A : Type) → < P0 | P1 : { call_1 : A, call_2 : A } >
+let functorP : Functor P = {
+  fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
+    merge {
+      P0 = (P b).P0,
+      P1 = λ(r1 : { call_1 : a, call_2 : a }) → (P b).P1 { call_1 = f r1.call_1, call_2 = f r1.call_2 }
+    } pa
+}
+```
+and the functions `pre_1_1`, `pre_1_2`, and `post_1` as:
+```dhall
+let pre_1_1 = λ(n : Natural) → Natural/subtract 1 n
+let pre_1_2 = λ(n : Natural) → Natural/subtract 2 n
+let post_1 = λ(r1 : Natural) → λ(r2 : Natural) → r1 + r2
+```
+
+Now we can follow the skeleton code shown above and write code for the `alg` and `coalg` functions (that we will call `algFib` and `coalgFib`):
+```dhall
+let coalgFib : Natural → P Natural = λ(n : Natural) →
+  let choice : Bool = do_choice n
+  -- Use if/then/else instead of merge on Bool.
+  in if choice then (P Natural).P0
+  else (P Natural).P1 { call_1 = pre_1_1 n, call_2 = pre_1_2 n }
+
+let algFib : P Natural → Natural = λ(p : P Natural) →
+  merge {
+    P0 = 1,
+    P1 = λ(r1 : { call_1 : Natural, call_2 : Natural }) →
+      post_1 r1.call_1 r1.call_2
+  } p
+```
+
+It remains to find a stop-gap value and a suitable upper bound on the number of iterations.
+
+The stop-gap value should be any function of type `Natural → Natural`.
+So, we can just use a constant function that always returns `0`.
+(In this way, we will quickly see that the result is wrong, as the `fibonacci` function should never return `0`.)
+
+An upper bound on the number of iterations is the number `n` iself.
+
+We have obtained the complete Dhall code for the Fibonacci number calculation:
+```dhall
+let fibonacci : Natural → Natural
+  = λ(n : Natural) → hylo_Nat P functorP n Natural n coalgFib Natural algFib (const Natural Natural 0)
+let _ = assert : fibonacci 6 === 8
+```
+
+The time complexity of the hylomorphism-based `fibonacci` function is linear in `n`, unlike the initial recursive code that was exponential in `n`.
+In this case, the conversion to a hylomorphism automatically improved the performance of the recursive algorithm.
 
 ### Hylomorphisms driven by a Church-encoded template
 
