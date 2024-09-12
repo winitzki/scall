@@ -5515,7 +5515,7 @@ However, a value of a greatest fixpoint type (for example, an unbounded list or 
 A hylomorphism's code will try to extract all data from an unbounded list, which cannot terminate.
 
 So, Dhall cannot directly support hylomorphisms as they are usually defined.
-We will now examine that problem is more detail and show some solutions.
+We will now examine that problem in more detail and show some solutions.
 
 ### Why hylomorphisms terminate: a Haskell example
 
@@ -5756,7 +5756,7 @@ The next step is to implement a check for the presence of values of type `t` in 
 To achieve that, we first need to apply `fmap_F` $n$ times to the function `λ(_ : t) → True`.
 This gives a function that replaces values of type `t` by `True` at the deepest nesting level in the data structure:
 
-`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...))` {- n times -}
+`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n times -}`
 
 Then we need to apply `fmap_F` $n-1$ times to the function `findTrueValues` shown above:
 
@@ -6304,9 +6304,9 @@ Functors and contrafunctors may be constructed only in a fixed number of ways, b
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from parts.
 
-All the combinators preserve functor laws; the created new functors are automatically lawful.
+All the combinators preserve functor laws; the created new functor instances are automatically lawful.
 The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
-We will only show the Dhall code that creates the typeclass evidence values for all the combinators.
+We will only show the Dhall code that creates the typeclass instance values for all the combinators.
 
 ### Constant (contra)functors
 
