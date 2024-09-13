@@ -6706,7 +6706,7 @@ let filter
     in filterableF.deflate a foa 
 ```
 
-Similarly, we may implement a `filter` function for a filterable contrafunctor like this:
+Similarly, we may implement a `cfilter` function for a filterable contrafunctor like this:
 ```dhall
 let cfilter
   : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
@@ -6717,24 +6717,43 @@ let cfilter
 ```
 
 The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
-Here, we will focus on implementing those functions for various type constructors and their combinations.
+That book also shows various combinators that create new lawful `Filterable` and `Contrafilterable` instances out of previous ones.
+Here, we will focus on implementing those combinators in Dhall.
 
 ### Constant filterable (contra)functors
 
 A constant functor is at the same time a contrafunctor and is always filterable.
-The `deflate` function is an identity function.
+The `deflate` function and the `inflate` function are just identity functions.
+The typeclass instances are:
+```dhall
+let filterableConst : ∀(c : Type) → Filterable (Const c)
+  = λ(c : Type) → functorConst c /\ { deflate = λ(a : Type) → identity c }  
+let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
+  = λ(c : Type) → contrafunctorConst c /\ { inflate = λ(a : Type) → identity c }  
+```
+
+### Filterable functor composition
+
+If `F` is a filterable functor and `G` is any functor (not necessarily filterable) then the composition functor `Compose G F` is filterable:
+
+```dhall
+let filterableFunctorFunctorCompose
+  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
+```
+
+TODO
 
 ## Applicative functors and contrafunctors, and their combinators
 
 ## Monoids and their combinators
-
 
 ## Traversable functors and their combinators
 
 ## Monads and their combinators
 
 ## Monad transformers
-
 
 ## Free typeclasses
 
