@@ -6269,9 +6269,12 @@ The reason is that the $n$-th iteration works with a data structure of type `P (
 With our definition of $P$, that data structure is a binary tree of depth $n$, which stores $2^n$ values of type `Natural`.
 Processing that data structure takes exponential time ($O(2^n)$).
 
-The HIT algorithm does not magically improve the performance of recursive code.
+The HIT algorithm does not change the asymptotic performance of recursive code.
 It only converts the code into the form of a hylomorphism, which then becomes suitable for implementation in Dhall.
-To improve the asymptotic complexity of the resulting code, one needs to use techniques beyond the scope of this book, such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b).
+To improve the asymptotic complexity of the resulting code, it would be best to start with a faster recursive algorithm, such as the ["doubling algorithm"](https://www.nayuki.io/page/fast-fibonacci-algorithms) for the Fibonacci sequence.
+
+Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
+Such techniques are beyond the scope of this book.
 
 ### Hylomorphisms driven by a Church-encoded template
 
@@ -6670,6 +6673,15 @@ Contrafunctor instances can be computed by similar code that we will omit.
 
 ## Filterable functors and contrafunctors, and their combinators
 
+Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
+```dhall
+let List/filter = https://prelude.dhall-lang.org/List/filter
+let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] === [ 5, 6, 7, 8 ]
+```
+
+The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
+It turns out to be more convenient to define `filter` through another function called `deflate`.
+
 A **filterable functor** `F` has a method called `deflate`, with the following type signature:
 
 `deflate : F (Optional a) → F a`
@@ -6678,10 +6690,39 @@ A **filterable contrafunctor** `C` has a method called `inflate`, with the follo
 
 `inflate : C a → C (Optional a)`
 
+We can now define the corresponding typeclasses:
+```dhall
+let Filterable = λ(F : Type → Type) → Functor F //\\ { deflate : ∀(a : Type) → F (Optional a) → F a }
+let ContraFilterable = λ(F : Type → Type) → Contrafunctor F //\\ { inflate : ∀(a : Type) → F a → F (Optional a) }
+```
+
+Using the `Filterable` instance, we may implement a `filter` function like this:
+```dhall
+let filter
+  : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
+    let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
+    let foa : F (Optional a) = filterableF.fmap a (Optional a) a2opt fa
+    in filterableF.deflate a foa 
+```
+
+Similarly, we may implement a `filter` function for a filterable contrafunctor like this:
+```dhall
+let cfilter
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
+    let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
+    let foa : F (Optional a) = contrafilterableF.inflate a fa
+    in contrafilterableF.cmap a (Optional a) a2opt foa
+```
+
 The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
 Here, we will focus on implementing those functions for various type constructors and their combinations.
 
 ### Constant filterable (contra)functors
+
+A constant functor is at the same time a contrafunctor and is always filterable.
+The `deflate` function is an identity function.
 
 ## Applicative functors and contrafunctors, and their combinators
 
