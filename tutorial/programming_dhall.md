@@ -6097,8 +6097,8 @@ Code of that form can be described by this Haskell skeleton:
 f :: X -> Y
 f x = case do_choice x of
   C0 x0 -> post_0 x0
-  C1 x1 -> post_1 x1 (f (pre_1_1 x1)) (f (pre_1_2 x1)) ... (f (pre_1_n1 x1))
-  C2 x2 -> post_2 x2 (f (pre_2_1 x2)) (f (pre_2_2 x2)) ... (f (pre_2_n2 x1))
+  C1 x1 -> post_1 x1 (f (arg_1_1 x1)) (f (arg_1_2 x1)) ... (f (arg_1_n1 x1))
+  C2 x2 -> post_2 x2 (f (arg_2_1 x2)) (f (arg_2_2 x2)) ... (f (arg_2_n2 x1))
   ...
 ```
 Here, the function `do_choice` has type `X → C`, where `C` is a union type with alternatives `C0`, `C1`, `C2`, etc.
@@ -6108,7 +6108,7 @@ let C = < C0 : A0 | C1 : A1 | C2 : A2 | ??? and so on >
 ```
 The values `x0`, `x1`, etc., must carry all the information needed for the remaining computations in each of the choice brances.
 
-The functions `pre_1_n` (with $n=1,2,...$) have types `A1 → X`, the functions `pre_2_n` (with $n=1,2,...$) have types `A2 → X`, etc.
+The functions `arg_1_n` (with $n=1,2,...$) have types `A1 → X`, the functions `arg_2_n` (with $n=1,2,...$) have types `A2 → X`, etc.
 
 The functions `post_n` (with $n=1,2,...$) have types `An → Y → Y → ... → Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
 In the first alternative, there are no recursive calls, so we have `post_0 : A0 → Y`.
@@ -6117,7 +6117,7 @@ The first of the alternatives (the Haskell code line `P0 x0 -> ...`) does not us
 If the code of `f` contains several such alternatives, we will redefine the type `C` so that all those alternatives are combined into a single one with the constructor that we denoted by `C0`.
 
 Other alternatives (`C1`, `C2`, etc.) _do_ require one or more recursive calls to `f`.
-The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `pre_1_1`, `pre_1_2`, `pre_2_1`, and so on.
+The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `arg_1_1`, `arg_1_2`, `arg_2_1`, and so on.
 Once the recursive calls are completed, the post-processing functions (`post_1`, `post_2`, etc.) are used to compute the final results.
 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
@@ -6155,8 +6155,8 @@ let coalg : X → P X = λ(x : X) →
   let choice : C = do_choice x  -- As in the code of `f`.
   merge { -- Prepare the function arguments for recursive calls.
     C0 = λ(x0 : A0) → (P X).P0 x0,
-    C1 = λ(x1 : A1) → (P X).P1 { a1 = x1, call_1 = pre_1_1 x1, ..., call_n1 = pre_1_n1 x1 },
-    C2 = λ(x2 : A2) → (P X).P2 { a2 = x2, call_1 = pre_2_1 x2, ..., call_n2 = pre_2_n2 x2 },
+    C1 = λ(x1 : A1) → (P X).P1 { a1 = x1, call_1 = arg_1_1 x1, ..., call_n1 = arg_1_n1 x1 },
+    C2 = λ(x2 : A2) → (P X).P2 { a2 = x2, call_1 = arg_2_1 x2, ..., call_n2 = arg_2_n2 x2 },
     ???  -- And so on.
   } choice
 
@@ -6175,7 +6175,7 @@ That will guarantee termination, and the resulting code will be accepted by Dhal
 
 ### Example: Fibonacci numbers
 
-As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (if quite inefficient) implementation of a function that computes the $n$-th Fibonacci number:
+As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (but quite slow) implementation of a function that computes the $n$-th Fibonacci number:
 
 ```haskell
 fibonacci :: Int -> Int  -- Haskell.
@@ -6224,10 +6224,10 @@ let functorP : Functor P = {
     } pa
 }
 ```
-and the functions `pre_1_1`, `pre_1_2`, and `post_1` as:
+and the functions `arg_1_1`, `arg_1_2`, and `post_1` as:
 ```dhall
-let pre_1_1 = λ(n : Natural) → Natural/subtract 1 n
-let pre_1_2 = λ(n : Natural) → Natural/subtract 2 n
+let arg_1_1 = λ(n : Natural) → Natural/subtract 1 n
+let arg_1_2 = λ(n : Natural) → Natural/subtract 2 n
 let post_1 = λ(r1 : Natural) → λ(r2 : Natural) → r1 + r2
 ```
 
@@ -6237,7 +6237,7 @@ let coalgFib : Natural → P Natural = λ(n : Natural) →
   let choice : Bool = do_choice n
   -- Use if/then/else instead of merge on Bool.
   in if choice then (P Natural).P0
-  else (P Natural).P1 { call_1 = pre_1_1 n, call_2 = pre_1_2 n }
+  else (P Natural).P1 { call_1 = arg_1_1 n, call_2 = arg_1_2 n }
 
 let algFib : P Natural → Natural = λ(p : P Natural) →
   merge {
@@ -6262,8 +6262,16 @@ let fibonacci : Natural → Natural
 let _ = assert : fibonacci 8 === 21
 ```
 
-The time complexity of the hylomorphism-based `fibonacci` function is linear in `n`, unlike the initial recursive code that was exponential in `n`.
-In this case, the conversion to a hylomorphism automatically improved the performance of the recursive algorithm.
+What is the time complexity of the hylomorphism-based `fibonacci` function?
+At first sight, it may appear that the complexity is linear because the hylomorphism runs `Natural/fold n`, which iterates a function `n` times.
+But actually the complexity is still exponential in `n`, just like the initial recursive code.
+The reason is that the $n$-th iteration works with a data structure of type `P (P (... (P Natural) ...))` nested $n$ times.
+With our definition of $P$, that data structure is a binary tree of depth $n$, which stores $2^n$ values of type `Natural`.
+Processing that data structure takes exponential time ($O(2^n)$).
+
+The HIT algorithm does not magically improve the performance of recursive code.
+It only converts the code into the form of a hylomorphism, which then becomes suitable for implementation in Dhall.
+To improve the asymptotic complexity of the resulting code, one needs to use techniques beyond the scope of this book, such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b).
 
 ### Hylomorphisms driven by a Church-encoded template
 
