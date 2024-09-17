@@ -4386,7 +4386,7 @@ let test = assert : reverseNEL Natural example2 === example1
 ```
 
 
-### Example: Sizing a Church-encoded type constructor
+### Sizing up a Church-encoded type constructor
 
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
@@ -5638,7 +5638,7 @@ This is why the recursion terminates in the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
 The required number of recursive calls is equal to the "recursion depth" of the value `t0`.
-(The subsection "Example: Sizing a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
+(The subsection "Sizing up a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
 
 We can now generalize this example to an arbitrary application of a hylomorphism.
 For brevity, we denote `h = hylo coalg alg`.
