@@ -676,7 +676,7 @@ Here is an example: the first file contains a list of numbers, and the second fi
 ```dhall
 -- This file is `./sum.dhall`.
 let input_list = ./first.dhall  -- Import from relative path.
-let List/sum = https://prelude.dhall-lang.org/Natural/sum
+let List/sum = https://prelude.dhall-lang.org/Natural/sum  -- Import from URL.
 in List/sum input_list
 ```
 
