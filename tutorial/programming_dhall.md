@@ -649,14 +649,23 @@ Later chapters in this book will show how to use the Church encoding or existent
 In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
 
-#### No side effects
+#### No mutability and no side effects
 
 Dhall is a purely functional language with no side effects.
-There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound, etc.
+There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound,
+and no reading from any external devices (keyboard, mouse, microphone, camera, etc.).
 
 A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
 What happens with that normal form is up to the user.
-The user may just want to print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+The user may print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+
+The only feature of Dhall that is in some way similar to a side effect is the "value import":
+a Dhall program can read Dhall values from external resources (files, Internet URLs, and environment variables).
+The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
+For instance, it is not possible to write a Dhall program that will repeatedly read a value from an external file and react to changes in the file's contents.
+The names of external resources are fixed in advance and cannot be changed.
+Most often, Dhall imports are used to organize code into modules with known contents that is guaranteed not to change.
+This usage is explained in the next subsection.
 
 ### Modules and imports
 
@@ -701,7 +710,7 @@ However, most often the imported Dhall values are not simple data but program co
 
 Although a Dhall file has only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
-In that way, we can implement program modules that export a number of values and/or types to other modules:
+In that way, we may create Dhall modules that export a number of values and/or types to other modules:
 
 ```dhall
 -- This file is `./SimpleModule.dhall`.
@@ -748,7 +757,10 @@ See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/d
 
 #### Frozen imports and hashing
 
-Imports from files, from Internet URLs, and from environment variables may be a security problem if we do not ensure that the contents of the imports do not unexpectedly change.
+Imports from external resources (files, Internet URLs, or environment variables) may be a security risk.
+In that case, Dhall has a feature called "frozen imports" for checking
+that the contents of the import did not unexpectedly change.
+With that check, an import is guaranteed to produce the same value every time.
 Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
 As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only Web service that returns a new random string each time it is called.
@@ -772,7 +784,8 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 
 To guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
 Such imports are called "frozen".
-Dhall will refuse to process a frozen import if the external resource gives an expression with a different SHA256 hash value than specified in the Dhall code.
+Dhall will refuse to process a frozen import if the external resource gives
+an expression with a different SHA256 hash value than that in the Dhall code.
 
 For example, consider a file called `simple.dhall` that contains just the number `3`:
 
