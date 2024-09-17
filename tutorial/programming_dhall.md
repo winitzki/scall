@@ -5727,7 +5727,8 @@ To detect that condition, we need to be able to check if any values of type `t` 
 We begin by implementing a function `contains_t` for checking whether a value of type `F t` contains any values of type `t`.
 For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
 This functionality will be available if the functor `F` is foldable.
-We will require `Functor` and `Foldable` typeclass evidence for `F` (such evidence can be created for any polynomial type constructor `F`).
+We will require `Functor` and `Foldable` typeclass evidence for `F`
+(such evidence can be created for any polynomial functor `F`).
 
 Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
