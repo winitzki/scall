@@ -91,7 +91,7 @@ let Float/show
 
               let exponentSign = showSign f.exponentPositive
 
-              in  if    f.exponentPositive
+              in  if    f.exponentPositive || Natural/isZero f.exponent
                   then  let largeInteger = f.mantissa * D.power Base f.exponent
 
                         let maxDisplayedInteger =
@@ -101,22 +101,45 @@ let Float/show
                                     largeInteger
                                     maxDisplayedInteger
                             then  "${mantissaSign}${Natural/show largeInteger}."
-                            else
-                            let topPower = D.log Base largeInteger
-                            let baseToTopPower = D.power Base topPower
-                            let divideByTopPower = divmod largeInteger baseToTopPower
-                            let firstDigit
+                            else  let topPower = D.log Base largeInteger
+
+                                  let baseToTopPower = D.power Base topPower
+
+                                  let divideByTopPower =
+                                        divmod largeInteger baseToTopPower
+
+                                  let firstDigit
                                       : Natural
                                       = divideByTopPower.div
 
                                   let remainingDigitsWithTrailingZeros
                                       : Natural
-                                      = divideByTopPower.mod
-                                let remainingDigitsWithoutTrailingZeros : Natural = Natural/fold remainingDigitsWithTrailingZeros Natural (\(x: Natural) -> let divideByBase = divmod x Base in if Natural/isZero divideByBase.rem then divideByBase.div else x ) remainingDigitsWithTrailingZeros
+                                      = divideByTopPower.rem
+
+                                  let remainingDigitsWithoutTrailingZeros
+                                      : Text
+                                      = if    Natural/isZero
+                                                remainingDigitsWithTrailingZeros
+                                        then  ""
+                                        else  Natural/show
+                                                ( Natural/fold
+                                                    remainingDigitsWithTrailingZeros
+                                                    Natural
+                                                    ( λ(x : Natural) →
+                                                        let divideByBase =
+                                                              divmod x Base
+
+                                                        in  if    Natural/isZero
+                                                                    divideByBase.rem
+                                                            then  divideByBase.div
+                                                            else  x
+                                                    )
+                                                    remainingDigitsWithTrailingZeros
+                                                )
 
                                   in  "${mantissaSign}${Natural/show
-                                                          firstDigit}.${Natural/show
-                                                                          remainingDigitsWithoutTrailingZeros}."
+                                                          firstDigit}.${remainingDigitsWithoutTrailingZeros}e+${Natural/show
+                                                                                                                  topPower}"
                   else  "${mantissaSign}${Natural/show f.mantissa}."
 
 let _ =
@@ -175,26 +198,6 @@ let _ =
             { mantissa = 10
             , exponent = 1
             , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1."
-
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1."
-
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = True
             , exponentPositive = True
             }
         ≡ "+100."
@@ -233,7 +236,7 @@ let _ =
         assert
       :   Float/show
             { mantissa = 10
-            , exponent = 2
+            , exponent = 3
             , mantissaPositive = True
             , exponentPositive = True
             }
@@ -243,11 +246,31 @@ let _ =
         assert
       :   Float/show
             { mantissa = 10
-            , exponent = 2
+            , exponent = 3
             , mantissaPositive = False
             , exponentPositive = True
             }
         ≡ "-1.e+4"
+
+let _ =
+        assert
+      :   Float/show
+            { mantissa = 10
+            , exponent = 1
+            , mantissaPositive = True
+            , exponentPositive = False
+            }
+        ≡ "+1."
+
+let _ =
+        assert
+      :   Float/show
+            { mantissa = 10
+            , exponent = 1
+            , mantissaPositive = False
+            , exponentPositive = False
+            }
+        ≡ "-1."
 
 let _ =
         assert
@@ -268,6 +291,26 @@ let _ =
             , exponentPositive = False
             }
         ≡ "-10.1"
+
+let _ =
+        assert
+      :   Float/show
+            { mantissa = 100
+            , exponent = 1
+            , mantissaPositive = True
+            , exponentPositive = False
+            }
+        ≡ "+10."
+
+let _ =
+        assert
+      :   Float/show
+            { mantissa = 100
+            , exponent = 1
+            , mantissaPositive = False
+            , exponentPositive = False
+            }
+        ≡ "-10."
 
 let _ =
         assert
