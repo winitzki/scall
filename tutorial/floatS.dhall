@@ -536,12 +536,29 @@ let _ =
       :   Float/compare (Float/create +120 +0) (Float/create +12 +1)
         ≡ Compared.Equal
 
+let _ =
+        assert
+      :   Float/compare (Float/create +123 -100) (Float/create +12 -99)
+        ≡ Compared.Greater
+
+let _ =
+        assert
+      :   Float/compare (Float/create +123 -100) (Float/create +12 -98)
+        ≡ Compared.Less
+
+let _ =
+        assert
+      :   Float/compare (Float/create +120 -100) (Float/create +12 -99)
+        ≡ Compared.Equal
+
 in  { T = Float
     , base = Base
     , digits = Digits
     , show = Float/show
     , create = Float/create
     , isPositive = Float/positive
+    , compare = Float/compare
+    , Compared
     , isZero = Float/isZero
     , doc =
         ''
