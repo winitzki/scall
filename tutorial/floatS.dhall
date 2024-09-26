@@ -453,6 +453,24 @@ let _ = assert : test_show +110000 -1 ≡ "+1.1e+4"
 
 let _ = assert : test_show -110000 -1 ≡ "-1.1e+4"
 
+let Compared = < Equal | Greater | Less >
+
+let Natural/compare
+    : Natural → Natural → Compared
+    = λ(x : Natural) →
+      λ(y : Natural) →
+        if    Natural/isZero (Natural/subtract x y)
+        then  if    Natural/isZero (Natural/subtract y x)
+              then  Compared.Equal
+              else  Compared.Greater
+        else  Compared.Less
+
+let _ = assert : Natural/compare 10 20 ≡ Compared.Less
+
+let _ = assert : Natural/compare 20 20 ≡ Compared.Equal
+
+let _ = assert : Natural/compare 20 10 ≡ Compared.Greater
+
 in  { T = Float
     , base = Base
     , digits = Digits
