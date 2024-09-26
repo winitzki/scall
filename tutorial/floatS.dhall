@@ -238,7 +238,9 @@ let Float/showNormalized
 
                             in  "${mantissaSign}${Natural/show
                                                     f.leadDigit}.${remainingDigits}e+${Natural/show
-                                                                                         f.topPower}"
+                                                                                         (   f.topPower
+                                                                                           + f.exponent
+                                                                                         )}"
             else  ""
 
 let _ = assert : Float/isZero (Float/create +0 +1) ≡ True
