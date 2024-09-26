@@ -465,11 +465,71 @@ let Natural/compare
               else  Compared.Greater
         else  Compared.Less
 
+let Compared/reverse =
+      λ(x : Compared) →
+        merge
+          { Equal = Compared.Equal
+          , Greater = Compared.Less
+          , Less = Compared.Greater
+          }
+          x
+
 let _ = assert : Natural/compare 10 20 ≡ Compared.Less
 
 let _ = assert : Natural/compare 20 20 ≡ Compared.Equal
 
 let _ = assert : Natural/compare 20 10 ≡ Compared.Greater
+
+let Float/abs
+    : Float → Float
+    = λ(x : Float) → x ⫽ { mantissaPositive = True }
+
+let comparePositive =
+      λ(a : Float) →
+      λ(b : Float) →
+        let fixed
+            : { x : Natural, y : Natural }
+            = if    a.exponentPositive
+              then  if    b.exponentPositive
+                    then  { x = a.mantissa * D.power Base a.exponent
+                          , y = b.mantissa * D.power Base b.exponent
+                          }
+                    else  { x =
+                                a.mantissa
+                              * D.power Base (a.exponent + b.exponent)
+                          , y = b.mantissa
+                          }
+              else  if b.exponentPositive
+              then  { x = a.mantissa
+                    , y = b.mantissa * D.power Base (b.exponent + a.exponent)
+                    }
+              else  { x = a.mantissa * D.power Base b.exponent
+                    , y = b.mantissa * D.power Base a.exponent
+                    }
+
+        in  Natural/compare fixed.x fixed.y
+
+let Float/compare
+    : Float → Float → Compared
+    = λ(x : Float) →
+      λ(y : Float) →
+        if    x.mantissaPositive
+        then  if    y.mantissaPositive
+              then  comparePositive x y
+              else  Compared.Greater
+        else  if y.mantissaPositive
+        then  Compared.Less
+        else  comparePositive y x
+
+let _ =
+        assert
+      :   Float/compare (Float/create +123 +0) (Float/create +12 +1)
+        ≡ Compared.Greater
+
+let _ =
+        assert
+      :   Float/compare (Float/create +123 +0) (Float/create +12 +2)
+        ≡ Compared.Less
 
 in  { T = Float
     , base = Base
