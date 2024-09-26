@@ -484,7 +484,7 @@ let Float/abs
     : Float → Float
     = λ(x : Float) → x ⫽ { mantissaPositive = True }
 
-let comparePositive =
+let Float/compareUnsigned =
       λ(a : Float) →
       λ(b : Float) →
         let fixed
@@ -515,11 +515,11 @@ let Float/compare
       λ(y : Float) →
         if    x.mantissaPositive
         then  if    y.mantissaPositive
-              then  comparePositive x y
+              then  Float/compareUnsigned x y
               else  Compared.Greater
         else  if y.mantissaPositive
         then  Compared.Less
-        else  comparePositive y x
+        else  Float/compareUnsigned y x
 
 let _ =
         assert
@@ -551,6 +551,8 @@ let _ =
       :   Float/compare (Float/create +120 -100) (Float/create +12 -99)
         ≡ Compared.Equal
 
+let Float/addUnsigned = \(a : Float) -> \(b : Float) -> ???
+
 in  { T = Float
     , base = Base
     , digits = Digits
@@ -559,11 +561,11 @@ in  { T = Float
     , isPositive = Float/positive
     , compare = Float/compare
     , Compared
+    , abs = Float/abs
     , isZero = Float/isZero
     , doc =
         ''
-        The type `Float` represents floating-point numbers with at most ${Natural/show
-                                                                            Digits} of mantissa at base = ${Natural/show
-                                                                                                              Base}.
+        The type `Float` represents floating-point numbers at base = ${Natural/show
+                                                                         Base}.
         ''
     }
