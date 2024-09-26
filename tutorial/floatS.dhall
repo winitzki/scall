@@ -61,6 +61,8 @@ let Text/concat =
 
 let Base = 10
 
+let HalfBase = (divmod Base 2).div
+
 let MaxPrintedWithoutExponent = 3
 
 let Digits = 3
@@ -179,7 +181,7 @@ let _ = assert : Float/create +0 +0 ≡ Float/zero
 
 let Float/normalize
     : Float → Float
-    = λ(f : Float) → f ⫽ FloatBare/normalize f.(FloatBare)
+    = λ(f : Float) → Float/addExtraData (FloatBare/normalize f.(FloatBare))
 
 let showSign = λ(x : Bool) → if x then "+" else "-"
 
@@ -551,7 +553,55 @@ let _ =
       :   Float/compare (Float/create +120 -100) (Float/create +12 -99)
         ≡ Compared.Equal
 
-let Float/addUnsigned = \(a : Float) -> \(b : Float) -> ???
+let Float/roundDownward =
+      λ(a : Float) →
+      λ(prec : Natural) →
+        if    Natural/lessThan a.topPower prec
+        then  a
+        else  let power = D.power Base (Natural/subtract prec (a.topPower + 1))
+
+              let roundLastDigits = (divmod a.mantissa power).div * power
+
+              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+
+let _ =
+        assert
+      : Float/roundDownward (Float/create +12341 +0) 4 ≡ Float/create +12340 +0
+
+let _ =
+        assert
+      : Float/roundDownward (Float/create +12341 +0) 5 ≡ Float/create +12341 +0
+
+let _ =
+        assert
+      : Float/roundDownward (Float/create +12341 -10) 4 ≡ Float/create +1234 -9
+
+let _ = assert : Float/roundDownward (Float/create +12341 +0) 0 ≡ Float/zero
+
+let Float/round =
+      λ(a : Float) →
+      λ(prec : Natural) →
+        if    Natural/lessThan a.topPower prec
+        then  a
+        else  let powerMinus1 = D.power Base (Natural/subtract prec a.topPower)
+
+              let roundLastDigits =
+                      ( divmod
+                          (a.mantissa + HalfBase * powerMinus1)
+                          (powerMinus1 * Base)
+                      ).div
+                    * Base
+                    * powerMinus1
+
+              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+
+let _ = assert : Float/round (Float/create +12345 +0) 4 ≡ Float/create +12350 +0
+
+let _ = assert : Float/round (Float/create +12345 +0) 5 ≡ Float/create +12345 +0
+
+let _ = assert : Float/round (Float/create +12345 -10) 4 ≡ Float/create +1235 -9
+
+let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
 in  { T = Float
     , base = Base
@@ -563,6 +613,7 @@ in  { T = Float
     , Compared
     , abs = Float/abs
     , isZero = Float/isZero
+    , roundDownward = Float/roundDownward
     , doc =
         ''
         The type `Float` represents floating-point numbers at base = ${Natural/show
