@@ -51,6 +51,10 @@ let Integer/abs =
       https://prelude.dhall-lang.org/Integer/abs
         sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
 
+let Text/concat =
+      https://prelude.dhall-lang.org/Text/concat
+        sha256:731265b0288e8a905ecff95c97333ee2db614c39d69f1514cb8eed9259745fc0
+
 let Base = 10
 
 let MaxPrintedWithoutExponent = 3
@@ -218,7 +222,8 @@ let Float/showNormalized
             then  let largeInteger = f.mantissa * D.power Base f.exponent
 
                   in  if    Natural/lessThan largeInteger maxDisplayedInteger
-                      then  "${mantissaSign}${Natural/show largeInteger}."
+                      then  Text/concat
+                              [ mantissaSign, Natural/show largeInteger, "." ]
                       else  let remainingDigits
                                 : Text
                                 = if    Natural/isZero f.remaining
@@ -236,11 +241,15 @@ let Float/showNormalized
 
                                         in  padding ++ Natural/show f.remaining
 
-                            in  "${mantissaSign}${Natural/show
-                                                    f.leadDigit}.${remainingDigits}e+${Natural/show
-                                                                                         (   f.topPower
-                                                                                           + f.exponent
-                                                                                         )}"
+                            in  Text/concat
+                                  [ mantissaSign
+                                  , Natural/show f.leadDigit
+                                  , "."
+                                  , remainingDigits
+                                  , "e"
+                                  , exponentSign
+                                  , Natural/show (f.topPower + f.exponent)
+                                  ]
             else  ""
 
 let _ = assert : Float/isZero (Float/create +0 +1) ≡ True
