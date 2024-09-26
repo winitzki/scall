@@ -51,20 +51,131 @@ let Integer/abs =
       https://prelude.dhall-lang.org/Integer/abs
         sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
 
-let FloatUnsigned =
-      { mantissa : Natural, exponent : Natural, exponentPositive : Bool }
-
-let Float = FloatUnsigned ⩓ { mantissaPositive : Bool }
-
-let showSign = λ(x : Bool) → if x then "+" else "-"
-
 let Base = 10
 
 let MaxPrintedWithoutExponent = 3
 
-let _ = assert : Natural/lessThan 1 Base ≡ True
-
 let Digits = 3
+
+let FloatExtraData =
+      { leadDigit : Natural, topPower : Natural, remaining : Natural }
+
+let FloatBare =
+      { mantissa : Natural
+      , exponent : Natural
+      , exponentPositive : Bool
+      , mantissaPositive : Bool
+      }
+
+let Float = FloatBare ⩓ FloatExtraData
+
+let Float/addExtraData
+    : FloatBare → Float
+    = λ(args : FloatBare) →
+        let topPower = D.log Base args.mantissa
+
+        let r = divmod args.mantissa (D.power Base topPower)
+
+        in  { topPower, leadDigit = r.div, remaining = r.rem } ∧ args
+
+let FloatBare/create
+    : Integer → Integer → FloatBare
+    = λ(x : Integer) →
+      λ(exp : Integer) →
+        { mantissa = Integer/abs x
+        , mantissaPositive = Integer/positive x
+        , exponent = Integer/abs exp
+        , exponentPositive = Integer/positive exp
+        }
+
+let Float/zero = Float/addExtraData (FloatBare/create +0 +0)
+
+let normalizeStep
+    : FloatBare → FloatBare
+    = λ(x : FloatBare) →
+        if    Natural/isZero x.mantissa
+        then  Float/zero.(FloatBare)
+        else  if Natural/lessThan x.mantissa Base
+        then  x
+        else  let r = divmod x.mantissa Base
+
+              in  if    Natural/isZero r.rem
+                  then    x
+                        ⫽ { mantissa = r.div }
+                        ⫽ ( if        Natural/isZero x.exponent
+                                  ||  x.exponentPositive
+                            then  { exponent = x.exponent + 1
+                                  , exponentPositive = True
+                                  }
+                            else  if Natural/lessThan x.exponent 2
+                            then  { exponent = 0, exponentPositive = True }
+                            else  { exponent = Natural/subtract 1 x.exponent
+                                  , exponentPositive = False
+                                  }
+                          )
+                  else  x
+
+let _ = assert : normalizeStep Float/zero.(FloatBare) ≡ Float/zero.(FloatBare)
+
+let _ = assert : normalizeStep (FloatBare/create -0 -1) ≡ Float/zero.(FloatBare)
+
+let FloatBare/normalize
+    : FloatBare → FloatBare
+    = λ(args : FloatBare) →
+        Natural/fold (1 + args.mantissa) FloatBare normalizeStep args
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +0 +0) ≡ FloatBare/create +0 +0
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +0 -0) ≡ FloatBare/create +0 +0
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +1 +1) ≡ FloatBare/create +1 +1
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +1 +0) ≡ FloatBare/create +1 +0
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +100 +0) ≡ FloatBare/create +1 +2
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +100 +0) ≡ FloatBare/create +1 +2
+
+let _ =
+        assert
+      :   FloatBare/normalize (FloatBare/create -100100 -100)
+        ≡ FloatBare/create -1001 -98
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create -0 -1) ≡ FloatBare/create +0 +0
+
+let _ =
+        assert
+      : FloatBare/normalize (FloatBare/create +0 -1) ≡ FloatBare/create +0 +0
+
+let Float/create
+    : Integer → Integer → Float
+    = λ(x : Integer) →
+      λ(exp : Integer) →
+        Float/addExtraData (FloatBare/normalize (FloatBare/create x exp))
+
+let _ = assert : Float/create +0 +0 ≡ Float/zero
+
+let Float/normalize
+    : Float → Float
+    = λ(f : Float) → f ⫽ FloatBare/normalize f.(FloatBare)
+
+let showSign = λ(x : Bool) → if x then "+" else "-"
+
+let _ = assert : Natural/lessThan 1 Base ≡ True
 
 let _ = assert : Natural/lessThan 1 Digits ≡ True
 
@@ -82,401 +193,171 @@ let AssertLessThan =
                                                                     limit}."
               }
 
-let Float/show
+let Text/repeat =
+      λ(n : Natural) →
+      λ(x : Text) →
+        Natural/fold n Text (λ(a : Text) → a ++ x) ""
+
+let Float/positive =
+      λ(x : Float) → x.mantissaPositive || Natural/isZero x.mantissa
+
+let Float/isZero = λ(x : Float) → Natural/isZero x.mantissa
+
+let maxDisplayedInteger = D.power Base (MaxPrintedWithoutExponent + 1)
+
+let Float/showNormalized
     : Float → Text
     = λ(f : Float) →
-        if    Natural/isZero f.mantissa
-        then  "0."
-        else  let mantissaSign = showSign f.mantissaPositive
+        let mantissaSign = showSign f.mantissaPositive
 
-              let exponentSign = showSign f.exponentPositive
+        let exponentSign = showSign f.exponentPositive
 
-              in  if    f.exponentPositive || Natural/isZero f.exponent
-                  then  let largeInteger = f.mantissa * D.power Base f.exponent
+        in  if    Natural/isZero f.mantissa
+            then  "0."
+            else  if f.exponentPositive || Natural/isZero f.exponent
+            then  let largeInteger = f.mantissa * D.power Base f.exponent
 
-                        let maxDisplayedInteger =
-                              D.power Base (MaxPrintedWithoutExponent + 1)
+                  in  if    Natural/lessThan largeInteger maxDisplayedInteger
+                      then  "${mantissaSign}${Natural/show largeInteger}."
+                      else  let remainingDigits
+                                : Text
+                                = if    Natural/isZero f.remaining
+                                  then  ""
+                                  else  let remainingPower =
+                                              D.log Base f.remaining
 
-                        in  if    Natural/lessThan
-                                    largeInteger
-                                    maxDisplayedInteger
-                            then  "${mantissaSign}${Natural/show largeInteger}."
-                            else  let topPower = D.log Base largeInteger
-
-                                  let baseToTopPower = D.power Base topPower
-
-                                  let divideByTopPower =
-                                        divmod largeInteger baseToTopPower
-
-                                  let firstDigit
-                                      : Natural
-                                      = divideByTopPower.div
-
-                                  let remainingDigitsWithTrailingZeros
-                                      : Natural
-                                      = divideByTopPower.rem
-
-                                  let remainingDigitsWithoutTrailingZeros
-                                      : Text
-                                      = if    Natural/isZero
-                                                remainingDigitsWithTrailingZeros
-                                        then  ""
-                                        else  Natural/show
-                                                ( Natural/fold
-                                                    remainingDigitsWithTrailingZeros
-                                                    Natural
-                                                    ( λ(x : Natural) →
-                                                        let divideByBase =
-                                                              divmod x Base
-
-                                                        in  if    Natural/isZero
-                                                                    divideByBase.rem
-                                                            then  divideByBase.div
-                                                            else  x
-                                                    )
-                                                    remainingDigitsWithTrailingZeros
+                                        let padding =
+                                              Text/repeat
+                                                ( Natural/subtract
+                                                    remainingPower
+                                                    f.topPower
                                                 )
+                                                "0"
 
-                                  in  "${mantissaSign}${Natural/show
-                                                          firstDigit}.${remainingDigitsWithoutTrailingZeros}e+${Natural/show
-                                                                                                                  topPower}"
-                  else  "${mantissaSign}${Natural/show f.mantissa}."
+                                        in  padding ++ Natural/show f.remaining
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 0
-            , exponent = 1234
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "0."
+                            in  "${mantissaSign}${Natural/show
+                                                    f.leadDigit}.${remainingDigits}e+${Natural/show
+                                                                                         f.topPower}"
+            else  ""
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 1
-            , exponent = 0
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1."
+let _ = assert : Float/isZero (Float/create +0 +1) ≡ True
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 1
-            , exponent = 0
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1."
+let _ = assert : Float/isZero (Float/create -0 +1) ≡ True
+
+let _ = assert : Float/isZero (Float/create +1 -100) ≡ False
+
+let _ = assert : Float/isZero (Float/create -1 -100) ≡ False
+
+let _ = assert : Float/normalize (Float/create +1 +1) ≡ Float/create +1 +1
+
+let _ = assert : Float/normalize (Float/create +1 +0) ≡ Float/create +1 +0
+
+let _ = assert : Float/normalize (Float/create +100 +0) ≡ Float/create +1 +2
+
+let _ = assert : Float/normalize (Float/create +0 -1) ≡ Float/create +0 +0
+
+let _ = assert : Float/normalize (Float/create -0 -1) ≡ Float/create +0 +0
+
+let _ = assert : Float/normalize (Float/create +0 -0) ≡ Float/create +0 +0
+
+let _ = assert : Float/normalize (Float/create +100 +0) ≡ Float/create +1 +2
 
 let _ =
         assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 0
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+10."
+      : Float/normalize (Float/create -100100 -100) ≡ Float/create -1001 -98
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 0
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-10."
+let Float/show = λ(f : Float) → Float/showNormalized (Float/normalize f)
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = True
-            }
-        ≡ "+100."
+let test_show = λ(x : Integer) → λ(e : Integer) → Float/show (Float/create x e)
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = True
-            }
-        ≡ "-100."
+let _ = assert : test_show +0 -1234 ≡ "0."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 2
-            , mantissaPositive = True
-            , exponentPositive = True
-            }
-        ≡ "+1000."
+let _ = assert : test_show -0 -1234 ≡ "0."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 2
-            , mantissaPositive = False
-            , exponentPositive = True
-            }
-        ≡ "-1000."
+let _ = assert : test_show +1 -0 ≡ "+1."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 3
-            , mantissaPositive = True
-            , exponentPositive = True
-            }
-        ≡ "+1.e+4"
+let _ = assert : test_show -1 -0 ≡ "-1."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 3
-            , mantissaPositive = False
-            , exponentPositive = True
-            }
-        ≡ "-1.e+4"
+let _ = assert : test_show +10 -0 ≡ "+10."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1."
+let _ = assert : test_show -10 -0 ≡ "-10."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1."
+let _ = assert : test_show +10 +1 ≡ "+100."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 101
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+10.1"
+let _ = assert : test_show -10 +1 ≡ "-100."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 101
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-10.1"
+let _ = assert : test_show +10 +2 ≡ "+1000."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 100
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+10."
+let _ = assert : test_show -10 +2 ≡ "-1000."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 100
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-10."
+let _ = assert : test_show +10 +3 ≡ "+1.e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 1001
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+100.1"
+let _ = assert : test_show -10 +3 ≡ "-1.e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 1001
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-100.1"
+let _ = assert : test_show +10 -1 ≡ "+1."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10001
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1000.1"
+let _ = assert : test_show -10 -1 ≡ "-1."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 10001
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1000.1"
+let _ = assert : test_show +101 -1 ≡ "+10.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 100001
-            , exponent = 1
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1.00001e+4"
+let _ = assert : test_show -101 -1 ≡ "-10.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 100001
-            , exponent = 1
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1.00001e+4"
+let _ = assert : test_show +100 -1 ≡ "+10."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 8
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1.23456789"
+let _ = assert : test_show -100 -1 ≡ "-10."
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 8
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1.23456789"
+let _ = assert : test_show +1001 -1 ≡ "+100.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 9
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+0.123456789"
+let _ = assert : test_show -1001 -1 ≡ "-100.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 9
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-0.123456789"
+let _ = assert : test_show +10001 -1 ≡ "+1000.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 10
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+0.0123456789"
+let _ = assert : test_show -10001 -1 ≡ "-1000.1"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 10
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-0.0123456789"
+let _ = assert : test_show +100001 -1 ≡ "+1.00001e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 11
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+0.00123456789"
+let _ = assert : test_show -100001 -1 ≡ "-1.00001e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 11
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-0.00123456789"
+let _ = assert : test_show +110001 -1 ≡ "+1.10001e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 12
-            , mantissaPositive = True
-            , exponentPositive = False
-            }
-        ≡ "+1.23456789e-4"
+let _ = assert : test_show -110001 -1 ≡ "-1.10001e+4"
 
-let _ =
-        assert
-      :   Float/show
-            { mantissa = 123456789
-            , exponent = 12
-            , mantissaPositive = False
-            , exponentPositive = False
-            }
-        ≡ "-1.23456789e-4"
+let _ = assert : test_show +100000 -1 ≡ "+1.e+4"
+
+let _ = assert : test_show -100000 -1 ≡ "-1.e+4"
+
+let _ = assert : test_show +110000 -1 ≡ "+1.1e+4"
+
+let _ = assert : test_show -110000 -1 ≡ "-1.1e+4"
+
+let _ = assert : test_show +123456789 -8 ≡ "+1.23456789"
+
+let _ = assert : test_show -123456789 -8 ≡ "-1.23456789"
+
+let _ = assert : test_show +123456789 -9 ≡ "+0.123456789"
+
+let _ = assert : test_show -123456789 -9 ≡ "-0.123456789"
+
+let _ = assert : test_show +123456789 -10 ≡ "+0.0123456789"
+
+let _ = assert : test_show -123456789 -10 ≡ "-0.0123456789"
+
+let _ = assert : test_show +123456789 -11 ≡ "+0.00123456789"
+
+let _ = assert : test_show -123456789 -11 ≡ "-0.00123456789"
+
+let _ = assert : test_show +123456789 -12 ≡ "+1.23456789e-4"
+
+let _ = assert : test_show -123456789 -12 ≡ "-1.23456789e-4"
 
 in  { T = Float
     , base = Base
     , digits = Digits
     , show = Float/show
     , create = Float/create
+    , isPositive = Float/positive
+    , isZero = Float/isZero
     , doc =
         ''
         The type `Float` type represents floating-point numbers with at most ${Digits} of mantissa at base = ${Base}.
