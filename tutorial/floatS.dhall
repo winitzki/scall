@@ -649,13 +649,33 @@ let Float/round =
 
 let _ = assert : Float/round (Float/create +12345 +0) 4 ≡ Float/create +12350 +0
 
+let _ =
+        assert
+      : Float/roundDownward (Float/create +12345 +0) 4 ≡ Float/create +12340 +0
+
 let _ = assert : Float/round (Float/create +12345 +0) 5 ≡ Float/create +12345 +0
 
 let _ = assert : Float/round (Float/create +12345 -10) 4 ≡ Float/create +1235 -9
 
+let _ =
+        assert
+      : Float/roundDownward (Float/create +12345 -10) 4 ≡ Float/create +1234 -9
+
 let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
 let Float/addUnsigned
+    : Float → Float → Natural → Float
+    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+
+let Float/subtractUnsigned
+    : Float → Float → Natural → Float
+    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+
+let Float/add
+    : Float → Float → Natural → Float
+    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+
+let Float/subtract
     : Float → Float → Natural → Float
     = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
 
