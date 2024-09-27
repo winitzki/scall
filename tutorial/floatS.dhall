@@ -31,6 +31,14 @@ let Natural/lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
 
+let Matural/min =
+      https://prelude.dhall-lang.org/Natural/min
+        sha256:f25f9c462e4dbf0eb15f9ff6ac840c6e9c82255a7f4f2ab408bdab338e028710
+
+let Matural/max =
+      https://prelude.dhall-lang.org/Natural/max
+        sha256:1f3b18da330223ab039fad11693da72c7e68d516f50502c73f41a89a097b62f7
+
 let Integer/subtract =
       https://prelude.dhall-lang.org/Integer/subtract
         sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
@@ -489,27 +497,61 @@ let Float/abs
 let Float/compareUnsigned =
       λ(a : Float) →
       λ(b : Float) →
-        let fixed
-            : { x : Natural, y : Natural }
-            = if    a.exponentPositive
-              then  if    b.exponentPositive
-                    then  { x = a.mantissa * D.power Base a.exponent
-                          , y = b.mantissa * D.power Base b.exponent
+        if    Float/isZero a
+        then  if Float/isZero b then Compared.Equal else Compared.Less
+        else  if Float/isZero b
+        then  Compared.Greater
+        else  let fixedExponents
+                  : { x : Natural, y : Natural }
+                  = if    a.exponentPositive
+                    then  if    b.exponentPositive
+                          then  { x = a.exponent + a.topPower
+                                , y = b.exponent + b.topPower
+                                }
+                          else  { x = a.exponent + a.topPower + b.exponent
+                                , y = b.topPower
+                                }
+                    else  if b.exponentPositive
+                    then  { x = a.topPower
+                          , y = a.exponent + b.exponent + b.topPower
                           }
-                    else  { x =
-                                a.mantissa
-                              * D.power Base (a.exponent + b.exponent)
-                          , y = b.mantissa
+                    else  { x = b.exponent + a.topPower
+                          , y = a.exponent + b.topPower
                           }
-              else  if b.exponentPositive
-              then  { x = a.mantissa
-                    , y = b.mantissa * D.power Base (b.exponent + a.exponent)
-                    }
-              else  { x = a.mantissa * D.power Base b.exponent
-                    , y = b.mantissa * D.power Base a.exponent
-                    }
 
-        in  Natural/compare fixed.x fixed.y
+              in  if    Natural/lessThan fixedExponents.x fixedExponents.y
+                  then  Compared.Less
+                  else  if Natural/lessThan fixedExponents.y fixedExponents.x
+                  then  Compared.Greater
+                  else  let fixed
+                            : { x : Natural, y : Natural }
+                            = if    a.exponentPositive
+                              then  if    b.exponentPositive
+                                    then  { x =
+                                                a.mantissa
+                                              * D.power Base a.exponent
+                                          , y =
+                                                b.mantissa
+                                              * D.power Base b.exponent
+                                          }
+                                    else  { x =
+                                                a.mantissa
+                                              * D.power
+                                                  Base
+                                                  (a.exponent + b.exponent)
+                                          , y = b.mantissa
+                                          }
+                              else  if b.exponentPositive
+                              then  { x = a.mantissa
+                                    , y =
+                                          b.mantissa
+                                        * D.power Base (b.exponent + a.exponent)
+                                    }
+                              else  { x = a.mantissa * D.power Base b.exponent
+                                    , y = b.mantissa * D.power Base a.exponent
+                                    }
+
+                        in  Natural/compare fixed.x fixed.y
 
 let Float/compare
     : Float → Float → Compared
@@ -552,6 +594,16 @@ let _ =
         assert
       :   Float/compare (Float/create +120 -100) (Float/create +12 -99)
         ≡ Compared.Equal
+
+let _ =
+        assert
+      :   Float/compare (Float/create +120 -100) (Float/create -12 -99)
+        ≡ Compared.Greater
+
+let _ =
+        assert
+      :   Float/compare (Float/create -120 -100) (Float/create +12 -99)
+        ≡ Compared.Less
 
 let Float/roundDownward =
       λ(a : Float) →
@@ -603,6 +655,10 @@ let _ = assert : Float/round (Float/create +12345 -10) 4 ≡ Float/create +1235 
 
 let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
+let Float/addUnsigned
+    : Float → Float → Natural → Float
+    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+
 in  { T = Float
     , base = Base
     , digits = Digits
@@ -614,6 +670,7 @@ in  { T = Float
     , abs = Float/abs
     , isZero = Float/isZero
     , roundDownward = Float/roundDownward
+    , round = Float/round
     , doc =
         ''
         The type `Float` represents floating-point numbers at base = ${Natural/show
