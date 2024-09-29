@@ -494,76 +494,77 @@ let Float/abs
     : Float → Float
     = λ(x : Float) → x ⫽ { mantissaPositive = True }
 
-let Float/compareUnsigned =
+let TorsorType = { x : Natural, y : Natural }
+
+let computeTorsorForBothNonzero
+    -- We define "torsor(a, b)" as a pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
+    : Float → Float → TorsorType
+    = λ(a : Float) →
+      λ(b : Float) →
+        if    a.exponentPositive
+        then  if    b.exponentPositive
+              then  { x = a.exponent + a.topPower, y = b.exponent + b.topPower }
+              else  { x = a.exponent + a.topPower + b.exponent, y = b.topPower }
+        else  if b.exponentPositive
+        then  { x = a.topPower, y = a.exponent + b.exponent + b.topPower }
+        else  { x = b.exponent + a.topPower, y = a.exponent + b.topPower }
+
+let compareUnsignedNonzeroWithTorsor =
       λ(a : Float) →
       λ(b : Float) →
-        if    Float/isZero a
-        then  if Float/isZero b then Compared.Equal else Compared.Less
-        else  if Float/isZero b
+      λ(fixedExponents : TorsorType) →
+        if    Natural/lessThan fixedExponents.x fixedExponents.y
+        then  Compared.Less
+        else  if Natural/lessThan fixedExponents.y fixedExponents.x
         then  Compared.Greater
-        else  let fixedExponents
-                  : { x : Natural, y : Natural }
+        else  let fixed
+                  : TorsorType
                   = if    a.exponentPositive
                     then  if    b.exponentPositive
-                          then  { x = a.exponent + a.topPower
-                                , y = b.exponent + b.topPower
+                          then  { x = a.mantissa * D.power Base a.exponent
+                                , y = b.mantissa * D.power Base b.exponent
                                 }
-                          else  { x = a.exponent + a.topPower + b.exponent
-                                , y = b.topPower
+                          else  { x =
+                                      a.mantissa
+                                    * D.power Base (a.exponent + b.exponent)
+                                , y = b.mantissa
                                 }
                     else  if b.exponentPositive
-                    then  { x = a.topPower
-                          , y = a.exponent + b.exponent + b.topPower
+                    then  { x = a.mantissa
+                          , y =
+                                b.mantissa
+                              * D.power Base (b.exponent + a.exponent)
                           }
-                    else  { x = b.exponent + a.topPower
-                          , y = a.exponent + b.topPower
+                    else  { x = a.mantissa * D.power Base b.exponent
+                          , y = b.mantissa * D.power Base a.exponent
                           }
 
-              in  if    Natural/lessThan fixedExponents.x fixedExponents.y
-                  then  Compared.Less
-                  else  if Natural/lessThan fixedExponents.y fixedExponents.x
-                  then  Compared.Greater
-                  else  let fixed
-                            : { x : Natural, y : Natural }
-                            = if    a.exponentPositive
-                              then  if    b.exponentPositive
-                                    then  { x =
-                                                a.mantissa
-                                              * D.power Base a.exponent
-                                          , y =
-                                                b.mantissa
-                                              * D.power Base b.exponent
-                                          }
-                                    else  { x =
-                                                a.mantissa
-                                              * D.power
-                                                  Base
-                                                  (a.exponent + b.exponent)
-                                          , y = b.mantissa
-                                          }
-                              else  if b.exponentPositive
-                              then  { x = a.mantissa
-                                    , y =
-                                          b.mantissa
-                                        * D.power Base (b.exponent + a.exponent)
-                                    }
-                              else  { x = a.mantissa * D.power Base b.exponent
-                                    , y = b.mantissa * D.power Base a.exponent
-                                    }
+              in  Natural/compare fixed.x fixed.y
 
-                        in  Natural/compare fixed.x fixed.y
+let compareUnsignedNonzero =
+      λ(a : Float) →
+      λ(b : Float) →
+        compareUnsignedNonzeroWithTorsor a b (computeTorsorForBothNonzero a b)
 
 let Float/compare
     : Float → Float → Compared
     = λ(x : Float) →
       λ(y : Float) →
-        if    x.mantissaPositive
-        then  if    y.mantissaPositive
-              then  Float/compareUnsigned x y
+        if    Float/isZero x
+        then  if    Float/isZero y
+              then  Compared.Equal
+              else  if y.mantissaPositive
+              then  Compared.Less
               else  Compared.Greater
-        else  if y.mantissaPositive
+        else  if x.mantissaPositive
+        then  if    Float/isZero y
+              then  Compared.Greater
+              else  if y.mantissaPositive
+              then  compareUnsignedNonzero x y
+              else  Compared.Greater
+        else  if Float/isZero y || y.mantissaPositive
         then  Compared.Less
-        else  Float/compareUnsigned y x
+        else  compareUnsignedNonzero y x
 
 let _ =
         assert
@@ -663,21 +664,127 @@ let _ =
 
 let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
-let Float/addUnsigned
-    : Float → Float → Natural → Float
-    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+let Float/negate =
+      λ(a : Float) →
+        if    Float/isZero a
+        then  a
+        else    a
+              ⫽ { mantissaPositive = if a.mantissaPositive then False else True
+                }
 
-let Float/subtractUnsigned
-    : Float → Float → Natural → Float
-    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+let addUnsignedBothNonzero
+    -- Compute a + b, assuming that both are > 0.
+    : Float → Float → TorsorType → Natural → Float
+    = λ(a : Float) →
+      λ(b : Float) →
+      λ(torsor : TorsorType) →
+      λ(prec : Natural) →
+        Float/zero
+
+let subtractUnsignedFromGreaterBothNonzero
+    -- Compute b - a (like Natural/subtract), assuming that b > a > 0.
+    : Float → Float → TorsorType → Natural → Float
+    = λ(a : Float) →
+      λ(b : Float) →
+      λ(torsor : TorsorType) →
+      λ(prec : Natural) →
+        Float/zero
 
 let Float/add
     : Float → Float → Natural → Float
-    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+    = λ(a : Float) →
+      λ(b : Float) →
+      λ(prec : Natural) →
+        if    Float/isZero a
+        then  b
+        else  if Float/isZero b
+        then  a
+        else  let torsor = computeTorsorForBothNonzero a b
+
+              let absA = Float/abs a
+
+              let absB = Float/abs b
+
+              let applySign =
+                    λ(result : Float) →
+                      if a.mantissaPositive then result else Float/negate result
+
+              in  if        a.mantissaPositive && b.mantissaPositive
+                        ||      a.mantissaPositive == False
+                            &&  b.mantissaPositive == False
+                  then  applySign (addUnsignedBothNonzero a b torsor prec)
+                  else  let compared =
+                              compareUnsignedNonzeroWithTorsor absA absB torsor
+
+                        in  merge
+                              { Less =
+                                  applySign
+                                    ( subtractUnsignedFromGreaterBothNonzero
+                                        absA
+                                        absB
+                                        torsor
+                                        prec
+                                    )
+                              , Equal = Float/zero
+                              , Greater =
+                                  applySign
+                                    ( subtractUnsignedFromGreaterBothNonzero
+                                        absB
+                                        absA
+                                        torsor
+                                        prec
+                                    )
+                              }
+                              compared
 
 let Float/subtract
+    -- Subtracting b - a, like Natural/subtract.
     : Float → Float → Natural → Float
-    = λ(a : Float) → λ(b : Float) → λ(prec : Natural) → Float/zero
+    = λ(a : Float) →
+      λ(b : Float) →
+      λ(prec : Natural) →
+        if    Float/isZero a
+        then  Float/negate b
+        else  if Float/isZero b
+        then  a
+        else  let torsor = computeTorsorForBothNonzero a b
+
+              let absA = Float/abs a
+
+              let absB = Float/abs b
+
+              let applySign =
+                    λ(result : Float) →
+                      if b.mantissaPositive then result else Float/negate result
+
+              in  if        a.mantissaPositive && b.mantissaPositive == False
+                        ||  a.mantissaPositive == False && b.mantissaPositive
+                  then  applySign (addUnsignedBothNonzero absA absB torsor prec)
+                  else  let compared =
+                              compareUnsignedNonzeroWithTorsor absA absB torsor
+
+                        in  merge
+                              { Greater =
+                                  Float/negate
+                                    ( applySign
+                                        ( subtractUnsignedFromGreaterBothNonzero
+                                            absB
+                                            absA
+                                            torsor
+                                            prec
+                                        )
+                                    )
+                              , Equal = Float/zero
+                              , Less =
+                                  applySign
+                                    ( subtractUnsignedFromGreaterBothNonzero
+                                        absA
+                                        absB
+                                        torsor
+                                        prec
+                                    )
+                              }
+                              compared
 
 in  { T = Float
     , base = Base
@@ -686,11 +793,14 @@ in  { T = Float
     , create = Float/create
     , isPositive = Float/positive
     , compare = Float/compare
+    , negate = Float/negate
     , Compared
     , abs = Float/abs
     , isZero = Float/isZero
     , roundDownward = Float/roundDownward
     , round = Float/round
+    , add = Float/add
+    , subtract = Float/subtract
     , doc =
         ''
         The type `Float` represents floating-point numbers at base = ${Natural/show
