@@ -672,6 +672,15 @@ let Float/negate =
               ⫽ { mantissaPositive = if a.mantissaPositive then False else True
                 }
 
+let totalUnderflow
+    -- Detect if `a` is negligible compared with `b`, within given precision.
+    : Float → Float → TorsorType → Natural → Bool
+    = λ(a : Float) →
+      λ(b : Float) →
+      λ(torsor : TorsorType) →
+      λ(prec : Natural) →
+        False
+
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
     : Float → Float → TorsorType → Natural → Float
@@ -679,7 +688,11 @@ let addUnsignedBothNonzero
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        Float/zero
+        if    totalUnderflow a b torsor prec
+        then  b
+        else  if totalUnderflow b a torsor prec
+        then  a
+        else  Float/zero
 
 let subtractUnsignedFromGreaterBothNonzero
     -- Compute b - a (like Natural/subtract), assuming that b > a > 0.
@@ -688,7 +701,7 @@ let subtractUnsignedFromGreaterBothNonzero
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        Float/zero
+        if totalUnderflow a b torsor prec then b else Float/zero
 
 let Float/add
     : Float → Float → Natural → Float
