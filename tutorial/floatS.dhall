@@ -678,7 +678,25 @@ let totalUnderflow
     : TorsorType → Natural → Bool
     = λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        Natural/isZero (Natural/subtract torsor.y (1 + prec + torsor.x))
+        Natural/lessThanEqual (1 + prec + torsor.x) torsor.y
+
+let flipTorsor = λ(torsor : TorsorType) → { x = torsor.y, y = torsor.x }
+
+let torsorXLessEqualY =
+      λ(torsor : TorsorType) → Natural/lessThanEqual torsor.x torsor.y
+
+let addUnsignedToGreater =
+      λ(a : Float) →
+      λ(b : Float) →
+      λ(torsor : TorsorType) →
+      λ(prec : Natural) →
+        if    Natural/lessThanEqual a.topPower (prec + 1)
+        then  Float/zero
+        else  let commonSize = prec + 1
+
+              let aTruncated = Float/round a commonSize
+
+              in  Float/zero
 
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
@@ -689,9 +707,11 @@ let addUnsignedBothNonzero
       λ(prec : Natural) →
         if    totalUnderflow torsor prec
         then  b
-        else  let fliptorsor = { x = torsor.y, y = torsor.x }
-
-              in  if totalUnderflow fliptorsor prec then a else Float/zero
+        else  if totalUnderflow (flipTorsor torsor) prec
+        then  a
+        else  if torsorXLessEqualY torsor
+        then  addUnsignedToGreater b a (flipTorsor torsor) prec
+        else  addUnsignedToGreater a b torsor prec
 
 let subtractUnsignedFromGreaterBothNonzero
     -- Compute b - a (like Natural/subtract), assuming that b > a > 0.
