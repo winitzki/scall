@@ -31,11 +31,11 @@ let Natural/lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
 
-let Matural/min =
+let Natural/min =
       https://prelude.dhall-lang.org/Natural/min
         sha256:f25f9c462e4dbf0eb15f9ff6ac840c6e9c82255a7f4f2ab408bdab338e028710
 
-let Matural/max =
+let Natural/max =
       https://prelude.dhall-lang.org/Natural/max
         sha256:1f3b18da330223ab039fad11693da72c7e68d516f50502c73f41a89a097b62f7
 
@@ -179,6 +179,11 @@ let _ =
         assert
       : FloatBare/normalize (FloatBare/create +0 -1) ≡ FloatBare/create +0 +0
 
+let Float/positive =
+      λ(x : Float) → x.mantissaPositive || Natural/isZero x.mantissa
+
+let Float/isZero = λ(x : Float) → Natural/isZero x.mantissa
+
 let Float/create
     : Integer → Integer → Float
     = λ(x : Integer) →
@@ -189,7 +194,36 @@ let _ = assert : Float/create +0 +0 ≡ Float/zero
 
 let Float/normalize
     : Float → Float
-    = λ(f : Float) → Float/addExtraData (FloatBare/normalize f.(FloatBare))
+    = λ(x : Float) → Float/addExtraData (FloatBare/normalize x.(FloatBare))
+
+let Float/pad
+    : Float → Natural → Float
+    = λ(x : Float) →
+      λ(padding : Natural) →
+        if    Float/isZero x || Natural/isZero padding
+        then  x
+        else  let p = D.power Base padding
+
+              let newExponentPositive =
+                        x.exponentPositive
+                    ||  Natural/lessThanEqual x.exponent padding
+
+              let newExponent =
+                    if    x.exponentPositive
+                    then  x.exponent + padding
+                    else  let e = Natural/subtract padding x.exponent
+
+                          in  if    Natural/isZero e
+                              then  Natural/subtract x.exponent padding
+                              else  e
+
+              in    x
+                  ⫽ { mantissa = x.mantissa * p
+                    , topPower = x.topPower + padding
+                    , exponent = newExponent
+                    , exponentPositive = newExponentPositive
+                    , remaining = x.remaining * p
+                    }
 
 let showSign = λ(x : Bool) → if x then "+" else "-"
 
@@ -215,11 +249,6 @@ let Text/repeat =
       λ(n : Natural) →
       λ(x : Text) →
         Natural/fold n Text (λ(a : Text) → a ++ x) ""
-
-let Float/positive =
-      λ(x : Float) → x.mantissaPositive || Natural/isZero x.mantissa
-
-let Float/isZero = λ(x : Float) → Natural/isZero x.mantissa
 
 let maxDisplayedInteger = D.power Base (MaxPrintedWithoutExponent + 1)
 
@@ -631,6 +660,17 @@ let _ =
 
 let _ = assert : Float/roundDownward (Float/create +12341 +0) 0 ≡ Float/zero
 
+let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
+                =
+      λ(x : Natural) →
+      λ(x_log_floor : Natural) →
+      λ(prec : Natural) →
+        let h = 1 + x_log_floor
+
+        in  if    Natural/lessThanEqual h prec
+            then  x * D.power Base (Natural/subtract h prec)
+            else  (divmod x (D.power Base (Natural/subtract prec h))).div
+
 let Float/round =
       λ(a : Float) →
       λ(prec : Natural) →
@@ -685,18 +725,48 @@ let flipTorsor = λ(torsor : TorsorType) → { x = torsor.y, y = torsor.x }
 let torsorXLessEqualY =
       λ(torsor : TorsorType) → Natural/lessThanEqual torsor.x torsor.y
 
+let Natural/plus = λ(a : Natural) → λ(b : Natural) → a + b
+
+let addOrSubtractUnsignedAIsGreater =
+      λ(a : Float) →
+      λ(b : Float) →
+      λ(torsor : TorsorType) →
+      λ(prec : Natural) →
+      λ(addOrSubtract : Natural → Natural → Natural) →
+        let difference = Natural/subtract torsor.y torsor.x
+
+        let commonSize = prec + 1
+
+        in  if    Natural/lessThanEqual a.topPower commonSize
+            then  let baseline =
+                        Natural/max
+                          a.topPower
+                          (Natural/min commonSize (difference + b.topPower))
+
+                  let bClamped = clampDigits b.mantissa b.topPower baseline
+
+                  let aPadded = Float/pad a baseline
+
+                  in    aPadded
+                      ⫽ { mantissa = addOrSubtract aPadded.mantissa bClamped }
+            else  let aTruncated = Float/round a commonSize
+
+                  let bClamped =
+                        clampDigits
+                          b.mantissa
+                          b.topPower
+                          (Natural/subtract difference commonSize)
+
+                  in    aTruncated
+                      ⫽ { mantissa = addOrSubtract aTruncated.mantissa bClamped
+                        }
+
 let addUnsignedToGreater =
       λ(a : Float) →
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if    Natural/lessThanEqual a.topPower (prec + 1)
-        then  Float/zero
-        else  let commonSize = prec + 1
-
-              let aTruncated = Float/round a commonSize
-
-              in  Float/zero
+        addOrSubtractUnsignedAIsGreater a b torsor prec Natural/plus
 
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
@@ -720,7 +790,9 @@ let subtractUnsignedFromGreaterBothNonzero
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if totalUnderflow torsor prec then b else Float/zero
+        if    totalUnderflow torsor prec
+        then  b
+        else  addOrSubtractUnsignedAIsGreater a b torsor prec Natural/subtract
 
 let Float/add
     : Float → Float → Natural → Float
@@ -833,6 +905,7 @@ in  { T = Float
     , round = Float/round
     , add = Float/add
     , subtract = Float/subtract
+    , pad = Float/pad
     , doc =
         ''
         The type `Float` represents floating-point numbers at base = ${Natural/show
