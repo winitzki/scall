@@ -674,12 +674,11 @@ let Float/negate =
 
 let totalUnderflow
     -- Detect if `a` is negligible compared with `b`, within given precision.
-    : Float → Float → TorsorType → Natural → Bool
-    = λ(a : Float) →
-      λ(b : Float) →
-      λ(torsor : TorsorType) →
+    -- The value of `torsor a b` is given.
+    : TorsorType → Natural → Bool
+    = λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        False
+        Natural/isZero (Natural/subtract torsor.y (1 + prec + torsor.x))
 
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
@@ -688,11 +687,11 @@ let addUnsignedBothNonzero
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if    totalUnderflow a b torsor prec
+        if    totalUnderflow torsor prec
         then  b
-        else  if totalUnderflow b a torsor prec
-        then  a
-        else  Float/zero
+        else  let fliptorsor = { x = torsor.y, y = torsor.x }
+
+              in  if totalUnderflow fliptorsor prec then a else Float/zero
 
 let subtractUnsignedFromGreaterBothNonzero
     -- Compute b - a (like Natural/subtract), assuming that b > a > 0.
@@ -701,7 +700,7 @@ let subtractUnsignedFromGreaterBothNonzero
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if totalUnderflow a b torsor prec then b else Float/zero
+        if totalUnderflow torsor prec then b else Float/zero
 
 let Float/add
     : Float → Float → Natural → Float
