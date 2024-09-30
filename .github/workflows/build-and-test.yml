@@ -104,7 +104,7 @@ jobs:
           packages: scheme-full
       - run: bash tutorial/make_pdf.sh dryrunx
       - name: Upload tutorial PDF
-        uses: "actions/upload-artifact@v2"
+        uses: "actions/upload-artifact@v4"
         with:
           if-no-files-found: error
           name: Tutorial PDF file and logs

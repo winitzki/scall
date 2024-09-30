@@ -60,7 +60,7 @@ in  GithubActions.Workflow::{
                     { run = "bash tutorial/make_pdf.sh dryrunx" }
                 , GithubActions.Step::{
                   , name = Some "Upload tutorial PDF"
-                  , uses = Some "actions/upload-artifact@v2"
+                  , uses = Some "actions/upload-artifact@v4"
                   , `with` = Some
                       ( toMap
                           { name = "Tutorial PDF file and logs"
