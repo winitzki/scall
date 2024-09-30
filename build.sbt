@@ -61,7 +61,7 @@ lazy val jdkModuleOptions: Seq[String] = {
   val jdkVersion = scala.sys.props.get("JDK_VERSION")
   val options    = if (jdkVersion exists (_ startsWith "8.")) Seq() else Seq("--add-opens", "java.base/java.util=ALL-UNNAMED")
   println(s"Additional JDK ${jdkVersion.getOrElse("")} options: ${options.mkString(" ")}")
-  options
+  options ++ Seq("-Xss2097152")
 }
 
 lazy val root = (project in file("."))

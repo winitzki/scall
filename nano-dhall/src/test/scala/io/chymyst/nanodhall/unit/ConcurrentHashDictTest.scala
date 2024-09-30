@@ -1,7 +1,7 @@
 package io.chymyst.nanodhall.unit
 
 import com.eed3si9n.expecty.Expecty.expect
-import io.chymyst.dhall.ConcurrentHashDict
+import io.chymyst.nanodhall.ConcurrentHashDict
 import munit.FunSuite
 
 class ConcurrentHashDictTest extends FunSuite {

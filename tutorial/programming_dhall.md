@@ -6,15 +6,15 @@ This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for s
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
 Dhall is positioned as an open-source language for programmable configuration files.
-The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other programmable or templated configuration formats.
+The primary design goal of Dhall is to provide a highly programmable but safe replacement for templated JSON, templated YAML, and other templated or programmable configuration formats.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other issues behind the design of Dhall.
 
-This book's view is that Dhall is a powerful, purely functional programming language that has different applications:
-- a template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
-- a fully specified and tested industry-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
+This book's view is that Dhall may be used as:
+- a powerful template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
+- a fully specified and tested industrial-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
 - a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
 
-The book focuses on the last two applications.
+The book focuses on the last two use cases.
 
 Although most code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
@@ -27,8 +27,10 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
-Most of that theory is beyond the scope of this book.
-Instead, the book focuses on issues arising in practical programming.
+Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
+The book contains many code examples, which can be evaluated by the Dhall interpreter after exporting them into a single Dhall file. 
+
+The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
 
 ## Overview of Dhall
 
@@ -54,8 +56,8 @@ such as `Natural/lessThan` and `List/map`.
 
 
 It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, F#, and so on).
-One major difference is the syntax for functions, which is more similar to the notation adopted in System F and System Fω.
-System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x:t). f t x` correspond to Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+One major difference is the syntax for functions, which is similar to the notation adopted in System F and System Fω.
+System F's notation $\Lambda t.~\lambda (x:t).~ f~ t~ x$ and System Fω's notation $\lambda (t:*).~\lambda (x:t).~ f~ t~ x$ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 
 ### Guaranteed termination
@@ -107,6 +109,9 @@ But in Dhall, the variable named `_` is a variable like any other:
 
 246
 ```
+
+Of course, one may still use the symbol `_` in Dhall code to denote an unused variable.
+However, the Dhall interpreter will not treat the variable `_` in any special way and, for instance, will not verify that the variable `_` actually remains unused.
 
 ### Primitive types
 
@@ -212,7 +217,9 @@ let MyUnionType = < Left : Text | Right : Bool >
 let x = MyUnionType.Left "abc"
 ```
 
-The advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
+The Dhall expression `MyUnionType.Left` is type-checked as a _function_ of type `Text → MyUnionType`.
+
+An advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
 In Dhall, each union type may define arbitrary constructor names.
 For example, consider this code:
 
@@ -240,7 +247,7 @@ One difference is that each case of a `merge` expression must specify an explici
 As an example, consider a union type defined in Haskell by:
 
 ```haskell
-data P = X Int | Y Bool | Z    -- Haskell
+data P = X Int | Y Bool | Z    -- Haskell.
 ```
 
 A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
@@ -272,15 +279,17 @@ let toText : P → Text = λ(x : P) →
 ```
 
 Dhall's pattern matching syntax is somewhat similar to the Haskell code.
-The `merge` keyword plays the role of a function whose
-argument is a _record value_.
+The `merge` keyword looks like a curried function whose first argument is a _record value_.
 The field names of that record must correspond to all the constructor names in the union type.
 The values inside the record are explicit `λ`-delimited functions that describe what to compute in each case where the union type's constructor has arguments.
 Otherwise (as for the constructor `Z` in the example shown above) the value inside the record does not need to be a function.
 
-### The "Optional" type
+The second argument of `merge` is a value of a union type on which the pattern matching will be done.
+(Note that `merge` in Dhall is a special keyword, not a function, although its syntax looks like that of a curried function.)
 
-The `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
+### The `Optional` type
+
+An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
@@ -288,7 +297,7 @@ let x : MyOptional Natural = (MyOptional Natural).MySome 123
 let y : MyOptional Text = (MyOptional Text).MyNone
 ```
 
-The built-in `Optional` type is equivalent but less verbose.
+The built-in `Optional` type is a less verbose equivalent of this code.
 Instead of `(MyOptional Text).MyNone` one writes `None Text`.
 Instead of `(MyOptional Natural).MySome 123` one writes `Some 123`.
 (The type parameter `Natural` is determined automatically by Dhall.)
@@ -313,37 +322,37 @@ Second, the `Optional` type plays a special role when exporting data to JSON and
 
 The **void type** is a type that cannot have any values.
 
-Dhall's empty union type `< >` is an example of a void type.
-Values of union types may be created only via constructors, but the type `< >` has no constructors.
-So, no Dhall code will ever be able to create a value of type `< >`.
+Dhall's empty union type (denoted by `<>`) is an example of a void type.
+Values of union types may be created only via constructors, but the type `<>` has no constructors.
+So, no Dhall code will ever be able to create a value of type `<>`.
 
 If a value of the void type existed, one would be able to compute from it a value of _any other type_.
 This is absurd, but this is indeed an important property of the void type.
 This property of the void type can be expressed formally via the function that we may denote `absurd`.
-That function computes a value of an arbitrary type `A` given a value of the void type `< >`:
+That function computes a value of an arbitrary type `A` given a value of the void type `<>`:
 
 ```dhall
-let absurd : ∀(A : Type) → < > → A
-  = λ(A : Type) → λ(x : < >) → merge {=} x : A 
+let absurd : ∀(A : Type) → <> → A
+  = λ(A : Type) → λ(x : <>) → merge {=} x : A 
 ```
 
-Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `< >`.
-Nevertheless, the existence of the void type and a function of type `∀(A : Type) → < > → A` is useful in some situations, as we will see below.
+Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
+Nevertheless, the existence of the void type and a function of type `∀(A : Type) → <> → A` is useful in some situations, as we will see below.
 
-The type signature of `absurd` can be rewritten equivalently as:
+If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we will call `void_to_any`:
 
 ```dhall
-let absurd : < > → ∀(A : Type) → A
-  = λ(x : < >) → λ(A : Type) → merge {=} x : A 
+let void_to_any : <> → ∀(A : Type) → A
+  = λ(x : <>) → λ(A : Type) → merge {=} x : A 
 ```
 
-This type signature suggests a type equivalence between `< >` and the function type `∀(A : Type) → A`.
+The type signature suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
-Indeed, the type `∀(A : Type) → A` is void (this can be proved via parametricity arguments).
-So, the type expression `∀(A : Type) → A` is equivalent to `< >` and can be used equally well to denote the void type.
+Indeed, the type `∀(A : Type) → A` is void.
+If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
+But that is impossible, as the type `<>` has no values.
 
-Because any Dhall expression is fully parametrically polymorphic, parametricity arguments will apply to all Dhall code.
-See the Appendix "Naturality and parametricity" for more details.
+So, the type expression `∀(A : Type) → A` is equivalent to `<>` and can be used equally well to denote the void type.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -352,25 +361,25 @@ However, we still need to satisfy Dhall's type checker and provide a value that 
 To achieve that, we write our code as a function with an argument of the void type:
 
 ```dhall
-let our_program = λ(void : < >) → True
+let our_program = λ(void : <>) → True
 ```
 
 Now suppose we need a value `x` of any given type `X` in our code, but we do not yet know how to implement that value.
-Then we write `let x : X = absurd void X` in the body of `our_program`.
+Then we write `let x : X = void_to_any void X` in the body of `our_program`.
 
 ```dhall
-let our_program = λ(void : < >) →
-  let x : Integer = absurd void Integer
+let our_program = λ(void : <>) →
+  let x : Integer = void_to_any void Integer
   in { x }    -- Whatever.
 ```
 The typechecker will accept this program.
-Of course, we can never supply a value for the `void : < >` argument.
-So, our program will not be evaluated until we replace the `absurd void X` by correct code computing a value of type `X`.
+Of course, we can never supply a value for the `void : <>` argument.
+So, our program will not be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
 
-To shorten the code, define `let TODO = absurd void`.
+To shorten the code, define `let TODO = void_to_any void`.
 We can then write `TODO X` and pretend to obtain a value of any type `X`.
 
-Note that the partially applied function `absurd void` is a value of type `∀(A : Type) → A`.
+Note that the partially applied function `void_to_any void` is a value of type `∀(A : Type) → A`.
 So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` in our program:
 
 ```dhall
@@ -514,7 +523,6 @@ In this example, the type signature of `swap` has two type parameters (`a`, `b`)
 As a further example, conider the standard `map` function for `List`.
 The type signature of that function is `∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b`.
 
-
 When applying that function, the code must specify both type parameters (`a`, `b`):
 
 ```dhall
@@ -582,14 +590,14 @@ Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`,
 
 For additional clarity, we will sometimes write type parameters `A`, `B`, etc.
 
-#### No type inference
+#### Almost no type inference
 
 Dhall has almost no type inference.
 The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
 Other than in `let` bindings, all types of bound variables must be written explicitly.
 
 Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
-In particular, Dhall requires us to write out all type parameters and all type quantifiers, carefully distinguishing between `∀(x : A)` and `λ(x : A)`.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and sometimes even to write type annotations for _types_ (such as, `F : Type → Type`).
 This verbosity may help in learning some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation are the same
@@ -641,14 +649,23 @@ Later chapters in this book will show how to use the Church encoding or existent
 In practice, this means the user is limited to finite data structures and fold-like functions on them.
 General recursion is not possible (because it cannot guarantee termination).
 
-#### No side effects
+#### No mutability and no side effects
 
 Dhall is a purely functional language with no side effects.
-There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound, etc.
+There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound,
+and no reading from any external devices (keyboard, mouse, microphone, camera, etc.).
 
 A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
 What happens with that normal form is up to the user.
-The user may just want to print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+The user may print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+
+The only feature of Dhall that is in some way similar to a side effect is the "value import":
+a Dhall program can read Dhall values from external resources (files, Internet URLs, and environment variables).
+The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
+For instance, it is not possible to write a Dhall program that will repeatedly read a value from an external file and react to changes in the file's contents.
+The names of external resources are fixed in advance and cannot be changed.
+Most often, Dhall imports are used to organize code into modules with known contents that is guaranteed not to change.
+This usage is explained in the next subsection.
 
 ### Modules and imports
 
@@ -668,7 +685,7 @@ Here is an example: the first file contains a list of numbers, and the second fi
 ```dhall
 -- This file is `./sum.dhall`.
 let input_list = ./first.dhall  -- Import from relative path.
-let List/sum = https://prelude.dhall-lang.org/Natural/sum
+let List/sum = https://prelude.dhall-lang.org/Natural/sum  -- Import from URL.
 in List/sum input_list
 ```
 
@@ -693,7 +710,7 @@ However, most often the imported Dhall values are not simple data but program co
 
 Although a Dhall file has only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
-In that way, we can implement program modules that export a number of values and/or types to other modules:
+In that way, we may create Dhall modules that export a number of values and/or types to other modules:
 
 ```dhall
 -- This file is `./SimpleModule.dhall`.
@@ -740,7 +757,10 @@ See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/d
 
 #### Frozen imports and hashing
 
-Imports from files, from Internet URLs, and from environment variables may be a security problem if we do not ensure that the contents of the imports do not unexpectedly change.
+Imports from external resources (files, Internet URLs, or environment variables) may be a security risk.
+In that case, Dhall has a feature called "frozen imports" for checking
+that the contents of the import did not unexpectedly change.
+With that check, an import is guaranteed to produce the same value every time.
 Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
 As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only Web service that returns a new random string each time it is called.
@@ -764,7 +784,8 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 
 To guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
 Such imports are called "frozen".
-Dhall will refuse to process a frozen import if the external resource gives an expression with a different SHA256 hash value than specified in the Dhall code.
+Dhall will refuse to process a frozen import if the external resource gives
+an expression with a different SHA256 hash value than that in the Dhall code.
 
 For example, consider a file called `simple.dhall` that contains just the number `3`:
 
@@ -847,7 +868,7 @@ Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTup
 
 For values other than booleans and natural numbers, equality testing is not available as a function.
 However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
-That feature is designed for basic sanity checks:
+That feature is mainly intended for implementing basic sanity checks:
 
 ```dhall
 let x : Text = "123"
@@ -859,19 +880,19 @@ in x ++ "1"
 The `assert` construction is a special Dhall syntax that implements the "equality type" (known from dependently typed languages).
 The Unicode symbol `≡` may be used instead of `===`.
 
-The Dhall expression `a === b` is a special type that depends on the values `a` and `b`.
+The Dhall expression `a === b` is a special _type_ that depends on the values `a` and `b`.
 The type `a === b` is different for each pair `a`, `b`.
 
 The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
-For example, the types `1 === 2` and `λ(a : Text) → a === True` are void.
+For example, the types `1 === 2` and `λ(x : Text) → λ(y : Text) → x === λ(x : Text) → λ(y : Text) → y` are void.
 (We will never be able to create any values of those types.) 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is considered to be non-void.
+If `a` and `b` evaluate to the same normal form, the type `a === b` is defined to be non-void.
 That is, there exists a value of the type `a === b`.
 
 If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a === b`.
 This expression is valid only if the two sides are equal after reducing them to their normal forms.
-If the two sides are not equal, this expression _fails to type-check_, meaning that the entire program will fail to compile.
+If the two sides are not equal after reduction to normal forms, the expression `assert : a === b` will _fail to typecheck_, meaning that the entire program will fail to compile.
 
 When an `assert` value is valid, we can assign that value to a variable:
 
@@ -883,8 +904,8 @@ In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after red
 The resulting type `3 === 3` is non-void and has a value.
 We assigned that value to `test1`.
 
-It is not actually possible to print the value of type `3 === 3` or to examine it in any other way.
-We just know that that value exists, because the `assert` expression was accepted by Dhall.
+It is not actually possible to print the value `test1` of type `3 === 3` or to examine it in any other way.
+That value exists, because the `assert` expression was accepted by Dhall, but that's all we know.
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
@@ -903,10 +924,11 @@ The normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) �
 The normal form of `print y` is the same Dhall expression.
 So, the assertion is valid.
 
+The fact that `assert` expressions are checked "early" (before evaluating other expressions) has implications for using the `assert` feature in Dhall programs.
 Most often, it does not make sense to use `assert` inside function bodies.
+In particular, one cannot use `assert` expressions for implementing a function for comparing two arbitrary values given as arguments.
 
-Because `assert` expressions are checked at compile time, they cannot be used for implementing a _function_ comparing, say, two arbitrary `Text` values given as arguments.
-Try writing this code:
+To see why, try writing this code:
 
 ```dhall
 let compareTextValues : Text → Text → Bool
@@ -915,39 +937,42 @@ let compareTextValues : Text → Text → Bool
     in True
 ```
 
-This code will _fail to typecheck_ because, within the definition of `compareTextValues`, the normal forms of the parameters `a` and `b` are just the _symbols_ `a` and `b`, and those two symbols are not equal.
+This code will fail to typecheck because, within the definition of `compareTextValues`, the normal forms of the parameters `a` and `b` are just the _symbols_ `a` and `b`, and those two symbols are not equal.
 Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
 
-We cannot even write a Dhall function that checks whether a string is empty.
-An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` is a an empty string.
+As another example: we cannot write a Dhall function that checks whether a string is empty.
+An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` (that can be computed) is an empty string.
 
 The `assert` keyword is most often used to implement unit tests or other static sanity checks on Dhall code.
 In that case, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
-So, we may write unit tests like this:
+So, we will usually write unit tests like this:
 
 ```dhall
-let f = λ(a : Text) → "(" ++ a ++ ")"
-let _ = assert : f "x" === "(x)"    -- OK.
+let f = λ(a : Text) → "(" ++ a ++ ")" -- Define a function.
+
+let _ = assert : f "x" === "(x)"  -- OK.
 let _ = assert : f "" === "()"    -- OK.
 -- Continue writing code.
 ```
 
 ### Types, kinds, sorts
 
-Types are different from values because each value has an assigned type, which is verified during typechecking.
-Other than that, Dhall treats types and values in similar way.
-Types may be assigned to variables, stored in records, and passed as function parameters.
+Types are different from values because each value has an assigned type.
+(It is not true that each type has only one assigned value.)
+Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given. 
+
+Other than that, Dhall treats types and values in a largely similar way.
+Types may be assigned to variables, stored in records, and passed as function parameters using the same syntax as when working with values.
 
 For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
-Here we use the type `Bool` as a type annotation for the variable `x`.
+Here, we used the type `Bool` as a type annotation for the variable `x`.
 But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
-
-Then we may use `y` in typechecking expressions such as `x : y`.
+Then we will be able to use `y` in type annotations, such as `x : y`.
 The type of `y` itself will be `Type`.
 
-To see the type of an expression, one can write `:type` in the Dhall interpreter:
+To find out the type of an expression, one can write `:type` in the Dhall interpreter:
 
 ```dhall
 $ dhall repl
@@ -998,7 +1023,8 @@ a : List Natural
 Error: Invalid type for ❰List❱
 ```
 
-If a "list of types" is desired, such a data structure needs to be defined separately.
+If a "list of types" is desired, such a data structure needs to be defined by the user.
+(This book will show how to do that.)
 
 The symbol `Type` is itself treated as a special value whose type is `Kind`:
 
@@ -1020,7 +1046,7 @@ Kind
 Kind
 ```
 
-As we have just seen, the type of `{ a = 1, b = Bool }` is the record type `{ a : Natural, b : Type }`.
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
 The type of _that_ is `Kind`:
 
 ```dhall
@@ -1053,7 +1079,7 @@ Type → Type
 (Type → Type) → Type → Type
 ```
 
-In turn, the symbol `Kind` is a special value of type `Sort`.
+In turn, the symbol `Kind` is treated as a special value of type `Sort`.
 Other type expressions involving `Kind` are also of type `Sort`:
 
 ```dhall
@@ -1074,7 +1100,7 @@ Sort
 Sort
 ```
 
-The symbol `Sort` is special: it _does not_ itself have a type.
+The symbol `Sort` is even more special: it _does not_ itself have a type.
 Because of that, it is a type error to use `Sort` in Dhall code in any way:
 
 ```dhall
@@ -1088,15 +1114,15 @@ Error: ❰Sort❱ has no type, kind, or sort
 ```
 
 This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
-That is needed in programming languages with full support for dependent types.
+That hierarchy is needed in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
-Dhall denotes `Type 1` by `Kind` and `Type 2` by `Sort`.
+Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
 
-Dhall's type system has enough abstraction to support powerful types and treat types and values in a uniform manner, but does not run into the complications with infinitely many type universes.
+Dhall's type system has enough abstraction to support powerful types and to treat types and values in a uniform manner, while avoiding the complications with infinitely many type universes.
 
 Because of this design, Dhall does not support operating on the symbol `Kind` itself.
-Very little can be done with Dhall expressions of type `Sort`, such as `Kind` or `Kind → Kind`.
-One can assign such values to variables, but that's about it.
+Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
+One can assign such expressions to variables, but that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -1110,18 +1136,18 @@ a : Sort
 Error: ❰Sort❱ has no type, kind, or sort
 ```
 
-This is because Dhall requires a function's type itself to have a type.
+This error occurs because Dhall requires a function's type _itself_ to have a type.
 The symbol `Kind` has type `Sort`, 
 so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
-Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not _itself_ have a type.
+Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
 
-Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol ∀ (or equivalently the keyword `forall`) to denote _types_ of functions.
+Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol `∀` (or equivalently the keyword `forall`) to denote _types_ of functions.
 
 An expression of the form `λ(x : sometype1) → something2` is a function: it is something that can be applied to an argument to compute a new value.
 
@@ -1129,7 +1155,7 @@ An expression of the form `∀(x : sometype1) → sometype2` is a _type_: it is 
 
 Expressions of the form `∀(x : sometype1) → sometype2` are used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 
-For example, the function that appends "..." to a string argument is written like this:
+For example, the function that appends `"..."` to a string argument is written like this:
 
 ```dhall
 let f = λ(x : Text) → "${x}..."
@@ -1305,18 +1331,18 @@ The application of `s` will be repeated `n` times, evaluating `s(s(...(s(z))...)
 For example:
 ```bash
 $ dhall repl
-⊢ let succ = λ(a : Text) → a ++ "1230" in Natural/fold 4 Text succ "Q" 
+⊢ let succ = λ(a : Text) → a ++ " world" in Natural/fold 4 Text succ "Hello,"
 
-"Q1230123012301230"
+"Hello, world world world world"
 ```
 
-In this way, Dhall can perform many arithmetic operations for natural numbers that are usually implemented via loops.
+In this way, Dhall can perform many operations that are usually implemented via loops.
 However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
 The number of iterations must be specified in advance as the first argument of `Natural/fold`.
 
 When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run further iterations without changing the result.
 
-In many cases, the estimated number of iterations will be much larger than the actually required number.
+In many cases, the estimated number of iterations will be larger than the actually required number.
 Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.
 
 For example, consider this code:
@@ -1324,14 +1350,14 @@ For example, consider this code:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 10000000000 Natural f 0
- -- in assert : result === 1
+-- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
 ```
 
 Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
 But in this example, the function `f` quickly stops changing its argument, so the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
-In the next subsections, we will show examples of algorithms implemented via `Natural/fold`.
+In the next subsections, we will show some examples of algorithms implemented via `Natural/fold`.
 
 ### Factorial
 
@@ -1392,11 +1418,11 @@ let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
 let unsafeDiv : Natural → Natural → Natural =
   let Accum = { result : Natural, sub : Natural, done : Bool }
   in λ(x : Natural) → λ(y : Natural) →
-         let init : Accum = {result = 0, sub = x, done = False}
+         let init : Accum = { result = 0, sub = x, done = False}
          let update : Accum → Accum = λ(acc : Accum) →
              if acc.done then acc
-             else if Natural/lessThan acc.sub y then acc // {done = True}
-             else acc // {result = acc.result + 1, sub = Natural/subtract y acc.sub}
+             else if Natural/lessThan acc.sub y then acc // { done = True }
+             else acc // { result = acc.result + 1, sub = Natural/subtract y acc.sub }
          let r : Accum = Natural/fold x Accum update init
          in r.result
 
@@ -1414,11 +1440,11 @@ To ensure that we never divide by zero, we may use a technique based on dependen
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
 ```dhall
-let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then < > else {}
+let Nonzero : Natural → Type = λ(y : Natural) → if Natural/isZero y then <> else {}
 ```
 
 This `Nonzero` is a type function that returns one or another type given a `Natural` value.
-For example, `Nonzero 0` returns the void type `< >`, but `Nonzero 10` returns the unit type `{}`.
+For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
 
 We will use that function to implement safe division (`safeDiv`):
@@ -1433,7 +1459,7 @@ When we use `safeDiv` for dividing by a nonzero value, we specify a third argume
 That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
 So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
-If we try dividing by zero, we will be obliged to pass a third argument of type `< >`, but there are no such values.
+If we try dividing by zero, we will be obliged to pass a third argument of type `<>`, but there are no such values.
 Passing an argument of any other type will raise a type error.
 
 ```dhall
@@ -1449,7 +1475,7 @@ In this way, dependently-typed evidence values enforce value constraints at comp
 If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has type `{}`, but we expected type `<>`".
 This message is not particularly helpful.
 We can define the dependent type `Nonzero` in a different way, so that the error message clearly shows why the assertion failed.
-For that, we replace the void type `< >` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
+For that, we replace the void type `<>` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
 Those strings will be printed by Dhall as part of the error message.
 
 To implement this idea, let us replace the definition of `Nonzero` by this code:
@@ -2227,6 +2253,40 @@ For instance, Haskell will do that if the programmer just writes `deriving Funct
 But Dhall does not have any code generation facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
+Now we can write code that works in the same way for any functor.
+
+
+###### Example: a function with a typeclass constraint
+
+Implement a function `inject1` that (for any types `a` and `b` and for any functor `F`) converts a value of type `{ _1 : a, _2 : F b }` into a value of type `F { _1 : a, _2 : b }`.
+
+###### Solution
+
+The type signature of the function `inject1` must include the given type constructor `F` and a functor evidence value for it:
+
+`∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → { _1 : a, _2 : F b } → F { _1 : a, _2 : b }`
+
+The implementation is based on the idea that, given a fixed value `x : a`, we can write a function of type `b → { _1 : a, _2 : b }`.
+Then can we use the functor property of `F` and lift that function to the type `F b → F { _1 : a, _2 : b }`.
+This is almost all we need. The complete code is:
+```dhall
+let inject1 : ∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → { _1 : a, _2 : F b } → F { _1 : a, _2 : b }
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    λ(a : Type) → λ(b : Type) → λ(p : { _1 : a, _2 : F b }) →
+      let PairAB : Type = { _1 : a, _2 : b }
+      let x : a = p._1
+      let fb : F b = p._2
+      in functorF.fmap b PairAB (λ(y : b) → { _1 = x, _2 = y }) fb
+```
+
+###### Exercises
+
+The following functions need to work in the same way for any types `a` and `b` and for any functor `F`.
+
+1. Implement a function `narrow1` that converts a value of type `{ _1 : a, _2 : F < Left : a | Right : b > }` into a value of type `F a`.
+2. Implement a function `unzip` that converts a value of type `F { _1 : a, _2 : b }` into a value of type `{ _1 : F a, _2 : F b }`. 
+3. Implement a function `widen1` that converts a value of type `F a` into a value of type  `F < Left : a | Right : b >`.
+4. Implement a function `expand` that converts a value of type `< Left : F a | Right : F b >` into a value of type  `F < Left : a | Right : b >`.
 
 ### Verifying the laws of functors
 
@@ -2493,6 +2553,14 @@ let Profunctor : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
 ```
 
+By analogy, we also define the `Bicontrafunctor` typeclass describing type constructors that are contravariant in two type parameters:
+
+
+```dhall
+let Bicontrafunctor : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → { bicmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F c d → F a b }
+```
+
 ### Pointed functors and contrafunctors
 
 A functor `F` is pointed if it has a method called `pure` with the type signature `∀(a : Type) → a → F a`.
@@ -2576,10 +2644,12 @@ let pointedC : ∀(r : Type) → PointedU (C r)
 
 The intuition behind pointed contrafunctors is that they are able to consume an empty value (of unit type),
 and we know what result that would give.
-The method analogous to `pure` for contrafunctors is `cpure`.
-It is a value of type `∀(a : Type) → C a` that describes a consumer that ignores its input data (of an arbitrary type `a`).
 
-We can define a value `cpure` for an arbitrary pointed contrafunctor like this:
+Similarly to the method `pure` for pointed functors, pointed contrafunctors have the method we call `cpure`.
+Its type is `∀(a : Type) → C a`.
+This describes a "consumer" that ignores its input data (of an arbitrary type `a`).
+
+We can define `cpure` for an arbitrary pointed contrafunctor like this:
 
 ```dhall
 let cpure : ∀(C : Type → Type) → Contrafunctor C → PointedU C → ∀(a : Type) → C a
@@ -2742,7 +2812,7 @@ let pointedMonoid : PointedU Monoid =
 ```
 
 The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
-(This turns out to be true, as the monoid laws will hold for the new monoid automatically.)
+(This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.)
 
 Below we will study more systematically the various ways of making new monoids out of old ones.
 For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
@@ -2774,30 +2844,46 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
       in pointedC /\ { zip }
 ```
 
-### Traversable functors
+### Foldable and traversable functors
+
+A functor `F` is foldable if one can extract all data of type `t` out of a value of type `F t`.
+This is often represented as a method `toList` with the type signature `F t → List t`.
+
+A quite different but equivalent formulation of the foldable property is through the `reduce` method with the type signature `Monoid m → F m → m`.
+We will use that formulation to define the `Foldable` typeclass in Dhall:
+```dhall
+let Foldable = λ(F : Type → Type) → { reduce : ∀(M : Type) → Monoid M → F M → M }
+```
 
 A functor is traversable if it supports a method called `traverse` with the type signature written in Haskell like this:
 
 ```haskell
 -- Haskell:
-traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
+traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
 ```
-Here `t` is a traversable functor.
+It is important that this method is parameterized by an arbitrary applicative functor `L`. If this method exists, `F` is a traversable functor.
 
-Rewriting this type signature in Dhall and making `t` an explicit type parameter, we get the following type signature:
+Rewriting this type signature in Dhall and making `F` an explicit type parameter, we get the following type signature:
 
 ```dhall
-let TraverseTypeSignature = λ(t : Type → Type) → ∀(f : Type → Type) → Applicative f → ∀(a : Type) → ∀(b : Type) →
-  (a → f b) → t a → f (t b)
+let TraverseTypeSignature = λ(F : Type → Type) → ∀(L : Type → Type) → Applicative L → ∀(a : Type) → ∀(b : Type) →
+  (a → L b) → F a → F (L b)
 ```
 
 The requirement of having a `traverse` method can be formulated via a `Traversable` typeclass:
 
 ```dhall
-let Traversable = λ(t : Type → Type) → { traverse : TraverseTypeSignature t }
+let Traversable = λ(F : Type → Type) → { traverse : TraverseTypeSignature F }
 ```
 
-Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `f` (even if `f` is not covariant).
+Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative type constructor `L` (even if `L` is not covariant).
+
+We remark without proof that:
+
+- Any traversable functor is also foldable.
+- The formulation of the "foldable" property via `reduce` and via `toList` are equivalent.
+- Any polynomial functor is both foldable and traversable. Any traversable functor is polynomial.
+
 
 ### Inheritance of typeclasses
 
@@ -3001,10 +3087,10 @@ There is only one value of that type, and that value is produced by `refl Bool T
 The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
 But trying to call `f 100 100 (refl Bool True)` will be a type error.
 
-### Leibniz equality for types
+### Leibniz equality at type level
 
 Dhall's `assert` feature is limited to values; it does not work for types or kinds.
-The expression `assert : Natural === Natural` (and even the type `Natural === Natural` alone) is rejected by Dhall.
+The expression `assert : Natural === Natural` (and even just the type `Natural === Natural`) is rejected by Dhall.
 
 One can define a form of a Leibniz equality type for comparing types instead of values:
 
@@ -3015,8 +3101,8 @@ let LeibnizEqualT =
 let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
 ```
 
-Now the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
-The type `LeibnizEqualT Type Bool Bool` will not be void because there will be a value `reflT Type Bool` of that type.
+Now, the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
+But the type `LeibnizEqualT Type Bool Bool` will _not_ be void because there will be a value `reflT Type Bool` of that type.
 
 We can use `LeibnizEqualT` to implement an `assert`-like functionality for types:
 
@@ -3025,7 +3111,7 @@ We can use `LeibnizEqualT` to implement an `assert`-like functionality for types
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
-To give another example, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal:
+As another example of using `LeibnizEqualT`, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal by creating an evidence value for their equality:
 
 
 ```dhall
@@ -3036,11 +3122,30 @@ let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
 
 Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
-We need to use `LeibnizEqual` and `refl` when comparing values and `LeibnizEqualT` and `reflT` when comparing types.
+We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
-We also cannot define a Leibniz equality type for comparing kinds.
-That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type.
-(Function types are required to have a type themselves.)
+We also cannot define a Leibniz equality type for comparing arbitrary kinds.
+That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
+while all function types are required to have a type themselves.
+
+How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
+We note that the type of `Type` and of `Type → Type` is the symbol `Kind` and not just an arbitrary `Sort`. 
+So, we may compare specific kinds of that type by defining a restricted version of Leibniz equality that we will call `LeibnizEqualK`:
+
+```dhall
+let LeibnizEqualK =
+  λ(a : Kind) → λ(b : Kind) → ∀(f : Kind → Type) → f a → f b
+
+let reflK = λ(a : Kind) → λ(f : Kind → Type) → λ(p : f a) → p
+```
+
+Now we can provide evidence for kind equality like this:
+
+```dhall
+let k1 = Type
+let k2 = Type
+let _ = reflK k1 : LeibnizEqualK k1 k2 -- Mimicks `assert : k1 === k2`.
+```
 
 ### Symbolic reasoning with Leibniz equality
 
@@ -3048,7 +3153,7 @@ One can implement "equality combinators" that manipulate Leibniz equality types 
 The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
 
 The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
-We will focus on Leibniz equality between values, as Leibniz equality between types has similar properties.
+We will focus on Leibniz equality between values, as Leibniz equality between types or kinds will have similar properties.
 
 #### Reflexivity
 
@@ -3071,7 +3176,7 @@ let symmetryLeibnizEqual
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual T y x
 ```
 We need to return a value of type `LeibnizEqual T y x`.
-The only way for us to get that value is to apply the given evidence `x_eq_y` to some arguments.
+The only way for us to obtain that value is to apply the given evidence value `x_eq_y` to some arguments.
 According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
 The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
 But we are required to compute a value of type `LeibnizEqual T y x`.
@@ -3185,14 +3290,14 @@ let extensionalityLeibnizEqual
     in f_eq_g k h
 ```
 
-#### Symbolic reasoning
+#### Example
 
 To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
 It is clear that `f x === g y` in that case.
 Can we produce an evidence value for that?
 
 Dhall cannot manipulate values of its built-in equality types.
-There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that.
+There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that value.
 
 But Leibniz equality types and the standard combinators allow us to perform such computations.
 We can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
@@ -3227,13 +3332,13 @@ For example, suppose `T` is the type of lists with integer values.
 A recursive definition of `T` in Haskell could look like this:
 
 ```haskell
-data T = Nil | Cons Int T     -- Haskell
+data T = Nil | Cons Int T     -- Haskell.
 ```
 
 This definition of `T` has the form of a "recursive type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by: 
 
 ```haskell
-type F a = Nil | Cons Int a     -- Haskell
+type F a = Nil | Cons Int a     -- Haskell.
 ```
 
 The type constructor `F` is called the **recursion scheme** for the definition of `T`.
@@ -3318,20 +3423,19 @@ let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 ```
 
 The general properties of the Church encoding always enforce that `C` is a fixpoint of the type equation `C = K C`.
-This remains true even when `KF` does not depend on its type parameter.
+This remains true even when `K` does not depend on its type parameter.
 So, now we have `K C = { x : Text, y : Bool }` independently of `C`.
 The type equation `C = K C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 
-We see that Church encodings generally do not bring any advantages for simple, non-recursive types.
+We see that Church encodings generally do not bring any advantages when used with simple, non-recursive types.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
 ```dhall
-∀(r : Type) → (p → r) → r ≅ p
+∀(r : Type) → (p → r) → r  ≅  p
 ```
-
 This type equivalence is a special case of one of the **Yoneda identities**:
 
 ```dhall
@@ -3347,7 +3451,10 @@ See the Appendix "Naturality and parametricity" for more details.
 We can use certain type equivalence identities to rewrite the type `ListInt` in a form more convenient for practical applications.
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
-So, the type `F r → r`, written in full as `< Nil | Cons : { head : Integer, tail : r } > → r`,
+So, the type `F r → r`, written in full as:
+
+`< Nil | Cons : { head : Integer, tail : r } > → r`
+
 is equivalent to a pair of functions of types `{ head : Integer, tail : r } → r` and  `< Nil > → r`.
 
 The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
@@ -3461,11 +3568,11 @@ We will assume that `F` and `fmap_F` are given, and we will implement various fu
 ### The isomorphism `C = F C`: the functions `fix` and `unfix` 
 
 The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C = F C`.
-Being a fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, and those functions are inverses of each other.
+A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
 Those two functions implement an isomorphism between `C` and `F C`.
 The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data), which is one way of understanding why `C` is a fixpoint of the type equation `C = F C`.
 
-Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generally, for all recursion schemes `F` and the corresponding types `C = LFix F`.
+Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` once for all recursion schemes `F` and the corresponding types `C = LFix F`.
 
 The basic technique of working directly with any Church-encoded data `c : C` is to use `c` as a curried higher-order function.
 That function has two arguments: a type parameter `r` and a function of type `F r → r`.
@@ -3512,12 +3619,10 @@ The function `fix : F C → C` (sometimes also called `build`) provides a genera
 
 As the type `F C` is almost always a union type, it is convenient to rewrite the function type `F C → C` as a product of simpler functions.
 We can write this in a mathematical notation:
+$$F ~C \to C  ~≅~  (F_1 ~C \to C) \times (F_2 ~C \to C) \times ... $$
+where each of $F_1 ~ C$, $F_2 ~C$, etc., are product types such as $C \times C$ or $\mathrm{Text} \times  C$, etc.
 
-`F C → C  ≅  (F1 C → C) × (F2 C → C) × ... `
-
-where each of `F1 C`, `F2 C`, etc., are product types such as `C × C` or `Text × C`, etc.
-
-Each of the simpler functions (`F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
+Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
 In this way, we will replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
 
 The code for the constructors can be derived mechanically from the general code of `fix`.
@@ -4047,7 +4152,7 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
-### Performance
+### Performance of `unfix`
 
 Note that `unfix` is implemented by applying the Church-encoded argument to some function.
 In practice, this means that `unfix` will to traverse the entire data structure.
@@ -4281,7 +4386,7 @@ let test = assert : reverseNEL Natural example2 === example1
 ```
 
 
-### Example: Sizing a Church-encoded type constructor
+### Sizing up a Church-encoded type constructor
 
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
@@ -4440,9 +4545,11 @@ let functorLFix
   }
 ```
 
+In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on, implementing typeclass evidence for Church-encoded type constructors whenever possible.
+
 ### Existentially quantified types
 
-By definition, a value `x` has an **existentially quantified** type, denoted mathematically by `∃ t. P t`, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
+By definition, a value `x` has an **existentially quantified** type, denoted mathematically by $\exists t.~P~t$, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
 
 An example is the following type definition in Haskell:
 
@@ -4501,12 +4608,12 @@ So, the final code for the Church encoding of `F` becomes:
 let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
 ```
 
-It is important that the universal quantifier `∀(t : Type)` is _inside_ the type of an argument of `F`.
+It is important that the universal quantifier `∀(t : Type)` is _inside the type_ of an argument of `F`.
 Otherwise, the encoding would not work.
 
 To see an example of how to construct a value of type `F a`, let us set `a = Natural`.
 The type `F Natural` then becomes `∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → Natural } → r) → r`.
-We construct a value `x : F Natural` like this:
+An example value `x : F Natural` is constructed like this:
 
 ```dhall
 let Integer/greaterThan = https://prelude.dhall-lang.org/Integer/greaterThan
@@ -4528,7 +4635,7 @@ Here `a` needs to be viewed as a fixed type; for instance, if `a = Natural` we w
 let P = λ(t : Type) → { _1 : t → Bool, _2 : t → Natural }
 ```
 
-It follows that the Church encoding of `∃ t. P t` is a type we denote by `Exists P`:
+It follows that the Church encoding of $\exists t.~P~t$ is the following type (denoted by `Exists P`):
 
 ```dhall
 let Exists = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
@@ -4550,15 +4657,15 @@ We will now study the constructor functions `Exists` and `pack` in more detail.
 To work with existential types more conveniently, let us implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
 
-The function call `Exists P` creates the type corresponding to the Church encoding of the type `∃ t. P t`.
-The argument of `Exists` is a type constructor `P`.
+The function call `Exists P` creates the type corresponding to the Church encoding of the type $\exists t.~P~t$.
+The argument of `Exists` is a _type constructor_ such as `P`.
 
 ```dhall
 let Exists : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → r
 ```
 
-The function `Exists` replaces the mathematical notation `∃ t. P t` by a similar formula: `Exists (λ(t : Type) → P t)`. 
+The function `Exists` replaces the mathematical notation $\exists t.~P~t$ by a similar formula: `Exists (λ(t : Type) → P t)`. 
 
 The function `pack` creates a value of type `Exists P` from a type `t`, a type constructor `P`, and a value of type `P t`.
 
@@ -5139,14 +5246,14 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
 ```
 
 
-#### Size-limited streams
+#### Truncated streams
 
 We can stop a given stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
 
 ```dhall
 let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
  = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
-   let State = { remaining : Natural, stream : Stream a}    -- Internal state of the new stream.
+   let State = { remaining : Natural, stream : Stream a }    -- Internal state of the new stream.
    let StepT = < Nil | Cons : { head : a, tail : State } >
    let step : State → StepT = λ(state : State) →
      if Natural/isZero state.remaining then StepT.Nil else merge {
@@ -5161,12 +5268,13 @@ This is different from `streamToList` because we are not traversing the stream; 
 So, `Stream/truncate` is a `O(1)` operation.
 
 
-Note that `streamToList` requires an explicit bound on the size of the output list.
-It is not possible to implement a function that determines whether a given stream terminates.
-Also, we cannot terminate a stream at the data item that satisfies some condition (say, a `Natural` number that is equal to zero).
-We can use `Stream/truncate` to terminate a stream but we still need to specify a limit on the size of the output stream.
-
-Streams represent "infinite" structures, but working with those structures in System Fω always requires an explicit upper bound on the number of possible iterations.
+Just like `streamToList`, the function `Stream/truncate` requires an explicit bound on the size of the 
+output list. It is impossible to implement a function that determines whether a given stream terminates. 
+Also, we cannot terminate a stream at the data item that satisfies some condition (say, at the first 
+`Natural` number that is equal to zero).
+Streams represent conceptually "infinite" structures, and 
+working with those structures in System Fω often requires an explicit upper bound on the number of 
+possible iterations.
 
 #### The `cons` constructor for streams. Performance issues
 
@@ -5201,8 +5309,8 @@ The result is a stream where _every_ operation (even just producing the next ite
 
 ### Running aggregations ("scan" and "scanMap")
 
-A typical task for streams is to perform "running aggregations".
-A "running aggregation" extracts each new value from a source stream and updates an aggregated value in some way.
+A typical task for streams is to perform **running aggregations**.
+A running aggregation extracts each new value from a source stream and updates an aggregated value in some way.
 This results in a new stream of aggregated values computed after consuming each value from the source stream.
 So, running aggregations may be viewed as transformations of type `Stream a → Stream b`.
 Each value in the result stream may depend in some way on the previously seen values in the source stream.
@@ -5322,9 +5430,40 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 
 The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 
-### Hylomorphisms with bounded recursion depth
 
-#### Motivation for hylomorphisms
+### Converting from the least fixpoint to the greatest fixpoint
+
+A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
+
+Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
+The least fixpoint type `LFix F` already has that function (`unfix`).
+So, we can implement a conversion function:
+
+```dhall
+let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
+    makeGFix F (LFix F) x (unfix F functorF)
+```
+
+Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
+
+
+## Translating recursive code into Dhall
+
+In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may _not_ recursively refer to the same `x` being defined.
+The lack of support for recursion applies both to types and to values.
+
+Nevertheless, we have seen that Dhall can work with recursive types if one uses a trick known as the Church encoding of fixpoints. 
+
+In this chapter, we will see that Dhall can also accept a wide range of recursive _code_, including code that does not use any recursive types.
+This is achieved by a procedure we call the Hu-Iwasaki-Takeichi ("HIT") algorithm.
+The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, known as a "hylomorphism".
+To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
+In many cases, those modifications are straightforward.
+
+We will begin by explaining the notion of a "hylomorphism" and giving some examples.
+
+### Motivation for hylomorphisms
 
 We have seen the function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
@@ -5334,7 +5473,7 @@ We will now generalize size-limited aggregations from lists to arbitrary greates
 The result will be a `fold`-like function whose recursion depth is limited in advance.
 That limitation will ensure that all computations terminate, as Dhall requires.
 
-The type signature of `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
+The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
 
 `fold : LFix F → ∀(r : Type) → (F r → r) → r`
@@ -5366,14 +5505,33 @@ Rewrite that type by replacing the record by two curried arguments:
 
 `∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
-Functions of that type are called **hylomorphisms**.
-See, for example, [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
+Functions with this type signature are called **hylomorphisms**.
+See also [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
-The immediate problem for Dhall is that hylomorphisms do not (and cannot) guarantee termination.
-So, Dhall does not support hylomorphisms as they are usually written.
-Let us examine that problem is more detail.
 
-#### Example: why hylomorphisms terminate (in Haskell)
+So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types (instead of least fixpoints).
+Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
+An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
+The types `t` and `r` do not need to be fixpoint types.
+
+Another way of understanding hylomorphisms is to rewrite their type signature as:
+
+`GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
+
+This can be now seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
+
+Now we turn to the question of implementing hylomorphisms in Dhall.
+An immediate problem for Dhall is that termination of hylomorphisms is not (and _cannot_ be) guaranteed.
+To see why, note that a hylomorphism converts `GFix F` to `LFix F` in a way that is natural in `F` (i.e., it works in the same way for all recursion schemes `F`).
+This sort of conversion can be done only by copying all values from one data structure to another, completely preserving the recursive structure.
+However, a value of a greatest fixpoint type (for example, an unbounded list or an unbounded tree) could allow us to extract an unbounded number of data items, while values of least fixpoint types are always bounded (that is, the data size must be known in advance). 
+A hylomorphism's code will try to extract all data from an unbounded list, which cannot terminate.
+
+So, Dhall cannot directly support hylomorphisms as they are usually defined.
+We will now examine that problem in more detail and show some solutions.
+
+### Why hylomorphisms terminate: a Haskell example
 
 For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
@@ -5419,13 +5577,13 @@ unfix Leaf t -> FLeaf t
 unfix Branch x y -> FBranch x y
 ```
 
-We may substutite `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
+We may substitute `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
-Because `fix` and `unfix` leave data unchanged, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
-In this example of applying `hylo`, the trees remain unchanged because we are unpacking the tree's recursive type (`TreeText → F TreeText`) and then packing it back (`F TreeText → TreeText`) with no changes.
-(We are using this artificial example only for understanding how the recursion can terminate in `hylo`.)
+Because `fix` and `unfix` are isomorphisms, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
+In this example of applying `hylo`, the input tree will remain unchanged because the function just unpacks the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then packs it back (applying `F TreeText → TreeText`) with no changes.
+We are using this artificial example only for understanding how the recursion can terminate in the Haskell code of `hylo`.
 
-Choose some value `t0` of type `TreeText`:
+Choose some input value `t0` of type `TreeText`:
 
 ```haskell
 -- Haskell:
@@ -5459,13 +5617,13 @@ Let us compute `c0`:
 ```haskell
 unfix t0 == FBranch (Leaf "a") (Leaf "b")
 
-c0 = fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
+c0 == fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
 ```
 
 We note that each application of `unfix` replaces one layer of `TreeText`'s constructors by one layer of `F`'s constructors.
-All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0`.
+All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0` requires.
 
-At that point, the value `c0` no longer contains any constructors of `TreeText`; it is built only with `F`'s constructors.
+After that, the value `c0` will no longer contain any constructors of `TreeText`; it is built only with `F`'s constructors.
 For that reason, `c0` will _remain unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
 In other words:
 
@@ -5473,15 +5631,15 @@ In other words:
 fmap (fmap f) c0 == c0
 ```
 
-It follows that the computation `fmap (fmap f) c0` does not use the value `f`.
+It follows that the computation `fmap (fmap f) c0` _does not use_ the value `f`.
 
 Our code for `h t0` needs to compute `fmap (fmap h) c0`.
-Because that computation does not need the value `h`, Haskell will not perform any more recursive calls to `h`.
+Because that computation does not use the value `h`, and because Haskell's evaluation is lazy, Haskell will not perform any recursive calls to `h`.
 This is why the recursion terminates in the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
-The required number of recursive calls is equal to the "depth" of the value `t0`.
-(The subsection "Example: Sizing a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
+The required number of recursive calls is equal to the "recursion depth" of the value `t0`.
+(The subsection "Sizing up a Church-encoded type constructor" showed how to compute that depth for Church-encoded data types.)
 
 We can now generalize this example to an arbitrary application of a hylomorphism.
 For brevity, we denote `h = hylo coalg alg`.
@@ -5495,25 +5653,33 @@ This will terminate the recursion.
 The type of `c` will be `f (f (... (f t)))`.
 It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
 These repeated applications create a data structure of a deeply nested type: `f (f (... (f t)))`.
+At a certain recursion depth, that data structure will no longer contain any values of type `t`.
+So, applying a nested `fmap (fmap (... (fmap f)...)` to that data structure will not need to transform any data
+and will be an identity transformation.
 
-We find that the hylomorphism terminates only if the data structure generated out of the initial "seed" value `t0` is finite. 
+We find that the hylomorphism's recursive code will terminate
+only if the data structure of type `f (f (... (f t)))`
+generated out of the initial "seed" value (`t0`) will no longer contain values of type `t`
+after a finite number of recursion steps.
 
-However, it is impossible to assure up front that a given data structure of type `GFix F` is finite.
+However, it is impossible to assure up front that a given data structure of type `GFix F`
+in fact has only a finite recursion depth.
 So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
-In fact, a function with the type signature of `hylo` cannot be implemented in Dhall.
+A function with the type signature of `hylo` cannot be implemented in Dhall.
 
-#### Depth-limited hylomorphisms
+### Depth-bounded hylomorphisms
 
-Implementing hylomorphisms in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
-One possibility, [shown on an example in the blog post here](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion and a "stop-gap" value.
-The stop-gap value will be used when the recursion bound is smaller than the recursion depth of the data.
-If the recursion bound is large enough, the hylomorphism's output value will be actually independent of the stop-gap value.
+Implementing hylomorphism-like functions in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
+One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value.
+The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
+If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 
-To show how that works, we will first write Haskell code for the depth-limited hylomorphism.
+To show how that works, we begin with the Haskell code for the depth-bounded hylomorphism.
 Then we will translate that code to Dhall.
 
-The idea of depth-limited hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
-To be able to do that, we begin by setting `h = stopgap` as the initial value (where `stopgap : t → r` is a given default value) and then expand the recursive definition repeatedly.
+The idea of depth-bounded hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
+To be able to do that, we begin by setting `h = stopgap`, where a value `stopgap : t → r` must be supplied.
+Then we expand the recursive definition repeatedly, up to the given depth bound.
 For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
 ```haskell
@@ -5544,11 +5710,600 @@ The function `hylo_Nat` is a general fold-like aggregation function that can be 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
-For now, let us see a simple example of using `hylo_Nat`.  TODO
+For now, let us see some examples of using `hylo_Nat` with an explicit bound on the recursion depth.
 
-#### Hylomorphisms driven by a Church-encoded template
+### Determining the recursion depth
 
-In the code for `hylo_N`, the total number of iterations was limited by a given natural number.
+The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify the maximum recursion depth (the total number of iterations for `Natural/fold`) in advance.
+
+If the given number of iterations in `Natural/fold` is too high, the Dhall interpreter may stop the iterations earlier if the current intermediate result stops changing.
+This mechanism works well for calculations with numbers but does not work for `hylo_Nat` because the intermediate result is a function (of type `t → r`).
+Each iteration changes that function, adding a layer of `fmap` and a composition with other functions (`coalg` and `alg`).
+So, this function itself is different at each iteration, and `Natural/fold` will not detect an early termination of the loop, --- even though the result of applying that function to a particular argument may no longer change after a certain number of iterations.
+
+We will proceed in two phases:
+
+- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation of `hylo_Nat`.
+- Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
+
+We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
+
+Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application
+of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that
+`fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
+This happens when some constructors of the union type `F t` do not store any values of type `t`.
+To detect that condition, we need to be able to check whether any values of type `t` are actually
+stored in a given data structure `p : F (F (... (F t)...))`.
+
+We begin by implementing a function `contains_t` for checking whether a value of type `F t` contains any values of type `t`.
+For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
+This functionality will be available if the functor `F` is _foldable_.
+We will require `Functor` and `Foldable` typeclass evidence for `F`
+(such evidence can be created for any polynomial functor `F`).
+
+Suppose `p : F t` is a given value.
+As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
+(The Haskell code would be `fmap (\_ -> True) p`.)
+The result is a value of type `F Bool`.
+Then we use `F`'s `reduce` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
+For that, we need to use the type `Bool` as a monoid with the empty value equal to `False` and the binary operation chosen as `||`.
+The resulting value will be `True` if the data structure contains any `True` values.
+The Dhall code is:
+```dhall
+let monoidBoolOr : Monoid Bool = { empty = False, append = λ(x : Bool) → λ(y : Bool) → x || y }
+let contains_t
+  : ∀(F : Type → Type) → Functor F → Foldable F → ∀(t : Type) → F t → Bool
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(t : Type) → λ(p : F t) →
+    let replaceByTrue : F t → F Bool = functorF.fmap t Bool (λ(_ : t) → True)
+    let findTrueValues : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+    in findTrueValues (replaceByTrue p)
+```
+
+To test this code, we define the following functor `FT`, which is the recursion scheme of a binary tree with `Natural` leaf values:
+
+```dhall
+let FT = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
+let functorFT = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(f1a : FT a) → merge { Leaf = (FT b).Leaf, Branch = λ(branch : { left : a, right : a }) → (FT b).Branch { left = f branch.left, right = f branch.right } } f1a }
+let foldableFT = { reduce = λ(M : Type) → λ(monoidM : Monoid M) → λ(f1m : FT M) → merge { Leaf = λ(_ : Natural) → monoidM.empty, Branch = λ(branch : { left : M, right : M }) → monoidM.append branch.left branch.right } f1m }
+```
+
+To see that the function `contains_t` works as expected, let us test it on some values of type `FT t`:
+```dhall
+let _ =
+  let t = Text
+  let check : FT t → Bool = contains_t FT functorFT foldableFT t
+  let test1 : FT t = (FT t).Leaf 123   -- Does not contain values of type t.
+  let test2 : FT t = (FT t).Branch { left = "a", right = "b" } -- Contains values of type t.
+in { _1 = assert : check test1 === False, _2 = assert : check test2 === True }
+```
+
+The next step is to implement a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
+To achieve that, we first need to apply `fmap_F` $n$ times to the function `λ(_ : t) → True`.
+This gives a function that replaces values of type `t` by `True` at the deepest nesting level in the data structure:
+
+`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n times -}`
+
+Then we need to apply `fmap_F` $n-1$ times to the function `findTrueValues` shown above:
+
+`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
+
+Applying that function will reduce by $1$ the number of nested layers of `F`.
+We need to keep doing this until we remove all layers of `F` and obtain a `Bool` value.
+We may describe the procedure symbolically like this:
+
+```haskell
+findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+replace = λ(_ : t) → True
+
+h0 : t → Bool = replace
+h1 : F t → Bool = findTrue . fmap_F h0
+h2 : F (F t) → Bool = findTrue . fmap_F h1
+h3 : F (F (F t)) → Bool = findTrue . fmap_F h2
+hN : F (F (... (F t)...)) {- n times -} → Bool = findTrue . fmap_F hN-1
+```
+
+The function `hN` will be applied to a value obtained by repeatedly applying `coalg : t → F t` to some initial value `p : t`.
+We can describe that by:
+
+```haskell
+c1 : t → F t = coalg
+c2 : t → F (F t) = fmap_F c1
+c3 : t → F (F (F t)) = fmap_F c2
+...
+```
+
+Now we notice that the composition `hN . cN` is equivalent to the code of a depth-bounded hylomorphism with a stop-gap value, that is, `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
+After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...)) {- n times -}` and then back into a `Bool` value via `hN`.
+
+The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
+For that, we will of course need an absolute upper bound on possible `N`.
+Given that bound, we write a loop using `Natural/fold` such that the current accumulated value stops changing when the value `hN (cN p)` first becomes `False`.
+The loop accumulates a hylomorphism of type `t → Bool` that we use to detect the presence of values of type `t`.
+When no values of type `t` are present, we stop changing the accumulated value.
+The code is:
+```dhall
+let hylo_max_depth
+  : ∀(F : Type → Type) → Functor F → Foldable F → Natural → ∀(t : Type) → (t → F t) → t → Natural
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(limit : Natural) → λ(t : Type) → λ(coalg : t → F t) → λ(p : t) →
+    let replace : t → Bool = λ(_ : t) → True
+    let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+    let Acc = { depth : Natural, hylo : t → Bool }
+    let update : Acc → Acc = λ(acc : Acc) →
+      let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.hylo (coalg x))
+      let hasValuesT = acc.hylo p
+      in if hasValuesT then { depth = acc.depth + 1, hylo = newHylo } else acc
+    let init : Acc = { depth = 0, hylo = replace }
+    let result = Natural/fold limit Acc update init
+    in result.depth
+```
+
+To test this code, we use the functor `FT` defined above and implement a function `coalg : Natural → FT Natural` such that iterating `coalg n` beyond depth `n` will no longer put values of type `t` into trees of type `FT (FT (... (FT t)...))`.
+```dhall
+-- FT t = < Leaf : Natural | Branch : { left : t, right : t } >
+let FNat = FT Natural
+let coalg : Natural → FT Natural = λ(n : Natural) →
+  let n-1 = Natural/subtract 1 n
+  in if Natural/isZero n then FNat.Leaf 0
+     else FNat.Branch { left = n-1, right = n-1 }
+let tests =
+  let FFNat = FT (FT Natural)
+  let FFFNat = FT (FT (FT Natural))
+  let fmapCoalg : FNat → FFNat = functorFT.fmap Natural FNat coalg
+  let fmapFmapCoalg : FFNat → FFFNat = functorFT.fmap FNat FFNat fmapCoalg
+  let _ = assert : coalg 0 === FNat.Leaf 0
+  let _ = assert : coalg 1 === FNat.Branch { left = 0, right = 0 }
+  let _ = assert : fmapCoalg (coalg 1) === FFNat.Branch { left = FNat.Leaf 0, right = FNat.Leaf 0 }
+  let _ = assert : fmapFmapCoalg (fmapCoalg (coalg 1)) === FFFNat.Branch { left = FFNat.Leaf 0, right = FFNat.Leaf 0 }
+  in "tests pass"
+```
+The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the second `fmap`.
+So, we expect `hylo_max_depth` to return `2` when applied to that `coalg`:
+```dhall
+let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 === 2
+```
+
+Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
+
+To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is applied automatically.
+We will not compute the recursion depth separately.
+Instead, we will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
+We will keep the accumulated value unchanged once the maximum recursion depth is reached.
+The shortcut detection mechanism in `Natural/fold` will then automatically stop the iterations.
+
+The resulting function is `hylo_N`:
+```dhall
+let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
+    Natural → ∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → (t → r) → r
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) →
+    λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
+      let replace : t → Bool = λ(_ : t) → True
+      let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+      let Acc = { depthHylo : t → Bool, resultHylo : t → r }
+      let update : Acc → Acc = λ(acc : Acc) →
+        let newDepthHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.depthHylo (coalg x))
+        let newResultHylo : t → r = λ(y : t) → alg (functorF.fmap t r acc.resultHylo (coalg y))
+        let hasValuesT = acc.depthHylo seed
+        in if hasValuesT then { depthHylo = newDepthHylo, resultHylo = newResultHylo } else acc
+      let init : Acc = { depthHylo = replace, resultHylo = stopgap }
+      let result = Natural/fold limit Acc update init
+      in result.resultHylo seed
+```
+
+Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately.
+
+### Example: the Egyptian division algorithm
+
+The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
+
+```haskell
+egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
+egyptian_div_mod a b =  -- Divide a / b assuming that b > 0.
+  if a < b then (0, a) else if a - b < b then (1, a - b)
+      else
+        let (quotient, remainder) = egyptian_div_mod a (2 * b) -- Recursive call.
+        in
+          if remainder < b then (2 * quotient, remainder)
+          else (2 * quotient + 1, remainder - b)
+```
+
+The function `egyptian_div_mod` is recursive and cannot be directly translated to Dhall.
+We have two options:
+- By trial and error, we can perhaps guess how to convert `egyptian_div_mod` into some calls to `Natural/fold` that Dhall accepts.
+- Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
+
+The general procedure for converting recursive code to hylomorphisms is explained in the paper by Hu, Iwasaki, and Takeichi (HIT), ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507).
+The HIT derivation procedure applies to a wide range of recursive functions including the egyptian division algorithm.
+We will now follow that procedure for the code of `egyptian_div_mod` shown above.
+
+A first problem is that
+the HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
+So, let us first refactor `egyptian_div_mod` into a recursive function of a single argument.
+Notice that recursive calls to `egyptian_div_mod` only change the value of the argument `b`, while the value of `a` remains the same for all recursive calls.
+We will define `egyptian_div_mod a b = e_div_mod b` where `e_div_mod` is defined within the scope of `egyptian_div_mod` so that it captures the value of `a`.
+We will also introduce helper functions `postprocess1` and `postprocess2` to make the structure of the code more transparent:
+
+```haskell
+egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
+egyptian_div_mod a b =
+  let
+    postprocess1 :: Int -> (Int, Int)
+    postprocess1 b = if a < b then (0, a) else (1, a - b)
+    postprocess2 :: ((Int, Int), Int) -> (Int, Int)
+    postprocess2 ((quotient, remainder), b) =
+      if remainder < b then (2 * quotient, remainder)
+      else (2 * quotient + 1, remainder - b)
+
+    e_div_mod :: Int -> (Int, Int)
+    e_div_mod b =
+      if a - b < b then postprocess1 b
+      else postprocess2 ((e_div_mod (2 * b)), b) -- Recursive call.
+  in e_div_mod b
+```
+
+The function `e_div_mod` can be rewritten as a hylomorphism if we find a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
+
+- A function `coalg` of type `Int -> P Int`.
+- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int -> P (Int, Int)`.
+- A function `alg` of type `P (Int, Int) -> (Int, Int)`.
+
+Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
+
+To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether a recursive call to `e_div_mod` is needed.
+To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_mod . coalg`, we need to choose `P` such that `fmap_P` skips calling `e_div_mod` in one case but does call it in another case.
+This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
+For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
+```haskell
+type P x = P1 Int | P2 x
+fmap_P :: (a -> b) -> P a -> P b
+fmap_P f (P1 i) = P1 i
+fmap_P f (P2 a) = P2 (f a)
+```
+then the application `fmap_P e_div_mod (P1 123)` will not call `e_div_mod`, while the application `fmap_P e_div_mod (P2 123)` will.
+
+So, the functor `P` must be chosen as a union type whose structure describes the presence or the absence of recursive calls in the various choice branches of the function `e_div_mod`.
+In our case, it is sufficient if the union type `P x` has _two_ parts because the code of `e_div_mod` only has two choice branches (one branch without recursive calls and one branch with one recursive call):
+```haskell
+    ...
+    e_div_mod b =
+      if a - b < b then postprocess1 b      -- No recursive calls.
+      else postprocess2 (e_div_mod (2 * b)) -- Recursive call.
+    ...
+```
+
+The next question is what data should the constructors `P1` and `P2` carry.
+Do we need to define `P` as `type P x = P1 (Int, Int, Int) | P2 (x, Int, Int)` or as something else like that?
+To answer that question, we look at the data `e_div_mod` requires in the two branches when computing the final result:
+
+- In the first branch, a single integer value (`b`) is used to compute the result as `postprocess1 b`.
+So, it suffices to define `P1` storing a single integer (the value of `b`).
+
+- In the second branch, we apply `postprocess2` to a pair of integers returned by the recursive call `e_div_mod (2 * b)`.
+The recursive call will be taken care of by `fmap_P e_div_mod`.
+The result of that call will be a value of type `P (Int, Int)`.
+So, the type parameter `x` in `P x` will be actually set to `(Int, Int)` when `fmap_P` is applied.
+In addition, `postprocess2` needs to have the value of `b`.
+
+We conclude that it is sufficient to use `P2 (x, Int)` in the definition of the union type.
+
+This consideration shows that `P` can be defined as the Haskell code `data P x = P1 Int | P2 (x, Int)` or the Dhall equivalent:
+
+```dhall
+let P = λ(X : Type) → < P1 : Natural | P2 : { p : X, b : Natural } >
+let fmap_P : Fmap_t P
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
+    merge {
+      P1 = (P b).P1,
+      P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b },
+    } pa
+let functorP : Functor P = { fmap = fmap_P }
+let reduce_P : ∀(M : Type) → Monoid M → P M → M
+  = λ(M : Type) → λ(monoidM : Monoid M) → λ(pm : P M) → merge {
+      P1 = λ(_ : Natural) → monoidM.empty,
+      P2 = λ(x : { p : M, b : Natural }) → x.p,
+  } pm
+let foldableP : Foldable P = { reduce = reduce_P }
+```
+
+The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) -> (Int, Int)` implemented in Haskell as:
+```haskell
+alg :: P (Int, Int) -> (Int, Int)  -- Haskell.
+alg (P1 b) = postprocess1 b
+alg (P2 ((quotient, remainder), b)) = postprocess2 ((quotient, remainder), b)
+```
+
+This code can be rewritten in Dhall straightforwardly.
+For convenience, we define a record type `Result` that holds the quotient and the remainder.
+Also, we add an extra argument to some functions for supplying a value of `a`:
+
+```dhall
+let Result = { div : Natural, rem : Natural }
+let postprocess1 = λ(a : Natural) → λ(b : Natural) →
+  -- if a < b then (0, a) else (1, a - b)
+  if Natural/lessThan a b then { div = 0, rem = a }
+  else { div = 1, rem = Natural/subtract b a }
+let postprocess2 = λ(p2 : { p : Result, b : Natural }) →
+    -- if remainder < b then (2 * quotient, remainder) else (2 * quotient + 1, remainder - b)
+  let quotient = p2.p.div
+  let remainder = p2.p.rem
+  in if Natural/lessThan remainder p2.b then { div = 2 * quotient, rem = remainder }
+     else { div = 2 * quotient + 1 , rem = Natural/subtract p2.b remainder }
+
+let alg : Natural → P Result → Result
+  = λ(a : Natural) → λ(pp : P Result) → merge {
+    P1 = postprocess1 a,
+    P2 = postprocess2,
+  } pp
+```
+
+It remains to implement the function `coalg` whose Haskell type signature is `Int -> P Int`.
+That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
+Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
+
+A Haskell implementation of `coalg` is:
+```haskell
+coalg :: Int -> P Int   -- Haskell.
+coalg b = if a - b < b then P1 b else P2 (2 * b, b)
+```
+Here, the value `P2 (2 * b, b)` contains at once the argument `2 * b` for the recursive call of `e_div_mod` and the extra value `b` needed for `postprocess2`.
+
+The code of `coalg` can be translated to Dhall as:
+
+```dhall
+let coalg : Natural → Natural → P Natural
+  = λ(a : Natural) → λ(b : Natural) →
+    if Natural/lessThan (Natural/subtract b a) b then (P Natural).P1 b
+    else (P Natural).P2 { p = 2 * b, b = b }
+```
+
+This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell code would be:
+
+```haskell
+e_div_mod = hylo coalg alg  -- Haskell.
+```
+
+Now we can implement `e_div_mod` in Dhall using `hylo_Nat` or `hylo_N` with appropriate extra arguments:
+
+```dhall
+let egyptian_div_mod : Natural → Natural → Result
+  = λ(a : Natural) → λ(b : Natural) →
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
+    let limit = a    -- A very imprecise upper bound on the number of iterations.
+    in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test:
+let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
+```
+
+We may also use `hylo_N` instead of `hylo_Nat`, with an automatic detection of recursion depth and early termination:
+
+```dhall
+let egyptian_div_mod : Natural → Natural → Result
+  = λ(a : Natural) → λ(b : Natural) →
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
+    let limit = a
+    in hylo_N P functorP foldableP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test:
+let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
+```
+
+This function is fast enough to divide even very large numbers.
+The following test takes just a few seconds (when using Dhall version 1.42.2 or later):
+
+```dhall
+⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
+
+{ div =
+    333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+, rem = 1
+}
+```
+
+The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
+In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
+This is another practical motivation for studying hylomorphisms.
+
+### Converting recursive code to hylomorphisms: the HIT algorighm
+
+The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
+[Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
+In this book, we will limit our consideration to the simple HIT algorithm for a single recursive function.
+
+The HIT algorithm works only for recursive code of a certain restricted form:
+
+- The code must have a single top-level pattern-matching expression that decides whether (and how many) recursive calls are needed.
+- Each pattern-matching alternative may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching alternative.
+- Recursive calls are not nested (the arguments of recursive calls do not use results of previous recursive calls).
+
+Code of that form can be described by this Haskell skeleton:
+
+```haskell
+-- Haskell. A recursive function f of type X → Y is defined by:
+f :: X -> Y
+f x = case do_choice x of
+  C0 x0 -> post_0 x0
+  C1 x1 -> post_1 x1 (f (arg_1_1 x1)) (f (arg_1_2 x1)) ... (f (arg_1_n1 x1))
+  C2 x2 -> post_2 x2 (f (arg_2_1 x2)) (f (arg_2_2 x2)) ... (f (arg_2_n2 x1))
+  ...
+```
+Here, the function `do_choice` has type `X → C`, where `C` is a union type with alternatives `C0`, `C1`, `C2`, etc.
+We assume that values `x0`, `x1`, etc., have known types `A0`, `A1`, etc., so that the union type `C` may be defined in Dhall as:
+```dhall
+let C = < C0 : A0 | C1 : A1 | C2 : A2 | ??? and so on >
+```
+The values `x0`, `x1`, etc., must carry all the information needed for the remaining computations in each of the choice brances.
+
+The functions `arg_1_n` (with $n=1,2,...$) have types `A1 → X`, the functions `arg_2_n` (with $n=1,2,...$) have types `A2 → X`, etc.
+
+The functions `post_n` (with $n=1,2,...$) have types `An → Y → Y → ... → Y` with as many arguments of type `Y` as recursive calls of the function `f` in the corresponding alternative.
+In the first alternative, there are no recursive calls, so we have `post_0 : A0 → Y`.
+
+The first of the alternatives (the Haskell code line `P0 x0 -> ...`) does not use any recursive calls of `f` and computes the result immediately as `post_0 x0`.
+If the code of `f` contains several such alternatives, we will redefine the type `C` so that all those alternatives are combined into a single one with the constructor that we denoted by `C0`.
+
+Other alternatives (`C1`, `C2`, etc.) _do_ require one or more recursive calls to `f`.
+The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `arg_1_1`, `arg_1_2`, `arg_2_1`, and so on.
+Once the recursive calls are completed, the post-processing functions (`post_1`, `post_2`, etc.) are used to compute the final results.
+
+Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
+
+We begin by defining the union type `C` and the function `do_choice: X → C` by following the Haskell code of `f` as indicated above.
+
+The next step is to determine a suitable functor `P` that will be used for defining the hylomorphism.
+To figure that out, notice that a hylomorphism's Haskell code contains recursion at _only one_ place:
+```haskell
+hylo coalg alg = alg . (fmap (hylo coalg alg)) . coalg  -- Haskell.
+```
+The function `hylo` calls itself only via `fmap hylo`.
+So, the recursive calls correspond to places where the data structure of type `P t` stores values of type `t`.
+Those stored values are actually used as _arguments_ of the recursive calls (because that's how `fmap` works).
+
+It follows that we need to choose `P` such that `P t` stores a separate value of type `t` for each recursive call.
+The data type `P t` will be a union type whose parts correspond to the branches `P0`, `P1`, etc.
+For the code skeleton shown above, we would need to define `P` as:
+
+```dhall
+let P = λ(T : Type) →
+< | P0 : A0
+  | P1 : { a1 : A1, call_1 : T, call_2 : T, ..., call_n1 : T }
+  | P2 : { a2 : A2, call_1 : T, call_2 : T, ..., call_n2 : T }
+  | ???  -- And so on.
+>
+```
+We will also need to define `Functor` and `Foldable` typeclass instances for the chosen functor `P`.
+(Later chapters in this book show general procedures for defining such typeclass instances for all functors `P` of the required form.)
+
+The next step is to define suitable functions `coalg : X -> P X` and `alg : P Y -> Y` such that the code of `f` is equivalent to `hylo coalg alg`.
+The function `coalg` prepares the arguments for the recursive calls, and the function `alg` performs the post-processing after the recursive calls are done:
+```dhall
+let coalg : X → P X = λ(x : X) →
+  let choice : C = do_choice x  -- As in the code of `f`.
+  merge { -- Prepare the function arguments for recursive calls.
+    C0 = λ(x0 : A0) → (P X).P0 x0,
+    C1 = λ(x1 : A1) → (P X).P1 { a1 = x1, call_1 = arg_1_1 x1, ..., call_n1 = arg_1_n1 x1 },
+    C2 = λ(x2 : A2) → (P X).P2 { a2 = x2, call_1 = arg_2_1 x2, ..., call_n2 = arg_2_n2 x2 },
+    ???  -- And so on.
+  } choice
+
+let alg : P Y → Y = λ(fy : P Y) →
+  merge {
+    P0 = λ(r0 : A0) → post_0 r0,
+    P1 = λ(r1 : { a1 : A1, call_1 : Y, call_2 : Y, ..., call_n1 : Y }) → post_1 r1.a1 r1.call_1 r1.call_2 ... r1.call_n1,
+    P2 = λ(r2 : { a2 : A2, call_1 : Y, call_2 : Y, ..., call_n2 : Y }) → post_2 r2.a2 r2.call_1 r2.call_2 ... r2.call_n2,
+    ???  -- And so on.
+  } fy
+```
+
+In this way, the HIT algorithm rewrites the code of `f` in terms of a hylomorphism.
+It remains to estimate an upper bound for the number of iterations and apply `hylo_Nat` or `hylo_N` with a suitable stop-gap argument.
+That will guarantee termination, and the resulting code will be accepted by Dhall.
+
+### Example: Fibonacci numbers
+
+As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (but quite slow) implementation of a function that computes the $n$-th Fibonacci number:
+
+```haskell
+fibonacci :: Int -> Int  -- Haskell.
+fibonacci n = if n < 3 then 1 else fibonacci (n - 1) + fibonacci (n - 2)
+```
+
+This code is not acceptable in Dhall because `fibonacci` is defined recursively.
+Let us now apply the HIT algorithm to the code shown above.
+
+We set the types `X = Y = Natural`.
+The first step is to define the type `C` and the function `do_choice : X → C`.
+The type `C` should be a union type that describes the possible choices in making the recursive calls.
+The code of `fibonacci` chooses between no recursive calls and 2 recursive calls.
+However, the input type `X = Natural` is not a union type, and we do not need to extract any information from it.
+So, we could define the type `C` as a union type with two parts carrying no information:
+```dhall
+let C = < BaseCase | RecCase > 
+```
+or even simpler:
+```dhall
+let C = Bool
+let do_choice : Natural → Bool = λ(n : Natural) → Natural/lessThan n 3 
+```
+The types `A0` and `A1` are just unit types, and we may just omit the values `x0 : A0` and `x1 : A1`.
+
+The next step is to define the functor `P`.
+The type `P A` must be a union type with two alternatives:
+```dhall
+let P : Type → Type = λ(A : Type) → < P0 : ??? | P1 : ??? > 
+```
+
+The first alternative (`P0`) corresponds to the clause without recursive calls.
+The output value in that clause is always just `1`.
+So, we do not need `P0` to carry any values.
+
+The second alternative (`P1`) needs to carry the values needed for the arguments of the recursive calls.
+(Those values are $n-1$ and $n-2$.)
+So, we define `P` as:
+```dhall
+let P : Type → Type = λ(A : Type) → < P0 | P1 : { call_1 : A, call_2 : A } >
+let functorP : Functor P = {
+  fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
+    merge {
+      P0 = (P b).P0,
+      P1 = λ(r1 : { call_1 : a, call_2 : a }) → (P b).P1 { call_1 = f r1.call_1, call_2 = f r1.call_2 }
+    } pa
+}
+```
+and the functions `arg_1_1`, `arg_1_2`, and `post_1` as:
+```dhall
+let arg_1_1 = λ(n : Natural) → Natural/subtract 1 n
+let arg_1_2 = λ(n : Natural) → Natural/subtract 2 n
+let post_1 = λ(r1 : Natural) → λ(r2 : Natural) → r1 + r2
+```
+
+Now we can follow the skeleton code shown above and write code for the `alg` and `coalg` functions (that we will call `algFib` and `coalgFib`):
+```dhall
+let coalgFib : Natural → P Natural = λ(n : Natural) →
+  let choice : Bool = do_choice n
+  -- Use if/then/else instead of merge on Bool.
+  in if choice then (P Natural).P0
+  else (P Natural).P1 { call_1 = arg_1_1 n, call_2 = arg_1_2 n }
+
+let algFib : P Natural → Natural = λ(p : P Natural) →
+  merge {
+    P0 = 1,
+    P1 = λ(r1 : { call_1 : Natural, call_2 : Natural }) →
+      post_1 r1.call_1 r1.call_2
+  } p
+```
+
+It remains to find a stop-gap value and a suitable upper bound on the number of iterations.
+
+The stop-gap value should be any function of type `Natural → Natural`.
+So, we can just use a constant function that always returns `0`.
+(In this way, we will quickly see that the result is wrong, as the `fibonacci` function should never return `0`.)
+
+An upper bound on the number of iterations is the number `n` iself.
+
+We have obtained the complete Dhall code for the Fibonacci number calculation:
+```dhall
+let fibonacci : Natural → Natural
+  = λ(n : Natural) → hylo_Nat P functorP n Natural n coalgFib Natural algFib (const Natural Natural 0)
+let _ = assert : fibonacci 8 === 21
+```
+
+What is the time complexity of the hylomorphism-based `fibonacci` function?
+At first sight, it may appear that the complexity is linear because the hylomorphism runs `Natural/fold n`, which iterates a function `n` times.
+But actually the complexity is still exponential in `n`, just like the initial recursive code.
+The reason is that the $n$-th iteration works with a data structure of type `P (P (... (P Natural) ...))` nested $n$ times.
+With our definition of $P$, that data structure is a binary tree of depth $n$, which stores $2^n$ values of type `Natural`.
+Processing that data structure takes exponential time ($O(2^n)$).
+
+The HIT algorithm does not change the asymptotic performance of recursive code.
+It only converts the code into the form of a hylomorphism, which then becomes suitable for implementation in Dhall.
+To improve the asymptotic complexity of the resulting code, it would be best to start with a faster recursive algorithm, such as the ["doubling algorithm"](https://www.nayuki.io/page/fast-fibonacci-algorithms) for the Fibonacci sequence.
+
+Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
+Such techniques are beyond the scope of this book.
+
+### Hylomorphisms driven by a Church-encoded template
+
+In the code for `hylo_Nat`, the total number of iterations was limited by a given natural number.
 To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
 
 Note that `Natural` is a recursive type whose `fold` method is a Dhall built-in.
@@ -5577,28 +6332,7 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
-As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
-
-TODO example of usage
-
-### Converting from the least fixpoint to the greatest fixpoint
-
-A hylomorphism can be seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
-Previous sections showed how to adapt hylomorphisms to the recursion-less programming style of System Fω and Dhall.
-
-The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall directly, without changing the type signature.
-Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
-The least fixpoint type `LFix F` already has that function (`unfix`).
-So, we can implement a conversion function:
-
-```dhall
-let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
-    makeGFix F (LFix F) x (unfix F functorF)
-```
-
-TODO example and note about performance
-
+As long as the recursion scheme `F` is applicative (all polynomial functors are), we will be able to implement `hylo_T` for `F`.
 
 ## Combinators for functors and contrafunctors
 
@@ -5606,8 +6340,9 @@ Functors and contrafunctors may be constructed only in a fixed number of ways, b
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from parts.
 
-All of the combinators preserve functor laws; the created new functors are automatically lawful.
-The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp).
+All the combinators preserve functor laws; the created new functor instances are automatically lawful.
+The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+We will only show the Dhall code that creates the typeclass instance values for all the combinators.
 
 ### Constant (contra)functors
 
@@ -5649,7 +6384,7 @@ let contrafunctorConst : ∀(c : Type) → Contrafunctor (Const c)
 
 The **identity functor** is the type constructor `Id` such that `Id a = a`.
 
-The functor evidence value for `Id` can be implemented as:
+A `Functor` evidence value for `Id` can be implemented as:
 
 ```dhall
 let Id = λ(a : Type) → a
@@ -5796,14 +6531,41 @@ let contrafunctorCoProduct
 
 ### Function types with functors and contrafunctors
 
+The function-type functor `H a = F a → G a` is covariant If `F` is contravariant and `G` is covariant.
+Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
+
+For convenience, we define the `Arrow` combinator:
+```dhall
+let Arrow : (Type → Type) → (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F a → G a
+```
+
+We can automatically construct the evidence values for the cases we just described:
+
+```dhall
+let contrafunctorFunctorArrow
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Functor G → Functor (Arrow F G)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowA : F a → G a) → λ(fb : F b) →
+        functorG.fmap a b f (arrowA (contrafunctorF.cmap a b f fb))
+    }
+let functorContrafunctorArrow
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Arrow F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowB : F b → G b) → λ(fa : F a) →
+        contrafunctorG.cmap a b f (arrowB (functorF.fmap a b f fa))
+    }
+```
+
 ### Universal and existential type quantifiers
 
 Given a type constructor with multiple type parameters, we may impose a type quantifier on some of the parameters and obtain a type constructor with fewer type parameters.
 Imposing type quantifiers will not change the covariance properties of the type constructor.
-In this way, we may produce functors or contrafunctors that have type quantifiers.
+In this way, we may produce new functors or contrafunctors.
 
 Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the second type parameter of `F`.
-In a mathematical notation, the definition of `G` is `G a = ∀b. F a b`.
+(The first type parameter remains free.)
+In a mathematical notation, the definition of `G` is $G ~a = \forall b.~ F~ a~ b$.
 The corresponding Dhall code is:
 
 ```dhall
@@ -5812,6 +6574,9 @@ let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
 ```
 
 If `F a b` is covariant with respect to `a` then so is `G a`; if `F a b` is contravariant with respect to `a` then so is `G a`.
+
+Note that `F a b` could be covariant, contravariant, or neither with respect to the second type parameter (`b`).
+To derive the (co/contra)variant functor property of `G`, we need properties of `F` with respect to the first type parameter only.
 
 To express the requirement that `F a b` is covariant with respect to `a` (while `F` could be anything with respect to `b`), we write a `Functor` evidence value for the type constructor `λ(a : Type) → F a b` while keeping `b` fixed:
 
@@ -5827,33 +6592,193 @@ Then we can express the functor property of `∀b. F a b` as a function that tra
 let functorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G = λ(a : Type) → ∀(b : Type) → F a b
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-        let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
-        in gd
-      }
+          let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
+          in gd
+       }
+```
+
+Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
+
+To implement the _contrafunctor_ evidence in case `F a b` is contravariant in `b`, we write this code:
+
+```dhall
+let contrafunctorForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
+    in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
+          let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
+          in gd
+       }
 ```
 
 Existential quantifiers have similar properties.
-If we define `G` by `G a = ∃b. F a b` then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
+If we define `G` by $G ~a = \exists b.~ F~ a~ b$ then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
+It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
 
-TODO
+The following code defines the functor or the contrafunctor instances (as appropriate) for the type constructor `G`:
+```dhall
+let functorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
+          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) →
+            gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
+          in gd
+       }
+let contafunctorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
+          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) →
+            gd r (λ(t : Type) → λ(fdt : F d t) → pack_ t ( (contrafunctorF1 t).cmap c d f fdt ))
+          in gc
+       }
+```
 
-### Least and greatest fixpoints
+
+### Recursive type constructors
+
+Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
+Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
+The constructions in the previous subsections show how to build functor and contrafunctor instances for those types.
+So, in principle we already know enough to build functor or contrafunctor instances (as appropriate) for arbitrary recursive type constructors.
+
+However, for illustration we will show the Dhall code for those instances.
+
+A least-fixpoint type constructor is defined via a recursion scheme that must be a type constructor with two type parameters.
+The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
+(See the section "Recursive type constructors" for more details.)
+
+Suppose `F` is a given recursion scheme with two type parameters.
+Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
+and the type constructor `D` as the greatest fixpoint of the same type equation: `D a = F a (D a)`.
+
+Using the notation `LFix` and `GFix` for the least and the greatest fixpoints, we may also write `C a = LFix (F a)` and `D a = GFix (F a)`.
+
+If `F a b` is covariant in `a` then `C` and `D` will be also covariant and will have `Functor` instances.
+If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant and will have `Contrafunctor` instances.
+For those properties to hold, it does not matter whether `F a b` is covariant or contravariant in `b` (or neither).
+
+We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
+```dhall
+let functorLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let C : Type → Type = λ(a : Type) → LFix (F a)
+    -- C c is the type ∀(r : Type) → (F c r → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : C c) →
+          let y : C d = λ(r : Type) → λ(fdrr : F d r → r) →
+            x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
+          in y
+       }
+let functorGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let D : Type → Type = λ(a : Type) → GFix (F a)
+    -- D c is the type Exists (λ(r : Type) → { seed : r, step : r → F c r }), which is expanded as:
+    -- ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F c t } → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : D c) →
+          let y : D d = λ(r : Type) → λ(pack_ : ∀(t : Type) → { seed : t, step : t → F d t } → r) →
+            x r (
+              λ(t : Type) → λ(p : { seed : t, step : t → F c t }) →
+                pack_ t (p with step = (λ(a : t) → (functorF1 t).fmap c d f (p.step a)))
+            ) 
+          in y
+       }
+```
+
+Contrafunctor instances can be computed by similar code that we will omit.
 
 ## Filterable functors and contrafunctors, and their combinators
+
+Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
+```dhall
+let List/filter = https://prelude.dhall-lang.org/List/filter
+let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] === [ 5, 6, 7, 8 ]
+```
+
+The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
+It turns out to be more convenient to define `filter` through another function called `deflate`.
+
+A **filterable functor** `F` has a method called `deflate`, with the following type signature:
+
+`deflate : F (Optional a) → F a`
+
+A **filterable contrafunctor** `C` has a method called `inflate`, with the following type signature:
+
+`inflate : C a → C (Optional a)`
+
+We can now define the corresponding typeclasses:
+```dhall
+let Filterable = λ(F : Type → Type) → Functor F //\\ { deflate : ∀(a : Type) → F (Optional a) → F a }
+let ContraFilterable = λ(F : Type → Type) → Contrafunctor F //\\ { inflate : ∀(a : Type) → F a → F (Optional a) }
+```
+
+Using the `Filterable` instance, we may implement a `filter` function like this:
+```dhall
+let filter
+  : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
+    let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
+    let foa : F (Optional a) = filterableF.fmap a (Optional a) a2opt fa
+    in filterableF.deflate a foa 
+```
+
+Similarly, we may implement a `cfilter` function for a filterable contrafunctor like this:
+```dhall
+let cfilter
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
+    let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
+    let foa : F (Optional a) = contrafilterableF.inflate a fa
+    in contrafilterableF.cmap a (Optional a) a2opt foa
+```
+
+The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
+That book also shows various combinators that create new lawful `Filterable` and `Contrafilterable` instances out of previous ones.
+Here, we will focus on implementing those combinators in Dhall.
+
+### Constant filterable (contra)functors
+
+A constant functor is at the same time a contrafunctor and is always filterable.
+The `deflate` function and the `inflate` function are just identity functions.
+The typeclass instances are:
+```dhall
+let filterableConst : ∀(c : Type) → Filterable (Const c)
+  = λ(c : Type) → functorConst c /\ { deflate = λ(a : Type) → identity c }  
+let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
+  = λ(c : Type) → contrafunctorConst c /\ { inflate = λ(a : Type) → identity c }  
+```
+
+### Filterable functor composition
+
+If `F` is a filterable functor and `G` is any functor (not necessarily filterable) then the composition functor `Compose G F` is filterable:
+
+```dhall
+let filterableFunctorFunctorCompose
+  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
+```
+
+TODO
 
 ## Applicative functors and contrafunctors, and their combinators
 
 ## Monoids and their combinators
-
 
 ## Traversable functors and their combinators
 
 ## Monads and their combinators
 
 ## Monad transformers
-
 
 ## Free typeclasses
 
@@ -5879,7 +6804,7 @@ The properties known as "naturality" and "parametricity" are rigorous mathematic
 
 This appendix will describe some results of the theory that studies those properties, applied to Dhall programs.
 
-To make the presentation easier to follow, we will denote all types by capital letters and all values by lowercase letters.
+To make the presentation easier to follow, we will denote all types by capital letters and all values by lowercase letters (although Dhall does not require that convention and does not use it in its own libraries).
 
 ### Natural transformations
 
@@ -5895,7 +6820,7 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 
 ∀(a : Type) → ∀(x : Optional (Optional a)) → Optional a
 ```
-In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F a = Optional (Optional a)` and set `G = Optional`. 
+In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
 Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant.
 
@@ -5913,7 +6838,7 @@ To see that `List/map` is a natural transformation, we first fix the type parame
 That is, we remove `∀(B : Type)` from the type signature and assume that the type `B` is defined and fixed.
 Then we rewrite the type signature of `List/map` as `∀(A : Type) → F A → G A`, where the type constructors `F` and `G` are defined by `F X = X → B` and `G X = List X → List B`.
 Both types `F X` and `G X` are _contravariant_ with respect to `X`.
-So, `List/map` is a (contravariant) natural transformation with respect to the type parameter `A`.
+So, in this way we express `List/map` as a (contravariant) natural transformation with respect to the type parameter `A`.
 
 Considering now the type parameter `B` as varying, we fix `A` and rewrite the type signature of `List/map` as `∀(B : Type) → K B → L B`, where `K` and `L` are defined by `K X = A → X` and `L X = List A → List X`.
 Both `K` and `L` are covariant.
@@ -5921,14 +6846,16 @@ So, `List/map` is a (covariant) natural transformation with respect to the type 
 
 ### Naturality laws
 
-Suppose both `F` and `G` are covariant functors and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
+Suppose both `F` and `G` are covariant functors, and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
 
-Typically, a covariant functor represents a data structure, so that `F A` is a type that can store data of an arbitrary type `A`.
+Often, a covariant functor represents a generic data structure such that `F A` is a type that can store data of an arbitrary type `A`.
 One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for that data to be stored in `G A`.
-The function `t` may omit or duplicate or reorder some data items, but no data may be changed.
-This is because the function `t` does not know anything about the type `A`.
-The code of `t` can make decisions neither based on specific values `x : A` stored in `F A`, nor based on the type `A` itself.
-The function `t` must work in the same way for all types `A` and for all values of those types.
+
+The function `t` must implement an algorithm that works in the same way for all types `A` and for all values of those types.
+The code of `t` cannot make any algorithmic decisions either based on specific values `x : A` stored in `F A`, or based on the type `A` itself.
+The function `t` may omit, duplicate, or reorder some data items, but no data may be changed, and no new data may be added.
+This is because the function `t` does not know anything about the type `A` and so cannot compute new values of type `A`.
+All values of type `A` to be stored in the data structure `G A` are those that were already stored in `F A`.
 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
@@ -6534,7 +7461,7 @@ satisfies the $F$-algebra morphism law:
 `∀(fc : F C) → f (fix F functorF fc) === frr (functorF.fmap C R f fc)`
 
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
-(By Statement 1, that function already satisfies the $F$-algebra morphism law.)
+(By Statement 1, that function satisfies the $F$-algebra morphism law.)
 
 ###### Proof
 
@@ -6624,7 +7551,56 @@ unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
   -- Use the isomorphism law: unfix_R (fix_R fr) === fr
 fmap_F c2r (unfix_C c) === unfix_R (c2r c)
 ```
-We obtained equation (2).
+We obtain equation (2).
+
+The next statement gives a necessary and sufficient condition for the existence of the least fixpoint of a given functor.
+
+###### Statement 6
+
+For any (covariant) functor `F`, the least fixpoint type `LFix F` is non-void if and only if the type `F <>` is non-void (here, `<>` is Dhall's representation of the void type).
+
+The intuitive picture is that the type `F <>` supplies the base cases of induction on which the definition of the least fixpoint is based.
+
+###### Proof
+
+The proof needs two parts:
+
+1. To show that `LFix F` is non-void if `F <>` is non-void.
+2. To show that `LFix F` is void if `F <>` is void.
+
+The proof of part (1) is constructive: we can explicitly create a value of type `LFix F` out of a value of type `F <>`.
+For that, we just implement a function with the type signature `F <> → LFix F`:
+
+```dhall
+let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fv : F <>) → λ(r : Type) → λ(frr : F r → r) →
+    frr (functorF.fmap <> r (absurd r) fv)
+```
+
+The proof of part (2) is _not_ constructive: we cannot implement a function of type `LFix F → F <>` that explicitly derives a value of type `F <>` out of a given value of type `LFix F`.
+Instead, the proof goes by assuming that `F <>` is void and then showing (by contradiction) that `LFix F` is also void.
+
+Apply the type `LFix F = ∀(r : Type) → (F r → r) → r` to the void type (`r = <>`):
+
+`LFix F <> = (F <> → <>) → <>`
+
+By assumption, `F <> ≅ <>`, and so we get:
+
+`LFix F <> ≅ (<> → <>) → <>`
+
+Notice that we _do_ have a value of type `<> → <>`, namely, an identity function for the void type (`identity <>`).
+
+So, the type `<> → <>` is not void.
+It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
+
+In other words, the type `(<> → <>) → <>` is void, and so is `LFix F <>`.
+
+Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
+Applying that value `c` to the void type, we will get a value `c <>` of type `LFix F <>`.
+But we just showed that the type `LFix F <>` is void and cannot have any values.
+
+So, our assumptions cannot be correct: if `F <>` is void then `LFix F` cannot be non-void.
+This contradiction proves the statement.
 
 ### The Church-Yoneda identity
 
@@ -6646,7 +7622,7 @@ In the next subsection, we will use that identity to prove the Church encoding f
 
 Here is a proof of the Church-Yoneda identity that assumes that the parametricity theorem holds for all values.
 
-To make the proof shorter, let us define the "Church-Yoneda" type constructor:
+To make the proof shorter, let us define the "Church-Yoneda" type constructor, which we will denote by `CY`:
 ```dhall
 let CY = λ(F : Type → Type) → λ(G : Type → Type) → ∀(R : Type) → (F R → R) → G R
 ```
@@ -6759,7 +7735,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we rename `fc = x` and `c2r = f`.
 
-### Existential types: "pack" is a left inverse of "unpack"
+### Existential types: `pack` is a left inverse of `unpack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
@@ -7618,7 +8594,7 @@ Now that we have gotten rid of `U` and obtained a fixpoint equation for `T` alon
 -- For the greatest fixpoints:
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 -- Written out in full:
-let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → {seed : y , step : y → G x y })) })
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → { seed : y , step : y → G x y })) })
 -- For the least fixpoints:
 let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 -- Written out in full:
@@ -7751,6 +8727,14 @@ Church encoding of least fixpoints (for a covariant functor `P`):
 ```
 $$ \forall x.~(P~x \to x)\to x \cong \mu x.~P~x $$
 
+Existence of least fixpoints:
+
+```dhall
+LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
+```
+$$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
+
+
 Church-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
@@ -7761,28 +8745,28 @@ $$ \forall x.~(P~x \to x)\to Q~x \cong Q(\mu x.~P~x) $$
 Church encoding of greatest fixpoints (for a covariant functor `P`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : a, step : a → P a})  ≅  GFix P
+Exists (λ(a : Type) → { seed : a, step : a → P a })  ≅  GFix P
 ```
 $$ \exists a.~a \times (a\to P~a) \cong \nu x.~P~x $$
 
 Co-Yoneda identity (for a covariant functor `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : a → r})  ≅  Q a
+Exists (λ(a : Type) → { seed : Q a, step : a → r })  ≅  Q a
 ```
 $$ \exists a.~Q~a \times (a\to r) \cong Q~a $$
 
 Co-Yoneda identity (for a contravariant functor `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : r → a})  ≅  Q a
+Exists (λ(a : Type) → { seed : Q a, step : r → a })  ≅  Q a
 ```
 $$ \exists a.~Q~a \times (r\to a) \cong Q~a $$
 
 Church-co-Yoneda identity (for covariant functors `P` and `Q`):
 
 ```dhall
-Exists (λ(a : Type) → { seed : Q a, step : a → P a})  ≅  Q (GFix P)
+Exists (λ(a : Type) → { seed : Q a, step : a → P a })  ≅  Q (GFix P)
 ```
 $$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
 
