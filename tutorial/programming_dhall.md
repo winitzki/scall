@@ -56,8 +56,8 @@ such as `Natural/lessThan` and `List/map`.
 
 
 It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, F#, and so on).
-One major difference is the syntax for functions, which is more similar to the notation adopted in System F and System Fω.
-System F's notation `Λt.λ(x:t). f t x` and System Fω's notation `λ(t:*).λ(x:t). f t x` correspond to Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+One major difference is the syntax for functions, which is similar to the notation adopted in System F and System Fω.
+System F's notation $\Lambda t.~\lambda (x:t).~ f~ t~ x$ and System Fω's notation $\lambda (t:*).~\lambda (x:t).~ f~ t~ x$ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 
 ### Guaranteed termination
