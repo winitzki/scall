@@ -171,9 +171,11 @@ let Float/pad
                     }
 
 in  { Base
+    , divmod
     , Float
     , Float/create
     , Float/isPositive
+    , Float/isZero
     , Float/normalize
     , Float/pad
     , Float/zero
