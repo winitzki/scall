@@ -26,7 +26,6 @@ let Base = T.Base
 
 let D = ./Arithmetic.dhall
 
-let HalfBase = (divmod Base 2).div
 
 let MaxPrintedWithoutExponent = 3
 

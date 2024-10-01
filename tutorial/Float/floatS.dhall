@@ -66,76 +66,18 @@ let Integer/abs =
 let Text/concat =
       https://prelude.dhall-lang.org/Text/concat
         sha256:731265b0288e8a905ecff95c97333ee2db614c39d69f1514cb8eed9259745fc0
-let T = ./Type.dhall
-let Base = T.Base
-let Float/roundDownward =
-      λ(a : Float) →
-      λ(prec : Natural) →
-        if    Natural/lessThan a.topPower prec
-        then  a
-        else  let power = D.power Base (Natural/subtract prec (a.topPower + 1))
 
-              let roundLastDigits = (divmod a.mantissa power).div * power
+        let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
+                        =
+              λ(x : Natural) →
+              λ(x_log_floor : Natural) →
+              λ(prec : Natural) →
+                let h = 1 + x_log_floor
 
-              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+                in  if    Natural/lessThanEqual h prec
+                    then  x * D.power Base (Natural/subtract h prec)
+                    else  (divmod x (D.power Base (Natural/subtract prec h))).div
 
-let _ =
-        assert
-      : Float/roundDownward (Float/create +12341 +0) 4 ≡ Float/create +12340 +0
-
-let _ =
-        assert
-      : Float/roundDownward (Float/create +12341 +0) 5 ≡ Float/create +12341 +0
-
-let _ =
-        assert
-      : Float/roundDownward (Float/create +12341 -10) 4 ≡ Float/create +1234 -9
-
-let _ = assert : Float/roundDownward (Float/create +12341 +0) 0 ≡ Float/zero
-
-let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
-                =
-      λ(x : Natural) →
-      λ(x_log_floor : Natural) →
-      λ(prec : Natural) →
-        let h = 1 + x_log_floor
-
-        in  if    Natural/lessThanEqual h prec
-            then  x * D.power Base (Natural/subtract h prec)
-            else  (divmod x (D.power Base (Natural/subtract prec h))).div
-
-let Float/round =
-      λ(a : Float) →
-      λ(prec : Natural) →
-        if    Natural/lessThan a.topPower prec
-        then  a
-        else  let powerMinus1 = D.power Base (Natural/subtract prec a.topPower)
-
-              let roundLastDigits =
-                      ( divmod
-                          (a.mantissa + HalfBase * powerMinus1)
-                          (powerMinus1 * Base)
-                      ).div
-                    * Base
-                    * powerMinus1
-
-              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
-
-let _ = assert : Float/round (Float/create +12345 +0) 4 ≡ Float/create +12350 +0
-
-let _ =
-        assert
-      : Float/roundDownward (Float/create +12345 +0) 4 ≡ Float/create +12340 +0
-
-let _ = assert : Float/round (Float/create +12345 +0) 5 ≡ Float/create +12345 +0
-
-let _ = assert : Float/round (Float/create +12345 -10) 4 ≡ Float/create +1235 -9
-
-let _ =
-        assert
-      : Float/roundDownward (Float/create +12345 -10) 4 ≡ Float/create +1234 -9
-
-let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
 let totalUnderflow
     -- Detect if `a` is negligible compared with `b`, within given precision.
@@ -326,7 +268,7 @@ in  { T = Float
     , Compared
     , abs = Float/abs
     , isZero = Float/isZero
-    ,  roundDownward = Float/roundDownward
+    ,  truncate = Float/truncate
        , round = Float/round
         , add = Float/add
         , subtract = Float/subtract
