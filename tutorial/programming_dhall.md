@@ -11,7 +11,7 @@ The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-c
 
 This book's view is that Dhall may be used as:
 - a powerful template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
-- a fully specified and tested industrial-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
+- a fully specified and well-tested interpreter for a small, purely functional programming language, useful for studying various language-independent aspects of functional programming
 - a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
 
 The book focuses on the last two use cases.
