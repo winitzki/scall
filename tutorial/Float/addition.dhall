@@ -1,28 +1,3 @@
--- Floating-point computations. Numbers are represented by mantissa, exponent, and signs.
--- The precision is set via the variable `Digits`.
--- This is a proof of concept. Performance will be very slow.
-let D =
-      ./division.dhall
-        sha256:857179c7a39a87159955b75efbeb39c70bddfa3fd47e44a6267c5b64e38d4bf1
-
-let Result = { div : Natural, rem : Natural }
-
-let divmod
-    : Natural → Natural → Result
-    = (./EgyptianDivision.dhall).egyptian_div_mod
-
-let List/take =
-      https://prelude.dhall-lang.org/List/take
-        sha256:b3e08ee8c3a5bf3d8ccee6b2b2008fbb8e51e7373aef6f1af67ad10078c9fbfa
-
-let List/drop =
-      https://prelude.dhall-lang.org/List/drop
-        sha256:af983ba3ead494dd72beed05c0f3a17c36a4244adedf7ced502c6512196ed0cf
-
-let Natural/lessThan =
-      https://prelude.dhall-lang.org/Natural/lessThan
-        sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
-
 let Natural/lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
@@ -35,45 +10,52 @@ let Natural/max =
       https://prelude.dhall-lang.org/Natural/max
         sha256:1f3b18da330223ab039fad11693da72c7e68d516f50502c73f41a89a097b62f7
 
-let Integer/subtract =
-      https://prelude.dhall-lang.org/Integer/subtract
-        sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
+let T = ./Type.dhall
 
-let Integer/positive =
-      https://prelude.dhall-lang.org/Integer/positive
-        sha256:7bdbf50fcdb83d01f74c7e2a92bf5c9104eff5d8c5b4587e9337f0caefcfdbe3
+let Base = T.Base
 
-let Integer/equal =
-      https://prelude.dhall-lang.org/Integer/equal
-        sha256:2d99a205086aa77eea17ae1dab22c275f3eb007bccdc8d9895b93497ebfc39f8
+let D = ./Arithmetic.dhall
 
-let Integer/add =
-      https://prelude.dhall-lang.org/Integer/add
-        sha256:7da1306a0bf87c5668beead2a1db1b18861e53d7ce1f38057b2964b649f59c3b
+let Float/create = T.Float/create
 
-let Bool/not =
-      https://prelude.dhall-lang.org/Bool/not
-        sha256:723df402df24377d8a853afed08d9d69a0a6d86e2e5b2bac8960b0d4756c7dc4
+let Float = T.Float
 
-let Integer/abs =
-      https://prelude.dhall-lang.org/Integer/abs
-        sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
+let Float/normalize = T.Float/normalize
 
-let Text/concat =
-      https://prelude.dhall-lang.org/Text/concat
-        sha256:731265b0288e8a905ecff95c97333ee2db614c39d69f1514cb8eed9259745fc0
+let Float/isZero = T.Float/isZero
 
-        let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
-                        =
-              λ(x : Natural) →
-              λ(x_log_floor : Natural) →
-              λ(prec : Natural) →
-                let h = 1 + x_log_floor
+let Float/zero = T.Float/zero
 
-                in  if    Natural/lessThanEqual h prec
-                    then  x * D.power Base (Natural/subtract h prec)
-                    else  (divmod x (D.power Base (Natural/subtract prec h))).div
+let Float/pad = T.Float/pad
 
+let Float/abs = T.Float/abs
+
+let Float/negate = T.Float/negate
+
+let C = ./compare.dhall
+
+let TorsorType = C.TorsorType
+
+let computeTorsorForBothNonzero = C.computeTorsorForBothNonzero
+
+let compareUnsignedNonzeroWithTorsor = C.compareUnsignedNonzeroWithTorsor
+
+let R = ./rounding.dhall
+
+let Float/round = R.Float/round
+
+let divmod = T.divmod
+
+let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
+                =
+      λ(x : Natural) →
+      λ(x_log_floor : Natural) →
+      λ(prec : Natural) →
+        let h = 1 + x_log_floor
+
+        in  if    Natural/lessThanEqual h prec
+            then  x * D.power Base (Natural/subtract h prec)
+            else  (divmod x (D.power Base (Natural/subtract prec h))).div
 
 let totalUnderflow
     -- Detect if `a` is negligible compared with `b`, within given precision.
@@ -253,25 +235,4 @@ let Float/subtract
                               }
                               compared
 
-in  { T = Float
-    , base = Base
-    ,  show = Float/show
-     , digits = Digits
-    , create = Float/create
-    , isPositive = Float/positive
-    , compare = Float/compare
-    , negate = Float/negate
-    , Compared
-    , abs = Float/abs
-    , isZero = Float/isZero
-    ,  truncate = Float/truncate
-       , round = Float/round
-        , add = Float/add
-        , subtract = Float/subtract
-      , pad = Float/pad
-    , doc =
-        ''
-        The type `Float` represents floating-point numbers at base = ${Natural/show
-                                                                         Base}.
-        ''
-    }
+in  { Float/add, Float/subtract }

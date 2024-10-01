@@ -167,6 +167,6 @@ in  { Compared
     , Compared/reverse
     , Float/compare
     , Natural/compare
-    , TorsorType
+    , TorsorType,compareUnsignedNonzeroWithTorsor
     , computeTorsorForBothNonzero
     }
