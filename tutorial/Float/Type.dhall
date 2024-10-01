@@ -170,9 +170,13 @@ let Float/pad
                     , remaining = x.remaining * p
                     }
 
+let Float/abs
+    : Float → Float
+    = λ(x : Float) → x ⫽ { mantissaPositive = True }
 in  { Base
     , divmod
     , Float
+    , Float/abs
     , Float/create
     , Float/isPositive
     , Float/isZero
