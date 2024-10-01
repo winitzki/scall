@@ -137,14 +137,6 @@ let _ =
 
 let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero
 
-let Float/negate =
-      λ(a : Float) →
-        if    Float/isZero a
-        then  a
-        else    a
-              ⫽ { mantissaPositive = if a.mantissaPositive then False else True
-                }
-
 let totalUnderflow
     -- Detect if `a` is negligible compared with `b`, within given precision.
     -- The value of `torsor a b` is given.
