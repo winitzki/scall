@@ -51,6 +51,7 @@ let Float/round = R.Float/round
 let divmod = T.divmod
 
 let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
+                -- TODO add rounding to the clamping operation.
                 =
       λ(x : Natural) →
       λ(x_log_floor : Natural) →
@@ -92,41 +93,28 @@ let addOrSubtractUnsignedAIsGreater
 
         let commonSize = prec + 1
 
+        let baseline =
+              Natural/max
+                (a.topPower + 1)
+                (Natural/min commonSize (difference + b.topPower + 1))
+
+        let aIsTooSmall = Natural/lessThanEqual (a.topPower + 1) commonSize
+
+        let aClamped =
+              if    aIsTooSmall
+              then  Float/pad a (Natural/subtract (a.topPower + 1) baseline)
+              else  Float/round a commonSize
+
+        let clampTo = if aIsTooSmall then baseline else commonSize
+
+        let bClamped =
+              clampDigits
+                b.mantissa
+                b.topPower
+                (Natural/subtract difference clampTo)
+
         let resultWithNewMantissaOnly =
-              if    Natural/lessThanEqual (a.topPower + 1) commonSize
-              then  let baseline =
-                          Natural/max
-                            (a.topPower + 1)
-                            ( Natural/min
-                                commonSize
-                                (difference + b.topPower + 1)
-                            )
-
-                    let bClamped =
-                          clampDigits
-                            b.mantissa
-                            b.topPower
-                            (Natural/subtract difference baseline)
-
-                    let aPadded =
-                          Float/pad
-                            a
-                            (Natural/subtract (a.topPower + 1) baseline)
-
-                    in    aPadded
-                        ⫽ { mantissa = addOrSubtract aPadded.mantissa bClamped }
-              else  let aTruncated = Float/round a commonSize
-
-                    let bClamped =
-                          clampDigits
-                            b.mantissa
-                            b.topPower
-                            (Natural/subtract difference commonSize)
-
-                    in    aTruncated
-                        ⫽ { mantissa =
-                              addOrSubtract aTruncated.mantissa bClamped
-                          }
+              aClamped ⫽ { mantissa = addOrSubtract aClamped.mantissa bClamped }
 
         in  T.Float/addExtraData resultWithNewMantissaOnly.(T.FloatBare)
 
@@ -148,9 +136,15 @@ let addUnsignedBothNonzero
         then  b
         else  if totalUnderflow (flipTorsor torsor) (Natural/subtract 1 prec)
         then  a
-        else  if torsorXLessEqualY torsor
-        then  addUnsignedAIsGreaterNoUnderflowCheck b a (flipTorsor torsor) prec
-        else  addUnsignedAIsGreaterNoUnderflowCheck a b torsor prec
+        else  let xSmaller = torsorXLessEqualY torsor
+
+              let x = if xSmaller then b else a
+
+              let y = if xSmaller then a else b
+
+              let t = if xSmaller then flipTorsor else λ(x : TorsorType) → x
+
+              in  addUnsignedAIsGreaterNoUnderflowCheck x y (t torsor) prec
 
 let subtractUnsignedAMinusB
     -- Compute a - b, assuming that a >= b > 0.
