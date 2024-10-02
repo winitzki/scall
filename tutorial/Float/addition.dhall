@@ -16,6 +16,10 @@ let Base = T.Base
 
 let D = ./Arithmetic.dhall
 
+let S = ./show.dhall
+
+let Float/show = S.Float/show
+
 let Float/create = T.Float/create
 
 let Float = T.Float
@@ -405,6 +409,15 @@ let checkAdd =
       λ(prec : Natural) →
         Float/add (Float/create x ex) (Float/create y ey) prec
 
+let checkAddShow =
+      λ(x : Integer) →
+      λ(ex : Integer) →
+      λ(y : Integer) →
+      λ(ey : Integer) →
+      λ(prec : Natural) →
+      λ(expected : Text) →
+        Float/show (checkAdd x ex y ey prec) ≡ expected
+
 let _ = assert : checkAdd +321 +0 +123 +0 10 ≡ Float/create +444 +0
 
 let _ = assert : unsigned +123456789 +0 +1 +0 5 ≡ Float/create +123457 +3
@@ -434,5 +447,37 @@ let _ = assert : checkAdd +1234567890 +0 +9 +0 10 ≡ Float/create +1234567899 +
 let _ = assert : checkAdd +123456789 +6 +1 +0 5 ≡ Float/create +123456789 +6
 
 let _ = assert : checkAdd +123456789 +6 +1 +0 10 ≡ Float/create +123456789 +6
+
+let _ = assert : checkAddShow +123456789 +6 +1 +0 10 "+1.23456789e+14"
+
+let _ = assert : checkAddShow +1 +0 +123456789 +6 10 "+1.23456789e+14"
+
+let _ = assert : checkAddShow +123456789 +0 -123456789 +0 10 "0."
+
+let _ = assert : checkAddShow +0 +0 -2 +0 10 "-2."
+
+let _ = assert : checkAddShow -2 +0 +0 +0 10 "-2."
+
+let _ = assert : checkAddShow +3 +0 -2 +0 10 "+1."
+
+let _ = assert : checkAddShow -2 +0 +3 +0 10 "+1."
+
+let _ = assert : checkAddShow -3 +0 +2 +0 10 "-1."
+
+let _ = assert : checkAddShow +1 +0 -2 +0 10 "-1."
+
+let _ = assert : checkAddShow -2 +0 +1 +0 10 "-1."
+
+let _ = assert : checkAddShow +1 +0 -20 +0 10 "-19."
+
+let _ = assert : checkAddShow -20 +0 +1 +0 10 "-19."
+
+let _ = assert : checkAddShow +1234 +0 -1 +0 10 "+1233."
+
+let _ = assert : checkAddShow +1234 +0 -12 +0 10 "+1222."
+
+let _ = assert : checkAddShow +12 +0 -1234 +0 10 "-1222."
+
+let _ = assert : checkAddShow +1234 +0 -123 +0 10 "+1111."
 
 in  { Float/add, Float/subtract }
