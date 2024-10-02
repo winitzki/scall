@@ -485,4 +485,31 @@ let _ = assert : checkAddShow +12 +0 -1234 +0 10 "-1222."
 
 let _ = assert : checkAddShow +1234 +0 -123 +0 10 "+1111."
 
+let _ =
+      let a1 = Float/create -12345678 -8
+
+      let a2 = Float/create +123 -2
+
+      let _ = assert : Float/show a1 ≡ "-0.12345678"
+
+      let _ = assert : Float/show a2 ≡ "+1.23"
+
+      in  True
+
+let _ = assert : checkAddShow +12345678 -8 +123 -2 5 "+1.35345"
+
+let _ = assert : checkAddShow +12345678 -8 +123 -2 6 "+1.353456"
+
+let _ = assert : checkAddShow +12345678 -8 +123 -2 7 "+1.3534567"
+
+let _ = assert : checkAddShow +12345678 -8 +123 -2 8 "+1.35345678"
+
+let _ = assert : checkAddShow +12345678 -8 +123 -2 9 "+1.35345678"
+
+let _ = assert : checkAddShow -123 -3 +12 -1 10 "+1.077"
+
+let _ = assert : checkAddShow -12345678 -8 +123 -2 5 "+1.10655"
+
+let _ = assert : checkAddShow -12345678 -8 +123 -2 9 "+1.10654322"
+
 in  { Float/add }
