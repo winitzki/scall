@@ -191,12 +191,14 @@ let Float/add
 
                           in  merge
                                 { Less =
-                                    applySign
-                                      ( subtractUnsignedFromGreaterBothNonzero
-                                          absA
-                                          absB
-                                          torsor
-                                          prec
+                                    Float/negate
+                                      ( applySign
+                                          ( subtractUnsignedFromGreaterBothNonzero
+                                              absA
+                                              absB
+                                              torsor
+                                              prec
+                                          )
                                       )
                                 , Equal = Float/zero
                                 , Greater =
@@ -211,11 +213,6 @@ let Float/add
                                 compared
 
               in  Float/normalize result
-
-let Float/subtract
-    -- Subtracting b - a, like Natural/subtract.
-    : Float → Float → Natural → Float
-    = λ(a : Float) → Float/add (Float/negate a)
 
 let _ = assert : clampDigits 123 (D.log 10 123) 0 ≡ 0
 
@@ -468,9 +465,13 @@ let _ = assert : checkAddShow +1 +0 -2 +0 10 "-1."
 
 let _ = assert : checkAddShow -2 +0 +1 +0 10 "-1."
 
-let _ = assert : checkAddShow +1 +0 -20 +0 10 "-19."
+let _ = assert : checkAddShow +20 +0 -1 +0 10 "+19."
+
+let _ = assert : checkAddShow -1 +0 +20 +0 10 "+19."
 
 let _ = assert : checkAddShow -20 +0 +1 +0 10 "-19."
+
+let _ = assert : checkAddShow +1 +0 -20 +0 10 "-19."
 
 let _ = assert : checkAddShow +1234 +0 -1 +0 10 "+1233."
 
@@ -480,4 +481,4 @@ let _ = assert : checkAddShow +12 +0 -1234 +0 10 "-1222."
 
 let _ = assert : checkAddShow +1234 +0 -123 +0 10 "+1111."
 
-in  { Float/add, Float/subtract }
+in  { Float/add }
