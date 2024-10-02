@@ -6760,7 +6760,7 @@ let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
 
 ### Filterable functor composition
 
-If `F` is a filterable functor and `G` is any functor (not necessarily filterable) then the composition functor `Compose G F` is filterable:
+If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable:
 
 ```dhall
 let filterableFunctorFunctorCompose
@@ -6768,6 +6768,8 @@ let filterableFunctorFunctorCompose
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 ```
+
+There are similar constructions for filterable contrafunctors.
 
 TODO
 
