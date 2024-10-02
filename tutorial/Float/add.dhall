@@ -78,7 +78,11 @@ let torsorXLessEqualY =
 
 let Natural/plus = λ(a : Natural) → λ(b : Natural) → a + b
 
-let addOrSubtractUnsignedAIsGreater =
+let Natural/minus = λ(a : Natural) → λ(b : Natural) → Natural/subtract b a
+
+let addOrSubtractUnsignedAIsGreater
+                                    -- Compute a + b or a - b, assuming that a >= b > 0.
+                                    =
       λ(a : Float) →
       λ(b : Float) →
       λ(torsor : TorsorType) →
@@ -126,7 +130,7 @@ let addOrSubtractUnsignedAIsGreater =
 
         in  T.Float/addExtraData resultWithNewMantissaOnly.(T.FloatBare)
 
-let addUnsignedToGreaterNoUnderflowCheck =
+let addUnsignedAIsGreaterNoUnderflowCheck =
       λ(a : Float) →
       λ(b : Float) →
       λ(torsor : TorsorType) →
@@ -145,11 +149,11 @@ let addUnsignedBothNonzero
         else  if totalUnderflow (flipTorsor torsor) (Natural/subtract 1 prec)
         then  a
         else  if torsorXLessEqualY torsor
-        then  addUnsignedToGreaterNoUnderflowCheck b a (flipTorsor torsor) prec
-        else  addUnsignedToGreaterNoUnderflowCheck a b torsor prec
+        then  addUnsignedAIsGreaterNoUnderflowCheck b a (flipTorsor torsor) prec
+        else  addUnsignedAIsGreaterNoUnderflowCheck a b torsor prec
 
-let subtractUnsignedFromGreaterBothNonzero
-    -- Compute b - a (like Natural/subtract), assuming that b > a > 0.
+let subtractUnsignedAMinusB
+    -- Compute a - b, assuming that a >= b > 0.
     : Float → Float → TorsorType → Natural → Float
     = λ(a : Float) →
       λ(b : Float) →
@@ -157,7 +161,7 @@ let subtractUnsignedFromGreaterBothNonzero
       λ(prec : Natural) →
         if    totalUnderflow torsor (Natural/subtract 1 prec)
         then  b
-        else  addOrSubtractUnsignedAIsGreater a b torsor prec Natural/subtract
+        else  addOrSubtractUnsignedAIsGreater a b torsor prec Natural/minus
 
 let Float/add
     : Float → Float → Natural → Float
@@ -193,19 +197,19 @@ let Float/add
                                 { Less =
                                     Float/negate
                                       ( applySign
-                                          ( subtractUnsignedFromGreaterBothNonzero
-                                              absA
+                                          ( subtractUnsignedAMinusB
                                               absB
-                                              torsor
+                                              absA
+                                              (flipTorsor torsor)
                                               prec
                                           )
                                       )
                                 , Equal = Float/zero
                                 , Greater =
                                     applySign
-                                      ( subtractUnsignedFromGreaterBothNonzero
-                                          absB
+                                      ( subtractUnsignedAMinusB
                                           absA
+                                          absB
                                           torsor
                                           prec
                                       )
@@ -364,7 +368,7 @@ let unsigned =
       λ(ey : Integer) →
       λ(prec : Natural) →
         Float/normalize
-          ( addUnsignedToGreaterNoUnderflowCheck
+          ( addUnsignedAIsGreaterNoUnderflowCheck
               (Float/create x ex)
               (Float/create y ey)
               ( computeTorsorForBothNonzero
