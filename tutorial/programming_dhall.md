@@ -7552,7 +7552,7 @@ unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
   -- Use the isomorphism law: unfix_R (fix_R fr) === fr
 fmap_F c2r (unfix_C c) === unfix_R (c2r c)
 ```
-We obtain equation (2).
+We obtain equation (2). $\square$
 
 The next statement gives a necessary and sufficient condition for the existence of the least fixpoint of a given functor.
 
@@ -7564,13 +7564,14 @@ The intuitive picture is that the type `F <>` supplies the base cases of inducti
 
 ###### Proof
 
-The proof needs two parts:
+The proof goes in two parts:
 
-1. To show that `LFix F` is non-void if `F <>` is non-void.
-2. To show that `LFix F` is void if `F <>` is void.
+1) To show that `LFix F` is non-void if `F <>` is non-void.
 
-The proof of part (1) is constructive: we can explicitly create a value of type `LFix F` out of a value of type `F <>`.
-For that, we just implement a function with the type signature `F <> → LFix F`:
+2) To show that `LFix F` is void if `F <>` is void.
+
+To prove part (1), we show that one may compute a value of type `LFix F` out of a given value of type `F <>`.
+In other words, one may implement a function with the type signature `F <> → LFix F`:
 
 ```dhall
 let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
@@ -7578,30 +7579,17 @@ let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
     frr (functorF.fmap <> r (absurd r) fv)
 ```
 
-The proof of part (2) is _not_ constructive: we cannot implement a function of type `LFix F → F <>` that explicitly derives a value of type `F <>` out of a given value of type `LFix F`.
-Instead, the proof goes by assuming that `F <>` is void and then showing (by contradiction) that `LFix F` is also void.
+To prove part (2), we need to assume that the type `F <>` is void.
+A type `X` is void if and only if we can implement a function of type `X → <>`.
+So, we will prove part (2) if we implement a function with type signature `(F <> → <>) → LFix F → <>`.
+The code is straightforward; we simply apply a value of type `LFix F` to the void type.
+```dhall
+let fVoidVoidToLFixVoid : ∀(F : Type → Type)  → (F <> → <>) → LFix F → <>
+  = λ(F : Type → Type) → λ(p : F <> → <>) → λ(c : LFix F) →
+    c <> p
+```
+For this part of the proof, we do not need to use the functor property of `F`.
 
-Apply the type `LFix F = ∀(r : Type) → (F r → r) → r` to the void type (`r = <>`):
-
-`LFix F <> = (F <> → <>) → <>`
-
-By assumption, `F <> ≅ <>`, and so we get:
-
-`LFix F <> ≅ (<> → <>) → <>`
-
-Notice that we _do_ have a value of type `<> → <>`, namely, an identity function for the void type (`identity <>`).
-
-So, the type `<> → <>` is not void.
-It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
-
-In other words, the type `(<> → <>) → <>` is void, and so is `LFix F <>`.
-
-Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
-Applying that value `c` to the void type, we will get a value `c <>` of type `LFix F <>`.
-But we just showed that the type `LFix F <>` is void and cannot have any values.
-
-So, our assumptions cannot be correct: if `F <>` is void then `LFix F` cannot be non-void.
-This contradiction proves the statement.
 
 ### The Church-Yoneda identity
 

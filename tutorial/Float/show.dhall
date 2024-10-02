@@ -26,7 +26,6 @@ let Base = T.Base
 
 let D = ./Arithmetic.dhall
 
-
 let MaxPrintedWithoutExponent = 3
 
 let Digits = 3

@@ -74,6 +74,26 @@ let _ = assert : Float/round (Float/create +12345 -10) 4 ≡ Float/create +1235 
 
 let _ =
         assert
+      :   Float/round (Float/create +1234567899 +0) 10
+        ≡ Float/create +1234567899 +0
+
+let _ =
+        assert
+      :   Float/round (Float/create +1234567899 +0) 9
+        ≡ Float/create +1234567900 +0
+
+let _ =
+        assert
+      :   Float/round (Float/create +1234567899 +0) 8
+        ≡ Float/create +1234567900 +0
+
+let _ =
+        assert
+      :   Float/round (Float/create +1234567899 +0) 7
+        ≡ Float/create +1234568000 +0
+
+let _ =
+        assert
       : Float/truncate (Float/create +12345 -10) 4 ≡ Float/create +1234 -9
 
 let _ = assert : Float/round (Float/create +12345 +0) 0 ≡ Float/zero

@@ -39,7 +39,7 @@ let Float/addExtraData
 
         let r = divmod args.mantissa (D.power Base topPower)
 
-        in  { topPower, leadDigit = r.div, remaining = r.rem } ∧ args
+        in  args ⫽ { topPower, leadDigit = r.div, remaining = r.rem }
 
 let FloatBare/create
     : Integer → Integer → FloatBare
@@ -149,12 +149,12 @@ let Float/pad
         then  x
         else  let p = D.power Base padding
 
-              let newExponentPositive =
-                        x.exponentPositive
+              let newExponentNegative =
+                        x.exponentPositive == False
                     ||  Natural/lessThanEqual x.exponent padding
 
               let newExponent =
-                    if    x.exponentPositive
+                    if    x.exponentPositive == False
                     then  x.exponent + padding
                     else  let e = Natural/subtract padding x.exponent
 
@@ -166,9 +166,14 @@ let Float/pad
                   ⫽ { mantissa = x.mantissa * p
                     , topPower = x.topPower + padding
                     , exponent = newExponent
-                    , exponentPositive = newExponentPositive
+                    , exponentPositive = newExponentNegative == False
                     , remaining = x.remaining * p
                     }
+
+let _ =
+        assert
+      :   (Float/pad (Float/create +123 +0) 2).(FloatBare)
+        ≡ FloatBare/create +12300 -2
 
 let Float/negate =
       λ(a : Float) →
@@ -185,7 +190,9 @@ let Float/abs
 in  { Base
     , divmod
     , Float
+    , FloatBare
     , Float/abs
+    , Float/addExtraData
     , Float/create
     , Float/isPositive
     , Float/isZero
