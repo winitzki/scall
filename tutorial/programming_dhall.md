@@ -6787,6 +6787,14 @@ let filterableContrafunctorFunctorCompose
   : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) } 
+let filterableFunctorContrafunctorCompose
+  : ∀(F : Type → Type) → ContraFilterable F →  ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)  
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
+let filterableContrafunctorContrafunctorCompose
+  : ∀(F : Type → Type) → ContraFilterable F →  ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)  
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
 ```
 
 
