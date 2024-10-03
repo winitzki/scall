@@ -2009,11 +2009,11 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values (also known as "typeclass instance values").
+Typeclasses can be implemented in Dhall via evidence values (also called "typeclass instance values").
 Those values are used as explicit function arguments to implement functions that require a typeclass constraint.
 
 This is somewhat similar to how Scala implements typeclasses.
-With that technique, one can define different typeclass instances for the same type, if necessary.
+With that technique, one can define different typeclass evidence values for the same type, when that is necessary.
 
 In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
 
@@ -6393,7 +6393,7 @@ let Id = λ(a : Type) → a
 let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
 ```
 
-### Functor composition
+### Functor and contrafunctor composition
 
 If `F` and `G` are two functors then the functor composition `H a = F (G a)` is also one.
 We compute the type via the combinator called `Compose`, which is analogous to the function combinator `compose` defined earlier in this book.
@@ -6461,7 +6461,7 @@ let Product : (Type → Type) → (Type → Type) → (Type → Type)
 This creates a new type constructor `Product F G` out of two given type constructors `F` and `G`.
 
 The product of two functors is again a functor, and an evidence value can be constructed automatically.
-For that, it is convenient to use the function pair product operation `fProduct` defined earlier in the chapter "Programming with functions".
+For that, it is convenient to use the function pair product operation `fProduct` defined in the chapter "Programming with functions".
 
 ```dhall
 let fProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Pair a c → Pair b d
@@ -6502,7 +6502,7 @@ This creates a new type constructor `CoProduct F G` out of two given type constr
 
 The co-product of two functors is again a functor, and the co-product of two contrafunctors is again a contrafunctor.
 Evidence values can be constructed automatically.
-For that, it is convenient to use the function pair co-product operation `fCoProduct` defined earlier in the chapter "Programming with functions".
+For that, it is convenient to use the function pair co-product operation `fCoProduct` defined in the chapter "Programming with functions".
 
 ```dhall
 let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Either a c → Either b d
@@ -6532,7 +6532,7 @@ let contrafunctorCoProduct
 
 ### Function types with functors and contrafunctors
 
-The function-type functor `H a = F a → G a` is covariant If `F` is contravariant and `G` is covariant.
+The function-type functor `H a = F a → G a` is covariant if `F` is contravariant and `G` is covariant.
 Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
 
 For convenience, we define the `Arrow` combinator:
@@ -6758,14 +6758,14 @@ let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
   = λ(c : Type) → contrafunctorConst c /\ { inflate = λ(a : Type) → identity c }  
 ```
 
-### Filterable functor composition
+### Filterable (contra)functor composition
 
 If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable.
 We may implement a `Filterable` instance like this:
 
 ```dhall
 let filterableFunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 ```
@@ -6784,19 +6784,31 @@ Here is the corresponding code for the remaining three cases:
 
 ```dhall
 let filterableContrafunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 let filterableFunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F →  ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)  
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)  
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
 let filterableContrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F →  ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)  
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)  
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
 ```
 
+### Filterable (contra)functor products and co-products
+
+Product of two filterable functors is again a filterable functor:
+```dhall
+let filterableFunctorProduct : 
+```
+
+### Function types with filterable (contra)functors
+
+### Universal and existential type quantifiers
+
+### Recursive type constructors
 
 ## Applicative functors and contrafunctors, and their combinators
 
