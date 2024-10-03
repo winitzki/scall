@@ -6760,7 +6760,8 @@ let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
 
 ### Filterable functor composition
 
-If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable:
+If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable.
+We may implement a `Filterable` instance like this:
 
 ```dhall
 let filterableFunctorFunctorCompose
@@ -6770,8 +6771,24 @@ let filterableFunctorFunctorCompose
 ```
 
 Similar constructions work for filterable contrafunctors.
+In general, `Compose G F` is filterable as long as `F` is filterable, regardless of `G`.
+There are four possible cases, depending on covariance or contravariance of `F` and `G`:
 
-TODO
+- If `F` is a filterable functor and `G` is any functor then `Compose G F` is a filterable functor.
+- If `F` is a filterable functor and `G` is any contrafunctor then `Compose G F` is a filterable contrafunctor.
+- If `F` is a filterable contrafunctor and `G` is any functor then `Compose G F` is a filterable contrafunctor.
+- If `F` is a filterable contrafunctor and `G` is any contrafunctor then `Compose G F` is a filterable functor.
+
+For the first case, we just saw the code for a `Filterable` instance.
+Here is the corresponding code for the remaining three cases:
+
+```dhall
+let filterableContrafunctorFunctorCompose
+  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) } 
+```
+
 
 ## Applicative functors and contrafunctors, and their combinators
 
