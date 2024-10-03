@@ -6769,7 +6769,7 @@ let filterableFunctorFunctorCompose
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 ```
 
-There are similar constructions for filterable contrafunctors.
+Similar constructions work for filterable contrafunctors.
 
 TODO
 
