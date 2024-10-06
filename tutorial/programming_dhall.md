@@ -19,6 +19,7 @@ The book focuses on the last two use cases.
 Although most code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
 which is known in the academic literature as "System Fω".
+That type system is the foundation of Haskell, Scala, and other advanced functional programming languages.
 
 From the point of view of programming language theory, Dhall implements System Fω with some additional features, using a Haskell-like syntax.
 
@@ -62,8 +63,8 @@ $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(
 
 
 ### Guaranteed termination
-
-The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
+In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
+Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
 (A "normal form" is an expression that cannot be simplified any further.)
 
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
@@ -72,8 +73,9 @@ It is guaranteed that the correct normal form will be computed (although the com
 Invalid Dhall programs will be rejected at the type-checking phase.
 The type-checking itself is also guaranteed to complete within finite time.
 
-The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
-But this is not a significant limitation for a wide scope of Dhall usage, as this book will show.
+The price for those termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
+(A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.)
+However, the lack of Turing-completeness is _not_ a significant limitation for a wide scope of Dhall usage, as this book will show.
 
 ### Identifiers
 
@@ -1294,7 +1296,6 @@ The following example shows that Dhall does not recognize that a value of a depe
 
 Error: ❰if❱ branches must have matching types
 ```
-
 The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
 If we are in the `if/then` branch, we return a `Text` value (an empty string).
 If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
@@ -1338,12 +1339,10 @@ $ dhall repl
 ```
 
 In this way, Dhall can perform many operations that are usually implemented via loops.
-However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
-The number of iterations must be specified in advance as the first argument of `Natural/fold`.
+However, `Natural/fold` is not a `while`-loop: it cannot iterate as many times as needed until some condition holds.
+The total number of iterations must be specified in advance as the first argument of `Natural/fold`.
 
-When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run further iterations without changing the result.
-
-In many cases, the estimated number of iterations will be larger than the actually required number.
+When the exact number of iterations is not known in advance, one must give an upper estimate and design the algorithm to allow it to run further iterations without changing the result.
 Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.
 
 For example, consider this code:
@@ -1354,8 +1353,8 @@ let result : Natural = Natural/fold 10000000000 Natural f 0
 -- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
 ```
 
-Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
-But in this example, the function `f` quickly stops changing its argument, so the loop can be stopped early.
+Theoretically, `Natural/fold 10000000000` needs to apply a given function `10000000000` times.
+But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
 In the next subsections, we will show some examples of algorithms implemented via `Natural/fold`.
@@ -1373,7 +1372,7 @@ So, let us define the accumulator type `A` as a pair `{ current : Natural, itera
 ```dhall
 let Accum = { current : Natural, iteration : Natural }
 ```
-Each iteration will multiply the current result by the iteraction count and increment that count.
+Each iteration will multiply the current result by the iteration count and increment that count.
 We define the function `s` accordingly.
 The complete code is:
 
