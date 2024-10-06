@@ -6630,7 +6630,7 @@ let functorExists1
             gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
           in gd
        }
-let contafunctorExists1
+let contrafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
