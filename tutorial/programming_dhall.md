@@ -6742,7 +6742,7 @@ let cfilter
 ```
 
 The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
-That book also shows various combinators that create new lawful `Filterable` and `Contrafilterable` instances out of previous ones.
+That book also shows various combinators that create new `Filterable` and `Contrafilterable` instances out of previous ones, and proves that the resulting instances always obey the laws.
 Here, we will focus on implementing those combinators in Dhall.
 
 ### Constant filterable (contra)functors
@@ -6812,6 +6812,22 @@ let filterableContrafunctorProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
     contrafunctorProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
+```
+
+The co-product of two filterable functors is again a filterable functor:
+```dhall
+let filterableFunctorCoProduct
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (CoProduct F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    functorCoProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fCoProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
+```
+
+The co-product of two filterable contrafunctors is again a filterable contrafunctor:
+```dhall
+let filterableContrafunctorCoProduct
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (CoProduct F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    contrafunctorCoProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fCoProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
 ```
 
 ### Function types with filterable (contra)functors
