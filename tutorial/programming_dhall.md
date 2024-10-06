@@ -2751,7 +2751,22 @@ let monadList : Monad List =
   in { pure, bind }
 ```
 
-Another known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
+The `Reader` monad has an additional type parameter `E` describing the type of the fixed environment value:
+
+```dhall
+let Reader = λ(E : Type) → λ(A : Type) → E → A
+let monadReader : ∀(E : Type) → Monad (Reader E)
+  = λ(E : Type) →
+    let pure = λ(A : Type) → λ(x : A) → λ(_ : E) → x
+    let bind = λ(A : Type) → λ(oldReader : Reader E A) → λ(B : Type) → λ(f : A → Reader E B) →
+         λ(e : E) →
+           let a : A = oldReader e
+           let b : B = f a e
+           in b
+    in { pure, bind }
+```
+
+Another well-known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
 
 ```dhall
 let State = λ(S : Type) → λ(A : Type) → S → Pair A S
@@ -2790,10 +2805,21 @@ let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) →
   in { left_id_law, right_id_law, assoc_law }
 ```
 
-Let us verify the laws of the `State` monad:
+The Dhall interpreter can now verify the laws of the `Reader` monad:
 
 ```dhall
-let tests = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
+let testsForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(p : Reader E a) → λ(b : Type) → λ(f : a → Reader E b) → λ(c : Type) → λ(g : b → Reader E c) →
+  let laws = monadLaws (Reader E) (monadReader E) a x p b f c g
+  let test1 = assert : laws.left_id_law
+  let test2 = assert : laws.right_id_law
+  let test3 = assert : laws.assoc_law
+  in True
+```
+
+Let us also verify the laws of the `State` monad:
+
+```dhall
+let testsForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
   let laws = monadLaws (State S) (monadState S) a x p b f c g
   let test1 = assert : laws.left_id_law
   -- let test2 = assert : laws.right_id_law -- This will not work.
@@ -2801,7 +2827,7 @@ let tests = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) �
   in True
 ```
 
-The Dhall interpreter can verify the left identity law and the associativity law, but is not powerful enough to verify the right identity law.
+For the State monad, the Dhall interpreter can verify the left identity law and the associativity law, but not the right identity law.
 The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } === x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
 
 #### A monad's `join` method
@@ -2832,6 +2858,30 @@ We can use this function to obtain a `join` method for `List` like this:
 let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
+
+### Comonads
+
+The `Comonad` typeclass may be defined via the methods `duplicate` and `extract`.
+
+Define the type constructor for evidence values:
+
+```dhall
+let Comonad = λ(F : Type → Type) →
+  { duplicate : ∀(a : Type) → F a → F (F a)
+  , extract : ∀(a : Type) → F a → a
+  }
+```
+
+As an example, let us define a `Comonad` evidence value for the type constructor `Reader E` in case `E` is a monoid type:
+
+```dhall
+let comonadReader : ∀(E : Type) → Monoid E → Comonad (Reader E) =
+  λ(E : Type) → λ(monoidE : Monoid E) →
+    let duplicate = λ(a : Type) → λ(fa : Reader E a) → λ(e1 : E) → λ(e2 : E) → fa (monoidE.append e1 e2)
+    let extract = λ(a : Type) → λ(fa : Reader E a) → fa monoidE.empty
+    in { duplicate, extract }
+```
+
 
 ### Applicative functors and contrafunctors
 
@@ -6918,7 +6968,7 @@ let filterableContrafunctorCoProduct
 
 ## Free typeclasses
 
-Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not belong to the typeclass.
+Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not necessarily belong to that typeclass.
 
 For example, a "free monoid on `T`" is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
@@ -6927,8 +6977,10 @@ So, the "free monoid on `T`" is a construction that creates a monoid type out of
 Other "free typeclass" constructions work similarly: they take a given type and wrap it inside some other type constructors such that the result always belongs to the required typeclass.
 Another frequently used example is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
 
-Not all typeclasses have "free instances".
-Examples of typeclasses that do not support "free instances" are the `Show` typeclass and the `Traversable` typeclass.
+This chapter will show how to construct free instances for many of the frequently used typeclasses.
+Keep in mind that not all typeclasses can have "free instances".
+Examples of typeclasses that do not support "free instances" are `Show`, `Traversable`, and `Comonad`.
+
 
 ### Free semigroup and free monoid
 
