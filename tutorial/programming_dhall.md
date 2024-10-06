@@ -6796,11 +6796,14 @@ let filterableContrafunctorContrafunctorCompose
     contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
 ```
 
-### Filterable (contra)functor products and co-products
+### Filterable (contra)functor (co-)products
 
-Product of two filterable functors is again a filterable functor:
+The product of two filterable functors is again a filterable functor:
 ```dhall
-let filterableFunctorProduct : 
+let filterableFunctorProduct
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (Product F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
 ### Function types with filterable (contra)functors
