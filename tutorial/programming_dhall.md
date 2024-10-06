@@ -2009,15 +2009,85 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 ## Typeclasses
 
 Typeclasses can be implemented in Dhall via evidence values (also called "typeclass instance values").
-Those values are used as explicit function arguments to implement functions that require a typeclass constraint.
+Those values are used as explicit additional arguments to functions that require a typeclass constraint.
 
-This is somewhat similar to how Scala implements typeclasses.
+This is somewhat similar to the way Scala implements typeclasses.
 With that technique, one can define different typeclass evidence values for the same type, when that is necessary.
 
 In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
+### Show
+
+The `Show` typeclass is usually defined in Haskell as:
+
+```haskell
+-- Haskell:
+class Show t where
+  show :: t -> String
+```
+
+In Scala, a corresponding definition is:
+
+```scala
+// Scala
+trait Show[T] {
+ def show(m: T) => String
+}
+```
+
+A type `T` belongs to the typeclass `Show` if we have the ability to compute a printable representation of any given value of type `T`. 
+
+To implement a typeclass in Dhall, we first define a type that holds suitable evidence values.
+In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
+
+```dhall
+let Show = λ(t : Type) → { show : t → Text }
+```
+
+As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
+For that, we would write the following Haskell code:
+
+```haskell
+import Data.List (intercalate)
+printWithPrefix :: Show a => String -> [a] -> String
+printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
+```
+
+In Scala, we would write:
+
+```scala
+def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
+  message + xs.map(showA.show).mkString(", ") 
+```
+
+The corresponding Dhall code is:
+
+```dhall
+let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
+let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
+    "${message}${Text/concatMapSep ", " a showA.show xs}"
+```
+
+To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
+First, we define a `Show` evidence value for that type:
+```dhall
+let UserWithId = { user : Text, id : Natural }
+let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) → "user ${r.user} with id ${Natural/show r.id}" }
+```
+
+Then we can  use `printWithPrefix` to print a list of values of that type:
+```dhall
+let users : List UserWithId = [ { user = "a", id = 1 }, { user = "b", id = 2 } ]
+let printed = printWithPrefix UserWithId showUserWithId "users: " users
+let _ = assert : printed === "users: user a with id 1, user b with id 2" 
+```
+
+
+As Dhall has built-in functions `Natural/show`, `Double/show`, etc., we could easily define `Show` instances for the built-in types.
+Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc..
 ### Monoids
 
 The `Monoid` typeclass is usually defined in Haskell as:
@@ -2026,7 +2096,7 @@ The `Monoid` typeclass is usually defined in Haskell as:
 -- Haskell:
 class Monoid m where
   mempty :: m
-  mappend :: m → m → m
+  mappend :: m -> m -> m
 ```
 
 The values `mempty` and `mappend` are the **typeclass methods** of the monoid typeclass.
@@ -6848,11 +6918,25 @@ let filterableContrafunctorCoProduct
 
 ## Free typeclasses
 
+Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not belong to the typeclass.
+
+For example, a "free monoid on `T`" is the type `List T`.
+The type `List T` is always a monoid, even if `T` is not a monoid.
+So, the "free monoid on `T`" is a construction that creates a monoid type out of any given type `T`. It works by wrapping the type `T` inside the `List` functor.
+
+Other "free typeclass" constructions work similarly: they take a given type and wrap it inside some other type constructors such that the result always belongs to the required typeclass.
+Another frequently used example is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
+
+Not all typeclasses have "free instances".
+Examples of typeclasses that do not support "free instances" are the `Show` typeclass and the `Traversable` typeclass.
+
 ### Free semigroup and free monoid
 
 ### Free monad
 
 ### Free functor
+
+### Free pointed functor
 
 ### Free filterable
 
