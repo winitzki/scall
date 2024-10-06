@@ -6806,6 +6806,14 @@ let filterableFunctorProduct
     functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
+The product of two filterable contrafunctors is again a filterable contrafunctor:
+```dhall
+let filterableContrafunctorProduct
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    contrafunctorProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
+```
+
 ### Function types with filterable (contra)functors
 
 ### Universal and existential type quantifiers
