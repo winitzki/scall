@@ -1104,20 +1104,20 @@ Sort
 ```
 
 The symbol `Sort` is even more special: it _does not_ itself have a type.
-Because of that, it is a type error to use `Sort` in Dhall code in any way:
+Because of that, nearly any explicit usage of `Sort` will be a type error:
 
 ```dhall
 ⊢ :let a = Sort
 
 Error: ❰Sort❱ has no type, kind, or sort
 
-⊢ λ(s : Sort) → 0
+⊢ λ(_ : Sort) → 0
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
 
-This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
-That hierarchy is needed in programming languages with full support for dependent types.
+This feature prevents Dhall from having to define an infinite hierarchy of "**type universes**".
+That hierarchy is often used in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
 Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
 
@@ -1125,7 +1125,7 @@ Dhall's type system has enough abstraction to support powerful types and to trea
 
 Because of this design, Dhall does not support operating on the symbol `Kind` itself.
 Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
-One can assign such expressions to variables, but that's about it.
+One can assign such expressions to variables, one can use them for type annotations, and that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -1141,11 +1141,19 @@ Error: ❰Sort❱ has no type, kind, or sort
 
 This error occurs because Dhall requires a function's type _itself_ to have a type.
 The symbol `Kind` has type `Sort`, 
-so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
+so the type of the function `f = λ(_: Natural) → a` is `Natural → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
 Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
 
-There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
+For the same reason, Dhall will not accept the following function parameterized by a `Kind` value:
+```dhall
+⊢ :let f = λ(k : Kind) → ∀(b : Kind) → k → b
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+This prevents Dhall from defining recursive kind-polymorphic type constructors (such as, an analog of `List` that works with types of arbitrary kinds).
+
+There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
@@ -2885,7 +2893,7 @@ let comonadReader : ∀(E : Type) → Monoid E → Comonad (Reader E) =
 
 ### Applicative functors and contrafunctors
 
-One may define applicative functors as pointed functors that have a `zip` method.
+One may define applicative functors as pointed functors that have a `zip` method (that obeys suitable laws).
 
 The corresponding typeclass looks like this:
 
@@ -2903,7 +2911,7 @@ let applicativeFunctorList : ApplicativeFunctor List = functorList /\ pointedLis
   { zip = https://prelude.dhall-lang.org/List/zip }
 ```
 
-It turns out that a `zip` method can be defined also for some contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
+It turns out that a `zip` method can be defined also for almost all contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
 As an example, consider the type constructor that defines the `Monoid` typeclass:
 
@@ -2981,7 +2989,8 @@ A functor is traversable if it supports a method called `traverse` with the type
 -- Haskell:
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
 ```
-It is important that this method is parameterized by an arbitrary applicative functor `L`. If this method exists, `F` is a traversable functor.
+It is important that this method is parameterized by an _arbitrary_ applicative functor `L`.
+If the `traverse` method exists, `F` is a traversable functor.
 
 Rewriting this type signature in Dhall and making `F` an explicit type parameter, we get the following type signature:
 
@@ -3002,7 +3011,8 @@ We remark without proof that:
 
 - Any traversable functor is also foldable.
 - The formulation of the "foldable" property via `reduce` and via `toList` are equivalent.
-- Any polynomial functor is both foldable and traversable. Any traversable functor is polynomial.
+- Any polynomial functor is both foldable and traversable.
+- Any traversable functor is polynomial.
 
 
 ### Inheritance of typeclasses
