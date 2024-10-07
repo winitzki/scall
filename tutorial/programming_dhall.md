@@ -6977,11 +6977,11 @@ The typeclass evidence can be constructed automatically. For that, we reuse the 
 let filterableFunctorContrafunctorArrow
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F G)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
-    functorContrafunctorArrow F filterableF.{fmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) →  ??? }
+    functorContrafunctorArrow F filterableF.{fmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → λ(x : F a → G a) → λ(foa : F (Optional a)) → contrafilterableG.inflate a (x (filterableF.deflate a foa)) }
 let filterableContrafunctorFunctorArrow
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Filterable G → Filterable (Arrow F G)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
-    contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → ??? }
+    contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → λ(x : F (Optional a) → G (Optional a)) → λ(fa : F a) → filterableG.deflate a (x (contrafilterableF.inflate a fa)) }
 ```
 
 ### Universal and existential type quantifiers
