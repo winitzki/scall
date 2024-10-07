@@ -1151,7 +1151,7 @@ For the same reason, Dhall will not accept the following function parameterized 
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
-This prevents Dhall from defining recursive kind-polymorphic type constructors (such as, an analog of `List` that works with types of arbitrary kinds).
+This prevents Dhall from defining recursive kind-polymorphic type constructors (e.g., an analog of `List` that works with types of arbitrary kinds).
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
@@ -2940,7 +2940,9 @@ let pointedMonoid : PointedU Monoid =
 ```
 
 The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
-(This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.)
+This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.
+But in this book we focus on the code.
+Proofs of laws are shown in "The Science of Functional Programming".
 
 Below we will study more systematically the various ways of making new monoids out of old ones.
 For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
@@ -6928,7 +6930,9 @@ let filterableContrafunctorContrafunctorCompose
 
 ### Filterable (contra)functor (co-)products
 
-The product of two filterable functors is again a filterable functor:
+When a new type constructor is created via a product or a co-product, the filterable property is preserved. There are four cases:
+
+1) The product of two filterable functors is again a filterable functor:
 ```dhall
 let filterableFunctorProduct
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (Product F G)
@@ -6936,7 +6940,7 @@ let filterableFunctorProduct
     functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
-The product of two filterable contrafunctors is again a filterable contrafunctor:
+2) The product of two filterable contrafunctors is again a filterable contrafunctor:
 ```dhall
 let filterableContrafunctorProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
@@ -6944,7 +6948,7 @@ let filterableContrafunctorProduct
     contrafunctorProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
 ```
 
-The co-product of two filterable functors is again a filterable functor:
+3) The co-product of two filterable functors is again a filterable functor:
 ```dhall
 let filterableFunctorCoProduct
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (CoProduct F G)
@@ -6952,7 +6956,7 @@ let filterableFunctorCoProduct
     functorCoProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fCoProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
-The co-product of two filterable contrafunctors is again a filterable contrafunctor:
+4) The co-product of two filterable contrafunctors is again a filterable contrafunctor:
 ```dhall
 let filterableContrafunctorCoProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (CoProduct F G)
@@ -6961,6 +6965,24 @@ let filterableContrafunctorCoProduct
 ```
 
 ### Function types with filterable (contra)functors
+
+When a new type constructor has a function type, the filterable property is preserved.
+To define the new functor or contrafunctor, we use the `Arrow` combinator shown in the previous chapter.
+
+Suppose `F` is a filterable functor and `G` is a filterable contrafunctor.
+Then we can consider two new type constructors: `Arrow F G` and `Arrow G F`.
+It turns out that `Arrow F G` is a filterable contrafunctor, while `Arrow G F` is a filterable functor.
+The typeclass evidence can be constructed automatically. For that, we reuse the functor combinators defined in the previous chapter:
+```dhall
+let filterableFunctorContrafunctorArrow
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    functorContrafunctorArrow F filterableF.{fmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) →  ??? }
+let filterableContrafunctorFunctorArrow
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Filterable G → Filterable (Arrow F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → ??? }
+```
 
 ### Universal and existential type quantifiers
 
