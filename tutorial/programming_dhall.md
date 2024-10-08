@@ -1508,7 +1508,7 @@ Error: Wrong type of function argument
 ```
 
 Another example is an assertion that a natural number should be less than a given limit.
-We implement that assertion as a dependent type constructor `AssertLessThan`.
+We implement that assertion as a constructor `AssertLessThan`.
 The error message will be computed as a function of the given arguments:
 
 ```dhall
@@ -6742,7 +6742,8 @@ let functorF1
   = λ(b : Type) → { fmap = ??? }
 ```
 
-Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`:
+Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`.
+Note that we only need the functor property of `F a b` with respect to `a`, while `b` is kept fixed:
 
 ```dhall
 let functorForall1
@@ -6758,7 +6759,7 @@ let functorForall1
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
 We omit that code.
 
-In case `F a b` is _contravariant_ in `a`, we can implement a _contrafunctor_ evidence for `G`:
+In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evidence for `G`:
 
 ```dhall
 let contrafunctorForall1
