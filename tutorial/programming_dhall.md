@@ -2251,26 +2251,26 @@ let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
 ```
 
+For convenience, let us define the standard type signature of `fmap` as a type constructor:
+
+```dhall
+let Fmap_t = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
+Then we can write the code more concisely as `let fmap : Fmap_t F = ???`.
+
+
 As another example of defining `fmap`, consider a type constructor that involves a union type:
 ```dhall
 let G : Type → Type = λ(a : Type) → < Left : Text | Right : a >
 ```
 The `fmap` method for `G` is implemented as:
 ```dhall
-let fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+let fmap : Fmap_t G
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
     merge { Left = λ(t : Text) → (G b).Left t
           , Right = λ(x : a) → (G b).Right (f x)
           } ga
 ```
-
-For convenience, we will define the standard type signature of `fmap` as a type constructor:
-
-```dhall
-let Fmap_t = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
-```
-Then we can write the code more concisely as `let fmap : Fmap_t G = ???`.
-
 
 The `Functor` typeclass is a constraint for a _type constructor_.
 If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
