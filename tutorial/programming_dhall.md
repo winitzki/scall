@@ -6955,8 +6955,8 @@ let freeFilterable
 
 2) If `F` is any polynomial functor (not necessarily filterable) then `Compose Optional F` is a filterable functor.
 We may define the new functor as `G a = Optional (F a)`. 
-To implement a `Filterable` evidence for `G`, we need a function `swap` with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
-Such a function can be always implemented for any polynomial functor.
+To implement a `Filterable` evidence for `G`, we need a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
+Such a function can be always implemented for any polynomial functor `F`.
 (Details and proofs are in "The Science of Functional Programming".)
 ```dhall
 let Optional/map = https://prelude.dhall-lang.org/Optional/map
@@ -7028,8 +7028,18 @@ let filterableContrafunctorFunctorArrow
 ```
 
 In addition to the `Arrow` combinator that works with any filterable functors or contrafunctors, there exists a special construction with a function type:
-If `F` is any polynomial functor and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
-
+If `F` is any polynomial functor (not necessarily filterable) and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
+This construction requires a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
+Such a function can be always implemented for any polynomial functor `F`.
+(Details and proofs are in "The Science of Functional Programming".)
+```dhall
+let filterableContrafunctorSwap
+  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F (Compose Optional G))
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    functorContrafunctorArrow F functorF (Compose Optional G) (functorContrafunctorCompose Optional functorOptional G contrafilterableG.{cmap}) /\ { inflate = λ(a : Type) →
+-- We need a function of type (F a → Optional (G a)) → F (Optional a) → Optional (G (Optional a)).
+     λ(x : F a → Optional (G a)) → λ(foa : F (Optional a)) → Optional/map (G a) (G (Optional a)) (contrafilterableG.inflate a) (Optional/concat (G a) (Optional/map (F a) (Optional (G a)) x (swap a foa))) }
+```
 
 ### Universal and existential type quantifiers
 
