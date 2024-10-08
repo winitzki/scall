@@ -2045,7 +2045,7 @@ trait Show[T] {
 }
 ```
 
-A type `T` belongs to the typeclass `Show` if we have the ability to compute a printable representation of any given value of type `T`. 
+A type `T` belongs to the typeclass `Show` if we have the ability to compute a printable representation of any given value of type `T`.
 
 To implement a typeclass in Dhall, we first define a type that holds suitable evidence values.
 In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
@@ -2056,36 +2056,30 @@ let Show = λ(t : Type) → { show : t → Text }
 
 As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
 For that, we would write the following Haskell code:
-
 ```haskell
 import Data.List (intercalate)
 printWithPrefix :: Show a => String -> [a] -> String
 printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
 ```
-
 In Scala, we would write:
 
 ```scala
 def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
   message + xs.map(showA.show).mkString(", ") 
 ```
-
 The corresponding Dhall code is:
-
 ```dhall
 let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
 let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
   = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
     "${message}${Text/concatMapSep ", " a showA.show xs}"
 ```
-
 To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
 First, we define a `Show` evidence value for that type:
 ```dhall
 let UserWithId = { user : Text, id : Natural }
 let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) → "user ${r.user} with id ${Natural/show r.id}" }
 ```
-
 Then we can  use `printWithPrefix` to print a list of values of that type:
 ```dhall
 let users : List UserWithId = [ { user = "a", id = 1 }, { user = "b", id = 2 } ]
@@ -2093,9 +2087,9 @@ let printed = printWithPrefix UserWithId showUserWithId "users: " users
 let _ = assert : printed === "users: user a with id 1, user b with id 2" 
 ```
 
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could easily define `Show` instances for the built-in types.
+Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc.
 
-As Dhall has built-in functions `Natural/show`, `Double/show`, etc., we could easily define `Show` instances for the built-in types.
-Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc..
 ### Monoids
 
 The `Monoid` typeclass is usually defined in Haskell as:
@@ -2118,26 +2112,22 @@ trait Monoid[M] {
  def combine: (M, M) => M 
 }
 ```
+Here, the `Monoid` typeclass methods are called `empty` and `combine`.
 
-In Scala, the `Monoid` typeclass methods are called `empty` and `combine`.
-
-We see that an evidence value for `Monoid` needs to contain a value of type `m` and a function of type `m → m → m`.
+We see that an evidence value for `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
 A value of that type provides evidence that the type `m` has the required methods for a monoid.
 
 To use the typeclass more easily, it is convenient to define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
-
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
-
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values for a monoid structure in the type `Bool`.
 
 Now we can create evidence values for specific types and use them in programs.
 
 Let us implement some `Monoid` evidence values for the types `Bool`, `Natural`, `Text`, and `List`:
-
 ```dhall
 let monoidBool : Monoid Bool = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
 let monoidNatural : Monoid Natural = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
