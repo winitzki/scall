@@ -2285,10 +2285,12 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : Fmap_t F }
 ```
 
-Here is a `Functor` evidence value for `List`. The required `fmap` method is already available in the Dhall standard prelude:
+Here is a `Functor` evidence values for `List` and `Optional`.
+The required `fmap` methods are already available in the Dhall prelude:
 
 ```dhall
 let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
+let functorOptional : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
 ```
 
 As another example, let us write the evidence values for the type constructors `F` and `G` shown in the chapter "Covariant and contravariant type constructors":
@@ -2313,7 +2315,7 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
 
 The code for `fmap` can be derived mechanically from the type definition of a functor.
 For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not have any code generation facilities.
+But Dhall does not have any code generation or metaprogramming facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
 Now we can write code that works in the same way for any functor.
@@ -6380,7 +6382,9 @@ let coalgFib : Natural → P Natural = λ(n : Natural) →
   -- Use if/then/else instead of merge on Bool.
   in if choice then (P Natural).P0
   else (P Natural).P1 { call_1 = arg_1_1 n, call_2 = arg_1_2 n }
+```
 
+```dhall
 let algFib : P Natural → Natural = λ(p : P Natural) →
   merge {
     P0 = 1,
@@ -6542,6 +6546,9 @@ let functorContrafunctorCompose
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
         in functorF.fmap (G b) (G a) gb2ga
     }
+```
+
+```dhall
 let contrafunctorFunctorCompose
   : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Functor G → Contrafunctor (Compose F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
@@ -6573,7 +6580,6 @@ let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 let Product : (Type → Type) → (Type → Type) → (Type → Type)
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Pair (F a) (G a)
 ```
-
 This creates a new type constructor `Product F G` out of two given type constructors `F` and `G`.
 
 The product of two functors is again a functor, and an evidence value can be constructed automatically.
@@ -6627,7 +6633,9 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
            Left = λ(x : a) → (Either b d).Left (f x),
            Right = λ(y : c) → (Either b d).Right (g y),
           } arg
+```
 
+```dhall
 let functorCoProduct
   : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (CoProduct F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
@@ -6635,7 +6643,9 @@ let functorCoProduct
         -- Return a function of type Either (F a) (G a) → Either (F b) (G b).
         fCoProduct (F a) (F b) (functorF.fmap a b f) (G a) (G b) (functorG.fmap a b f)
     }
+```
 
+```dhall
 let contrafunctorCoProduct
   : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (CoProduct F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
@@ -6666,6 +6676,9 @@ let contrafunctorFunctorArrow
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowA : F a → G a) → λ(fb : F b) →
         functorG.fmap a b f (arrowA (contrafunctorF.cmap a b f fb))
     }
+```
+
+```dhall
 let functorContrafunctorArrow
   : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Arrow F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
@@ -6747,6 +6760,9 @@ let functorExists1
             gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
           in gd
        }
+```
+
+```dhall
 let contrafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
@@ -6795,6 +6811,9 @@ let functorLFix
             x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
           in y
        }
+```
+
+```dhall
 let functorGFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
@@ -6902,15 +6921,51 @@ Here is the corresponding code for the remaining three cases:
 let filterableContrafunctorFunctorCompose
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
-    contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) } 
+    contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) }
+```
+
+```dhall
 let filterableFunctorContrafunctorCompose
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)  
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
+```
+
+```dhall
 let filterableContrafunctorContrafunctorCompose
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)  
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
+```
+
+In addition to these general combinators that work with any filterable functors or contrafunctors, there are two special combinators that compose `Optional` with other functors:
+
+1) If `F` is _any functor_ then `Compose F Optional` is a filterable functor.
+For clarity, we may define that new functor as `G a = F (Optional a)`. The functor `G` is known as the "free filterable functor on F".
+Let us implement a `Filterable` evidence for `G`:
+```dhall
+let Optional/concat = https://prelude.dhall-lang.org/Optional/concat
+let freeFilterable
+  : ∀(F : Type → Type) → Functor F → Filterable (Compose F Optional)  
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    functorFunctorCompose F functorF Optional functorOptional /\ { deflate = λ(a : Type) →
+-- Need a function of type F (Optional (Optional a)) → F (Optional a).
+      functorF.fmap (Optional (Optional a)) (Optional a) (Optional/concat a) } 
+```
+
+2) If `F` is any polynomial functor (not necessarily filterable) then `Compose Optional F` is a filterable functor.
+We may define the new functor as `G a = Optional (F a)`. 
+To implement a `Filterable` evidence for `G`, we need a function `swap` with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
+Such a function can be always implemented for any polynomial functor.
+(Details and proofs are in "The Science of Functional Programming".)
+```dhall
+let Optional/map = https://prelude.dhall-lang.org/Optional/map
+let swapFilterable
+  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)  
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) →
+     functorFunctorCompose Optional functorOptional F functorF /\  { deflate = λ(a : Type) →
+-- Need a function of type Optional (F (Optional a)) → Optional (F a).
+      λ(ofoa : Optional (F (Optional a))) → Optional/concat (F a) (Optional/map (F (Optional a)) (Optional (F a)) (swap a) ofoa) }
 ```
 
 ### Filterable (contra)functor (co-)products
@@ -6963,19 +7018,18 @@ let filterableFunctorContrafunctorArrow
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F G)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
     functorContrafunctorArrow F filterableF.{fmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → λ(x : F a → G a) → λ(foa : F (Optional a)) → contrafilterableG.inflate a (x (filterableF.deflate a foa)) }
+```
+
+```dhall
 let filterableContrafunctorFunctorArrow
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Filterable G → Filterable (Arrow F G)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
     contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → λ(x : F (Optional a) → G (Optional a)) → λ(fa : F a) → filterableG.deflate a (x (contrafilterableF.inflate a fa)) }
 ```
 
-In addition to the `Arrow` combinator that works with any filterable (contra)functors, there are two special constructions:
+In addition to the `Arrow` combinator that works with any filterable functors or contrafunctors, there exists a special construction with a function type:
+If `F` is any polynomial functor and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 
-1) If `F` is any polynomial functor then `Compose Optional F` is a filterable functor.
-
-2) If `F` is any functor then `Compose F Optional` is a filterable functor (known as the "free filterable functor on F").
-
-3) If `F` is any polynomial functor and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 
 ### Universal and existential type quantifiers
 
@@ -7003,8 +7057,8 @@ Other "free typeclass" constructions work similarly: they take a given type and 
 Another frequently used example is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
 
 This chapter will show how to construct free instances for many of the frequently used typeclasses.
-Keep in mind that not all typeclasses can have "free instances".
-Examples of typeclasses that do not support "free instances" are `Show`, `Traversable`, and `Comonad`.
+Keep in mind that not all typeclasses can have free instances.
+Examples of typeclasses that do not support free instances are `Show`, `ContraFilterable`, `Traversable`, and `Comonad`.
 
 
 ### Free semigroup and free monoid
