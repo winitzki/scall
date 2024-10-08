@@ -7045,14 +7045,14 @@ let filterableContrafunctorSwap
 ### Universal and existential type quantifiers
 
 If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
-This gives us a new type constructor `G`, defined as $G ~ x = \forall y. ~ F ~ x ~ y$ or as $G ~ x = \exists y. ~ F ~ x ~ y$.
+This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
 
 Imposing a quantifier on `y` will preserve the filterable properties of the type `F x y` with respect to `x`.
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
 
-We have four cases:
+So, we have four cases:
 
-1) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G ~ x = \forall y. ~ F ~ x ~ y$ is a filterable functor.
+1) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G$ is a filterable functor.
 ```dhall
 let filterableForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → ∀(b : Type) → F a b)
@@ -7061,21 +7061,18 @@ let filterableForall1
     in (functorForall1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) → λ(p : ∀(b : Type) → F (Optional a) b) → λ(b : Type) → (filterableF1 b).deflate a (p b) }
 ```
 
-2) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G ~ x = \forall y. ~ F ~ x ~ y$ is a filterable contrafunctor.
+2) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G$ is a filterable contrafunctor.
 ```dhall
-let contrafunctorForall1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+let contrafilterableForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
-    in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
-          let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
-          in gd
-       }
+    in (contrafunctorForall1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) → λ(p : ∀(b : Type) → F a b) → λ(b : Type) → (contrafilterableF1 b).inflate a (p b) }
 ```
 
-3) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G ~ x = \exists y. ~ F ~ x ~ y$ is a filterable functor.
+3) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $H$ is a filterable functor.
 ```dhall
-let functorExists1
+let filterableExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
@@ -7087,9 +7084,9 @@ let functorExists1
        }
 ```
 
-4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G ~ x = \exists y. ~ F ~ x ~ y$ is a contrafilterable functor.
+4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $H$ is a filterable contrafunctor.
 ```dhall
-let contrafunctorExists1
+let contrafilterableExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
