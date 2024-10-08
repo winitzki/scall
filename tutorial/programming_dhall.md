@@ -1539,7 +1539,7 @@ Error: Wrong type of function argument
 - "error" ≡ "the argument 200 must be less than 100"
 ```
 
-The error message clearly describes the problem.
+This error message clearly describes the problem.
 
 #### Limitations
 
@@ -2216,7 +2216,7 @@ let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool
 Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
 Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
 
-### Functors and the `Functor` typeclass
+### The `Functor` typeclass
 
 In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
 
@@ -2231,16 +2231,13 @@ A simple example of a functor is a record with two values of type `a` and a valu
 The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
 
 In Haskell, that type constructor and its `fmap` method are defined by:
-
 ```haskell
 -- Haskell:
 data F a = F a a Bool
 fmap :: (a → b) → F a → F b
 fmap f (F x y t) = F (f x) (F y) t 
 ```
-
 In Scala, the equivalent code is:
-
 ```scala
 // Scala
 case class F[A](x: A, y: A, t: Boolean)
@@ -2248,9 +2245,7 @@ case class F[A](x: A, y: A, t: Boolean)
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
   F(f(fa.x), f(fa.y), fa.t)
 ```
-
 The corresponding Dhall code is:
-
 ```dhall
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
@@ -2259,22 +2254,20 @@ let fmap
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
-
 To test:
-
 ```dhall
 let example : F Natural = { x = 1, y = 2, t = True }
 let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
 ```
 
-As another example, let us define `fmap` for a type constructor that involves a union type:
-
+As another example of defining `fmap`, consider a type constructor that involves a union type:
 ```dhall
-let G : Type → Type
-  = λ(a : Type) → < Left : Text | Right : a >
-let fmap
- : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+let G : Type → Type = λ(a : Type) → < Left : Text | Right : a >
+```
+The `fmap` method for `G` is implemented as:
+```dhall
+let fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
     merge { Left = λ(t : Text) → (G b).Left t
           , Right = λ(x : a) → (G b).Right (f x)
@@ -2293,7 +2286,7 @@ The `Functor` typeclass is a constraint for a _type constructor_.
 If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
-The required data for an evidence value is a polymorphic `fmap` method for that type constructor.
+The required data for an evidence value is a `fmap` method for that type constructor.
 Let us now package that information into a `Functor` typeclass similarly to how we did with `Monoid`.
 
 Define the type constructor for evidence values:
@@ -2316,7 +2309,9 @@ let F : Type → Type
 let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
     { x = f fa.x, y = f fa.y, t = fa.t }
   }
+```
 
+```dhall
 let G : Type → Type
   = λ(a : Type) → < Left : Text | Right : a >
 let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
@@ -6972,7 +6967,7 @@ To define the new functor or contrafunctor, we use the `Arrow` combinator shown 
 Suppose `F` is a filterable functor and `G` is a filterable contrafunctor.
 Then we can consider two new type constructors: `Arrow F G` and `Arrow G F`.
 It turns out that `Arrow F G` is a filterable contrafunctor, while `Arrow G F` is a filterable functor.
-The typeclass evidence can be constructed automatically. For that, we reuse the functor combinators defined in the previous chapter:
+The typeclass evidence values can be constructed automatically. For that, we reuse the functor combinators defined in the previous chapter:
 ```dhall
 let filterableFunctorContrafunctorArrow
   : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F G)
@@ -6983,6 +6978,14 @@ let filterableContrafunctorFunctorArrow
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
     contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → λ(x : F (Optional a) → G (Optional a)) → λ(fa : F a) → filterableG.deflate a (x (contrafilterableF.inflate a fa)) }
 ```
+
+In addition to the `Arrow` combinator that works with any filterable (contra)functors, there are two special constructions:
+
+1) If `F` is any polynomial functor then `Compose Optional F` is a filterable functor.
+
+2) If `F` is any functor then `Compose F Optional` is a filterable functor (known as the "free filterable functor on F").
+
+3) If `F` is any polynomial functor and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 
 ### Universal and existential type quantifiers
 
