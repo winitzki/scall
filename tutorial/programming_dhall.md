@@ -6730,8 +6730,9 @@ let functorForall1
 ```
 
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
+We omit that code.
 
-To implement the _contrafunctor_ evidence in case `F a b` is contravariant in `b`, we write this code:
+In case `F a b` is _contravariant_ in `a`, we can implement a _contrafunctor_ evidence for `G`:
 
 ```dhall
 let contrafunctorForall1
@@ -6832,7 +6833,7 @@ let functorGFix
 
 Contrafunctor instances can be computed by similar code that we will omit.
 
-## Filterable functors and contrafunctors, and their combinators
+## Filterable (contra)functors and their combinators
 
 Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
 ```dhall
@@ -7043,19 +7044,76 @@ let filterableContrafunctorSwap
 
 ### Universal and existential type quantifiers
 
+If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
+This gives us a new type constructor `G`, defined as $G ~ x = \forall y. ~ F ~ x ~ y$ or as $G ~ x = \exists y. ~ F ~ x ~ y$.
+
+Imposing a quantifier on `y` will preserve the filterable properties of the type `F x y` with respect to `x`.
+It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
+
+We have four cases:
+
+1) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G ~ x = \forall y. ~ F ~ x ~ y$ is a filterable functor.
+```dhall
+let filterableForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
+    in (functorForall1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) → λ(p : ∀(b : Type) → F (Optional a) b) → λ(b : Type) → (filterableF1 b).deflate a (p b) }
+```
+
+2) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G ~ x = \forall y. ~ F ~ x ~ y$ is a filterable contrafunctor.
+```dhall
+let contrafunctorForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
+    in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
+          let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
+          in gd
+       }
+```
+
+3) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G ~ x = \exists y. ~ F ~ x ~ y$ is a filterable functor.
+```dhall
+let functorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
+          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) →
+            gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
+          in gd
+       }
+```
+
+4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G ~ x = \exists y. ~ F ~ x ~ y$ is a contrafilterable functor.
+```dhall
+let contrafunctorExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
+          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) →
+            gd r (λ(t : Type) → λ(fdt : F d t) → pack_ t ( (contrafunctorF1 t).cmap c d f fdt ))
+          in gc
+       }
+```
+
 ### Recursive type constructors
 
 ## Applicative functors and contrafunctors, and their combinators
 
 ## Monoids and their combinators
 
-## Traversable functors and their combinators
+## Traversable functors
 
 ## Monads and their combinators
 
 ## Monad transformers
 
-## Free typeclasses
+## Free typeclass instances
 
 Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not necessarily belong to that typeclass.
 
