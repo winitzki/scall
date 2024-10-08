@@ -4824,7 +4824,7 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
-Indeed, one can prove regorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
+One can prove rigorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
 We call this isomorphism the **function extension rule** for existential types.
 
 The function `inE` shown above gives one direction of the isomorphism.
@@ -4836,10 +4836,9 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     let ep : Exists P = pack P t pt
     in consume ep
 ```
-
 We will prove in the appendix "Naturality and parametricity" that the functions `inE r` and `outE r` are indeed inverses of each other.
 
-Because of this type isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
+Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
 #### Differences between existential and universal quantifiers
 
@@ -4896,6 +4895,33 @@ For instance, a value `x` of type `t` can be further substituted into a function
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
 In this sense, type quantifiers ensure encapsulation of the type `t` inside the value `ep`.
+
+#### Covariance with respect to the type constructor
+
+Both types `Exists P` and `Forall P` depend covariantly on the _type constructor_ `P`.
+
+Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y`, we can compute a function of type `F x → F y` given a function of type `x → y`.
+
+Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q`, we can compute functions  of types `Exists P → Exists Q` and `Forall P → Forall Q` given a mapping from `P` to `Q`.
+Because `P` and `Q` are type constructors, to "map `P` into `Q`" means to provide a function of type `∀(a : Type) → P a → Q a`.
+Let us implement the corresponding mappings:
+```dhall
+let mapExists
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → Exists P → Exists Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(eP : Exists P) →
+    λ(r : Type) → λ(pack_q : ∀(t : Type) → Q t → r) →
+      let pack_p : ∀(t : Type) → P t → r = λ(t : Type) → λ(pt : P t) → pack_q t (f t pt)
+      in eP r pack_p
+```
+
+```dhall
+let mapForall
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → Forall P → Forall Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(aP : Forall P) →
+    λ(a : Type) → f a (aP a)
+```
+
+We will reuse these mapping functions below to make some code shorter.
 
 ## Co-inductive types
 
@@ -6905,6 +6931,8 @@ let filterableFunctorFunctorCompose
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 ```
+In this code, we have reused the function `functorFunctorCompose` from the previous chapter, in order to create a `Functor` typeclass evidence for `Compose G F`.
+Then we use the record concatenation operator (`/\`) to add a `deflate` field to the record. 
 
 Similar constructions work for filterable contrafunctors.
 In general, `Compose G F` is filterable as long as `F` is filterable, regardless of `G`.
@@ -6942,7 +6970,8 @@ let filterableContrafunctorContrafunctorCompose
 In addition to these general combinators that work with any filterable functors or contrafunctors, there are two special combinators that compose `Optional` with other functors:
 
 1) If `F` is _any functor_ then `Compose F Optional` is a filterable functor.
-For clarity, we may define that new functor as `G a = F (Optional a)`. The functor `G` is known as the "free filterable functor on F".
+For clarity, we may define that new functor as `G a = F (Optional a)`.
+The functor `G` is known as the "free filterable functor on F".
 Let us implement a `Filterable` evidence for `G`:
 ```dhall
 let Optional/concat = https://prelude.dhall-lang.org/Optional/concat
@@ -7073,11 +7102,11 @@ let contrafilterableForall1
 3) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $H$ is a filterable functor.
 ```dhall
 let filterableExists1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
-    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- H c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in (functorExists1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
           let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) →
             gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
           in gd
@@ -7087,11 +7116,11 @@ let filterableExists1
 4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $H$ is a filterable contrafunctor.
 ```dhall
 let contrafilterableExists1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
-    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
-    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    -- H c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
+    in (contrafunctorExists1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
           let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) →
             gd r (λ(t : Type) → λ(fdt : F d t) → pack_ t ( (contrafunctorF1 t).cmap c d f fdt ))
           in gc
