@@ -7188,7 +7188,7 @@ In addition to these general combinators that work with any filterable functors 
 
 1) If `F` is _any functor_ then `Compose F Optional` is a filterable functor.
 For clarity, we may define that new functor as `G a = F (Optional a)`.
-The functor `G` is known as the "free filterable functor on F".
+The functor `G` is known as the "free filterable functor on `F`".
 Let us implement a `Filterable` evidence for `G`:
 ```dhall
 let Optional/concat = https://prelude.dhall-lang.org/Optional/concat
@@ -7204,7 +7204,7 @@ let freeFilterable
 We may define the new functor as `G a = Optional (F a)`. 
 To implement a `Filterable` evidence for `G`, we need a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-(Details and proofs are in "The Science of Functional Programming".)
+(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
 ```dhall
 let Optional/map = https://prelude.dhall-lang.org/Optional/map
 let swapFilterable
@@ -7243,7 +7243,7 @@ let filterableFunctorCoProduct
     functorCoProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fCoProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
-4) The co-product of two filterable contrafunctors is again a filterable contrafunctor:
+4) The co-product of two filterable contrafunctors is a filterable contrafunctor:
 ```dhall
 let filterableContrafunctorCoProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (CoProduct F G)
@@ -7278,7 +7278,7 @@ In addition to the `Arrow` combinator that works with any filterable functors or
 If `F` is any polynomial functor (not necessarily filterable) and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 This construction requires a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-(Details and proofs are in "The Science of Functional Programming".)
+(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
 ```dhall
 let filterableContrafunctorSwap
   : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F (Compose Optional G))
