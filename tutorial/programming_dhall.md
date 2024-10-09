@@ -2102,7 +2102,7 @@ class Monoid m where
   mappend :: m -> m -> m
 ```
 
-The values `mempty` and `mappend` are the **typeclass methods** of the monoid typeclass.
+The values `mempty` and `mappend` are the **typeclass methods** of the `Monoid` typeclass.
 
 In Scala, a corresponding definition is:
 
@@ -2876,7 +2876,7 @@ let Comonad = λ(F : Type → Type) →
   }
 ```
 
-As an example, let us define a `Comonad` evidence value for the type constructor `Reader E` in case `E` is a monoid type:
+As an example, let us define a `Comonad` evidence value for the type constructor `Reader E` in case `E` is a monoidal type:
 
 ```dhall
 let comonadReader : ∀(E : Type) → Monoid E → Comonad (Reader E) =
@@ -6556,7 +6556,7 @@ let monoidUnit : Monoid {} = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) �
 
 ### Product of monoids
 
-If `P` and `Q` are monoid types then so is the product type `Pair P Q`.
+If `P` and `Q` are monoidal types then so is the product type `Pair P Q`.
 We implement this property as a combinator function that requires `Monoid` typeclass evidence for both `P` and `Q`: 
 ```dhall
 let monoidPair
@@ -6570,7 +6570,7 @@ let monoidPair
 
 ### Co-product of monoids
 
-If `P` and `Q` are monoid types then so is the co-product type `Either P Q`.
+If `P` and `Q` are monoidal types then so is the co-product type `Either P Q`.
 There are two ways of defining the monoid operations for `Either P Q`, depending on the choice of the `empty` method (which can be chosen to be either in the left or in the right part of the `Either` union type).
 
 If we choose the `empty` method to return `Left monoidP.empty` then the `append` operation must return a `Right` value whenever the two values are of different types:
@@ -6614,7 +6614,7 @@ let monoidEitherLeft
 
 ### Functions with monoidal output types
 
-If `P` is _any_ type and `Q` is a monoid type then the function type `P → Q` is a monoid.
+If `P` is _any_ type and `Q` is a monoidal type then the function type `P → Q` is a monoid.
 We implement this property as a combinator function:
 ```dhall
 let monoidFunc
@@ -7501,7 +7501,7 @@ let pureForApplicativeContrafunctor
 ```
 
 An example of an applicative type constructor that is neither covariant nor contravariant is `Monoid`.
-(The type constructor `Monoid` describes evidence values for the monoid typeclass.)
+(The type constructor `Monoid` describes typeclass evidence values for monoidal types.)
 We have seen in Chapter "Typeclasses" that the `Monoid` type constructor admits an `Applicative` typeclass evidence.
 
 Let us now find out what combinators exist for creating new applicative type constructors out of previously given ones.
@@ -7509,7 +7509,7 @@ Let us now find out what combinators exist for creating new applicative type con
 ### Constant (contra)functors
 
 A constant type constructor (`Const T`) is at once a functor and a contrafunctor.
-It is applicative as long as `T` is a monoid type.
+It is applicative as long as `T` is a monoidal type.
 
 ```dhall
 let applicativeConst
@@ -7533,7 +7533,7 @@ let applicativeId : Applicative Id
     }
 ```
 
-### Products
+### Products and co-products
 
 If `P` and `Q` are applicative then so is their product (`Product P Q`).
 
@@ -7546,11 +7546,29 @@ let applicativeProduct
       { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
     }
 ```
+This works equally well for any type constructors (not necessarily covariant).
 
+Co-products of applicative functors are _not_ always applicative.
 
-### Co-products
+There are three cases when co-products are applicative:
 
-### Functor composition
+1) A co-product with a constant applicative functor: `CoProduct F (Const T)` where `F` is applicative and `T` is a monoidal type.
+2) A co-product of the form `CoProduct F (Product Id G)`, where `F` and `G` are applicative of any variance.
+3) A co-product of applicative _contrafunctors_.
+
+### Functor and contrafunctor composition
+
+### Reverse applicative functor
+
+### Function types
+
+Contrafunctor F -> H where F is any functor and H is applicative of any variance
+
+Functors: only monadic construction H a -> a
+
+### Universal and existential type quantifiers
+
+### Least fixpoint types
 
 ## Traversable functors
 
@@ -7564,7 +7582,7 @@ Certain typeclasses support "free instances", which means a type construction th
 
 For example, a "free monoid on `T`" is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
-So, the "free monoid on `T`" is a construction that creates a monoid type out of any given type `T`. It works by wrapping the type `T` inside the `List` functor.
+So, the "free monoid on `T`" is a construction that creates a monoidal type out of any given type `T`. It works by wrapping the type `T` inside the `List` functor.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it inside some other type constructors such that the result always belongs to the required typeclass.
 Another frequently used example is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
