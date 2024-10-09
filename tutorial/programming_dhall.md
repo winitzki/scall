@@ -3571,7 +3571,7 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
 
 The Yoneda identities can be proved via the parametricity theorem, or by assuming suitable naturality laws.
-See the Appendix "Naturality and parametricity" for more details.
+See the Appendix for more details.
 
 ### Church encoding in the curried form
 
@@ -3598,7 +3598,7 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
 
 It is now less clear that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
-However, working with curried functions often needs shorter code than working with union types and record types.
+However, working with curried functions often gives shorter code than working with union types and record types.
 
 As an example, let us rewrite the type `TreeText` defined above in a curried form.
 Begin with the definition already shown:
@@ -7432,6 +7432,44 @@ let contrafilterableGFix
 
 ## Applicative type constructors and their combinators
 
+The familiar `zip` method for lists works by transforming a pair of lists into a list of pairs.
+It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
+In the functional programming community, pointed type constructors with a suitable `zip` method are called "applicative".
+
+We begin by defining the `Applicative` typeclass:
+
+```dhall
+let Applicative = λ(F : Type → Type) →
+  { unit : F {}
+  , zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
+  }
+```
+
+If `F` is a functor, we may derive other often used methods of applicative functors, such as `pure`, `ap`, and `map2`:
+
+```dhall
+let pure
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → a → F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(x : a) →
+      functorF.fmap {} a (λ(_ : {}) → x) applicativeF.unit
+```
+
+```dhall
+let ap
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(fab : F (a → b)) → λ(fa : F a) →
+      let pairs : F (Pair (a → b) a) = applicativeF.zip (a → b) fab a fa
+      in functorF.fmap (Pair (a → b) a) b (λ(p : Pair (a → b) a) → p._1 p._2) pairs
+```
+
+```dhall
+let map2
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → F a → F b → F c
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(abc : a → b → c) → λ(fa : F a) → λ(fb : F b) →
+      let pairs : F (Pair a b) = applicativeF.zip a fa b fb
+      in functorF.fmap (Pair a b) c (λ(p : Pair a b) → abc p._1 p._2) pairs
+```
+
 ## Traversable functors
 
 ## Monads and their combinators
@@ -7496,7 +7534,7 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 ```
 In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
-Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant.
+Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant (and when the function satisfies the naturality law).
 
 
 If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
