@@ -6623,7 +6623,6 @@ let monoidFunc
     }  
 ```
 
-### Monoids
 
 ## Combinators for functors and contrafunctors
 
