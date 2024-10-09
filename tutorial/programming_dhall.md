@@ -6749,10 +6749,9 @@ To implement a functor evidence for `G`, we use the `mapForall` function defined
 let functorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
   = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Forall (F a)
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
--- Need a function of type G c → G d. Use mapForall for that: 
--- mapForall : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → Forall P → Forall Q
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type G c → G d. Use mapForall P Q for that, 
+-- where P and Q are defined such that Forall P = G c and Forall Q = G d.
       let P = F c
       let Q = F d
       let fPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
@@ -6769,8 +6768,7 @@ In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evid
 let contrafunctorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
   = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Forall (F a)
-    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+    { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G d → G c. Use mapForall for that.
       let P = F c
       let Q = F d
@@ -6788,9 +6786,8 @@ The following code defines the functor or the contrafunctor instances (as approp
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (F a)
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G c → G d. Use mapExists for that.
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
       let P = F c
       let Q = F d
       let fPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
@@ -6802,8 +6799,7 @@ let functorExists1
 let contrafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (F a)
-    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+    { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G d → G c. Use mapExists for that.
       let P = F c
       let Q = F d
@@ -6863,7 +6859,7 @@ We can now implement the `Functor` evidence for `LFix (F a)` and `GFix (F a)`:
 ```dhall
 let functorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let C : Type → Type = λ(a : Type) → LFix (F a)
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type C c → C d. Use mapLFix for that.
@@ -6878,7 +6874,7 @@ let functorLFix
 ```dhall
 let functorGFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let D : Type → Type = λ(a : Type) → GFix (F a)
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type D c → D d. Use mapGFix for that.
@@ -6897,7 +6893,7 @@ If `F a b` is contravariant in `a` and covariant in `b` then both `LFix (F a)` a
 ```dhall
 let contrafunctorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → LFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let C : Type → Type = λ(a : Type) → LFix (F a)
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type C d → C c. Use mapLFix for that.
@@ -6912,7 +6908,7 @@ let contrafunctorLFix
 ```dhall
 let contrafunctorGFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → GFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let D : Type → Type = λ(a : Type) → GFix (F a)
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type D d → D c. Use mapGFix for that.
@@ -7210,6 +7206,74 @@ let contrafilterableExists1
 ```
 
 ### Recursive type constructors
+
+Recursive type constructors are defined via `LFix` or `GFix` from recursion schemes, which are type constructors `F` with two type parameters (so that `F a b` is a type).
+
+Imposing a fixpoint on one type parameter will preserve the filterable property with respect to the other type parameter.
+Define the type constructors `C` and `D` as `C a = LFix (F a)` and `D a = GFix (F a)`.
+Then we need to consider four cases:
+
+1) If `F a b` is covariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let filterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type C (Optional a) → C a. Use mapLFix for that.
+-- Define P and Q such that LFix P = C (Optional a) and LFix Q = C a.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapLFix P Q mapPQ
+       }
+```
+
+2) If `F a b` is covariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let filterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type D (Optional a) → D a. Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapGFix P Q mapPQ
+       }
+```
+
+3) If `F a b` is contravariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let contrafilterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorLFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type C a → C (Optional a). Use mapLFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapLFix Q P mapQP
+       }
+```
+
+4) If `F a b` is contravariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let contrafilterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorGFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type D a → D (Optional a). Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapGFix Q P mapQP
+       }
+```
+
 
 ## Applicative functors and contrafunctors, and their combinators
 
