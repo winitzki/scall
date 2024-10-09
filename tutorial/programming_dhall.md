@@ -1727,7 +1727,7 @@ let identityT = λ(t : Type) → t
 ```
 
 This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the type of `List` is not `Type` but `Type → Type`.
-We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors.
+We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors as arguments.
 For instance, it should accept arguments of type `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
 
 The type of all those type expressions is `Kind`.
@@ -1787,6 +1787,7 @@ You annotated a function input with the following expression:
 ```
 
 This error message still needs some explanation.
+
 Dhall requires any function's input type to itself be of type `Type`, `Kind`, or `Sort`.
 
 In our example, the function under typechecking is the inner function `λ(x : t) → x`.
@@ -7519,6 +7520,37 @@ let applicativeConst
       monoidT.append x y
     }
 ```
+
+### Identity functor
+
+The identity functor (`Id`) is applicative.
+
+```dhall
+let applicativeId : Applicative Id
+  = { unit = {=}
+    , zip = λ(a : Type) → λ(x : Id a) → λ(b : Type) → λ(y : Id b) →
+      { _1 = x, _2 = y }
+    }
+```
+
+### Products
+
+If `P` and `Q` are applicative then so is their product (`Product P Q`).
+
+```dhall
+let applicativeProduct
+  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (Product P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → 
+    { unit = { _1 = applicativeP.unit, _2 = applicativeQ.unit } 
+    , zip = λ(a : Type) → λ(x : Product P Q a) → λ(b : Type) → λ(y : Product P Q b) →
+      { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
+    }
+```
+
+
+### Co-products
+
+### Functor composition
 
 ## Traversable functors
 
