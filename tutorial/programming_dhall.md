@@ -6496,14 +6496,14 @@ As we have seen in the "Typeclasses" chapter,
 Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
 It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
-The proofs that the laws hold are shown in  ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
+The proofs that the laws hold are shown in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
 
 ### Option monoid
 
 For any type `T`, the type `Optional T` is a monoid.
 The `empty` value is `None T`.
-Appending `Some x` and `Some y` must discard either `x` or `y`.
-So, there are two ways of implementing the `append x y` operation, depending on whether we prefer to keep `x` or `y`.
+Appending `Some x` to `Some y` must keep one of the values and discard the other.
+This gives two ways of implementing the `append x y` operation.
 
 We first implement a helper method that selects between two `Optional` values:
 ```dhall
@@ -6533,7 +6533,8 @@ let monoidOptionalKeepY : ∀(T : Type) → Monoid (Optional T)
 
 For any type `T`, the function type `T → T` is a monoid.
 Its `empty` value is an identity function.
-The `append` operation may be defined in one of the two ways, depending on the choice of forward or backward function composition:
+The `append` operation is a function composition.
+It may be defined in one of the two ways, depending on the choice of forward or backward composition:
 
 ```dhall
 let monoidFuncBackward : ∀(T : Type) → Monoid (T → T)
@@ -6544,7 +6545,7 @@ let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
 
 ### Unit type
 
-The unit type (`{}`) is a monoid with trivial operations that always return the value `{=}`.
+The unit type (`{}`) is a monoid whose operations always return the value `{=}`.
 
 ```dhall
 let monoidUnit : Monoid {} = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} } 
@@ -6563,8 +6564,6 @@ let monoidPair
        { _1 = monoidP.append x._1 y._1, _2 = monoidQ.append x._2 y._2 }
     }  
 ```
-Another possibility for defining `monoidPair` is to swap the order of appending the values from `P` and `Q`.
-The laws will still hold for the new monoid instance.
 
 ### Co-product of monoids
 
@@ -6623,15 +6622,28 @@ let monoidFunc
     }  
 ```
 
+### Inverse monoid
+
+If a type `P` is a monoid, we may define another implementation of the `append` method by reversing the order of appending the values.
+In other words, we may define the new operation `append_reverse x y` as `append y x`.
+The laws will still hold for the new monoid instance.
+
+```dhall
+let monoidReverse
+  : ∀(P : Type) → Monoid P → Monoid P
+  = λ(P : Type) → λ(monoidP : Monoid P) →
+    monoidP // { append = λ(x : P) → λ(y : P) → monoidP.append y x }
+```
+
 
 ## Combinators for functors and contrafunctors
 
-Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways one may define types in Dhall.
+Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall.
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from smaller ones.
 
 All the combinators preserve functor laws; the created new functor instances are automatically lawful.
-The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+This is proved in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
 We will only give the Dhall code that creates the typeclass instance values for all the combinators.
 
 ### Constant (contra)functors
