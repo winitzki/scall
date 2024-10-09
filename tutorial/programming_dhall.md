@@ -2924,7 +2924,11 @@ let monoidZip : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Mo
       { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
     in { empty, append }
 ```
+The function `monoidZip` produces a `Monoid` evidence for the pair type (`Pair a b`) out of two evidence values for arbitrary types `a` and `b`.
+This is an example of a "combinator" that produces new `Monoid` types out of previously given ones.
 
+In later chapters, we will explore systematically the possible combinators for `Monoid` and other typeclasses.
+For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
 The `Monoid` type constructor also has an evidence value for the `PointedU` typeclass:
 
 ```dhall
@@ -2933,27 +2937,25 @@ let pointedMonoid : PointedU Monoid =
   let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
   in { unit = { empty, append } }
 ```
-
-The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
-This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.
-But in this book we focus on the code.
-Proofs of laws are shown in "The Science of Functional Programming".
-
-Below we will study more systematically the various ways of making new monoids out of old ones.
-For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
-So, it is applicative (although not a functor).
+So, we may say that `Monoid` is applicative (although not a functor).
 To express that property, let us define the `Applicative` typeclass independently of `Functor`:
 
 ```dhall
 let Applicative = λ(F : Type → Type ) →
   PointedU F //\\
     { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
-
 ```
 
-This definition applies to all type constructors, including contravariant ones ("contrafunctors").
+Now we can implement an `Applicative` typeclass evidence for `Monoid`:
 
-A simple example of an applicative contrafunctor is the type constructor `C m a = a → m`.
+```dhall
+let applicativeMonoid : Applicative Monoid
+  = pointedMonoid /\ { zip = monoidZip }
+```
+
+This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, including contravariant ones ("contrafunctors").
+
+An example of an applicative _contrafunctor_ is the type constructor `C m a = a → m`.
 The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
 The type `m` is assumed to be a fixed type that belongs to the `Monoid` typeclass.
 
@@ -7436,7 +7438,7 @@ The familiar `zip` method for lists works by transforming a pair of lists into a
 It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
 In the functional programming community, pointed type constructors with a suitable `zip` method are called "applicative".
 
-We begin by defining the `Applicative` typeclass:
+We defined the `Applicative` typeclass in the "Typeclasses" chapter:
 
 ```dhall
 let Applicative = λ(F : Type → Type) →
@@ -7444,11 +7446,12 @@ let Applicative = λ(F : Type → Type) →
   , zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
   }
 ```
+This typeclass does not assume that `F` is a covariant or contravariant functor, and may be used together with `Functor` or `Contrafunctor` typeclass when required.
 
 If `F` is a functor, we may derive other often used methods of applicative functors, such as `pure`, `ap`, and `map2`:
 
 ```dhall
-let pure
+let pureForApplicativeFunctor
   : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → a → F a
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(x : a) →
       functorF.fmap {} a (λ(_ : {}) → x) applicativeF.unit
@@ -7468,6 +7471,53 @@ let map2
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(abc : a → b → c) → λ(fa : F a) → λ(fb : F b) →
       let pairs : F (Pair a b) = applicativeF.zip a fa b fb
       in functorF.fmap (Pair a b) c (λ(p : Pair a b) → abc p._1 p._2) pairs
+```
+
+As an example, let us implement an `Applicative` typeclass evidence for the polynomial type constructor `C` defined by:
+```dhall
+let C = λ(a : Type) → { id : Natural, x : a, y : a }
+let applicativeC : Applicative C = {
+  unit = { id = 0, x = {=}, y = {=} }
+, zip = λ(a : Type) → λ(fa : C a) → λ(b : Type) → λ(fb : C b) →
+  { id = fa.id + fb.id
+  , x = { _1 = fa.x, _2 = fb.x }
+  , y = { _1 = fa.y, _2 = fb.y }
+  }
+}
+```
+We will see later in this chapter that all polynomial functors (with monoidal constant types) are applicative.
+
+If `F` is a contrafunctor, we cannot define `ap` or `map2`, but we can still define `pure` and a function called `cpure` with a simpler type:
+```dhall
+let cpureForApplicativeContrafunctor
+  : ∀(F : Type → Type) → Contrafunctor F → Applicative F → ∀(a : Type) → F a
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(applicativeF : Applicative F) → λ(a : Type) →
+      contrafunctorF.cmap a {} (λ(_ : a) → {=}) applicativeF.unit 
+let pureForApplicativeContrafunctor
+  : ∀(F : Type → Type) → Contrafunctor F → Applicative F → ∀(a : Type) → a → F a
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(_ : a) →
+      contrafunctorF.cmap a {} (λ(_ : a) → {=}) applicativeF.unit
+```
+
+An example of an applicative type constructor that is neither covariant nor contravariant is `Monoid`.
+(The type constructor `Monoid` describes evidence values for the monoid typeclass.)
+We have seen in Chapter "Typeclasses" that the `Monoid` type constructor admits an `Applicative` typeclass evidence.
+
+Let us now find out what combinators exist for creating new applicative type constructors out of previously given ones.
+
+### Constant (contra)functors
+
+A constant type constructor (`Const T`) is at once a functor and a contrafunctor.
+It is applicative as long as `T` is a monoid type.
+
+```dhall
+let applicativeConst
+  : ∀(T : Type) → Monoid T → Applicative (Const T)
+  = λ(T : Type) → λ(monoidT : Monoid T) →
+    { unit = monoidT.empty
+    , zip = λ(a : Type) → λ(x : Const T a) → λ(b : Type) → λ(y : Const T b) →
+      monoidT.append x y
+    }
 ```
 
 ## Traversable functors
