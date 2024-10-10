@@ -523,6 +523,16 @@ let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
 
 In this example, the type signature of `swap` has two type parameters (`a`, `b`) and the output type depends on those type parameters.
 
+Similar functions extract the first or the second element of a pair.
+These functions also work in the same way for all type parameters:
+
+```dhall
+let pair_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._1
+let pair_2 : ∀(a : Type) → ∀(b : Type) → Pair a b → b
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._2
+```
+
 As a further example, conider the standard `map` function for `List`.
 The type signature of that function is `∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b`.
 
@@ -7573,24 +7583,25 @@ let applicativeCoProductConst
        }
 ```
 
-2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative (of any variance).
-The result is an applicative type constructor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
+2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative and `P` is a functor.
+The result is an applicative functor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
 
 ```dhall
-let applicativeCoProductId
-  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (CoProduct P (Product Id Q))
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+let applicativeCoProductWithId
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (CoProduct P (Product Id Q))
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
       let R = λ(a : Type) → Either (P a) { _1 : a, _2 : Q a } -- Same as CoProduct P (Product Id Q) a.
-      in { unit = (R {}).Left applicativeP.unit
+      let pure_P = pureForApplicativeFunctor P functorP applicativeP
+      in { unit = (R {}).Right { _1 = {=}, _2 = applicativeQ.unit }
          , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
              merge {
                Left = λ(pa : P a) → merge {
                    Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
-                 , Right = λ(t : T) → (R (Pair a b)).Right t
+                 , Right = λ(pair : { _1 : b, _2 : Q b }) → (R (Pair a b)).Left (applicativeP.zip a pa b (pure_P b pair._1))
                } y
-             , Right = λ(tx : T) → merge {
-                 Left = λ(pb : P b) → (R (Pair a b)).Right tx
-               , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+             , Right = λ(pair_x : { _1 : a, _2 : Q a }) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a (pure_P a pair_x._1) b pb)
+               , Right = λ(pair_y : { _1 : b, _2 : Q b }) → (R (Pair a b)).Right { _1 = { _1 = pair_x._1, _2 = pair_y._1 }, _2 = applicativeQ.zip a pair_x._2 b pair_y._2 }
                } y
              } x
          }
@@ -7601,19 +7612,19 @@ The result is an applicative contrafunctor `R` such that `R a = Either (P a) (Q 
 
 ```dhall
 let applicativeContrafunctorCoProduct
-  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (CoProduct P Q)
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
+  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (CoProduct P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
       let R = λ(a : Type) → Either (P a) (Q a) -- Same as CoProduct P Q a.
       in { unit = (R {}).Left applicativeP.unit
        , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
            merge {
              Left = λ(pa : P a) → merge {
                  Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
-               , Right = λ(t : T) → (R (Pair a b)).Right t
+               , Right = λ(qb : Q b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) b (pair_2 a b) qb)
              } y
-           , Right = λ(tx : T) → merge {
-               Left = λ(pb : P b) → (R (Pair a b)).Right tx
-             , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+           , Right = λ(qa : Q a) → merge {
+               Left = λ(pb : P b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) a (pair_1 a b) qa)
+             , Right = λ(qb : Q b) → (R (Pair a b)).Right (applicativeQ.zip a qa b qb)
              } y
            } x
        }
