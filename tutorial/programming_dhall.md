@@ -6509,7 +6509,7 @@ It turns out that there are general combinators that produce `Monoid` evidence f
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
 The proofs that the laws hold are shown in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
 
-### Option monoid
+### "Optional" monoid
 
 For any type `T`, the type `Optional T` is a monoid.
 The `empty` value is `None T`.
@@ -6719,7 +6719,7 @@ The `Functor` evidence for `Compose F G` can be constructed automatically if the
 
 ```dhall
 let functorFunctorCompose
-  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (Compose F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let ga2gb : G a → G b = functorG.fmap a b f
@@ -6754,7 +6754,7 @@ Finally, the composition of two contrafunctors is again a covariant functor:
 
 ```dhall
 let contrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Functor (Compose F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Functor (Compose F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
@@ -6795,7 +6795,7 @@ Similar code works for contrafunctors:
 
 ```dhall
 let contrafunctorProduct
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (Product F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Product F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         -- Return a function of type Pair (F b) (G b) → Pair (F a) (G a).
@@ -7467,7 +7467,7 @@ let pureForApplicativeFunctor
 ```
 
 ```dhall
-let ap
+let apForApplicativeFunctor
   : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(fab : F (a → b)) → λ(fa : F a) →
       let pairs : F (Pair (a → b) a) = applicativeF.zip (a → b) fab a fa
@@ -7475,7 +7475,7 @@ let ap
 ```
 
 ```dhall
-let map2
+let map2ForApplicativeFunctor
   : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → F a → F b → F c
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(abc : a → b → c) → λ(fa : F a) → λ(fb : F b) →
       let pairs : F (Pair a b) = applicativeF.zip a fa b fb
@@ -7633,7 +7633,70 @@ let applicativeContrafunctorCoProduct
 
 ### Functor and contrafunctor composition
 
-In certain cases, composition preserves the applicative property.
+Composition of type constructors preserves the applicative property.
+We will consider the following cases:
+
+1) If `P` and `Q` are applicative functors then so is `Compose P Q`.
+
+```
+let applicativeFunctorFunctorCompose
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Functor Q → Applicative (Compose P Q)  
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(functorQ : Functor Q) →
+    let R = λ(a : Type) → P (Q a)
+    let pure_P = pureForApplicativeFunctor P functorP applicativeP
+    let map2_P = map2ForApplicativeFunctor P functorP applicativeP
+    in { unit = pure_P (Q {}) (applicativeQ.unit)
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           map2_P (Q a) (Q b) (Q (Pair a b)) (λ(qa : Q a) → λ(qb : Q b) → applicativeQ.zip a qa b qb) x y
+       }
+```
+
+2) If `P` is an applicative functor and `Q` is an applicative contrafunctor then `Compose P Q` and `Compose Q P` are applicative contrafunctors.
+
+```dhall
+let reverseApplicativeFunctor
+  : ∀(P : Type → Type) → Applicative P → Functor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      functorP.fmap (Pair b a) (Pair a b) (swap b a) (applicativeP.zip b y a x) }
+```
+
+3) If `P` and `Q` are applicative contrafunctors then `Compose P Q` is an applicative functor.
+
+```dhall
+let applicativeContrafunctorContrafunctorCompose
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (Compose P Q)  
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
+    let R = λ(a : Type) → P (Q a)
+    let pure_P = pureForApplicativeFunctor P functorP applicativeP
+    let map2_P = map2ForApplicativeFunctor P functorP applicativeP
+    in { unit = pure_P (Q {}) (applicativeQ.unit)
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           map2_P (Q a) (Q b) (Q (Pair a b)) (λ(qa : Q a) → λ(qb : Q b) → applicativeQ.zip a qa b qb) x y
+       }
+```
+
+
+```dhall
+let applicativeContrafunctorFunctorCompose
+  : ∀(F : Type → Type) → applicative F → ∀(G : Type → Type) → Contrafunctor G → Contraapplicative (Compose G F)  
+  = λ(F : Type → Type) → λ(applicativeF : applicative F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorFunctorCompose G contrafunctorG F applicativeF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (applicativeF.deflate a) }
+```
+
+```dhall
+let applicativeFunctorContrafunctorCompose
+  : ∀(F : Type → Type) → Contraapplicative F → ∀(G : Type → Type) → Functor G → Contraapplicative (Compose G F)  
+  = λ(F : Type → Type) → λ(contraapplicativeF : Contraapplicative F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    functorContrafunctorCompose G functorG F contraapplicativeF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contraapplicativeF.inflate a) } 
+```
+
+```dhall
+let applicativeContrafunctorContrafunctorCompose
+  : ∀(F : Type → Type) → Contraapplicative F → ∀(G : Type → Type) → Contrafunctor G → applicative (Compose G F)  
+  = λ(F : Type → Type) → λ(contraapplicativeF : Contraapplicative F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorContrafunctorCompose G contrafunctorG F contraapplicativeF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contraapplicativeF.inflate a) } 
+```
 
 ### Reverse applicative functors and contrafunctors
 
@@ -7657,13 +7720,13 @@ let reverseApplicativeContrafunctor
       contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
 ```
 
-Some functors `P` are commutative.
+Some functors `P` are _commutative_: reversing does not change their `zip` operation.
 
 ### Function types
 
 Contrafunctor F -> H where F is any functor and H is applicative of any variance
 
-Functors: only monadic construction H a -> a
+Functors: only monadic construction H a -> a or (a -> M c) -> M a or (M a -> c) -> M a?
 
 ### Universal and existential type quantifiers
 
@@ -7684,12 +7747,19 @@ The type `List T` is always a monoid, even if `T` is not a monoid.
 So, the "free monoid on `T`" is a construction that creates a monoidal type out of any given type `T`. It works by wrapping the type `T` inside the `List` functor.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it inside some other type constructors such that the result always belongs to the required typeclass.
-Another frequently used example is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
+To qualify as a free typeclass, the wrapping must satisfy certain laws that we will not discuss here.
+See Chapter 13 of "The Science of Functional Programming" for full details.
+
+As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
+This construction takes an arbitrary type `T` and produces a monoid `Optional T`.
+So, `Optional T` can be also described as a "wrapping" that always produces a monoid.
+But it is not the free monoid on `T` because it does not satisfy some of the required laws.
+
+A well known example of a free typeclass is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
 
 This chapter will show how to construct free instances for many of the frequently used typeclasses.
 Keep in mind that not all typeclasses can have free instances.
-Examples of typeclasses that do not support free instances are `Show`, `ContraFilterable`, `Traversable`, and `Comonad`.
-
+Examples of typeclasses that do not support free instances are `Show`, `Comonad`, and `Traversable`.
 
 ### Free semigroup and free monoid
 
