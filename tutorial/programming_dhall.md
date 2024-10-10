@@ -3444,7 +3444,7 @@ let extensional_equality
 ```
 
 
-## Church encoding for recursive types and type constructors
+## Church encoding for recursive types
 
 ### Recursion schemes
 
@@ -4521,7 +4521,7 @@ let test = assert : reverseNEL Natural example2 === example1
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
 We will now consider functions that can work with all Church-encoded type constructors.
-The first examples are functions that compute the total size and the maximum depth of a data structure.
+Examples are functions that compute the total size and the maximum recursion depth of a data structure.
 
 Suppose we are given an arbitrary recursion scheme `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
 
@@ -4531,15 +4531,13 @@ let C = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
 We imagine that a value `p : C a` is a data structure that stores zero or more values of type `a`.
-
 The "total size" of `p` is the number of the values of type `a` that it stores. For example, if `p` is a list of 5 elements then the size of `p` is 5. The size
 of a `TreeInt` value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` is 3 because it stores three numbers.
 
 The "maximum depth" of `p` is the depth of nested recursion required to obtain that value. For example, if `p` is a `TreeInt`
 value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` then the depth of `p` is 2. The depth of a single-leaf tree (such as `leaf +10`) is 0.
 
-The goal is to implement these functions generically, for all Church-encoded data structures at once.
-
+The goal is to implement those functions generically, for all Church-encoded data structures at once.
 Both of those functions need to traverse the entire data structure and to accumulate a `Natural` value. Let us begin with `size`:
 
 ```dhall
@@ -6967,7 +6965,7 @@ let contrafunctorExists1
 ```
 
 
-### Recursive type constructors
+### Recursive functors and contrafunctors
 
 Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
 Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
@@ -6978,7 +6976,7 @@ However, for illustration we will show the Dhall code for those instances.
 
 A least-fixpoint type constructor is defined via a recursion scheme that must be a type constructor with two type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
-(See the section "Recursive type constructors" for more details.)
+(See the section "Recursive type constructors" in the chapter "Church encoding for recursive.)
 
 Suppose `F` is a given recursion scheme with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
@@ -7363,7 +7361,7 @@ let contrafilterableExists1
      }
 ```
 
-### Recursive type constructors
+### Recursive filterable type constructors
 
 Recursive type constructors are defined via `LFix` or `GFix` from recursion schemes, which are type constructors `F` with two type parameters (so that `F a b` is a type).
 
@@ -7506,7 +7504,7 @@ We have seen in Chapter "Typeclasses" that the `Monoid` type constructor admits 
 
 Let us now find out what combinators exist for creating new applicative type constructors out of previously given ones.
 
-### Constant (contra)functors
+### Constant (contra)functors and the identity functor
 
 A constant type constructor (`Const T`) is at once a functor and a contrafunctor.
 It is applicative as long as `T` is a monoidal type.
@@ -7521,7 +7519,6 @@ let applicativeConst
     }
 ```
 
-### Identity functor
 
 The identity functor (`Id`) is applicative.
 
@@ -7540,11 +7537,12 @@ If `P` and `Q` are applicative then so is their product (`Product P Q`).
 ```dhall
 let applicativeProduct
   : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (Product P Q)
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → 
-    { unit = { _1 = applicativeP.unit, _2 = applicativeQ.unit } 
-    , zip = λ(a : Type) → λ(x : Product P Q a) → λ(b : Type) → λ(y : Product P Q b) →
-      { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
-    }
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+    let R = λ(a : Type) → { _1 : P a, _2 : Q a } -- Same as Product P Q a.
+    in { unit = { _1 = applicativeP.unit, _2 = applicativeQ.unit } 
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+         { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
+       }
 ```
 This works equally well for any type constructors (not necessarily covariant).
 
@@ -7552,13 +7550,86 @@ Co-products of applicative functors are _not_ always applicative.
 
 There are three cases when co-products are applicative:
 
-1) A co-product with a constant applicative functor: `CoProduct F (Const T)` where `F` is applicative and `T` is a monoidal type.
-2) A co-product of the form `CoProduct F (Product Id G)`, where `F` and `G` are applicative of any variance.
-3) A co-product of applicative _contrafunctors_.
+1) A co-product with a constant applicative functor: `CoProduct P (Const T)` where `P` is applicative and `T` is a monoidal type.
+The result is an applicative type constructor `R`, of the same variance as `P`, such that `R a = Either (P a) T`.
+
+```dhall
+let applicativeCoProductConst
+  : ∀(P : Type → Type) → Applicative P → ∀(T : Type) → Monoid T → Applicative (CoProduct P (Const T))
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(T : Type) → λ(monoidT : Monoid T) →
+    let R = λ(a : Type) → Either (P a) T -- Same as CoProduct P (Const T) a.
+    in { unit = (R {}).Left applicativeP.unit
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           merge {
+             Left = λ(pa : P a) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+               , Right = λ(t : T) → (R (Pair a b)).Right t
+             } y
+           , Right = λ(tx : T) → merge {
+               Left = λ(pb : P b) → (R (Pair a b)).Right tx
+             , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+             } y
+           } x
+       }
+```
+
+2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative (of any variance).
+The result is an applicative type constructor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
+
+```dhall
+let applicativeCoProductId
+  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (CoProduct P (Product Id Q))
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+      let R = λ(a : Type) → Either (P a) { _1 : a, _2 : Q a } -- Same as CoProduct P (Product Id Q) a.
+      in { unit = (R {}).Left applicativeP.unit
+         , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+             merge {
+               Left = λ(pa : P a) → merge {
+                   Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+                 , Right = λ(t : T) → (R (Pair a b)).Right t
+               } y
+             , Right = λ(tx : T) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Right tx
+               , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+               } y
+             } x
+         }
+```
+
+3) A co-product of applicative _contrafunctors_ `P` and `Q`.
+The result is an applicative contrafunctor `R` such that `R a = Either (P a) (Q a)`.
+
+```dhall
+let applicativeContrafunctorCoProduct
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (CoProduct P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
+      let R = λ(a : Type) → Either (P a) (Q a) -- Same as CoProduct P Q a.
+      in { unit = (R {}).Left applicativeP.unit
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           merge {
+             Left = λ(pa : P a) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+               , Right = λ(t : T) → (R (Pair a b)).Right t
+             } y
+           , Right = λ(tx : T) → merge {
+               Left = λ(pb : P b) → (R (Pair a b)).Right tx
+             , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+             } y
+           } x
+       }
+```
+
 
 ### Functor and contrafunctor composition
 
+In certain cases, composition preserves the applicative property.
+
 ### Reverse applicative functor
+
+For any applicative functor `P` with a given `zip` operation, one can define the `zip` operation in the backwards order.
+The result is another lawful implementation of the applicative property.
+
+Some functors `P` are commutative.
 
 ### Function types
 
