@@ -7635,10 +7635,27 @@ let applicativeContrafunctorCoProduct
 
 In certain cases, composition preserves the applicative property.
 
-### Reverse applicative functor
+### Reverse applicative functors and contrafunctors
 
-For any applicative functor `P` with a given `zip` operation, one can define the `zip` operation in the backwards order.
-The result is another lawful implementation of the applicative property.
+For any applicative (contra)functor `P` with a given `zip` operation, one can define the `zip` operation in the reverse order.
+The result is another lawful implementation of the applicative property of the functor.
+
+We can define the "reversing" operation via general combinators that transform a given `Applicative` evidence into the reversed one:
+```dhall
+let reverseApplicativeFunctor
+  : ∀(P : Type → Type) → Applicative P → Functor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      functorP.fmap (Pair b a) (Pair a b) (swap b a) (applicativeP.zip b y a x) }
+```
+
+```dhall
+let reverseApplicativeContrafunctor
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+```
 
 Some functors `P` are commutative.
 
