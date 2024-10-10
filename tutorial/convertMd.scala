@@ -104,7 +104,7 @@ def tab[$: P] = P("\t")
 def closingSequence[$: P] = P(space ~ "#".rep ~ space.rep).? ~ end_of_line
 
 enum SpanKind:
-  case Emphasis, StrongEmphasis, CodeSpan, Regular
+  case Emphasis, StrongEmphasis, CodeSpan, Regular, LatexSpan
 
 import SpanKind.*
 
@@ -123,6 +123,8 @@ enum Markdown:
 
 import Markdown.*
 
+def regularText_no_dollar[$: P] = P((!"$" ~ not_end_of_line).rep(1))
+
 def regularText_no_star[$: P] = P((!"*" ~ not_end_of_line).rep(1))
 
 def regularText_no_backquote[$: P] = P((!"`" ~ not_end_of_line).rep(1))
@@ -135,6 +137,8 @@ def heading[$: P](level: Int): P[Heading] =
   P(("#" * level) ~ space ~ paragraph ~ closingSequence).map(Heading(level, _))
 
 def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5) | heading(6))
+
+def latexSpan[$: P]: P[Span] = P("$" ~ regularText_no_dollar.! ~ "$").map(Span(LatexSpan, _))
 
 def codeSpan[$: P]: P[Span] = P("`" ~ regularText_no_backquote.! ~ "`").map(Span(CodeSpan, _))
 
@@ -161,7 +165,7 @@ def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
 def bulletList[$: P]: P[BulletList] = P(bulletListItem.rep(1)).map(BulletList.apply)
 
 def paragraph[$: P]: P[Paragraph] =
-  P((emphasis | emphasis_underscore | strongEmphasis | codeSpan | hyperlink | regularText_no_markup.!.map(Span(Regular, _))).rep)
+  P((latexSpan | codeSpan | emphasis | emphasis_underscore | strongEmphasis | hyperlink | regularText_no_markup.!.map(Span(Regular, _))).rep)
     .map(Paragraph.apply)
 
 def block[$: P]: P[Markdown] =
@@ -174,6 +178,7 @@ def textualToLatex: Textual => String = {
     case SpanKind.Emphasis => s"\\emph{$text}"
     case SpanKind.StrongEmphasis => s"\\textbf{$text}\\index{$text}"
     case SpanKind.CodeSpan => s"\\lstinline!$text!"
+    case SpanKind.LatexSpan => "$ " + text + " $"
     case SpanKind.Regular => text
   case Textual.Hyperlink(text, target) =>
     val cleanedText = text.replaceAll("#", "\\\\#")
