@@ -527,9 +527,9 @@ Similar functions extract the first or the second element of a pair.
 These functions also work in the same way for all type parameters:
 
 ```dhall
-let pair_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
+let take_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._1
-let pair_2 : ∀(a : Type) → ∀(b : Type) → Pair a b → b
+let take_2 : ∀(a : Type) → ∀(b : Type) → Pair a b → b
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._2
 ```
 
@@ -7627,10 +7627,10 @@ let applicativeContrafunctorCoProduct
            merge {
              Left = λ(pa : P a) → merge {
                  Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
-               , Right = λ(qb : Q b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) b (pair_2 a b) qb)
+               , Right = λ(qb : Q b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) b (take_2 a b) qb)
              } y
            , Right = λ(qa : Q a) → merge {
-               Left = λ(pb : P b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) a (pair_1 a b) qa)
+               Left = λ(pb : P b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) a (take_1 a b) qa)
              , Right = λ(qb : Q b) → (R (Pair a b)).Right (applicativeQ.zip a qa b qb)
              } y
            } x
@@ -7695,23 +7695,36 @@ It turns out that `R` is applicative only in certain cases:
 1) If `P` is an applicative functor and `Q` is an applicative type constructor (of any variance) then `R` is applicative.
 
 ```dhall
-let reverseApplicativeContrafunctor
-  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
-    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
-      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+let arrowFunctorApplicative
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (Arrow P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+    let R = λ(a : Type) → P a → Q a -- Same as R = Arrow P Q.
+    in { unit = λ(_ : P {}) → applicativeQ.unit
+       , zip = λ(a : Type) → λ(ra : R a) → λ(b : Type) → λ(rb : R b) →
+           λ(pab : P (Pair a b)) →
+             let pa : P a = functorP.fmap (Pair a b) a (take_1 a b) pab
+             let pb : P b = functorP.fmap (Pair a b) b (take_2 a b) pab
+             in applicativeQ.zip a (ra pa) b (rb pb)
+       }
 ```
 
-2) If `P` is _any_ contrafunctor (not necessarily applicative) then `Arrow P Id` is applicative.
+2) If `P` is _any_ contrafunctor (not necessarily applicative) then `Arrow P Id` is an applicative functor.
+The new type constructor `R` has the form `R a = P a → a`. 
 
 ```dhall
-let reverseApplicativeContrafunctor
-  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
-    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
-      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+let arrowContrafunctorIdApplicative
+  : ∀(P : Type → Type) → Contrafunctor P → Applicative (Arrow P Id)
+  = λ(P : Type → Type) → λ(contrafunctorP : Contrafunctor P) →
+    let R = λ(a : Type) → P a → a -- Same as R = Arrow P Id.
+    in { unit = λ(_ : P {}) → {=}
+       , zip = λ(a : Type) → λ(ra : R a) → λ(b : Type) → λ(rb : R b) →
+           λ(pab : P (Pair a b)) →
+             let g : a → R (Pair a b) = λ(x : a) → λ(pab : P (Pair a b)) → { _1 = x, _2 = rb (contrafunctorP.cmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) pab) }
+             let aab : a → Pair a b = λ(x : a) → g x pab 
+             let pa : P a = contrafunctorP.cmap a (Pair a b) aab pab 
+             in g (ra pa) pab
+       }
 ```
-
 
 Functors: only monadic construction H a -> a or (a -> M c) -> M a or (M a -> c) -> M a?
 
