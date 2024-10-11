@@ -6633,10 +6633,11 @@ let monoidFunc
     }  
 ```
 
-### Inverse monoid
+### Reverse monoid
 
 If a type `P` is a monoid, we may define another implementation of the `append` method by reversing the order of appending the values.
 In other words, we may define the new operation `append_reverse x y` as `append y x`.
+(The `empty` value remains unchanged.)
 The laws will still hold for the new monoid instance.
 
 ```dhall
@@ -6645,6 +6646,12 @@ let monoidReverse
   = λ(P : Type) → λ(monoidP : Monoid P) →
     monoidP // { append = λ(x : P) → λ(y : P) → monoidP.append y x }
 ```
+
+For some monoids `P`, reversing does not change their `append` operation.
+Such `P` are called **commutative monoids**.
+An example is `P = Natural` with the commutative `append` operation such as `append x y = x + y`.
+
+An example of a non-commutative monoid is the `Optional` monoid shown earlier in this chapter.
 
 
 ## Combinators for functors and contrafunctors
@@ -7633,15 +7640,13 @@ let applicativeContrafunctorCoProduct
 
 ### Functor and contrafunctor composition
 
-Composition of type constructors preserves the applicative property.
-We will consider the following cases:
-
-1) If `P` and `Q` are applicative functors then so is `Compose P Q`.
-
+Composition of type constructors preserves the applicative property if the _first_ type constructor is a functor.
+For example, if `P` and `Q` are both applicative functors then so is `Compose P Q`.
+If `P` is an applicative functor and `Q` is an applicative contrafunctor then `Compose P Q` is an applicative contrafunctor.
 ```
-let applicativeFunctorFunctorCompose
-  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Functor Q → Applicative (Compose P Q)  
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(functorQ : Functor Q) →
+let applicativeFunctorCompose
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (Compose P Q)  
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
     let R = λ(a : Type) → P (Q a)
     let pure_P = pureForApplicativeFunctor P functorP applicativeP
     let map2_P = map2ForApplicativeFunctor P functorP applicativeP
@@ -7651,52 +7656,9 @@ let applicativeFunctorFunctorCompose
        }
 ```
 
-2) If `P` is an applicative functor and `Q` is an applicative contrafunctor then `Compose P Q` and `Compose Q P` are applicative contrafunctors.
-
-```dhall
-let reverseApplicativeFunctor
-  : ∀(P : Type → Type) → Applicative P → Functor P → Applicative P
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) →
-    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
-      functorP.fmap (Pair b a) (Pair a b) (swap b a) (applicativeP.zip b y a x) }
-```
-
-3) If `P` and `Q` are applicative contrafunctors then `Compose P Q` is an applicative functor.
-
-```dhall
-let applicativeContrafunctorContrafunctorCompose
-  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (Compose P Q)  
-  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
-    let R = λ(a : Type) → P (Q a)
-    let pure_P = pureForApplicativeFunctor P functorP applicativeP
-    let map2_P = map2ForApplicativeFunctor P functorP applicativeP
-    in { unit = pure_P (Q {}) (applicativeQ.unit)
-       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
-           map2_P (Q a) (Q b) (Q (Pair a b)) (λ(qa : Q a) → λ(qb : Q b) → applicativeQ.zip a qa b qb) x y
-       }
-```
-
-
-```dhall
-let applicativeContrafunctorFunctorCompose
-  : ∀(F : Type → Type) → applicative F → ∀(G : Type → Type) → Contrafunctor G → Contraapplicative (Compose G F)  
-  = λ(F : Type → Type) → λ(applicativeF : applicative F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
-    contrafunctorFunctorCompose G contrafunctorG F applicativeF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (applicativeF.deflate a) }
-```
-
-```dhall
-let applicativeFunctorContrafunctorCompose
-  : ∀(F : Type → Type) → Contraapplicative F → ∀(G : Type → Type) → Functor G → Contraapplicative (Compose G F)  
-  = λ(F : Type → Type) → λ(contraapplicativeF : Contraapplicative F) → λ(G : Type → Type) → λ(functorG : Functor G) →
-    functorContrafunctorCompose G functorG F contraapplicativeF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contraapplicativeF.inflate a) } 
-```
-
-```dhall
-let applicativeContrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → Contraapplicative F → ∀(G : Type → Type) → Contrafunctor G → applicative (Compose G F)  
-  = λ(F : Type → Type) → λ(contraapplicativeF : Contraapplicative F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
-    contrafunctorContrafunctorCompose G contrafunctorG F contraapplicativeF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contraapplicativeF.inflate a) } 
-```
+In other cases (such as the composition of two applicative contrafunctors), the result is not necessarily applicative.
+A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types.
+Both `P` and `Q` are applicative contrafunctors, but their composition `P (Q a) = (a → q) → p` is a functor that is _not_ applicative.
 
 ### Reverse applicative functors and contrafunctors
 
@@ -7720,11 +7682,36 @@ let reverseApplicativeContrafunctor
       contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
 ```
 
-Some functors `P` are _commutative_: reversing does not change their `zip` operation.
+For some applicative (contra)functors `P`, reversing does not change their `zip` operation.
+Such `P` are called _commutative_ applicative.
+Examples are `P a = a → m` where `m` is a commutative monoid.
 
 ### Function types
 
-Contrafunctor F -> H where F is any functor and H is applicative of any variance
+Here, we consider creating a new type constructor `R` via the `Arrow` combinator, `R = Arrow P Q`
+(which is equivalent to `R a = P a → Q a`).
+It turns out that `R` is applicative only in certain cases:
+
+1) If `P` is an applicative functor and `Q` is an applicative type constructor (of any variance) then `R` is applicative.
+
+```dhall
+let reverseApplicativeContrafunctor
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+```
+
+2) If `P` is _any_ contrafunctor (not necessarily applicative) then `Arrow P Id` is applicative.
+
+```dhall
+let reverseApplicativeContrafunctor
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+```
+
 
 Functors: only monadic construction H a -> a or (a -> M c) -> M a or (M a -> c) -> M a?
 
