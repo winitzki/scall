@@ -7690,7 +7690,8 @@ Examples are `P a = a → m` where `m` is a commutative monoid.
 
 Here, we consider creating a new type constructor `R` via the `Arrow` combinator, `R = Arrow P Q`
 (which is equivalent to `R a = P a → Q a`).
-It turns out that `R` is applicative only in certain cases:
+Generally `R` will not be applicative.
+It is known that `R` is applicative in certain cases:
 
 1) If `P` is an applicative functor and `Q` is an applicative type constructor (of any variance) then `R` is applicative.
 
@@ -7725,8 +7726,6 @@ let arrowContrafunctorIdApplicative
              in g (ra pa) pab
        }
 ```
-
-Functors: only monadic construction H a -> a or (a -> M c) -> M a or (M a -> c) -> M a?
 
 ### Universal and existential type quantifiers
 
