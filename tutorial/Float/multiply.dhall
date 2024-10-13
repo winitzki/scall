@@ -32,4 +32,6 @@ let Float/multiply =
                     )
                     prec
 
+let _ = assert : Float/multiply (Float/create +123456 +0) (Float/create +123456 +0) 4 === (Float/create +1524 +7)
+
 in  { Float/multiply }
