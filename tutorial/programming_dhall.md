@@ -7657,8 +7657,11 @@ let applicativeFunctorCompose
 ```
 
 In other cases (such as the composition of two applicative contrafunctors), the result is not necessarily applicative.
-A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types.
-Both `P` and `Q` are applicative contrafunctors, but their composition `P (Q a) = (a → q) → p` is a functor that is _not_ applicative.
+A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types that are assumed to be different and unrelated.
+Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative.
+
+When `p` and `q` were the same type, `p = q`, the functor `R a = (a → p) → p` _is_ applicative.
+(It is known as the "continuation monad", and every monad in Dhall is also an applicative functor.)
 
 ### Reverse applicative functors and contrafunctors
 
