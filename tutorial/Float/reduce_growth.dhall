@@ -1,4 +1,3 @@
-
 -- Reduce growth of normal forms by preventing expansion of arguments under a lambda.
 -- The function requires a predicate that always returns True but such that Dhall cannot detect that property when expanding under a lambda.
 -- Examples are provided for Bool, Integer, and Natural input types.

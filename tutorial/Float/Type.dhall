@@ -149,7 +149,12 @@ let _ = assert : Float/create +0 +0 ≡ Float/zero
 
 let Float/normalize
     : Float → Float
-    = λ(x : Float) → Float/addExtraData (FloatBare/normalize x.(FloatBare))
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        Float
+        Float/zero
+        (λ(x : Float) → Float/addExtraData (FloatBare/normalize x.(FloatBare)))
 
 let Float/pad
     : Float → Natural → Float

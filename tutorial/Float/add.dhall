@@ -16,6 +16,8 @@ let Base = T.Base
 
 let D = ./Arithmetic.dhall
 
+let stop = ./reduce_growth.dhall
+
 let S = ./show.dhall
 
 let Float/show = S.Float/show

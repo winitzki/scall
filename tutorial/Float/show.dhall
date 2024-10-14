@@ -10,6 +10,16 @@ let Natural/lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
 
+let Integer/abs =
+      https://prelude.dhall-lang.org/abs
+        sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
+
+let Integer/nonNegative =
+      https://prelude.dhall-lang.org/Integer/nonNegative
+        sha256:b463373f070df6b1c8c7082051e0810fee38b360bab35256187c8c2b6af5c663
+
+let stop = ./reduce_growth.dhall
+
 let T = ./Type.dhall
 
 let divmod = T.divmod
@@ -65,94 +75,121 @@ let _ = assert : padRemainingDigits { digits = 123, length = 4 } ≡ "0123"
 
 let Float/showNormalized
     : Float → Text
-    = λ(f : Float) →
-        if    Natural/isZero f.mantissa
-        then  "0."
-        else  let `number is above 1000 with positive exponent, so print as 1.234...e+...` =
-                    λ(f : Float) →
-                      Text/concat
-                        [ Natural/show f.leadDigit
-                        , "."
-                        , padRemainingDigits
-                            { digits = f.remaining, length = f.topPower }
-                        , "e+"
-                        , Natural/show (f.topPower + f.exponent)
-                        ]
-
-              let `number is above 1000 despite negative exponent, so print as 1.234...e+...` =
-                    λ(f : Float) →
-                      Text/concat
-                        [ Natural/show f.leadDigit
-                        , "."
-                        , padRemainingDigits
-                            { digits = f.remaining, length = f.topPower }
-                        , "e+"
-                        , Natural/show (Natural/subtract f.exponent f.topPower)
-                        ]
-
-              let `number is above 1 but below 1000, so print it as 123.456...` =
-                    λ(f : Float) →
-                      let r = divmod f.mantissa (D.power Base f.exponent)
-
-                      let headDigits = r.div
-
-                      let remaining =
-                            padRemainingDigits
-                              { digits = r.rem, length = f.exponent }
-
-                      in  Text/concat
-                            [ Natural/show headDigits, ".", remaining ]
-
-              let `number is below 1/1000, so print it as 1.23...e-...` =
-                    λ(f : Float) →
-                      let newExponent = Natural/subtract f.topPower f.exponent
-
-                      in  Text/concat
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        Text
+        ""
+        ( λ(f : Float) →
+            if    Natural/isZero f.mantissa
+            then  "0."
+            else  let `number is above 1000 with positive exponent, so print as 1.234...e+...` =
+                        λ(f : Float) →
+                          Text/concat
                             [ Natural/show f.leadDigit
                             , "."
                             , padRemainingDigits
                                 { digits = f.remaining, length = f.topPower }
-                            , "e-"
-                            , Natural/show newExponent
+                            , "e+"
+                            , Natural/show (f.topPower + Integer/abs f.exponent)
                             ]
 
-              let `number is above 1/1000 but below 1, so print the number as 0.00123...` =
-                    λ(f : Float) →
-                      Text/concat
-                        [ "0."
-                        , padRemainingDigits
-                            { digits = f.mantissa, length = f.exponent }
-                        ]
+                  let `number is above 1000 despite negative exponent, so print as 1.234...e+...` =
+                        λ(f : Float) →
+                          Text/concat
+                            [ Natural/show f.leadDigit
+                            , "."
+                            , padRemainingDigits
+                                { digits = f.remaining, length = f.topPower }
+                            , "e+"
+                            , Natural/show
+                                ( Natural/subtract
+                                    (Integer/abs f.exponent)
+                                    f.topPower
+                                )
+                            ]
 
-              let rest =
-                    if    f.exponentPositive || Natural/isZero f.exponent
-                    then  let largeInteger =
-                                f.mantissa * D.power Base f.exponent
+                  let `number is above 1 but below 1000, so print it as 123.456...` =
+                        λ(f : Float) →
+                          let r =
+                                divmod
+                                  f.mantissa
+                                  (D.power Base (Integer/abs f.exponent))
 
-                          in  if    Natural/lessThan
-                                      largeInteger
-                                      maxDisplayedInteger
-                              then  Text/concat
-                                      [ Natural/show largeInteger, "." ]
-                              else  `number is above 1000 with positive exponent, so print as 1.234...e+...`
-                                      f
-                    else  if Natural/lessThan
-                               (MaxPrintedWithoutExponent + f.exponent)
-                               f.topPower
-                    then  `number is above 1000 despite negative exponent, so print as 1.234...e+...`
-                            f
-                    else  if Natural/lessThanEqual f.exponent f.topPower
-                    then  `number is above 1 but below 1000, so print it as 123.456...`
-                            f
-                    else  if Natural/lessThan
-                               (f.topPower + MaxPrintedWithoutExponent)
-                               f.exponent
-                    then  `number is below 1/1000, so print it as 1.23...e-...`
-                            f
-                    else  `number is above 1/1000 but below 1, so print the number as 0.00123...`
-                            f
+                          let headDigits = r.div
 
-              in  Text/concat [ showSign f.mantissaPositive, rest ]
+                          let remaining =
+                                padRemainingDigits
+                                  { digits = r.rem
+                                  , length = Integer/abs f.exponent
+                                  }
+
+                          in  Text/concat
+                                [ Natural/show headDigits, ".", remaining ]
+
+                  let `number is below 1/1000, so print it as 1.23...e-...` =
+                        λ(f : Float) →
+                          let newExponent =
+                                Natural/subtract
+                                  f.topPower
+                                  (Integer/abs f.exponent)
+
+                          in  Text/concat
+                                [ Natural/show f.leadDigit
+                                , "."
+                                , padRemainingDigits
+                                    { digits = f.remaining
+                                    , length = f.topPower
+                                    }
+                                , "e-"
+                                , Natural/show newExponent
+                                ]
+
+                  let `number is above 1/1000 but below 1, so print the number as 0.00123...` =
+                        λ(f : Float) →
+                          Text/concat
+                            [ "0."
+                            , padRemainingDigits
+                                { digits = f.mantissa
+                                , length = Integer/abs f.exponent
+                                }
+                            ]
+
+                  let rest =
+                        if    Integer/nonNegative f.exponent
+                        then  let largeInteger =
+                                      f.mantissa
+                                    * D.power Base (Integer/abs f.exponent)
+
+                              in  if    Natural/lessThan
+                                          largeInteger
+                                          maxDisplayedInteger
+                                  then  Text/concat
+                                          [ Natural/show largeInteger, "." ]
+                                  else  `number is above 1000 with positive exponent, so print as 1.234...e+...`
+                                          f
+                        else  if Natural/lessThan
+                                   (   MaxPrintedWithoutExponent
+                                     + Integer/abs f.exponent
+                                   )
+                                   f.topPower
+                        then  `number is above 1000 despite negative exponent, so print as 1.234...e+...`
+                                f
+                        else  if Natural/lessThanEqual
+                                   (Integer/abs f.exponent)
+                                   f.topPower
+                        then  `number is above 1 but below 1000, so print it as 123.456...`
+                                f
+                        else  if Natural/lessThan
+                                   (f.topPower + MaxPrintedWithoutExponent)
+                                   (Integer/abs f.exponent)
+                        then  `number is below 1/1000, so print it as 1.23...e-...`
+                                f
+                        else  `number is above 1/1000 but below 1, so print the number as 0.00123...`
+                                f
+
+                  in  Text/concat [ showSign f.mantissaPositive, rest ]
+        )
 
 let _ =
       let x = Float/create +100001 -1
@@ -161,7 +198,7 @@ let _ =
 
           let _ = assert : x.leadDigit ≡ 1
 
-          let _ = assert : x.exponent ≡ 1
+          let _ = assert : x.exponent ≡ -1
 
           in  assert : x.remaining ≡ 1
 

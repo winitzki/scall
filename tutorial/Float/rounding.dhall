@@ -4,6 +4,8 @@ let Natural/lessThan =
 
 let T = ./Type.dhall
 
+let stop = ./reduce_growth.dhall
+
 let Base = T.Base
 
 let D = ./Arithmetic.dhall
@@ -20,16 +22,24 @@ let divmod = T.divmod
 
 let HalfBase = (divmod Base 2).div
 
-let Float/truncate =
-      λ(a : Float) →
-      λ(prec : Natural) →
-        if    Natural/lessThan a.topPower prec
-        then  a
-        else  let power = D.power Base (Natural/subtract prec (a.topPower + 1))
+let Float/truncate
+    : Float → Natural → Float
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        (Natural → Float)
+        (λ(_ : Natural) → Float/zero)
+        ( λ(a : Float) →
+          λ(prec : Natural) →
+            if    Natural/lessThan a.topPower prec
+            then  a
+            else  let power =
+                        D.power Base (Natural/subtract prec (a.topPower + 1))
 
-              let roundLastDigits = (divmod a.mantissa power).div * power
+                  let roundLastDigits = (divmod a.mantissa power).div * power
 
-              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+                  in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+        )
 
 let _ =
         assert
@@ -45,22 +55,30 @@ let _ =
 
 let _ = assert : Float/truncate (Float/create +12341 +0) 0 ≡ Float/zero
 
-let Float/round =
-      λ(a : Float) →
-      λ(prec : Natural) →
-        if    Natural/lessThan a.topPower prec
-        then  a
-        else  let powerMinus1 = D.power Base (Natural/subtract prec a.topPower)
+let Float/round
+    : Float → Natural → Float
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        (Natural → Float)
+        (λ(_ : Natural) → Float/zero)
+        ( λ(a : Float) →
+          λ(prec : Natural) →
+            if    Natural/lessThan a.topPower prec
+            then  a
+            else  let powerMinus1 =
+                        D.power Base (Natural/subtract prec a.topPower)
 
-              let roundLastDigits =
-                      ( divmod
-                          (a.mantissa + HalfBase * powerMinus1)
-                          (powerMinus1 * Base)
-                      ).div
-                    * Base
-                    * powerMinus1
+                  let roundLastDigits =
+                          ( divmod
+                              (a.mantissa + HalfBase * powerMinus1)
+                              (powerMinus1 * Base)
+                          ).div
+                        * Base
+                        * powerMinus1
 
-              in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+                  in  Float/normalize (a ⫽ { mantissa = roundLastDigits })
+        )
 
 let _ = assert : Float/round (Float/create +12345 +0) 4 ≡ Float/create +12350 +0
 
