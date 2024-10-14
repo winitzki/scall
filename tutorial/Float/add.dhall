@@ -42,6 +42,12 @@ let C = ./compare.dhall
 
 let TorsorType = C.TorsorType
 
+let zeroTorsor
+    : TorsorType
+    = { x = 0, y = 0 }
+
+let identity = C.identity
+
 let computeTorsorForBothNonzero = C.computeTorsorForBothNonzero
 
 let compareUnsignedNonzero = C.compareUnsignedNonzero
@@ -88,8 +94,14 @@ let totalUnderflow
               ||  Natural/lessThanEqual (1 + prec + torsor.x) torsor.y
           )
 
-let flipTorsor =
-      λ(torsor : TorsorType) → torsor ⫽ { x = torsor.y, y = torsor.x }
+let flipTorsor
+    : TorsorType → TorsorType
+    = stop.reduce_growth
+        TorsorType
+        predicate_TorsorType
+        TorsorType
+        zeroTorsor
+        (λ(torsor : TorsorType) → torsor ⫽ { x = torsor.y, y = torsor.x })
 
 let torsorXLessEqualY =
       λ(torsor : TorsorType) → Natural/lessThanEqual torsor.x torsor.y
@@ -99,53 +111,69 @@ let Natural/plus = λ(a : Natural) → λ(b : Natural) → a + b
 let Natural/minus = λ(a : Natural) → λ(b : Natural) → Natural/subtract b a
 
 let addOrSubtractUnsignedAIsGreater
-                                    -- Compute a + b or a - b, assuming that a >= b > 0.
-                                    =
-      λ(torsor : TorsorType) →
-      λ(prec : Natural) →
+    -- Compute a + b or a - b, assuming that a >= b > 0.
+    : Natural →
+      (Natural → Natural → Natural) →
+      TorsorType →
+      Pair Float Float →
+        Float
+    = λ(prec : Natural) →
       λ(addOrSubtract : Natural → Natural → Natural) →
         stop.reduce_growth
-          (Pair Float Float)
-          predicate_2Floats
-          Float
-          Float/zero
-          ( λ(pair : Pair Float Float) →
-              let a = pair._1
+          TorsorType
+          predicate_TorsorType
+          (Pair Float Float → Float)
+          (λ(_ : Pair Float Float) → Float/zero)
+          ( λ(torsor : TorsorType) →
+              stop.reduce_growth
+                (Pair Float Float)
+                predicate_2Floats
+                Float
+                Float/zero
+                ( λ(pair : Pair Float Float) →
+                    let a = pair._1
 
-              let b = pair._2
+                    let b = pair._2
 
-              let difference = Natural/subtract torsor.y torsor.x
+                    let difference = Natural/subtract torsor.y torsor.x
 
-              let commonSize = prec + 1
+                    let commonSize = prec + 1
 
-              let baseline =
-                    Natural/max
-                      (a.topPower + 1)
-                      (Natural/min commonSize (difference + b.topPower + 1))
+                    let baseline =
+                          Natural/max
+                            (a.topPower + 1)
+                            ( Natural/min
+                                commonSize
+                                (difference + b.topPower + 1)
+                            )
 
-              let aIsTooSmall =
-                    Natural/lessThanEqual (a.topPower + 1) commonSize
+                    let aIsTooSmall =
+                          Natural/lessThanEqual (a.topPower + 1) commonSize
 
-              let aClamped =
-                    if    aIsTooSmall
-                    then  Float/pad
-                            a
-                            (Natural/subtract (a.topPower + 1) baseline)
-                    else  Float/round a commonSize
+                    let aClamped =
+                          if    aIsTooSmall
+                          then  Float/pad
+                                  a
+                                  (Natural/subtract (a.topPower + 1) baseline)
+                          else  Float/round a commonSize
 
-              let clampTo = if aIsTooSmall then baseline else commonSize
+                    let clampTo = if aIsTooSmall then baseline else commonSize
 
-              let bClamped =
-                    clampDigits
-                      b.mantissa
-                      b.topPower
-                      (Natural/subtract difference clampTo)
+                    let bClamped =
+                          clampDigits
+                            b.mantissa
+                            b.topPower
+                            (Natural/subtract difference clampTo)
 
-              let resultWithNewMantissaOnly =
-                      aClamped
-                    ⫽ { mantissa = addOrSubtract aClamped.mantissa bClamped }
+                    let resultWithNewMantissaOnly =
+                            aClamped
+                          ⫽ { mantissa =
+                                addOrSubtract aClamped.mantissa bClamped
+                            }
 
-              in  T.Float/addExtraData resultWithNewMantissaOnly.(T.FloatBare)
+                    in  T.Float/addExtraData
+                          resultWithNewMantissaOnly.(T.FloatBare)
+                )
           )
 
 let addUnsignedAIsGreaterNoUnderflowCheck =
@@ -154,9 +182,9 @@ let addUnsignedAIsGreaterNoUnderflowCheck =
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
         addOrSubtractUnsignedAIsGreater
-          torsor
           prec
           Natural/plus
+          torsor
           { _1 = a, _2 = b }
 
 let addUnsignedBothNonzero
@@ -194,7 +222,7 @@ let addUnsignedBothNonzero
                               let t =
                                     if    xSmaller
                                     then  flipTorsor
-                                    else  λ(x : TorsorType) → x
+                                    else  identity TorsorType
 
                               in  addUnsignedAIsGreaterNoUnderflowCheck
                                     x
@@ -227,12 +255,15 @@ let subtractUnsignedAMinusB
                     in  if    totalUnderflow (Natural/subtract 1 prec) torsor
                         then  b
                         else  addOrSubtractUnsignedAIsGreater
-                                torsor
                                 prec
                                 Natural/minus
+                                torsor
                                 pair
                 )
           )
+
+let negate_reduced =
+      stop.reduce_growth Float predicate_Float Float Float/zero Float/negate
 
 let Float/add
     : Float → Float → Natural → Float
@@ -260,7 +291,7 @@ let Float/add
                       ( λ(result : Float) →
                           if    a.mantissaPositive
                           then  result
-                          else  Float/negate result
+                          else  negate_reduced result
                       )
 
               let result =
@@ -274,26 +305,37 @@ let Float/add
 
                           let compared = compareUnsignedNonzero pair_abs_ab
 
-                          in  merge
-                                { Less =
-                                    Float/negate
-                                      ( applySign
-                                          ( subtractUnsignedAMinusB
-                                              prec
-                                              (flipTorsor torsor)
-                                              pair_abs_ba
-                                          )
-                                      )
-                                , Equal = Float/zero
-                                , Greater =
-                                    applySign
-                                      ( subtractUnsignedAMinusB
-                                          prec
-                                          torsor
-                                          pair_abs_ab
-                                      )
-                                }
-                                compared
+                          let checkZero =
+                                merge
+                                  { Less =
+                                    { postprocess = negate_reduced
+                                    , flip = flipTorsor
+                                    , reverse = True
+                                    }
+                                  , Equal =
+                                    { postprocess = λ(_ : Float) → Float/zero
+                                    , flip = identity TorsorType
+                                    , reverse = False
+                                    }
+                                  , Greater =
+                                    { postprocess = identity Float
+                                    , flip = identity TorsorType
+                                    , reverse = False
+                                    }
+                                  }
+                                  compared
+
+                          in  checkZero.postprocess
+                                ( applySign
+                                    ( subtractUnsignedAMinusB
+                                        prec
+                                        (checkZero.flip torsor)
+                                        ( if    checkZero.reverse
+                                          then  pair_abs_ba
+                                          else  pair_abs_ab
+                                        )
+                                    )
+                                )
 
               in  Float/normalize result
 
