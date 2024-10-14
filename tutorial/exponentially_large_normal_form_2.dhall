@@ -26,26 +26,26 @@ let zeroTorsor = { x = 0, y = 0 }
 let computeTorsorSingle
     : Integer → TorsorType
     = {- -} stop.reduce_growth
-        Integer
-        stop.predicate_Integer
-        TorsorType
-        zeroTorsor
-        {- -}( λ(i : Integer) →
-            if    Integer/positive i
-            then  { x = Integer/clamp i, y = 0 }
-            else  { x = 0, y = Integer/abs i }
-        )
+              Integer
+              stop.predicate_Integer
+              TorsorType
+              zeroTorsor
+              ( λ(i : Integer) →
+                  if    Integer/positive i
+                  then  { x = Integer/clamp i, y = 0 }
+                  else  { x = 0, y = Integer/abs i }
+              )
 
 let computeTorsor
     : InputType → TorsorType
     = {- -} stop.reduce_growth
-        InputType
-        (λ(input : InputType) → stop.predicate_Integer input.a)
-        TorsorType
-        zeroTorsor
-        {- -} ( λ(input : InputType) →
-            computeTorsorSingle (Integer/subtract input.b input.a)
-        )
+              InputType
+              (λ(input : InputType) → stop.predicate_Integer input.a)
+              TorsorType
+              zeroTorsor
+              ( λ(input : InputType) →
+                  computeTorsorSingle (Integer/subtract input.b input.a)
+              )
 
 let computeTorsor4
     : Integer → Integer → Integer → Integer → TorsorType

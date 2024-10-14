@@ -216,13 +216,11 @@ let zeroTorsor = { x = 0, y = 0 }
 
 let computeTorsor
     : Integer → TorsorType
-    =
-    stop.reduce_growth
+    = stop.reduce_growth
         Integer
         stop.predicate_Integer
         TorsorType
         zeroTorsor
-
         ( λ(i : Integer) →
             if    Integer/positive i
             then  { x = Integer/clamp i, y = 0 }
@@ -232,14 +230,11 @@ let computeTorsor
 let computeTorsorForBothNonzero
     -- We define "torsor(a, b)" as any pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
     : Pair Float Float → TorsorType
-    =
-
-    stop.reduce_growth
+    = stop.reduce_growth
         (Pair Float Float)
         (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
         TorsorType
         zeroTorsor
-
         ( λ(pair : Pair Float Float) →
             let a = pair._1
 
