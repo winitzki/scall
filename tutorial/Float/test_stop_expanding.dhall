@@ -26,6 +26,6 @@ let g = λ(x : Natural) → x + x + 1
 
 let g_stop = stop.expandingNatural Natural 0 g
 
-let k = g_stop
+let k = k2_stop
 
 in  λ(x : Natural) → Natural/fold n Natural k x

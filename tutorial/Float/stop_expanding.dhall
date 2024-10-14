@@ -1,10 +1,6 @@
 -- Prevent expanding arguments under a lambda.
 -- The function requires a predicate that always returns True but such that Dhall cannot detect that property when expanding under a lambda.
 -- Examples are provided for Bool, Integer, and Natural input types.
-let Optional/filter =
-      https://prelude.dhall-lang.org/Optional/filter
-        sha256:54f0a487d578801819613fe000050c038c632edf1f9ccc57677e98ae0ef56b83
-
 let expanding
     : ∀(T : Type) → (T → Bool) → ∀(R : Type) → R → (T → R) → T → R
     = λ(T : Type) →
@@ -14,8 +10,8 @@ let expanding
       λ(f : T → R) →
       λ(x : T) →
         merge
-          { Some = λ(x : T) → f x, None = default }
-          (Optional/filter T predicate (Some x))
+          { Some = f, None = default }
+          (if predicate x then Some x else None T)
 
 let predicateNatural
     : Natural → Bool
