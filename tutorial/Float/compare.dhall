@@ -32,6 +32,8 @@ let Integer/subtract =
 
 let T = ./Type.dhall
 
+let TorsorType = { x : Natural, y : Natural }
+
 let divmod = T.divmod
 
 let Float = T.Float
@@ -47,6 +49,8 @@ let Float/normalize = T.Float/normalize
 let Base = T.Base
 
 let D = ./Arithmetic.dhall
+
+let stop = ./reduce_growth.dhall
 
 let Compared = < Equal | Greater | Less >
 
@@ -87,42 +91,44 @@ let _ = assert : Natural/compare 20 10 ≡ Compared.Greater
 
 let Float/abs = T.Float/abs
 
+let Pair = T.Pair
+
 let Integer/addNatural =
       λ(x : Integer) → λ(y : Natural) → Integer/add x (Natural/toInteger y)
 
 let compareUnsignedNonzero
-    : Float → Float → Compared
-    = λ(a : Float) →
-      λ(b : Float) →
-        let compareTopPowersWithExponentials =
-              Integer/compare
-                (Integer/addNatural a.exponent a.topPower)
-                (Integer/addNatural b.exponent b.topPower)
+    : Pair Float Float → Compared
+    = stop.reduce_growth
+        (Pair Float Float)
+        (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
+        Compared
+        Compared.Equal
+        ( λ(pair : Pair Float Float) →
+            let a = pair._1
 
-        in  merge
-              { Less = Compared.Less
-              , Greater = Compared.Greater
-              , Equal =
-                  let subtractExponentials =
-                        Integer/subtract a.exponent b.exponent
+            let b = pair._2
 
-                  in  if    Integer/positive subtractExponentials
-                      then  Natural/compare
-                              a.mantissa
-                              (   b.mantissa
-                                * D.power
-                                    Base
-                                    (Integer/abs subtractExponentials)
-                              )
-                      else  Natural/compare
-                              (   a.mantissa
-                                * D.power
-                                    Base
-                                    (Integer/abs subtractExponentials)
-                              )
-                              b.mantissa
-              }
-              compareTopPowersWithExponentials
+            let compareTopPowersWithExponentials =
+                  Integer/compare
+                    (Integer/addNatural a.exponent a.topPower)
+                    (Integer/addNatural b.exponent b.topPower)
+
+            in  merge
+                  { Less = Compared.Less
+                  , Greater = Compared.Greater
+                  , Equal =
+                      let subtractExponentials =
+                            Integer/subtract a.exponent b.exponent
+
+                      let power =
+                            D.power Base (Integer/abs subtractExponentials)
+
+                      in  if    Integer/positive subtractExponentials
+                          then  Natural/compare a.mantissa (b.mantissa * power)
+                          else  Natural/compare (a.mantissa * power) b.mantissa
+                  }
+                  compareTopPowersWithExponentials
+        )
 
 let identity = λ(t : Type) → λ(x : t) → x
 
@@ -158,7 +164,7 @@ let Float/compare
                       then  Compared/reverse
                       else  identity Compared
                     )
-                      (compareUnsignedNonzero x y)
+                      (compareUnsignedNonzero { _1 = x, _2 = y })
               }
               maybeQuickCompare
 
@@ -202,9 +208,31 @@ let _ =
       :   Float/compare (Float/create -120 -100) (Float/create +12 -99)
         ≡ Compared.Less
 
+let computeTorsor
+    : Integer → TorsorType
+    = λ(i : Integer) →
+        if    Integer/positive i
+        then  { x = Integer/clamp i, y = 0 }
+        else  { x = 0, y = Integer/abs i }
+
+let computeTorsorForBothNonzero
+    -- We define "torsor(a, b)" as a pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
+    : Float → Float → TorsorType
+    = λ(a : Float) →
+      λ(b : Float) →
+        computeTorsor
+          ( Integer/subtract
+              (Integer/addNatural b.exponent b.topPower)
+              (Integer/addNatural a.exponent a.topPower)
+          )
+
 in  { Compared
     , Compared/reverse
     , Float/compare
+    , TorsorType
+    , identity
     , Natural/compare
     , Integer/compare
+    , computeTorsorForBothNonzero
+    , compareUnsignedNonzero
     }

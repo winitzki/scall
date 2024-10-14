@@ -22,6 +22,8 @@ let Integer/positive =
       https://prelude.dhall-lang.org/Integer/positive
         sha256:7bdbf50fcdb83d01f74c7e2a92bf5c9104eff5d8c5b4587e9337f0caefcfdbe3
 
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+
 let FloatExtraData =
       { leadDigit : Natural, topPower : Natural, remaining : Natural }
 
@@ -190,6 +192,7 @@ let Float/abs
     = λ(x : Float) → x ⫽ { mantissaPositive = True }
 
 in  { Base
+    , Pair
     , divmod
     , Float
     , FloatBare

@@ -16,6 +16,8 @@ let Base = T.Base
 
 let D = ./Arithmetic.dhall
 
+let Pair = T.Pair
+
 let stop = ./reduce_growth.dhall
 
 let S = ./show.dhall
@@ -44,7 +46,7 @@ let TorsorType = C.TorsorType
 
 let computeTorsorForBothNonzero = C.computeTorsorForBothNonzero
 
-let compareUnsignedNonzeroWithTorsor = C.compareUnsignedNonzeroWithTorsor
+let compareUnsignedNonzero = C.compareUnsignedNonzero
 
 let R = ./rounding.dhall
 
@@ -86,46 +88,63 @@ let Natural/minus = λ(a : Natural) → λ(b : Natural) → Natural/subtract b a
 let addOrSubtractUnsignedAIsGreater
                                     -- Compute a + b or a - b, assuming that a >= b > 0.
                                     =
-      λ(a : Float) →
-      λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
       λ(addOrSubtract : Natural → Natural → Natural) →
-        let difference = Natural/subtract torsor.y torsor.x
+        stop.reduce_growth
+          (Pair Float Float)
+          (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
+          Float
+          Float/zero
+          ( λ(pair : Pair Float Float) →
+              let a = pair._1
 
-        let commonSize = prec + 1
+              let b = pair._2
 
-        let baseline =
-              Natural/max
-                (a.topPower + 1)
-                (Natural/min commonSize (difference + b.topPower + 1))
+              let difference = Natural/subtract torsor.y torsor.x
 
-        let aIsTooSmall = Natural/lessThanEqual (a.topPower + 1) commonSize
+              let commonSize = prec + 1
 
-        let aClamped =
-              if    aIsTooSmall
-              then  Float/pad a (Natural/subtract (a.topPower + 1) baseline)
-              else  Float/round a commonSize
+              let baseline =
+                    Natural/max
+                      (a.topPower + 1)
+                      (Natural/min commonSize (difference + b.topPower + 1))
 
-        let clampTo = if aIsTooSmall then baseline else commonSize
+              let aIsTooSmall =
+                    Natural/lessThanEqual (a.topPower + 1) commonSize
 
-        let bClamped =
-              clampDigits
-                b.mantissa
-                b.topPower
-                (Natural/subtract difference clampTo)
+              let aClamped =
+                    if    aIsTooSmall
+                    then  Float/pad
+                            a
+                            (Natural/subtract (a.topPower + 1) baseline)
+                    else  Float/round a commonSize
 
-        let resultWithNewMantissaOnly =
-              aClamped ⫽ { mantissa = addOrSubtract aClamped.mantissa bClamped }
+              let clampTo = if aIsTooSmall then baseline else commonSize
 
-        in  T.Float/addExtraData resultWithNewMantissaOnly.(T.FloatBare)
+              let bClamped =
+                    clampDigits
+                      b.mantissa
+                      b.topPower
+                      (Natural/subtract difference clampTo)
+
+              let resultWithNewMantissaOnly =
+                      aClamped
+                    ⫽ { mantissa = addOrSubtract aClamped.mantissa bClamped }
+
+              in  T.Float/addExtraData resultWithNewMantissaOnly.(T.FloatBare)
+          )
 
 let addUnsignedAIsGreaterNoUnderflowCheck =
       λ(a : Float) →
       λ(b : Float) →
       λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        addOrSubtractUnsignedAIsGreater a b torsor prec Natural/plus
+        addOrSubtractUnsignedAIsGreater
+          torsor
+          prec
+          Natural/plus
+          { _1 = a, _2 = b }
 
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
@@ -150,14 +169,27 @@ let addUnsignedBothNonzero
 
 let subtractUnsignedAMinusB
     -- Compute a - b, assuming that a >= b > 0.
-    : Float → Float → TorsorType → Natural → Float
-    = λ(a : Float) →
-      λ(b : Float) →
-      λ(torsor : TorsorType) →
+    : TorsorType → Natural → Pair Float Float → Float
+    = λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if    totalUnderflow torsor (Natural/subtract 1 prec)
-        then  b
-        else  addOrSubtractUnsignedAIsGreater a b torsor prec Natural/minus
+        stop.reduce_growth
+          (Pair Float Float)
+          (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
+          Float
+          Float/zero
+          ( λ(pair : Pair Float Float) →
+              let a = pair._1
+
+              let b = pair._2
+
+              in  if    totalUnderflow torsor (Natural/subtract 1 prec)
+                  then  b
+                  else  addOrSubtractUnsignedAIsGreater
+                          torsor
+                          prec
+                          Natural/minus
+                          pair
+          )
 
 let Float/add
     : Float → Float → Natural → Float
@@ -183,31 +215,29 @@ let Float/add
                           ||      a.mantissaPositive == False
                               &&  b.mantissaPositive == False
                     then  applySign (addUnsignedBothNonzero a b torsor prec)
-                    else  let compared =
-                                compareUnsignedNonzeroWithTorsor
-                                  absA
-                                  absB
-                                  torsor
+                    else  let pairAB = { _1 = absA, _2 = absB }
+
+                          let pairBA = { _1 = absB, _2 = absA }
+
+                          let compared = compareUnsignedNonzero pairAB
 
                           in  merge
                                 { Less =
                                     Float/negate
                                       ( applySign
                                           ( subtractUnsignedAMinusB
-                                              absB
-                                              absA
                                               (flipTorsor torsor)
                                               prec
+                                              pairBA
                                           )
                                       )
                                 , Equal = Float/zero
                                 , Greater =
                                     applySign
                                       ( subtractUnsignedAMinusB
-                                          absA
-                                          absB
                                           torsor
                                           prec
+                                          pairAB
                                       )
                                 }
                                 compared
@@ -246,21 +276,21 @@ let _ =
       :   computeTorsorForBothNonzero
             (Float/create +10 +0)
             (Float/create +100 +0)
-        ≡ { x = 1, y = 2 }
+        ≡ { x = 0, y = 1 }
 
 let _ =
         assert
       :   computeTorsorForBothNonzero
             (Float/create +99 +0)
             (Float/create +100 +0)
-        ≡ { x = 1, y = 2 }
+        ≡ { x = 0, y = 1 }
 
 let _ =
         assert
       :   computeTorsorForBothNonzero
             (Float/create +123 +5)
             (Float/create +100 +0)
-        ≡ { x = 7, y = 2 }
+        ≡ { x = 5, y = 0 }
 
 let _ =
         assert
@@ -270,21 +300,21 @@ let _ =
 let _ =
         assert
       :   computeTorsorForBothNonzero (Float/create +1 -5) (Float/create +1 -10)
-        ≡ { x = 10, y = 5 }
+        ≡ { x = 5, y = 0 }
 
 let _ =
         assert
       :   computeTorsorForBothNonzero
             (Float/create -123 +5)
             (Float/create +123 -10)
-        ≡ { x = 17, y = 2 }
+        ≡ { x = 15, y = 0 }
 
 let _ =
         assert
       :   computeTorsorForBothNonzero
             (Float/create -123 +5)
             (Float/create -123 -10)
-        ≡ { x = 17, y = 2 }
+        ≡ { x = 15, y = 0 }
 
 let checkTotalUnderflow =
       λ(x : Integer) →
