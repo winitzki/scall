@@ -69,11 +69,17 @@ let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor mu
 let totalUnderflow
     -- Detect if `a` is negligible compared to `b` within given precision.
     -- The value of `torsor a b` is given.
-    : TorsorType → Natural → Bool
-    = λ(torsor : TorsorType) →
-      λ(prec : Natural) →
-            Natural/isZero prec
-        ||  Natural/lessThanEqual (1 + prec + torsor.x) torsor.y
+    : Natural → TorsorType → Bool
+    = λ(prec : Natural) →
+        stop.reduce_growth
+          TorsorType
+          (λ(t : TorsorType) → stop.predicate_Natural t.x)
+          Bool
+          False
+          ( λ(torsor : TorsorType) →
+                  Natural/isZero prec
+              ||  Natural/lessThanEqual (1 + prec + torsor.x) torsor.y
+          )
 
 let flipTorsor =
       λ(torsor : TorsorType) → torsor ⫽ { x = torsor.y, y = torsor.x }
@@ -148,24 +154,42 @@ let addUnsignedAIsGreaterNoUnderflowCheck =
 
 let addUnsignedBothNonzero
     -- Compute a + b, assuming that both are > 0.
-    : Float → Float → TorsorType → Natural → Float
-    = λ(a : Float) →
-      λ(b : Float) →
-      λ(torsor : TorsorType) →
+    : TorsorType → Natural → Pair Float Float → Float
+    = λ(torsor : TorsorType) →
       λ(prec : Natural) →
-        if    totalUnderflow torsor (Natural/subtract 1 prec)
-        then  b
-        else  if totalUnderflow (flipTorsor torsor) (Natural/subtract 1 prec)
-        then  a
-        else  let xSmaller = torsorXLessEqualY torsor
+        stop.reduce_growth
+          (Pair Float Float)
+          (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
+          Float
+          Float/zero
+          ( λ(pair : Pair Float Float) →
+              let a = pair._1
 
-              let x = if xSmaller then b else a
+              let b = pair._2
 
-              let y = if xSmaller then a else b
+              in  if    totalUnderflow (Natural/subtract 1 prec) torsor
+                  then  b
+                  else  if totalUnderflow
+                             (Natural/subtract 1 prec)
+                             (flipTorsor torsor)
+                  then  a
+                  else  let xSmaller = torsorXLessEqualY torsor
 
-              let t = if xSmaller then flipTorsor else λ(x : TorsorType) → x
+                        let x = if xSmaller then b else a
 
-              in  addUnsignedAIsGreaterNoUnderflowCheck x y (t torsor) prec
+                        let y = if xSmaller then a else b
+
+                        let t =
+                              if    xSmaller
+                              then  flipTorsor
+                              else  λ(x : TorsorType) → x
+
+                        in  addUnsignedAIsGreaterNoUnderflowCheck
+                              x
+                              y
+                              (t torsor)
+                              prec
+          )
 
 let subtractUnsignedAMinusB
     -- Compute a - b, assuming that a >= b > 0.
@@ -182,7 +206,7 @@ let subtractUnsignedAMinusB
 
               let b = pair._2
 
-              in  if    totalUnderflow torsor (Natural/subtract 1 prec)
+              in  if    totalUnderflow (Natural/subtract 1 prec) torsor
                   then  b
                   else  addOrSubtractUnsignedAIsGreater
                           torsor
@@ -200,7 +224,9 @@ let Float/add
         then  b
         else  if Float/isZero b
         then  a
-        else  let torsor = computeTorsorForBothNonzero a b
+        else  let pair_ab = { _1 = a, _2 = b }
+
+              let torsor = computeTorsorForBothNonzero pair_ab
 
               let absA = Float/abs a
 
@@ -214,7 +240,7 @@ let Float/add
                     if        a.mantissaPositive && b.mantissaPositive
                           ||      a.mantissaPositive == False
                               &&  b.mantissaPositive == False
-                    then  applySign (addUnsignedBothNonzero a b torsor prec)
+                    then  applySign (addUnsignedBothNonzero torsor prec pair_ab)
                     else  let pairAB = { _1 = absA, _2 = absB }
 
                           let pairBA = { _1 = absB, _2 = absA }
@@ -256,64 +282,52 @@ let _ = assert : clampDigits 123 (D.log 10 123) 4 ≡ 1230
 
 let _ = assert : clampDigits 123 (D.log 10 123) 10 ≡ 1230000000
 
-let _ =
-        assert
-      :   computeTorsorForBothNonzero (Float/create +1 +0) (Float/create +1 +0)
-        ≡ { x = 0, y = 0 }
+let mkTorsor =
+      λ(x : Float) →
+      λ(y : Float) →
+        computeTorsorForBothNonzero { _1 = x, _2 = y }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero (Float/create +10 +0) (Float/create +1 +0)
-        ≡ { x = 1, y = 0 }
+      : mkTorsor (Float/create +1 +0) (Float/create +1 +0) ≡ { x = 0, y = 0 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero (Float/create +1 +0) (Float/create +10 +0)
-        ≡ { x = 0, y = 1 }
+      : mkTorsor (Float/create +10 +0) (Float/create +1 +0) ≡ { x = 1, y = 0 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero
-            (Float/create +10 +0)
-            (Float/create +100 +0)
-        ≡ { x = 0, y = 1 }
+      : mkTorsor (Float/create +1 +0) (Float/create +10 +0) ≡ { x = 0, y = 1 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero
-            (Float/create +99 +0)
-            (Float/create +100 +0)
-        ≡ { x = 0, y = 1 }
+      : mkTorsor (Float/create +10 +0) (Float/create +100 +0) ≡ { x = 0, y = 1 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero
-            (Float/create +123 +5)
-            (Float/create +100 +0)
+      : mkTorsor (Float/create +99 +0) (Float/create +100 +0) ≡ { x = 0, y = 1 }
+
+let _ =
+        assert
+      :   mkTorsor (Float/create +123 +5) (Float/create +100 +0)
         ≡ { x = 5, y = 0 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero (Float/create +1 -5) (Float/create +1 +0)
-        ≡ { x = 0, y = 5 }
+      : mkTorsor (Float/create +1 -5) (Float/create +1 +0) ≡ { x = 0, y = 5 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero (Float/create +1 -5) (Float/create +1 -10)
-        ≡ { x = 5, y = 0 }
+      : mkTorsor (Float/create +1 -5) (Float/create +1 -10) ≡ { x = 5, y = 0 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero
-            (Float/create -123 +5)
-            (Float/create +123 -10)
+      :   mkTorsor (Float/create -123 +5) (Float/create +123 -10)
         ≡ { x = 15, y = 0 }
 
 let _ =
         assert
-      :   computeTorsorForBothNonzero
-            (Float/create -123 +5)
-            (Float/create -123 -10)
+      :   mkTorsor (Float/create -123 +5) (Float/create -123 -10)
         ≡ { x = 15, y = 0 }
 
 let checkTotalUnderflow =
@@ -322,9 +336,7 @@ let checkTotalUnderflow =
       λ(y : Integer) →
       λ(ey : Integer) →
       λ(prec : Natural) →
-        totalUnderflow
-          (computeTorsorForBothNonzero (Float/create x ex) (Float/create y ey))
-          prec
+        totalUnderflow prec (mkTorsor (Float/create x ex) (Float/create y ey))
 
 let checkFlipUnderflow =
       λ(x : Integer) →
@@ -333,13 +345,8 @@ let checkFlipUnderflow =
       λ(ey : Integer) →
       λ(prec : Natural) →
         totalUnderflow
-          ( flipTorsor
-              ( computeTorsorForBothNonzero
-                  (Float/create x ex)
-                  (Float/create y ey)
-              )
-          )
           prec
+          (flipTorsor (mkTorsor (Float/create x ex) (Float/create y ey)))
 
 let _ = assert : checkTotalUnderflow +1 +0 +1000 +0 0 ≡ True
 
@@ -397,10 +404,7 @@ let unsigned =
           ( addUnsignedAIsGreaterNoUnderflowCheck
               (Float/create x ex)
               (Float/create y ey)
-              ( computeTorsorForBothNonzero
-                  (Float/create x ex)
-                  (Float/create y ey)
-              )
+              (mkTorsor (Float/create x ex) (Float/create y ey))
               prec
           )
 
@@ -538,4 +542,9 @@ let _ = assert : checkAddShow -12345678 -8 +123 -2 5 "+1.10655"
 
 let _ = assert : checkAddShow -12345678 -8 +123 -2 9 "+1.10654322"
 
-in  { Float/add }
+in  { --Float/add,
+      addOrSubtractUnsignedAIsGreater
+    , subtractUnsignedAMinusB
+    , addUnsignedBothNonzero
+    , computeTorsorForBothNonzero
+    }

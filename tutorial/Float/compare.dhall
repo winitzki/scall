@@ -32,11 +32,15 @@ let Integer/subtract =
 
 let T = ./Type.dhall
 
+let Pair = T.Pair
+
 let TorsorType = { x : Natural, y : Natural }
 
 let divmod = T.divmod
 
 let Float = T.Float
+
+let Float/zero = T.Float/zero
 
 let Float/isZero = T.Float/isZero
 
@@ -208,23 +212,45 @@ let _ =
       :   Float/compare (Float/create -120 -100) (Float/create +12 -99)
         ≡ Compared.Less
 
+let zeroTorsor = { x = 0, y = 0 }
+
 let computeTorsor
     : Integer → TorsorType
-    = λ(i : Integer) →
-        if    Integer/positive i
-        then  { x = Integer/clamp i, y = 0 }
-        else  { x = 0, y = Integer/abs i }
+    =    {-
+    stop.reduce_growth
+        Integer
+        stop.predicate_Integer
+        TorsorType
+        zeroTorsor
+            -}
+        ( λ(i : Integer) →
+            if    Integer/positive i
+            then  { x = Integer/clamp i, y = 0 }
+            else  { x = 0, y = Integer/abs i }
+        )
 
 let computeTorsorForBothNonzero
-    -- We define "torsor(a, b)" as a pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
-    : Float → Float → TorsorType
-    = λ(a : Float) →
-      λ(b : Float) →
-        computeTorsor
-          ( Integer/subtract
-              (Integer/addNatural b.exponent b.topPower)
-              (Integer/addNatural a.exponent a.topPower)
-          )
+    -- We define "torsor(a, b)" as any pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
+    : Pair Float Float → TorsorType
+    =
+    {-
+    stop.reduce_growth
+        (Pair Float Float)
+        (λ(pair : Pair Float Float) → stop.predicate_Natural pair._1.mantissa)
+        TorsorType
+        zeroTorsor
+      -}
+        ( λ(pair : Pair Float Float) →
+            let a = pair._1
+
+            let b = pair._2
+
+            in  computeTorsor
+                  ( Integer/subtract
+                      (Integer/addNatural b.exponent b.topPower)
+                      (Integer/addNatural a.exponent a.topPower)
+                  )
+        )
 
 in  { Compared
     , Compared/reverse
@@ -234,5 +260,6 @@ in  { Compared
     , Natural/compare
     , Integer/compare
     , computeTorsorForBothNonzero
+    , computeTorsor
     , compareUnsignedNonzero
     }
