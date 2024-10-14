@@ -1,5 +1,9 @@
 let T = ./Type.dhall
 
+let Integer/add =
+      https://prelude.dhall-lang.org/Integer/add
+        sha256:7da1306a0bf87c5668beead2a1db1b18861e53d7ce1f38057b2964b649f59c3b
+
 let Float = T.Float
 
 let Float/isZero = T.Float/isZero
@@ -23,15 +27,15 @@ let Float/multiply =
                     then  λ(x : Integer) → x
                     else  Integer/negate
 
-              let exponent = a.exponent + b.exponent
+              let exponent = Integer/add a.exponent b.exponent
 
               in  Float/round
-                    ( Float/create
-                        (mantissaApplySign mantissaUnsigned)
-                        (Natural/toInteger exponent)
-                    )
+                    (Float/create (mantissaApplySign mantissaUnsigned) exponent)
                     prec
 
-let _ = assert : Float/multiply (Float/create +123456 +0) (Float/create +123456 +0) 4 === (Float/create +1524 +7)
+let _ =
+        assert
+      :   Float/multiply (Float/create +123456 +0) (Float/create +123456 +0) 4
+        ≡ Float/create +1524 +7
 
 in  { Float/multiply }

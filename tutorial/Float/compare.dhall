@@ -14,6 +14,8 @@ let Float = T.Float
 
 let Float/isZero = T.Float/isZero
 
+let Float/isPositive = T.Float/isPositive
+
 let Float/create = T.Float/create
 
 let Float/normalize = T.Float/normalize
@@ -97,31 +99,52 @@ let compareUnsignedNonzeroWithTorsor =
                           }
 
               in  Natural/compare fixed.x fixed.y
-
-let compareUnsignedNonzero =
+let Integer/addNatural = \(x : Integer) -> \(y : Natural) -> Integer/add x (Natural/toInteger y)
+let xcompareUnsignedNonzero =
       λ(a : Float) →
       λ(b : Float) →
         compareUnsignedNonzeroWithTorsor a b (computeTorsorForBothNonzero a b)
 
+let computeTorsorFromInt : Integer -> Integer -> TorsorType = ???
+
+let compareUnsignedNonzero : Float -> Float -> Compared = λ(a : Float) →
+                                   λ(b : Float) →
+                                   let subtractTopPowersWithExponentials = Integer/subtract (Integer/addNatural  a.exponent a.topPower) (Integer/addNatural  b.exponent b.topPower)
+                                   in ???
+
+let identity = λ(t : Type) →λ(x : t) →x
 let Float/compare
     : Float → Float → Compared
     = λ(x : Float) →
       λ(y : Float) →
-        if    Float/isZero x
-        then  if    Float/isZero y
-              then  Compared.Equal
-              else  if y.mantissaPositive
-              then  Compared.Less
-              else  Compared.Greater
-        else  if x.mantissaPositive
-        then  if    Float/isZero y
-              then  Compared.Greater
-              else  if y.mantissaPositive
-              then  compareUnsignedNonzero x y
-              else  Compared.Greater
-        else  if Float/isZero y || y.mantissaPositive
-        then  Compared.Less
-        else  compareUnsignedNonzero y x
+        let QuickCompare =
+              < Done : Compared | NegateResult: Bool >
+
+        let maybeQuickCompare
+            : QuickCompare
+            = if    Float/isZero x
+              then  if    Float/isZero y
+                    then  QuickCompare.Done Compared.Equal
+                    else  if Float/isPositive y
+                    then  QuickCompare.Done Compared.Less
+                    else  QuickCompare.Done Compared.Greater
+              else  if Float/isPositive x
+              then  if    Float/isZero y
+                    then  QuickCompare.Done Compared.Greater
+                    else  if Float/isPositive y
+                    then  QuickCompare.NegateResult False
+                    else  QuickCompare.Done Compared.Greater
+              else  if Float/isZero y || Float/isPositive y
+              then  QuickCompare.Done Compared.Less
+              else  QuickCompare.NegateResult True
+
+        in  merge
+              { Done = λ(result : Compared) → result
+              , NegateResult =
+                  λ(needToNegate : Bool) →
+                    (if needToNegate then Compared/reverse else identity Compared) (compareUnsignedNonzero x y)
+              }
+              maybeQuickCompare
 
 let _ =
         assert

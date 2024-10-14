@@ -10,6 +10,14 @@ let Integer/abs =
       https://prelude.dhall-lang.org/Integer/abs
         sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
 
+let Integer/add =
+      https://prelude.dhall-lang.org/Integer/add
+        sha256:7da1306a0bf87c5668beead2a1db1b18861e53d7ce1f38057b2964b649f59c3b
+
+let Integer/subtract =
+      https://prelude.dhall-lang.org/Integer/subtract
+        sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
+
 let Integer/positive =
       https://prelude.dhall-lang.org/Integer/positive
         sha256:7bdbf50fcdb83d01f74c7e2a92bf5c9104eff5d8c5b4587e9337f0caefcfdbe3
@@ -18,11 +26,9 @@ let FloatExtraData =
       { leadDigit : Natural, topPower : Natural, remaining : Natural }
 
 let FloatBare =
-      { mantissa : Natural
-      , exponent : Natural
-      , exponentPositive : Bool
-      , mantissaPositive : Bool
-      }
+      { mantissa : Natural, mantissaPositive : Bool, exponent : Integer }
+
+let stop = ./stop_expanding.dhall
 
 let Base = 10
 
@@ -32,14 +38,29 @@ let D = ./Arithmetic.dhall
 
 let divmod = D.divrem
 
+let dummyFloat =
+      { mantissa = 0
+      , mantissaPositive = False
+      , exponent = +0
+      , leadDigit = 0
+      , topPower = 0
+      , remaining = 0
+      }
+
 let Float/addExtraData
     : FloatBare → Float
-    = λ(args : FloatBare) →
-        let topPower = D.log Base args.mantissa
+    = stop.expanding
+        FloatBare
+        (λ(x : FloatBare) → stop.predicateNatural x.mantissa)
+        Float
+        dummyFloat
+        ( λ(args : FloatBare) →
+            let topPower = D.log Base args.mantissa
 
-        let r = divmod args.mantissa (D.power Base topPower)
+            let r = divmod args.mantissa (D.power Base topPower)
 
-        in  args ⫽ { topPower, leadDigit = r.div, remaining = r.rem }
+            in  args ⫽ { topPower, leadDigit = r.div, remaining = r.rem }
+        )
 
 let FloatBare/create
     : Integer → Integer → FloatBare
@@ -47,8 +68,7 @@ let FloatBare/create
       λ(exp : Integer) →
         { mantissa = Integer/abs x
         , mantissaPositive = Integer/positive x
-        , exponent = Integer/abs exp
-        , exponentPositive = Integer/positive exp
+        , exponent = exp
         }
 
 let Float/zero = Float/addExtraData (FloatBare/create +0 +0)
@@ -64,18 +84,9 @@ let normalizeStep
 
               in  if    Natural/isZero r.rem
                   then    x
-                        ⫽ { mantissa = r.div }
-                        ⫽ ( if        Natural/isZero x.exponent
-                                  ||  x.exponentPositive
-                            then  { exponent = x.exponent + 1
-                                  , exponentPositive = True
-                                  }
-                            else  if Natural/lessThan x.exponent 2
-                            then  { exponent = 0, exponentPositive = True }
-                            else  { exponent = Natural/subtract 1 x.exponent
-                                  , exponentPositive = False
-                                  }
-                          )
+                        ⫽ { mantissa = r.div
+                          , exponent = Integer/add x.exponent +1
+                          }
                   else  x
 
 let _ = assert : normalizeStep Float/zero.(FloatBare) ≡ Float/zero.(FloatBare)
@@ -124,8 +135,7 @@ let _ =
         assert
       : FloatBare/normalize (FloatBare/create +0 -1) ≡ FloatBare/create +0 +0
 
-let Float/isPositive =
-      λ(x : Float) → x.mantissaPositive || Natural/isZero x.mantissa
+let Float/isPositive = λ(x : Float) → x.mantissaPositive
 
 let Float/isZero = λ(x : Float) → Natural/isZero x.mantissa
 
@@ -149,24 +159,11 @@ let Float/pad
         then  x
         else  let p = D.power Base padding
 
-              let newExponentNegative =
-                        x.exponentPositive == False
-                    ||  Natural/lessThanEqual x.exponent padding
-
-              let newExponent =
-                    if    x.exponentPositive == False
-                    then  x.exponent + padding
-                    else  let e = Natural/subtract padding x.exponent
-
-                          in  if    Natural/isZero e
-                              then  Natural/subtract x.exponent padding
-                              else  e
-
               in    x
                   ⫽ { mantissa = x.mantissa * p
                     , topPower = x.topPower + padding
-                    , exponent = newExponent
-                    , exponentPositive = newExponentNegative == False
+                    , exponent =
+                        Integer/subtract (Natural/toInteger padding) x.exponent
                     , remaining = x.remaining * p
                     }
 
