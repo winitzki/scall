@@ -38,7 +38,34 @@ let Float = FloatBare ⩓ FloatExtraData
 
 let D = ./Arithmetic.dhall
 
-let divmod = D.divrem
+let Result = D.Result
+
+let divmod
+    : Natural → Natural → Result
+    = stop.reduce_growth
+        Natural
+        stop.predicate_Natural
+        (Natural → Result)
+        (λ(_ : Natural) → { div = 0, rem = 0 })
+        D.divrem
+
+let log
+    : Natural → Natural → Natural
+    = stop.reduce_growth
+        Natural
+        stop.predicate_Natural
+        (Natural → Natural)
+        (λ(_ : Natural) → 0)
+        D.log
+
+let power
+    : Natural → Natural → Natural
+    = stop.reduce_growth
+        Natural
+        stop.predicate_Natural
+        (Natural → Natural)
+        (λ(_ : Natural) → 0)
+        D.power
 
 let dummyFloat =
       { mantissa = 0
@@ -57,39 +84,51 @@ let Float/addExtraData
         Float
         dummyFloat
         ( λ(args : FloatBare) →
-            let topPower = D.log Base args.mantissa
+            let topPower = log Base args.mantissa
 
-            let r = divmod args.mantissa (D.power Base topPower)
+            let r = divmod args.mantissa (power Base topPower)
 
             in  args ⫽ { topPower, leadDigit = r.div, remaining = r.rem }
         )
 
 let FloatBare/create
     : Integer → Integer → FloatBare
-    = λ(x : Integer) →
-      λ(exp : Integer) →
-        { mantissa = Integer/abs x
-        , mantissaPositive = Integer/positive x
-        , exponent = exp
-        }
+    = stop.reduce_growth
+        Integer
+        stop.predicate_Integer
+        (Integer → FloatBare)
+        (λ(_ : Integer) → dummyFloat.(FloatBare))
+        ( λ(x : Integer) →
+          λ(exp : Integer) →
+            { mantissa = Integer/abs x
+            , mantissaPositive = Integer/positive x
+            , exponent = exp
+            }
+        )
 
 let Float/zero = Float/addExtraData (FloatBare/create +0 +0)
 
 let normalizeStep
     : FloatBare → FloatBare
-    = λ(x : FloatBare) →
-        if    Natural/isZero x.mantissa
-        then  Float/zero.(FloatBare)
-        else  if Natural/lessThan x.mantissa Base
-        then  x
-        else  let r = divmod x.mantissa Base
+    = stop.reduce_growth_noop
+        FloatBare
+        (λ(x : FloatBare) → stop.predicate_Natural x.mantissa)
+        FloatBare
+        dummyFloat.(FloatBare)
+        ( λ(x : FloatBare) →
+            if    Natural/isZero x.mantissa
+            then  Float/zero.(FloatBare)
+            else  if Natural/lessThan x.mantissa Base
+            then  x
+            else  let r = divmod x.mantissa Base
 
-              in  if    Natural/isZero r.rem
-                  then    x
-                        ⫽ { mantissa = r.div
-                          , exponent = Integer/add x.exponent +1
-                          }
-                  else  x
+                  in  if    Natural/isZero r.rem
+                      then    x
+                            ⫽ { mantissa = r.div
+                              , exponent = Integer/add x.exponent +1
+                              }
+                      else  x
+        )
 
 let _ = assert : normalizeStep Float/zero.(FloatBare) ≡ Float/zero.(FloatBare)
 
@@ -97,8 +136,14 @@ let _ = assert : normalizeStep (FloatBare/create -0 -1) ≡ Float/zero.(FloatBar
 
 let FloatBare/normalize
     : FloatBare → FloatBare
-    = λ(args : FloatBare) →
-        Natural/fold (1 + args.mantissa) FloatBare normalizeStep args
+    = stop.reduce_growth_noop
+        FloatBare
+        (λ(x : FloatBare) → stop.predicate_Natural x.mantissa)
+        FloatBare
+        dummyFloat.(FloatBare)
+        ( λ(args : FloatBare) →
+            Natural/fold (1 + args.mantissa) FloatBare normalizeStep args
+        )
 
 let _ =
         assert
@@ -143,36 +188,77 @@ let Float/isZero = λ(x : Float) → Natural/isZero x.mantissa
 
 let Float/create
     : Integer → Integer → Float
-    = λ(x : Integer) →
-      λ(exp : Integer) →
-        Float/addExtraData (FloatBare/normalize (FloatBare/create x exp))
+    = stop.reduce_growth
+        Integer
+        stop.predicate_Integer
+        (Integer → Float)
+        (λ(_ : Integer) → Float/zero)
+        ( λ(x : Integer) →
+            stop.reduce_growth
+              Integer
+              stop.predicate_Integer
+              Float
+              Float/zero
+              ( λ(exp : Integer) →
+                  Float/addExtraData
+                    (FloatBare/normalize (FloatBare/create x exp))
+              )
+        )
 
 let _ = assert : Float/create +0 +0 ≡ Float/zero
 
+let float2float_reduce =
+      λ(f : Float → Float) →
+        stop.reduce_growth
+          Float
+          (λ(x : Float) → stop.predicate_Natural x.mantissa)
+          Float
+          Float/zero
+          f
+
+let float2float_reduce_noop =
+      λ(f : Float → Float) →
+        stop.reduce_growth_noop
+          Float
+          (λ(x : Float) → stop.predicate_Natural x.mantissa)
+          Float
+          Float/zero
+          f
+
 let Float/normalize
     : Float → Float
-    = stop.reduce_growth
-        Float
-        (λ(x : Float) → stop.predicate_Natural x.mantissa)
-        Float
-        Float/zero
+    = float2float_reduce
         (λ(x : Float) → Float/addExtraData (FloatBare/normalize x.(FloatBare)))
 
 let Float/pad
     : Float → Natural → Float
-    = λ(x : Float) →
-      λ(padding : Natural) →
-        if    Float/isZero x || Natural/isZero padding
-        then  x
-        else  let p = D.power Base padding
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        (Natural → Float)
+        (λ(_ : Natural) → Float/zero)
+        ( λ(x : Float) →
+            stop.reduce_growth_noop
+              Natural
+              stop.predicate_Natural
+              Float
+              Float/zero
+              ( λ(padding : Natural) →
+                  if    Float/isZero x || Natural/isZero padding
+                  then  x
+                  else  let p = power Base padding
 
-              in    x
-                  ⫽ { mantissa = x.mantissa * p
-                    , topPower = x.topPower + padding
-                    , exponent =
-                        Integer/subtract (Natural/toInteger padding) x.exponent
-                    , remaining = x.remaining * p
-                    }
+                        in    x
+                            ⫽ { mantissa = x.mantissa * p
+                              , topPower = x.topPower + padding
+                              , exponent =
+                                  Integer/subtract
+                                    (Natural/toInteger padding)
+                                    x.exponent
+                              , remaining = x.remaining * p
+                              }
+              )
+        )
 
 let _ =
         assert
@@ -180,20 +266,25 @@ let _ =
         ≡ FloatBare/create +12300 -2
 
 let Float/negate =
-      λ(a : Float) →
-        if    Float/isZero a
-        then  a
-        else    a
-              ⫽ { mantissaPositive = if a.mantissaPositive then False else True
-                }
+      float2float_reduce
+        ( λ(a : Float) →
+            if    Float/isZero a
+            then  a
+            else    a
+                  ⫽ { mantissaPositive =
+                        if a.mantissaPositive then False else True
+                    }
+        )
 
 let Float/abs
     : Float → Float
-    = λ(x : Float) → x ⫽ { mantissaPositive = True }
+    = float2float_reduce (λ(x : Float) → x ⫽ { mantissaPositive = True })
 
 in  { Base
     , Pair
     , divmod
+    , log
+    , power
     , Float
     , FloatBare
     , Float/abs

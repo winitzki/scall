@@ -8,8 +8,6 @@ let stop = ./reduce_growth.dhall
 
 let Base = T.Base
 
-let D = ./Arithmetic.dhall
-
 let Float/create = T.Float/create
 
 let Float = T.Float
@@ -34,7 +32,7 @@ let Float/truncate
             if    Natural/lessThan a.topPower prec
             then  a
             else  let power =
-                        D.power Base (Natural/subtract prec (a.topPower + 1))
+                        T.power Base (Natural/subtract prec (a.topPower + 1))
 
                   let roundLastDigits = (divmod a.mantissa power).div * power
 
@@ -67,7 +65,7 @@ let Float/round
             if    Natural/lessThan a.topPower prec
             then  a
             else  let powerMinus1 =
-                        D.power Base (Natural/subtract prec a.topPower)
+                        T.power Base (Natural/subtract prec a.topPower)
 
                   let roundLastDigits =
                           ( divmod

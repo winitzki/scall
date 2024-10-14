@@ -34,8 +34,6 @@ let Float/normalize = T.Float/normalize
 
 let Base = T.Base
 
-let D = ./Arithmetic.dhall
-
 let MaxPrintedWithoutExponent = 3
 
 let Digits = 3
@@ -46,21 +44,21 @@ let _ = assert : Natural/lessThan 1 Base ≡ True
 
 let _ = assert : Natural/lessThan 1 Digits ≡ True
 
-let MaxBase = D.power Base Digits
+let MaxBase = T.power Base Digits
 
 let Text/repeat =
       λ(n : Natural) →
       λ(x : Text) →
         Natural/fold n Text (λ(a : Text) → a ++ x) ""
 
-let maxDisplayedInteger = D.power Base (MaxPrintedWithoutExponent + 1)
+let maxDisplayedInteger = T.power Base (MaxPrintedWithoutExponent + 1)
 
 let padRemainingDigits
     : { digits : Natural, length : Natural } → Text
     = λ(args : { digits : Natural, length : Natural }) →
         if    Natural/isZero args.digits
         then  ""
-        else  let remainingPower = 1 + D.log Base args.digits
+        else  let remainingPower = 1 + T.log Base args.digits
 
               let padding =
                     Text/repeat
@@ -114,7 +112,7 @@ let Float/showNormalized
                           let r =
                                 divmod
                                   f.mantissa
-                                  (D.power Base (Integer/abs f.exponent))
+                                  (T.power Base (Integer/abs f.exponent))
 
                           let headDigits = r.div
 
@@ -159,7 +157,7 @@ let Float/showNormalized
                         if    Integer/nonNegative f.exponent
                         then  let largeInteger =
                                       f.mantissa
-                                    * D.power Base (Integer/abs f.exponent)
+                                    * T.power Base (Integer/abs f.exponent)
 
                               in  if    Natural/lessThan
                                           largeInteger

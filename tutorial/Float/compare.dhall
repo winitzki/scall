@@ -52,31 +52,56 @@ let Float/normalize = T.Float/normalize
 
 let Base = T.Base
 
-let D = ./Arithmetic.dhall
-
 let stop = ./reduce_growth.dhall
 
 let Compared = < Equal | Greater | Less >
 
+let subtract_r
+    : Integer → Integer → Integer
+    = stop.reduce_growth
+        Integer
+        stop.predicate_Integer
+        (Integer → Integer)
+        (λ(_ : Integer) → +0)
+        Integer/subtract
+
 let Natural/compare
     : Natural → Natural → Compared
-    = λ(x : Natural) →
-      λ(y : Natural) →
-        if    Natural/isZero (Natural/subtract x y)
-        then  if    Natural/isZero (Natural/subtract y x)
-              then  Compared.Equal
-              else  Compared.Greater
-        else  Compared.Less
+    = stop.reduce_growth
+        Natural
+        stop.predicate_Natural
+        (Natural → Compared)
+        (λ(_ : Natural) → Compared.Equal)
+        ( λ(x : Natural) →
+          λ(y : Natural) →
+            if    Natural/isZero (Natural/subtract x y)
+            then  if    Natural/isZero (Natural/subtract y x)
+                  then  Compared.Equal
+                  else  Compared.Greater
+            else  Compared.Less
+        )
 
 let Integer/compare
     : Integer → Integer → Compared
-    = λ(x : Integer) →
-      λ(y : Integer) →
-        if    Integer/lessThan x y
-        then  Compared.Less
-        else  if Integer/equal x y
-        then  Compared.Equal
-        else  Compared.Greater
+    = stop.reduce_growth
+        Integer
+        stop.predicate_Integer
+        (Integer → Compared)
+        (λ(_ : Integer) → Compared.Equal)
+        ( λ(x : Integer) →
+            stop.reduce_growth
+              Integer
+              stop.predicate_Integer
+              Compared
+              Compared.Equal
+              ( λ(y : Integer) →
+                  if    Integer/lessThan x y
+                  then  Compared.Less
+                  else  if Integer/equal x y
+                  then  Compared.Equal
+                  else  Compared.Greater
+              )
+        )
 
 let Compared/reverse =
       λ(x : Compared) →
@@ -122,14 +147,27 @@ let compareUnsignedNonzero
                   , Greater = Compared.Greater
                   , Equal =
                       let subtractExponentials =
-                            Integer/subtract a.exponent b.exponent
+                            subtract_r a.exponent b.exponent
 
-                      let power =
-                            D.power Base (Integer/abs subtractExponentials)
+                      let compare_using_power
+                          : Natural → Compared
+                          = stop.reduce_growth
+                              Natural
+                              stop.predicate_Natural
+                              Compared
+                              Compared.Equal
+                              ( λ(power : Natural) →
+                                  if    Integer/positive subtractExponentials
+                                  then  Natural/compare
+                                          a.mantissa
+                                          (b.mantissa * power)
+                                  else  Natural/compare
+                                          (a.mantissa * power)
+                                          b.mantissa
+                              )
 
-                      in  if    Integer/positive subtractExponentials
-                          then  Natural/compare a.mantissa (b.mantissa * power)
-                          else  Natural/compare (a.mantissa * power) b.mantissa
+                      in  compare_using_power
+                            (T.power Base (Integer/abs subtractExponentials))
                   }
                   compareTopPowersWithExponentials
         )
@@ -241,7 +279,7 @@ let computeTorsorForBothNonzero
             let b = pair._2
 
             in  computeTorsor
-                  ( Integer/subtract
+                  ( subtract_r
                       (Integer/addNatural b.exponent b.topPower)
                       (Integer/addNatural a.exponent a.topPower)
                   )

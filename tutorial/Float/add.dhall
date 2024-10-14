@@ -14,8 +14,6 @@ let T = ./Type.dhall
 
 let Base = T.Base
 
-let D = ./Arithmetic.dhall
-
 let Pair = T.Pair
 
 let S = ./show.dhall
@@ -70,14 +68,20 @@ let divmod = T.divmod
 let clampDigits -- Make sure x has exactly prec digits. The value x_log_floor must be precomputed.
                 -- TODO add rounding to the clamping operation.
                 =
-      λ(x : Natural) →
       λ(x_log_floor : Natural) →
       λ(prec : Natural) →
-        let h = 1 + x_log_floor
+        stop.reduce_growth
+          Natural
+          stop.predicate_Natural
+          Natural
+          0
+          ( λ(x : Natural) →
+              let h = 1 + x_log_floor
 
-        in  if    Natural/lessThanEqual h prec
-            then  x * D.power Base (Natural/subtract h prec)
-            else  (divmod x (D.power Base (Natural/subtract prec h))).div
+              in  if    Natural/lessThanEqual h prec
+                  then  x * T.power Base (Natural/subtract h prec)
+                  else  (divmod x (T.power Base (Natural/subtract prec h))).div
+          )
 
 let totalUnderflow
     -- Detect if `a` is negligible compared to `b` within given precision.
@@ -104,11 +108,28 @@ let flipTorsor
         (λ(torsor : TorsorType) → torsor ⫽ { x = torsor.y, y = torsor.x })
 
 let torsorXLessEqualY =
-      λ(torsor : TorsorType) → Natural/lessThanEqual torsor.x torsor.y
+      stop.reduce_growth
+        TorsorType
+        predicate_TorsorType
+        Bool
+        False
+        (λ(torsor : TorsorType) → Natural/lessThanEqual torsor.x torsor.y)
 
-let Natural/plus = λ(a : Natural) → λ(b : Natural) → a + b
+let Natural/plus =
+      stop.reduce_growth_noop
+        Natural
+        stop.predicate_Natural
+        (Natural → Natural)
+        (λ(_ : Natural) → 0)
+        (λ(a : Natural) → λ(b : Natural) → a + b)
 
-let Natural/minus = λ(a : Natural) → λ(b : Natural) → Natural/subtract b a
+let Natural/minus =
+      stop.reduce_growth_noop
+        Natural
+        stop.predicate_Natural
+        (Natural → Natural)
+        (λ(_ : Natural) → 0)
+        (λ(a : Natural) → λ(b : Natural) → Natural/subtract b a)
 
 let addOrSubtractUnsignedAIsGreater
     -- Compute a + b or a - b, assuming that a >= b > 0.
@@ -161,9 +182,9 @@ let addOrSubtractUnsignedAIsGreater
 
                     let bClamped =
                           clampDigits
-                            b.mantissa
                             b.topPower
                             (Natural/subtract difference clampTo)
+                            b.mantissa
 
                     let resultWithNewMantissaOnly =
                             aClamped
@@ -359,17 +380,17 @@ let Float/add
       λ(prec : Natural) →
         addFloatPair prec { _1 = a, _2 = b }
 
-let _ = assert : clampDigits 123 (D.log 10 123) 0 ≡ 0
+let _ = assert : clampDigits (T.log 10 123) 0 123 ≡ 0
 
-let _ = assert : clampDigits 123 (D.log 10 123) 1 ≡ 1
+let _ = assert : clampDigits (T.log 10 123) 1 123 ≡ 1
 
-let _ = assert : clampDigits 123 (D.log 10 123) 2 ≡ 12
+let _ = assert : clampDigits (T.log 10 123) 2 123 ≡ 12
 
-let _ = assert : clampDigits 123 (D.log 10 123) 3 ≡ 123
+let _ = assert : clampDigits (T.log 10 123) 3 123 ≡ 123
 
-let _ = assert : clampDigits 123 (D.log 10 123) 4 ≡ 1230
+let _ = assert : clampDigits (T.log 10 123) 4 123 ≡ 1230
 
-let _ = assert : clampDigits 123 (D.log 10 123) 10 ≡ 1230000000
+let _ = assert : clampDigits (T.log 10 123) 10 123 ≡ 1230000000
 
 let mkTorsor =
       λ(x : Float) →
