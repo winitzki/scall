@@ -265,79 +265,99 @@ let subtractUnsignedAMinusB
 let negate_reduced =
       stop.reduce_growth Float predicate_Float Float Float/zero Float/negate
 
+let addFloatPair =
+      λ(prec : Natural) →
+        stop.reduce_growth
+          (Pair Float Float)
+          predicate_2Floats
+          Float
+          Float/zero
+          ( λ(pair_ab : Pair Float Float) →
+              let a = pair_ab._1
+
+              let b = pair_ab._2
+
+              in  if    Float/isZero a
+                  then  b
+                  else  if Float/isZero b
+                  then  a
+                  else  let torsor = computeTorsorForBothNonzero pair_ab
+
+                        let absA = Float/abs a
+
+                        let absB = Float/abs b
+
+                        let applySign =
+                              stop.reduce_growth
+                                Float
+                                predicate_Float
+                                Float
+                                Float/zero
+                                ( λ(result : Float) →
+                                    if    a.mantissaPositive
+                                    then  result
+                                    else  negate_reduced result
+                                )
+
+                        let result =
+                              if        a.mantissaPositive && b.mantissaPositive
+                                    ||      a.mantissaPositive == False
+                                        &&  b.mantissaPositive == False
+                              then  applySign
+                                      ( addUnsignedBothNonzero
+                                          prec
+                                          torsor
+                                          pair_ab
+                                      )
+                              else  let pair_abs_ab = { _1 = absA, _2 = absB }
+
+                                    let pair_abs_ba = { _1 = absB, _2 = absA }
+
+                                    let compared =
+                                          compareUnsignedNonzero pair_abs_ab
+
+                                    let checkZero =
+                                          merge
+                                            { Less =
+                                              { postprocess = negate_reduced
+                                              , flip = flipTorsor
+                                              , reverse = True
+                                              }
+                                            , Equal =
+                                              { postprocess =
+                                                  λ(_ : Float) → Float/zero
+                                              , flip = identity TorsorType
+                                              , reverse = False
+                                              }
+                                            , Greater =
+                                              { postprocess = identity Float
+                                              , flip = identity TorsorType
+                                              , reverse = False
+                                              }
+                                            }
+                                            compared
+
+                                    in  checkZero.postprocess
+                                          ( applySign
+                                              ( subtractUnsignedAMinusB
+                                                  prec
+                                                  (checkZero.flip torsor)
+                                                  ( if    checkZero.reverse
+                                                    then  pair_abs_ba
+                                                    else  pair_abs_ab
+                                                  )
+                                              )
+                                          )
+
+                        in  Float/normalize result
+          )
+
 let Float/add
     : Float → Float → Natural → Float
     = λ(a : Float) →
       λ(b : Float) →
       λ(prec : Natural) →
-        if    Float/isZero a
-        then  b
-        else  if Float/isZero b
-        then  a
-        else  let pair_ab = { _1 = a, _2 = b }
-
-              let torsor = computeTorsorForBothNonzero pair_ab
-
-              let absA = Float/abs a
-
-              let absB = Float/abs b
-
-              let applySign =
-                    stop.reduce_growth
-                      Float
-                      predicate_Float
-                      Float
-                      Float/zero
-                      ( λ(result : Float) →
-                          if    a.mantissaPositive
-                          then  result
-                          else  negate_reduced result
-                      )
-
-              let result =
-                    if        a.mantissaPositive && b.mantissaPositive
-                          ||      a.mantissaPositive == False
-                              &&  b.mantissaPositive == False
-                    then  applySign (addUnsignedBothNonzero prec torsor pair_ab)
-                    else  let pair_abs_ab = { _1 = absA, _2 = absB }
-
-                          let pair_abs_ba = { _1 = absB, _2 = absA }
-
-                          let compared = compareUnsignedNonzero pair_abs_ab
-
-                          let checkZero =
-                                merge
-                                  { Less =
-                                    { postprocess = negate_reduced
-                                    , flip = flipTorsor
-                                    , reverse = True
-                                    }
-                                  , Equal =
-                                    { postprocess = λ(_ : Float) → Float/zero
-                                    , flip = identity TorsorType
-                                    , reverse = False
-                                    }
-                                  , Greater =
-                                    { postprocess = identity Float
-                                    , flip = identity TorsorType
-                                    , reverse = False
-                                    }
-                                  }
-                                  compared
-
-                          in  checkZero.postprocess
-                                ( applySign
-                                    ( subtractUnsignedAMinusB
-                                        prec
-                                        (checkZero.flip torsor)
-                                        ( if    checkZero.reverse
-                                          then  pair_abs_ba
-                                          else  pair_abs_ab
-                                        )
-                                    )
-                                )
-
-              in  Float/normalize result
+        addFloatPair prec { _1 = a, _2 = b }
 
 let _ = assert : clampDigits 123 (D.log 10 123) 0 ≡ 0
 
