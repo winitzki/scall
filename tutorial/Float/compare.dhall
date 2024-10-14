@@ -6,6 +6,30 @@ let Natural/lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
 
+let Integer/positive =
+      https://prelude.dhall-lang.org/Integer/positive
+        sha256:7bdbf50fcdb83d01f74c7e2a92bf5c9104eff5d8c5b4587e9337f0caefcfdbe3
+
+let Integer/lessThan =
+      https://prelude.dhall-lang.org/Integer/lessThan
+        sha256:eeaa0081d10c6c97464ef193c40f1aa5cbb12f0202972ab42f3d310c2fd6a3f0
+
+let Integer/equal =
+      https://prelude.dhall-lang.org/Integer/equal
+        sha256:2d99a205086aa77eea17ae1dab22c275f3eb007bccdc8d9895b93497ebfc39f8
+
+let Integer/abs =
+      https://prelude.dhall-lang.org/Integer/abs
+        sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
+
+let Integer/add =
+      https://prelude.dhall-lang.org/Integer/add
+        sha256:7da1306a0bf87c5668beead2a1db1b18861e53d7ce1f38057b2964b649f59c3b
+
+let Integer/subtract =
+      https://prelude.dhall-lang.org/Integer/subtract
+        sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
+
 let T = ./Type.dhall
 
 let divmod = T.divmod
@@ -36,6 +60,16 @@ let Natural/compare
               else  Compared.Greater
         else  Compared.Less
 
+let Integer/compare
+    : Integer → Integer → Compared
+    = λ(x : Integer) →
+      λ(y : Integer) →
+        if    Integer/lessThan x y
+        then  Compared.Less
+        else  if Integer/equal x y
+        then  Compared.Equal
+        else  Compared.Greater
+
 let Compared/reverse =
       λ(x : Compared) →
         merge
@@ -53,72 +87,50 @@ let _ = assert : Natural/compare 20 10 ≡ Compared.Greater
 
 let Float/abs = T.Float/abs
 
-let TorsorType = { x : Natural, y : Natural }
+let Integer/addNatural =
+      λ(x : Integer) → λ(y : Natural) → Integer/add x (Natural/toInteger y)
 
-let computeTorsorForBothNonzero
-    -- We define "torsor(a, b)" as a pair of `Natural` numbers (x, y) such that floor(log_10(a)) - floor(log_10(b)) = x - y.
-    : Float → Float → TorsorType
+let compareUnsignedNonzero
+    : Float → Float → Compared
     = λ(a : Float) →
       λ(b : Float) →
-        if    a.exponentPositive
-        then  if    b.exponentPositive
-              then  { x = a.exponent + a.topPower, y = b.exponent + b.topPower }
-              else  { x = a.exponent + a.topPower + b.exponent, y = b.topPower }
-        else  if b.exponentPositive
-        then  { x = a.topPower, y = a.exponent + b.exponent + b.topPower }
-        else  { x = b.exponent + a.topPower, y = a.exponent + b.topPower }
+        let compareTopPowersWithExponentials =
+              Integer/compare
+                (Integer/addNatural a.exponent a.topPower)
+                (Integer/addNatural b.exponent b.topPower)
 
-let compareUnsignedNonzeroWithTorsor =
-      λ(a : Float) →
-      λ(b : Float) →
-      λ(fixedExponents : TorsorType) →
-        if    Natural/lessThan fixedExponents.x fixedExponents.y
-        then  Compared.Less
-        else  if Natural/lessThan fixedExponents.y fixedExponents.x
-        then  Compared.Greater
-        else  let fixed
-                  : TorsorType
-                  = if    a.exponentPositive
-                    then  if    b.exponentPositive
-                          then  { x = a.mantissa * D.power Base a.exponent
-                                , y = b.mantissa * D.power Base b.exponent
-                                }
-                          else  { x =
-                                      a.mantissa
-                                    * D.power Base (a.exponent + b.exponent)
-                                , y = b.mantissa
-                                }
-                    else  if b.exponentPositive
-                    then  { x = a.mantissa
-                          , y =
-                                b.mantissa
-                              * D.power Base (b.exponent + a.exponent)
-                          }
-                    else  { x = a.mantissa * D.power Base b.exponent
-                          , y = b.mantissa * D.power Base a.exponent
-                          }
+        in  merge
+              { Less = Compared.Less
+              , Greater = Compared.Greater
+              , Equal =
+                  let subtractExponentials =
+                        Integer/subtract a.exponent b.exponent
 
-              in  Natural/compare fixed.x fixed.y
-let Integer/addNatural = \(x : Integer) -> \(y : Natural) -> Integer/add x (Natural/toInteger y)
-let xcompareUnsignedNonzero =
-      λ(a : Float) →
-      λ(b : Float) →
-        compareUnsignedNonzeroWithTorsor a b (computeTorsorForBothNonzero a b)
+                  in  if    Integer/positive subtractExponentials
+                      then  Natural/compare
+                              a.mantissa
+                              (   b.mantissa
+                                * D.power
+                                    Base
+                                    (Integer/abs subtractExponentials)
+                              )
+                      else  Natural/compare
+                              (   a.mantissa
+                                * D.power
+                                    Base
+                                    (Integer/abs subtractExponentials)
+                              )
+                              b.mantissa
+              }
+              compareTopPowersWithExponentials
 
-let computeTorsorFromInt : Integer -> Integer -> TorsorType = ???
+let identity = λ(t : Type) → λ(x : t) → x
 
-let compareUnsignedNonzero : Float -> Float -> Compared = λ(a : Float) →
-                                   λ(b : Float) →
-                                   let subtractTopPowersWithExponentials = Integer/subtract (Integer/addNatural  a.exponent a.topPower) (Integer/addNatural  b.exponent b.topPower)
-                                   in ???
-
-let identity = λ(t : Type) →λ(x : t) →x
 let Float/compare
     : Float → Float → Compared
     = λ(x : Float) →
       λ(y : Float) →
-        let QuickCompare =
-              < Done : Compared | NegateResult: Bool >
+        let QuickCompare = < Done : Compared | NegateResult : Bool >
 
         let maybeQuickCompare
             : QuickCompare
@@ -142,7 +154,11 @@ let Float/compare
               { Done = λ(result : Compared) → result
               , NegateResult =
                   λ(needToNegate : Bool) →
-                    (if needToNegate then Compared/reverse else identity Compared) (compareUnsignedNonzero x y)
+                    ( if    needToNegate
+                      then  Compared/reverse
+                      else  identity Compared
+                    )
+                      (compareUnsignedNonzero x y)
               }
               maybeQuickCompare
 
@@ -190,7 +206,5 @@ in  { Compared
     , Compared/reverse
     , Float/compare
     , Natural/compare
-    , TorsorType
-    , compareUnsignedNonzeroWithTorsor
-    , computeTorsorForBothNonzero
+    , Integer/compare
     }
