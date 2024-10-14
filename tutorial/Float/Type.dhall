@@ -28,7 +28,7 @@ let FloatExtraData =
 let FloatBare =
       { mantissa : Natural, mantissaPositive : Bool, exponent : Integer }
 
-let stop = ./stop_expanding.dhall
+let stop = ./reduce_growth.dhall
 
 let Base = 10
 
@@ -49,9 +49,9 @@ let dummyFloat =
 
 let Float/addExtraData
     : FloatBare → Float
-    = stop.expanding
+    = stop.reduce_growth
         FloatBare
-        (λ(x : FloatBare) → stop.predicateNatural x.mantissa)
+        (λ(x : FloatBare) → stop.predicate_Natural x.mantissa)
         Float
         dummyFloat
         ( λ(args : FloatBare) →

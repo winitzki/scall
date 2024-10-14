@@ -1,7 +1,8 @@
--- Prevent expanding arguments under a lambda.
+
+-- Reduce growth of normal forms by preventing expansion of arguments under a lambda.
 -- The function requires a predicate that always returns True but such that Dhall cannot detect that property when expanding under a lambda.
 -- Examples are provided for Bool, Integer, and Natural input types.
-let expanding
+let reduce_growth
     : ∀(T : Type) → (T → Bool) → ∀(R : Type) → R → (T → R) → T → R
     = λ(T : Type) →
       λ(predicate : T → Bool) →
@@ -13,45 +14,45 @@ let expanding
           { Some = f, None = default }
           (if predicate x then Some x else None T)
 
-let predicateNatural
+let predicate_Natural
     : Natural → Bool
     = λ(x : Natural) →
-        Natural/isZero (Natural/subtract 2 (Natural/subtract x 1))
+        Natural/isZero (Natural/subtract 1 (Natural/subtract x 1))
 
-let predicateInteger
+let predicate_Integer
     : Integer → Bool
-    = λ(x : Integer) → predicateNatural (Integer/clamp x)
+    = λ(x : Integer) → predicate_Natural (Integer/clamp x)
 
-let predicateBool
+let predicate_Bool
     : Bool → Bool
-    = λ(x : Bool) → predicateNatural (if x then 1 else 0)
+    = λ(x : Bool) → predicate_Natural (if x then 1 else 0)
 
-let expandingNatural
+let reduce_growth_Natural
     : ∀(R : Type) → R → (Natural → R) → Natural → R
     = λ(R : Type) →
       λ(default : R) →
       λ(f : Natural → R) →
-        expanding Natural predicateNatural R default f
+        reduce_growth Natural predicate_Natural R default f
 
-let expandingInteger
+let reduce_growth_Integer
     : ∀(R : Type) → R → (Integer → R) → Integer → R
     = λ(R : Type) →
       λ(default : R) →
       λ(f : Integer → R) →
-        expanding Integer predicateInteger R default f
+        reduce_growth Integer predicate_Integer R default f
 
-let expandingBool
+let reduce_growth_Bool
     : ∀(R : Type) → R → (Bool → R) → Bool → R
     = λ(R : Type) →
       λ(default : R) →
       λ(f : Bool → R) →
-        expanding Bool predicateBool R default f
+        reduce_growth Bool predicate_Bool R default f
 
-in  { expanding
-    , predicateNatural
-    , predicateInteger
-    , predicateBool
-    , expandingNatural
-    , expandingInteger
-    , expandingBool
+in  { reduce_growth
+    , predicate_Natural
+    , predicate_Integer
+    , predicate_Bool
+    , reduce_growth_Natural
+    , reduce_growth_Integer
+    , reduce_growth_Bool
     }

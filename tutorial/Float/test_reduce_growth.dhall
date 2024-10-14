@@ -1,4 +1,4 @@
-let stop = ./stop_expanding.dhall
+let stop = ./reduce_growth.dhall
 
 let n = env:N
 
@@ -10,9 +10,9 @@ let k1 =
         then  h x (Natural/isZero x)
         else  h (x + 1) (Natural/isZero x)
 
-let k1_stop = stop.expandingNatural Natural 0 k1
+let k1_stop = stop.reduce_growth_Natural Natural 0 k1
 
-let h2 = stop.expandingNatural (Bool → Natural) (λ(_ : Bool) → 0) h
+let h2 = stop.reduce_growth_Natural (Bool → Natural) (λ(_ : Bool) → 0) h
 
 let k2 =
       λ(x : Natural) →
@@ -20,12 +20,12 @@ let k2 =
         then  h2 x (Natural/isZero x)
         else  h2 (x + 1) (Natural/isZero x)
 
-let k2_stop = stop.expandingNatural Natural 0 k2
+let k2_stop = stop.reduce_growth_Natural Natural 0 k2
 
 let g = λ(x : Natural) → x + x + 1
 
-let g_stop = stop.expandingNatural Natural 0 g
+let g_stop = stop.reduce_growth_Natural Natural 0 g
 
-let k = k2_stop
+let k = k1_stop
 
 in  λ(x : Natural) → Natural/fold n Natural k x
