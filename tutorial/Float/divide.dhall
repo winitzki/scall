@@ -82,6 +82,43 @@ let _ = assert : check +1 +0 -3 -10000 2 "-3.3e+9999"
 
 let _ = assert : check +1 +100000 -3 -100000 2 "-3.3e+199999"
 
+let _ = assert : check +1 +100000 -3 +100000 2 "-0.33"
+
+let _
+      -- Should not be slow even when exponents are very large.
+      =
+      let power = +1000000000000000000000000000000000000
+
+      in  assert : check +1 power -3 power 2 "-0.33"
+
+let _
+      -- Should not be slow even when exponents are very large.
+      =
+      let power = +1000000000000000000000000000000000000
+
+      in    assert
+          : check
+              +1
+              (Integer/negate power)
+              -3
+              (Integer/subtract +1 power)
+              2
+              "-3.3e-${Natural/show (Integer/clamp power * 2)}"
+
+let _
+      -- Should not be slow even when exponents are very large.
+      =
+      let power = +100
+
+      in    assert
+          : check
+              +1
+              power
+              -3
+              (Integer/subtract +1 (Integer/negate power))
+              2
+              "-3.3e+${Natural/show (Integer/clamp power * 2)}"
+
 let _ = assert : check +1 +0 +239 +0 20 "+0.004184100418410041841"
 
 in  Float/divide

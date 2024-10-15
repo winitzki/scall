@@ -109,6 +109,13 @@ let _ =
         ≡ Float/create +1234568000 +0
 
 let _ =
+      let power = +100000000000
+
+      in    assert
+          :   Float/round (Float/create +1234567899 power) 7
+            ≡ Float/create +1234568000 power
+
+let _ =
         assert
       : Float/truncate (Float/create +12345 -10) 4 ≡ Float/create +1234 -9
 
