@@ -149,7 +149,17 @@ let Float/showNormalized
                                 }
                             ]
 
-                  let rest =
+                  let `number is integer and below 1000, so print the number as integer` =
+                        λ(f : Float) →
+                          Text/concat
+                            [ Natural/show
+                                (   T.power Base (Integer/clamp f.exponent)
+                                  * f.mantissa
+                                )
+                            , "."
+                            ]
+
+                  let print_number =
                         if    Integer/nonNegative f.exponent
                         then  let largeIntegerLog =
                                     f.topPower + Integer/clamp f.exponent
@@ -157,38 +167,26 @@ let Float/showNormalized
                               in  if    Natural/lessThanEqual
                                           largeIntegerLog
                                           MaxPrintedWithoutExponent
-                                  then  Text/concat
-                                          [ Natural/show
-                                              (   T.power
-                                                    Base
-                                                    (Integer/clamp f.exponent)
-                                                * f.mantissa
-                                              )
-                                          , "."
-                                          ]
+                                  then  `number is integer and below 1000, so print the number as integer`
                                   else  `number is above 1000 with positive exponent, so print as 1.234...e+...`
-                                          f
                         else  if Natural/lessThan
                                    (   MaxPrintedWithoutExponent
                                      + Integer/abs f.exponent
                                    )
                                    f.topPower
                         then  `number is above 1000 despite negative exponent, so print as 1.234...e+...`
-                                f
                         else  if Natural/lessThanEqual
                                    (Integer/abs f.exponent)
                                    f.topPower
                         then  `number is above 1 but below 1000, so print it as 123.456...`
-                                f
                         else  if Natural/lessThan
                                    (f.topPower + MaxPrintedWithoutExponent)
                                    (Integer/abs f.exponent)
                         then  `number is below 1/1000, so print it as 1.23...e-...`
-                                f
                         else  `number is above 1/1000 but below 1, so print the number as 0.00123...`
-                                f
 
-                  in  Text/concat [ showSign f.mantissaPositive, rest ]
+                  in  Text/concat
+                        [ showSign f.mantissaPositive, print_number f ]
         )
 
 let _ =
