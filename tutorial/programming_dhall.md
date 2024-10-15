@@ -7732,7 +7732,23 @@ let arrowContrafunctorIdApplicative
 
 ### Universal and existential type quantifiers
 
+TODO
+
 ### Least fixpoint types
+
+Implementing a `zip` method for recursive type constructors turns out to take quite a bit of work.
+In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
+
+Given a recursion scheme bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
+```dhall
+let F = λ(a : Type) → λ(b : Type) → ???
+let C = λ(a : Type) → LFix (F a)
+```
+The type signature of `zip` for `C` must be:
+```dhall
+let zip_C : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ??? 
+```
+
 
 ## Traversable functors
 
