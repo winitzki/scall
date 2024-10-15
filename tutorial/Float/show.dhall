@@ -44,14 +44,10 @@ let _ = assert : Natural/lessThan 1 Base ≡ True
 
 let _ = assert : Natural/lessThan 1 Digits ≡ True
 
-let MaxBase = T.power Base Digits
-
 let Text/repeat =
       λ(n : Natural) →
       λ(x : Text) →
         Natural/fold n Text (λ(a : Text) → a ++ x) ""
-
-let maxDisplayedInteger = T.power Base (MaxPrintedWithoutExponent + 1)
 
 let padRemainingDigits
     : { digits : Natural, length : Natural } → Text
@@ -155,15 +151,21 @@ let Float/showNormalized
 
                   let rest =
                         if    Integer/nonNegative f.exponent
-                        then  let largeInteger =
-                                      f.mantissa
-                                    * T.power Base (Integer/abs f.exponent)
+                        then  let largeIntegerLog =
+                                    f.topPower + Integer/clamp f.exponent
 
-                              in  if    Natural/lessThan
-                                          largeInteger
-                                          maxDisplayedInteger
+                              in  if    Natural/lessThanEqual
+                                          largeIntegerLog
+                                          MaxPrintedWithoutExponent
                                   then  Text/concat
-                                          [ Natural/show largeInteger, "." ]
+                                          [ Natural/show
+                                              (   T.power
+                                                    Base
+                                                    (Integer/clamp f.exponent)
+                                                * f.mantissa
+                                              )
+                                          , "."
+                                          ]
                                   else  `number is above 1000 with positive exponent, so print as 1.234...e+...`
                                           f
                         else  if Natural/lessThan
@@ -319,5 +321,12 @@ let _ = assert : test_show -10001 -1 ≡ "-1000.1"
 let _ = assert : test_show +110000 -1 ≡ "+1.1e+4"
 
 let _ = assert : test_show -110000 -1 ≡ "-1.1e+4"
+
+let _
+      -- Should not be slow even if the exponent is large.
+      =
+        assert
+      :   test_show +1 +1000000000000000000000000000000000000
+        ≡ "+1.e+1000000000000000000000000000000000000"
 
 in  Float/show

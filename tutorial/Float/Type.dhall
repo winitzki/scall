@@ -230,6 +230,14 @@ let Float/normalize
     = float2float_reduce
         (λ(x : Float) → Float/addExtraData (FloatBare/normalize x.(FloatBare)))
 
+let _
+      -- Should not be slow even if the exponent is large.
+      =
+        assert
+      :   FloatBare/normalize
+            (FloatBare/create +1 +1000000000000000000000000000000000000)
+        ≡ FloatBare/create +1 +1000000000000000000000000000000000000
+
 let Float/pad
     : Float → Natural → Float
     = stop.reduce_growth
@@ -264,6 +272,14 @@ let _ =
         assert
       :   (Float/pad (Float/create +123 +0) 2).(FloatBare)
         ≡ FloatBare/create +12300 -2
+
+let _
+      -- Should not be slow even if the exponent is large.
+      =
+        assert
+      :   Float/normalize
+            (Float/create +1 +1000000000000000000000000000000000000)
+        ≡ Float/create +1 +1000000000000000000000000000000000000
 
 let Float/negate =
       float2float_reduce

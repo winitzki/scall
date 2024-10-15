@@ -108,7 +108,7 @@ let _
 let _
       -- Should not be slow even when exponents are very large.
       =
-      let power = +100
+      let power = +1000000000000000000000000000000000000
 
       in    assert
           : check
