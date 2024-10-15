@@ -1,6 +1,7 @@
 package io.chymyst.dhall
 
 import fastparse.Parsed
+import io.chymyst.dhall.Main.OutputMode.Decode
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.Yaml.YamlOptions
 import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
@@ -18,6 +19,7 @@ object Main {
     case object Text    extends OutputMode
     case object Yaml    extends OutputMode
     case object Json    extends OutputMode
+    case object Toml    extends OutputMode
     case object Decode  extends OutputMode
     case object Encode  extends OutputMode
     case object GetType extends OutputMode
@@ -58,6 +60,11 @@ object Main {
                     (tpe.print + "\n").getBytes("UTF-8")
                   case OutputMode.GetHash                =>
                     ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
+                  case OutputMode.Toml =>
+                    (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
+                      case Left(value)  => value + "\n"
+                      case Right(value) => value
+                    }).getBytes("UTF-8")
                 }
 
               case TypecheckResult.Invalid(errors) =>
