@@ -22,6 +22,8 @@ let Float/negate = T.Float/negate
 
 let Float/ofNatural = T.Float/ofNatural
 
+let Natural/log = T.log
+
 let divmod = T.divmod
 
 let identity = (./Float/compare.dhall).identity
@@ -30,7 +32,7 @@ let arctan_1_n
     : Natural → Natural → Float
     = λ(n : Natural) →
       λ(prec_given : Natural) →
-        let log10n = 1 + T.log 10 n
+        let log10n = 1 + Natural/log 10 n
 
         let prec = prec_given + log10n
 
@@ -88,7 +90,7 @@ let arctan_1_n
 
 let prec_given = env:PRECISION
 
-let prec = prec_given + T.log 2 prec_given
+let prec = prec_given + Natural/log 2 prec_given
 
 let pi =
       Float/round
