@@ -6267,7 +6267,7 @@ The HIT procedure can convert a wide class of recursive functions into hylomorph
 In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
 This is another practical motivation for studying hylomorphisms.
 
-### Converting recursive code to hylomorphisms: the HIT algorighm
+### Converting recursive code into hylomorphisms: the HIT algorithm
 
 The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
@@ -8576,7 +8576,7 @@ For this part of the proof, we do not need to use the functor property of `F`.
 ### The Church-Yoneda identity
 
 The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identities cannot be used with types of that form.
+The Yoneda identities do not apply to types of that form.
 
 There is a generalized identity (without a widely accepted name) that combines both forms of types.
 This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
@@ -8587,7 +8587,7 @@ This book calls it the **Church-Yoneda identity** because of the similarity to b
 Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are assumed to be arbitrary covariant functors.
 It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law** that follows from the parametricity theorem.
 
-The Church-Yoneda identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+The Church-Yoneda identity is mentioned as "proposition 1" in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 of the paper by T. Uustalu.
 
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 
