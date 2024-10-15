@@ -280,6 +280,8 @@ let Float/abs
     : Float → Float
     = float2float_reduce (λ(x : Float) → x ⫽ { mantissaPositive = True })
 
+let Float/ofNatural = λ(n : Natural) → Float/create (Natural/toInteger n) +0
+
 in  { Base
     , Pair
     , divmod
@@ -296,4 +298,5 @@ in  { Base
     , Float/normalize
     , Float/pad
     , Float/zero
+    , Float/ofNatural
     }

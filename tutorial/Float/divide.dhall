@@ -46,7 +46,7 @@ let Float/divide
                     (Float/create (mantissaApplySign mantissaUnsigned) exponent)
                     prec
 
-let Float/show = (./show.dhall).Float/show
+let Float/show = ./show.dhall
 
 let check =
       λ(a : Integer) →
@@ -84,4 +84,4 @@ let _ = assert : check +1 +100000 -3 -100000 2 "-3.3e+199999"
 
 let _ = assert : check +1 +0 +239 +0 20 "+0.004184100418410041841"
 
-in  { Float/divide }
+in  Float/divide

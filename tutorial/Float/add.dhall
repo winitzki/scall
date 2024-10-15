@@ -16,9 +16,7 @@ let Base = T.Base
 
 let Pair = T.Pair
 
-let S = ./show.dhall
-
-let Float/show = S.Float/show
+let Float/show = ./show.dhall
 
 let Float/create = T.Float/create
 
@@ -652,4 +650,4 @@ let _ = assert : checkAddShow -12345678 -8 +123 -2 5 "+1.10655"
 
 let _ = assert : checkAddShow -12345678 -8 +123 -2 9 "+1.10654322"
 
-in  { Float/add }
+in  Float/add

@@ -320,4 +320,4 @@ let _ = assert : test_show +110000 -1 ≡ "+1.1e+4"
 
 let _ = assert : test_show -110000 -1 ≡ "-1.1e+4"
 
-in  { Float/show }
+in  Float/show
