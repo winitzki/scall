@@ -86,12 +86,17 @@ let arctan_1_n
               (Natural/fold number_of_terms Accum update init).current_result
               prec
 
-let prec = 14
+let prec_given = env:PRECISION
+
+let prec = prec_given + T.log 2 prec_given
 
 let pi =
-      Float/subtract
-        (Float/multiply (Float/ofNatural 4) (arctan_1_n 239 prec) prec)
-        (Float/multiply (Float/ofNatural 16) (arctan_1_n 5 prec) prec)
-        prec
+      Float/round
+        ( Float/subtract
+            (Float/multiply (Float/ofNatural 4) (arctan_1_n 239 prec) prec)
+            (Float/multiply (Float/ofNatural 16) (arctan_1_n 5 prec) prec)
+            prec
+        )
+        prec_given
 
 in  Float/show pi
