@@ -1,6 +1,7 @@
 package io.chymyst.dhall
 
 import fastparse.Parsed
+import io.chymyst.dhall.Main.OutputMode.Decode
 import io.chymyst.dhall.Syntax.{DhallFile, Expression, ExpressionScheme}
 import io.chymyst.dhall.Yaml.YamlOptions
 import mainargs.{Flag, Leftover, ParserForMethods, arg, main}
@@ -13,14 +14,24 @@ import sourcecode.{File => SourceFile, Line => SourceLine}
 object Main {
 
   sealed trait OutputMode
+
   object OutputMode {
-    case object Dhall   extends OutputMode
-    case object Text    extends OutputMode
-    case object Yaml    extends OutputMode
-    case object Json    extends OutputMode
-    case object Decode  extends OutputMode
-    case object Encode  extends OutputMode
+    case object Dhall extends OutputMode
+
+    case object Text extends OutputMode
+
+    case object Yaml extends OutputMode
+
+    case object Json extends OutputMode
+
+    case object Toml extends OutputMode
+
+    case object Decode extends OutputMode
+
+    case object Encode extends OutputMode
+
     case object GetType extends OutputMode
+
     case object GetHash extends OutputMode
   }
 
@@ -58,6 +69,11 @@ object Main {
                     (tpe.print + "\n").getBytes("UTF-8")
                   case OutputMode.GetHash                =>
                     ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
+                  case OutputMode.Toml                   =>
+                    (Toml.toToml(expr) match {
+                      case Left(value)  => value + "\n"
+                      case Right(value) => value
+                    }).getBytes("UTF-8")
                 }
 
               case TypecheckResult.Invalid(errors) =>
@@ -74,6 +90,7 @@ object Main {
   def parseArgs(args: Array[String]): OutputMode = args.lastOption match {
     case Some("text")   => OutputMode.Text
     case Some("yaml")   => OutputMode.Yaml
+    case Some("toml")   => OutputMode.Toml
     case Some("json")   => OutputMode.Json
     case Some("decode") => OutputMode.Decode
     case Some("encode") => OutputMode.Encode
@@ -91,13 +108,13 @@ object Main {
     file: Option[String],
     @arg(short = 'o', doc = "Path to the output file (default: stdout)")
     output: Option[String],
-    @arg(short = 'q', doc = "Quote all strings (for Yaml output only; default is false)")
+    @arg(short = 'q', doc = "Quote all strings (for YAML output only; default is false)")
     quoted: Flag,
-    @arg(short = 'd', doc = "Create a Yaml file with document separators (for Yaml output only; default is false)")
+    @arg(short = 'd', doc = "Create a YAML file with document separators (for YAML output only; default is false)")
     documents: Flag,
-    @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
+    @arg(short = 'i', doc = "Indentation depth for JSON and YAML (default: 2)")
     indent: Option[Int],
-    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml, json")
+    @arg(doc = "Optional command: decode, encode, hash, text, type, json, yaml, toml")
     command: Leftover[String],
   ): Unit = {
     val (inputPath, inputStream) = file match {
@@ -124,6 +141,7 @@ object Main {
       ),
     )
   }
+
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
   // $COVERAGE-ON$
 }

@@ -11,7 +11,7 @@ The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-c
 
 This book's view is that Dhall may be used as:
 - a powerful template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
-- a fully specified and tested industrial-strength interpreter for a simple purely functional programming language, useful for studying various language-independent aspects of functional programming
+- a fully specified and well-tested interpreter for a small, purely functional programming language, useful for studying various language-independent aspects of functional programming
 - a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
 
 The book focuses on the last two use cases.
@@ -19,6 +19,7 @@ The book focuses on the last two use cases.
 Although most code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
 which is known in the academic literature as "System Fω".
+That type system is the foundation of Haskell, Scala, and other advanced functional programming languages.
 
 From the point of view of programming language theory, Dhall implements System Fω with some additional features, using a Haskell-like syntax.
 
@@ -55,14 +56,15 @@ The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number o
 such as `Natural/lessThan` and `List/map`.
 
 
-It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, F#, and so on).
+It will be easy to learn Dhall for readers already familiar with functional programming and, in particular, with the syntax of ML-family languages (OCaml, Haskell, `F#`, and so on).
 One major difference is the syntax for functions, which is similar to the notation adopted in System F and System Fω.
-System F's notation $\Lambda t.~\lambda (x:t).~ f~ t~ x$ and System Fω's notation $\lambda (t:*).~\lambda (x:t).~ f~ t~ x$ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation 
+$ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 
 ### Guaranteed termination
-
-The Dhall interpreter guarantees that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
+In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
+Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression.
 (A "normal form" is an expression that cannot be simplified any further.)
 
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
@@ -71,8 +73,9 @@ It is guaranteed that the correct normal form will be computed (although the com
 Invalid Dhall programs will be rejected at the type-checking phase.
 The type-checking itself is also guaranteed to complete within finite time.
 
-The price for those termination guarantees is that the Dhall language is _not_ Turing-complete.
-But this is not a significant limitation for a wide scope of Dhall usage, as this book will show.
+The price for those termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
+(A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.)
+However, the lack of Turing-completeness is _not_ a significant limitation for a wide scope of Dhall usage, as this book will show.
 
 ### Identifiers
 
@@ -519,6 +522,16 @@ let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
 ```
 
 In this example, the type signature of `swap` has two type parameters (`a`, `b`) and the output type depends on those type parameters.
+
+Similar functions extract the first or the second element of a pair.
+These functions also work in the same way for all type parameters:
+
+```dhall
+let take_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._1
+let take_2 : ∀(a : Type) → ∀(b : Type) → Pair a b → b
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._2
+```
 
 As a further example, conider the standard `map` function for `List`.
 The type signature of that function is `∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b`.
@@ -1101,20 +1114,20 @@ Sort
 ```
 
 The symbol `Sort` is even more special: it _does not_ itself have a type.
-Because of that, it is a type error to use `Sort` in Dhall code in any way:
+Because of that, nearly any explicit usage of `Sort` will be a type error:
 
 ```dhall
 ⊢ :let a = Sort
 
 Error: ❰Sort❱ has no type, kind, or sort
 
-⊢ λ(s : Sort) → 0
+⊢ λ(_ : Sort) → 0
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
 
-This feature prevents Dhall from having to define an infinite hierarchy of "type universes".
-That hierarchy is needed in programming languages with full support for dependent types.
+This feature prevents Dhall from having to define an infinite hierarchy of "**type universes**".
+That hierarchy is often used in programming languages with full support for dependent types.
 In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
 Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
 
@@ -1122,7 +1135,7 @@ Dhall's type system has enough abstraction to support powerful types and to trea
 
 Because of this design, Dhall does not support operating on the symbol `Kind` itself.
 Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
-One can assign such expressions to variables, but that's about it.
+One can assign such expressions to variables, one can use them for type annotations, and that's about it.
 
 For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
 
@@ -1138,11 +1151,19 @@ Error: ❰Sort❱ has no type, kind, or sort
 
 This error occurs because Dhall requires a function's type _itself_ to have a type.
 The symbol `Kind` has type `Sort`, 
-so the type of the function `f = λ(_: Natural) → a` would be `Natural → Sort`.
+so the type of the function `f = λ(_: Natural) → a` is `Natural → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
 Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
 
-There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values.
+For the same reason, Dhall will not accept the following function parameterized by a `Kind` value:
+```dhall
+⊢ :let f = λ(k : Kind) → ∀(b : Kind) → k → b
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+This prevents Dhall from defining recursive kind-polymorphic type constructors (e.g., an analog of `List` that works with types of arbitrary kinds).
+
+There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
@@ -1293,7 +1314,6 @@ The following example shows that Dhall does not recognize that a value of a depe
 
 Error: ❰if❱ branches must have matching types
 ```
-
 The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
 If we are in the `if/then` branch, we return a `Text` value (an empty string).
 If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
@@ -1305,15 +1325,15 @@ But Dhall does not implement this logic and cannot see that both branches will h
 Because of this and other limitations, Dhall can work productively with dependent types only in sufficiently simple cases. 
 
 
-## Arithmetic with `Natural` numbers
+## Numerical algorithms
 
-Dhall's `Natural` numbers have arbitrary precision but support a limited number of operations.
+Dhall's `Natural` numbers have arbitrary precision and support a limited number of built-in operations.
 The standard prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
 
-We will now show how to implement other arithmetic operations for `Natural` numbers such as division or logarithm.
+We will now show how to implement other numerical operations such as division or logarithm.
 In an ordinary programming language, we would use loops to implement those operations.
-But Dhall will only accept loops that are guaranteed in advance to terminate.
-So, we will need to know in advance how many iterations are needed for any given computation.
+But Dhall will accept loops only if we know in advance how many iterations are needed for a given computation.
+This is a consequence of Dhall's termination guarantees.
 
 ### Using `Natural/fold` to implement loops
 
@@ -1337,12 +1357,10 @@ $ dhall repl
 ```
 
 In this way, Dhall can perform many operations that are usually implemented via loops.
-However, `Natural/fold` is not a `while`-loop: it cannot iterate arbitrarily many times until some condition holds.
-The number of iterations must be specified in advance as the first argument of `Natural/fold`.
+However, `Natural/fold` is not a `while`-loop: it cannot iterate as many times as needed until some condition holds.
+The total number of iterations must be specified in advance as the first argument of `Natural/fold`.
 
-When the exact number of iterations is not known in advance, one must estimate that number from above and design the algorithm to allow it to run further iterations without changing the result.
-
-In many cases, the estimated number of iterations will be larger than the actually required number.
+When the exact number of iterations is not known in advance, one must give an upper estimate and design the algorithm to allow it to run further iterations without changing the result.
 Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.
 
 For example, consider this code:
@@ -1353,8 +1371,8 @@ let result : Natural = Natural/fold 10000000000 Natural f 0
 -- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
 ```
 
-Theoretically, `Natural/fold 10000000000` needs to apply a function `10000000000` times.
-But in this example, the function `f` quickly stops changing its argument, so the loop can be stopped early.
+Theoretically, `Natural/fold 10000000000` needs to apply a given function `10000000000` times.
+But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
 In the next subsections, we will show some examples of algorithms implemented via `Natural/fold`.
@@ -1372,7 +1390,7 @@ So, let us define the accumulator type `A` as a pair `{ current : Natural, itera
 ```dhall
 let Accum = { current : Natural, iteration : Natural }
 ```
-Each iteration will multiply the current result by the iteraction count and increment that count.
+Each iteration will multiply the current result by the iteration count and increment that count.
 We define the function `s` accordingly.
 The complete code is:
 
@@ -1500,7 +1518,7 @@ Error: Wrong type of function argument
 ```
 
 Another example is an assertion that a natural number should be less than a given limit.
-We implement that assertion as a dependent type constructor `AssertLessThan`.
+We implement that assertion as a constructor `AssertLessThan`.
 The error message will be computed as a function of the given arguments:
 
 ```dhall
@@ -1531,7 +1549,7 @@ Error: Wrong type of function argument
 - "error" ≡ "the argument 200 must be less than 100"
 ```
 
-The error message clearly describes the problem.
+This error message clearly describes the problem.
 
 #### Limitations
 
@@ -1670,6 +1688,16 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
   in result.x
 ```
 
+### Floating-point operations
+
+The built-in Dhall type `Double` does not support any numerical operations.
+However, one can use values of type `Natural` to implement floating-point arithmetic.
+The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations in arbitrary precision.
+
+An example of an arbitrary-precision numerical algorithm is the computation of a floating-point square root.
+
+TODO
+
 ## Programming with functions
 
 ### Identity functions
@@ -1719,7 +1747,7 @@ let identityT = λ(t : Type) → t
 ```
 
 This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the type of `List` is not `Type` but `Type → Type`.
-We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors.
+We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors as arguments.
 For instance, it should accept arguments of type `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
 
 The type of all those type expressions is `Kind`.
@@ -1779,6 +1807,7 @@ You annotated a function input with the following expression:
 ```
 
 This error message still needs some explanation.
+
 Dhall requires any function's input type to itself be of type `Type`, `Kind`, or `Sort`.
 
 In our example, the function under typechecking is the inner function `λ(x : t) → x`.
@@ -2008,17 +2037,81 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values (also known as "typeclass instance values").
-Those values are used as explicit function arguments to implement functions that require a typeclass constraint.
+Typeclasses can be implemented in Dhall via evidence values (also called "typeclass instance values").
+Those values are used as explicit additional arguments to functions that require a typeclass constraint.
 
-This is somewhat similar to how Scala implements typeclasses.
-With that technique, one can define different typeclass instances for the same type, if necessary.
+This is somewhat similar to the way Scala implements typeclasses.
+With that technique, one can define different typeclass evidence values for the same type, when that is necessary.
 
 In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
-### Monoids
+### The "Show" typeclass
+
+The `Show` typeclass is usually defined in Haskell as:
+
+```haskell
+-- Haskell:
+class Show t where
+  show :: t -> String
+```
+
+In Scala, a corresponding definition is:
+
+```scala
+// Scala
+trait Show[T] {
+ def show(m: T) => String
+}
+```
+
+A type `T` belongs to the typeclass `Show` if we have the ability to compute a printable representation of any given value of type `T`.
+
+To implement a typeclass in Dhall, we first define a type that holds suitable evidence values.
+In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
+
+```dhall
+let Show = λ(t : Type) → { show : t → Text }
+```
+
+As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
+For that, we would write the following Haskell code:
+```haskell
+import Data.List (intercalate)
+printWithPrefix :: Show a => String -> [a] -> String
+printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
+```
+In Scala, we would write:
+
+```scala
+def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
+  message + xs.map(showA.show).mkString(", ") 
+```
+The corresponding Dhall code is:
+```dhall
+let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
+let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
+    "${message}${Text/concatMapSep ", " a showA.show xs}"
+```
+To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
+First, we define a `Show` evidence value for that type:
+```dhall
+let UserWithId = { user : Text, id : Natural }
+let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) → "user ${r.user} with id ${Natural/show r.id}" }
+```
+Then we can  use `printWithPrefix` to print a list of values of that type:
+```dhall
+let users : List UserWithId = [ { user = "a", id = 1 }, { user = "b", id = 2 } ]
+let printed = printWithPrefix UserWithId showUserWithId "users: " users
+let _ = assert : printed === "users: user a with id 1, user b with id 2" 
+```
+
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could easily define `Show` instances for the built-in types.
+Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc.
+
+### Monoids and semigroups
 
 The `Monoid` typeclass is usually defined in Haskell as:
 
@@ -2026,10 +2119,9 @@ The `Monoid` typeclass is usually defined in Haskell as:
 -- Haskell:
 class Monoid m where
   mempty :: m
-  mappend :: m → m → m
+  mappend :: m -> m -> m
 ```
-
-The values `mempty` and `mappend` are the **typeclass methods** of the monoid typeclass.
+The values `mempty` and `mappend` are the **typeclass methods** of the `Monoid` typeclass.
 
 In Scala, a corresponding definition is:
 
@@ -2040,32 +2132,36 @@ trait Monoid[M] {
  def combine: (M, M) => M 
 }
 ```
+Here, the `Monoid` typeclass methods are called `empty` and `combine`.
 
-In Scala, the `Monoid` typeclass methods are called `empty` and `combine`.
-
-We see that an evidence value for `Monoid` needs to contain a value of type `m` and a function of type `m → m → m`.
+We see that an evidence value for `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
 A value of that type provides evidence that the type `m` has the required methods for a monoid.
 
 To use the typeclass more easily, it is convenient to define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
-
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
-
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values for a monoid structure in the type `Bool`.
 
 Now we can create evidence values for specific types and use them in programs.
 
 Let us implement some `Monoid` evidence values for the types `Bool`, `Natural`, `Text`, and `List`:
-
 ```dhall
 let monoidBool : Monoid Bool = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
 let monoidNatural : Monoid Natural = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
 let monoidText : Monoid Text = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
 let monoidList : ∀(a : Type) → Monoid (List a) = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
 ```
+
+A **semigroup** is a weaker typeclass hat has the `append` method like a monoid, but without requirement for the `empty` method.
+
+```dhall
+let Semigroup = λ(m : Type) → { append : m → m → m }
+```
+
+Any monoid is a semigroup, but not all semigroups are monoids (because for certain types the `empty` method cannot be defined).
 
 ### Functions with typeclass constraints
 
@@ -2100,7 +2196,9 @@ let foldMap
     List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
 ```
 
-This code shows how to implement typeclass constraints in Dhall.
+Typeclass constraints are implemented in Dhall via code similar to this.
+Functions with typeclass constraints will have type signatures of the form `∀(t : Type) → SomeTypeclass t → ...`.
+When calling those functions, the programmer will have to pass evidence values proving that the type parameters are assigned to types that belong to the specified typeclass.
 
 ### Verifying the laws of monoids
 
@@ -2121,24 +2219,21 @@ let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y
         monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
        }
 ```
-Note that we did not write `assert` expressions here.
-If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
-For instance, the expressions `plus e x` and `x` are always going to be different _within the body of that function_.
-Those expressions will become the same only after we substitute a lawful implementation of a `Monoid` typeclass.
+Note that we did not add `assert` expressions here.
+If we did, the assertions would have always failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
+For instance, the expressions `plus e x` and `x` are always going to be different _while type-checking the body of that function_, which happens before that function is ever applied.
+Those expressions will become the same only after we apply `monoidLaws` to a type `m` and a lawful implementation of a `Monoid` typeclass for `m`.
 
-So, to check the laws we will need to write `assert` values corresponding to each law and a given typeclass evidence value.
+To check the laws, we will write `assert` values corresponding to each law and a given typeclass evidence value.
 
-As an example, here is how we may check that the laws hold for the `Monoid` evidence value `monoidBool` defined above:
+As an example, here is how to check the monoid laws for the evidence value `monoidBool` defined above:
 
 ```dhall
 let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool) →
   assert : (monoidLaws Bool monoidBool x y z).monoid_left_id_law
 ```
 
-Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
-Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
-
-### Functors and the `Functor` typeclass
+### The `Functor` typeclass
 
 In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
 
@@ -2153,16 +2248,13 @@ A simple example of a functor is a record with two values of type `a` and a valu
 The `fmap` method transforms the data items of type `a` into data items of another type but keeps the `Bool` value unchanged.
 
 In Haskell, that type constructor and its `fmap` method are defined by:
-
 ```haskell
 -- Haskell:
 data F a = F a a Bool
 fmap :: (a → b) → F a → F b
 fmap f (F x y t) = F (f x) (F y) t 
 ```
-
 In Scala, the equivalent code is:
-
 ```scala
 // Scala
 case class F[A](x: A, y: A, t: Boolean)
@@ -2170,9 +2262,7 @@ case class F[A](x: A, y: A, t: Boolean)
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] =
   F(f(fa.x), f(fa.y), fa.t)
 ```
-
 The corresponding Dhall code is:
-
 ```dhall
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
@@ -2181,41 +2271,39 @@ let fmap
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
-
 To test:
-
 ```dhall
 let example : F Natural = { x = 1, y = 2, t = True }
 let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
 ```
 
-As another example, let us define `fmap` for a type constructor that involves a union type:
+For convenience, let us define the standard type signature of `fmap` as a type constructor:
 
 ```dhall
-let G : Type → Type
-  = λ(a : Type) → < Left : Text | Right : a >
-let fmap
- : ∀(a : Type) → ∀(b : Type) → (a → b) → G a → G b
+let Fmap_t = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
+Then we can write the code more concisely as `let fmap : Fmap_t F = ???`.
+
+
+As another example of defining `fmap`, consider a type constructor that involves a union type:
+```dhall
+let G : Type → Type = λ(a : Type) → < Left : Text | Right : a >
+```
+The `fmap` method for `G` is implemented as:
+```dhall
+let fmap : Fmap_t G
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
     merge { Left = λ(t : Text) → (G b).Left t
           , Right = λ(x : a) → (G b).Right (f x)
           } ga
 ```
 
-For convenience, we will define the standard type signature of `fmap` as a type constructor:
-
-```dhall
-let Fmap_t = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
-```
-Then we can write the code more concisely as `let fmap : Fmap_t G = ???`.
-
-
 The `Functor` typeclass is a constraint for a _type constructor_.
 If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
-The required data for an evidence value is a polymorphic `fmap` method for that type constructor.
+The required data for an evidence value is a `fmap` method for that type constructor.
 Let us now package that information into a `Functor` typeclass similarly to how we did with `Monoid`.
 
 Define the type constructor for evidence values:
@@ -2224,10 +2312,12 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : Fmap_t F }
 ```
 
-Here is a `Functor` evidence value for `List`. The required `fmap` method is already available in the Dhall standard prelude:
+Here is a `Functor` evidence values for `List` and `Optional`.
+The required `fmap` methods are already available in the Dhall prelude:
 
 ```dhall
 let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
+let functorOptional : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
 ```
 
 As another example, let us write the evidence values for the type constructors `F` and `G` shown in the chapter "Covariant and contravariant type constructors":
@@ -2238,7 +2328,9 @@ let F : Type → Type
 let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
     { x = f fa.x, y = f fa.y, t = fa.t }
   }
+```
 
+```dhall
 let G : Type → Type
   = λ(a : Type) → < Left : Text | Right : a >
 let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
@@ -2250,7 +2342,7 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
 
 The code for `fmap` can be derived mechanically from the type definition of a functor.
 For instance, Haskell will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not have any code generation facilities.
+But Dhall does not have any code generation or metaprogramming facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
 Now we can write code that works in the same way for any functor.
@@ -2681,7 +2773,22 @@ let monadList : Monad List =
   in { pure, bind }
 ```
 
-Another known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
+The `Reader` monad has an additional type parameter `E` describing the type of the fixed environment value:
+
+```dhall
+let Reader = λ(E : Type) → λ(A : Type) → E → A
+let monadReader : ∀(E : Type) → Monad (Reader E)
+  = λ(E : Type) →
+    let pure = λ(A : Type) → λ(x : A) → λ(_ : E) → x
+    let bind = λ(A : Type) → λ(oldReader : Reader E A) → λ(B : Type) → λ(f : A → Reader E B) →
+         λ(e : E) →
+           let a : A = oldReader e
+           let b : B = f a e
+           in b
+    in { pure, bind }
+```
+
+Another well-known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
 
 ```dhall
 let State = λ(S : Type) → λ(A : Type) → S → Pair A S
@@ -2720,10 +2827,21 @@ let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) →
   in { left_id_law, right_id_law, assoc_law }
 ```
 
-Let us verify the laws of the `State` monad:
+The Dhall interpreter can now verify the laws of the `Reader` monad:
 
 ```dhall
-let tests = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
+let testsForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(p : Reader E a) → λ(b : Type) → λ(f : a → Reader E b) → λ(c : Type) → λ(g : b → Reader E c) →
+  let laws = monadLaws (Reader E) (monadReader E) a x p b f c g
+  let test1 = assert : laws.left_id_law
+  let test2 = assert : laws.right_id_law
+  let test3 = assert : laws.assoc_law
+  in True
+```
+
+Let us also verify the laws of the `State` monad:
+
+```dhall
+let testsForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
   let laws = monadLaws (State S) (monadState S) a x p b f c g
   let test1 = assert : laws.left_id_law
   -- let test2 = assert : laws.right_id_law -- This will not work.
@@ -2731,7 +2849,7 @@ let tests = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) �
   in True
 ```
 
-The Dhall interpreter can verify the left identity law and the associativity law, but is not powerful enough to verify the right identity law.
+For the State monad, the Dhall interpreter can verify the left identity law and the associativity law, but not the right identity law.
 The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } === x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
 
 #### A monad's `join` method
@@ -2763,9 +2881,33 @@ let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList 
 ```
 
+### Comonads
+
+The `Comonad` typeclass may be defined via the methods `duplicate` and `extract`.
+
+Define the type constructor for evidence values:
+
+```dhall
+let Comonad = λ(F : Type → Type) →
+  { duplicate : ∀(a : Type) → F a → F (F a)
+  , extract : ∀(a : Type) → F a → a
+  }
+```
+
+As an example, let us define a `Comonad` evidence value for the type constructor `Reader E` in case `E` is a monoidal type:
+
+```dhall
+let comonadReader : ∀(E : Type) → Monoid E → Comonad (Reader E) =
+  λ(E : Type) → λ(monoidE : Monoid E) →
+    let duplicate = λ(a : Type) → λ(fa : Reader E a) → λ(e1 : E) → λ(e2 : E) → fa (monoidE.append e1 e2)
+    let extract = λ(a : Type) → λ(fa : Reader E a) → fa monoidE.empty
+    in { duplicate, extract }
+```
+
+
 ### Applicative functors and contrafunctors
 
-One may define applicative functors as pointed functors that have a `zip` method.
+One may define applicative functors as pointed functors that have a `zip` method (that obeys suitable laws).
 
 The corresponding typeclass looks like this:
 
@@ -2783,7 +2925,7 @@ let applicativeFunctorList : ApplicativeFunctor List = functorList /\ pointedLis
   { zip = https://prelude.dhall-lang.org/List/zip }
 ```
 
-It turns out that a `zip` method can be defined also for some contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
+It turns out that a `zip` method can be defined also for almost all contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
 As an example, consider the type constructor that defines the `Monoid` typeclass:
 
@@ -2801,7 +2943,11 @@ let monoidZip : ∀(a : Type) → Monoid a → ∀(b : Type) → Monoid b → Mo
       { _1 = monoidA.append x._1 y._1, _2 = monoidB.append x._2 y._2 }
     in { empty, append }
 ```
+The function `monoidZip` produces a `Monoid` evidence for the pair type (`Pair a b`) out of two evidence values for arbitrary types `a` and `b`.
+This is an example of a "combinator" that produces new `Monoid` types out of previously given ones.
 
+In later chapters, we will explore systematically the possible combinators for `Monoid` and other typeclasses.
+For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
 The `Monoid` type constructor also has an evidence value for the `PointedU` typeclass:
 
 ```dhall
@@ -2810,25 +2956,25 @@ let pointedMonoid : PointedU Monoid =
   let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
   in { unit = { empty, append } }
 ```
-
-The type signature of `monoidZip` suggests that one can make a new monoid out of a pair of two monoids.
-(This turns out to be true, and actually the monoid laws will hold for the new monoid automatically.)
-
-Below we will study more systematically the various ways of making new monoids out of old ones.
-For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
-So, it is applicative (although not a functor).
+So, we may say that `Monoid` is applicative (although not a functor).
 To express that property, let us define the `Applicative` typeclass independently of `Functor`:
 
 ```dhall
 let Applicative = λ(F : Type → Type ) →
   PointedU F //\\
     { zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b) }
-
 ```
 
-This definition applies to all type constructors, including contravariant ones ("contrafunctors").
+Now we can implement an `Applicative` typeclass evidence for `Monoid`:
 
-A simple example of an applicative contrafunctor is the type constructor `C m a = a → m`.
+```dhall
+let applicativeMonoid : Applicative Monoid
+  = pointedMonoid /\ { zip = monoidZip }
+```
+
+This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, including contravariant ones ("contrafunctors").
+
+An example of an applicative _contrafunctor_ is the type constructor `C m a = a → m`.
 The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
 The type `m` is assumed to be a fixed type that belongs to the `Monoid` typeclass.
 
@@ -2861,7 +3007,8 @@ A functor is traversable if it supports a method called `traverse` with the type
 -- Haskell:
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
 ```
-It is important that this method is parameterized by an arbitrary applicative functor `L`. If this method exists, `F` is a traversable functor.
+It is important that this method is parameterized by an _arbitrary_ applicative functor `L`.
+If the `traverse` method exists, `F` is a traversable functor.
 
 Rewriting this type signature in Dhall and making `F` an explicit type parameter, we get the following type signature:
 
@@ -2882,7 +3029,8 @@ We remark without proof that:
 
 - Any traversable functor is also foldable.
 - The formulation of the "foldable" property via `reduce` and via `toList` are equivalent.
-- Any polynomial functor is both foldable and traversable. Any traversable functor is polynomial.
+- Any polynomial functor is both foldable and traversable.
+- Any traversable functor is polynomial.
 
 
 ### Inheritance of typeclasses
@@ -3314,7 +3462,7 @@ let extensional_equality
 ```
 
 
-## Church encoding for recursive types and type constructors
+## Church encoding for recursive types
 
 ### Recursion schemes
 
@@ -3444,7 +3592,7 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
 
 The Yoneda identities can be proved via the parametricity theorem, or by assuming suitable naturality laws.
-See the Appendix "Naturality and parametricity" for more details.
+See the Appendix for more details.
 
 ### Church encoding in the curried form
 
@@ -3471,7 +3619,7 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
 
 It is now less clear that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
-However, working with curried functions often needs shorter code than working with union types and record types.
+However, working with curried functions often gives shorter code than working with union types and record types.
 
 As an example, let us rewrite the type `TreeText` defined above in a curried form.
 Begin with the definition already shown:
@@ -4391,7 +4539,7 @@ let test = assert : reverseNEL Natural example2 === example1
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
 We will now consider functions that can work with all Church-encoded type constructors.
-The first examples are functions that compute the total size and the maximum depth of a data structure.
+Examples are functions that compute the total size and the maximum recursion depth of a data structure.
 
 Suppose we are given an arbitrary recursion scheme `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
 
@@ -4401,15 +4549,13 @@ let C = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
 We imagine that a value `p : C a` is a data structure that stores zero or more values of type `a`.
-
 The "total size" of `p` is the number of the values of type `a` that it stores. For example, if `p` is a list of 5 elements then the size of `p` is 5. The size
 of a `TreeInt` value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` is 3 because it stores three numbers.
 
 The "maximum depth" of `p` is the depth of nested recursion required to obtain that value. For example, if `p` is a `TreeInt`
 value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` then the depth of `p` is 2. The depth of a single-leaf tree (such as `leaf +10`) is 0.
 
-The goal is to implement these functions generically, for all Church-encoded data structures at once.
-
+The goal is to implement those functions generically, for all Church-encoded data structures at once.
 Both of those functions need to traverse the entire data structure and to accumulate a `Natural` value. Let us begin with `size`:
 
 ```dhall
@@ -4705,7 +4851,7 @@ let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
 
 This type signature suggests that the function type `Exists P → r` (written in full as `(∀(a : Type) → (∀(t : Type) → P t → a) → a) → r`) is equivalent to a simpler type `∀(t : Type) → P t → r`.
 
-Indeed, one can prove regorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
+One can prove rigorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
 We call this isomorphism the **function extension rule** for existential types.
 
 The function `inE` shown above gives one direction of the isomorphism.
@@ -4717,10 +4863,9 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     let ep : Exists P = pack P t pt
     in consume ep
 ```
-
 We will prove in the appendix "Naturality and parametricity" that the functions `inE r` and `outE r` are indeed inverses of each other.
 
-Because of this type isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
+Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
 #### Differences between existential and universal quantifiers
 
@@ -4777,6 +4922,33 @@ For instance, a value `x` of type `t` can be further substituted into a function
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
 In this sense, type quantifiers ensure encapsulation of the type `t` inside the value `ep`.
+
+#### Covariance with respect to the type constructor
+
+Both types `Exists P` and `Forall P` depend covariantly on the _type constructor_ `P`.
+
+Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y`, we can compute a function of type `F x → F y` given a function of type `x → y`.
+
+Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q` given a mapping from `P` to `Q`.
+Because `P` and `Q` are type constructors, to "map `P` into `Q`" means to provide a function of type `∀(a : Type) → P a → Q a`.
+Let us implement the corresponding transformations:
+```dhall
+let mapExists
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → Exists P → Exists Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(eP : Exists P) →
+    λ(r : Type) → λ(pack_q : ∀(t : Type) → Q t → r) →
+      let pack_p : ∀(t : Type) → P t → r = λ(t : Type) → λ(pt : P t) → pack_q t (f t pt)
+      in eP r pack_p
+```
+
+```dhall
+let mapForall
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → Forall P → Forall Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(aP : Forall P) →
+    λ(a : Type) → f a (aP a)
+```
+
+We will reuse these mapping functions below to make some code shorter.
 
 ## Co-inductive types
 
@@ -6103,7 +6275,7 @@ The HIT procedure can convert a wide class of recursive functions into hylomorph
 In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
 This is another practical motivation for studying hylomorphisms.
 
-### Converting recursive code to hylomorphisms: the HIT algorighm
+### Converting recursive code into hylomorphisms: the HIT algorithm
 
 The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
@@ -6263,7 +6435,9 @@ let coalgFib : Natural → P Natural = λ(n : Natural) →
   -- Use if/then/else instead of merge on Bool.
   in if choice then (P Natural).P0
   else (P Natural).P1 { call_1 = arg_1_1 n, call_2 = arg_1_2 n }
+```
 
+```dhall
 let algFib : P Natural → Natural = λ(p : P Natural) →
   merge {
     P0 = 1,
@@ -6332,17 +6506,171 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
-As long as the recursion scheme `F` is applicative (all polynomial functors are), we will be able to implement `hylo_T` for `F`.
+As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
+
+## Combinators for monoids
+
+A type is a monoid if there are methods called `empty` and `append` that satisfy appropriate laws.
+As we have seen in the "Typeclasses" chapter, 
+Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
+It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
+We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
+The proofs that the laws hold are shown in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
+
+### "Optional" monoid
+
+For any type `T`, the type `Optional T` is a monoid.
+The `empty` value is `None T`.
+Appending `Some x` to `Some y` must keep one of the values and discard the other.
+This gives two ways of implementing the `append x y` operation.
+
+We first implement a helper method that selects between two `Optional` values:
+```dhall
+let Optional/orElse
+  : ∀(a : Type) → Optional a → Optional a → Optional a
+  = λ(a : Type) → λ(x : Optional a) → λ(y : Optional a) →
+    merge { None = y, Some = λ(_ : a) → x } x
+```
+
+Now we can write the two possible `Monoid` instances for `Optional T`:
+
+```dhall
+let monoidOptionalKeepX : ∀(T : Type) → Monoid (Optional T)
+  = λ(T : Type) → { empty = None T
+                  , append = Optional/orElse T
+                  }
+```
+
+```dhall
+let monoidOptionalKeepY : ∀(T : Type) → Monoid (Optional T)
+  = λ(T : Type) → { empty = None T
+                  , append = flip (Optional T) (Optional T) (Optional T) (Optional/orElse T)
+                  }
+```
+
+### Function monoid
+
+For any type `T`, the function type `T → T` is a monoid.
+Its `empty` value is an identity function.
+The `append` operation is a function composition.
+It may be defined in one of the two ways, depending on the choice of forward or backward composition:
+
+```dhall
+let monoidFuncBackward : ∀(T : Type) → Monoid (T → T)
+  = λ(T : Type) → { empty = identity T, append = compose_backward T T T }
+let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
+  = λ(T : Type) → { empty = identity T, append = compose_forward T T T }
+```
+
+### Unit type
+
+The unit type (`{}`) is a monoid whose operations always return the value `{=}`.
+
+```dhall
+let monoidUnit : Monoid {} = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} } 
+```
+
+### Product of monoids
+
+If `P` and `Q` are monoidal types then so is the product type `Pair P Q`.
+We implement this property as a combinator function that requires `Monoid` typeclass evidence for both `P` and `Q`: 
+```dhall
+let monoidPair
+  : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Pair P Q)
+  = λ(P : Type) → λ(monoidP : Monoid P) → λ(Q : Type) → λ(monoidQ : Monoid Q) →
+    { empty = { _1 = monoidP.empty, _2 = monoidQ.empty }
+    , append = λ(x : Pair P Q) → λ(y : Pair P Q) →
+       { _1 = monoidP.append x._1 y._1, _2 = monoidQ.append x._2 y._2 }
+    }  
+```
+
+### Co-product of monoids
+
+If `P` and `Q` are monoidal types then so is the co-product type `Either P Q`.
+There are two ways of defining the monoid operations for `Either P Q`, depending on the choice of the `empty` method (which can be chosen to be either in the left or in the right part of the `Either` union type).
+
+If we choose the `empty` method to return `Left monoidP.empty` then the `append` operation must return a `Right` value whenever the two values are of different types:
+```dhall
+let monoidEitherLeft
+  : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Either P Q)
+  = λ(P : Type) → λ(monoidP : Monoid P) → λ(Q : Type) → λ(monoidQ : Monoid Q) →
+    { empty = (Either P Q).Left monoidP.empty
+    , append = λ(x : Either P Q) → λ(y : Either P Q) →
+      merge { Left = λ(py : P) → 
+        merge { Left = λ(px : P) → (Either P Q).Left (monoidP.append px py)
+              , Right = λ(qx : Q) → (Either P Q).Right qx
+          } x
+            , Right = λ(qy : Q) →
+        merge { Left = λ(px : P) → (Either P Q).Right qy
+              , Right = λ(qx : Q) → (Either P Q).Right (monoidQ.append qx qy)
+          } x
+            } y
+    }  
+```
+
+The other choice is when the `empty` method returns `Right monoidQ.empty`.
+```dhall
+let monoidEitherLeft
+  : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Either P Q)
+  = λ(P : Type) → λ(monoidP : Monoid P) → λ(Q : Type) → λ(monoidQ : Monoid Q) →
+    { empty = (Either P Q).Right monoidQ.empty
+    , append = λ(x : Either P Q) → λ(y : Either P Q) →
+      merge { Left = λ(py : P) → 
+        merge { Left = λ(px : P) → (Either P Q).Left (monoidP.append px py)
+              , Right = λ(qx : Q) → (Either P Q).Left py
+          } x
+            , Right = λ(qy : Q) →
+        merge { Left = λ(px : P) → (Either P Q).Left px
+              , Right = λ(qx : Q) → (Either P Q).Right (monoidQ.append qx qy)
+          } x
+            } y
+    }  
+```
+
+
+### Functions with monoidal output types
+
+If `P` is _any_ type and `Q` is a monoidal type then the function type `P → Q` is a monoid.
+We implement this property as a combinator function:
+```dhall
+let monoidFunc
+  : ∀(P : Type) → ∀(Q : Type) → Monoid Q → Monoid (P → Q)
+  = λ(P : Type) → λ(Q : Type) → λ(monoidQ : Monoid Q) →
+    { empty = λ(_ : P) → monoidQ.empty
+    , append = λ(x : P → Q) → λ(y : P → Q) → λ(p : P) → monoidQ.append (x p) (y p)
+    }  
+```
+
+### Reverse monoid
+
+If a type `P` is a monoid, we may define another implementation of the `append` method by reversing the order of appending the values.
+In other words, we may define the new operation `append_reverse x y` as `append y x`.
+(The `empty` value remains unchanged.)
+The laws will still hold for the new monoid instance.
+
+```dhall
+let monoidReverse
+  : ∀(P : Type) → Monoid P → Monoid P
+  = λ(P : Type) → λ(monoidP : Monoid P) →
+    monoidP // { append = λ(x : P) → λ(y : P) → monoidP.append y x }
+```
+
+For some monoids `P`, reversing does not change their `append` operation.
+Such `P` are called **commutative monoids**.
+An example is `P = Natural` with the commutative `append` operation such as `append x y = x + y`.
+
+An example of a non-commutative monoid is the `Optional` monoid shown earlier in this chapter.
+
 
 ## Combinators for functors and contrafunctors
 
-Functors and contrafunctors may be constructed only in a fixed number of ways, because there is a fixed number of ways one may define types in Dhall.
+Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall.
 We will now enumerate all those ways.
-The result is a set of standard combinators that create larger (contra)functors from parts.
+The result is a set of standard combinators that create larger (contra)functors from smaller ones.
 
 All the combinators preserve functor laws; the created new functor instances are automatically lawful.
-The full proofs are shown in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
-We will only show the Dhall code that creates the typeclass instance values for all the combinators.
+This is proved in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+We will only give the Dhall code that creates the typeclass instance values for all the combinators.
 
 ### Constant (contra)functors
 
@@ -6392,7 +6720,7 @@ let Id = λ(a : Type) → a
 let functor_Id : Functor Id  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → f }
 ```
 
-### Functor composition
+### Functor and contrafunctor composition
 
 If `F` and `G` are two functors then the functor composition `H a = F (G a)` is also one.
 We compute the type via the combinator called `Compose`, which is analogous to the function combinator `compose` defined earlier in this book.
@@ -6406,7 +6734,7 @@ The `Functor` evidence for `Compose F G` can be constructed automatically if the
 
 ```dhall
 let functorFunctorCompose
-  : ∀(F : Type → Type) → (Functor F) → ∀(G : Type → Type) → (Functor G) → Functor (Compose F G)
+  : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (Compose F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let ga2gb : G a → G b = functorG.fmap a b f
@@ -6425,6 +6753,9 @@ let functorContrafunctorCompose
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
         in functorF.fmap (G b) (G a) gb2ga
     }
+```
+
+```dhall
 let contrafunctorFunctorCompose
   : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Functor G → Contrafunctor (Compose F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
@@ -6438,7 +6769,7 @@ Finally, the composition of two contrafunctors is again a covariant functor:
 
 ```dhall
 let contrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Functor (Compose F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Functor (Compose F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         let gb2ga : G b → G a = contrafunctorG.cmap a b f
@@ -6456,11 +6787,10 @@ let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 let Product : (Type → Type) → (Type → Type) → (Type → Type)
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → Pair (F a) (G a)
 ```
-
 This creates a new type constructor `Product F G` out of two given type constructors `F` and `G`.
 
 The product of two functors is again a functor, and an evidence value can be constructed automatically.
-For that, it is convenient to use the function pair product operation `fProduct` defined earlier in the chapter "Programming with functions".
+For that, it is convenient to use the function pair product operation `fProduct` defined in the chapter "Programming with functions".
 
 ```dhall
 let fProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Pair a c → Pair b d
@@ -6480,7 +6810,7 @@ Similar code works for contrafunctors:
 
 ```dhall
 let contrafunctorProduct
-  : ∀(F : Type → Type) → (Contrafunctor F) → ∀(G : Type → Type) → (Contrafunctor G) → Contrafunctor (Product F G)
+  : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Product F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
         -- Return a function of type Pair (F b) (G b) → Pair (F a) (G a).
@@ -6501,7 +6831,7 @@ This creates a new type constructor `CoProduct F G` out of two given type constr
 
 The co-product of two functors is again a functor, and the co-product of two contrafunctors is again a contrafunctor.
 Evidence values can be constructed automatically.
-For that, it is convenient to use the function pair co-product operation `fCoProduct` defined earlier in the chapter "Programming with functions".
+For that, it is convenient to use the function pair co-product operation `fCoProduct` defined in the chapter "Programming with functions".
 
 ```dhall
 let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type) → ∀(d : Type) → (c → d) → Either a c → Either b d
@@ -6510,7 +6840,9 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
            Left = λ(x : a) → (Either b d).Left (f x),
            Right = λ(y : c) → (Either b d).Right (g y),
           } arg
+```
 
+```dhall
 let functorCoProduct
   : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Functor G → Functor (CoProduct F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(functorG : Functor G) →
@@ -6518,7 +6850,9 @@ let functorCoProduct
         -- Return a function of type Either (F a) (G a) → Either (F b) (G b).
         fCoProduct (F a) (F b) (functorF.fmap a b f) (G a) (G b) (functorG.fmap a b f)
     }
+```
 
+```dhall
 let contrafunctorCoProduct
   : ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (CoProduct F G)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
@@ -6531,7 +6865,7 @@ let contrafunctorCoProduct
 
 ### Function types with functors and contrafunctors
 
-The function-type functor `H a = F a → G a` is covariant If `F` is contravariant and `G` is covariant.
+The function-type functor `H a = F a → G a` is covariant if `F` is contravariant and `G` is covariant.
 Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
 
 For convenience, we define the `Arrow` combinator:
@@ -6549,6 +6883,9 @@ let contrafunctorFunctorArrow
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(arrowA : F a → G a) → λ(fb : F b) →
         functorG.fmap a b f (arrowA (contrafunctorF.cmap a b f fb))
     }
+```
+
+```dhall
 let functorContrafunctorArrow
   : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → Contrafunctor G → Contrafunctor (Arrow F G)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
@@ -6586,32 +6923,39 @@ let functorF1
   = λ(b : Type) → { fmap = ??? }
 ```
 
-Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`:
-
+Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`.
+Note that we only need the functor property of `F a b` with respect to `a`, while `b` is kept fixed.
+To implement a functor evidence for `G`, we use the `mapForall` function defined before.
 ```dhall
 let functorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-          let gd : G d = λ(b : Type) → (functorF1 b).fmap c d f (gc b)
-          in gd
-       }
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type G c → G d. Use mapForall P Q for that, 
+-- where P and Q are defined such that Forall P = G c and Forall Q = G d.
+      let P = F c
+      let Q = F d
+      let fPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
+      in mapForall P Q fPQ 
+    }
 ```
 
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
+We omit that code.
 
-To implement the _contrafunctor_ evidence in case `F a b` is contravariant in `b`, we write this code:
+In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evidence for `G`:
 
 ```dhall
 let contrafunctorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
-    in { cmap = λ(d : Type) → λ(c : Type) → λ(f : d → c) → λ(gc : G c) →
-          let gd : G d = λ(b : Type) → (contrafunctorF1 b).cmap d c f (gc b)
-          in gd
-       }
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type G d → G c. Use mapForall for that.
+      let P = F c
+      let Q = F d
+      let fQP : ∀(a : Type) → Q a → P a = λ(a : Type) → (contrafunctorF1 a).cmap c d f
+      in mapForall Q P fQP 
+    }
 ```
 
 Existential quantifiers have similar properties.
@@ -6622,28 +6966,31 @@ The following code defines the functor or the contrafunctor instances (as approp
 ```dhall
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
-    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gc : G c) →
-          let gd : G d = λ(r : Type) → λ(pack_ : ∀(t : Type) → F d t → r) →
-            gc r (λ(t_ : Type) → λ(fct : F c t_) → pack_ t_ ( (functorF1 t_).fmap c d f fct ))
-          in gd
-       }
-let contafunctorExists1
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type G c → G d. Use mapExists for that.
+      let P = F c
+      let Q = F d
+      let fPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
+      in mapExists P Q fPQ 
+    }
+```
+
+```dhall
+let contrafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
-    let G : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
-    -- G c means ∀(r : Type) → (∀(t : Type) → F c t → r) → r
-    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(gd : G d) →
-          let gc : G c = λ(r : Type) → λ(pack_ : ∀(t : Type) → F c t → r) →
-            gd r (λ(t : Type) → λ(fdt : F d t) → pack_ t ( (contrafunctorF1 t).cmap c d f fdt ))
-          in gc
-       }
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type G d → G c. Use mapExists for that.
+      let P = F c
+      let Q = F d
+      let fQP : ∀(a : Type) → Q a → P a = λ(a : Type) → (contrafunctorF1 a).cmap c d f
+      in mapExists Q P fQP 
+    }
 ```
 
 
-### Recursive type constructors
+### Recursive functors and contrafunctors
 
 Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
 Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
@@ -6654,7 +7001,7 @@ However, for illustration we will show the Dhall code for those instances.
 
 A least-fixpoint type constructor is defined via a recursion scheme that must be a type constructor with two type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
-(See the section "Recursive type constructors" for more details.)
+(See the section "Recursive type constructors" in the chapter "Church encoding for recursive.)
 
 Suppose `F` is a given recursion scheme with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
@@ -6667,36 +7014,94 @@ If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant a
 For those properties to hold, it does not matter whether `F a b` is covariant or contravariant in `b` (or neither).
 
 We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
+To simplify the code, we will begin by noting that both `LFix P` and `GFix P` are covariant in the type constructor `P`. 
+For any two type constructors `P` and `Q`, we can transform `LFix P → LFix Q` and `GFix P → GFix Q` given a function of type `∀(a : Type) → P a → Q a`.
+Let us implement these transformations for later use:
+```dhall
+let mapLFix
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(c : LFix P) →
+    λ(r : Type) → λ(qrr : Q r → r) → c r (λ(pr : P r) → qrr (f r pr))
+```
+
+```dhall
+let mapGFix
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → GFix P → GFix Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) →
+-- GFix P = Exists (λ(r : Type) → { seed : r, step : r → P r })
+-- Need a function of type GFix P → GFix Q. Use mapExists for that.
+    let GP = λ(a : Type) → { seed : a, step : a → P a }
+    let GQ = λ(a : Type) → { seed : a, step : a → Q a }
+    let mapGPGQ : ∀(a : Type) → GP a → GQ a = λ(a : Type) → λ(gpa : GP a) → gpa // { step = λ(x : a) → f a (gpa.step x) }
+    in mapExists GP GQ mapGPGQ
+```
+
+We can now implement the `Functor` evidence for `LFix (F a)` and `GFix (F a)`:
 ```dhall
 let functorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let C : Type → Type = λ(a : Type) → LFix (F a)
-    -- C c is the type ∀(r : Type) → (F c r → r) → r
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : C c) →
-          let y : C d = λ(r : Type) → λ(fdrr : F d r → r) →
-            x r (λ(fcr : F c r) → fdrr ((functorF1 r).fmap c d f fcr))
-          in y
-       }
-let functorGFix
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
-  = λ(F : Type  → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
-    let D : Type → Type = λ(a : Type) → GFix (F a)
-    -- D c is the type Exists (λ(r : Type) → { seed : r, step : r → F c r }), which is expanded as:
-    -- ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F c t } → r) → r
-    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → λ(x : D c) →
-          let y : D d = λ(r : Type) → λ(pack_ : ∀(t : Type) → { seed : t, step : t → F d t } → r) →
-            x r (
-              λ(t : Type) → λ(p : { seed : t, step : t → F c t }) →
-                pack_ t (p with step = (λ(a : t) → (functorF1 t).fmap c d f (p.step a)))
-            ) 
-          in y
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type C c → C d. Use mapLFix for that.
+-- Define P and Q such that LFix P = C c and LFix Q = C d.
+          let P = F c
+          let Q = F d
+          let mapPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
+          in mapLFix P Q mapPQ
        }
 ```
 
-Contrafunctor instances can be computed by similar code that we will omit.
+```dhall
+let functorGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+    let D : Type → Type = λ(a : Type) → GFix (F a)
+    in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type D c → D d. Use mapGFix for that.
+-- Define P and Q such that GFix P = D c and GFix Q = D d.
+          let P = F c
+          let Q = F d
+          let mapPQ : ∀(a : Type) → P a → Q a = λ(a : Type) → (functorF1 a).fmap c d f
+          in mapGFix P Q mapPQ
+       }
+```
 
-## Filterable functors and contrafunctors, and their combinators
+Contrafunctor instances for recursive types can be computed by similar code.
+Note that the recursion scheme `F` must be still covariant in the type parameter on which we impose the fixpoint:
+If `F a b` is contravariant in `a` and covariant in `b` then both `LFix (F a)` and `GFix (F a)` are contravariant in `a`.
+
+```dhall
+let contrafunctorLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let C : Type → Type = λ(a : Type) → LFix (F a)
+    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type C d → C c. Use mapLFix for that.
+-- Define P and Q such that LFix P = C c and LFix Q = C d.
+          let P = F c
+          let Q = F d
+          let mapQP : ∀(a : Type) → Q a → P a = λ(a : Type) → (contrafunctorF1 a).cmap c d f
+          in mapLFix Q P mapQP
+       }
+```
+
+```dhall
+let contrafunctorGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+    let D : Type → Type = λ(a : Type) → GFix (F a)
+    in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
+-- Need a function of type D d → D c. Use mapGFix for that.
+-- Define P and Q such that GFix P = D c and GFix Q = D d.
+          let P = F c
+          let Q = F d
+          let mapQP : ∀(a : Type) → Q a → P a = λ(a : Type) → (contrafunctorF1 a).cmap c d f
+          in mapGFix Q P mapQP
+       }
+```
+
+## Filterable (contra)functors and their combinators
 
 Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
 ```dhall
@@ -6705,9 +7110,10 @@ let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7,
 ```
 
 The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
+
 It turns out to be more convenient to define `filter` through another function called `deflate`.
 
-A **filterable functor** `F` has a method called `deflate`, with the following type signature:
+We define a **filterable functor** `F` as a (covariant) functor with and additional method called `deflate`, which has the following type signature:
 
 `deflate : F (Optional a) → F a`
 
@@ -6742,7 +7148,7 @@ let cfilter
 ```
 
 The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
-That book also shows various combinators that create new lawful `Filterable` and `Contrafilterable` instances out of previous ones.
+That book also shows various combinators that create new `Filterable` and `Contrafilterable` instances out of previous ones, and proves that the resulting instances always obey the laws.
 Here, we will focus on implementing those combinators in Dhall.
 
 ### Constant filterable (contra)functors
@@ -6757,36 +7163,697 @@ let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
   = λ(c : Type) → contrafunctorConst c /\ { inflate = λ(a : Type) → identity c }  
 ```
 
-### Filterable functor composition
+### Filterable (contra)functor composition
 
-If `F` is a filterable functor and `G` is any functor (not necessarily filterable) then the composition functor `Compose G F` is filterable:
+If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable.
+We may implement a `Filterable` instance like this:
 
 ```dhall
 let filterableFunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F →  ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)  
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) } 
 ```
+In this code, we have reused the function `functorFunctorCompose` from the previous chapter, in order to create a `Functor` typeclass evidence for `Compose G F`.
+Then we use the record concatenation operator (`/\`) to add a `deflate` field to the record. 
+
+Similar constructions work for filterable contrafunctors.
+In general, `Compose G F` is filterable as long as `F` is filterable, regardless of `G`.
+There are four possible cases, depending on covariance or contravariance of `F` and `G`:
+
+- If `F` is a filterable functor and `G` is any functor then `Compose G F` is a filterable functor.
+- If `F` is a filterable functor and `G` is any contrafunctor then `Compose G F` is a filterable contrafunctor.
+- If `F` is a filterable contrafunctor and `G` is any functor then `Compose G F` is a filterable contrafunctor.
+- If `F` is a filterable contrafunctor and `G` is any contrafunctor then `Compose G F` is a filterable functor.
+
+For the first case, we just saw the code for a `Filterable` instance.
+Here is the corresponding code for the remaining three cases:
+
+```dhall
+let filterableContrafunctorFunctorCompose
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)  
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) }
+```
+
+```dhall
+let filterableFunctorContrafunctorCompose
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)  
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
+    functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
+```
+
+```dhall
+let filterableContrafunctorContrafunctorCompose
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)  
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
+    contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) } 
+```
+
+In addition to these general combinators that work with any filterable functors or contrafunctors, there are two special combinators that compose `Optional` with other functors:
+
+1) If `F` is _any functor_ then `Compose F Optional` is a filterable functor.
+For clarity, we may define that new functor as `G a = F (Optional a)`.
+The functor `G` is known as the "free filterable functor on `F`".
+Let us implement a `Filterable` evidence for `G`:
+```dhall
+let Optional/concat = https://prelude.dhall-lang.org/Optional/concat
+let freeFilterable
+  : ∀(F : Type → Type) → Functor F → Filterable (Compose F Optional)  
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    functorFunctorCompose F functorF Optional functorOptional /\ { deflate = λ(a : Type) →
+-- Need a function of type F (Optional (Optional a)) → F (Optional a).
+      functorF.fmap (Optional (Optional a)) (Optional a) (Optional/concat a) } 
+```
+
+2) If `F` is any polynomial functor (not necessarily filterable) then `Compose Optional F` is a filterable functor.
+We may define the new functor as `G a = Optional (F a)`. 
+To implement a `Filterable` evidence for `G`, we need a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
+Such a function can be always implemented for any polynomial functor `F`.
+(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
+```dhall
+let Optional/map = https://prelude.dhall-lang.org/Optional/map
+let swapFilterable
+  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)  
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) →
+     functorFunctorCompose Optional functorOptional F functorF /\  { deflate = λ(a : Type) →
+-- Need a function of type Optional (F (Optional a)) → Optional (F a).
+      λ(ofoa : Optional (F (Optional a))) → Optional/concat (F a) (Optional/map (F (Optional a)) (Optional (F a)) (swap a) ofoa) }
+```
+
+### Filterable (contra)functor (co-)products
+
+When a new type constructor is created via a product or a co-product, the filterable property is preserved. There are four cases:
+
+1) The product of two filterable functors is again a filterable functor:
+```dhall
+let filterableFunctorProduct
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (Product F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
+```
+
+2) The product of two filterable contrafunctors is again a filterable contrafunctor:
+```dhall
+let filterableContrafunctorProduct
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    contrafunctorProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
+```
+
+3) The co-product of two filterable functors is again a filterable functor:
+```dhall
+let filterableFunctorCoProduct
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Filterable G → Filterable (CoProduct F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    functorCoProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fCoProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
+```
+
+4) The co-product of two filterable contrafunctors is a filterable contrafunctor:
+```dhall
+let filterableContrafunctorCoProduct
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (CoProduct F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    contrafunctorCoProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fCoProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
+```
+
+### Function types with filterable (contra)functors
+
+When a new type constructor has a function type, the filterable property is preserved.
+To define the new functor or contrafunctor, we use the `Arrow` combinator shown in the previous chapter.
+
+Suppose `F` is a filterable functor and `G` is a filterable contrafunctor.
+Then we can consider two new type constructors: `Arrow F G` and `Arrow G F`.
+It turns out that `Arrow F G` is a filterable contrafunctor, while `Arrow G F` is a filterable functor.
+The typeclass evidence values can be constructed automatically. For that, we reuse the functor combinators defined in the previous chapter:
+```dhall
+let filterableFunctorContrafunctorArrow
+  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F G)
+  = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    functorContrafunctorArrow F filterableF.{fmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → λ(x : F a → G a) → λ(foa : F (Optional a)) → contrafilterableG.inflate a (x (filterableF.deflate a foa)) }
+```
+
+```dhall
+let filterableContrafunctorFunctorArrow
+  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Filterable G → Filterable (Arrow F G)
+  = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(filterableG : Filterable G) →
+    contrafunctorFunctorArrow F contrafilterableF.{cmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → λ(x : F (Optional a) → G (Optional a)) → λ(fa : F a) → filterableG.deflate a (x (contrafilterableF.inflate a fa)) }
+```
+
+In addition to the `Arrow` combinator that works with any filterable functors or contrafunctors, there exists a special construction with a function type:
+If `F` is any polynomial functor (not necessarily filterable) and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
+This construction requires a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
+Such a function can be always implemented for any polynomial functor `F`.
+(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
+```dhall
+let filterableContrafunctorSwap
+  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F (Compose Optional G))
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) → λ(G : Type → Type) → λ(contrafilterableG : ContraFilterable G) →
+    functorContrafunctorArrow F functorF (Compose Optional G) (functorContrafunctorCompose Optional functorOptional G contrafilterableG.{cmap}) /\ { inflate = λ(a : Type) →
+-- We need a function of type (F a → Optional (G a)) → F (Optional a) → Optional (G (Optional a)).
+     λ(x : F a → Optional (G a)) → λ(foa : F (Optional a)) → Optional/map (G a) (G (Optional a)) (contrafilterableG.inflate a) (Optional/concat (G a) (Optional/map (F a) (Optional (G a)) x (swap a foa))) }
+```
+
+### Universal and existential type quantifiers
+
+If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
+This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+
+Imposing a quantifier on `y` will preserve the filterable properties of the type `F x y` with respect to `x`.
+It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
+
+So, we have four cases:
+
+1) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $G$ is a filterable functor.
+```dhall
+let filterableForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Forall (F a)
+    in (functorForall1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) →
+-- Need a function of type G (Optional a) → G a. Use mapForall for that.
+-- Define P and Q such that Forall P = G (Optional a) and Forall Q = G a.
+      let P = F (Optional a)
+      let Q = F a
+      let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a 
+      in mapForall P Q mapPQ
+     }
+```
+
+2) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $G$ is a filterable contrafunctor.
+```dhall
+let contrafilterableForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Forall (F a)
+    in (contrafunctorForall1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
+-- Need a function of type G a → G (Optional a). Use mapForall for that.
+      let P = F (Optional a)
+      let Q = F a
+      let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a 
+      in mapForall Q P mapQP
+     }
+```
+
+3) If $F ~ x ~ y$ is a filterable functor with respect to $x$ then $H$ is a filterable functor.
+```dhall
+let filterableExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (F a)
+    in (functorExists1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) →
+-- Need a function of type H (Optional a) → H a. Use mapExists for that.
+-- Define P and Q such that Exists P = H (Optional a) and Exists Q = H a.
+      let P = F (Optional a)
+      let Q = F a
+      let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a 
+      in mapExists P Q mapPQ
+     }
+```
+
+4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $H$ is a filterable contrafunctor.
+```dhall
+let contrafilterableExists1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    in (contrafunctorExists1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
+-- Need a function of type H a → H (Optional a). Use mapExists for that.
+      let P = F (Optional a)
+      let Q = F a
+      let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a 
+      in mapExists Q P mapQP
+     }
+```
+
+### Recursive filterable type constructors
+
+Recursive type constructors are defined via `LFix` or `GFix` from recursion schemes, which are type constructors `F` with two type parameters (so that `F a b` is a type).
+
+Imposing a fixpoint on one type parameter will preserve the filterable property with respect to the other type parameter.
+Define the type constructors `C` and `D` as `C a = LFix (F a)` and `D a = GFix (F a)`.
+Then we need to consider four cases:
+
+1) If `F a b` is covariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let filterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type C (Optional a) → C a. Use mapLFix for that.
+-- Define P and Q such that LFix P = C (Optional a) and LFix Q = C a.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapLFix P Q mapPQ
+       }
+```
+
+2) If `F a b` is covariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let filterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type D (Optional a) → D a. Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapGFix P Q mapPQ
+       }
+```
+
+3) If `F a b` is contravariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let contrafilterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorLFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type C a → C (Optional a). Use mapLFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapLFix Q P mapQP
+       }
+```
+
+4) If `F a b` is contravariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let contrafilterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorGFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type D a → D (Optional a). Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapGFix Q P mapQP
+       }
+```
+
+
+## Applicative type constructors and their combinators
+
+The familiar `zip` method for lists works by transforming a pair of lists into a list of pairs.
+It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
+In the functional programming community, pointed type constructors with a suitable `zip` method are called "applicative".
+
+We defined the `Applicative` typeclass in the "Typeclasses" chapter:
+
+```dhall
+let Applicative = λ(F : Type → Type) →
+  { unit : F {}
+  , zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
+  }
+```
+This typeclass does not assume that `F` is a covariant or contravariant functor, and may be used together with `Functor` or `Contrafunctor` typeclass when required.
+
+If `F` is a functor, we may derive other often used methods of applicative functors, such as `pure`, `ap`, and `map2`:
+
+```dhall
+let pureForApplicativeFunctor
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → a → F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(x : a) →
+      functorF.fmap {} a (λ(_ : {}) → x) applicativeF.unit
+```
+
+```dhall
+let apForApplicativeFunctor
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(fab : F (a → b)) → λ(fa : F a) →
+      let pairs : F (Pair (a → b) a) = applicativeF.zip (a → b) fab a fa
+      in functorF.fmap (Pair (a → b) a) b (λ(p : Pair (a → b) a) → p._1 p._2) pairs
+```
+
+```dhall
+let map2ForApplicativeFunctor
+  : ∀(F : Type → Type) → Functor F → Applicative F → ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → F a → F b → F c
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(abc : a → b → c) → λ(fa : F a) → λ(fb : F b) →
+      let pairs : F (Pair a b) = applicativeF.zip a fa b fb
+      in functorF.fmap (Pair a b) c (λ(p : Pair a b) → abc p._1 p._2) pairs
+```
+
+As an example, let us implement an `Applicative` typeclass evidence for the polynomial type constructor `C` defined by:
+```dhall
+let C = λ(a : Type) → { id : Natural, x : a, y : a }
+let applicativeC : Applicative C = {
+  unit = { id = 0, x = {=}, y = {=} }
+, zip = λ(a : Type) → λ(fa : C a) → λ(b : Type) → λ(fb : C b) →
+  { id = fa.id + fb.id
+  , x = { _1 = fa.x, _2 = fb.x }
+  , y = { _1 = fa.y, _2 = fb.y }
+  }
+}
+```
+We will see later in this chapter that all polynomial functors (with monoidal constant types) are applicative.
+
+If `F` is a contrafunctor, we cannot define `ap` or `map2`, but we can still define `pure` and a function called `cpure` with a simpler type:
+```dhall
+let cpureForApplicativeContrafunctor
+  : ∀(F : Type → Type) → Contrafunctor F → Applicative F → ∀(a : Type) → F a
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(applicativeF : Applicative F) → λ(a : Type) →
+      contrafunctorF.cmap a {} (λ(_ : a) → {=}) applicativeF.unit 
+let pureForApplicativeContrafunctor
+  : ∀(F : Type → Type) → Contrafunctor F → Applicative F → ∀(a : Type) → a → F a
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(applicativeF : Applicative F) → λ(a : Type) → λ(_ : a) →
+      contrafunctorF.cmap a {} (λ(_ : a) → {=}) applicativeF.unit
+```
+
+An example of an applicative type constructor that is neither covariant nor contravariant is `Monoid`.
+(The type constructor `Monoid` describes typeclass evidence values for monoidal types.)
+We have seen in Chapter "Typeclasses" that the `Monoid` type constructor admits an `Applicative` typeclass evidence.
+
+Let us now find out what combinators exist for creating new applicative type constructors out of previously given ones.
+
+### Constant (contra)functors and the identity functor
+
+A constant type constructor (`Const T`) is at once a functor and a contrafunctor.
+It is applicative as long as `T` is a monoidal type.
+
+```dhall
+let applicativeConst
+  : ∀(T : Type) → Monoid T → Applicative (Const T)
+  = λ(T : Type) → λ(monoidT : Monoid T) →
+    { unit = monoidT.empty
+    , zip = λ(a : Type) → λ(x : Const T a) → λ(b : Type) → λ(y : Const T b) →
+      monoidT.append x y
+    }
+```
+
+
+The identity functor (`Id`) is applicative.
+
+```dhall
+let applicativeId : Applicative Id
+  = { unit = {=}
+    , zip = λ(a : Type) → λ(x : Id a) → λ(b : Type) → λ(y : Id b) →
+      { _1 = x, _2 = y }
+    }
+```
+
+### Products and co-products
+
+If `P` and `Q` are applicative then so is their product (`Product P Q`).
+
+```dhall
+let applicativeProduct
+  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (Product P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+    let R = λ(a : Type) → { _1 : P a, _2 : Q a } -- Same as Product P Q a.
+    in { unit = { _1 = applicativeP.unit, _2 = applicativeQ.unit } 
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+         { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
+       }
+```
+This works equally well for any type constructors (not necessarily covariant).
+
+Co-products of applicative functors are _not_ always applicative.
+
+There are three cases when co-products are applicative:
+
+1) A co-product with a constant applicative functor: `CoProduct P (Const T)` where `P` is applicative and `T` is a monoidal type.
+The result is an applicative type constructor `R`, of the same variance as `P`, such that `R a = Either (P a) T`.
+
+```dhall
+let applicativeCoProductConst
+  : ∀(P : Type → Type) → Applicative P → ∀(T : Type) → Monoid T → Applicative (CoProduct P (Const T))
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(T : Type) → λ(monoidT : Monoid T) →
+    let R = λ(a : Type) → Either (P a) T -- Same as CoProduct P (Const T) a.
+    in { unit = (R {}).Left applicativeP.unit
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           merge {
+             Left = λ(pa : P a) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+               , Right = λ(t : T) → (R (Pair a b)).Right t
+             } y
+           , Right = λ(tx : T) → merge {
+               Left = λ(pb : P b) → (R (Pair a b)).Right tx
+             , Right = λ(ty : T) → (R (Pair a b)).Right (monoidT.append tx ty)
+             } y
+           } x
+       }
+```
+
+2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative and `P` is a functor.
+The result is an applicative functor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
+
+```dhall
+let applicativeCoProductWithId
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (CoProduct P (Product Id Q))
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+      let R = λ(a : Type) → Either (P a) { _1 : a, _2 : Q a } -- Same as CoProduct P (Product Id Q) a.
+      let pure_P = pureForApplicativeFunctor P functorP applicativeP
+      in { unit = (R {}).Right { _1 = {=}, _2 = applicativeQ.unit }
+         , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+             merge {
+               Left = λ(pa : P a) → merge {
+                   Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+                 , Right = λ(pair : { _1 : b, _2 : Q b }) → (R (Pair a b)).Left (applicativeP.zip a pa b (pure_P b pair._1))
+               } y
+             , Right = λ(pair_x : { _1 : a, _2 : Q a }) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a (pure_P a pair_x._1) b pb)
+               , Right = λ(pair_y : { _1 : b, _2 : Q b }) → (R (Pair a b)).Right { _1 = { _1 = pair_x._1, _2 = pair_y._1 }, _2 = applicativeQ.zip a pair_x._2 b pair_y._2 }
+               } y
+             } x
+         }
+```
+
+3) A co-product of applicative _contrafunctors_ `P` and `Q`.
+The result is an applicative contrafunctor `R` such that `R a = Either (P a) (Q a)`.
+
+```dhall
+let applicativeContrafunctorCoProduct
+  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Contrafunctor Q → Applicative (CoProduct P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) → λ(contrafunctorQ : Contrafunctor Q) →
+      let R = λ(a : Type) → Either (P a) (Q a) -- Same as CoProduct P Q a.
+      in { unit = (R {}).Left applicativeP.unit
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           merge {
+             Left = λ(pa : P a) → merge {
+                 Left = λ(pb : P b) → (R (Pair a b)).Left (applicativeP.zip a pa b pb)
+               , Right = λ(qb : Q b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) b (take_2 a b) qb)
+             } y
+           , Right = λ(qa : Q a) → merge {
+               Left = λ(pb : P b) → (R (Pair a b)).Right (contrafunctorQ.cmap (Pair a b) a (take_1 a b) qa)
+             , Right = λ(qb : Q b) → (R (Pair a b)).Right (applicativeQ.zip a qa b qb)
+             } y
+           } x
+       }
+```
+
+
+### Functor and contrafunctor composition
+
+Composition of type constructors preserves the applicative property if the _first_ type constructor is a functor.
+For example, if `P` and `Q` are both applicative functors then so is `Compose P Q`.
+If `P` is an applicative functor and `Q` is an applicative contrafunctor then `Compose P Q` is an applicative contrafunctor.
+```
+let applicativeFunctorCompose
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (Compose P Q)  
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+    let R = λ(a : Type) → P (Q a)
+    let pure_P = pureForApplicativeFunctor P functorP applicativeP
+    let map2_P = map2ForApplicativeFunctor P functorP applicativeP
+    in { unit = pure_P (Q {}) (applicativeQ.unit)
+       , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
+           map2_P (Q a) (Q b) (Q (Pair a b)) (λ(qa : Q a) → λ(qb : Q b) → applicativeQ.zip a qa b qb) x y
+       }
+```
+
+In other cases (such as the composition of two applicative contrafunctors), the result is not necessarily applicative.
+A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types that are assumed to be different and unrelated.
+Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative.
+
+When `p` and `q` were the same type, `p = q`, the functor `R a = (a → p) → p` _is_ applicative.
+(It is known as the "continuation monad", and every monad in Dhall is also an applicative functor.)
+
+### Reverse applicative functors and contrafunctors
+
+For any applicative (contra)functor `P` with a given `zip` operation, one can define the `zip` operation in the reverse order.
+The result is another lawful implementation of the applicative property of the functor.
+
+We can define the "reversing" operation via general combinators that transform a given `Applicative` evidence into the reversed one:
+```dhall
+let reverseApplicativeFunctor
+  : ∀(P : Type → Type) → Applicative P → Functor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      functorP.fmap (Pair b a) (Pair a b) (swap b a) (applicativeP.zip b y a x) }
+```
+
+```dhall
+let reverseApplicativeContrafunctor
+  : ∀(P : Type → Type) → Applicative P → Contrafunctor P → Applicative P
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(contrafunctorP : Contrafunctor P) →
+    applicativeP // { zip = λ(a : Type) → λ(x : P a) → λ(b : Type) → λ(y : P b) →
+      contrafunctorP.cmap (Pair a b) (Pair b a) (swap a b) (applicativeP.zip b y a x) }
+```
+
+For some applicative (contra)functors `P`, reversing does not change their `zip` operation.
+Such `P` are called _commutative_ applicative.
+Examples are `P a = a → m` where `m` is a commutative monoid.
+
+### Function types
+
+Here, we consider creating a new type constructor `R` via the `Arrow` combinator, `R = Arrow P Q`
+(which is equivalent to `R a = P a → Q a`).
+Generally `R` will not be applicative.
+It is known that `R` is applicative in certain cases:
+
+1) If `P` is an applicative functor and `Q` is an applicative type constructor (of any variance) then `R` is applicative.
+
+```dhall
+let arrowFunctorApplicative
+  : ∀(P : Type → Type) → Applicative P → Functor P → ∀(Q : Type → Type) → Applicative Q → Applicative (Arrow P Q)
+  = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(functorP : Functor P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
+    let R = λ(a : Type) → P a → Q a -- Same as R = Arrow P Q.
+    in { unit = λ(_ : P {}) → applicativeQ.unit
+       , zip = λ(a : Type) → λ(ra : R a) → λ(b : Type) → λ(rb : R b) →
+           λ(pab : P (Pair a b)) →
+             let pa : P a = functorP.fmap (Pair a b) a (take_1 a b) pab
+             let pb : P b = functorP.fmap (Pair a b) b (take_2 a b) pab
+             in applicativeQ.zip a (ra pa) b (rb pb)
+       }
+```
+
+2) If `P` is _any_ contrafunctor (not necessarily applicative) then `Arrow P Id` is an applicative functor.
+The new type constructor `R` has the form `R a = P a → a`. 
+
+```dhall
+let arrowContrafunctorIdApplicative
+  : ∀(P : Type → Type) → Contrafunctor P → Applicative (Arrow P Id)
+  = λ(P : Type → Type) → λ(contrafunctorP : Contrafunctor P) →
+    let R = λ(a : Type) → P a → a -- Same as R = Arrow P Id.
+    in { unit = λ(_ : P {}) → {=}
+       , zip = λ(a : Type) → λ(ra : R a) → λ(b : Type) → λ(rb : R b) →
+           λ(pab : P (Pair a b)) →
+             let g : a → R (Pair a b) = λ(x : a) → λ(pab : P (Pair a b)) → { _1 = x, _2 = rb (contrafunctorP.cmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) pab) }
+             let aab : a → Pair a b = λ(x : a) → g x pab 
+             let pa : P a = contrafunctorP.cmap a (Pair a b) aab pab 
+             in g (ra pa) pab
+       }
+```
+
+### Universal and existential type quantifiers
 
 TODO
 
-## Applicative functors and contrafunctors, and their combinators
+### Least fixpoint types
 
-## Monoids and their combinators
+Implementing a `zip` method for recursive type constructors turns out to take quite a bit of work.
+In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
 
-## Traversable functors and their combinators
+Given a recursion scheme bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
+```dhall
+let F = λ(a : Type) → λ(b : Type) → ???
+let C = λ(a : Type) → LFix (F a)
+```
+The type signature of `zip` for `C` must be:
+```dhall
+let zip_C : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
+```
+
+It turns out that we can implement an `Applicative` evidence for the functor `C` if the bifunctor `F` supports two functions that we will call `bizip_F1` and  `bizip_FC`.
+Those functions express a certain kind of applicative-like property for `F`.
+
+The function `bizip_F1` must have the type signature:
+```dhall
+let bizip_F1 : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r = ???
+```
+This type is similar to the `zip` function except it works only with the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
+The function `bizip_F1` is not required to satisfy any laws.
+
+The function `bizip_FC` must have the type signature:
+```dhall
+let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b) = ???
+```
+The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
+So, it is similar to `zip` that works at the same time with both type parameters of `F`.
+However, functions with the type `F a r → F b s → F (Pair a b) (Pair r s)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `F`.
+
+In addition, we require a function for computing the recursion depth of a value of type `C a`.
+That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `max : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
+The function `max` is available for any given polynomial bifunctor `F`.
+
+For illustration, let us implement these functions for `F a r = Either a (Pair r r)`.
+
+The function `bizip_F1` can be implemented in any way whatsoever, as it does not need to satisfy any laws.
+For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
+```dhall
+let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
+let bizip_F1
+  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
+     merge {
+       Left = λ(x : a) → merge {
+         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
+       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+       } fbr
+     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+     } far
+```
+
+The function `bizip_FC` is implemented similarly to a lawful `zip` method. Arguments are never discarded.
+When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
+A `Functor` typeclass evidence for `C` is produced automatically from a `Bifunctor` evidence for `F`:
+```dhall
+let C = λ(a : Type) → LFix (F a)
+let bifunctorF : Bifunctor F = ???
+let functorC : Functor C = ???
+let bizip_FC1
+  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
+     merge {
+       Left = λ(x : a) → merge {
+         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
+       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+       } fbr
+     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+     } far
+```
+
+
+## Traversable functors
 
 ## Monads and their combinators
 
 ## Monad transformers
 
-## Free typeclasses
+## Free typeclass instances
+
+Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not necessarily belong to that typeclass.
+
+For example, a "free monoid on `T`" is the type `List T`.
+The type `List T` is always a monoid, even if `T` is not a monoid.
+So, the "free monoid on `T`" is a construction that creates a monoidal type out of any given type `T`. It works by wrapping the type `T` inside the `List` functor.
+
+Other "free typeclass" constructions work similarly: they take a given type and wrap it inside some other type constructors such that the result always belongs to the required typeclass.
+To qualify as a free typeclass, the wrapping must satisfy certain laws that we will not discuss here.
+See Chapter 13 of "The Science of Functional Programming" for full details.
+
+As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
+This construction takes an arbitrary type `T` and produces a monoid `Optional T`.
+So, `Optional T` can be also described as a "wrapping" that always produces a monoid.
+But it is not the free monoid on `T` because it does not satisfy some of the required laws.
+
+A well known example of a free typeclass is the "free monad on a functor `F`", which wraps any given functor `F` into suitable type constructors, creating a new functor that is always a monad.
+
+This chapter will show how to construct free instances for many of the frequently used typeclasses.
+Keep in mind that not all typeclasses can have free instances.
+Examples of typeclasses that do not support free instances are `Show`, `Comonad`, and `Traversable`.
 
 ### Free semigroup and free monoid
 
 ### Free monad
 
 ### Free functor
+
+### Free pointed functor
 
 ### Free filterable
 
@@ -6822,7 +7889,7 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 ```
 In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
-Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant.
+Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant (and when the function satisfies the naturality law).
 
 
 If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
@@ -7551,7 +8618,7 @@ unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
   -- Use the isomorphism law: unfix_R (fix_R fr) === fr
 fmap_F c2r (unfix_C c) === unfix_R (c2r c)
 ```
-We obtain equation (2).
+We obtain equation (2). $\square$
 
 The next statement gives a necessary and sufficient condition for the existence of the least fixpoint of a given functor.
 
@@ -7563,13 +8630,14 @@ The intuitive picture is that the type `F <>` supplies the base cases of inducti
 
 ###### Proof
 
-The proof needs two parts:
+The proof goes in two parts:
 
-1. To show that `LFix F` is non-void if `F <>` is non-void.
-2. To show that `LFix F` is void if `F <>` is void.
+1) To show that `LFix F` is non-void if `F <>` is non-void.
 
-The proof of part (1) is constructive: we can explicitly create a value of type `LFix F` out of a value of type `F <>`.
-For that, we just implement a function with the type signature `F <> → LFix F`:
+2) To show that `LFix F` is void if `F <>` is void.
+
+To prove part (1), we show that one may compute a value of type `LFix F` out of a given value of type `F <>`.
+In other words, one may implement a function with the type signature `F <> → LFix F`:
 
 ```dhall
 let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
@@ -7577,35 +8645,22 @@ let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
     frr (functorF.fmap <> r (absurd r) fv)
 ```
 
-The proof of part (2) is _not_ constructive: we cannot implement a function of type `LFix F → F <>` that explicitly derives a value of type `F <>` out of a given value of type `LFix F`.
-Instead, the proof goes by assuming that `F <>` is void and then showing (by contradiction) that `LFix F` is also void.
+To prove part (2), we need to assume that the type `F <>` is void.
+A type `X` is void if and only if we can implement a function of type `X → <>`.
+So, we will prove part (2) if we implement a function with type signature `(F <> → <>) → LFix F → <>`.
+The code is straightforward; we simply apply a value of type `LFix F` to the void type.
+```dhall
+let fVoidVoidToLFixVoid : ∀(F : Type → Type)  → (F <> → <>) → LFix F → <>
+  = λ(F : Type → Type) → λ(p : F <> → <>) → λ(c : LFix F) →
+    c <> p
+```
+For this part of the proof, we do not need to use the functor property of `F`.
 
-Apply the type `LFix F = ∀(r : Type) → (F r → r) → r` to the void type (`r = <>`):
-
-`LFix F <> = (F <> → <>) → <>`
-
-By assumption, `F <> ≅ <>`, and so we get:
-
-`LFix F <> ≅ (<> → <>) → <>`
-
-Notice that we _do_ have a value of type `<> → <>`, namely, an identity function for the void type (`identity <>`).
-
-So, the type `<> → <>` is not void.
-It follows that a function from `<> → <>` to `<>` is impossible (if it were possible, we would have applied that function to the value `identity <>` and obtained a value of the void type).
-
-In other words, the type `(<> → <>) → <>` is void, and so is `LFix F <>`.
-
-Now, if the type `LFix F` were non-void, we could have a value `c : LFix F`.
-Applying that value `c` to the void type, we will get a value `c <>` of type `LFix F <>`.
-But we just showed that the type `LFix F <>` is void and cannot have any values.
-
-So, our assumptions cannot be correct: if `F <>` is void then `LFix F` cannot be non-void.
-This contradiction proves the statement.
 
 ### The Church-Yoneda identity
 
 The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identities cannot be used with types of that form.
+The Yoneda identities do not apply to types of that form.
 
 There is a generalized identity (without a widely accepted name) that combines both forms of types.
 This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
@@ -7616,7 +8671,7 @@ This book calls it the **Church-Yoneda identity** because of the similarity to b
 Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are assumed to be arbitrary covariant functors.
 It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law** that follows from the parametricity theorem.
 
-The Church-Yoneda identity is mentioned in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 as "proposition 1" in the paper by T. Uustalu.
+The Church-Yoneda identity is mentioned as "proposition 1" in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 of the paper by T. Uustalu.
 
 In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
 

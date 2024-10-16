@@ -158,6 +158,7 @@ assert(factorial(BigInt(10)) == BigInt(3628800))
 - [x] Converting Dhall values to Scala values: basic support is complete.
 - [x] Standalone executable JAR with command-line arguments for type-checking, evaluating, and exporting Dhall expressions. 
 - [x] Converting Dhall to YAML and JSON: complete.
+- [x] Converting Dhall to TOML: basic support is complete.
 
 ### Experimental features and optimizations
 
