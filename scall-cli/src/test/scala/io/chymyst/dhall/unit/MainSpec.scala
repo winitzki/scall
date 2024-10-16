@@ -154,6 +154,20 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
     requireSuccessAtLeast(totalTests = 10, results, allowFailures = 0)
   }
 
+  test("toml output for records") {
+    expect(runMain("{ a = 1 }", "toml") == "a = 1\n")
+    expect(runMain("{ a = { b = 1 } }", "toml") == "[a]\nb = 1\n")
+  }
+
+  test("fail to export toml if Dhall expression contains unsupported types") {
+    expect(runMain("{ a = Natural, b = 2 }", "toml") == "Error: Unsupported expression type for TOML export: Natural, must be a record literal.\n")
+    expect(
+      runMain("{ a = 1, b = \\(x : Bool) -> x }", "toml") == "Error: Unsupported expression type for TOML export: λ(x : Bool) → x, must be a record literal.\n"
+    )
+    expect(runMain("{ a = Type }", "toml") == "Error: Unsupported expression type for TOML export: Type, must be a record literal.\n")
+    expect(runMain("[ 1, 2, 3]", "toml") == "Error: Unsupported expression type for TOML export: [1, 2, 3], must be a record literal.\n")
+  }
+
   test("parse command-line argument") {
     import OutputMode._
     Seq(
@@ -166,6 +180,7 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
       Array("encode", "text") -> Text,
       Array("decode")         -> Decode,
       Array("yaml")           -> Yaml,
+      Array("toml")           -> Toml,
       Array("unrecognized")   -> Dhall,
     ).foreach { case (args, mode) =>
       expect(Main.parseArgs(args) == mode)

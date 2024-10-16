@@ -90,6 +90,7 @@ object Main {
   def parseArgs(args: Array[String]): OutputMode = args.lastOption match {
     case Some("text")   => OutputMode.Text
     case Some("yaml")   => OutputMode.Yaml
+    case Some("toml")   => OutputMode.Toml
     case Some("json")   => OutputMode.Json
     case Some("decode") => OutputMode.Decode
     case Some("encode") => OutputMode.Encode
