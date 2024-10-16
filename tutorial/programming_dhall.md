@@ -4142,18 +4142,20 @@ As another example, we will show how to compute the size of a Church-encoded dat
 
 ### Computing the size of a recursive data structure
 
-The curried Church encoding for binary trees with `Natural`-valued leaves is:
+To motivate the method for computing the size of an arbitrary Church-encoded type, we
+first consider a specific recursive data structure: a binary trees with `Natural`-valued leaves.
+The type `TreeNat` is defined by:
 
 ```dhall
 let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
 ```
-
-The present task is to compute various numerical measures characterizing the tree's data.
+Values of this type can store one or more `Natural` numbers.
+The present task is to compute various numerical measures characterizing the tree's stored data.
 
 We will consider three possible size computations:
 
 - The sum of all natural numbers stored in the tree. (`treeSum`)
-- The total number of leaves in the tree. (`treeCount`)
+- The total number of data items in the tree. (`treeCount`)
 - The maximum depth of leaves. (`treeDepth`)
 
 Each computation is a fold-like aggregation, so we will implement all of them via similar-looking code:
@@ -4176,6 +4178,9 @@ let treeDepth : TreeNat → Natural =
 ```
 
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
+
+TODO
+
 
 ### Pattern matching
 
@@ -5895,7 +5900,7 @@ So, this function itself is different at each iteration, and `Natural/fold` will
 
 We will proceed in two phases:
 
-- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation of `hylo_Nat`.
+- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation via `hylo_Nat`.
 - Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
 
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
