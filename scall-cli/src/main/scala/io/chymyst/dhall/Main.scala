@@ -108,13 +108,13 @@ object Main {
     file: Option[String],
     @arg(short = 'o', doc = "Path to the output file (default: stdout)")
     output: Option[String],
-    @arg(short = 'q', doc = "Quote all strings (for Yaml output only; default is false)")
+    @arg(short = 'q', doc = "Quote all strings (for YAML output only; default is false)")
     quoted: Flag,
-    @arg(short = 'd', doc = "Create a Yaml file with document separators (for Yaml output only; default is false)")
+    @arg(short = 'd', doc = "Create a YAML file with document separators (for YAML output only; default is false)")
     documents: Flag,
-    @arg(short = 'i', doc = "Indentation depth for JSON and Yaml (default: 2)")
+    @arg(short = 'i', doc = "Indentation depth for JSON and YAML (default: 2)")
     indent: Option[Int],
-    @arg(doc = "Optional command: decode, encode, hash, text, type, yaml, json")
+    @arg(doc = "Optional command: decode, encode, hash, text, type, json, yaml, toml")
     command: Leftover[String],
   ): Unit = {
     val (inputPath, inputStream) = file match {
