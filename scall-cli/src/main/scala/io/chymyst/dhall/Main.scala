@@ -14,15 +14,24 @@ import sourcecode.{File => SourceFile, Line => SourceLine}
 object Main {
 
   sealed trait OutputMode
+
   object OutputMode {
-    case object Dhall   extends OutputMode
-    case object Text    extends OutputMode
-    case object Yaml    extends OutputMode
-    case object Json    extends OutputMode
-    case object Toml    extends OutputMode
-    case object Decode  extends OutputMode
-    case object Encode  extends OutputMode
+    case object Dhall extends OutputMode
+
+    case object Text extends OutputMode
+
+    case object Yaml extends OutputMode
+
+    case object Json extends OutputMode
+
+    case object Toml extends OutputMode
+
+    case object Decode extends OutputMode
+
+    case object Encode extends OutputMode
+
     case object GetType extends OutputMode
+
     case object GetHash extends OutputMode
   }
 
@@ -60,8 +69,8 @@ object Main {
                     (tpe.print + "\n").getBytes("UTF-8")
                   case OutputMode.GetHash                =>
                     ("sha256:" + Semantics.semanticHash(expr, Paths.get(".")) + "\n").getBytes("UTF-8")
-                  case OutputMode.Toml =>
-                    (Yaml.toYaml(dhallFile.copy(value = expr), options) match {
+                  case OutputMode.Toml                   =>
+                    (Toml.toToml(expr) match {
                       case Left(value)  => value + "\n"
                       case Right(value) => value
                     }).getBytes("UTF-8")
@@ -131,6 +140,7 @@ object Main {
       ),
     )
   }
+
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
   // $COVERAGE-ON$
 }

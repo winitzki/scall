@@ -87,11 +87,11 @@ class MainSpec extends FunSuite with TestTimings with ResourceFiles with ManyFix
   }
 
   test("fail to export yaml if Dhall expression contains unsupported types") {
-    expect(runMain("{ a = Natural, b = 2 }", "yaml") == "Error: Unsupported expression type for Yaml export: Natural of type Type\n")
+    expect(runMain("{ a = Natural, b = 2 }", "yaml") == "Error: Unsupported expression type for YAML export: Natural of type Type\n")
     expect(
-      runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for Yaml export: λ(x : Bool) → x of type ∀(x : Bool) → Bool\n"
+      runMain("{ a = 1, b = \\(x : Bool) -> x }", "yaml") == "Error: Unsupported expression type for YAML export: λ(x : Bool) → x of type ∀(x : Bool) → Bool\n"
     )
-    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for Yaml export: Type of type Kind\n")
+    expect(runMain("{ a = Type }", "yaml") == "Error: Unsupported expression type for YAML export: Type of type Kind\n")
   }
 
   test("json main test cases") {

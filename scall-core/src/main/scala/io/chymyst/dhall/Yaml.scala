@@ -105,7 +105,7 @@ object Yaml {
 
   // This function should ignore options.createDocuments because it is used recursively for sub-document Yaml values.
   private def toYamlLines(expr: Expression, options: YamlOptions): Either[String, YamlLines] = {
-    val format = if (options.jsonFormat) "JSON" else "Yaml"
+    val format = if (options.jsonFormat) "JSON" else "YAML"
     expr.inferType match {
       case TypecheckResult.Invalid(errors) => Left(errors.toString)
       case TypecheckResult.Valid(tpe)      =>

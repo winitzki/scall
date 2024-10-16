@@ -2037,7 +2037,7 @@ In addition, Dhall's `assert` feature may be sometimes used to verify the typecl
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
-### Show
+### The "Show" typeclass
 
 The `Show` typeclass is usually defined in Haskell as:
 
@@ -2111,7 +2111,6 @@ class Monoid m where
   mempty :: m
   mappend :: m -> m -> m
 ```
-
 The values `mempty` and `mappend` are the **typeclass methods** of the `Monoid` typeclass.
 
 In Scala, a corresponding definition is:
@@ -2187,7 +2186,9 @@ let foldMap
     List/fold a xs m (λ(x : a) → λ(y : m) → monoid_m.append y (f x)) monoid_m.empty
 ```
 
-This code shows how to implement typeclass constraints in Dhall.
+Typeclass constraints are implemented in Dhall via code similar to this.
+Functions with typeclass constraints will have type signatures of the form `∀(t : Type) → SomeTypeclass t → ...`.
+When calling those functions, the programmer will have to pass evidence values proving that the type parameters are assigned to types that belong to the specified typeclass.
 
 ### Verifying the laws of monoids
 
@@ -2208,22 +2209,19 @@ let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y
         monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
        }
 ```
-Note that we did not write `assert` expressions here.
-If we did, they would have immediately failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
-For instance, the expressions `plus e x` and `x` are always going to be different _within the body of that function_.
-Those expressions will become the same only after we substitute a lawful implementation of a `Monoid` typeclass.
+Note that we did not add `assert` expressions here.
+If we did, the assertions would have always failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
+For instance, the expressions `plus e x` and `x` are always going to be different _while type-checking the body of that function_, which happens before that function is ever applied.
+Those expressions will become the same only after we apply `monoidLaws` to a type `m` and a lawful implementation of a `Monoid` typeclass for `m`.
 
-So, to check the laws we will need to write `assert` values corresponding to each law and a given typeclass evidence value.
+To check the laws, we will write `assert` values corresponding to each law and a given typeclass evidence value.
 
-As an example, here is how we may check that the laws hold for the `Monoid` evidence value `monoidBool` defined above:
+As an example, here is how to check the monoid laws for the evidence value `monoidBool` defined above:
 
 ```dhall
 let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool) →
   assert : (monoidLaws Bool monoidBool x y z).monoid_left_id_law
 ```
-
-Note: Some of this functionality is non-standard and only available in the [Scala implementation of Dhall](https://github.com/winitzki/scall).
-Standard Dhall cannot establish an equivalence between expressions such as `(x + y) + z` and `x + (y + z)` when `x`, `y`, `z` are variables.
 
 ### The `Functor` typeclass
 
@@ -7746,7 +7744,67 @@ let C = λ(a : Type) → LFix (F a)
 ```
 The type signature of `zip` for `C` must be:
 ```dhall
-let zip_C : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ??? 
+let zip_C : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
+```
+
+It turns out that we can implement an `Applicative` evidence for the functor `C` if the bifunctor `F` supports two functions that we will call `bizip_F1` and  `bizip_FC`.
+Those functions express a certain kind of applicative-like property for `F`.
+
+The function `bizip_F1` must have the type signature:
+```dhall
+let bizip_F1 : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r = ???
+```
+This type is similar to the `zip` function except it works only with the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
+The function `bizip_F1` is not required to satisfy any laws.
+
+The function `bizip_FC` must have the type signature:
+```dhall
+let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b) = ???
+```
+The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
+So, it is similar to `zip` that works at the same time with both type parameters of `F`.
+However, functions with the type `F a r → F b s → F (Pair a b) (Pair r s)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `F`.
+
+In addition, we require a function for computing the recursion depth of a value of type `C a`.
+That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `max : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
+The function `max` is available for any given polynomial bifunctor `F`.
+
+For illustration, let us implement these functions for `F a r = Either a (Pair r r)`.
+
+The function `bizip_F1` can be implemented in any way whatsoever, as it does not need to satisfy any laws.
+For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
+```dhall
+let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
+let bizip_F1
+  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
+     merge {
+       Left = λ(x : a) → merge {
+         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
+       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+       } fbr
+     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+     } far
+```
+
+The function `bizip_FC` is implemented similarly to a lawful `zip` method. Arguments are never discarded.
+When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
+A `Functor` typeclass evidence for `C` is produced automatically from a `Bifunctor` evidence for `F`:
+```dhall
+let C = λ(a : Type) → LFix (F a)
+let bifunctorF : Bifunctor F = ???
+let functorC : Functor C = ???
+let bizip_FC1
+  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
+     merge {
+       Left = λ(x : a) → merge {
+         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
+       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+       } fbr
+     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
+     } far
 ```
 
 
