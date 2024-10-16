@@ -36,7 +36,7 @@ let Base = 10
 
 let Float = FloatBare ⩓ FloatExtraData
 
-let D = ./Arithmetic.dhall
+let D = ./Numerics.dhall
 
 let Result = D.Result
 

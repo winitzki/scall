@@ -1325,15 +1325,15 @@ But Dhall does not implement this logic and cannot see that both branches will h
 Because of this and other limitations, Dhall can work productively with dependent types only in sufficiently simple cases. 
 
 
-## Arithmetic with `Natural` numbers
+## Numerical algorithms
 
-Dhall's `Natural` numbers have arbitrary precision but support a limited number of operations.
+Dhall's `Natural` numbers have arbitrary precision and support a limited number of built-in operations.
 The standard prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
 
-We will now show how to implement other arithmetic operations for `Natural` numbers such as division or logarithm.
+We will now show how to implement other numerical operations such as division or logarithm.
 In an ordinary programming language, we would use loops to implement those operations.
-But Dhall will only accept loops that are guaranteed in advance to terminate.
-So, we will need to know in advance how many iterations are needed for any given computation.
+But Dhall will accept loops only if we know in advance how many iterations are needed for a given computation.
+This is a consequence of Dhall's termination guarantees.
 
 ### Using `Natural/fold` to implement loops
 
@@ -1687,6 +1687,16 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
   let result : Pair = Natural/fold max_iter Pair update init
   in result.x
 ```
+
+### Floating-point operations
+
+The built-in Dhall type `Double` does not support any numerical operations.
+However, one can use values of type `Natural` to implement floating-point arithmetic.
+The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations in arbitrary precision.
+
+An example of an arbitrary-precision numerical algorithm is the computation of a floating-point square root.
+
+TODO
 
 ## Programming with functions
 
