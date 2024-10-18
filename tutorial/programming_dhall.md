@@ -1692,9 +1692,33 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations in arbitrary precision.
+The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
+Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and may have arbitrarily high precision (in both mantissa and exponent).
 
 An example of an arbitrary-precision numerical algorithm is the computation of a floating-point square root.
+
+We will use the following algorithm that computes successive approximations for $x = \sqrt p$, where $p$ is a given non-negative number:
+
+1. Compute the initial approximation $x_0$ that is close to $\sqrt p$.
+2. Estimate the total number of iterations $n$, where $n \ge 1$.
+3. Apply $n$ times the function `update`. 
+
+The result is the Dhall code `Natural/fold n update x0`.
+
+The initial approximation is defined as follows:
+
+1. Find the largest integer number $k$ such that $p = q * 10^{2k}$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
+2. If $q \lt 2$ then the initial value is $x0 = (3 + 10 * q) / 15$. If $2 \le q \lt 16$ then $x0 = (15 + 3 * q) / 15$. If $q 16 \le q \lt 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+3. The update function is computed as $u(x) = \frac{1}{2}(x+p/x) $.
+4. The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log_2 N$. The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
+
+```dhall
+let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
+  let iterations = 1 + (./Numerics.dhall).log 2 prec
+  let init : Float = ??? -- Code omitted for brevity.
+  let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
+  in Natural/fold iterations update init
+```
 
 TODO
 
@@ -4133,7 +4157,7 @@ When we apply `example2` to arguments `r`, `leaf`, and `branch`, the code of `ex
 
 This explains how the Church encoding replaces iterative computations by non-recursive code.
 A data structure that contains, say, 1000 data values is Church-encoded into a certain higher-order function.
-That function will be hard-coded to call its arguments 1000 times.
+That function is hard-coded to call its arguments 1000 times.
 
 In this way, it is guaranteed that all recursive structures will be finite and all operations on those structures will terminate.
 That's why Dhall is able to accept Church encodings of recursive types and perform iterative and recursive operations on Church-encoded data without compromising any safety guarantees.
