@@ -36,6 +36,12 @@ let Base = 10
 
 let Float = FloatBare ⩓ FloatExtraData
 
+let Float/leadDigit = λ(a : Float) → a.leadDigit
+
+let Float/mantissa = λ(a : Float) → a.mantissa
+
+let Float/exponent = λ(a : Float) → a.exponent
+
 let D = ./Numerics.dhall
 
 let Result = D.Result
@@ -315,4 +321,7 @@ in  { Base
     , Float/pad
     , Float/zero
     , Float/ofNatural
+    , Float/leadDigit
+    , Float/mantissa
+    , Float/exponent
     }

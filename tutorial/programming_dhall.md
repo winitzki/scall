@@ -1692,9 +1692,33 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations in arbitrary precision.
+The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
+Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and may have arbitrarily high precision (in both mantissa and exponent).
 
 An example of an arbitrary-precision numerical algorithm is the computation of a floating-point square root.
+
+We will use the following algorithm that computes successive approximations for $x = \sqrt p$, where $p$ is a given non-negative number:
+
+1. Compute the initial approximation $x_0$ that is close to $\sqrt p$.
+2. Estimate the total number of iterations $n$, where $n \ge 1$.
+3. Apply $n$ times the function `update`. 
+
+The result is the Dhall code `Natural/fold n update x0`.
+
+The initial approximation is defined as follows:
+
+1. Find the largest integer number $k$ such that $p = q * 10^{2k}$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
+2. If $q \lt 2$ then the initial value is $x0 = (3 + 10 * q) / 15$. If $2 \le q \lt 16$ then $x0 = (15 + 3 * q) / 15$. If $q 16 \le q \lt 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+3. The update function is computed as $u(x) = \frac{1}{2}(x+p/x) $.
+4. The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log_2 N$. The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
+
+```dhall
+let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
+  let iterations = 1 + (./Numerics.dhall).log 2 prec
+  let init : Float = ??? -- Code omitted for brevity.
+  let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
+  in Natural/fold iterations update init
+```
 
 TODO
 
@@ -2612,8 +2636,8 @@ Bifunctors have a `bimap` method that transforms both type parameters at once:
 
 ```dhall
 let bimap
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → P a b → P c d
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : P a b) →
+ : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P c d
+  = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(pab : P a b) →
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
 
@@ -2622,13 +2646,13 @@ Given `bimap`, one can then define two `fmap` methods that work only on the firs
 ```dhall
 let fmap1
   : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
-  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → bimap a d c d f (identity d)
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → bimap a c f d d (identity d)
 ```
 
 ```dhall
 let fmap2
   : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
-  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap a b a d (identity a) g
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap a a (identity a) b d g
 ```
 
 Here, we have used the `identity` function defined earlier.
@@ -2639,10 +2663,10 @@ The Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
 
 ```dhall
 let Bifunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { bimap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d }
+  = λ(F : Type → Type → Type) → { bimap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d }
 
 let Profunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (c → a) → (b → d) → F a b → F c d }
+  = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F c b → F a d }
 ```
 
 By analogy, we also define the `Bicontrafunctor` typeclass describing type constructors that are contravariant in two type parameters:
@@ -2650,7 +2674,7 @@ By analogy, we also define the `Bicontrafunctor` typeclass describing type const
 
 ```dhall
 let Bicontrafunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { bicmap : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F c d → F a b }
+  = λ(F : Type → Type → Type) → { bicmap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F c d → F a b }
 ```
 
 ### Pointed functors and contrafunctors
@@ -4133,7 +4157,7 @@ When we apply `example2` to arguments `r`, `leaf`, and `branch`, the code of `ex
 
 This explains how the Church encoding replaces iterative computations by non-recursive code.
 A data structure that contains, say, 1000 data values is Church-encoded into a certain higher-order function.
-That function will be hard-coded to call its arguments 1000 times.
+That function is hard-coded to call its arguments 1000 times.
 
 In this way, it is guaranteed that all recursive structures will be finite and all operations on those structures will terminate.
 That's why Dhall is able to accept Church encodings of recursive types and perform iterative and recursive operations on Church-encoded data without compromising any safety guarantees.
@@ -4142,18 +4166,20 @@ As another example, we will show how to compute the size of a Church-encoded dat
 
 ### Computing the size of a recursive data structure
 
-The curried Church encoding for binary trees with `Natural`-valued leaves is:
+To motivate the method for computing the size of an arbitrary Church-encoded type, we
+first consider a specific recursive data structure: a binary trees with `Natural`-valued leaves.
+The type `TreeNat` is defined by:
 
 ```dhall
 let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
 ```
-
-The present task is to compute various numerical measures characterizing the tree's data.
+Values of this type can store one or more `Natural` numbers.
+The present task is to compute various numerical measures characterizing the tree's stored data.
 
 We will consider three possible size computations:
 
 - The sum of all natural numbers stored in the tree. (`treeSum`)
-- The total number of leaves in the tree. (`treeCount`)
+- The total number of data items in the tree. (`treeCount`)
 - The maximum depth of leaves. (`treeDepth`)
 
 Each computation is a fold-like aggregation, so we will implement all of them via similar-looking code:
@@ -4176,6 +4202,9 @@ let treeDepth : TreeNat → Natural =
 ```
 
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
+
+TODO
+
 
 ### Pattern matching
 
@@ -4662,7 +4691,7 @@ The code is:
 ```dhall
 let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ??? -- Define the recursion scheme.
 let bimap_F
-  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → (b → d) → F a b → F c d
+  : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d
   = ??? -- Define the bimap function for F.
 let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 
@@ -4671,7 +4700,7 @@ let fmapC
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
     λ(r : Type) → λ(fbrr : F b r → r) →
       let farr : F a r → r = λ(far : F a r) →
-        let fbr : F b r = bimap_F a r b r f (identity r) far
+        let fbr : F b r = bimap_F a b f r r (identity r) far
         in fbrr fbr
       in ca r farr
 ```
@@ -4679,13 +4708,13 @@ let fmapC
 We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a functor `LFix (F a)`.
 
 ```dhall
-let functorLFix
+let bifunctorLFix
   : ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → LFix (F a))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → {
     fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : LFix (F a)) →
           λ(r : Type) → λ(fbrr : F b r → r) →
             let farr : F a r → r = λ(far : F a r) →
-              let fbr : F b r = bifunctorF.bimap a r b r f (identity r) far
+              let fbr : F b r = bifunctorF.bimap a b f r r (identity r) far
               in fbrr fbr
             in ca r farr
   }
@@ -5569,7 +5598,7 @@ The corresponding `fmap` function, called `Stream/map`, can be implemented like 
 ```dhall
 -- Define some typeclass instances to make code more concise.
 let HT = λ(h : Type) → λ(t : Type) → < Cons : { head : h, tail : t } | Nil >
-let bifunctorHT : Bifunctor HT = { bimap = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → λ(g : b → d) → λ(pab : HT a b) → merge {
+let bifunctorHT : Bifunctor HT = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(pab : HT a b) → merge {
   Cons = λ(ht : { head : a, tail : b }) → (HT c d).Cons { head = f ht.head, tail = g ht.tail },
   Nil = (HT c d).Nil,
 } pab }
@@ -5579,7 +5608,7 @@ let contrafunctor_Pack_t : ∀(r : Type) → Contrafunctor (Pack_t r) = λ(r : T
    -- Compute a value of type Pack_t r a:
      λ(t : Type) → λ(state : { seed : t, step : t → HT a t }) → pb t {
        seed = state.seed,
-       step = λ(x : t) → bifunctorHT.bimap a t b t f (identity t) (state.step x),
+       step = λ(x : t) → bifunctorHT.bimap a b f t t (identity t) (state.step x),
      }
 }
 let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → Stream b
@@ -5895,7 +5924,7 @@ So, this function itself is different at each iteration, and `Natural/fold` will
 
 We will proceed in two phases:
 
-- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation of `hylo_Nat`.
+- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation via `hylo_Nat`.
 - Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
 
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
@@ -6922,7 +6951,6 @@ let functorF1
   : ∀(b : Type) → Functor (λ(a : Type) → F a b)
   = λ(b : Type) → { fmap = ??? }
 ```
-
 Then we can express the functor property of `∀b. F a b` as a function that transforms the functor evidence of `F` to that of `G`.
 Note that we only need the functor property of `F a b` with respect to `a`, while `b` is kept fixed.
 To implement a functor evidence for `G`, we use the `mapForall` function defined before.
@@ -7769,7 +7797,7 @@ The function `bizip_F1` is not required to satisfy any laws.
 
 The function `bizip_FC` must have the type signature:
 ```dhall
-let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b) = ???
+let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b)) = ???
 ```
 The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
 So, it is similar to `zip` that works at the same time with both type parameters of `F`.
@@ -7779,8 +7807,11 @@ On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `
 In addition, we require a function for computing the recursion depth of a value of type `C a`.
 That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `max : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
 The function `max` is available for any given polynomial bifunctor `F`.
+Then one can implement `depth` as shown in the section "".
 
-For illustration, let us implement these functions for `F a r = Either a (Pair r r)`.
+TODO
+
+For illustration, let us implement `zip` for `F a r = Either a (Pair r r)`.
 
 The function `bizip_F1` can be implemented in any way whatsoever, as it does not need to satisfy any laws.
 For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
@@ -7803,20 +7834,32 @@ When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `
 A `Functor` typeclass evidence for `C` is produced automatically from a `Bifunctor` evidence for `F`:
 ```dhall
 let C = λ(a : Type) → LFix (F a)
-let bifunctorF : Bifunctor F = ???
-let functorC : Functor C = ???
-let bizip_FC1
-  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
-  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
-     merge {
+let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac: a → c) → λ(b : Type) → λ(d : Type) → λ(bd: b → d) → λ(fab: F a b) →
+  merge {
+    Left = λ(x : a) → (F c d).Left (ac x)
+  , Right = λ(p : Pair b b) → (F c d).Right { _1 = bd p._1, _2 = bd p._2 } 
+  } fab
+}
+let functorC : Functor C = bifunctorLFix F bifunctorF
+let bizip_FC
+  : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b))
+  = λ(a : Type) → λ(faca : F a (C a)) → λ(b : Type) → λ(fbcb: F b (C b)) →
+      let ResultT = F (Pair a b) (Pair (C a) (C b))
+      let ca2cb : b → C a → C b = λ(y : b) → λ(ca : C a) → functorC.fmap a b (λ(_ : a) → y) ca
+      let cb2ca : a → C b → C a = λ(x : a) → λ(cb : C b) → functorC.fmap b a (λ(_ : b) → x) cb
+      in merge {
        Left = λ(x : a) → merge {
-         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
-       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
-       } fbr
-     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
-     } far
+         Left = λ(y : b) → ResultT.Left { _1 = x, _2 = y }
+       , Right = λ(p : Pair (C b) (C b)) → ResultT.Right { _1 = { _1 = cb2ca x p._1, _2 = p._1 }, _2 = { _1 = cb2ca x p._2, _2 = p._2 } }
+       } fbcb
+     , Right = λ(p : Pair (C a) (C a)) → merge {
+         Left = λ(y : b) → ResultT.Right { _1 = { _1 = p._1, _2 = ca2cb y p._1 }, _2 = { _1 = p._2, _2 = ca2cb y p._2 } }
+       , Right = λ(q : Pair (C b) (C b)) → ResultT.Right { _1 = { _1 = p._1, _2 = q._1 }, _2 = { _1 = p._2, _2 = q._2 } }
+       } fbcb
+     } faca
 ```
 
+TODO
 
 ## Traversable functors
 
