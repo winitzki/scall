@@ -12,22 +12,6 @@ let power =
       λ(y : Natural) →
         Natural/fold y Natural (λ(p : Natural) → p * x) 1
 
-let _ = assert : power 1 1 ≡ 1
-
-let _ = assert : power 1 2 ≡ 1
-
-let _ = assert : power 2 1 ≡ 2
-
-let _ = assert : power 10 2 ≡ 100
-
-let _ = assert : power 3 4 ≡ 81
-
-let _ = assert : power 1 0 ≡ 1
-
-let _ = assert : power 0 1 ≡ 0
-
-let _ = assert : power 0 0 ≡ 1
-
 let log
     : Natural → Natural → Natural
     = λ(base : Natural) →
@@ -47,24 +31,6 @@ let log
             = Natural/fold n Accum update init
 
         in  Natural/subtract 1 result.log
-
-let _ = assert : log 2 4 ≡ 2
-
-let _ = assert : log 1 4 ≡ 3
-
-let _ = assert : log 0 4 ≡ 3
-
-let _ = assert : log 10 0 ≡ 0
-
-let _ = assert : log 10 1 ≡ 0
-
-let _ = assert : log 10 10 ≡ 1
-
-let _ = assert : log 10 99 ≡ 1
-
-let _ = assert : log 10 100 ≡ 2
-
-let _ = assert : log 10 101 ≡ 2
 
 let Result = { div : Natural, rem : Natural }
 
@@ -88,12 +54,6 @@ let unsafeDivMod
                           }
 
         in  Natural/fold x Result update init
-
-let _ = assert : unsafeDivMod 1 10 ≡ { div = 0, rem = 1 }
-
-let _ = assert : unsafeDivMod 10 2 ≡ { div = 5, rem = 0 }
-
-let _ = assert : unsafeDivMod 10 3 ≡ { div = 3, rem = 1 }
 
 let powersOf2Until
     -- create a list [1, 2, 4, 8, ..., 2^p] such that a < b * 2 ^ (p + 1) .
@@ -132,28 +92,10 @@ let egyptian_div_mod
 
         in  List/fold Natural powers2 Result update { div = 0, rem = a }
 
-let _ = assert : powersOf2Until 15 1 ≡ [ 1, 2, 4, 8 ]
-
-let _ = assert : powersOf2Until 16 1 ≡ [ 1, 2, 4, 8, 16 ]
-
-let _ = assert : powersOf2Until 17 1 ≡ [ 1, 2, 4, 8, 16 ]
-
-let _ = assert : powersOf2Until 11 2 ≡ [ 1, 2, 4 ]
-
-let _ = assert : egyptian_div_mod 1 10 ≡ { div = 0, rem = 1 }
-
-let _ = assert : egyptian_div_mod 10 2 ≡ { div = 5, rem = 0 }
-
-let _ = assert : egyptian_div_mod 10 3 ≡ { div = 3, rem = 1 }
-
-let _ = assert : egyptian_div_mod 10 1 ≡ { div = 10, rem = 0 }
-
-let _ = assert : egyptian_div_mod 10 10 ≡ { div = 1, rem = 0 }
-
-let _ = assert : egyptian_div_mod 10 11 ≡ { div = 0, rem = 10 }
-
-let _ = assert : egyptian_div_mod 10 2 ≡ { div = 5, rem = 0 }
-
-let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
-
-in  { log, power, Result, divmod = unsafeDivMod, divrem = egyptian_div_mod }
+in  { log
+    , power
+    , Result
+    , divmod = unsafeDivMod
+    , divrem = egyptian_div_mod
+    , powersOf2Until
+    }

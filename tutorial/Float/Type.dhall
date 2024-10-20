@@ -42,9 +42,9 @@ let Float/mantissa = λ(a : Float) → a.mantissa
 
 let Float/exponent = λ(a : Float) → a.exponent
 
-let D = ./Numerics.dhall
+let N = ./numerics.dhall
 
-let Result = D.Result
+let Result = N.Result
 
 let divmod
     : Natural → Natural → Result
@@ -53,7 +53,7 @@ let divmod
         stop.predicate_Natural
         (Natural → Result)
         (λ(_ : Natural) → { div = 0, rem = 0 })
-        D.divrem
+        N.divrem
 
 let log
     : Natural → Natural → Natural
@@ -62,7 +62,7 @@ let log
         stop.predicate_Natural
         (Natural → Natural)
         (λ(_ : Natural) → 0)
-        D.log
+        N.log
 
 let power
     : Natural → Natural → Natural
@@ -71,7 +71,7 @@ let power
         stop.predicate_Natural
         (Natural → Natural)
         (λ(_ : Natural) → 0)
-        D.power
+        N.power
 
 let dummyFloat =
       { mantissa = 0
