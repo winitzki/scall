@@ -1714,13 +1714,12 @@ The initial approximation is defined as follows:
 
 ```dhall
 let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
-  let iterations = 1 + (./Numerics.dhall).log 2 prec
+  let iterations = 1 + (./numerics.dhall).log 2 prec
   let init : Float = ??? -- Code omitted for brevity.
   let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
-  in Natural/fold iterations update init
+  in Natural/fold iterations Float update init
 ```
-
-TODO
+(This code is shown for illustration only! For a fully working version of this code, see  [Float/sqrt.dhall](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).) 
 
 ## Programming with functions
 
