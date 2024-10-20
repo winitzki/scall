@@ -40,6 +40,8 @@ let Float/leadDigit = λ(a : Float) → a.leadDigit
 
 let Float/mantissa = λ(a : Float) → a.mantissa
 
+let Float/topPower = λ(a : Float) → a.topPower
+
 let Float/exponent = λ(a : Float) → a.exponent
 
 let N = ./numerics.dhall
@@ -324,4 +326,5 @@ in  { Base
     , Float/leadDigit
     , Float/mantissa
     , Float/exponent
+    , Float/topPower
     }

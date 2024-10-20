@@ -7,6 +7,14 @@ let Natural/lessThan =
       https://prelude.dhall-lang.org/Natural/lessThan
         sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
 
+let Integer/abs =
+      https://prelude.dhall-lang.org/Integer/abs
+        sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
+
+let Integer/positive =
+      https://prelude.dhall-lang.org/Integer/positive
+        sha256:7bdbf50fcdb83d01f74c7e2a92bf5c9104eff5d8c5b4587e9337f0caefcfdbe3
+
 let power =
       λ(x : Natural) →
       λ(y : Natural) →
@@ -92,10 +100,19 @@ let egyptian_div_mod
 
         in  List/fold Natural powers2 Result update { div = 0, rem = a }
 
+let Integer/mapSign
+    : (Natural → Natural) → Integer → Integer
+    = λ(f : Natural → Natural) →
+      λ(x : Integer) →
+        if    Integer/positive x
+        then  Natural/toInteger (f (Integer/clamp x))
+        else  Integer/negate (Natural/toInteger (f (Integer/abs x)))
+
 in  { log
     , power
     , Result
     , divmod = unsafeDivMod
     , divrem = egyptian_div_mod
     , powersOf2Until
+    , Integer/mapSign
     }

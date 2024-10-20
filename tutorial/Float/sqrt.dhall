@@ -42,6 +42,11 @@ let Float/divide = ./divide.dhall
 
 let Float/multiply = ./multiply.dhall
 
+let Integer/divide =
+      λ(i : Integer) →
+      λ(n : Natural) →
+        N.Integer/mapSign (λ(p : Natural) → (T.divmod p n).div) i
+
 let compute_init_sqrt
                       -- if a < 17 then (15.0 + 3 * a) / 15.0   else  (45.0 + a) / 14.0
                       =
@@ -50,16 +55,22 @@ let compute_init_sqrt
 
         let p
             : { new_exponent : Integer, lead_digits : Natural }
-            = if    Natural/isEven (Integer/abs exp)
+            = if    Natural/even (Integer/abs exp)
               then  { new_exponent =
-                        N.Integer/divide
-                          (Integer/subtract (T.Float/topPower x) exp)
+                        Integer/divide
+                          ( Integer/subtract
+                              (Natural/toInteger (T.Float/topPower x))
+                              exp
+                          )
                           2
                     , lead_digits = T.Float/leadDigit x
                     }
               else  { new_exponent =
-                        N.Integer/divide
-                          (Integer/subtract (1 + T.Float/topPower x) exp)
+                        Integer/divide
+                          ( Integer/subtract
+                              (Natural/toInteger (1 + T.Float/topPower x))
+                              exp
+                          )
                           2
                     , lead_digits = 10 * T.Float/leadDigit x
                     }
@@ -67,7 +78,7 @@ let compute_init_sqrt
         let init_approximation =
               if    Natural/lessThan p.lead_digits 17
               then  (T.divmod (3 * p.lead_digits + 15) 15).div
-              else  T.divmod ((p.lead_gitis + 45) 14).div
+              else  (T.divmod (p.lead_digits + 45) 14).div
 
         in  T.Float/create (Natural/toInteger init_approximation) p.new_exponent
 
@@ -81,7 +92,7 @@ let Float/sqrt
 
         in  let init
                 : Accum
-                = { x = compute_init_sqrt x, prec = 1 }
+                = { x = compute_init_sqrt p, prec = 1 }
 
             let update
                 : Accum → Accum
@@ -96,8 +107,10 @@ let Float/sqrt
 
                     in  { x, prec }
 
-            in  (Natural/fold iterations update init).x
+            in  (./rounding.dhall).Float/round
+                  (Natural/fold iterations Accum update init).x
+                  prec
 
-let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ Float/create +14142 -4
+let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ T.Float/create +14142 -4
 
 in  Float/sqrt
