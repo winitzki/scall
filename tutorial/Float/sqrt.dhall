@@ -30,6 +30,10 @@ let Natural/lessThan =
       https://prelude.dhall-lang.org/Natural/lessThan
         sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
 
+let List/iterate =
+      https://prelude.dhall-lang.org/List/iterate
+        sha256:e4999ccce190a2e2a6ab9cb188e3af6c40df474087827153005293f11bfe1d26
+
 let N = ./numerics.dhall
 
 let T = ./Type.dhall
@@ -47,40 +51,38 @@ let Integer/divide =
       λ(n : Natural) →
         N.Integer/mapSign (λ(p : Natural) → (T.divmod p n).div) i
 
-let compute_init_sqrt
-                      -- if a < 17 then (15.0 + 3 * a) / 15.0   else  (45.0 + a) / 14.0
-                      =
+let compute_init_approximation
+                               -- if a < 17 then (15.0 + 3 * a) / 15.0   else  (45.0 + a) / 14.0
+                               =
       λ(x : Float) →
         let exp = T.Float/exponent x
 
+        let exp_for_lead_digit =
+              Integer/add (Natural/toInteger (T.Float/topPower x)) exp
+
         let p
             : { new_exponent : Integer, lead_digits : Natural }
-            = if    Natural/even (Integer/abs exp)
-              then  { new_exponent =
-                        Integer/divide
-                          ( Integer/subtract
-                              (Natural/toInteger (T.Float/topPower x))
-                              exp
-                          )
-                          2
+            = if    Natural/even (Integer/abs exp_for_lead_digit)
+              then  { new_exponent = Integer/divide exp_for_lead_digit 2
                     , lead_digits = T.Float/leadDigit x
                     }
               else  { new_exponent =
-                        Integer/divide
-                          ( Integer/subtract
-                              (Natural/toInteger (1 + T.Float/topPower x))
-                              exp
-                          )
-                          2
+                        Integer/subtract
+                          +1
+                          (Integer/divide exp_for_lead_digit 2)
                     , lead_digits = 10 * T.Float/leadDigit x
                     }
 
         let init_approximation =
               if    Natural/lessThan p.lead_digits 17
-              then  (T.divmod (3 * p.lead_digits + 15) 15).div
-              else  (T.divmod (p.lead_digits + 45) 14).div
+              then  T.divmod (30 * p.lead_digits + 150) 15
+              else  T.divmod (10 * p.lead_digits + 450) 14
 
-        in  T.Float/create (Natural/toInteger init_approximation) p.new_exponent
+        let corrected_exponent = Integer/subtract +1 p.new_exponent
+
+        in  T.Float/create
+              (Natural/toInteger init_approximation.div)
+              corrected_exponent
 
 let Float/sqrt
     : Float → Natural → Float
@@ -92,7 +94,7 @@ let Float/sqrt
 
         in  let init
                 : Accum
-                = { x = compute_init_sqrt p, prec = 1 }
+                = { x = compute_init_approximation p, prec = 1 }
 
             let update
                 : Accum → Accum
@@ -111,6 +113,30 @@ let Float/sqrt
                   (Natural/fold iterations Accum update init).x
                   prec
 
-let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ T.Float/create +14142 -4
+let debug_iterations =
+      λ(p : Float) →
+      λ(prec : Natural) →
+        let iterations = 1 + N.log 2 prec
 
-in  Float/sqrt
+        let Accum = { x : Float, prec : Natural }
+
+        in  let init
+                : Accum
+                = { x = compute_init_approximation p, prec = 1 }
+
+            let update
+                : Accum → Accum
+                = λ(acc : Accum) →
+                    let prec = acc.prec * 2
+
+                    let x =
+                          Float/multiply
+                            (Float/add acc.x (Float/divide p acc.x prec) prec)
+                            (T.Float/create +5 -1)
+                            prec
+
+                    in  { x, prec }
+
+            in  List/iterate iterations Accum update init
+
+in  { Float/sqrt, compute_init_approximation, debug_iterations }
