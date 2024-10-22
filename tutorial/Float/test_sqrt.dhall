@@ -1,8 +1,14 @@
 let T = ./Type.dhall
 
+let C = ./compare.dhall
+
 let List/map =
       https://prelude.dhall-lang.org/List/map
         sha256:dd845ffb4568d40327f2a817eb42d1c6138b929ca758d50bc33112ef3c885680
+
+let List/zip =
+      https://prelude.dhall-lang.org/List/zip
+        sha256:85ed955eabf3998767f4ad2a28e57d40cd4c68a95519d79e9b622f1d26d979da
 
 let Float/show = ./show.dhall
 
@@ -44,22 +50,35 @@ let _ = assert : showsqrt +999 -2 15 ≡ "+3.16069612585582"
 
 let test_data =
       [ 1
+      , 199
       , 2
+      , 299
       , 3
+      , 399
       , 4
+      , 499
       , 5
+      , 599
       , 6
+      , 699
       , 7
+      , 799
       , 8
+      , 899
       , 9
+      , 999
       , 10
       , 19
+      , 1999
       , 20
       , 29
+      , 2999
       , 30
       , 39
+      , 3999
       , 40
       , 49
+      , 4999
       , 50
       , 59
       , 60
@@ -70,49 +89,59 @@ let test_data =
       , 89
       , 90
       , 99
-      , 999
       ]
+
+let prec = 15
 
 let sqrt_data =
       List/map
         Natural
         T.Float
         ( λ(i : Natural) →
-            Float/sqrt (T.Float/create (Natural/toInteger i) +0) 15
+            Float/sqrt (T.Float/create (Natural/toInteger i) +0) prec
         )
         test_data
 
+let sqrt_data_squared =
+      List/map
+        T.Float
+        T.Float
+        (λ(x : T.Float) → ./multiply.dhall x x (prec + 5))
+        sqrt_data
+
+let roundoff_errors
+    : List T.Float
+    = List/map
+        { _1 : Natural, _2 : T.Float }
+        T.Float
+        ( λ(p : { _1 : Natural, _2 : T.Float }) →
+            T.Float/abs
+              ( ./subtract.dhall
+                  (T.Float/ofNatural 1)
+                  (./divide.dhall p._2 (T.Float/ofNatural p._1) (prec + 5))
+                  (prec + 5)
+              )
+        )
+        (List/zip Natural test_data T.Float sqrt_data_squared)
+
+let roundoff_errors_compared_to_precision =
+      List/map
+        T.Float
+        C.Compared
+        ( λ(x : T.Float) →
+            C.Float/compare
+              x
+              (T.Float/create +1 (Integer/negate (Natural/toInteger prec)))
+        )
+        roundoff_errors
+
 let _ =
         assert
-      :   List/map T.Float Text Float/show sqrt_data
-        ≡ [ "+1."
-          , "+1.41421356237312"
-          , "+1.73205080756922"
-          , "+2."
-          , "+2.2360679774998"
-          , "+2.44948974278318"
-          , "+2.64575131106461"
-          , "+2.82842712474623"
-          , "+3."
-          , "+3.16227766016838"
-          , "+4.35889894354067"
-          , "+4.47213595499958"
-          , "+5.38516480713451"
-          , "+5.47722557505166"
-          , "+6.2449979983984"
-          , "+6.32455532033676"
-          , "+7."
-          , "+7.07106781186548"
-          , "+7.68114574786861"
-          , "+7.74596669241483"
-          , "+8.30662386291808"
-          , "+8.36660026534076"
-          , "+8.88819441731559"
-          , "+8.94427190999916"
-          , "+9.4339811320566"
-          , "+9.48683298050514"
-          , "+9.9498743710662"
-          , "+31.6069612585582"
-          ]
+      :   List/zip
+            Natural
+            test_data
+            Text
+            (List/map T.Float Text Float/show roundoff_errors)
+        ≡ [ { _1 = 0, _2 = "" } ]
 
 in  True

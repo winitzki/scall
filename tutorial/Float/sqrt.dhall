@@ -30,9 +30,13 @@ let Natural/lessThan =
       https://prelude.dhall-lang.org/Natural/lessThan
         sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
 
-let List/iterate =
-      https://prelude.dhall-lang.org/List/iterate
-        sha256:e4999ccce190a2e2a6ab9cb188e3af6c40df474087827153005293f11bfe1d26
+let Optional/default =
+      https://prelude.dhall-lang.org/Optional/default
+        sha256:5bd665b0d6605c374b3c4a7e2e2bd3b9c1e39323d41441149ed5e30d86e889ad
+
+let List/index =
+      https://prelude.dhall-lang.org/List/index
+        sha256:e657b55ecae4d899465c3032cb1a64c6aa6dc2aa3034204f3c15ce5c96c03e63
 
 let N = ./numerics.dhall
 
@@ -51,9 +55,9 @@ let Integer/divide =
       λ(n : Natural) →
         N.Integer/mapSign (λ(p : Natural) → (T.divmod p n).div) i
 
-let compute_init_approximation
-                               -- if a < 17 then (15.0 + 3 * a) / 15.0   else  (45.0 + a) / 14.0
-                               =
+let stop = ./reduce_growth.dhall
+
+let compute_init_approximation =
       λ(x : Float) →
         let exp = T.Float/exponent x
 
@@ -70,49 +74,67 @@ let compute_init_approximation
 
         let extra_precision_factor = N.power T.Base extra_precision
 
+        let lookup =
+              λ(i : Natural) →
+              λ(list : List Natural) →
+                Optional/default Natural 0 (List/index i Natural list)
+
         let lead_digits =
-              if    Natural/even (Integer/abs exp_for_lead_digit)
-              then  T.divmod
-                      (extra_precision_factor * (3 * T.Float/leadDigit x + 15))
-                      15
-              else  T.divmod
-                      (extra_precision_factor * (10 * T.Float/leadDigit x + 45))
-                      14
+              lookup
+                (T.Float/leadDigit x)
+                ( if    Natural/even (Integer/abs exp_for_lead_digit)
+                  then  [ 0, 12, 15, 18, 21, 23, 25, 27, 29, 31 ]
+                  else  [ 0, 38, 49, 59, 67, 74, 81, 87, 93, 97 ]
+                )
 
         let corrected_exponent =
               Integer/subtract (Natural/toInteger extra_precision) new_exponent
 
-        in  T.Float/create
-              (Natural/toInteger lead_digits.div)
-              corrected_exponent
+        in  T.Float/create (Natural/toInteger lead_digits) corrected_exponent
 
 let Float/sqrt
     : Float → Natural → Float
-    = λ(p : Float) →
-      λ(prec : Natural) →
-        let iterations = 1 + N.log 2 prec
+    = stop.reduce_growth
+        Float
+        (λ(x : Float) → stop.predicate_Natural x.mantissa)
+        (Natural → Float)
+        (λ(_ : Natural) → T.Float/zero)
+        ( λ(p : Float) →
+            stop.reduce_growth
+              Natural
+              stop.predicate_Natural
+              Float
+              T.Float/zero
+              ( λ(prec : Natural) →
+                  let iterations = 1 + N.log 2 prec
 
-        let Accum = { x : Float, prec : Natural }
+                  let Accum = { x : Float, prec : Natural }
 
-        in  let init
-                : Accum
-                = { x = compute_init_approximation p, prec = 1 }
+                  in  let init
+                          : Accum
+                          = { x = compute_init_approximation p, prec = 1 }
 
-            let update
-                : Accum → Accum
-                = λ(acc : Accum) →
-                    let prec = acc.prec * 2
+                      let update
+                          : Accum → Accum
+                          = λ(acc : Accum) →
+                              let prec = acc.prec * 2
 
-                    let x =
-                          Float/multiply
-                            (Float/add acc.x (Float/divide p acc.x prec) prec)
-                            (T.Float/create +5 -1)
+                              let x =
+                                    Float/multiply
+                                      ( Float/add
+                                          acc.x
+                                          (Float/divide p acc.x prec)
+                                          prec
+                                      )
+                                      (T.Float/create +5 -1)
+                                      prec
+
+                              in  { x, prec }
+
+                      in  (./rounding.dhall).Float/round
+                            (Natural/fold iterations Accum update init).x
                             prec
-
-                    in  { x, prec }
-
-            in  (./rounding.dhall).Float/round
-                  (Natural/fold iterations Accum update init).x
-                  prec
+              )
+        )
 
 in  Float/sqrt
