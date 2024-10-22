@@ -10,6 +10,24 @@ let debug_iterations = Q.debug_iterations
 
 let compute_init_approximation = Q.compute_init_approximation
 
+let _ = assert : Float/sqrt (T.Float/create +4 +0) 4 ≡ T.Float/create +2 +0
+
+let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ T.Float/create +14142 -4
+
+let showsqrt =
+      λ(x : Integer) →
+      λ(ex : Integer) →
+      λ(prec : Natural) →
+        Float/show (Float/sqrt (T.Float/create x ex) prec)
+
+let _ = assert : showsqrt +62501 -4 8 ≡ "+2.50002"
+
+let _ = assert : showsqrt +62501 +0 8 ≡ "+250.002"
+
+let _ = assert : showsqrt +62501 +4 8 ≡ "+2.50002e+4"
+
+let _ = assert : showsqrt +62591 -20 13 ≡ "+2.501819338002e-8"
+
 let _ =
         assert
       :   Float/show (compute_init_approximation (T.Float/create +1 -4))
