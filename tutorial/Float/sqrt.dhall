@@ -115,30 +115,4 @@ let Float/sqrt
                   (Natural/fold iterations Accum update init).x
                   prec
 
-let debug_iterations =
-      λ(p : Float) →
-      λ(prec : Natural) →
-        let iterations = 1 + N.log 2 prec
-
-        let Accum = { x : Float, prec : Natural }
-
-        in  let init
-                : Accum
-                = { x = compute_init_approximation p, prec = 1 }
-
-            let update
-                : Accum → Accum
-                = λ(acc : Accum) →
-                    let prec = acc.prec * 2
-
-                    let x =
-                          Float/multiply
-                            (Float/add acc.x (Float/divide p acc.x prec) prec)
-                            (T.Float/create +5 -1)
-                            prec
-
-                    in  { x, prec }
-
-            in  List/iterate iterations Accum update init
-
-in  { Float/sqrt, compute_init_approximation, debug_iterations }
+in  Float/sqrt
