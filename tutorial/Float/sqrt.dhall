@@ -60,28 +60,30 @@ let compute_init_approximation
         let exp_for_lead_digit =
               Integer/add (Natural/toInteger (T.Float/topPower x)) exp
 
-        let p
-            : { new_exponent : Integer, lead_digits : Natural }
-            = if    Natural/even (Integer/abs exp_for_lead_digit)
-              then  { new_exponent = Integer/divide exp_for_lead_digit 2
-                    , lead_digits = T.Float/leadDigit x
-                    }
-              else  { new_exponent =
-                        Integer/subtract
-                          +1
-                          (Integer/divide exp_for_lead_digit 2)
-                    , lead_digits = 10 * T.Float/leadDigit x
-                    }
+        let shift =
+              if Natural/even (Integer/abs exp_for_lead_digit) then +0 else -1
 
-        let init_approximation =
-              if    Natural/lessThan p.lead_digits 17
-              then  T.divmod (30 * p.lead_digits + 150) 15
-              else  T.divmod (10 * p.lead_digits + 450) 14
+        let new_exponent =
+              Integer/divide (Integer/add shift exp_for_lead_digit) 2
 
-        let corrected_exponent = Integer/subtract +1 p.new_exponent
+        let extra_precision = 1
+
+        let extra_precision_factor = N.power T.Base extra_precision
+
+        let lead_digits =
+              if    Natural/even (Integer/abs exp_for_lead_digit)
+              then  T.divmod
+                      (extra_precision_factor * (3 * T.Float/leadDigit x + 15))
+                      15
+              else  T.divmod
+                      (extra_precision_factor * (10 * T.Float/leadDigit x + 45))
+                      14
+
+        let corrected_exponent =
+              Integer/subtract (Natural/toInteger extra_precision) new_exponent
 
         in  T.Float/create
-              (Natural/toInteger init_approximation.div)
+              (Natural/toInteger lead_digits.div)
               corrected_exponent
 
 let Float/sqrt
