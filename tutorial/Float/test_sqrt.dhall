@@ -10,43 +10,13 @@ let List/zip =
       https://prelude.dhall-lang.org/List/zip
         sha256:85ed955eabf3998767f4ad2a28e57d40cd4c68a95519d79e9b622f1d26d979da
 
+let List/replicate =
+      https://prelude.dhall-lang.org/List/replicate
+        sha256:d4250b45278f2d692302489ac3e78280acb238d27541c837ce46911ff3baa347
+
 let Float/show = ./show.dhall
 
 let Float/sqrt = ./sqrt.dhall
-
-let _ = assert : Float/sqrt (T.Float/create +4 +0) 4 ≡ T.Float/create +2 +0
-
-let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ T.Float/create +14142 -4
-
-let _ =
-        assert
-      : Float/sqrt (T.Float/create +2 +0) 10 ≡ T.Float/create +1414213562 -9
-
-let _ = assert : Float/sqrt (T.Float/create +2 +10) 5 ≡ T.Float/create +14142 +1
-
-let _ = assert : Float/sqrt (T.Float/create +2 -10) 5 ≡ T.Float/create +14142 -9
-
-let _ = assert : Float/sqrt (T.Float/create +16 +0) 5 ≡ T.Float/create +4 +0
-
-let _ = assert : Float/sqrt (T.Float/create +49 +0) 5 ≡ T.Float/create +7 +0
-
-let _ = assert : Float/sqrt (T.Float/create +9 +0) 5 ≡ T.Float/create +3 +0
-
-let showsqrt =
-      λ(x : Integer) →
-      λ(ex : Integer) →
-      λ(prec : Natural) →
-        Float/show (Float/sqrt (T.Float/create x ex) prec)
-
-let _ = assert : showsqrt +62501 -4 8 ≡ "+2.50002"
-
-let _ = assert : showsqrt +62501 +0 8 ≡ "+250.002"
-
-let _ = assert : showsqrt +62501 +4 8 ≡ "+2.50002e+4"
-
-let _ = assert : showsqrt +62591 -20 13 ≡ "+2.501819338002e-8"
-
-let _ = assert : showsqrt +999 -2 15 ≡ "+3.16069612585582"
 
 let test_data =
       [ 1
@@ -124,24 +94,65 @@ let roundoff_errors
         )
         (List/zip Natural test_data T.Float sqrt_data_squared)
 
+let compare =
+      λ(x : T.Float) →
+        C.Float/compare
+          x
+          ( T.Float/create
+              +1
+              (Integer/negate (Natural/toInteger (Natural/subtract 1 prec)))
+          )
+
 let roundoff_errors_compared_to_precision =
-      List/map
-        T.Float
-        C.Compared
-        ( λ(x : T.Float) →
-            C.Float/compare
-              x
-              (T.Float/create +1 (Integer/negate (Natural/toInteger prec)))
-        )
-        roundoff_errors
+      List/map T.Float C.Compared compare roundoff_errors
+
+let _ =
+    {- assert
+          :   List/zip
+                Natural
+                test_data
+                Text
+                (List/map T.Float Text Float/show roundoff_errors)
+            ≡ [ { _1 = 0, _2 = "" } ]
+    -}   True
 
 let _ =
         assert
-      :   List/zip
-            Natural
-            test_data
-            Text
-            (List/map T.Float Text Float/show roundoff_errors)
-        ≡ [ { _1 = 0, _2 = "" } ]
+      :   List/replicate (List/length Natural test_data) C.Compared C.Compared.Less
+        ≡ roundoff_errors_compared_to_precision
+
+let _ = assert : Float/sqrt (T.Float/create +4 +0) 4 ≡ T.Float/create +2 +0
+
+let _ = assert : Float/sqrt (T.Float/create +2 +0) 5 ≡ T.Float/create +14142 -4
+
+let _ =
+        assert
+      : Float/sqrt (T.Float/create +2 +0) 10 ≡ T.Float/create +1414213562 -9
+
+let _ = assert : Float/sqrt (T.Float/create +2 +10) 5 ≡ T.Float/create +14142 +1
+
+let _ = assert : Float/sqrt (T.Float/create +2 -10) 5 ≡ T.Float/create +14142 -9
+
+let _ = assert : Float/sqrt (T.Float/create +16 +0) 5 ≡ T.Float/create +4 +0
+
+let _ = assert : Float/sqrt (T.Float/create +49 +0) 5 ≡ T.Float/create +7 +0
+
+let _ = assert : Float/sqrt (T.Float/create +9 +0) 5 ≡ T.Float/create +3 +0
+
+let showsqrt =
+      λ(x : Integer) →
+      λ(ex : Integer) →
+      λ(prec : Natural) →
+        Float/show (Float/sqrt (T.Float/create x ex) prec)
+
+let _ = assert : showsqrt +62501 -4 8 ≡ "+2.50002"
+
+let _ = assert : showsqrt +62501 +0 8 ≡ "+250.002"
+
+let _ = assert : showsqrt +62501 +4 8 ≡ "+2.50002e+4"
+
+let _ = assert : showsqrt +62591 -20 13 ≡ "+2.501819338002e-8"
+
+let _ = assert : showsqrt +999 -2 15 ≡ "+3.16069612585582"
 
 in  True

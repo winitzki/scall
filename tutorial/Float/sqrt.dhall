@@ -119,15 +119,17 @@ let Float/sqrt
                           = λ(acc : Accum) →
                               let prec = acc.prec * 2
 
+                              let working_prec = prec + 1
+
                               let x =
                                     Float/multiply
                                       ( Float/add
                                           acc.x
-                                          (Float/divide p acc.x prec)
-                                          prec
+                                          (Float/divide p acc.x working_prec)
+                                          working_prec
                                       )
                                       (T.Float/create +5 -1)
-                                      prec
+                                      working_prec
 
                               in  { x, prec }
 
