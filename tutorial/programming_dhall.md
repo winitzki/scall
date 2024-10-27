@@ -83,6 +83,7 @@ Identifiers may contain dash and slash characters; for example, `List/map` and `
 
 This feature is helpful when organizing library functions into modules.
 One can have suggestive names such as `List/map`, `Optional/map`, etc.
+However, Dhall does not treat those names specially and does not require that functions working with `List` should have names such as `List/map` or `List/length`.
 
 Identifiers with dashes can be used, for example, as record field names, as it is often seen in configuration files:
 
@@ -685,7 +686,7 @@ This usage is explained in the next subsection.
 Dhall has a simple file-based module system.
 Each Dhall file must contain the definition of a _single_ Dhall value (often in the form `let x = ... in ...` but it's still a single value).
 That value may be imported into another Dhall file by specifying the path to the first Dhall file.
-The second Dhall file can directly use that value as a sub-expression.
+The second Dhall file can then directly use that value as a sub-expression in further code.
 For convenience, the imported value may be assigned to a variable with a meaningful name.
 
 Here is an example: the first file contains a list of numbers, and the second file contains code that computes the sum of those numbers.
@@ -698,8 +699,8 @@ Here is an example: the first file contains a list of numbers, and the second fi
 ```dhall
 -- This file is `./sum.dhall`.
 let input_list = ./first.dhall  -- Import from relative path.
-let List/sum = https://prelude.dhall-lang.org/Natural/sum  -- Import from URL.
-in List/sum input_list
+let sum = https://prelude.dhall-lang.org/Natural/sum  -- Import from URL.
+in sum input_list
 ```
 
 Running `dhall` on the second file will compute and show the result:
@@ -709,14 +710,41 @@ $ dhall --file ./sum.dhall
 10
 ```
 
-One can import Dhall values from files, from HTTP URLs, and from environment variables.
+The Dhall standard library (the ["Prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
+For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with `List`s are in the `List/` subdirectory, and so on.
+This convention helps make the code for imports more visual:
+
+```dhall
+let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+-- And so on.
+```
+
+The import mechanism can be used as a module system that allows us to create libraries and to reuse code.
+For example, suppose we put some Dhall code into files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall`.
+We can the import those files like this:
+```
+let Dir1/file1 = ./Dir1/file1.dhall
+let Dir1/file2 = ./Dir1/file2.dhall
+in ???
+```
+Also, code in `file1.dhall` can import the contents of `file2.dhall` using a relative path import: `let file2 = ./file2.dhall`.
+However, values imported from files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall` are independent.
+The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory `Dir1` has no special significance
+and does _not_ mean that `file1.dhall` and `file2.dhall` are submodules of a parent module.
+Any file can import any other file, as long as the file import path is given.
+Dhall does not have a concept of "submodules".
+
+Also, Dhall does not treat names such as `Dir1/file1` in any special way.
+Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1`.
+
+Other than importing values from files, Dhall supports importing values  from HTTP URLs and from environment variables.
 Here is an example of importing the Dhall list value `[1, 1, 1]` from an environment variable called `XS`:
 
 ```bash
 $ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
 3
 ```
-
 In this way, Dhall programs may perform computations with external inputs.
 
 However, most often the imported Dhall values are not simple data but program code.
@@ -740,7 +768,6 @@ in {
   printUser,
 }
 ```
-
 When this Dhall file is evaluated, the resulting value is a record of type `{ UserName : Type, UserId : Type, printUser : Text → Natural → Text }`.
 So, this module exports two types (`UserName`, `UserId`) and a function `printUser`.
 
@@ -1349,8 +1376,7 @@ Evaluating `Natural/fold n A s z` will repeatedly apply the function `s : A → 
 The application of `s` will be repeated `n` times, evaluating `s(s(...(s(z))...))`.
 
 For example:
-```bash
-$ dhall repl
+```dhall
 ⊢ let succ = λ(a : Text) → a ++ " world" in Natural/fold 4 Text succ "Hello,"
 
 "Hello, world world world world"
@@ -1361,9 +1387,9 @@ However, `Natural/fold` is not a `while`-loop: it cannot iterate as many times a
 The total number of iterations must be specified in advance as the first argument of `Natural/fold`.
 
 When the exact number of iterations is not known in advance, one must give an upper estimate and design the algorithm to allow it to run further iterations without changing the result.
-Implementations of Dhall may optimize `Natural/fold` so that iterations stop when the result stops changing.
+The Haskell and Scala implementations of Dhall will stop iterations in `Natural/fold` when the result stops changing.
 
-For example, consider this code:
+For example, consider this (artificial) example:
 
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
@@ -1375,7 +1401,7 @@ Theoretically, `Natural/fold 10000000000` needs to apply a given function `10000
 But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
-In the next subsections, we will show some examples of algorithms implemented via `Natural/fold`.
+The next subsections will show some examples of iterative algorithms implemented via `Natural/fold`.
 
 ### Factorial
 
@@ -1719,7 +1745,7 @@ let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
   in Natural/fold iterations Float update init
 ```
-(This code is shown for illustration only! For a fully working version of this code, see  [Float/sqrt.dhall](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).) 
+(This code is shown for illustration only! For a fully tested version of this code, see  [Float/sqrt.dhall](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).) 
 
 ## Programming with functions
 
