@@ -81,8 +81,7 @@ However, the lack of Turing-completeness is _not_ a significant limitation for a
 
 Identifiers may contain dash and slash characters; for example, `List/map` and `start-here` are valid identifiers.
 
-This feature is helpful when organizing library functions into modules.
-One can have suggestive names such as `List/map`, `Optional/map`, etc.
+This feature is used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
 However, Dhall does not treat those names specially and does not require that functions working with `List` should have names such as `List/map` or `List/length`.
 
 Identifiers with dashes can be used, for example, as record field names, as it is often seen in configuration files:
@@ -92,8 +91,9 @@ Identifiers with dashes can be used, for example, as record field names, as it i
 
 { first-name = "John", last-name = "Reynolds" }
 ```
+(However, identifiers may not _start_ with a dash or a slash character.)
 
-Identifiers may be arbitrary characters (even keywords or whitespace) if escaped in backquotes.
+Identifiers may contain arbitrary characters (even keywords or whitespace) if escaped in backquotes.
 
 ```dhall
 ⊢ let `: a b c` = 1 in 2 + `: a b c`
@@ -710,46 +710,7 @@ $ dhall --file ./sum.dhall
 10
 ```
 
-The Dhall standard library (the ["Prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
-For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with `List`s are in the `List/` subdirectory, and so on.
-This convention helps make the code for imports more visual:
-
-```dhall
-let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
--- And so on.
-```
-
-The import mechanism can be used as a module system that allows us to create libraries and to reuse code.
-For example, suppose we put some Dhall code into files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall`.
-We can the import those files like this:
-```
-let Dir1/file1 = ./Dir1/file1.dhall
-let Dir1/file2 = ./Dir1/file2.dhall
-in ???
-```
-Also, code in `file1.dhall` can import the contents of `file2.dhall` using a relative path import: `let file2 = ./file2.dhall`.
-However, values imported from files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall` are independent.
-The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory `Dir1` has no special significance
-and does _not_ mean that `file1.dhall` and `file2.dhall` are submodules of a parent module.
-Any file can import any other file, as long as the file import path is given.
-Dhall does not have a concept of "submodules".
-
-Also, Dhall does not treat names such as `Dir1/file1` in any special way.
-Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1`.
-
-Other than importing values from files, Dhall supports importing values  from HTTP URLs and from environment variables.
-Here is an example of importing the Dhall list value `[1, 1, 1]` from an environment variable called `XS`:
-
-```bash
-$ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
-3
-```
-In this way, Dhall programs may perform computations with external inputs.
-
-However, most often the imported Dhall values are not simple data but program code.
-
-Although a Dhall file has only one value, that value may be a record with many fields.
+Although each Dhall file has only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
 In that way, we may create Dhall modules that export a number of values and/or types to other modules:
 
@@ -792,18 +753,65 @@ In the example just shown, the file `SimpleModule.dhall` defined the local value
 Those values are type-checked and computed inside the module but not exported.
 In this way, sanity checks or unit tests included within a module will be validated but will remain invisible to other modules.
 
+
+Other than importing values from files, Dhall supports importing values  from HTTP URLs and from environment variables.
+Here is an example of importing the Dhall list value `[1, 1, 1]` from an environment variable called `XS`:
+
+```bash
+$ echo "let xs = env:XS in List/length Natural xs" | XS="[1, 1, 1]" dhall
+3
+```
+In this way, Dhall programs may perform computations with external inputs.
+
+However, most often the imported Dhall values are not simple data but records containing types, values, and functions.
+
 The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent malicious code from being injected into a Dhall program.
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
+#### Organizing modules in subdirectories
+
+The Dhall standard library (the ["Prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
+For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with `List`s are in the `List/` subdirectory, and so on.
+This convention helps make the code for imports more visual:
+
+```dhall
+let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+-- And so on.
+```
+
+The import mechanism can be used as a module system that allows us to create libraries and to reuse code.
+For example, suppose we put some Dhall code into files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall`.
+We can the import those files like this:
+```
+let Dir1/file1 = ./Dir1/file1.dhall
+let Dir1/file2 = ./Dir1/file2.dhall
+in ???
+```
+Also, code in `file1.dhall` can import the contents of `file2.dhall` using a relative path import: `let file2 = ./file2.dhall`.
+However, values imported from files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall` are independent.
+The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory `Dir1` has no special significance
+and does _not_ mean that `file1.dhall` and `file2.dhall` are submodules of a parent module.
+Any file can import any other file, as long as the file import path is given.
+Dhall does not have a built-in concept of "submodules".
+
+Also, Dhall does not treat names such as `Dir1/file1` in any special way.
+Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1`.
+
+To imitate a hierarchical library structure having modules and submodules, the Dhall standard library uses nested records.
+By convention, each module has a top-level file called `package.dhall` that defines a record with all values from that module.
+Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
+The top level of the entire Prelude exports a record in [`package.dhall`](https://prelude.dhall-lang.org/package.dhall) that contains all modules in the Prelude.
+
 #### Frozen imports and hashing
 
-Imports from external resources (files, Internet URLs, or environment variables) may be a security risk.
-In that case, Dhall has a feature called "frozen imports" for checking
-that the contents of the import did not unexpectedly change.
-With that check, an import is guaranteed to produce the same value every time.
+Imports from external resources (files, Internet URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
+Dhall has a feature called "frozen imports" for ensuring
+that the contents of an external resource did not unexpectedly change.
+With that check, an import is guaranteed to produce the same value every time (or fail to type-check).
 Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
-As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a test-only Web service that returns a new random string each time it is called.
+As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
 So, this Dhall program:
 
 ```dhall
@@ -822,7 +830,10 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 ''
 ```
 
-To guarantee that imported code remains unchanged, the import expression can be annotated by the import's SHA256 hash value.
+If `https://test.dhall-lang.org/random-string` is imported several times within one Dhall program, the first imported value will be internally cached and used for all subsequent imports.
+This is a general feature of imports that guarantees referential transparency.
+
+To ensure that imported code remains unchanged, the import expression can be annotated by the imported code's SHA256 hash value.
 Such imports are called "frozen".
 Dhall will refuse to process a frozen import if the external resource gives
 an expression with a different SHA256 hash value than that in the Dhall code.
@@ -845,21 +856,91 @@ If the user modifies the file `simple.dhall` so that it evaluates to anything ot
 Hash values are computed from the _normal form_ of Dhall expressions, and the normal forms are computed only after successful type-checking.
 For this reason, the hash value of a Dhall program remains unchanged under any valid refactoring.
 For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
-The hash value will remain the same as long as the final evaluated expression in its normal form remains the same.
+The hash value will remain the same as long as the normal form of the final evaluated expression remains the same.
 
-## Some features of the Dhall type system
+## More features of Dhall's type system
+
+### Types and values
+
+As in every programming language, types are different from values.
+Each value has an assigned type, but it is not true that each type has only one assigned value.
+
+Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given.
+
+Other than that, Dhall treats types and values in a largely similar way.
+Types may be assigned to variables, stored in records, and passed as function parameters using the same syntax as when working with values.
+
+For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
+Here, we used the type `Bool` as a type annotation for the variable `x`.
+But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
+Then we will be able to use `y` in type annotations, such as `x : y`.
+The type of `y` itself will be `Type`.
+
+To find out the type of an expression, one can write `:type` in the Dhall interpreter:
+
+```dhall
+$ dhall repl
+Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+⊢ :type True
+
+Bool
+
+⊢ :type Bool
+
+Type
+```
+
+Dhall defines functions with the `λ` syntax:
+
+```dhall
+let inc = λ(t : Natural) → t + 1
+```
+
+The same syntax works if `t` were a type parameter (having type `Type`):
+
+```dhall
+let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
+```
+
+Records and union types may contain types as well as values within the same data type:
+
+
+```dhall
+⊢ :type { a = 1, b = Bool }
+
+{ a : Natural, b : Type } 
+
+⊢ :type < A : Bool | B : Type >.B Text
+
+< A : Bool | B : Type >
+```
+
+Note that the built-in type constructors `List` and `Optional` are limited to values; one cannot create a `List` of types in the same way as one creates a list of integers.
+
+```dhall
+⊢ :let a = [ 1, 2, 3 ]
+
+a : List Natural
+
+⊢ :let b = [ Bool, Natural, Text ]
+
+Error: Invalid type for ❰List❱
+```
+
+If a "list of types" is desired, such a data structure needs to be defined by the user.
+(This book will show how to do that.)
+
 
 ### Working with records polymorphically
 
 "Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
-A function that requires its argument to have type `{ y : Bool }` will then accept an argument of type `{ x : Natural, y : Bool }`.
+A function that requires its argument to have type `{ y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool }`.
 (The value `x` will be simply ignored.)
-
-In those languages, the record type `{ y : Bool }` is actually treated as the type of "any record having a Boolean field `y` and possibly other unknown fields that we will ignore".
+So, the record type `{ y : Bool }` is actually treated as the type of any record having a Boolean field `y` and possibly other unknown fields.
 
 Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
 
-A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }` but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
+A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
 The function only needs the fields `a` and `b` and should ignore all other fields in the record.
 
 To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
@@ -871,10 +952,10 @@ let r1= { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
 in f r1.(MyTuple)  -- This is a complete program that returns 123.
 ```
 
-The field selection operation `r1.(MyTuple)` removes all fields other than those from `MyTuple`.
-We need to apply the field selection each time we call the function.
+The field selection operation `r1.(MyTuple)` removes all fields other than those defined in the type `MyTuple`.
 We cannot write `f r1` because `r1` does not have the type `MyTuple`.
-Instead, we  write `f r1.(MyTuple)`.
+Instead, we write `f r1.(MyTuple)`.
+We would need to use the field selection each time we call the function `f`.
 
 Another often used behavior is to provide default values for missing fields.
 This is implemented with Dhall's record update operation:
@@ -894,12 +975,12 @@ The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` o
 If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
 The field selection `.(MyTuple)` will get rid of any other fields.
 
-Note that the built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
+The built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
 For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
-Similarly, `myTupleDefault // r` will accept records `r` of any type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
+Similarly, `myTupleDefault // r` will accept records `r` of any record type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
 
-But Dhall cannot directly describe the polymorphic types of such records.
-So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r` where `r` is an arbitrary record.
+But Dhall cannot directly describe the type of records with unknown fields.
+So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r`, where `r` is an arbitrary record.
 
 
 Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
@@ -907,8 +988,8 @@ Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTup
 ### The "assert" keyword and equality types
 
 For values other than booleans and natural numbers, equality testing is not available as a function.
-However, values of any types may be tested for equality at compile time via Dhall's `assert` feature.
-That feature is mainly intended for implementing basic sanity checks:
+However, values of any type may be tested for equality at compile time via Dhall's `assert` feature.
+That feature is mainly intended for implementing sanity checks and unit tests:
 
 ```dhall
 let x : Text = "123"
@@ -996,202 +1077,6 @@ let _ = assert : f "x" === "(x)"  -- OK.
 let _ = assert : f "" === "()"    -- OK.
 -- Continue writing code.
 ```
-
-### Types, kinds, sorts
-
-Types are different from values because each value has an assigned type.
-(It is not true that each type has only one assigned value.)
-Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given. 
-
-Other than that, Dhall treats types and values in a largely similar way.
-Types may be assigned to variables, stored in records, and passed as function parameters using the same syntax as when working with values.
-
-For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
-Here, we used the type `Bool` as a type annotation for the variable `x`.
-But we may also write `let y = Bool` to define a variable `y` whose value is the type `Bool` itself.
-Then we will be able to use `y` in type annotations, such as `x : y`.
-The type of `y` itself will be `Type`.
-
-To find out the type of an expression, one can write `:type` in the Dhall interpreter:
-
-```dhall
-$ dhall repl
-Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
-⊢ :type True
-
-Bool
-
-⊢ :type Bool
-
-Type
-```
-
-Dhall defines functions with the `λ` syntax:
-
-```dhall
-let inc = λ(t : Natural) → t + 1
-```
-
-The same syntax works if `t` were a type parameter (having type `Type`):
-
-```dhall
-let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
-```
-
-Records and union types may contain types as well as values within the same data type:
-
-
-```dhall
-⊢ :type { a = 1, b = Bool }
-
-{ a : Natural, b : Type } 
-
-⊢ :type < A : Bool | B : Type >.B Text
-
-< A : Bool | B : Type >
-```
-
-Note that the built-in type constructors `List` and `Optional` are limited to values; one cannot create a `List` of types in the same way as one creates a list of integers.
-
-```dhall
-⊢ :let a = [ 1, 2, 3 ]
-
-a : List Natural
-
-⊢ :let b = [ Bool, Natural, Text ]
-
-Error: Invalid type for ❰List❱
-```
-
-If a "list of types" is desired, such a data structure needs to be defined by the user.
-(This book will show how to do that.)
-
-The symbol `Type` is itself treated as a special value whose type is `Kind`:
-
-```dhall
-⊢ :let p = Type
-
-p : Kind
-```
-
-Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
-
-```dhall
-⊢ :type (Type → Type) → Type
-
-Kind
-
-⊢ :type { a : Type }
-
-Kind
-```
-
-As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
-The type of _that_ is `Kind`:
-
-```dhall
-⊢ :type { a : Natural, b : Type }
-
-Kind
-```
-
-Any function that returns something containing `Type` will itself have the output type `Kind`:
-
-```dhall
-⊢ :type λ(t : Bool) → if t then Type else Type → Type
-
-∀(t : Bool) → Kind
-```
-
-Functions with parameters of type `Kind` can be used for creating complicated higher-order types, for example:
-
-```dhall
-⊢ :let f = λ(a : Kind) → a → a
-
-f : ∀(a : Kind) → Kind
-
-⊢ f Type
-
-Type → Type
-
-⊢ f (Type → Type)
-
-(Type → Type) → Type → Type
-```
-
-In turn, the symbol `Kind` is treated as a special value of type `Sort`.
-Other type expressions involving `Kind` are also of type `Sort`:
-
-```dhall
-⊢ :type Kind
-
-Sort
-
-⊢ :type Kind → Kind → Type
-
-Sort
-
-⊢ :type λ(a : Kind) → a → a
-
-∀(a : Kind) → Kind
-
-⊢ :type ∀(a : Kind) → Kind
-
-Sort
-```
-
-The symbol `Sort` is even more special: it _does not_ itself have a type.
-Because of that, nearly any explicit usage of `Sort` will be a type error:
-
-```dhall
-⊢ :let a = Sort
-
-Error: ❰Sort❱ has no type, kind, or sort
-
-⊢ λ(_ : Sort) → 0
-
-Error: ❰Sort❱ has no type, kind, or sort
-```
-
-This feature prevents Dhall from having to define an infinite hierarchy of "**type universes**".
-That hierarchy is often used in programming languages with full support for dependent types.
-In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
-Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
-
-Dhall's type system has enough abstraction to support powerful types and to treat types and values in a uniform manner, while avoiding the complications with infinitely many type universes.
-
-Because of this design, Dhall does not support operating on the symbol `Kind` itself.
-Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
-One can assign such expressions to variables, one can use them for type annotations, and that's about it.
-
-For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
-
-```dhall
-⊢ :let a = Kind
-
-a : Sort
-
-⊢ :let f = λ(_: Natural) → a
-
-Error: ❰Sort❱ has no type, kind, or sort
-```
-
-This error occurs because Dhall requires a function's type _itself_ to have a type.
-The symbol `Kind` has type `Sort`, 
-so the type of the function `f = λ(_: Natural) → a` is `Natural → Sort`.
-But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
-Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
-
-For the same reason, Dhall will not accept the following function parameterized by a `Kind` value:
-```dhall
-⊢ :let f = λ(k : Kind) → ∀(b : Kind) → k → b
-
-Error: ❰Sort❱ has no type, kind, or sort
-```
-This prevents Dhall from defining recursive kind-polymorphic type constructors (e.g., an analog of `List` that works with types of arbitrary kinds).
-
-There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
-But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
 ### The universal type quantifier (∀) vs. the function symbol (λ)
 
@@ -1285,11 +1170,154 @@ let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 
 This makes Dhall code more verbose but also helps remove "magic" from the syntax.
 
+
+
+### Kinds and sorts
+
+We have seen that in many cases Dhall treats types (such as `Natural` or `Text`) similarly to values.
+For instance, we could write `let N = Natural in ...` and then use the variable `N` interchangeably with the built-in symbol `Natural`.
+The variable `N` itself has a type that is denoted by the symbol `Type`.
+So, we may write the type annotation `N : Type`.
+```dhall
+⊢ :let N = Natural
+
+N : Type
+```
+
+
+The symbol `Type` is itself treated as a special value whose type is `Kind`:
+
+```dhall
+⊢ :let p = Type
+
+p : Kind
+```
+
+Other possible values of type `Kind` are type constructor types, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
+
+```dhall
+⊢ :type (Type → Type) → Type
+
+Kind
+
+⊢ :type { a : Type }
+
+Kind
+```
+
+As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
+The type of _that_ is `Kind`:
+
+```dhall
+⊢ :type { a : Natural, b : Type }
+
+Kind
+```
+
+Any function that returns something containing `Type` will itself have the output type `Kind`:
+
+```dhall
+⊢ :type λ(t : Bool) → if t then Type else Type → Type
+
+∀(t : Bool) → Kind
+```
+
+Functions with parameters of type `Kind` can be used for creating complicated higher-order types.
+For example, here is a function that takes creates higher-order types of the form `k → k`, where `k` could be `Type`, `Type → Type`, or any other   expression  of type `Kind`:
+
+```dhall
+⊢ :let f = λ(k : Kind) → k → k
+
+f : ∀(k : Kind) → Kind
+
+⊢ f Type
+
+Type → Type
+
+⊢ f (Type → Type → Type)
+
+(Type → Type → Type) → Type → Type → Type
+```
+
+In turn, the symbol `Kind` is treated as a special value of type `Sort`.
+Other type expressions involving `Kind` are also of type `Sort`:
+
+```dhall
+⊢ :type Kind
+
+Sort
+
+⊢ :type Kind → Kind → Type
+
+Sort
+
+⊢ :type λ(a : Kind) → a → a
+
+∀(a : Kind) → Kind
+
+⊢ :type ∀(a : Kind) → Kind
+
+Sort
+```
+
+The symbol `Sort` is even more special: it _does not_ itself have a type.
+Because of that, nearly any explicit usage of `Sort` will be a type error:
+
+```dhall
+⊢ :let a = Sort
+
+Error: ❰Sort❱ has no type, kind, or sort
+
+⊢ λ(_ : Sort) → 0
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+
+This feature prevents Dhall from having to define an infinite hierarchy of "**type universes**".
+That hierarchy is often used in programming languages with full support for dependent types.
+In those languages, `Type`'s type is denoted by `Type 1`, the type of `Type 1` is `Type 2`, and so on to infinity.
+Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
+
+Dhall's type system has enough abstraction to support powerful types and to treat types and values in a uniform manner, while avoiding the complications with infinitely many type universes.
+
+Because of this design, Dhall does not support operating on the symbol `Kind` itself.
+Very little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
+One can assign such expressions to variables, one can use them for type annotations, and that's about it.
+
+For instance, it is a type error to write a function that returns the symbol `Kind` as its output value:
+
+```dhall
+⊢ :let a = Kind
+
+a : Sort
+
+⊢ :let f = λ(_: Natural) → a
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+
+This error occurs because Dhall requires a function's type _itself_ to have a type.
+The symbol `Kind` has type `Sort`, 
+so the type of the function `f = λ(_: Natural) → a` is `Natural → Sort`.
+But the symbol `Sort` does not have a type, and neither does the expression `Natural → Sort`.
+Dhall raises a type error because the function `f`'s type (which is `Natural → Sort`) does not itself have a type.
+
+For the same reason, Dhall will not accept the following function parameterized by a `Kind` value:
+```dhall
+⊢ :let f = λ(k : Kind) → ∀(b : Kind) → k → b
+
+Error: ❰Sort❱ has no type, kind, or sort
+```
+This prevents Dhall from defining recursive kind-polymorphic type constructors (e.g., an analog of `List` that works with types of arbitrary kinds).
+
+There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
+But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
+
 ### Dependent types in Dhall
 
-Dependent types are, by definition, types that depend on _values_.
+Dependent types are types that depend on _values_.
 
-Curried functions types support dependence between an argument type and any previously given argument values.
+In Dhall, curried function types support dependence between an argument type and any previously given arguments.
 
 For example, the type of the polymorphic identity function is:
 
@@ -1326,8 +1354,13 @@ This `f` can be used as a type signature for a **dependently-typed function** (t
 ```dhall
 let dependent_type = ∀(x : Bool) → ∀(y : f x) → Text
 ```
+A value of type `dependent_type` is a curried function that takes a natural number `x` and a second argument `y`.
+The type of the argument `y` must be `Natural` or `Text` depending on the _value_ of the argument `x`.
+If we imagine uncurrying that function, we would get a type that we could write symbolically as `{ x : Bool, y : f x } → Text`.
+This type is not valid in Dhall, because a field's type in a record must be fixed and cannot depend on the value of another field.
+Such "dependent records" or "dependent pairs" are supported in languages that are intended for working with dependent types. 
 
-Here, the type of the argument `y` must be `Natural` or `Text` depending on the _value_ of the argument `x`.
+The type `∀(x : Bool) → ∀(y : f x)` is also a form of a dependent type, known as a "dependent function".
 
 For an example of using dependent types for implementing safe division, see below in the section about arithmetic operations.
 
@@ -1349,7 +1382,7 @@ In the `else` branch, `x` is `False` because the `if/then/else` construction beg
 So, the `else` branch must have type `f False = Text`.
 But Dhall does not implement this logic and cannot see that both branches will have the same type `Text`.
 
-Because of this and other limitations, Dhall can work productively with dependent types only in sufficiently simple cases. 
+Because of this and other limitations, Dhall can work productively with dependent types only in certain simple cases, such as validation of properties for function arguments. 
 
 
 ## Numerical algorithms
@@ -1725,18 +1758,21 @@ An example of an arbitrary-precision numerical algorithm is the computation of a
 
 We will use the following algorithm that computes successive approximations for $x = \sqrt p$, where $p$ is a given non-negative number:
 
-1. Compute the initial approximation $x_0$ that is close to $\sqrt p$.
+1. Compute the initial approximation $a$ that is close to $\sqrt p$.
 2. Estimate the total number of iterations $n$, where $n \ge 1$.
-3. Apply $n$ times the function `update`. 
+3. Apply $n$ times the function `update` to $a$. 
 
 The result is the Dhall code `Natural/fold n update x0`.
 
 The initial approximation is defined as follows:
 
-1. Find the largest integer number $k$ such that $p = q * 10^{2k}$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
-2. If $q \lt 2$ then the initial value is $x0 = (3 + 10 * q) / 15$. If $2 \le q \lt 16$ then $x0 = (15 + 3 * q) / 15$. If $q 16 \le q \lt 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
-3. The update function is computed as $u(x) = \frac{1}{2}(x+p/x) $.
-4. The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log_2 N$. The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
+ 
+1. Find the largest integer number $k$ such that $p = 10^{2k} q$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
+2. If $q \lt 2$ then the initial value is $x0 = (3 + 10  q) / 15$. If $2 \le q \lt 16$ then $x0 = (15 + 3  q) / 15$. If $q 16 \le q \lt 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+3. The update function is defined as $u(x) = \frac{1}{2}(x+p/x) $.
+
+The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log N$ (where the logarithm is in base 2).
+The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
 
 ```dhall
 let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
@@ -5004,6 +5040,61 @@ let mapForall
 
 We will reuse these mapping functions below to make some code shorter.
 
+### Dependent pairs and refinement types
+
+A **dependent pair**  is a type that describes pairs of values of a special form: the first value has a given type `X` (say, it is `x : X`), and the second value has type `P x`, where `P : X → Type` is a given dependently-typed function.
+So, the _type_ of the second value in the pair depends on the first value.
+
+Dependent pairs cannot be expressed directly by Dhall records, because each field of a record must have a fixed type that cannot depend on values of other fields of the same record. 
+Instead, we will use the Church encoding technique.
+
+The Church encoding of a dependent pair can be written as a type-level function parameterized by an arbitrary type `X` and an arbitrary dependent function of type `X → Type`:
+
+```dhall
+let DependentPair
+  : ∀(X : Type) → (X → Type) → Type
+  = λ(X : Type) → λ(P : X → Type) →
+    ∀(R : Type) → (∀(x : X) → P x → R) → R
+```
+
+Creating a value of type `DependentPair X P` requires us to provide a value `x : X` and a value of type `P x`.
+So, a constructor can be implemented as:
+```dhall
+let makeDependentPair
+  : ∀(X : Type) → ∀(x : X) → ∀(P : X → Type) → P x → DependentPair X P
+  = λ(X : Type) → λ(x : X) → λ(P : X → Type) → λ(px : P x) → 
+    λ(r : Type) → λ(k : ∀(x : X) → P x → R) → k x px
+```
+
+Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it:
+```dhall
+let dependentPairFirstValue
+  : ∀(X : Type) → ∀(P : X → Type) → DependentPair X P → X
+  = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
+    dp X (λ(x : X) → λ(_ : P x) → x)
+```
+However, we cannot extract the second value (of type `P x`).
+
+An example of using a dependent pair is a type describing `Natural` numbers that may not be greater than `10`.
+(Such types are known as **refinement types**.)
+To describe that property, we need to create a dependent function of type `Natural → Type`.
+When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`.
+How could we implement such a function? One possibility is to use Dhall's  built-in method `Natural/subtract`.
+In Dhall, the expression `Natural/subtract 10 x` will evaluate to zero when `x` is less or equal `10`.
+Then we can use Dhall's equality type `Natural/subtract 10 x === 0` as the type of evidence values.
+The type `Natural/subtract 10 x === 0` is not void precisely when `x` is not greater than `10`. 
+
+This leads us to the definition:
+```dhall
+let NaturalLessEqual10 = DependentPair Natural (λ(x : Natural) → Natural/subtract 10 x === 0) 
+```
+
+The intent of a refinement type is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
+Dependent pairs provide an encoding of refinement types.
+Let us now see how one can work with refinement types Church-encoded via dependent pairs.
+
+Creating a value of type `NaturalLessEqual10` requires us to provide a natural number 
+
 ## Co-inductive types
 
 ### Greatest fixpoints: Motivation
@@ -6718,7 +6809,7 @@ An example of a non-commutative monoid is the `Optional` monoid shown earlier in
 
 ## Combinators for functors and contrafunctors
 
-Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall.
+Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall (without using dependent types).
 We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from smaller ones.
 
