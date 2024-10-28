@@ -1759,7 +1759,9 @@ An example of an arbitrary-precision numerical algorithm is the computation of a
 We will use the following algorithm that computes successive approximations for $x = \sqrt p$, where $p$ is a given non-negative number:
 
 1. Compute the initial approximation $a$ that is close to $\sqrt p$.
+
 2. Estimate the total number of iterations $n$, where $n \ge 1$.
+
 3. Apply $n$ times the function `update` to $a$. 
 
 The result is the Dhall code `Natural/fold n update x0`.
@@ -1768,7 +1770,9 @@ The initial approximation is defined as follows:
 
  
 1. Find the largest integer number $k$ such that $p = 10^{2k} q$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
-2. If $q \lt 2$ then the initial value is $x0 = (3 + 10  q) / 15$. If $2 \le q \lt 16$ then $x0 = (15 + 3  q) / 15$. If $q 16 \le q \lt 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+
+2. If $q < 2$ then the initial value is $x0 = (3 + 10  q) / 15$. If $2 \le q < 16$ then $x0 = (15 + 3  q) / 15$. If $16 \le q < 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+
 3. The update function is defined as $u(x) = \frac{1}{2}(x+p/x) $.
 
 The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log N$ (where the logarithm is in base 2).
@@ -3523,7 +3527,7 @@ let extensionalityLeibnizEqual
     in f_eq_g k h
 ```
 
-#### Example
+#### Examples
 
 To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
 It is clear that `f x === g y` in that case.
@@ -3546,6 +3550,10 @@ let extensional_equality
     in result
 ```
 
+Another example is when we are given a function `f : T → U` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`.
+In that situation, we expect to have `f a c === f b d`, and we would like to derive an evidence value for that equality.
+
+TODO
 
 ## Church encoding for recursive types
 
@@ -4455,6 +4463,16 @@ But that difference is crucial.
 
 See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
+### Church-encoded data structures at type level
+
+Dhall's built-in type constructors  `List` and `Optional` only work with values of ordinary types.
+One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
+But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbols, or `Some Text` meaning an `Optional` value storing the `Text` type symbol.
+
+Such "type-level" data structures can be implemented via the Church encoding technique.
+
+TODO
+
 ### Recursive type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
@@ -5084,16 +5102,69 @@ In Dhall, the expression `Natural/subtract 10 x` will evaluate to zero when `x` 
 Then we can use Dhall's equality type `Natural/subtract 10 x === 0` as the type of evidence values.
 The type `Natural/subtract 10 x === 0` is not void precisely when `x` is not greater than `10`. 
 
-This leads us to the definition:
+This leads us to the definitions:
 ```dhall
-let NaturalLessEqual10 = DependentPair Natural (λ(x : Natural) → Natural/subtract 10 x === 0) 
+let NaturalLessEqual10Predicate : Natural → Type
+  = λ(x : Natural) → Natural/subtract 10 x === 0
+let NaturalLessEqual10 = DependentPair Natural NaturalLessEqual10Predicate
 ```
 
-The intent of a refinement type is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
-Dependent pairs provide an encoding of refinement types.
-Let us now see how one can work with refinement types Church-encoded via dependent pairs.
+It is convenient to specialize the constructor (`makeDependentPair`) and the extractor (`dependentPairFirstValue`) to this type:
+```dhall
+let makeNaturalLessEqual10
+  : ∀(x : Natural) → NaturalLessEqual10Predicate x → NaturalLessEqual10
+  = λ(x : Natural) → λ(px : NaturalLessEqual10Predicate x) →
+    makeDependentPair Natural x NaturalLessEqual10Predicate px
+let extractNaturalLessEqual10 : NaturalLessEqual10 → Natural
+  = dependentPairFirstValue Natural NaturalLessEqual10Predicate
+```
+Now we can create values of type `NaturalLessEqual10` like this:
+```dhall
+let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 (assert : NaturalLessEqual10Predicate 8) 
+```
 
-Creating a value of type `NaturalLessEqual10` requires us to provide a natural number 
+This usage is repetitive: we need to write the number `8` twice.
+Could we avoid this repetition?
+
+It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at type-checking time, before the function `makeNaturalLessEqual10` is applied to any arguments.
+
+One workaround is to notice that `NaturalLessEqual10Predicate 8` actually returns the equality type `0 === 0`.
+The same type (`0 === 0`) is returned by `NaturalLessEqual10Predicate x` whenever $x \le 10$.
+So, we could define the value `assert : 0 === 0` in advance and use it like this:
+
+```dhall
+let NaturalLessEqualAssert = assert : 0 === 0
+let  x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
+```
+
+A second solution is to change the definition of `NaturalLessEqual10Predicate` to simplify the returned type.
+It is not really necessary to return an equality type; it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
+Then the definition and the usage become simpler while the functionality remains the same.
+Let us use more descriptive names for the new code:
+```dhall
+let `If N <= 10` : Natural → Type
+  = λ(x : Natural) → if Natural/lessThanEqual x 10 then {} else <> 
+let `N <= 10` = DependentPair Natural `If N <= 10`
+```
+
+The code of `makeNaturalLessEqual10` and `extractNaturalLessEqual10` remains the same.
+Let us rename those functions too:
+```dhall
+let `make N <= 10` = λ(x : Natural) → makeDependentPair Natural x `If N <= 10`
+let `get N <= 10` = dependentPairFirstValue Natural `If N <= 10`
+```
+
+Creating and using a value of the type `N <= 10` looks like this:
+
+```dhall
+let x : `N <= 10` = `make N <= 10` 8 {=}
+let _ = assert : `get N <= 10` x === 8
+```
+
+
+
+The intent of a refinement type is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
+Dependent pairs provide an encoding of refinement types in Dhall.
 
 ## Co-inductive types
 
