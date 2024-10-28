@@ -5081,7 +5081,7 @@ So, a constructor can be implemented as:
 let makeDependentPair
   : ∀(X : Type) → ∀(x : X) → ∀(P : X → Type) → P x → DependentPair X P
   = λ(X : Type) → λ(x : X) → λ(P : X → Type) → λ(px : P x) → 
-    λ(r : Type) → λ(k : ∀(x : X) → P x → R) → k x px
+    λ(R : Type) → λ(k : ∀(x : X) → P x → R) → k x px
 ```
 
 Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it:
