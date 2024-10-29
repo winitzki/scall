@@ -5084,23 +5084,32 @@ let makeDependentPair
     λ(R : Type) → λ(k : ∀(x : X) → P x → R) → k x px
 ```
 
-Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it:
+Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it.
+This is done by a function of type `DependentPair X P → X`:
 ```dhall
 let dependentPairFirstValue
   : ∀(X : Type) → ∀(P : X → Type) → DependentPair X P → X
   = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
     dp X (λ(x : X) → λ(_ : P x) → x)
 ```
-However, we cannot extract the second value (of type `P x`).
-The type of that value depends on the first value (`x`) and cannot be defined separately from that `x`.
-So, we cannot correctly assign a type to a function that extracts just the value of type `P x`.
+However, we cannot extract the second value (of type `P x`) via a function of type `DependentPair X P → something`.
+The type of the second value depends on the first value (`x`) and cannot be defined separately from that `x`.
+Without knowing `x`, we cannot correctly assign a type to a function that extracts just the value of type `P x`.
+
+To extracts the second value from a dependent pair, we need a function with a dependent type: namely, the output type of that function must depend on the input value.
+Dhall already supports dependent function types.
+So, we may write the code as:
+
+TODO
 
 #### Example: encoding a refinement type
 
-An example of   a dependent pair is  a type describing `Natural` numbers that may not be greater than `10`.
-(Such types are known as **refinement types**.)
-To describe that property, we need to create a dependent function of type `Natural → Type`.
-When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`.
+The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
+Dependent pairs provide an encoding of refinement types in Dhall.
+
+An example  is a type describing `Natural` numbers that may not be greater than `10`.
+To encode that type via dependent pairs, we need to create a function of type `Natural → Type`.
+When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`, or a void type if `x` is above `10`.
 How could we implement such a function? One possibility is to use Dhall's  built-in method `Natural/subtract`.
 In Dhall, the expression `Natural/subtract 10 x` will evaluate to zero when `x` is less or equal `10`.
 Then we can use Dhall's equality type `Natural/subtract 10 x === 0` as the type of evidence values.
@@ -5147,7 +5156,7 @@ Then the definition and the usage become simpler while the functionality remains
 Let us use more descriptive names for the new code:
 ```dhall
 let `If N <= 10` : Natural → Type
-  = λ(x : Natural) → if Natural/lessThanEqual x 10 then {} else <> 
+  = λ(x : Natural) → if Natural/lessThanEqual x 10 then {} else <>
 let `N <= 10` = DependentPair Natural `If N <= 10`
 ```
 
@@ -5165,10 +5174,23 @@ let x : `N <= 10` = `make N <= 10` 8 {=}
 let _ = assert : `get N <= 10` x === 8
 ```
 
+We can generalize this code to a refinement type that imposes an arbitrary condition on a given type `T`:
 
+```dhall
+let toPredicate = λ(T : Type) → λ(cond : T → Bool) →
+  λ(t : T) → if cond t then {} else <>
+let Refined : ∀(T : Type) → ∀(cond : T → Bool) → Type
+  = λ(T : Type) → λ(cond : T → Bool) →
+    DependentPair T (toPredicate T cond)
+let makeRefined = λ(T : Type) → λ(cond : T → Bool) →
+  let Predicate = toPredicate T cond
+  in λ(t : T) → λ(evidence : Predicate t) →
+    makeDependentPair T t Predicate evidence
+let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
+  dependentPairFirstValue T (toPredicate T cond)
+```
 
-The intent of a refinement type is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
-Dependent pairs provide an encoding of refinement types in Dhall.
+TODO example
 
 ## Co-inductive types
 
