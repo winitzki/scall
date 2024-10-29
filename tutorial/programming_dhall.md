@@ -5058,7 +5058,7 @@ let mapForall
 
 We will reuse these mapping functions below to make some code shorter.
 
-### Dependent pairs and refinement types
+### Dependent pairs
 
 A **dependent pair**  is a type that describes pairs of values of a special form: the first value has a given type `X` (say, it is `x : X`), and the second value has type `P x`, where `P : X → Type` is a given dependently-typed function.
 So, the _type_ of the second value in the pair depends on the first value.
@@ -5092,8 +5092,12 @@ let dependentPairFirstValue
     dp X (λ(x : X) → λ(_ : P x) → x)
 ```
 However, we cannot extract the second value (of type `P x`).
+The type of that value depends on the first value (`x`) and cannot be defined separately from that `x`.
+So, we cannot correctly assign a type to a function that extracts just the value of type `P x`.
 
-An example of using a dependent pair is a type describing `Natural` numbers that may not be greater than `10`.
+#### Example: encoding a refinement type
+
+An example of   a dependent pair is  a type describing `Natural` numbers that may not be greater than `10`.
 (Such types are known as **refinement types**.)
 To describe that property, we need to create a dependent function of type `Natural → Type`.
 When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`.
