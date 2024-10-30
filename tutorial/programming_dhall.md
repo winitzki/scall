@@ -3588,7 +3588,7 @@ let LeibnizUnequal
   = λ(T : Type) → λ(a : T) → λ(b : T) → (∀(f : T → Type) → f a → f b) → <>
 ```
 
-If values `a` and `b` are unequal, we may construct a value of type `LeibnizUnequal T a b`  
+If values `a` and `b` are unequal, we may construct a value of type `LeibnizUnequal T a b` by choosing `f : T → Type` such that `f a` is the unit type and `f b` is the void type.
 
 TODO
 
