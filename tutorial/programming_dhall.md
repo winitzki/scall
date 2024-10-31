@@ -3299,6 +3299,78 @@ With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is the same Dh
 In this way, Leibniz equality types reproduce Dhall's assertion functionality.
 Dhall's `assert` keyword and types of the form `x === y` give convenient syntactic sugar for using Leibniz equality types with literal values.
 
+Note that the `assert` feature allows us to assert static (compile-time) equality on values that Dhall cannot compare at run time.
+We can write `assert : "abc" === "abc"` even though Dhall cannot implement a function for comparing two strings.
+Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
+
+```dhall
+let exampleString = "ab"
+let _ = refl Text "abc" : LeibnizEqual Text ${exampleString}c" "abc"
+```
+
+### Leibniz inequality types
+
+An "inequality type" is a type that is void when `a` and `b` are equal, and non-void when they are not equal.
+How could we encode such a type?
+We would need to create a type that is void when `a === b` is not void, and vice versa.
+This property (a "logical negation" of `a === b`) can be encoded as the type `(a === b) → <>`.
+
+To see why, consider  the function type `T → <>` for any type `T`.
+
+Indeed,  if `T` is non-void then we could not possibly have any functions of type `T → <>`.
+If we had such a function, we would apply it to some value of type `T` and obtain a value of the void type, which is impossible.
+So, the type `T → <>` must be void.
+
+On the other hand, if `T` is void then we _do_ have a function of type `T → <>`; this is the `absurd` function shown earlier in this book.
+
+So, the type `T → <>` may be interpreted as the "negation" of the type `T` in the sense of being void or non-void.
+
+We now use this technique with the Leibniz equality types and define the "inequality type constructor" (`LeibnizUnequal`) such that `LeibnizUnequal T a b` is the same as `(LeibnizEqual T a b) → <>`:
+
+```dhall
+let LeibnizUnequal
+  : ∀(T → Type) → ∀(a : T) → ∀(b : T) → Type
+  = λ(T : Type) → λ(a : T) → λ(b : T) → (∀(f : T → Type) → f a → f b) → <>
+```
+
+Suppose some values `a` and `b` are unequal and such that we can write an `if/then/else` expression or a `merge`  expression that distinguishes them.
+Then we may construct a value of type `LeibnizUnequal T a b`.
+For that, we choose a function `f : T → Type` such that `f a` is the unit type and `f b` is the void type.
+
+As an example, consider `T = Natural` and `a = 1`, `b = 0`.
+The type `LeibnizUnequal Natural 1 0` is `(∀(f : Natural → Type) → f 1 → f 0) → <>`.
+To construct a value of that type, we need to write code like this:
+
+```dhall
+let oneDoesNotEqualZero : LeibnizUnequal Natural 1 0
+  = λ(k : ∀(f : Natural → Type) → f 1 → f 0) → ???
+```
+Here, we need to write a function that returns a value of the void type.
+That appears to be impossible because the void type has no values.
+But we will not actually call that function; we just need to write code that typechecks.
+That code needs to call `k` with some arguments, such that the output type is void (Dhall's `<>`).
+The curried function `k` has arguments of type `Natural → Type` and `f 1`, while the final output value has type `f 0`.
+So, let us choose `f` such that `f 0 = <>`.
+It remains to choose `f` such that `f 1` is not void, so that we could call `k` with all curried arguments.
+For simplicity, let us choose `f 1 = {}` (Dhall's unit type).
+This allows us to complete the code:
+
+```dhall
+let oneDoesNotEqualZero : LeibnizUnequal Natural 1 0
+  = λ(k : ∀(f : Natural → Type) → f 1 → f 0) →
+    let f : Natural → Type = λ(x : Natural) → if Natural/isZero x then <> else {}
+    in k f {=}
+```
+
+Similar code would be written for `LeibnizUnequal T a b` when `T` is a union type and the values `a` and `b` are from different parts of the union.
+Then we would apply `k` to a function `f` defined via a suitable `merge` expression instead of `if/then/else`.
+
+We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` via `Bool`-valued functions or, equivalently, via `merge` expressions.
+This is a stronger requirement than just being able to find out whether two values of type `T` are equal.
+Dhall does not support `Bool`-valued comparisons for primitive types such as `Double` or `Text`.
+So, it is impossible to write Dhall code with type `LeibnizUnequal Text "abc" "def"` or `LeibnizUnequal Double 0.1 0.2`.
+(However, it is perfectly possible to implement values of equality types such as `LeibnizEqual Text "abc" "abc"` and `LeibnizEqual Double 0.1 0.1`, as we have already seen.)
+
 ### Constraining a function argument's value
 
 We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
@@ -3308,12 +3380,12 @@ The user can call the function only when an evidence value of the required type 
 For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y` are the same.
 So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
 
-A function with an argument of type `LeibnizEqual T x y → <>` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality.
-(Note that Dhall's `assert` feature is _not_ able to require that some values be unequal.)
+A function with an argument of type `LeibnizUnequal T x y` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality at run time.
+(Note that Dhall's `assert` feature is _unable_ to validate statically that some values are unequal.)
 
 Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
-The type `Nonzero y` is equivalent to the type `LeibnizEqual Natural 0 y → <>`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
+The type `Nonzero y` is equivalent to the type `LeibnizUnequal Natural 0 y`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
 In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
 
 Another way of using Leibniz equality is for imposing the requirement that some Boolean-valued function is `True`.
@@ -3358,7 +3430,6 @@ let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 
 As another example of using `LeibnizEqualT`, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal by creating an evidence value for their equality:
 
-
 ```dhall
 let t1 = LeibnizEqNat 0 1
 let t2 = ∀(f : Natural → Type) → f 0 → f 1
@@ -3366,8 +3437,10 @@ let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 ```
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
 
-Because of Dhall's limitations on polymorphism, we cannot implement a single `LeibnizEqual` function that would work both for values and for types.
+Because of Dhall's limitations on polymorphism, we cannot implement a single function `LeibnizEqual` that would work both for values and for types.
 We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
+
+We cannot define an inequality type at type level, because Dhall cannot compare types at run time.
 
 We also cannot define a Leibniz equality type for comparing arbitrary kinds.
 That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
@@ -3563,34 +3636,6 @@ In that situation, we expect to have `f a c === f b d`, and we would like to der
 
 TODO
 
-### Leibniz inequality types
-
-An "inequality type" is a type that is void when `a` and `b` are equal, and non-void when they are not equal.
-How could we encode such a type?
-We would need to create a type that is void when `a === b` is not void, and vice versa.
-This property (a "logical negation" of `a === b`) can be encoded as the type `(a === b) → <>`.
-
-To see why, consider  the function type `T → <>` for any type `T`.
-
-Indeed,  if `T` is non-void then we could not possibly have any functions of type `T → <>`.
-If we had such a function, we would apply it to some value of type `T` and obtain a value of the void type, which is impossible.
-So, the type `T → <>` must be void.
-
-On the other hand, if `T` is void then we _do_ have a function of type `T → <>`; this is the `absurd` function shown earlier in this book.
-
-So, the type `T → <>` may be interpreted as the "negation" of the type `T` in the sense of being void or non-void.
-
-We now use this technique with the Leibniz equality types and define the "inequality type constructor" (`LeibnizUnequal`) like this:
-
-```dhall
-let LeibnizUnequal
-  : ∀(T → Type) → ∀(a : T) → ∀(b : T) → Type
-  = λ(T : Type) → λ(a : T) → λ(b : T) → (∀(f : T → Type) → f a → f b) → <>
-```
-
-If values `a` and `b` are unequal, we may construct a value of type `LeibnizUnequal T a b` by choosing `f : T → Type` such that `f a` is the unit type and `f b` is the void type.
-
-TODO
 
 ## Church encoding for recursive types
 
