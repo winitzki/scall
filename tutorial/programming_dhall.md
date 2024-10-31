@@ -3333,8 +3333,9 @@ let LeibnizUnequal
   = λ(T : Type) → λ(a : T) → λ(b : T) → (∀(f : T → Type) → f a → f b) → <>
 ```
 
-Suppose some values `a` and `b` are unequal and such that we can write an `if/then/else` expression or a `merge`  expression that distinguishes them.
-Then we may construct a value of type `LeibnizUnequal T a b`.
+Suppose some values `a` and `b` are unequal and such that we can distinguish them at run time.
+(For instance, we should be able to write a function `is_a` such that `is_a a === True` but `is_a b === False`.)
+Then we will be able to construct a value of type `LeibnizUnequal T a b`.
 For that, we choose a function `f : T → Type` such that `f a` is the unit type and `f b` is the void type.
 
 As an example, consider `T = Natural` and `a = 1`, `b = 0`.
@@ -3365,11 +3366,22 @@ let oneDoesNotEqualZero : LeibnizUnequal Natural 1 0
 Similar code would be written for `LeibnizUnequal T a b` when `T` is a union type and the values `a` and `b` are from different parts of the union.
 Then we would apply `k` to a function `f` defined via a suitable `merge` expression instead of `if/then/else`.
 
-We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` via `Bool`-valued functions or, equivalently, via `merge` expressions.
+We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` at run time via `Bool`-valued functions or via `merge` expressions.
 This is a stronger requirement than just being able to find out whether two values of type `T` are equal.
 Dhall does not support `Bool`-valued comparisons for primitive types such as `Double` or `Text`.
 So, it is impossible to write Dhall code with type `LeibnizUnequal Text "abc" "def"` or `LeibnizUnequal Double 0.1 0.2`.
 (However, it is perfectly possible to implement values of equality types such as `LeibnizEqual Text "abc" "abc"` and `LeibnizEqual Double 0.1 0.1`, as we have already seen.)
+
+The existence of types whose values  cannot be compared at run time is not due to a limitation of Dhall.
+Even though comparisons for strings or for `Double` numbers could be implemented in another revision of Dhall without significant work, 
+there are types that cannot be efficiently compared at run time.
+A simple example is the function type `T = Natural → Bool`.
+Two functions of that type are `x = λ(n : Natural) → Natural/isZero (Natural/subtract 10000 n)` and `y = λ(_ : Natural) → True`.
+How could we figure out at run time whether these two functions are equal?
+Both `x n` and `y n` evaluate to `True` for all `n` up to `10000`.
+We need to set `n = 10001` or larger in order to see the difference between `x n` and `y n`.
+In general, we cannot be sure that two functions of type `T` are equal unless we try _all_ possible natural numbers as function arguments; but that would take infinite time.
+We conclude that there is no practical way of writing a comparison function of type `T → T → Bool` that would compare two functions of type `T` at run time.
 
 ### Constraining a function argument's value
 
@@ -3440,7 +3452,8 @@ The last line would be equivalent to `assert : t1 === t2` if Dhall supported ass
 Because of Dhall's limitations on polymorphism, we cannot implement a single function `LeibnizEqual` that would work both for values and for types.
 We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
-We cannot define an inequality type at type level, because Dhall cannot compare types at run time.
+We cannot define an inequality type at type level, because Dhall cannot compare type symbols at run time.
+(It is not possible to write a function `compareT : Type → Type → Bool` such that `compareT Text Text === True` but `compareT Text Double === False`.)
 
 We also cannot define a Leibniz equality type for comparing arbitrary kinds.
 That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
