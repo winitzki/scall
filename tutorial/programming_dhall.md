@@ -3650,7 +3650,7 @@ In that situation, we expect to have `f a c === f b d`, and we would like to der
 TODO
 
 
-## Church encoding for recursive types
+## Church encodings for recursive types
 
 ### Recursion schemes
 
@@ -4831,7 +4831,7 @@ let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Na
   )
 ```
 
-### Example: implementing `fmap`
+### Example: implementing "fmap"
 
 A type constructor `F` is a **covariant functor** if it admits an `fmap` method with the type signature:
 
