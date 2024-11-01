@@ -53,7 +53,7 @@ Here is an example of a Dhall program:
 let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
 let id = λ(A : Type) → λ(x : A) → x
 in f 10 (id Natural 20)
-  -- This expression evaluates to 32 of type Natural.
+  -- This is a complete program; it evaluates to 32 of type Natural.
 ```
 One can see that the syntax of Dhall resembles the syntax of ML-family languages (OCaml, Haskell, `F#`, and others).
 
@@ -3202,7 +3202,7 @@ In Dhall, a Leibniz equality type constructor corresponding to `a === b` is impl
 
 ```dhall
 let LeibnizEqual
-  : ∀(T → Type) → ∀(a : T) → ∀(b : T) → Type
+  : ∀(T : Type) → ∀(a : T) → ∀(b : T) → Type
   = λ(T : Type) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
 ```
 This complicated expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
@@ -3305,7 +3305,7 @@ Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual T
 
 ```dhall
 let exampleString = "ab"
-let _ = refl Text "abc" : LeibnizEqual Text ${exampleString}c" "abc"
+let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 ```
 
 ### Leibniz inequality types
@@ -3329,7 +3329,7 @@ We now use this technique with the Leibniz equality types and define the "inequa
 
 ```dhall
 let LeibnizUnequal
-  : ∀(T → Type) → ∀(a : T) → ∀(b : T) → Type
+  : ∀(T : Type) → ∀(a : T) → ∀(b : T) → Type
   = λ(T : Type) → λ(a : T) → λ(b : T) → (∀(f : T → Type) → f a → f b) → <>
 ```
 
@@ -3382,6 +3382,7 @@ Both `x n` and `y n` evaluate to `True` for all `n` up to `10000`.
 We need to set `n = 10001` or larger in order to see the difference between `x n` and `y n`.
 In general, we cannot be sure that two functions of type `T` are equal unless we try _all_ possible natural numbers as function arguments; but that would take infinite time.
 We conclude that there is no practical way of writing a comparison function of type `T → T → Bool` that would compare two functions of type `T` at run time.
+(In such cases, Dhall's `assert` feature is also unable to validate statically that the values are equal.)
 
 ### Constraining a function argument's value
 
@@ -3393,7 +3394,6 @@ For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y`
 So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
 
 A function with an argument of type `LeibnizUnequal T x y` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality at run time.
-(Note that Dhall's `assert` feature is _unable_ to validate statically that some values are unequal.)
 
 Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
