@@ -5200,9 +5200,9 @@ So, we may write the code as:
 
 TODO
 
-#### Example: encoding a refinement type
+### Refinement types and singleton types
 
-The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that a given value satisfies a given condition.
+The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that all values of that type satisfy a given condition.
 Dependent pairs provide an encoding of refinement types in Dhall.
 
 An example  is a type describing `Natural` numbers that may not be greater than `10`.
@@ -5245,10 +5245,37 @@ So, we could define the value `assert : 0 === 0` in advance and use it like this
 
 ```dhall
 let NaturalLessEqualAssert = assert : 0 === 0
-let  x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
+let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
-As another example, let us define a refinement type describing non-empty `Text` strings.
+As another example, we show how to encode a **singleton type**: a type that has only one value.
+For example, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
+This code defines a type `Text_abc` and a value `x` of that type:
+```dhall
+let Text_equals_abc = λ(text : Text) → (text === "abc")
+let Text_abc : Type = DependentPair Text Text_equals_abc
+let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc === "abc")
+```
+We can then extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+
+```dhall
+let _ = assert : dependentPairFirstValue Text Text_equals_abc x === "abc"
+```
+
+We can generalize this code to define a (dependent) type constructor for singleton types that are limited to a given `Text` value:
+```dhall
+let TextSigletonPredicate = λ(fixed : Text) → λ(text : Text) → (text === fixed)
+let TextSingleton : Text → Type
+  = λ(fixed : Text) → DependentPair Text (TextSigletonPredicate fixed)
+let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
+  = λ(fixed : Text) → makeDependentPair Text fixed (TestSingletonPredicate fixed) (assert : fixed === fixed)
+let x : TextSingleton "abc" = makeTextSingleton "abc"
+-- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
+let x : TextSingleton "abc" = makeDependentPair Text "abc" (TextSigletonPredicate "abc") (assert : "abc" === "abc")
+let _ = assert : dependentPairFirstValue Text (TextSigletonPredicate "abc") x === "abc"
+```
+
+The repetition in this code can be reduced by using Dhall's built-in function `Text/replace`. -- Is this necessary?
 
 TODO
 
