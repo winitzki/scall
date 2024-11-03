@@ -5163,8 +5163,19 @@ So, the _type_ of the second value in the pair depends on the first value.
 
 Dependent pairs cannot be expressed directly by Dhall records, because each field of a record must have a fixed type that cannot depend on values of other fields of the same record. 
 Instead, we will use the Church encoding technique.
+That technique is based on the fact that Dhall can already express a function _from_ a dependent pair to some other result type (say, `R`).
+That function's type is written as `∀(x : X) → P x → R`.
+The only difficulty is that we cannot uncurry this function type into a function from a record to `R`.
+Instead, we will apply the technique similar to that used for the Church encoding of pair types:
+```dhall
+Pair A B  ≅  ∀(R : Type) → (A → B → R) → R  
+```
+The analogous encoding for the dependent pair is: 
+```dhall
+DependentPair X P  ≅  ∀(R : Type) → (∀(x : X) → P x → R) → R  
+```
 
-The Church encoding of a dependent pair can be written as a type-level function parameterized by an arbitrary type `X` and an arbitrary dependent function of type `X → Type`:
+So, `DependentPair` is encoded as a type-level function parameterized by an arbitrary type `X` and an arbitrary dependent function of type `X → Type`:
 
 ```dhall
 let DependentPair
@@ -5182,6 +5193,12 @@ let makeDependentPair
     λ(R : Type) → λ(k : ∀(x : X) → P x → R) → k x px
 ```
 
+#### Functions from dependent pairs
+
+TODO
+
+#### Extracting values from a dapendent pair
+
 Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it.
 This is done by a function of type `DependentPair X P → X`:
 ```dhall
@@ -5190,13 +5207,20 @@ let dependentPairFirstValue
   = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
     dp X (λ(x : X) → λ(_ : P x) → x)
 ```
-However, we cannot extract the second value (of type `P x`) via a function of type `DependentPair X P → something`.
+However, we cannot extract the second value (of type `P x`) via a simple function of type `DependentPair X P → something`.
 The type of the second value depends on the first value (`x`) and cannot be defined separately from that `x`.
 Without knowing `x`, we cannot correctly assign a type to a function that extracts just the value of type `P x`.
 
-To extracts the second value from a dependent pair, we need a function with a dependent type: namely, the output type of that function must depend on the input value.
+To extract the second value from a dependent pair, we need a function with a dependent type: namely, the output type of that function must be `P x`, where `x` is the input value.
 Dhall already supports dependent function types.
 So, we may write the code as:
+
+```dhall
+let dependentPairSecondValue
+  : ∀(X : Type) → ∀(P : X → Type) → ∀(dp : DependentPair X P) → P (dependentPairFirstValue X P dp)
+  = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
+    dp (P (dependentPairFirstValue X P dp)) (λ(x : X) → λ(px : P x) → px)
+```
 
 TODO
 
