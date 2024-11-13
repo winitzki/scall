@@ -5220,7 +5220,7 @@ let unsimplifyDependentPair
 ```
 
 These functions are mutual inverses, which one can prove with a bit of work.
-One direction of the isomorphism can be verified using Dhall's `assert` feature:
+One direction of the isomorphism can be verified using Dhall's `assert` feature, because the proof goes by a straightforward substitution of the terms:
 
 ```dhall
 let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →
@@ -5248,7 +5248,7 @@ unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
 
 TODO how to show that these functions are mutual inverses?
 
-#### Extracting the two parts of a dependent pair
+#### Extracting the first part of a dependent pair
 
 Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it.
 We expect that to be done via a function of type `DependentPair X P → X`.
