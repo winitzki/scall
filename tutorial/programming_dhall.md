@@ -5195,34 +5195,90 @@ let makeDependentPair
 
 #### Functions from dependent pairs
 
-TODO
+Dependent pair types (`DependentPair X P`) are Church-encoded as higher-order functions of type `∀(R : Type) → (∀(x : X) → P x → R) → R`.
+If we need to implement a function from a dependent pair to some other type (`Q`), the function's type can be simplified like this:
 
-#### Extracting values from a dapendent pair
+```dhall
+DependentPair X P → Q  ≅  ∀(x : X) → P x → Q
+```
+The type expression `∀(x : X) → P x → Q` is equivalent but shorter.
+
+To implement this type isomorphism, we may define a pair of functions:
+
+```dhall
+let simplifyDependentPair
+  : ∀(X : Type) → ∀(P : X → Type) → ∀(Q : Type) → (DependentPair X P → Q) → ∀(x : X) → P x → Q
+  = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(long : DependentPair X P → Q) → λ(x : X) → λ(px : P x) →
+    long (makeDependentPair X x P px)
+```
+
+```dhall
+let unsimplifyDependentPair
+  : ∀(X : Type) → ∀(P : X → Type) → ∀(Q : Type) → (∀(x : X) → P x → Q) → DependentPair X P → Q
+  = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) → λ(dp : DependentPair X P) →
+    dp Q short
+```
+
+These functions are mutual inverses, which one can prove with a bit of work.
+One direction of the isomorphism can be verified using Dhall's `assert` feature:
+
+```dhall
+let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →
+  assert : short ===  simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
+```
+
+```dhall
+let long : DependentPair X P → Q = ???
+let _ = assert : unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long) === long
+
+unsimplifyDependentPair X P Q short = λ(dp : DependentPair X P) → dp Q short
+simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
+ = simplifyDependentPair X P Q (λ(dp : DependentPair X P) → dp Q short)
+ = λ(x : X) → λ(px : P x) → (λ(dp : DependentPair X P) → dp Q short) (makeDependentPair X x P px)
+ = λ(x : X) → λ(px : P x) → makeDependentPair X x P px Q short
+ = λ(x : X) → λ(px : P x) → short x px
+ = short
+
+unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
+ = λ(dp : DependentPair X P) → dp Q (simplifyDependentPair X P Q long)
+ = λ(dp : DependentPair X P) → dp Q (λ(x : X) → λ(px : P x) → long (makeDependentPair X x P px))
+ = λ(dp : DependentPair X P) → dp Q (λ(x : X) → λ(px : P x) → long (λ(R : Type) → λ(k : ∀(x : X) → P x → R) → k x px))
+
+```
+
+TODO how to show that these functions are mutual inverses?
+
+#### Extracting the two parts of a dependent pair
 
 Given a value of type `DependentPair X P`, we can extract the first value `x : X` stored in it.
-This is done by a function of type `DependentPair X P → X`:
+We expect that to be done via a function of type `DependentPair X P → X`.
+A straightforward implementation is:
+
 ```dhall
 let dependentPairFirstValue
   : ∀(X : Type) → ∀(P : X → Type) → DependentPair X P → X
   = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
     dp X (λ(x : X) → λ(_ : P x) → x)
 ```
+
+Notice that the type `DependentPair X P → X` can be simplified to `∀(x : X) → P x → X`.
+It is clear that we need to return just the argument `x` and ignore the argument of type `P x`.
+This is done via the function `λ(x : X) → λ(_ : P x) → x`.
+Now we can use `unsimplifyDependentPair` to convert this function to a function of type `DependentPair X P → X`:
+
+```dhall
+let dependentPairFirstValueSimple = λ(X : Type) → λ(P : X → Type) →
+  unsimplifyDependentPair X P X (λ(x : X) → λ(_ : P x) → x)
+```
+We can verify that the simplified code is equivalent to the original code:
+```dhall
+let _ = dependentPairFirstValueSimple === dependentPairFirstValue
+```
+
 However, we cannot extract the second value (of type `P x`) via a simple function of type `DependentPair X P → something`.
 The type of the second value depends on the first value (`x`) and cannot be defined separately from that `x`.
 Without knowing `x`, we cannot correctly assign a type to a function that extracts just the value of type `P x`.
 
-To extract the second value from a dependent pair, we need a function with a dependent type: namely, the output type of that function must be `P x`, where `x` is the input value.
-Dhall already supports dependent function types.
-So, we may write the code as:
-
-```dhall
-let dependentPairSecondValue
-  : ∀(X : Type) → ∀(P : X → Type) → ∀(dp : DependentPair X P) → P (dependentPairFirstValue X P dp)
-  = λ(X : Type) → λ(P : X → Type) → λ(dp : DependentPair X P) →
-    dp (P (dependentPairFirstValue X P dp)) (λ(x : X) → λ(px : P x) → px)
-```
-
-TODO
 
 ### Refinement types and singleton types
 
