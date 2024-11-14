@@ -17,7 +17,7 @@
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Enhance the Dhall grammar for better error reporting.
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe.
-- Export to Scala: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
+- Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
 
 ## Parsing enhancements
@@ -32,7 +32,7 @@ The following enhancements could be implemented without any functional changes:
 | `λ(x : X)(y : Y)(z : Z) → expr` | λ(x : X) → λ(y : Y) → λ(z : Z) → expr                                                                  |
 | `λ x (y : Y) z → expr`          | `λ(x : {=}) → λ(y : Y) → λ(z : {=}) → expr`  (with inferred types)                                     |
 | `λ { x : X, y : Y } → expr`     | `λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                                         |
-| `x ``p`` y`  at low precedence  | `p x y`  where `p` may itself need to be single-back-quoted                                            |
+| `x ``p`` y`  at low precedence  | `p x y`  where `p` itself may need to be single-back-quoted                                            |
 | `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version of the triangle)                                          |
 | `x.[a]`                         | `List.index {=} a x`    (with inferred type)                                                           |
 
