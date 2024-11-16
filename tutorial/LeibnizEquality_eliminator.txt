@@ -1,0 +1,4 @@
+J : (P: (x: A) -> (y: A) -> x ≡ y -> Type) ->
+    (f: (x: A) -> P x x refl) -> 
+    (x: A) -> (y: A) -> (p: x ≡ y) -> P x y p
+J P f x x refl     ==>  f x

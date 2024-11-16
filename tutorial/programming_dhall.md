@@ -7895,8 +7895,10 @@ let contrafilterableGFix
        }
 ```
 
-While these four constructions do automatically produce filterable typeclass evidence, the filtering logic may not be what we need.
-As an example, consider the `List` functor, which could be equivalently defined as the least fixpoint `LFix (λ(a : Type) → LFix (F a))` with `F a b = Optional { _1 : a, _2 : b }`.
+While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we need.
+To see what kind of filtering logic comes out of those definitions, consider the `List` functor, which could be equivalently defined as the least fixpoint `LFix (F a)` with `F a b = Optional { _1 : a, _2 : b }`.
+A `Filterable` evidence for `LFix (F a)` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → F a b)`; that is, a `Filterable` evidence for `F a b` with respect to `a` with fixed `b`.
+This is equivalent to a function of type `Optional { _1 : Optional a, _2 : b } → Optional { _1 : a, _2 : b }`.
 
 TODO implement the recursive filterable constructions from the book.
 
