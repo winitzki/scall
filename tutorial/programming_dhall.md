@@ -7901,6 +7901,32 @@ To see what kind of filtering logic comes out of those definitions, consider the
 let FList = λ(a : Type) → λ(b : Type) → Optional (Pair a b)
 let CList = λ(a : Type) → LFix (FList a)
 ```
+To create values of type `CList x` (where `x` is a specific type), we will implement helper functions `nilCList` and `consCList`.
+Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
+That method uses the generic `fix` function for the fixpoint type.
+
+
+TODO Move this code about FList/CList to the chapter/section about Church-encoded type constructors, define via Bimap for FList perhaps? 
+
+We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
+For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a` and is implemented like this:
+```dhall
+let bifunctorFList : Bifunctor FList = { bimap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → Optional/map (Pair a c) (Pair b d) (λ(xy : Pair a c) → { _1 = f xy._1, _2 = g xy._2 }) }
+let fixCList
+  : ∀(a : Type) → FList a (CList a) → CList a
+  = λ(a : Type) → λ(fc : FList a (CList a)) →
+    λ(r : Type) → λ(frr : FList a r → r) →
+      let c2r : CList a → r = λ(ca : CList a) → ca r frr
+      let fmap_c2r : FList a (CList a) → FList a r = bifunctorFList.bimap a a (identity a) (CList a) r c2r
+      let fr : FList a r = fmap_c2r fc
+      in frr fr
+```
+Now we write the constructors for the Church-encoded lists:
+
+```dhall
+let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
+let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
+```
 
 A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
 This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
@@ -7943,6 +7969,7 @@ Now we can implement a `Filterable` evidence for `FList` using `filterableLFix`:
 ```dhall
 let filterableLFixFList: Filterable CList = filterableLFix FList filterableFList
 ```
+
 
 TODO implement the recursive filterable constructions from the book.
 
