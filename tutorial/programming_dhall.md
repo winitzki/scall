@@ -7895,10 +7895,54 @@ let contrafilterableGFix
        }
 ```
 
-While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we need.
-To see what kind of filtering logic comes out of those definitions, consider the `List` functor, which could be equivalently defined as the least fixpoint `LFix (F a)` with `F a b = Optional { _1 : a, _2 : b }`.
-A `Filterable` evidence for `LFix (F a)` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → F a b)`; that is, a `Filterable` evidence for `F a b` with respect to `a` with fixed `b`.
-This is equivalent to a function of type `Optional { _1 : Optional a, _2 : b } → Optional { _1 : a, _2 : b }`.
+While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we expect.
+To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `List` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)`.
+```dhall
+let FList = λ(a : Type) → λ(b : Type) → Optional (Pair a b)
+let CList = λ(a : Type) → LFix (FList a)
+```
+
+A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
+This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
+We can certainly implement `Filterable` for `FList` using that `deflate` method and the general combinator `filterableLFix` as shown above.
+But we will find that the filtering operation will truncate a list after the first value that does not pass the given predicate.
+For example, filtering the list `[ 1, 2, 3 ]` with the predicate `Natural/odd` will result in the list `[ 1 ]` rather than `[ 1, 3 ]` as one would expect.
+
+We will now verify that this is indeed happening, and then we will implement a different combinator that does not truncate data structures unnecessarily.
+
+We begin by implementing the function `deflateOptionalPair`.
+```dhall
+let deflateFList
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b
+  = ???
+```
+How would we write code for that?
+The output value must be either `None (Pair a b)` or `Some { _1 = ..., _2 = ... }`.
+If the input is `Some { _1 = None a, _2 = y : b }`, the function must return `None` as it cannot compute a pair of values of types `a` and `b` (only a value of type `b` is given).
+```dhall
+let expandPairOptional : ∀(a : Type) → ∀(b : Type) → Pair (Optional a) b → Optional (Pair a b)
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair (Optional a) b) → merge {
+    None = None (Pair a b)
+  , Some = λ(x : a) → Some { _1 = x, _2 = p._2 }
+  } p._1
+let Optional/concatMap = https://prelude.dhall-lang.org/Optional/concatMap.dhall
+let deflateFList
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b
+  = λ(a : Type) → λ(b : Type) → Optional/concatMap (Pair (Optional a) b) (Pair a b) (expandPairOptional a b)
+```
+Adding a `Functor` evidence, we may write the `Filterable` typeclass evidence for the type constructor `F a b` with `b` fixed:
+```dhall
+let filterableFList
+  : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
+  = λ(b : Type) → {
+      deflate = λ(a : Type) → deflateFList a b
+    , fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → Optional/map (Pair x b) (Pair y b) (λ(xb : Pair x b) → xb // { _1 = f xb._1 })
+    }
+```
+Now we can implement a `Filterable` evidence for `FList` using `filterableLFix`:
+```dhall
+let filterableLFixFList: Filterable CList = filterableLFix FList filterableFList
+```
 
 TODO implement the recursive filterable constructions from the book.
 
