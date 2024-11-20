@@ -33,7 +33,7 @@ The following enhancements could be implemented by changing only the parser:
 | `let { x = a, y = b } = c in d` | `let a = c.x in let b = c.y in d`                                                                   |
 | `x ``p`` y`  at low precedence  | `p x y`  where `p` itself may need to be single-back-quoted                                         |
 | `f a $ g b`  at low precedence  | `f a (g b)`                                                                                         |
-| `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version `|>` of the triangle)                                      |
+| `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version of the triangle)                                       |
 | `x.[a]`                         | `List.index {=} a x`    (with inferred type)                                                        |
 
 The precedence of he operator `|>`

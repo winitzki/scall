@@ -7932,7 +7932,7 @@ let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → �
 ```
 
 Another useful function is `CList/show`.
-We will implement it in a simple way:
+We will implement it in a simple way that leaves a trailing comma in the lists.
 ```dhall
 let Optional/default = https://prelude.dhall-lang.org/Optional/default
 let CList/show : ∀(a : Type) → Show a → CList a → Text
@@ -7961,7 +7961,7 @@ This operation (analogous to `takeWhile` in Haskell and Scala) is also a law-abi
 We will now verify that this is indeed what `filterableLFix` produces.
 Then we will find a different combinator that does not truncate data structures unnecessarily.
 
-We begin by implementing the function `deflateOptionalPair`.
+We begin by implementing the function `deflateFList`.
 ```dhall
 let deflateFList
   : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b
@@ -8000,11 +8000,43 @@ Then we apply the generic `filter` function with the predicate `Natural/odd` to 
 let result : CList Natural = filter CList filterableCList Natural Natural/odd exampleCList1345
 let _ = assert : CList/show Natural { show = Natural/show } result === "[ 1, 3, ]"
 ```
-We have validated that the filtering operation truncates the data after the first item that fails the predicate.
+So, this filtering operation indeed truncates the data after the first item that fails the predicate.
+
+To figure out how to create a different filtering operation, let us reconsider the type signature of `deflateFList`, which is `∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b`.
+When this function is used to produce the filtering operation for `CList`, the type parameter `b` is set to `CList a`.
+We see that the requirement of having a function with the type signature `FList (Optional a) b → FList a b` (for all `b`) is actually too strong; we only need that function with `b = CList a`.
+
+The filtering shown above truncates lists after the first failing item because `deflateFList` must return an empty `Optional` value (that is, `None (Pair a b)`) in case the argument of type `Optional a` equals `None a`.
+An empty `Optional` value corresponds to an empty list in this recursive type.
+Instead, we need to continue filtering with the tail of the list.
+The tail of the list is described by the value of type `b` in `FList a b` (and we will be setting `b = CList a`).
+So, we would like the function `deflateFList` to return the tail of the list (a value of type `CList a`) when an item fails the predicate.
+
+The type `CList a` is equivalent to `FList a (CList a)` by definition of the least fixpoint.
+We conclude that the type signature of `deflateFList` should be relaxed, so that the function could return not only values of type `FList a b` but also values of type `b`.
+To that end, we rewrite the function's type signature as:
+```dhall
+let deflateFList
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
+  = ???
+```
+The new implementation will return a `Right` part of the `Either` in cases where the old code returned a `None`:
+```dhall
+let deflateFList
+: ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
+= λ(a : Type) → λ(b : Type) → λ(flist : FList (Optional a) b) → merge {
+    None = (Either (FList a b) b).Left (None (Pair a b))
+  , Some = λ(p : Pair (Optional a) b) → merge {
+      None = (Either (FList a b) b).Right p._2
+    , Some = λ(x : a) → (Either (FList a b) b).Left (Some { _1 = x, _2 = p._2 })
+    } p._1
+  } flist 
+```
+
 
 TODO implement an alternative LFix Filterable construction from the blog.
 
-TODO implement the recursive filterable constructions from the book.
+TODO implement additional recursive filterable constructions from the book.
 
 ## Applicative type constructors and their combinators
 
