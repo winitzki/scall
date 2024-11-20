@@ -7897,6 +7897,11 @@ let contrafilterableGFix
 
 While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we expect.
 To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `List` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)`.
+
+
+TODO Move this code about FList/CList to the chapter/section about Church-encoded type constructors.
+
+
 ```dhall
 let FList = λ(a : Type) → λ(b : Type) → Optional (Pair a b)
 let CList = λ(a : Type) → LFix (FList a)
@@ -7905,8 +7910,6 @@ To create values of type `CList x` (where `x` is a specific type), we will imple
 Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
 That method uses the generic `fix` function for the fixpoint type.
 
-
-TODO Move this code about FList/CList to the chapter/section about Church-encoded type constructors, define via Bimap for FList perhaps? 
 
 We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
 For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a` and is implemented like this:
@@ -7921,20 +7924,42 @@ let fixCList
       let fr : FList a r = fmap_c2r fc
       in frr fr
 ```
-Now we write the constructors for the Church-encoded lists:
+Now we write the constructors for `CList`-typed lists:
 
 ```dhall
 let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
 let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
 ```
 
+Another useful function is `CList/show`.
+We will implement it in a simple way:
+```dhall
+let Optional/default = https://prelude.dhall-lang.org/Optional/default
+let CList/show : ∀(a : Type) → Show a → CList a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
+    let printFList
+      : FList a Text → Text
+      = λ(flist : FList a Text) → Optional/default Text "" (Optional/map (Pair a Text) Text (λ(p : Pair a Text) → "${showA.show p._1}, ${p._2}") flist) 
+    in "[ ${clist Text printFList}]"
+```
+
+As an example of using these tools, let us write a `CList` value corresponding to the list `[ 1, 3, 4, 5 ]` and print it:
+```dhall
+let exampleCList1345 : CList Natural = consCList Natural 1 (consCList Natural 3 (consCList Natural 4 (consCList Natural 5 (nilCList Natural))))
+let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 === "[ 1, 3, 4, 5, ]"
+```
+
+TODO  move the above code to another chapter
+
 A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
 This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
 We can certainly implement `Filterable` for `FList` using that `deflate` method and the general combinator `filterableLFix` as shown above.
-But we will find that the filtering operation will truncate a list after the first value that does not pass the given predicate.
-For example, filtering the list `[ 1, 2, 3 ]` with the predicate `Natural/odd` will result in the list `[ 1 ]` rather than `[ 1, 3 ]` as one would expect.
+But, as it turns out, this combinator produces a filtering operation that truncates a list after the first value that does not pass the given predicate.
+For example, filtering the list `[ 1, 3, 4, 5 ]` with the predicate `Natural/odd` will result in the list `[ 1, 3 ]` rather than `[ 1, 3, 5 ]` as one might expect.
+This operation (analogous to `takeWhile` in Haskell and Scala) is also a law-abiding filtering operation.
 
-We will now verify that this is indeed happening, and then we will implement a different combinator that does not truncate data structures unnecessarily.
+We will now verify that this is indeed what `filterableLFix` produces.
+Then we will find a different combinator that does not truncate data structures unnecessarily.
 
 We begin by implementing the function `deflateOptionalPair`.
 ```dhall
@@ -7958,18 +7983,26 @@ let deflateFList
 ```
 Adding a `Functor` evidence, we may write the `Filterable` typeclass evidence for the type constructor `F a b` with `b` fixed:
 ```dhall
-let filterableFList
+let filterableFList1
   : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
   = λ(b : Type) → {
       deflate = λ(a : Type) → deflateFList a b
     , fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → Optional/map (Pair x b) (Pair y b) (λ(xb : Pair x b) → xb // { _1 = f xb._1 })
     }
 ```
-Now we can implement a `Filterable` evidence for `FList` using `filterableLFix`:
+Now we can implement a `Filterable` evidence for `CList` using `filterableLFix`:
 ```dhall
-let filterableLFixFList: Filterable CList = filterableLFix FList filterableFList
+let filterableCList: Filterable CList = filterableLFix FList filterableFList1
 ```
 
+Then we apply the generic `filter` function with the predicate `Natural/odd` to the list `exampleCList1345` and obtain the result corresponding to the list `[ 1, 3 ]`.
+```dhall
+let result : CList Natural = filter CList filterableCList Natural Natural/odd exampleCList1345
+let _ = assert : CList/show Natural { show = Natural/show } result === "[ 1, 3, ]"
+```
+We have validated that the filtering operation truncates the data after the first item that fails the predicate.
+
+TODO implement an alternative LFix Filterable construction from the blog.
 
 TODO implement the recursive filterable constructions from the book.
 

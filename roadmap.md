@@ -22,19 +22,26 @@
 
 ## Parsing enhancements
 
-The following enhancements could be implemented without any functional changes:
+The following enhancements could be implemented by changing only the parser:
 
-| Will parse this syntax:         | Into this standard Dhall expression:                                                                   |
-|---------------------------------|--------------------------------------------------------------------------------------------------------|
-| `123_456`                       | `123456` (underscores permitted and ignored within any numerical values including double or hex bytes) |
-| `x : {=}`                       | `x : T` (when type `T` can be inferred, or else fails to type-check)                                   |
-| `∀(x : X)(y : Y)(z : Z) → expr` | ∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr                                                                  |
-| `λ(x : X)(y : Y)(z : Z) → expr` | λ(x : X) → λ(y : Y) → λ(z : Z) → expr                                                                  |
-| `λ x (y : Y) z → expr`          | `λ(x : {=}) → λ(y : Y) → λ(z : {=}) → expr`  (with inferred types)                                     |
-| `λ { x : X, y : Y } → expr`     | `λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                                         |
-| `x ``p`` y`  at low precedence  | `p x y`  where `p` itself may need to be single-back-quoted                                            |
-| `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version of the triangle)                                          |
-| `x.[a]`                         | `List.index {=} a x`    (with inferred type)                                                           |
+| Will parse this new syntax:     | Into this standard Dhall expression:                                                                |
+|---------------------------------|-----------------------------------------------------------------------------------------------------|
+| `123_456`                       | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
+| `∀(x : X)(y : Y)(z : Z) → expr` | ∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr                                                               |
+| `λ(x : X)(y : Y)(z : Z) → expr` | λ(x : X) → λ(y : Y) → λ(z : Z) → expr                                                               |
+| `λ { x : X, y : Y } → expr`     | `λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                                      |
+| `let { x = a, y = b } = c in d` | `let a = c.x in let b = c.y in d`                                                                   |
+| `x ``p`` y`  at low precedence  | `p x y`  where `p` itself may need to be single-back-quoted                                         |
+| `f a $ g b`  at low precedence  | `f a (g b)`                                                                                         |
+| `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version `|>` of the triangle)                                      |
+| `x.[a]`                         | `List.index {=} a x`    (with inferred type)                                                        |
+
+The precedence of he operator `|>`
+is higher than that of `$` but lower than that of all double back-quoted infix operators (which have all the same precedence).
+
+The operators `|>` and all double back-quoted infix operators associate to the left.
+
+The operator `$` associates to the right as in Haskell.
 
 ## Typechecker and beta-reducer with a "value context"
 
