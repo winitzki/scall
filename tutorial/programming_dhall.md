@@ -8016,13 +8016,13 @@ The type `CList a` is equivalent to `FList a (CList a)` by definition of the lea
 We conclude that the type signature of `deflateFList` should be relaxed, so that the function could return not only values of type `FList a b` but also values of type `b`.
 To that end, we rewrite the function's type signature as:
 ```dhall
-let deflateFList
+let deflateFListEither
   : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
   = ???
 ```
 The new implementation will return a `Right` part of the `Either` in cases where the old code returned a `None`:
 ```dhall
-let deflateFList
+let deflateFListEither
 : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
 = λ(a : Type) → λ(b : Type) → λ(flist : FList (Optional a) b) → merge {
     None = (Either (FList a b) b).Left (None (Pair a b))
@@ -8033,8 +8033,30 @@ let deflateFList
   } flist 
 ```
 
+We can generalize the type signature of `deflateFListEither` from `FList` an arbitrary bifunctor `F`.
+For convenience, let us define that type signature separately: 
+```dhall
+let DeflateEitherT = λ(F : Type → Type → Type) → ∀(a : Type) → ∀(b : Type) → F (Optional a) b → Either (F a b) b
+```
+Then we can implement a new combinator, named `filterableLFixEither`:
+```dhall
+let filterableLFixEither
+  : ∀(F : Type → Type → Type) → Bifunctor F → DeflateEitherT F → Filterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(deflateEither : DeflateEitherT F) → 
+    bifunctorLFix F bifunctorF /\ { deflate = λ(a : Type) →
+          let C = λ(a : Type) → LFix (F a)
+-- Need a function of type C (Optional a) → C a.
+-- Define P such that LFix P = C (Optional a).
+          let P = F (Optional a)
+          let functorFa : Functor (F a) = { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
+          in λ(c : LFix P) → c (C a) (λ(q : P (C a)) → merge {
+            Left = λ(fa : F a (C a)) → fix (F a) functorFa fa
+          , Right = λ(ca : C a) → ca
+          } (deflateEither a (C a) q))
+       }
+```
 
-TODO implement an alternative LFix Filterable construction from the blog.
+We now define a new `Filterable` instance for `CList` and test that it does not truncate lists too soon:
 
 TODO implement additional recursive filterable constructions from the book.
 
@@ -9284,11 +9306,10 @@ First, we implement a pair of functions (`fromCY` and `toCY`) that map between t
 Then we will show that those functions are inverses of each other, which will prove the type isomorphism.
 
 ```dhall
-let fix = (./LFix.dhall).fix
 let fromCY : ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → CY F G → G (LFix F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(cy : CY F G) →
     let C = LFix F
-    in cy C (fix F functorF)
+    in cy C (fix F functorF)  -- Use the standard `fix` function.
 let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G (LFix F) → CY F G
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(functorG : Functor G) →
     let C = LFix F

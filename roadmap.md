@@ -27,6 +27,7 @@ The following enhancements could be implemented by changing only the parser:
 | Will parse this new syntax:     | Into this standard Dhall expression:                                                                |
 |---------------------------------|-----------------------------------------------------------------------------------------------------|
 | `123_456`                       | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
+| `match x y`                     | `merge y x`                                                                                         |
 | `∀(x : X)(y : Y)(z : Z) → expr` | ∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr                                                               |
 | `λ(x : X)(y : Y)(z : Z) → expr` | λ(x : X) → λ(y : Y) → λ(z : Z) → expr                                                               |
 | `λ { x : X, y : Y } → expr`     | `λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                                      |
@@ -36,7 +37,7 @@ The following enhancements could be implemented by changing only the parser:
 | `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version of the triangle)                                       |
 | `x.[a]`                         | `List.index {=} a x`    (with inferred type)                                                        |
 
-The precedence of he operator `|>`
+The precedence of the operator `|>`
 is higher than that of `$` but lower than that of all double back-quoted infix operators (which have all the same precedence).
 
 The operators `|>` and all double back-quoted infix operators associate to the left.
