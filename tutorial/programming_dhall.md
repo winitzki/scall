@@ -8058,6 +8058,11 @@ let filterableLFixEither
 
 We now define a new `Filterable` instance for `CList` and test that it does not truncate lists too soon:
 
+```dhall
+let filterableCListEither : Filterable CList
+  = filterableLFixEither FList bifunctorFList deflateFListEither
+```
+
 TODO implement additional recursive filterable constructions from the book.
 
 ## Applicative type constructors and their combinators
