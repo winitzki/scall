@@ -8061,7 +8061,13 @@ We now define a new `Filterable` instance for `CList` and test that it does not 
 ```dhall
 let filterableCListEither : Filterable CList
   = filterableLFixEither FList bifunctorFList deflateFListEither
+let result : CList Natural = filter CList filterableCListEither Natural Natural/odd exampleCList1345
+let _ = assert : CList/show Natural { show = Natural/show } result === "[ 1, 3, 5, ]"
 ```
+
+There are often many ways of implementing a `Filterable` typeclass for a given functor.
+The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
+
 
 TODO implement additional recursive filterable constructions from the book.
 
