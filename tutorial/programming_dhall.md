@@ -8359,7 +8359,7 @@ TODO
 
 ### Least fixpoint types
 
-Implementing a `zip` method for recursive type constructors turns out to take quite a bit of work.
+Implementing a `zip` method for recursive type constructors turns out to require quite a bit of work.
 In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
 
 Given a recursion scheme bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
@@ -8387,8 +8387,8 @@ The function `bizip_FC` must have the type signature:
 let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b)) = ???
 ```
 The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
-So, it is similar to `zip` that works at the same time with both type parameters of `F`.
-However, functions with the type `F a r → F b s → F (Pair a b) (Pair r s)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+This type signature is similar to a `zip` function that works at the same time with both type parameters of `F`.
+However, if all type parameters are unconstrained, functions of type `F a p → F b q → F (Pair a b) (Pair p q)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
 On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `F`.
 
 In addition, we require a function for computing the recursion depth of a value of type `C a`.
@@ -8396,7 +8396,9 @@ That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented i
 The function `max` is available for any given polynomial bifunctor `F`.
 Then one can implement `depth` as shown in the section "".
 
-TODO
+TODO implement depth again
+
+TODO write the general code for `zip`
 
 For illustration, let us implement `zip` for `F a r = Either a (Pair r r)`.
 
