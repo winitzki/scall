@@ -8380,7 +8380,7 @@ The function `bizip_F1` must have the type signature:
 let bizip_F1 : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r = ???
 ```
 This type is similar to the `zip` function except it works only with the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
-The function `bizip_F1` is not required to satisfy any laws.
+The function `bizip_F1` is not required to satisfy any laws and can be implemented for any polynomial bifunctor `F`.
 
 The function `bizip_FC` must have the type signature:
 ```dhall
@@ -8388,19 +8388,23 @@ let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F
 ```
 The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
 This type signature is similar to a `zip` function that works at the same time with both type parameters of `F`.
-However, if all type parameters are unconstrained, functions of type `F a p → F b q → F (Pair a b) (Pair p q)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+However, when all type parameters are unconstrained, functions of type `F a p → F b q → F (Pair a b) (Pair p q)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
 On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `F`.
 
-In addition, we require a function for computing the recursion depth of a value of type `C a`.
-That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `max : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
-The function `max` is available for any given polynomial bifunctor `F`.
-Then one can implement `depth` as shown in the section "".
+In addition to `bizip_F1` and `bizip_FC`, we require a function for computing the recursion depth of a value of type `C a`.
+That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `maxF2 : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
+The function `maxF2` is available for any given polynomial bifunctor `F` and can be implemented via a `Traversable` instance for `F` with respect to its second type parameter.
 
-TODO implement depth again
+TODO implement maxF2
+
+The code of `depth` is then written as shown in section "".
+
+TODO implement depth here or there
 
 TODO write the general code for `zip`
 
 For illustration, let us implement `zip` for `F a r = Either a (Pair r r)`.
+This `F` describes binary trees with data held in leaves.
 
 The function `bizip_F1` can be implemented in any way whatsoever, as it does not need to satisfy any laws.
 For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
@@ -8448,7 +8452,7 @@ let bizip_FC
      } faca
 ```
 
-TODO
+TODO run this on some examples
 
 ## Traversable functors
 
