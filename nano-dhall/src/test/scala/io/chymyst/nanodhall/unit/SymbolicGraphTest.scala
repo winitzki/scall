@@ -50,28 +50,44 @@ class SymbolicGraphTest extends FunSuite {
   }
 
   test("working example 2") {
-    sealed trait GraphExpr[+F[_]]
+    sealed trait GraphExpr[+F[+_]]
 
     object GraphExpr {
-      final case class Rule[A, F[_]](id: A, rule: () => GraphExpr[F]) extends GraphExpr[Nothing]
+      final case class Rule[+A, +F[+_]](id: A, rule: () => GraphExpr[F]) extends GraphExpr[F]
 
-      final case class Wrap[F[_]] (wrap: F[GraphExpr[F]]) extends GraphExpr[F[_]]
+      final case class Wrap[+F[+_]](wrap: F[GraphExpr[F]]) extends GraphExpr[F]
     }
 
     import GraphExpr._
 
-    def rule[F[_]](x : => GraphExpr[F])(implicit valName: Name): Rule[String, F] = Rule[String](id = valName.value, rule = () => x)
+    def rule[F[+_]](x: => GraphExpr[F])(implicit valName: Name): Rule[String, F] =
+      Rule[String, F](id = valName.value, rule = () => x)
 
-    sealed trait Example
+    sealed trait ExampleF[+A]
 
-    object Example {
-      type F[A] = (A, Int)???
+    object ExampleF {
+      final case class Lit(s: String) extends ExampleF[Nothing]
 
-      final case class Lit(s: String) extends Example
-      final case class ~(l: GraphExpr[F], r : GraphExpr[F]) extends Example
-      final case class !(e: GraphExpr[F]) extends Example
+      final case class And[+A](l: A, r: A) extends ExampleF[A]
+
+      final case class Or[+A](l: A, r: A) extends ExampleF[A]
+
+      final case class Not[+A](x: A) extends ExampleF[A]
     }
+    import ExampleF._
 
+    def a: Rule[String, ExampleF] = rule (Wrap (And(
+      Wrap (Lit("x")),
+      Wrap (And(
+        a,
+        b)))))
+
+    def b: Rule[String, ExampleF] = rule(
+      Wrap (Or(
+        b,
+        Wrap[ExampleF](And(
+          Wrap[ExampleF](Not(Wrap[ExampleF](Lit("y")))),
+          a)))))
   }
 
 }

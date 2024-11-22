@@ -4811,7 +4811,7 @@ let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀
     ca Natural (sizeF a)
 ```
 
-Turning now to the `depth` function, we proceed similarly and realize that the only difference is in the `sizeF` function.
+Turning now to the depth calculation, we proceed similarly and realize that the only difference is in the `sizeF` function.
 Instead of `sizeF` described above, we need `depthF` with the same type signature `∀(b : Type) → F b Natural → Natural`.
 For the depth calculation, `depthF` should return 1 plus the maximum of all values of type `Natural` that are present. If no such values are present, it just
 returns 1.
@@ -4830,6 +4830,10 @@ let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Na
     } fa
   )
 ```
+
+TODO finish the code for depth and run both size and depth on an example tree
+
+TODO express this via Traversable instances for F, use F {} Natural -> Natural as type signature
 
 ### Example: implementing "fmap"
 
@@ -8453,6 +8457,8 @@ let bizip_FC
 ```
 
 TODO run this on some examples
+
+TODO Show that bizip_FC can be implemented in 2 different ways for FList, corresponding to the ordinary zip and to the padding zip.
 
 ## Traversable functors
 
