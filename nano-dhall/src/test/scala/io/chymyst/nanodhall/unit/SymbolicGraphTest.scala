@@ -76,18 +76,25 @@ class SymbolicGraphTest extends FunSuite {
     }
     import ExampleF._
 
-    def a: Rule[String, ExampleF] = rule (Wrap (And(
-      Wrap (Lit("x")),
-      Wrap (And(
+    type G = Rule[String, ExampleF]
+
+    def a: G = rule(Wrap(And(
+      Wrap(Lit("x")),
+      Wrap(And(
         a,
         b)))))
 
-    def b: Rule[String, ExampleF] = rule(
-      Wrap (Or(
+    def b: G = rule(
+      Wrap(Or(
         b,
-        Wrap[ExampleF](And(
-          Wrap[ExampleF](Not(Wrap[ExampleF](Lit("y")))),
+        Wrap(And(
+          Wrap(Not(Wrap(Lit("y")))),
           a)))))
+
+    expect(a.rule() match {
+      case Wrap(And(Wrap(_), Wrap(_))) => true
+      // case Wrap(And(Wrap(Lit("x")), Wrap(And(Rule("a", _), Rule("b", _)))) ) => true  // Causes scalac error with Scala 2.13
+    })
   }
 
 }
