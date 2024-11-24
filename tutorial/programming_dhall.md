@@ -1001,8 +1001,8 @@ in x ++ "1"
  -- This is a complete program that returns "1231".
 ```
 
-The `assert` construction is a special Dhall syntax that implements the "equality type" (known from dependently typed languages).
-The Unicode symbol `≡` may be used instead of `===`.
+The `assert` construction is a special Dhall syntax that implements values of **equality types**.
+The Unicode symbol `≡` may be used in Dhall instead of `===`.
 
 The Dhall expression `a === b` is a special _type_ that depends on the values `a` and `b`.
 The type `a === b` is different for each pair `a`, `b`.
@@ -1011,14 +1011,14 @@ The type `a === b` has no values (is void) if `a` and `b` have different normal 
 For example, the types `1 === 2` and `λ(x : Text) → λ(y : Text) → x === λ(x : Text) → λ(y : Text) → y` are void.
 (We will never be able to create any values of those types.) 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is defined to be non-void.
-That is, there exists a value of the type `a === b`.
+If `a` and `b` evaluate to the same normal form, the type `a === b` is defined to be a unit type.
+That is, there exists a single value of the type `a === b`.
 
 If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a === b`.
 This expression is valid only if the two sides are equal after reducing them to their normal forms.
 If the two sides are not equal after reduction to normal forms, the expression `assert : a === b` will _fail to typecheck_, meaning that the entire program will fail to compile.
 
-When an `assert` value is valid, we can assign that value to a variable:
+When an `assert` value is valid, we may assign that value to a variable:
 
 ```dhall
 let test1 = assert : 1 + 2 === 0 + 3
@@ -1028,8 +1028,8 @@ In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after red
 The resulting type `3 === 3` is non-void and has a value.
 We assigned that value to `test1`.
 
-It is not actually possible to print the value `test1` of type `3 === 3` or to examine it in any other way.
-That value exists, because the `assert` expression was accepted by Dhall, but that's all we know.
+It is not actually possible to print the value `test1` of type `3 === 3` or to examine that value in any other way.
+That value _exists_ (because the `assert` expression was accepted by Dhall), but that's all we know.
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
 
@@ -1048,9 +1048,8 @@ The normal form of `print (x + 1)` is the Dhall expression `λ(prefix : Text) �
 The normal form of `print y` is the same Dhall expression.
 So, the assertion is valid.
 
-The fact that `assert` expressions are checked "early" (before evaluating other expressions) has implications for using the `assert` feature in Dhall programs.
-Most often, it does not make sense to use `assert` inside function bodies.
-In particular, one cannot use `assert` expressions for implementing a function for comparing two arbitrary values given as arguments.
+The fact that `assert` expressions are checked at typechecking time (before evaluating other expressions) has implications for using the `assert` feature in Dhall programs.
+For instance, one cannot use `assert` expressions for implementing a function for comparing two arbitrary values given as arguments.
 
 To see why, try writing this code:
 
@@ -1068,8 +1067,9 @@ Because this code fails to typecheck, we cannot use it to implement a function r
 As another example: we cannot write a Dhall function that checks whether a string is empty.
 An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` (that can be computed) is an empty string.
 
+These examples show that it rarely makes sense to use `assert` inside function bodies.
 The `assert` keyword is most often used to implement unit tests or other static sanity checks on Dhall code.
-In that case, we do not need to keep the values of the equality type.
+In those cases, we do not need to keep the values of the equality type.
 We just need to verify that the equality type is not void.
 So, we will usually write unit tests like this:
 
@@ -3189,7 +3189,7 @@ let monadList : MonadFP List =
 
 Dhall's `assert` feature provides a static check that some expressions are equal.
 The syntax is `assert : a === b`, and the type expression `a === b` denotes a type that has a value only if `a` equals `b`.
-That feature can be seen as syntax sugar for a general facility known as "Leibniz equality types".
+That feature can be viewed as syntax sugar for a general facility known as "Leibniz equality types".
 
 A **Leibniz equality type** is a type that depends on two values, say `a` and `b`, of the same type.
 The Leibniz equality type is non-void if `a` and `b` are equal, and void if `a` and `b` are unequal.
@@ -3307,6 +3307,11 @@ Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual T
 let exampleString = "ab"
 let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 ```
+
+We have seen hat the Leibniz equality type can reproduce the `assert` feature of Dhall.
+However, currently Dhall implements `a === b` and `assert` as special expression types and does not reduce them to Leibniz equality.
+
+Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, we may need sometimes to use the Leibniz equality type where the built-in Dhall features are insufficient. 
 
 ### Leibniz inequality types
 
