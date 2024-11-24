@@ -13,7 +13,7 @@ class SymbolicGraphTest extends FunSuite {
 
       def /(o: GrammarExpr): GrammarExpr = GrammarExpr./(this, o) // Cannot use `|` because the Scala pattern matcher does not accept `|` as infix.
     }
-    object GrammarExpr {
+    object GrammarExpr       {
       final case class Li(s: String) extends GrammarExpr
 
       final case class Rul(name: String, rule: () => GrammarExpr) extends GrammarExpr
@@ -78,18 +78,9 @@ class SymbolicGraphTest extends FunSuite {
 
     type G = Rule[String, ExampleF]
 
-    def a: G = rule(Wrap(And(
-      Wrap(Lit("x")),
-      Wrap(And(
-        a,
-        b)))))
+    def a: G = rule(Wrap(And(Wrap(Lit("x")), Wrap(And(a, b)))))
 
-    def b: G = rule(
-      Wrap(Or(
-        b,
-        Wrap(And(
-          Wrap(Not(Wrap(Lit("y")))),
-          a)))))
+    def b: G = rule(Wrap(Or(b, Wrap(And(Wrap(Not(Wrap(Lit("y")))), a)))))
 
     expect(a.rule() match {
       case Wrap(And(Wrap(_), Wrap(_))) => true
