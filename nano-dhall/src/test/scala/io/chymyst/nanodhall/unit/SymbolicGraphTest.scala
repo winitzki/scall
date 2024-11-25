@@ -89,34 +89,33 @@ class SymbolicGraphTest extends FunSuite {
   }
 
   test("trigger a Scala compiler error") {
-    sealed trait GraphExpr[+F[+_]]
 
-    object GraphExpr {
-      final case class Wrap[+F[+_]](wrap: F[GraphExpr[F]]) extends GraphExpr[F]
-    }
-    import GraphExpr._
+
+    final case class Fix[+F[+_]](wrap: F[Fix[F]])
+
     sealed trait ExampleF[+A]
 
     object ExampleF {
-      final case class Lit(s: String) extends ExampleF[Nothing]
+      final case class Leaf(s: String) extends ExampleF[Nothing]
 
-      final case class And[+A](l: A, r: A) extends ExampleF[A]
+      final case class Branch[+A](l: A, r: A) extends ExampleF[A]
     }
+
     import ExampleF._
 
-    val x = Wrap[ExampleF](And(Wrap(Lit("x")), Wrap(Lit("y"))))
-    val y = Wrap[ExampleF](And(x, Wrap(Lit("z"))))
+    val x = Fix[ExampleF](Branch(Fix(Leaf("x")), Fix(Leaf("y"))))
+    val y = Fix[ExampleF](Branch(x, Fix(Leaf("z"))))
 
     expect(x match {
-      case Wrap(And(Wrap(_), Wrap(_))) => true
+      case Fix(Branch(Fix(_), Fix(_))) => true
     })
 
     expect(x match {
-      case Wrap(And(Wrap(_), Wrap(Lit(_)))) => true// Causes scalac error with Scala 2.13
+      case Fix(Branch(Fix(_), Fix(Leaf(_)))) => true// Causes scalac error with Scala 2.13
     })
 
     expect(y match {
-      case Wrap(And(Wrap(And(_, _)), Wrap(_))) => true // Causes scalac error with Scala 2.13
+      case Fix(Branch(Fix(Branch(_, _)), Fix(_))) => true // Causes scalac error with Scala 2.13
     })
 
   }
