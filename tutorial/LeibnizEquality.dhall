@@ -105,11 +105,22 @@ let toAssertType =
             = x Equals_a refl_a
 
         in  result
+{-  -- This does not type-check because Dhall does not use equality evidence for type-checking.
+-- The error is: the result must have type ResT x y eq, but it has type ResT x x refl.
 
+let eliminatorJ
+  : ∀(A : Type) → ∀(ResT : ∀(x : A) → ∀(y : A) → LeibnizEqual A x y → Type) → ∀(f : ∀(x : A) → ResT x x (refl A x)) → ∀(x : A) → ∀(y : A) → ∀(eq : LeibnizEqual A x y) → ResT x y eq
+  = λ(A : Type) → λ(ResT : ∀(x : A) → ∀(y : A) → LeibnizEqual A x y → Type) → λ(f : ∀(x : A) → ResT x x (refl A x)) → λ(x : A) → λ(y : A) → λ(eq : LeibnizEqual A x y) →
+    let refl_y : ∀(f : A → Type) → f x → f y = λ(f : A → Type) → λ(fx : f x) →
+    let fx : ResT x x (refl A x) = f x
+    let result1 : ResT x y refl_y = eq (λ(a : A) → ResT x a (refl A x)) fx
+    in result1
+ -}
 in  { LeibnizEqual
     , reflexivity = refl
     , symmetry
     , transitivity
     , extensional_equality
     , toAssertType
+    -- , eliminatorJ
     }

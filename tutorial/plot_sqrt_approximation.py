@@ -34,7 +34,7 @@ def update(x, a):
   return (0.0 + x + a / x)/2.0
 # Compute the first approximation. Input must be between 1 and 100.
 def x0(a):
-    return ( 3.0 + 10.0 * a ) / 15.0 if a < 2 else (15.0 + 3 * a) / 15.0 if a < 16.0 else  (45.0 + a) / 14.0
+    return   (15.0 + 3 * a) / 15.0 if a <= 16.0 else  (45.0 + a) / 14.0
 
 # Compute the second approximation.
 def x1(a):
@@ -61,7 +61,7 @@ x_end = 100
 
 x = np.linspace(x_init, x_end, 2*np.abs(x_end-x_init))
 
-y = np.array([-prec2(i) for i in x])
+y = np.array([-prec1(i) for i in x])
 
 plt.plot(x, y, label="precision")
 

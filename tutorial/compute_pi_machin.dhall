@@ -1,5 +1,7 @@
 -- Compute pi = 16 * arctan ( 1 / 5 ) - 4 * arctan (1 / 239)
 -- arctan (1 / n) = 1 / n - 1 / (3 * n ^ 3) + 1 / (5 * n ^ 5) - ...
+-- To run this script, supply precision as environment variable PRECISION.
+-- For example: PRECISION=20 dhall --file ./compute_pi_machin.dhall
 let T = ./Float/Type.dhall
 
 let Float = T.Float

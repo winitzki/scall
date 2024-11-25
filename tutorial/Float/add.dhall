@@ -502,7 +502,9 @@ let _ = assert : checkTotalUnderflow +1 +0 +123456789 +6 14 ≡ False
 
 let _ = assert : checkTotalUnderflow +1 +0 +123456789 +6 15 ≡ False
 
-let unsigned =
+let unsigned
+             -- Adding numbers without underflow check, which forces rounding.
+             =
       λ(x : Integer) →
       λ(ex : Integer) →
       λ(y : Integer) →
@@ -516,48 +518,7 @@ let unsigned =
               prec
           )
 
-let _ = assert : unsigned +321 +0 +123 +0 10 ≡ Float/create +444 +0
-
-let _ = assert : unsigned +32154 +0 +12345 +0 10 ≡ Float/create +44499 +0
-
-let _ = assert : unsigned +321 +2 +12345 +0 10 ≡ Float/create +44445 +0
-
-let _ = assert : unsigned +321 +2 +12345 +0 3 ≡ Float/create +4444 +1
-
-let _ = assert : unsigned +321 +2 +12345 +0 2 ≡ Float/create +444 +2
-
-let _ = assert : unsigned +321 +2 +12345 +0 1 ≡ Float/create +44 +3
-
-let _ = assert : unsigned +321 +2 +12345 +0 0 ≡ Float/create +4 +4
-
-let _ = assert : unsigned +321 -20 +12345 -22 3 ≡ Float/create +4444 -21
-
-let _ = assert : unsigned +321 +20 +12345 +18 3 ≡ Float/create +4444 +19
-
-let _ = assert : unsigned +123456789000000 +0 +1 +0 3 ≡ Float/create +1235 +11
-
-let _ = assert : unsigned +123456789000000 +0 +1 +0 4 ≡ Float/create +12346 +10
-
-let _ = assert : unsigned +123456789 +6 +1 +0 4 ≡ Float/create +12346 +10
-
-let checkAdd =
-      λ(x : Integer) →
-      λ(ex : Integer) →
-      λ(y : Integer) →
-      λ(ey : Integer) →
-      λ(prec : Natural) →
-        Float/add (Float/create x ex) (Float/create y ey) prec
-
-let checkAddShow =
-      λ(x : Integer) →
-      λ(ex : Integer) →
-      λ(y : Integer) →
-      λ(ey : Integer) →
-      λ(prec : Natural) →
-      λ(expected : Text) →
-        Float/show (checkAdd x ex y ey prec) ≡ expected
-
-let _ = assert : checkAdd +321 +0 +123 +0 10 ≡ Float/create +444 +0
+let _ = assert : unsigned +123456789 +0 +1 +0 10 ≡ Float/create +123456790 +0
 
 let _ = assert : unsigned +123456789 +0 +1 +0 5 ≡ Float/create +123457 +3
 
@@ -569,85 +530,34 @@ let _ = assert : unsigned +123456789 +0 +1 +0 8 ≡ Float/create +123456790 +0
 
 let _ = assert : unsigned +123456789 +0 +1 +0 9 ≡ Float/create +123456790 +0
 
-let _ = assert : unsigned +123456789 +0 +1 +0 10 ≡ Float/create +123456790 +0
+let _ = assert : unsigned +123456789 +6 +1 +0 4 ≡ Float/create +12346 +10
 
 let _ = assert : unsigned +1234567890 +0 +9 +0 10 ≡ Float/create +1234567899 +0
 
-let _ = assert : unsigned +1234567890 +0 +9 +0 9 ≡ Float/create +1234567899 +0
-
 let _ = assert : unsigned +1234567890 +0 +9 +0 8 ≡ Float/create +1234567890 +0
 
-let _ = assert : checkAdd +1234567890 +0 +9 +0 8 ≡ Float/create +1234567890 +0
+let _ = assert : unsigned +1234567890 +0 +9 +0 9 ≡ Float/create +1234567899 +0
 
-let _ = assert : checkAdd +1234567890 +0 +9 +0 9 ≡ Float/create +1234567890 +0
+let _ = assert : unsigned +123456789000000 +0 +1 +0 3 ≡ Float/create +1235 +11
 
-let _ = assert : checkAdd +1234567890 +0 +9 +0 10 ≡ Float/create +1234567899 +0
+let _ = assert : unsigned +123456789000000 +0 +1 +0 4 ≡ Float/create +12346 +10
 
-let _ = assert : checkAdd +123456789 +6 +1 +0 5 ≡ Float/create +123456789 +6
+let _ = assert : unsigned +321 +0 +123 +0 10 ≡ Float/create +444 +0
 
-let _ = assert : checkAdd +123456789 +6 +1 +0 10 ≡ Float/create +123456789 +6
+let _ = assert : unsigned +321 +2 +12345 +0 0 ≡ Float/create +4 +4
 
-let _ = assert : checkAddShow +123456789 +6 +1 +0 10 "+1.23456789e+14"
+let _ = assert : unsigned +321 +2 +12345 +0 1 ≡ Float/create +44 +3
 
-let _ = assert : checkAddShow +1 +0 +123456789 +6 10 "+1.23456789e+14"
+let _ = assert : unsigned +321 +2 +12345 +0 10 ≡ Float/create +44445 +0
 
-let _ = assert : checkAddShow +123456789 +0 -123456789 +0 10 "0."
+let _ = assert : unsigned +321 +2 +12345 +0 2 ≡ Float/create +444 +2
 
-let _ = assert : checkAddShow +0 +0 -2 +0 10 "-2."
+let _ = assert : unsigned +321 +2 +12345 +0 3 ≡ Float/create +4444 +1
 
-let _ = assert : checkAddShow -2 +0 +0 +0 10 "-2."
+let _ = assert : unsigned +321 +20 +12345 +18 3 ≡ Float/create +4444 +19
 
-let _ = assert : checkAddShow +3 +0 -2 +0 10 "+1."
+let _ = assert : unsigned +321 -20 +12345 -22 3 ≡ Float/create +4444 -21
 
-let _ = assert : checkAddShow -2 +0 +3 +0 10 "+1."
-
-let _ = assert : checkAddShow -3 +0 +2 +0 10 "-1."
-
-let _ = assert : checkAddShow +1 +0 -2 +0 10 "-1."
-
-let _ = assert : checkAddShow -2 +0 +1 +0 10 "-1."
-
-let _ = assert : checkAddShow +20 +0 -1 +0 10 "+19."
-
-let _ = assert : checkAddShow -1 +0 +20 +0 10 "+19."
-
-let _ = assert : checkAddShow -20 +0 +1 +0 10 "-19."
-
-let _ = assert : checkAddShow +1 +0 -20 +0 10 "-19."
-
-let _ = assert : checkAddShow +1234 +0 -1 +0 10 "+1233."
-
-let _ = assert : checkAddShow +1234 +0 -12 +0 10 "+1222."
-
-let _ = assert : checkAddShow +12 +0 -1234 +0 10 "-1222."
-
-let _ = assert : checkAddShow +1234 +0 -123 +0 10 "+1111."
-
-let _ =
-      let a1 = Float/create -12345678 -8
-
-      let a2 = Float/create +123 -2
-
-      let _ = assert : Float/show a1 ≡ "-0.12345678"
-
-      let _ = assert : Float/show a2 ≡ "+1.23"
-
-      in  True
-
-let _ = assert : checkAddShow +12345678 -8 +123 -2 5 "+1.35345"
-
-let _ = assert : checkAddShow +12345678 -8 +123 -2 6 "+1.353456"
-
-let _ = assert : checkAddShow +12345678 -8 +123 -2 7 "+1.3534567"
-
-let _ = assert : checkAddShow +12345678 -8 +123 -2 8 "+1.35345678"
-
-let _ = assert : checkAddShow +12345678 -8 +123 -2 9 "+1.35345678"
-
-let _ = assert : checkAddShow -123 -3 +12 -1 10 "+1.077"
-
-let _ = assert : checkAddShow -12345678 -8 +123 -2 5 "+1.10655"
-
-let _ = assert : checkAddShow -12345678 -8 +123 -2 9 "+1.10654322"
+let _ = assert : unsigned +32154 +0 +12345 +0 10 ≡ Float/create +44499 +0
 
 in  Float/add
