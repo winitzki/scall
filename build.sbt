@@ -1,7 +1,6 @@
 import sbt.Keys.homepage
 import sbt.url
 import sbtassembly.AssemblyKeys.assembly
-import xerial.sbt.Sonatype.GitHubHosting
 
 val thisReleaseVersion = "0.2.1"
 
