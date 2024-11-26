@@ -1,17 +1,17 @@
 # Roadmap for Dhall-related projects
 
 - Finish the tutorial book and publish it (depends on finishing SOFP first).
-- Rewrite all algorithms to be stack-safe.
-- Rewrite the type checking and normal form algorithms using λ-spines and ∀-spines instead of nested forms, without functional changes.
+- Rewrite all algorithms to be stack-safe, including parsing. Add tests for deeply nested values.
+- Rewrite the type checking and normal form algorithms using λ-spines and ∀-spines instead of nested forms, without functional changes. This is a pre-requisite for the one-step type inference.
 - Implement parsing enhancements, without changing normal forms. (See below.)
 - Implement a type-checker that can modify the expression being type checked. The new expression may have some type parameters inserted and some type annotations inserted.
 - Implement "one-step" type inference for λ-spines using that feature. Modify the do-notation by using type inference.
 - Automatically insert values of unit type `{}` when needed.
 - Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
-- Enable row and column polymorphism.
-- Figure out if my definition of the freeVar judgment is correct (do we allow only zero de Bruijn index values?).
-- Document the import system in the standard. Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
+- Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
+- Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
+- Document the import system in the standard (I had a branch about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
 - Document the JSON, the YAML, and the TOML export.
 - Implement "lightweight bindings" for Python, Rust, Java?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
@@ -19,6 +19,7 @@
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe.
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
+- Prevent explosion of normal forms; implement automatic stopping for normal form expansion under lambda or whenever they grow exponentially beyond a certain limit.
 
 ## Parsing enhancements
 
