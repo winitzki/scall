@@ -11,7 +11,7 @@
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
-- Document the import system in the standard (I had a branch about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
+- Document the import system in the standard (I had a branch in `winitzki/dhall-lang` about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
 - Document the JSON, the YAML, and the TOML export.
 - Implement "lightweight bindings" for Python, Rust, Java?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
@@ -72,23 +72,24 @@ Proposed features of µDhall:
 - No `Sort`, only `Type` and `Kind`, while `Kind` is not typeable.
 - `(λ(x : X) → expr) : (∀(x : X) → expr)`
 - `f a b c` and `x : X` expressions.
-- `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`
+- `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`.
 - No `Bool` but implement `Bool` as `∀(a : Type) → a → a → a` and implement utility methods for `Bool`.
-- `let a = b in e` and `let a : A = b in c` like in Dhall; but no shortcut of `let x = a let y = b`.
-- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency).
+- `let a = b in e` but no `let a : A = b in c` like in Dhall; perhaps with shortcut `let x = a let y = b in ...`.
+- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or no imports at all.
 - No text strings. This just complicates the implementation with escapes, multiline strings, interpolation, etc.
-- No products or co-products, encode them
-- No built-in `Option` or `List` type constructors
-- No `assert` or `a === b`
-- No CBOR support
+- No products or co-products, - just Church-encode them if needed.
+- No built-in `Option` or `List` type constructors.
+- No `assert` or `a === b`.
+- No CBOR support.
 
 Implement µDhall and verify that:
-- There are no stack overflows, even with very deeply nested data
-- There are no performance bottlenecks, even with large normal forms
-- There is no problem with highly repetitive data or highly repetitive normal forms
-- Export to Scala expressions
+- There are no stack overflows, even with very deeply nested data.
+- There are no performance bottlenecks, even with large normal forms.
+- There is no problem with highly repetitive data or highly repetitive normal forms.
 
 Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time).
+
+Try various implementation ideas.
 
 ## Implement type refinement
 
