@@ -2,11 +2,11 @@
 
 - Finish the tutorial book and publish it (depends on finishing SOFP first).
 - Rewrite all algorithms to be stack-safe, including parsing. Add tests for deeply nested values.
-- Rewrite the type checking and normal form algorithms using λ-spines and ∀-spines instead of nested forms, without functional changes. This is a pre-requisite for the one-step type inference.
+- Rewrite the type checking and normal form algorithms using ∀-spines instead of nested forms, without functional changes. This is a pre-requisite for the one-step type inference. (Not sure whether also λ-spines are required for this to work.)
 - Implement parsing enhancements, without changing normal forms. (See below.)
-- Implement a type-checker that can modify the expression being type checked. The new expression may have some type parameters inserted and some type annotations inserted.
-- Implement "one-step" type inference for λ-spines using that feature. Modify the do-notation by using type inference.
-- Automatically insert values of unit type `{}` when needed.
+- Implement a type-checker that can modify the expression being type checked. The new expression may have some arguments inserted and some type annotations inserted, etc.
+- Implement "one-step" type inference for ∀-spines using that feature. (Not sure whether also λ-spines are required for this to work.) Modify the do-notation by using type inference.
+- Automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
 - Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
@@ -16,7 +16,7 @@
 - Implement "lightweight bindings" for Python, Rust, Java?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Enhance the Dhall grammar for better error reporting.
-- Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe.
+- Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe. Alternatively, use `TailCalls` in the output type of the parsers. (Will that work?)
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
 - Prevent explosion of normal forms; implement automatic stopping for normal form expansion under lambda or whenever they grow exponentially beyond a certain limit.

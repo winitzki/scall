@@ -3721,6 +3721,12 @@ Here we will focus on the practical uses of Church encoding.
 
 Here are some examples of Church encoding for recursively defined types.
 
+The type `Nat`, equivalent to Dhall's `Natural`, can be defined by:
+```dhall
+let F = λ(r : Type) → Optional r
+let Nat = ∀(r : Type) → (F r → r) → r
+```
+
 The type `ListInt` (a list with integer values):
 
 ```dhall
@@ -3836,13 +3842,16 @@ let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
 These examples show how any type constructor `F` defined via products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+This is what we call the **curried form** of the Church encoding.
 
-We will call that the **curried form** of the Church encoding.
+Another example of a curried form is the Church encoding of natural numbers.
+The non-curried form is `∀(r : Type) → (Optional r → r) → r`. The function type `Optional r → r` is equivalent to the pair of `r` and `r → r`.
+So, the curried form is `∀(r : Type) → r → (r → r) → r`.
 
-The curried form is often convenient for practical programming.
+The curried form is often convenient for practical programming with Church-encoded values.
 However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
 
-Historical note: The curried form of the Church encoding is also known as the Boehm-Berarducci encoding.
+Historical note: The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 
@@ -4118,7 +4127,6 @@ let flip_foldRight
   : ListInt → ∀(r : Type) → r → (Integer → r → r) → r
   = λ(p : ListInt) → p
 ```
-
 This is just an identity function of type `ListInt → ListInt`.
 
 We note that `foldRight` is a non-recursive function.
@@ -4127,7 +4135,7 @@ In this way, the Church encoding enables fold-like aggregations to be implemente
 For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
 In practice, it is easier to "inline" that identity function: that is, to use the data type `C` itself as the "fold"-like function.
 
-Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, or `traverse`.
+Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, `zip`, and `traverse`.
 In most FP languages, those operations are implemented via recursive code.
 To implement those operations in Dhall, we need to reformulate them as "fold-like aggregations".
 
@@ -4135,6 +4143,37 @@ A **fold-like aggregation** iterates over the data while some sort of accumulato
 The result value of the aggregation is the last computed value of the accumulator.
 
 Let us show some examples of how this is done.
+
+### Apply a function many times
+
+Perhaps the simplest nontrivial Church-encoded type is the type of natural numbers.
+
+```dhall
+let Nat = ∀(r : Type) → r → (r → r) → r
+```
+Values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
+Because the type `r` is arbitrary, the only way such a function could work is by applying `f` to the value `x`, then applying `f` to the result, etc., repeating this procedure a certain number of times.
+An example is:
+```dhall
+let three : Nat = λ(r : Type) → λ(x : r) → λ(f : r → r) → f (f (f x))
+```
+This code applies `f` three times.
+
+It can be proved (although the proof is not easy) that any value of type `Nat` must be of this form, applying `f` a certain (hard-coded) number of times.
+
+Given a value `n : Nat`, a type `A`, a value `x : A`, and a function `f : A → A`, we can write the expression `n A x f`.
+This expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
+
+This computation can be seen as a fold-like aggregation that accumulates a value of type `A` by repeatedly applying the function `f`.
+We could implement a function `Nat/fold` with a fold-like type signature:
+```dhall
+let Nat/fold : Nat → ∀(r : Type) → (r → r) → r → r
+  = λ(n : Nat) → λ(r : Type) → λ(update : r → r) → λ(init : r) →
+    n r init update
+```
+
+In principle, natural numbers and all their standard arithmetical operations (addition, multiplication and so on) can be implemented purely in terms of the Church-encoded type `Nat`.
+For efficiency, Dhall implements natural numbers as a built-in type `Natural` with the built-in function `Natural/fold` instead of using the Church encoding.
 
 ### Sum of values in a list
 
@@ -4570,7 +4609,7 @@ See the Appendix "Naturality and Parametricity" for a proof that the Church enco
 
 Dhall's built-in type constructors  `List` and `Optional` only work with values of ordinary types.
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
-But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbols, or `Some Text` meaning an `Optional` value storing the `Text` type symbol.
+But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbols, or `Some Text` (meaning an `Optional` value storing the `Text` type symbol).
 
 Such "type-level" data structures can be implemented via the Church encoding technique.
 
