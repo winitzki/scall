@@ -4607,11 +4607,14 @@ See the Appendix "Naturality and Parametricity" for a proof that the Church enco
 
 ### Church-encoded data structures at type level
 
-Dhall's built-in type constructors  `List` and `Optional` only work with values of ordinary types.
+Dhall's built-in type constructors  `List` and `Optional` only work with values of ground types (that is, types of type `Type`).
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
 But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbols, or `Some Text` (meaning an `Optional` value storing the `Text` type symbol).
 
-Such "type-level" data structures can be implemented via the Church encoding technique.
+
+
+Recursive "type-level" data structures can be implemented via the Church encoding technique.
+We use the same pattern as before, except that stored data items will now have type `Type`.
 
 TODO
 
