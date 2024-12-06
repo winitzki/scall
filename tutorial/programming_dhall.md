@@ -5150,7 +5150,7 @@ To create a value `ep`, we call `pack P t pt` with a specific type `t` and a spe
 The type `t` is set when we create the value `ep` and may be different for different such values.
 
 But the specific type `t` used while constructing `ep` will no longer be exposed to the code outside of `ep`.
-One could say that the type `t` "exists only inside" the scope of `ep` and is hidden (or encapsulated) within that scope.
+One could say that the type `t` "exists only inside" the scope of `ep` and is hidden (or "encapsulated") within that scope.
 
 This behavior is quite different from that of values of universally quantified types.
 For example, the polymorphic `identity` function has type `identity : ∀(t : Type) → t → t`.
@@ -5160,15 +5160,15 @@ When we apply `identity` to a specific type, we get a value such as:
 let idText : Text → Text = identity Text
 ```
 
-When constructing `idText`, we use the type `Text` as the type parameter.
-After that, the type `Text` is exposed to the outside code because it is part of the type of `idText`.
+When constructing `idText`, we chose to use the type `Text` as the type parameter.
+After that, the type `Text` is exposed and visible to the outside code, because that type is part of the type signature of `idText`.
 The outside code needs to adapt to that type so that the types match.
 
-When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or other type).
-But that type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.  
+When constructing a value `ep : Exists P`, we also need to use a specific type as `t` (say, `t = Text` or another type).
+But the chosen type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.  
 
 It is actually not hidden that `ep` _has_ a type parameter `t` inside.
-The hidden information is the actual value of `t` used while constructing `ep`.
+The hidden information is the actual type `t` used while constructing `ep`.
 Let us clarify how that works.
 
 Code that uses `ep` must use `unpack` with an argument function `unpack_ : ∀(t : Type) → P t → r`.
@@ -5182,12 +5182,14 @@ In this sense, type quantifiers ensure encapsulation of the type `t` inside the 
 
 #### Covariance with respect to the type constructor
 
-Both types `Exists P` and `Forall P` depend covariantly on the _type constructor_ `P`.
+Both types `Exists P` and `Forall P` depend covariantly on the _type constructor_ parameter `P`.
+Let us first clarify what it means for something to be covariant with respect to such a type parameter.
 
-Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y`, we can compute a function of type `F x → F y` given a function of type `x → y`.
+Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y` and for any function `f : x → y`, we can compute a function of type `F x → F y`.
+The new function needs to satisfy certain laws (the "functor laws").
 
-Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q` given a mapping from `P` to `Q`.
-Because `P` and `Q` are type constructors, to "map `P` into `Q`" means to provide a function of type `∀(a : Type) → P a → Q a`.
+Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q` and a mapping from `P` to `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q`.
+Because `P` and `Q` are type constructors, a mapping from `P` to `Q` means a function of type `∀(a : Type) → P a → Q a`.
 Let us implement the corresponding transformations:
 ```dhall
 let mapExists
