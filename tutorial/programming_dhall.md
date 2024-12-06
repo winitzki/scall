@@ -41,7 +41,7 @@ This book focuses on other applications of Dhall, viewing it primarily as a vehi
 This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 For an introduction to Dhall, see [Dhall's official documentation](https://docs.dhall-lang.org).
 
-Dhall is a simple, purely functional language.
+Dhall is a purely functional language with very few features.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 One major difference is the syntax for functions, which is similar to the notation adopted in System F and System Fω.
 System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
