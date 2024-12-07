@@ -9775,7 +9775,7 @@ In this section, we will prove some general properties of co-inductive types, su
 In particular, we will prove that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
 
 For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
-An example would be:
+An example of such an `F` could be:
 
 ```dhall
 let F = Optional
