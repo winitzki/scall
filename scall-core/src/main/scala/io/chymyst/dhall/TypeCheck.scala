@@ -129,7 +129,7 @@ object TypeCheck {
   def validate(gamma: KnownVars, expr: Expression, tipe: Expression): TypecheckResult[Expression] = {
     inferType(gamma, expr) match {
       case Valid(inferredType) =>
-        if (Semantics.equivalent(tipe, inferredType))
+        if (Semantics.equivalent(tipe, inferredType)) // TODO: replace `equivalent` with a subtyping relation, or add an option for that into `validate`?
           Valid(expr)
         else
           typeError(s"Inferred type ${inferredType.print} differs from the expected type ${tipe.print}")(gamma, ExpressionUnderTypeInference(expr))
@@ -221,7 +221,9 @@ object TypeCheck {
                              for {
                                _ <- annot.inferTypeWith(gamma)
                                _ <-
-                                 required(Semantics.equivalent(annot, typeOfSubst))(s"Type annotation ${annot.print} does not match inferred type ${typeOfSubst.print}")
+                                 required(Semantics.equivalent(annot, typeOfSubst))(
+                                   s"Type annotation ${annot.print} does not match inferred type ${typeOfSubst.print}"
+                                 ) // TODO: replace `equivalent` with a subtyping relation
                              } yield ()
                            case None        => Valid(())
                          }
@@ -247,7 +249,9 @@ object TypeCheck {
         val ropType          = ifFalse.inferAndValidateTypeWith(gamma)
         val equivalenceCheck = for {
           pair <- lopType zip ropType
-          _    <- required(Semantics.equivalent(pair._1, pair._2))(s"Types of two If() clauses are not equivalent: ${pair._1.print} and ${pair._2.print}")
+          _    <- required(Semantics.equivalent(pair._1, pair._2))(
+                    s"Types of two If() clauses are not equivalent: ${pair._1.print} and ${pair._2.print}"
+                  ) // TODO: replace `equivalent` with a subtyping relation?
         } yield pair._1
         validate(gamma, cond, ~Builtin.Bool) zip equivalenceCheck map (_._2)
 
@@ -263,7 +267,7 @@ object TypeCheck {
 
           case _ if tipe.nonEmpty =>
             Expression(Merge(record, update, None)).inferTypeWith(gamma).flatMap { inferred =>
-              if (Semantics.equivalent(inferred, tipe.get)) inferred
+              if (Semantics.equivalent(inferred, tipe.get)) inferred // TODO: replace `equivalent` with a subtyping relation
               else typeError(s"merge expression has inferred type ${inferred.print}, but type annotation ${tipe.get.print}")
             }
 
@@ -271,7 +275,7 @@ object TypeCheck {
                 Expression(matcher @ RecordType(defsMatcher)),
                 Expression(target @ UnionType(defsTarget)),
               ) => // Now the RecordType is nonempty but tipe is empty.
-            if (defsMatcher.sizeCompare(defsTarget) == 0) {
+            if (defsMatcher.sizeCompare(defsTarget) == 0) { // TODO: implement a subtyping relation by checking for a superset of handlers
               val typesInParts: TypecheckResult[Seq[Expression]] = seqSeq(matcher.sorted.defs zip target.sorted.defs map {
                 case ((name1, expr1), (name2, expr2)) if name1.name == name2.name =>
                   expr2 match {
@@ -281,7 +285,7 @@ object TypeCheck {
                           for {
                             result <- Valid(Semantics.shift(false, varName, 0, targetType))
                             _      <-
-                              required(Semantics.equivalent(varType, partType))(
+                              required(Semantics.equivalent(varType, partType))( // TODO: replace `equivalent` with a subtyping relation
                                 s"merge expression must have matcher's argument types equal to field types, but found ${varType.print} and ${partType.print}"
                               )
                             _      <-
@@ -297,7 +301,7 @@ object TypeCheck {
                 case ((name1, expr1), (name2, expr2))                             => typeError(s"merge's matcher has field $name1 not equal to target type's $name2")
               })
               typesInParts.flatMap { exprs => // Non-empty list.
-                exprs.tail.find(expr => !Semantics.equivalent(exprs.head, expr)) match {
+                exprs.tail.find(expr => !Semantics.equivalent(exprs.head, expr)) match { // TODO: replace `equivalent` with a subtyping relation?
                   case Some(value) =>
                     typeError(s"merge expression must have all matcher's output types the same, but found ${exprs.head.print}, ..., ${value.print}")
                   case None        => Valid(exprs.head)
@@ -338,18 +342,19 @@ object TypeCheck {
             tipe match {
               case Some(t1) =>
                 ToMap(e, None).inferTypeWith(gamma).flatMap { t0 =>
-                  if (Semantics.equivalent(t0, t1)) Valid(t0)
+                  if (Semantics.equivalent(t0, t1)) Valid(t0) // TODO: replace `equivalent` with a subtyping relation?
                   else typeError(s"toMap with type annotation ${t1.print} has a different inferred type ${t0.print}")
                 }
               case None     =>
                 // All types in `defs` must be equivalent and must have type Type. Also, `defs` is now a non-empty list.
-                val allTypesEqual = defs.tail.find(tipe => !Semantics.equivalent(defs.head._2, tipe._2)) match {
-                  case Some((field, expr)) =>
-                    typeError(
-                      s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.print}, ..., ${field.name} : ${expr.print}}"
-                    )
-                  case None                => validate(gamma, defs.head._2, _Type)
-                }
+                val allTypesEqual =
+                  defs.tail.find(tipe => !Semantics.equivalent(defs.head._2, tipe._2)) match { // TODO: replace `equivalent` with a subtyping relation
+                    case Some((field, expr)) =>
+                      typeError(
+                        s"toMap's argument must be a record with equal types, but found non-equal types {${defs.head._1.name} : ${defs.head._2.print}, ..., ${field.name} : ${expr.print}}"
+                      )
+                    case None                => validate(gamma, defs.head._2, _Type)
+                  }
                 allTypesEqual.map(typeOfToMap)
 
             }
@@ -367,7 +372,8 @@ object TypeCheck {
         seqSeq(exprs.map(_.inferTypeWith(gamma).flatMap { expr => validate(gamma, expr, _Type).map(_ => expr) }))
           // Require all types to be the same.
           .flatMap { types =>
-            val differentType: Option[Expression] = types.tail.find(tipe => !Semantics.equivalent(types.head, tipe))
+            val differentType: Option[Expression] =
+              types.tail.find(tipe => !Semantics.equivalent(types.head, tipe)) // TODO: replace `equivalent` with a subtyping relation?
             differentType match {
               case Some(value) => typeError(s"List must have elements of the same type but found [${types.head.print}, ..., ${value.print}, ...]")
               case None        => (~Builtin.List)(types.head)
@@ -379,7 +385,9 @@ object TypeCheck {
         else {
           for {
             pair <- data.inferTypeWith(gamma) zip tipe.inferTypeWith(gamma)
-            _    <- required(Semantics.equivalent(pair._1, tipe))(s"Inferred type ${pair._1.print} is not equal to the type ${tipe.print} given in the annotation")
+            _    <- required(Semantics.equivalent(pair._1, tipe))(
+                      s"Inferred type ${pair._1.print} is not equal to the type ${tipe.print} given in the annotation"
+                    )        // TODO: replace `equivalent` with a subtyping relation
           } yield pair._1 // Return the inferred type because it is assured to be in a normalized form.
         }
 
@@ -466,7 +474,7 @@ object TypeCheck {
       case Application(func, arg)        =>
         func.inferTypeWith(gamma) zip arg.inferTypeWith(gamma) flatMap {
           case (Expression(Forall(varName, varType, bodyType)), argType) =>
-            if (Semantics.equivalent(varType, argType)) {
+            if (Semantics.equivalent(varType, argType)) { // TODO: replace `equivalent` with a subtyping relation
               val a1 = Semantics.shift(true, varName, 0, arg)
               val b1 = Semantics.substitute(bodyType, varName, BigInt(0), a1)
               val b2 = Semantics.shift(false, varName, 0, b1)

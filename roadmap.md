@@ -11,11 +11,14 @@
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
+- - Implement widening on union values. `(x : U).(V)` is valid if `V` has the type constructor of the same type as used for `x : U`.
 - Document the import system in the standard (I had a branch in `winitzki/dhall-lang` about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
-- Document the JSON, the YAML, and the TOML export.
-- Implement "lightweight bindings" for Python, Rust, Java?
+- Fully document the JSON, the YAML, and the TOML export.
+- Implement "lightweight bindings" for Python, Rust, Java as an exercise?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Enhance the Dhall grammar for better error reporting.
+- Implement the Dhall grammar via tree-sitter.
+- Implement native code overrides for Dhall expressions, dynamic loading from JAR by SHA256.
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe. Alternatively, use `TailCalls` in the output type of the parsers. (Will that work?)
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
@@ -63,23 +66,24 @@ If `D` contains `x = y` and we are type-checking or beta-reducing an expression 
 
 ## µDhall
 
-Implement a "core Dhall" language that has only the core System F-omega features. No records, no unions, only natural numbers, only 2 built-in operations with natural numbers.
+Implement a "micro-Dhall" (µDhall) language that has only the core System F-omega features. No records, no unions, only natural numbers, only 4 built-in operations with natural numbers.
 
 The point of µDhall is to provide a very small language for experimenting with different implementation techniques, in order to decide how to improve performance.
-It should be relatively quick to implement Micro-Dhall completely, with a standard test suite.
+It should be relatively quick to implement µDhall completely, with a comprehensive test suite.
 
 Proposed features of µDhall:
 
 - No Unicode chars from higher Unicode pages can be used in identifiers.
 - No `Sort`, only `Type` and `Kind`, while `Kind` is not typeable.
-- `(λ(x : X) → expr) : (∀(x : X) → expr)`
-- `f a b c` and `x : X` expressions.
-- `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`.
-- No `Bool` but implement `Bool` as `∀(a : Type) → a → a → a` and implement utility methods for `Bool`.
+- Syntax: `(λ(x : X) → expr) : (∀(x : X) → expr)`
+- Syntax: `f a b c` and `x : X` expressions.
+- Built-in symbols: `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`, `Type`, `Kind`.
+- Built-in `Natural` number constants (0, 1, 2, ...) with unlimited precision.
+- No `Bool` (but can implement `Bool` as `∀(a : Type) → a → a → a` and implement utility methods for `Bool`).
 - `let a = b in e` but no `let a : A = b in c` like in Dhall; perhaps with shortcut `let x = a let y = b in ...`.
-- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or no imports at all.
+- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
 - No text strings. This just complicates the implementation with escapes, multiline strings, interpolation, etc.
-- No products or co-products, - just Church-encode them if needed.
+- No products or co-products, - just Church-encode them if needed. No records or unions.
 - No built-in `Option` or `List` type constructors.
 - No `assert` or `a === b`.
 - No CBOR support.
@@ -88,15 +92,19 @@ Implement µDhall and verify that:
 - There are no stack overflows, even with very deeply nested data.
 - There are no performance bottlenecks, even with large normal forms.
 - There is no problem with highly repetitive data or highly repetitive normal forms.
+- Avoid normal-form explosion.
 
-Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time).
+Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time), reuse memory, share data (given that the source text is already in memory).
 
-Try various implementation ideas.
+Try various implementation ideas: HOAS, PHOAS, CBOR-based processing (?), or various abstract machines.
+
+Try various ideas about how to combine type-checking with evaluation in a single pass.
 
 ## Implement type refinement
 
 - Text strings that are non-empty or not containing a given string
-- Numbers or booleans with prescribed properties
+- Literal singleton types, or, more generally, types allowed to have a prescribed set of values
+- Numbers or booleans with prescribed properties (given a predicate)
 - How to implement a type that includes a proposition?
 
 ## Implement "late binding as in OOP" for records

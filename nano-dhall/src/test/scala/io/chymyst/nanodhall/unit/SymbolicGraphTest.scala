@@ -13,7 +13,7 @@ class SymbolicGraphTest extends FunSuite {
 
       def /(o: GrammarExpr): GrammarExpr = GrammarExpr./(this, o) // Cannot use `|` because the Scala pattern matcher does not accept `|` as infix.
     }
-    object GrammarExpr {
+    object GrammarExpr       {
       final case class Li(s: String) extends GrammarExpr
 
       final case class Rul(name: String, rule: () => GrammarExpr) extends GrammarExpr
@@ -54,15 +54,15 @@ class SymbolicGraphTest extends FunSuite {
     def rulesUsed(start: Rul): Set[Rul] = rulesUsedRec(start, Set())
 
     def rulesUsedRec(start: GrammarExpr, visited: Set[Rul]): Set[Rul] = start match {
-      case GrammarExpr.Li(_) => visited
-      case r@GrammarExpr.Rul(name, _) =>
+      case GrammarExpr.Li(_)            => visited
+      case r @ GrammarExpr.Rul(name, _) =>
         if (visited.map(_.name) contains name) visited + r else rulesUsedRec(r.rule(), visited + r)
-      case GrammarExpr.~(l, r) =>
-        val left = rulesUsedRec(l, visited)
+      case GrammarExpr.~(l, r)          =>
+        val left  = rulesUsedRec(l, visited)
         val right = rulesUsedRec(r, left)
         right
-      case GrammarExpr./(l, r) =>
-        val left = rulesUsedRec(l, visited)
+      case GrammarExpr./(l, r)          =>
+        val left  = rulesUsedRec(l, visited)
         val right = rulesUsedRec(r, left)
         right
     }
@@ -140,7 +140,7 @@ class SymbolicGraphTest extends FunSuite {
         expect(y match {
           case Fix(Branch(Fix(Branch(_, _)), Fix(_))) => true // Causes scalac error with Scala 2.13
         })
-    */
+     */
   }
 
 }
