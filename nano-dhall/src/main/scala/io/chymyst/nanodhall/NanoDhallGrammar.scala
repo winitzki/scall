@@ -247,8 +247,6 @@ final case class NanoDhallGrammar[R <: NanoExpr[R]](create: NanoExpr[R]) {
     //
     //  "2"
     natural_literal
-      //
-      //  "+2" or "-2"
       //  "x"
       //  "x@2"
       | identifier
