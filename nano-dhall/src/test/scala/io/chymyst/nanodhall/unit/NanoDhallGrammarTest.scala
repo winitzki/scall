@@ -37,4 +37,10 @@ class NanoDhallGrammarTest extends FunSuite {
   test("parse forall") {
     expect(parser1.parse("(\\(x : Natural) -> x + 1) : forall (x : Natural) -> Natural") == Annotation(Lambda(VarName("x"), Constant(NanoConstant.Natural), Operator(Variable(VarName("x"), 0), NanoOperator.Plus, NaturalLiteral(1))), Forall(VarName("x"), Constant(NanoConstant.Natural), Constant(NanoConstant.Natural))))
   }
+
+  test("parse let-binding") {
+    val expected = Let(VarName("x"), NaturalLiteral(BigInt(1)), Let(VarName("y"), Variable(VarName("x"), BigInt(0)), Variable(VarName("y"), BigInt(0))))
+    expect(parser1.parse("let x = 1 in let y = x in y") == expected)
+    expect(parser1.parse("let x = 1 let y = x in y") == expected)
+  }
 }
