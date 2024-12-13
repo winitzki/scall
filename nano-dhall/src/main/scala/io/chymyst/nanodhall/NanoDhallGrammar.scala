@@ -193,16 +193,11 @@ final case class NanoDhallGrammar[R <: NanoExpr[R]](create: NanoExpr[R]) {
   }
   //    .memoize  // Do not memoize: breaks parsing!
 
-  //def keywordOrBuiltin[$: P]: P[String] = concatKeywords(simpleKeywords ++ builtinSymbolNames)
 
   def keyword[$: P]: P[String] = concatKeywords(simpleKeywords)
     .memoize
 
   def builtin[$: P]: P[R] = {
-    // TODO report issue: possible confusion between Builtin and Constant symbols.
-    // Builtins are parsed into NanoExpr Builtin, but should sometimes be parsed into a Constant.
-    // TODO figure out whether True and False should be moved to Builtin out of Constants. (Syntax.hs says it's "typechecking constants".)
-    // Are there any situations where True and False are parsed as Builtin (e.g. prohibiting other usage) and not as a Constant? In that case there is a confusion in the standard.
     (concatKeywords(constantSymbolNames).map(NanoConstant.withName).map(create.Constant)
       )
   }.memoize
@@ -214,8 +209,8 @@ final case class NanoDhallGrammar[R <: NanoExpr[R]](create: NanoExpr[R]) {
     P(name)
   }
 
-  val builtinSymbolNames = NanoBuiltIn.namesToValuesMap.keySet.toIndexedSeq
   val constantSymbolNames = NanoConstant.namesToValuesMap.keySet.toIndexedSeq
+
   val simpleKeywords = Seq(
     "let",
     "in",

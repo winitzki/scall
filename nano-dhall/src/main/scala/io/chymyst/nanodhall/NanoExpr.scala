@@ -87,35 +87,26 @@ object NanoExprADT {
 }
 
 
-sealed abstract class NanoBuiltIn(override val entryName: String) extends EnumEntry {
-
-}
-
-object NanoBuiltIn extends Enum[NanoBuiltIn] {
-
-  override def values = findValues
-
-  case object Natural extends NanoBuiltIn("Natural")
-
-  case object NaturalBuild extends NanoBuiltIn("Natural/build")
-
-  case object NaturalFold extends NanoBuiltIn("Natural/fold")
-
-  case object NaturalIsZero extends NanoBuiltIn("Natural/isZero")
-
-  case object NaturalSubtract extends NanoBuiltIn("Natural/subtract")
-
-}
-
-sealed trait NanoConstant extends EnumEntry {
+sealed abstract class NanoConstant(override val entryName: String) extends EnumEntry {
 
 }
 
 object NanoConstant extends Enum[NanoConstant] {
-  val values = findValues
 
-  case object Type extends NanoConstant
+  override def values = findValues
+
+  case object Natural extends NanoConstant("Natural")
+
+  case object NaturalBuild extends NanoConstant("Natural/build")
+
+  case object NaturalFold extends NanoConstant("Natural/fold")
+
+  case object NaturalIsZero extends NanoConstant("Natural/isZero")
+
+  case object NaturalSubtract extends NanoConstant("Natural/subtract")
+  case object Type extends NanoConstant("Type")
 }
+
 
 
 sealed abstract class NanoOperator(val name: String) extends EnumEntry
