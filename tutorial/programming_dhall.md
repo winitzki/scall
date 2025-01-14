@@ -29,7 +29,7 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
-The book contains many code examples, which can be evaluated by the Dhall interpreter after exporting them into a single Dhall file. 
+The book contains many code examples, which have been automatically validated by the Dhall interpreter.
 
 The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
 
@@ -256,7 +256,7 @@ For convenience, Dhall programs may define local names for union types:
 
 ```dhall
 let MyXY = < X : Natural | Y : Bool >
-let x : MyXY = MyType1.X 123
+let x : MyXY = MyXY.X 123
 ```
 
 But the name `MyXY` is no more than a (locally defined) value that may be used as a type alias.
@@ -501,7 +501,7 @@ For brevity, we will define a type alias (`PairNatNat`) to denote that type:
 
 ```dhall
 let PairNatNat : Type = { _1 : Natural, _2 : Natural }
-let swapNatNat : PairNatNat → Pair = λ(p : Pair) → { _1 = p._2, _2 = p._1 }
+let swapNatNat : PairNatNat → PairNatNat = λ(p : PairNatNat) → { _1 = p._2, _2 = p._1 }
 ```
 
 Notice that the code of `swapNatNat` does not depend on having values of type `Natural`.
@@ -607,7 +607,7 @@ Record fields may contain values and/or types.
 In that way, we may create Dhall modules that export a number of values and/or types:
 
 ```dhall
--- This file is `./SampleModule.dhall`.
+-- This file is `./SimpleModule.dhall`.
 let UserName = Text
 let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${Natural/show id}]"
@@ -627,21 +627,21 @@ So, this module exports two types (`UserName`, `UserId`) and a function `printUs
 We can use this module in another Dhall file like this:
 
 ```dhall
-let S = ./SampleModule.dhall -- Just call it S for short.
+let S = ./SimpleModule.dhall -- Just call it S for short.
 let name : S.UserName = "first_user"
 let id : S.UserId = 1001
 let printed : Text = S.printUser name id
 -- Continue writing code.
 ```
-Here we used the types and the values exported from `SampleModule.dhall`.
+Here we used the types and the values exported from `SimpleModule.dhall`.
 This code will not compile unless all types match, including the imported values.
 
 All fields of a Dhall record are always public.
 To make values in a Dhall module private, we simply do not include those values into the final exported record.
 Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are part of the final exported value).
 
-In the example just shown, the file `SampleModule.dhall` defined the local values `test` and `validate`.
-Those values are type-checked and computed inside the module but not exported.
+In the example just shown, the file `SimpleModule.dhall` defines the local values `test` and `validate`.
+Those values are type-checked and computed inside the module, but are not exported.
 In this way, sanity checks or unit tests included within a module will be validated but will remain invisible to other modules.
 
 
@@ -8536,7 +8536,7 @@ let bizip_FC
 
 TODO run this on some examples
 
-TODO Show that bizip_FC can be implemented in 2 different ways for FList, corresponding to the ordinary zip and to the padding zip.
+TODO Show that `bizip_FC` can be implemented in 2 different ways for `FList`, corresponding to the ordinary zip and to the padding zip.
 
 ## Traversable functors
 
@@ -9509,7 +9509,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
-### Existential types: `pack` is a left inverse of `unpack`
+### Existential types: "pack" is a left inverse of "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 

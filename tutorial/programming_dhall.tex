@@ -49,6 +49,20 @@
 
 \usepackage{textgreek}
 
+\RedeclareSectionCommand[ % Proof
+  runin=true,
+  font={\normalfont\normalsize\bfseries},
+  afterindent=false,
+  afterskip=2ex,
+  beforeskip=0pt
+]{subparagraph}
+\RedeclareSectionCommand[
+  runin=true,
+  font={\normalfont\normalsize\bfseries},
+  afterskip=1.3ex,
+  beforeskip=0pt
+]{paragraph}
+
 % Cover picture on first page.
 \usepackage{wallpaper}
 % Custom commands for cover page.
@@ -134,6 +148,7 @@
         {ä}{{\"a}}1
         {ö}{{\"o}}1
         {λ}{{\textgreek{l}}}1
+        {Λ}{{\textgreek{L}}}1
         {→}{{$\to$}}1
         {∀}{{$\mathrm{\forall}$}}1
         {⊢}{{$\vdash$}}1
