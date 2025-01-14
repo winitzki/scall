@@ -33,6 +33,8 @@ The book contains many code examples, which have been automatically validated by
 
 The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
 
+_The text of this book was written and edited without using any LLMs._
+
 ## Overview of Dhall
 
 The Dhall project's documentation covers many aspects of using Dhall to produce YAML and JSON configuration files.
