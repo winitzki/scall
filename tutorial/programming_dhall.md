@@ -8575,6 +8575,8 @@ Examples of typeclasses that do not support free instances are `Show`, `Comonad`
 
 ### Free functor
 
+### Free contrafunctor
+
 ### Free pointed functor
 
 ### Free filterable
