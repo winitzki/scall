@@ -6,12 +6,12 @@ This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for s
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
 Dhall is positioned as an open-source language for programmable configuration files.
-The primary design goal of Dhall is to provide a highly programmable but safe implementation of templated JSON, templated YAML, and other configuration formats.
+The primary design goal of Dhall is to replace various templating languages for JSON, YAML, and other configuration formats by a powerful and safe programming language.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other considerations behind the design of Dhall.
 
 This book's view is that Dhall may be used as:
-- a powerful template system for flexible, programmable, but strictly validated configuration files in JSON, YAML, and other text-based formats
-- a fully specified and well-tested interpreter for a small, purely functional programming language, useful for studying various language-independent aspects of functional programming
+- a powerful templating system for flexible and strictly validated configuration files in JSON, YAML, and other text-based formats
+- a formally specified and tested interpreter for a small purely functional programming language, useful for studying various language-independent aspects of advanced functional programming
 - a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details
 
 The book focuses on the last two use cases.
@@ -25,23 +25,19 @@ From the point of view of programming language theory, Dhall implements System F
 
 For a more theoretical introduction to various forms of typed lambda calculus, System F, and System Fω, see:
 
-- [D. Rémy. Functional programming and type systems](https://gallium.inria.fr/~remy/mpri/)
-- [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
+- [D. Rémy. Functional programming and type systems.](https://gallium.inria.fr/~remy/mpri/)
+- [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus.](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
-The book contains many code examples, which have been automatically validated by the Dhall interpreter.
+The book contains many code examples, which have been validated automatically by the Dhall interpreter.
 
-The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types. 
+The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
 
 _The text of this book was written and edited without using any LLMs._
 
 ## Overview of Dhall
 
-The Dhall project's documentation covers many aspects of using Dhall to produce YAML and JSON configuration files.
-This book focuses on other applications of Dhall, viewing it primarily as a vehicle for learning advanced design patterns of functional programming.
-
-This text follows the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
-For an introduction to Dhall, see [Dhall's official documentation](https://docs.dhall-lang.org).
+This book is written for the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
 
 Dhall is a purely functional language with very few features.
 It will be easy to learn Dhall for readers already familiar with functional programming.
@@ -62,16 +58,16 @@ One can see that the syntax of Dhall resembles the syntax of ML-family languages
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
 The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
-such as `Natural/lessThan` and `List/map`.
+such as `Natural/lessThan` or `List/map`.
 
 ### Identifiers
 
 Identifiers may contain dash and slash characters; for example, `List/map` and `start-here` are valid identifiers.
 
-This feature is used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
+The slash character is used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
 However, Dhall does not treat those names specially and does not require that functions working with `List` should have names such as `List/map` or `List/length`.
 
-Identifiers with dashes can be used, for example, as record field names, as it is often seen in configuration files:
+Identifiers with dashes can be used, for example, as record field names, as it is sometimes required in configuration files:
 
 ```dhall
 ⊢ { first-name = "John", last-name = "Reynolds" }
@@ -92,7 +88,7 @@ Identifiers may contain arbitrary characters (even keywords or whitespace) if es
 3
 ```
 
-The standalone underscore character `_` in OCaml, Haskell, and Scala is a syntax for a special "unused" variable.
+The standalone underscore character (`_`) in OCaml, Haskell, and Scala is a syntax for a special "unused" variable.
 But in Dhall, the variable named `_` is a variable like any other:
 
 ```dhall
@@ -101,12 +97,15 @@ But in Dhall, the variable named `_` is a variable like any other:
 246
 ```
 
-Of course, one may still use the symbol `_` in Dhall code to denote an unused variable.
-However, the Dhall interpreter will not treat the variable `_` in any special way and, for instance, will not verify that the variable `_` actually remains unused.
+Of course, one may still use the symbol `_` in Dhall code as a convention for unused variables.
+However, the Dhall interpreter will not treat the variable `_` in any special way and will not verify that the variable `_` actually remains unused.
 
 ### Primitive types
 
-Integers must have a sign (for example, `+1` or `-1`) while `Natural` numbers must have no sign (for example, `123`).
+Integers must have a sign: for example, `+1` or `-1` have type `Integer`.
+The integer values `-0` and `+0` are the same.
+
+`Natural` numbers must have no sign (for example, `123`).
 
 Values of types `Natural` and `Integer` have unbounded size.
 There is no overflow.
@@ -115,10 +114,18 @@ Dhall does not have built-in 32-bit or 64-bit integers with overflow, as it is c
 Dhall supports other numerical types, such as `Double` or `Time`, but there is little one can do with values of those types (other than print them).
 For instance, Dhall does not directly support floating-point arithmetic on `Double` values, or arithmetic operations with dates and times.
 
-Strings have type `Text` and support string interpolation: `"This is ${answer}"`.
+Strings have type `Text` and support interpolation:
+
+```dhall
+⊢ let x = "123" in "The answer is ${x}."
+
+"The answer is 123."
+```
+
 Strings also support search/replace and concatenation, but no other operations.
 For instance, it is currently not possible in Dhall to compare strings lexicographically, or even to compute the length of a string.
 
+These restrictions are intentional and are designed to keep users from writing Dhall programs whose behavior is based on analyzing string values, such as parsing external input or creating "stringly-typed" data structures.
 
 ### Functions and function types
 
@@ -128,10 +135,10 @@ Function _values_ corresponding to that function type are written like this:
 
 `λ(x : arg_t) → expr`
 
-Here, `expr` is a function body, which must be an expression of type `res_t`.
+Here `expr` is a function body, which must be an expression of type `res_t`.
 
 Usually, the function body is an expression that uses the bound variable `x`.
-However, the type `res_t` itself might also use `x`.
+However, the type `res_t` itself might also depend on `x`.
 We will consider such functions in more detail later.
 In many cases, `res_t` will not depend on `x`.
 Then the function's type can be written in a simpler form: `arg_t → res_t`.
@@ -154,7 +161,7 @@ We may also write a fully detailed type annotation if we like:
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
 
-Dhall does not support Haskell's concise syntax such as  `f x y = x + y + 1`, where arguments is given on the left-hand side and types are inferred automatically.
+Dhall does not support Haskell's concise function definition syntax such as  `f x y = x + y + 1`, where arguments is given on the left-hand side and types are inferred automatically.
 Dhall functions need to be written via `λ` symbols and explicit type annotations:
 
 ```dhall
@@ -183,13 +190,13 @@ Currying allows function types to depend on some of the previous curried argumen
 ### Product types
 
 Product types are implemented via records.
-For example, `{ x = 123, y = True }` is a record value, and its type is `{ x : Natural, y : Bool }`, a "record type".
+For example, `{ x = 123, y = True }` is a "record value" whose type is `{ x : Natural, y : Bool }`, which is called a "record type".
 
 There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`.
 Records with field names must be used instead.
-For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated to Dhall as the record type `{ _1 : Integer, _2 : Text }`.
+For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated into Dhall as the following record type: `{ _1 : Integer, _2 : Text }`.
 That record type has two fields named `_1` and `_2`.
-The two parts of the tuple may be accessed by those names:
+The two parts of the tuple may be accessed via those names and the "dot" operator:
 
 ```dhall
 ⊢ :let tuple = { _1 = +123, _2 = "abc" }
@@ -204,8 +211,8 @@ tuple : { _1 : Integer, _2 : Text }
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
 
 It is important that Dhall's record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
-For instance, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
-There is no way of assigning a permanent unique name to the record type itself, as it is done in OCaml, Haskell, and Scala in order to distinguish one record type from another.
+So, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
+There is no **nominal typing**: that is, no way of assigning a permanent unique name to a certain record type, as it is done in OCaml, Haskell, and Scala in order to distinguish one record type from another.
 
 For convenience, a Dhall program may define local names for types:
 
@@ -216,9 +223,9 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 
-But the names `RecordType1` and `RecordType2` are no more than (locally defined) values that may be used as type aliases.
+But the names `RecordType1` and `RecordType2` are no more than (locally defined) values that are used as type aliases.
 Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
-(The order of record fields is not significant.) 
+(The order of record fields is also not significant.) 
 So, the values `x` and `y` actually have the same type in that code.
 
 
@@ -251,31 +258,23 @@ Union types can be nested, for example, `< X : < Y | Z : Natural > | T >`.
 Union types and be freely combined with any other types (record types, function types).
 
 It is important that Dhall's union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
-For instance, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different.
-There is no way of assigning a permanent unique name to the union type itself, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
+So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different.
+There is no **nominal typing** for union types, that is, no way of assigning a permanent unique name to a certain union type, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
 
-For convenience, Dhall programs may define local names for union types:
+For convenience, Dhall programs often define local names for union types:
 
 ```dhall
 let MyXY = < X : Natural | Y : Bool >
 let x : MyXY = MyXY.X 123
 ```
-
-But the name `MyXY` is no more than a (locally defined) value that may be used as a type alias.
-Dhall will consider `MyXY` to be the same as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`
-(because the order of a union type's constructors is not significant.)
+The constructor expression `MyXY.X` is a function of type `Bool → MyXY`.
+But the name `MyXY` is no more than a (locally defined) value that is used as a type alias.
+Dhall considers `MyXY` to be the same type as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`
+(the order of a union type's constructors is also not significant).
 
 Dhall requires the union type's constructors to be explicitly annotated by the full union types.
 In Haskell or Scala, one may simply write `Left(x)` and `Right(y)` and let the compiler fill in the type parameters.
 But Dhall requires us to write `< Left : Text | Right : Bool >.Left x` or `< Left : Text | Right : Bool >.Right y`, fully specifying the union type whose value is being constructed.
-
-To shorten the code, one normally defines a type alias and writes:
-
-```dhall
-let MyU = < Left : Text | Right : Bool >
-let x = MyU.Left "abc"
-```
-The Dhall expression `MyU.Left` is type-checked as a _function_ of type `Text → MyU`.
 
 An advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
 In Dhall, each union type may define arbitrary constructor names.
@@ -291,8 +290,9 @@ let y : Union2 = Union2.Right True
 ```
 
 The types `Union1` and `Union2` are different because the constructor named `Right` requires different data types within `Union1` and `Union2`.
-Because constructor names are always written together with the union type, there is no conflict between `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
-A conflict would occur if we could write simply `Left` for those constructors, but Dhall does not support that.
+Constructor names are always written together with the union type.
+So, there is no conflict between `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
+A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.
 
 ### Pattern matching
 
@@ -318,24 +318,24 @@ toString x = case x of
 The corresponding type is defined in Dhall by:
 
 ```dhall
-let P = < X : Natural | Y : Bool | Z >
+let P = < X : Integer | Y : Bool | Z >
 ```
 
-Here is the Dhall code for a function `toText` that prints a value of type `P`:
+Here is the Dhall code for a function that prints a value of type `P`:
 
 ```dhall
-let toText : P → Text = λ(x : P) →
+let pToText : P → Text = λ(x : P) →
   merge {
-          X = λ(x : Natural) → "X " ++ Natural/show x,
+          X = λ(x : Integer) → "X " ++ Integer/show x,
           Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False"),
           Z = "Z",
         } x
 ```
 
-Dhall's pattern matching syntax is somewhat similar to the Haskell code.
+Dhall's pattern matching syntax is somewhat similar to the Haskell syntax.
 The `merge` keyword looks like a curried function whose first argument is a _record value_ and the second argument is a value of a union type.
 The field names of the record must correspond to all the constructor names in the union type.
-The values inside the record are explicit `λ`-delimited functions that describe what to compute in each case where the union type's constructor has arguments.
+The values inside the record are functions that describe what to compute in each case where the union type's constructor has arguments.
 For no-argument constructors (e.g., for the constructor `Z` in the example shown above) the value inside the record does not need to be a function.
 
 The second argument of `merge` is a value of a union type on which the pattern matching will be done.
@@ -352,8 +352,7 @@ let y : MyOptional Text = (MyOptional Text).MyNone
 ```
 
 The built-in `Optional` type is a less verbose equivalent of this code.
-Instead of `(MyOptional Text).MyNone` one writes `None Text`.
-Instead of `(MyOptional Natural).MySome 123` one writes `Some 123`.
+One writes `None Text` instead of `(MyOptional Text).MyNone`, and `Some 123` instead  of `(MyOptional Natural).MySome 123`.
 (The type parameter `Natural` is determined automatically by Dhall.)
 Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
 
@@ -393,7 +392,7 @@ let absurd : ∀(A : Type) → <> → A
 Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
 Nevertheless, the existence of the void type and a function of type `∀(A : Type) → <> → A` is useful in some situations, as we will see below.
 
-If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we will call `void_to_any`:
+If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we call `void_to_any`:
 
 ```dhall
 let void_to_any : <> → ∀(A : Type) → A
@@ -406,7 +405,7 @@ Indeed, the type `∀(A : Type) → A` is void.
 If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
 But that is impossible, as the type `<>` has no values.
 
-So, the type expression `∀(A : Type) → A` is equivalent to `<>` and can be used equally well to denote the void type.
+So, the type `∀(A : Type) → A` is equivalent to the type `<>` and can be used equally well to denote the void type.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -428,7 +427,7 @@ let our_program = λ(void : <>) →
 ```
 The typechecker will accept this program.
 Of course, we can never supply a value for the `void : <>` argument.
-So, our program will not be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
+So, our program cannot be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
 
 To shorten the code, define `let TODO = void_to_any void`.
 We can then write `TODO X` and pretend to obtain a value of any type `X`.
@@ -446,16 +445,24 @@ let our_program = λ(TODO : ∀(A : Type) → A) →
 A **unit type** is a type that has only one distinct value.
 
 Dhall's empty record type `{}` is a unit type.
-The type `{}` has only one value, written as `{=}` (an empty record with no fields).
+The type `{}` has only one value, written as `{=}`.
+This denotes a record with no fields or values.
 
-Another way of denoting the unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
+Another way of defining a unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
-In this way, one can define different unit types for convenience.
+In this way, one can conveniently define unit types with different names.
 
-Another equivalent definition of a unit type is via the function type `∀(A : Type) → A → A`.
-The only way of implementing a function of that type is the code `λ(A : Type) → λ(x : A) → x`.
+Another equivalent definition of a unit type is via the following function type:
+```dhall
+let UnitId = ∀(A : Type) → A → A
+```
+The only possible function of that type is the "polymorphic identity function":
+```dhall
+let identity : UnitId = λ(A : Type) → λ(x : A) → x
+```
 There is no other, inequivalent Dhall code that could implement a different function of that type.
 (This is a consequence of parametricity.)
+So, the type `UnitId` is a unit type because it has only one distinct value.
 
 ### Type constructors
 
@@ -564,16 +571,16 @@ We will usually write the identity function as:
 
 ```dhall
 let identity : ∀(A : Type) → A → A
-  = λ(A : Type) → λ(a : A) → a
+  = λ(A : Type) → λ(x : A) → x
 ```
 
 In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax.
 Each argument must have a type annotation, for example: `λ(x : Natural)`, `λ(a : Type)`, and so on.
 
 However, a `let` binding does not necessarily require a type annotation.
-So, may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
+So, one may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
 
-For complicated type signatures, it still helps to write type annotations with `let`, because type errors will be detected earlier.
+For complicated type signatures, it still helps to write type annotations, because Dhall will then detect some type errors earlier.
 
 ### Modules and imports
 
@@ -754,7 +761,7 @@ If the user modifies the file `simple.dhall` so that it evaluates to anything ot
 
 Hash values are computed from the _normal form_ of Dhall expressions, and the normal forms are computed only after successful type-checking.
 For this reason, the hash value of a Dhall program remains unchanged under any valid refactoring.
-For instance, we may add or remove comments; reformat the file; change the order of fields in records; rename, add, or remove local variables; change import URLs; etc.
+For instance, we may add or remove comments; reformat the file with fewer or with more spaces; change the order of fields in records; rename, add, or remove local variables; and even change import URLs (as long as the imported content remains equivalent).
 The hash value will remain the same as long as the normal form of the final evaluated expression remains the same.
 
 
@@ -787,9 +794,8 @@ Pair : ∀(a : Type) → ∀(b : Type) → Type
 
 Dhall does not require capitalizing the names of types and type parameters.
 In this book, we capitalize all type constructors (such as `List`).
-Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.).
-
-For additional clarity, we sometimes write capitalized type parameters (`A`, `B`, etc.), but values will never be capitalized in this book.
+Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.) for additional clarity.
+Values are never be capitalized in this book.
 
 #### Almost no type inference
 
@@ -876,7 +882,7 @@ Most often, Dhall imports are used to organize code into modules with known cont
 In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
 Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression (that is, to an expression that cannot be simplified any further).
 
-Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it often happens in other programming languages.
+Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it happens in other programming languages.
 It is guaranteed that the correct normal form will be computed (although the computation may take a long time).
 
 Invalid Dhall programs will be rejected at the type-checking phase.
@@ -3331,7 +3337,7 @@ Now we have all necessary data to implement a general function `toAssertType` th
 let toAssertType
   : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
-    let f : T → Type = λ(a : T) 
+    let f : T → Type = λ(a : T) → x === a
     in leq f (assert : x === x)
 ```
 With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 === 1`.
@@ -3339,7 +3345,7 @@ With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the
 In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
 
 Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
-We can write `assert : "abc" === "abc"` even though Dhall cannot implement a function for comparing two strings.
+We can write `assert : "abc" === "abc"` even though Dhall cannot implement a function for comparing two strings at run time.
 Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
 
 ```dhall
