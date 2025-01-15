@@ -3290,41 +3290,55 @@ To summarize, Leibniz equality types have the following properties:
 
 - One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
 - If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x x`.
-- If values `x : T` and `y : T` are semantically different, and if Dhall can compare values of type `T`, one can implement a Dhall function of type `LeibnizEqual T x y → <>`.
 
+### Leibniz equality and "assert" expressions
 
-### Implementing the "assert" feature
+The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
+The expression `assert : x === y` will type-check only if `x` and `y` have the same type and the same normal forms.
 
-The "assert" feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
-The expression `assert : x === y` will type-check only if `x` and `y` have the same type (say, `T`) and the same normal forms.
+It turns out that Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
+To explain that, let us show how a Leibniz equality type may be used to write code that type-checks only if given values `x` and `y` are equal.
 
-This constraint can be translated into the property that `f x` and `f y` are the same type for any function `f : T → Type`.
-If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having type `LeibnizEqual T x y`.
+If `x` and `y` are equal then `f x` and `f y` are the same type for any function `f : T → Type`.
+If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having the type `LeibnizEqual T x y`.
 We can write that constraint as a type annotation (which is also validated at type-checking time) in the form `refl T x : LeibnizEqual T x y`.
-That type annotation is valid only when `x` equals `y` at type-checking time.
+That type annotation will be accepted only when `x` equals `y` at type-checking time.
 
-As an example, here is how we can assert that `123` equals `100 + 20 + 3`:
+As an example, here is how to assert that `123` equals `100 + 20 + 3`:
 ```dhall
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
-This code is fully analogous to `assert : 123 === 100 + 20 + 3`.
-This example shows why Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
+This code is fully analogous to `let _ = assert : 123 === 100 + 20 + 3`.
+However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and it is impossible to avoid that repetition).
+Writing `let _ = assert : 123 === 100 + 20 + 3` is shorter and more convenient.
 
+The similarity between Leibniz equality types and Dhall's built-in equality types goes further:
 Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`.
-To achieve that, we may write a general function `toAssertType`:
+Indeed, `LeibnizEqual T x y` is a function that takes an `f : T → Type` and a value of type `f x`, returning a value of type `f y`.
+If we need to get a value of type `x === y`, we need to define `f` such that the type `f y` is `x === y`.
+Here is an example of defining such a function when `T = Natural`:
+
+```dhall
+let x = 1
+let f : Natural → Type = λ(a : Natural) → (x === a)
+```
+When `f` is defined like that, the type `f y` is `x === y` as required, while the type `f x` is `x === x`.
+A value of the latter type is written as `assert : x === x`.
+
+Now we have all necessary data to implement a general function `toAssertType` that converts a Leibniz equality into an `assert` value:
 
 ```dhall
 let toAssertType
   : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
-    leq (λ(a : T) → x === a) (assert : x === x)
+    let f : T → Type = λ(a : T) 
+    in leq f (assert : x === x)
 ```
-With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is the same Dhall value as `assert : 1 === 1`.
+With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 === 1`.
 
-In this way, Leibniz equality types reproduce Dhall's assertion functionality.
-Dhall's `assert` keyword and types of the form `x === y` give convenient syntactic sugar for using Leibniz equality types with literal values.
+In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
 
-Note that the `assert` feature allows us to assert static (compile-time) equality on values that Dhall cannot compare at run time.
+Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
 We can write `assert : "abc" === "abc"` even though Dhall cannot implement a function for comparing two strings.
 Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
 
@@ -3333,10 +3347,11 @@ let exampleString = "ab"
 let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 ```
 
-We have seen hat the Leibniz equality type can reproduce the `assert` feature of Dhall.
-However, currently Dhall implements `a === b` and `assert` as special expression types and does not reduce them to Leibniz equality.
+We have seen that the Leibniz equality type can be converted to `assert` values.
+However, `assert` values currently cannot be converted back to Leibniz equality values.
+Dhall currently implements `a === b` and `assert` as special expression types that cannot be manipulated in any way, other than type-checked.
 
-Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, we may need sometimes to use the Leibniz equality type where the built-in Dhall features are insufficient. 
+Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality type where the built-in Dhall features are insufficient. 
 
 ### Leibniz inequality types
 
@@ -3345,7 +3360,7 @@ How could we encode such a type?
 We would need to create a type that is void when `a === b` is not void, and vice versa.
 This property (a "logical negation" of `a === b`) can be encoded as the type `(a === b) → <>`.
 
-To see why, consider  the function type `T → <>` for any type `T`.
+To see why, consider the function type `T → <>` for any type `T`.
 
 Indeed,  if `T` is non-void then we could not possibly have any functions of type `T → <>`.
 If we had such a function, we would apply it to some value of type `T` and obtain a value of the void type, which is impossible.
@@ -3685,7 +3700,7 @@ TODO
 ### Recursion schemes
 
 Dhall does not directly support defining recursive types or recursive functions.
-The only supported recursive type is a built-in `List` type. 
+The only supported recursive types are the built-in `Natural` and `List` types. 
 However, the Church encoding technique provides a wide range of user-defined recursive types and recursive functions in Dhall.
 
 Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
@@ -3707,7 +3722,8 @@ This definition of `T` has the form of a "recursive type equation", `T = F T`, w
 type F a = Nil | Cons Int a     -- Haskell.
 ```
 
-The type constructor `F` is called the **recursion scheme** for the definition of `T`.
+The type constructor `F` is called the **structure functor** for the definition of `T`.
+The type `T` is called a **fixpoint** of `F`.
 
 Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is non-recursive.
 The definition of `F` is written in Dhall as:
@@ -3729,7 +3745,7 @@ The type `C` is not a type constructor; it is a type of a function with a type p
 
 When we define `F` as above, it turns out that the type `C` is _equivalent_ to the type of (finite) lists with integer values.
 
-The Church encoding construction works in the same way for any recursion scheme `F`.
+The Church encoding construction works in the same way for any structure functor `F`.
 Given `F`, one defines the corresponding Church-encoded type `C` by:
 
 ```dhall
@@ -3737,7 +3753,7 @@ let C = ∀(r : Type) → (F r → r) → r
 ```
 As it turns out, the type `C` is equivalent to the type `T` that one would have defined by `T = F T` in a language that supports recursively defined types.
 
-It is not obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+It is far from obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `C = F C`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in the Appendix of this book.
 Here we will focus on the practical uses of Church encoding.
@@ -3768,9 +3784,9 @@ let TreeText = ∀(r : Type) → (F r → r) → r
 
 ### Church encoding of non-recursive types
 
-If a recursion scheme does not actually depend on its type parameter, the Church encoding construction will leave the type unchanged.
+If a structure functor does not actually depend on its type parameter, the Church encoding construction will leave the type unchanged.
 
-For example, consider this recursion scheme:
+For example, consider this structure functor:
 
 ```dhall
 let K = λ(t : Type) → { x : Text, y : Bool }
@@ -3898,10 +3914,10 @@ It takes some work to figure out convenient ways of creating values of those typ
 
 We will now show how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching.
 
-For simplicity, we now consider a Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a recursion scheme `F`.
+For simplicity, we now consider a Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a structure functor `F`.
 Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
 
-An important requirement is that the recursion scheme `F` should be a _covariant_ type constructor.
+An important requirement is that the structure functor `F` should be a _covariant_ type constructor.
 If this is not so, Church encoding will not work as expected.
 
 We will assume that `F` has a known and lawful `fmap` method that we denote by `fmapF`.
@@ -3927,7 +3943,7 @@ let fmapF : Fmap_t F
 
 ### Generic forms of Church encoding
 
-Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary recursion scheme.
+Dhall's type system is powerful enough to be able to express the Church encoding's type generically, as a function of an arbitrary structure functor.
 We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
 
 For simple types:
@@ -3950,7 +3966,7 @@ A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C →
 Those two functions implement an isomorphism between `C` and `F C`.
 The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data), which is one way of understanding why `C` is a fixpoint of the type equation `C = F C`.
 
-Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` once for all recursion schemes `F` and the corresponding types `C = LFix F`.
+Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` once for all structure functors `F` and the corresponding types `C = LFix F`.
 
 The basic technique of working directly with any Church-encoded data `c : C` is to use `c` as a curried higher-order function.
 That function has two arguments: a type parameter `r` and a function of type `F r → r`.
@@ -4583,7 +4599,7 @@ For example, concatenating or reversing lists of type `ListInt` takes time quadr
 
 ### Mutually recursive types
 
-If two or more types are defined recursively through each other, one needs a separate recursion scheme and a separate the Church encoding for each of the types.
+If two or more types are defined recursively through each other, one needs a separate structure functor and a separate the Church encoding for each of the types.
 
 As an example, consider this Haskell definition:
 
@@ -4595,7 +4611,7 @@ data Layer2 = Name2 String | ManyLayers [ Layer ]
 
 The type `Layer` is defined via itself and `Layer2`, while `Layer2` is defined via `Layer`.
 
-We need two recursion schemes (`F1` and `F2`) to describe this definition. In terms of the recursion schemes, the type definitions should look like this:
+We need two structure functors (`F1` and `F2`) to describe this definition. In terms of the structure functors, the type definitions should look like this:
 
 ```haskell
 -- Haskell.
@@ -4611,7 +4627,7 @@ data F1 a b = Name String |  OneLayer a | TwoLayers b b
 data F2 a b = Name2 String | ManyLayers [ a ]
 ```
 
-The recursion schemes `F1` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
+The structure functors `F1` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
 
 ```dhall
 let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
@@ -4647,7 +4663,7 @@ TODO
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 
-For this to work, the recursion scheme `F` must have one more type parameter than `T`.
+For this to work, the structure functor `F` must have one more type parameter than `T`.
 
 For example, consider this Haskell definition of a binary tree with leaves of type `a`:
 
@@ -4656,7 +4672,7 @@ For example, consider this Haskell definition of a binary tree with leaves of ty
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 ```
 
-The corresponding recursion scheme `F` is:
+The corresponding structure functor `F` is:
 
 ```haskell
 -- Haskell.
@@ -4704,7 +4720,7 @@ Consider a Haskell definition of a binary tree with two type parameters and two 
 data TreeAB a b = LeafA a | LeafB b | Branch (TreeAB a b) (TreeAB a b)
 ```
 
-The corresponding recursion scheme is:
+The corresponding structure functor is:
 
 ```haskell
 -- Haskell.
@@ -4729,7 +4745,7 @@ To practice implementing those operations for a Church-encoded data type, consid
 data NEL a = One a | Cons a (NEL a)
 ```
 
-The recursion scheme corresponding to this definition is:
+The structure functor corresponding to this definition is:
 
 ```haskell
 -- Haskell.
@@ -4819,7 +4835,7 @@ The functions `concatNEL` and `reverseNEL` shown in the previous section are spe
 We will now consider functions that can work with all Church-encoded type constructors.
 Examples are functions that compute the total size and the maximum recursion depth of a data structure.
 
-Suppose we are given an arbitrary recursion scheme `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
+Suppose we are given an arbitrary structure functor `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → ???
@@ -4846,7 +4862,7 @@ let size : ∀(a : Type) → ∀(ca : C a) → Natural
 The function `sizeF` should count the number of data items stored in `F a Natural`. The values of type `Natural` inside `F` represent the sizes of nested
 instances of `C a`; those sizes have been already computed.
 
-It is clear that the function `sizeF` will need to be different for each recursion scheme `F`.
+It is clear that the function `sizeF` will need to be different for each structure functor `F`.
 For a given value `fa : f a Natural`, the result of `sizeF fa` will be equal to the number of values of type `a` stored in `fa` plus the sum of all natural
 numbers stored in `fa`.
 
@@ -4874,7 +4890,7 @@ let sizeF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Nat
     } fa
 ```
 
-Having realized that `sizeF` needs to be supplied for each recursion scheme `F`, we can implement `size` as a function of `F`.
+Having realized that `sizeF` needs to be supplied for each structure functor `F`, we can implement `size` as a function of `F`.
 The type `C` will be expressed as `LFix F`:
 
 ```dhall
@@ -4935,14 +4951,14 @@ let fmapTree : Fmap_t Tree
 This code only needs to convert a function argument of type `b → r` to a function of type `a → r`.
 All other arguments are just copied over.
 
-We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a recursion scheme `F`.
+We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a structure functor `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
 This can be done if `F` is a covariant bifunctor with a known `bimap` function (which we call `bimap_F`).
 
 The code is:
 
 ```dhall
-let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ??? -- Define the recursion scheme.
+let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ??? -- Define the structure functor.
 let bimap_F
   : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d
   = ??? -- Define the bimap function for F.
@@ -5498,7 +5514,7 @@ A traversal of all data items stored in those data structures is not expected to
 Those data structures are used only in ways that do not involve a full traversal of all data.
 It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
 
-As an example of the contrast between the least fixpoints and the greatest fixpoints, consider the recursion scheme `F` for the data type `List Text`.
+As an example of the contrast between the least fixpoints and the greatest fixpoints, consider the structure functor `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
 
 ```dhall
@@ -5569,7 +5585,7 @@ data Layer = Layer (F1 Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-Define two recursion schemes `F1` and `F2` by:
+Define two structure functors `F1` and `F2` by:
 
 
 ```dhall
@@ -5643,7 +5659,7 @@ let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 Finally, we apply the function `fk` to `p.step p.seed`, which is a value of type `F t`.
 The result is a value of type `F (GFix F)` as required.
 
-Note that the function `f` depends only on the recursion scheme `F` and not on the specific value `g`.
+Note that the function `f` depends only on the structure functor `F` and not on the specific value `g`.
 So, it will be convenient to implement `f` separately; we will call it `packF`.
 
 The complete Dhall code is:
@@ -5700,7 +5716,7 @@ So, similarly to the case of Church encodings, `fixG` provides constructors and 
 
 To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
 
-Consider the greatest fixpoint of the recursion scheme for `List`:
+Consider the greatest fixpoint of the structure functor for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -6170,7 +6186,7 @@ We will now generalize size-limited aggregations from lists to arbitrary greates
 The result will be a `fold`-like function whose recursion depth is limited in advance.
 That limitation will ensure that all computations terminate, as Dhall requires.
 
-The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary recursion schemes.
+The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary structure functors.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
 
 `fold : LFix F → ∀(r : Type) → (F r → r) → r`
@@ -6215,12 +6231,12 @@ Another way of understanding hylomorphisms is to rewrite their type signature as
 
 `GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
 
-This can be now seen as a conversion from the greatest fixpoint to the least fixpoint of the same recursion scheme.
+This can be now seen as a conversion from the greatest fixpoint to the least fixpoint of the same structure functor.
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
 
 Now we turn to the question of implementing hylomorphisms in Dhall.
 An immediate problem for Dhall is that termination of hylomorphisms is not (and _cannot_ be) guaranteed.
-To see why, note that a hylomorphism converts `GFix F` to `LFix F` in a way that is natural in `F` (i.e., it works in the same way for all recursion schemes `F`).
+To see why, note that a hylomorphism converts `GFix F` to `LFix F` in a way that is natural in `F` (i.e., it works in the same way for all structure functors `F`).
 This sort of conversion can be done only by copying all values from one data structure to another, completely preserving the recursive structure.
 However, a value of a greatest fixpoint type (for example, an unbounded list or an unbounded tree) could allow us to extract an unbounded number of data items, while values of least fixpoint types are always bounded (that is, the data size must be known in advance). 
 A hylomorphism's code will try to extract all data from an unbounded list, which cannot terminate.
@@ -6230,7 +6246,7 @@ We will now examine that problem in more detail and show some solutions.
 
 ### Why hylomorphisms terminate: a Haskell example
 
-For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given recursion scheme `F`.
+For the purposes of this book, a hylomorphism is just the `fold` function operating on the greatest fixpoint of a given structure functor `F`.
 We would like to implement a hylomorphism with that type signature that works in a uniform way for all `F`.
 This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [B. Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
@@ -6245,9 +6261,9 @@ The code of `hylo` calls `hylo` recursively under `fmap`, and there seems to be 
 To see how this code could ever terminate, consider a specific example
 where both `t` and `r` are the type of binary trees with string-valued leaves.
 We have denoted that type by `TreeText` before.
-The type constructor `f` will be the recursion scheme for `TreeText`.
+The type constructor `f` will be the structure functor for `TreeText`.
 
-Our Haskell definitions for `TreeText`, its recursion scheme `F`, and the `fmap` method for `F` are:
+Our Haskell definitions for `TreeText`, its structure functor `F`, and the `fmap` method for `F` are:
 
 ```haskell
 -- Haskell.
@@ -6403,7 +6419,7 @@ let hylo_Nat : ∀(F : Type → Type) → Functor F →
       in transform seed
 ```
 
-The function `hylo_Nat` is a general fold-like aggregation function that can be used with arbitrary recursion schemes `F`. 
+The function `hylo_Nat` is a general fold-like aggregation function that can be used with arbitrary structure functors `F`. 
 Termination is assured because we specify a limit for the recursion depth in advance.
 This function will be used later in this book when implementing the `zip` method for Church-encoded type constructors.
 
@@ -6456,7 +6472,7 @@ let contains_t
     in findTrueValues (replaceByTrue p)
 ```
 
-To test this code, we define the following functor `FT`, which is the recursion scheme of a binary tree with `Natural` leaf values:
+To test this code, we define the following functor `FT`, which is the structure functor of a binary tree with `Natural` leaf values:
 
 ```dhall
 let FT = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
@@ -7031,7 +7047,7 @@ For this code, we need to have a function `F/ap` with type `F (a → b) → F a 
 In many cases, such a function exists.
 This function is typical of "applicative functors", which we will study later in this book.
 
-As long as the recursion scheme `F` is applicative, we will be able to implement `hylo_T` for `F`.
+As long as the structure functor `F` is applicative, we will be able to implement `hylo_T` for `F`.
 
 ## Combinators for monoids
 
@@ -7523,11 +7539,11 @@ So, in principle we already know enough to build functor or contrafunctor instan
 
 However, for illustration we will show the Dhall code for those instances.
 
-A least-fixpoint type constructor is defined via a recursion scheme that must be a type constructor with two type parameters.
+A least-fixpoint type constructor is defined via a structure functor that must be a type constructor with two type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
 (See the section "Recursive type constructors" in the chapter "Church encoding for recursive.)
 
-Suppose `F` is a given recursion scheme with two type parameters.
+Suppose `F` is a given structure functor with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
 and the type constructor `D` as the greatest fixpoint of the same type equation: `D a = F a (D a)`.
 
@@ -7592,7 +7608,7 @@ let functorGFix
 ```
 
 Contrafunctor instances for recursive types can be computed by similar code.
-Note that the recursion scheme `F` must be still covariant in the type parameter on which we impose the fixpoint:
+Note that the structure functor `F` must be still covariant in the type parameter on which we impose the fixpoint:
 If `F a b` is contravariant in `a` and covariant in `b` then both `LFix (F a)` and `GFix (F a)` are contravariant in `a`.
 
 ```dhall
@@ -7912,7 +7928,7 @@ let contrafilterableExists1
 
 ### Recursive filterable type constructors
 
-Recursive type constructors are defined via `LFix` or `GFix` from recursion schemes, which are type constructors `F` with two type parameters (so that `F a b` is a type).
+Recursive type constructors are defined via `LFix` or `GFix` from structure functors, which are type constructors `F` with two type parameters (so that `F a b` is a type).
 
 Imposing a fixpoint on one type parameter will preserve the filterable property with respect to the other type parameter.
 Define the type constructors `C` and `D` as `C a = LFix (F a)` and `D a = GFix (F a)`.
@@ -8446,7 +8462,7 @@ TODO
 Implementing a `zip` method for recursive type constructors turns out to require quite a bit of work.
 In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
 
-Given a recursion scheme bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
+Given a structure functor bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
 ```dhall
 let F = λ(a : Type) → λ(b : Type) → ???
 let C = λ(a : Type) → LFix (F a)
@@ -8472,7 +8488,7 @@ let bizip_FC : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F
 ```
 The type signature of `bizip_FC` is of the form `F a p → F b q → F (Pair a b) (Pair p q)` if we set `p = C a` and `q = C b`.
 This type signature is similar to a `zip` function that works at the same time with both type parameters of `F`.
-However, when all type parameters are unconstrained, functions of type `F a p → F b q → F (Pair a b) (Pair p q)` do not exist for certain perfectly ordinary recursion schemes `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+However, when all type parameters are unconstrained, functions of type `F a p → F b q → F (Pair a b) (Pair p q)` do not exist for certain perfectly ordinary structure functors `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
 On the other hand, `bizip_FC` can be implemented for all polynomial bifunctors `F`.
 
 In addition to `bizip_F1` and `bizip_FC`, we require a function for computing the recursion depth of a value of type `C a`.
