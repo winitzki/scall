@@ -3698,11 +3698,29 @@ let extensional_equality
     in result
 ```
 
-Another example is when we are given a function `f : T → U → V` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`.
-In that situation, we expect to have `f a c === f b d`, and we would like to derive an evidence value for that equality.
+We conclude this section with a few more illustrations of symbolic reasoning with Leibniz equality types.
 
-TODO
+###### Example
+Given a function `f : T → U → V` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c === f b d`.
 
+####### Solution
+
+The derivation uses the combinator we denoted by `identityLeibnizEqual`.
+First, we apply that combinator to `f`, `a`, and `b`; the result is evidence that `f a === f b` as functions of type `U → V`.
+It remains to apply `extensional_equality` to those functions and to the values `c`, `d`.
+The complete code is:
+
+```dhall
+let identityLeibnizEqual2 = λ(T : Type) → λ(U : Type) → λ(V : Type) → λ(a : T) → λ(b : T) → λ(c : U) → λ(d : U) → λ(f : T → U → V) → λ(a_eq_b : LeibnizEqual T a b) → λ(c_eq_d : LeibnizEqual U c d) → 
+  let fa_eq_fb : LeibnizEqual (U → V) (f a) (f b) = identityLeibnizEqual T a b (U → V) f a_eq_b
+  in extensional_equality U c d V (f a) (f b) c_eq_d fa_eq_fb : LeibnizEqual V (f a c) (f b d)  
+```
+
+The value `identityLeibnizEqual2` is evidence that `f a c` equals `f b d`.
+
+###### Exercise
+
+Given functions `f : T → U → V` and `g : T → U → V` and evidence for `f === g`, `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c === g b d`.
 
 ## Church encodings for simple types
 
