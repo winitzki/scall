@@ -784,7 +784,7 @@ For instance, we may define the type constructor `Pair` shown above:
 
 ```dhall
 $ dhall repl
-Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+Welcome to the Dhall v1.42.2 REPL! Type :help for more information.
 ⊢ :let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 
 Pair : ∀(a : Type) → ∀(b : Type) → Type
@@ -912,7 +912,7 @@ To find out the type of an expression, one can write `:type` in the Dhall interp
 
 ```dhall
 $ dhall repl
-Welcome to the Dhall v1.42.1 REPL! Type :help for more information.
+Welcome to the Dhall v1.42.2 REPL! Type :help for more information.
 ⊢ :type True
 
 Bool
