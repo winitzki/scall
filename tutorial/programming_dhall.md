@@ -982,7 +982,7 @@ To implement this behavior in Dhall, we may use a field selection operation: any
 ```dhall
 let MyTuple = { _1 : Bool, _2 : Natural}
 let f = λ(tuple : MyTuple) → tuple._2
-let r1= { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+let r1 = { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
 in f r1.(MyTuple)  -- This is a complete program that returns 123.
 ```
 
@@ -1014,8 +1014,8 @@ For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool
 Similarly, `myTupleDefault // r` will accept records `r` of any record type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
 
 But Dhall cannot directly describe the type of records with unknown fields.
-So, one cannot write a custom Dhall function taking `r` and `MyTuple` as parameters and returning `r.(MyTuple)` or `myTupleDefault // r`, where `r` is an arbitrary record.
-
+(There is no type that means "any record".)
+So, one cannot write a custom Dhall function taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
 
 Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
 
@@ -1426,7 +1426,7 @@ The standard prelude includes functions that can add, subtract, multiply, compar
 
 We will now show how to implement other numerical operations such as division or logarithm.
 In an ordinary programming language, we would use loops to implement those operations.
-But Dhall will accept loops only if we know in advance how many iterations are needed for a given computation.
+But Dhall will accept loops only if the number of iterations is given in advance.
 This is a consequence of Dhall's termination guarantees.
 
 ### Using `Natural/fold` to implement loops
@@ -1436,35 +1436,36 @@ The function `Natural/fold` is a general facility for creating loops with a fixe
 The type of `Natural/fold` can be written as:
 
 ```dhall
-let _ = Natural/fold : ∀(n : Natural) → ∀(A : Type) → ∀(s : A → A) → ∀(z : A) → A
+let _ = Natural/fold
+   : ∀(n : Natural) → ∀(A : Type) → ∀(s : A → A) → ∀(z : A) → A
 ```
 
 Evaluating `Natural/fold n A s z` will repeatedly apply the function `s : A → A` to the initial value `z : A`.
-The application of `s` will be repeated `n` times, evaluating `s(s(...(s(z))...))`.
+This computes `s(s(...(s(z))...))`, where `s` is repeated `n` times. 
 
-For example:
+For example, if `f` is a function that appends `" world"` to a string, we can use `Natural/fold` to apply that function 4 times:
 ```dhall
-⊢ let succ = λ(a : Text) → a ++ " world" in Natural/fold 4 Text succ "Hello,"
+⊢ let f = λ(a : Text) → a ++ " world" in Natural/fold 4 Text f "Hello,"
 
 "Hello, world world world world"
 ```
 
 In this way, Dhall can perform many operations that are usually implemented via loops.
 However, `Natural/fold` is not a `while`-loop: it cannot iterate as many times as needed until some condition holds.
-The total number of iterations must be specified in advance as the first argument of `Natural/fold`.
+The total number of iterations must be given as the first argument of `Natural/fold`.
 
-When the exact number of iterations is not known in advance, one must give an upper estimate and design the algorithm to allow it to run further iterations without changing the result.
+When the total number of iterations is not known precisely, one must give an upper estimate and design the algorithm so that further iterations will not change the result once the final iteration is reached.
 The Haskell and Scala implementations of Dhall will stop iterations in `Natural/fold` when the result stops changing.
 
 For example, consider this (artificial) example:
 
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
-let result : Natural = Natural/fold 10000000000 Natural f 0
+let result : Natural = Natural/fold 100000000 Natural f 0
 -- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
 ```
 
-Theoretically, `Natural/fold 10000000000` needs to apply a given function `10000000000` times.
+Theoretically, `Natural/fold 100000000` needs to apply a given function `100000000` times.
 But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
@@ -1475,7 +1476,7 @@ The next subsections will show some examples of iterative algorithms implemented
 A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
 Since Dhall does not directly support recursion, we need to reformulate this computation through repeated application of a certain function.
 The factorial function must be expressed through a computation of the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
-We need to find `A`, `s`, and `z` that would allow us to implement the factorial function in that way.
+We need to find `A`, `s`, and `z` that permit implementing the factorial function in that way.
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
 It is clear that the type `A` must hold both the current partial result and the iteration count.
@@ -3345,7 +3346,8 @@ With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the
 In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
 
 Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
-We can write `assert : "abc" === "abc"` even though Dhall cannot implement a function for comparing two strings at run time.
+We can write `assert : "abc" === "abc"` for string values, even though Dhall does not allow us to implement a function for comparing two strings at run time.
+
 Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
 
 ```dhall
