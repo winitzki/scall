@@ -168,26 +168,17 @@
 \DeclareUnicodeCharacter{2500}{\textendash}
 
 \begin{document}
-    %\sloppy
-
-    %\input{afpd-cover-for-main-pdf}
     \extratitle{\hfill{}\thispagestyle{empty}Programming in System Fω using Dhall\hspace{1in}}
     \title{Programming in System Fω using Dhall}
     \author{by Sergei Winitzki, Ph.D.}
     \date{Version of \today}
-    \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2024}
+    \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2025}
     \maketitle
     \frontmatter\pagenumbering{roman}
-
     \tableofcontents{}
-
     \setcounter{chapter}{-1}
     \mainmatter\pagenumbering{arabic}
     \global\long\def\bbnum#1{\custombb{#1}}%
-
-    \input{generated}
-
+    \input{generated} % The file `generated.tex` is produced by running `convertMd.scala` on `programming_dhall.md`.
     \printindex{}
-
-    %\input{afpd-back-cover-for-main-pdf}
 \end{document}

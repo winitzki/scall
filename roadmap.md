@@ -73,19 +73,20 @@ It should be relatively quick to implement µDhall completely, with a comprehens
 
 Proposed features of µDhall:
 
-- No Unicode chars from higher Unicode pages can be used in identifiers.
+- No Unicode chars from higher Unicode pages.
 - No `Sort`, only `Type` and `Kind`, while `Kind` is not typeable.
-- Syntax: `(λ(x : X) → expr) : (∀(x : X) → expr)`
+- Syntax: `(λ(x : X) → expr) : (∀(x : X) → expr)`.
 - Syntax: `f a b c` and `x : X` expressions.
 - Built-in symbols: `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`, `Type`, `Kind`.
 - Built-in `Natural` number constants (0, 1, 2, ...) with unlimited precision.
-- No `Bool` (but can implement `Bool` as `∀(a : Type) → a → a → a` and implement utility methods for `Bool`).
+- No `Bool`. (Can be Church-encoded.)
+- No `Integer` or any other built-in Dhall data types.
 - `let a = b in e` but no `let a : A = b in c` like in Dhall; perhaps with shortcut `let x = a let y = b in ...`.
 - Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
 - No text strings. This just complicates the implementation with escapes, multiline strings, interpolation, etc.
-- No products or co-products, - just Church-encode them if needed. No records or unions.
-- No built-in `Option` or `List` type constructors.
-- No `assert` or `a === b`.
+- No products or co-products, records or unions. (Can be Church-encoded.)
+- No built-in `Option` or `List` type constructors. (Can be Church-encoded.)
+- No `assert` or `a === b`. (Can be encoded via Leibniz equality.)
 - No CBOR support.
 
 Implement µDhall and verify that:
@@ -100,12 +101,14 @@ Try various implementation ideas: HOAS, PHOAS, CBOR-based processing (?), or var
 
 Try various ideas about how to combine type-checking with evaluation in a single pass.
 
+Try various ideas about term inference / implicit parameters.
+
 ## Implement type refinement
 
 - Text strings that are non-empty or not containing a given string
 - Literal singleton types, or, more generally, types allowed to have a prescribed set of values
 - Numbers or booleans with prescribed properties (given a predicate)
-- How to implement a type that includes a proposition?
+- How to implement a type that includes a proposition with a more ergonomic syntax?
 
 ## Implement "late binding as in OOP" for records
 
