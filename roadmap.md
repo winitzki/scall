@@ -28,20 +28,20 @@
 
 The following enhancements could be implemented by changing only the parser:
 
-| Will parse this new syntax:     | Into this standard Dhall expression:                                                                |
-|---------------------------------|-----------------------------------------------------------------------------------------------------|
-| `123_456`                       | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
-| `match x y`                     | `merge y x`  (or some other syntax: x match y, x as in y? avoid new keywords?)                      |
-| `∀(x : X)(y : Y)(z : Z) → expr` | `∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr`                                                             |
-| `λ(x : X)(y : Y)(z : Z) → expr` | `λ(x : X) → λ(y : Y) → λ(z : Z) → expr`                                                             |
-| `let f (x : X) (y : Y) = expr`  | `let f = λ(x : X) → λ(y : Y) → expr`                                                                |
-| `λ { x : X, y : Y } → expr`     | `λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                                      |
-| `let f { x : X, y : Y } = expr` | `let f = λ(p : { x : X, y : Y }) → let x = p.x in let y = p.y in expr`                              |
-| `let { x = a, y = b } = c in d` | `let a = c.x in let b = c.y in d`                                                                   |
-| `x ``p`` y`  at low precedence  | `p x y`  where `p` itself may need to be single-back-quoted                                         |
-| `f a $ g b`  at low precedence  | `f a (g b)`                                                                                         |
-| `x ▷ f a b`  at low precedence  | `f a b x`  (also support non-unicode version of the triangle)                                       |
-| `x.[a]`                         | `List.index A a x`    (with inferred type)                                                          |
+| Will parse this new syntax:             | Into this standard Dhall expression:                                                                |
+|-----------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `123_456`                               | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
+| `match x y`                             | `merge y x`  (or some other syntax: x match y, x as in y? avoid new keywords?)                      |
+| `∀(x : X)(y : Y)(z : Z) → expr`         | `∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr`                                                             |
+| `λ(x : X)(y : Y)(z : Z) → expr`         | `λ(x : X) → λ(y : Y) → λ(z : Z) → expr`                                                             |
+| `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where Z is optional                                      |
+| `λ { x : X, y : Y } → expr`             | `λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in expr`                                      |
+| `let f { x : X, y : Y } : Z = expr`     | `let f = λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in (expr : Z)` where Z is optional    |
+| `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where A, B are optional                                   |
+| `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may need to be single-back-quoted                                         |
+| `f a $ g b`  at low precedence          | `f a (g b)`                                                                                         |
+| `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version of the triangle)                                       |
+| `x.[a]`                                 | `List.index A a x`    (with inferred type)                                                          |
 
 The precedence of the operator `|>`
 is higher than that of `$` but lower than that of all double back-quoted infix operators (which have all the same precedence).
