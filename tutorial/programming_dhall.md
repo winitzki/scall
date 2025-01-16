@@ -3155,8 +3155,8 @@ We remark without proof that:
 ### Inheritance of typeclasses
 
 Sometimes one typeclass includes methods from another.
-For example, `Semigroup` is similar to `Monoid`: it has the `append` method but no `empty` method.
-We could say that the `Monoid` typeclass inherits `append` from `Semigroup` and adds the `empty` method.
+For example, `Monoid` has the `append` method like `Semigroup` does, with the same associativity law.
+We could say that the `Monoid` typeclass inherits `append` from `Semigroup`.
 The `Monad` typeclass could inherit `fmap` from the `Functor` typeclass and `pure` from the `Pointed` typeclass.
 
 To express this kind of inheritance in Dhall, we can use Dhall's features for manipulating records.
