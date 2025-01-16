@@ -222,7 +222,6 @@ let x : RecordType1 = { a = 1, b = True }
 let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
-
 But the names `RecordType1` and `RecordType2` are no more than (locally defined) values that are used as type aliases.
 Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
 (The order of record fields is also not significant.) 
@@ -332,7 +331,6 @@ let pToText : P → Text = λ(x : P) →
         } x
 ```
 
-Dhall's pattern matching syntax is somewhat similar to the Haskell syntax.
 The `merge` keyword looks like a curried function whose first argument is a _record value_ and the second argument is a value of a union type.
 The field names of the record must correspond to all the constructor names in the union type.
 The values inside the record are functions that describe what to compute in each case where the union type's constructor has arguments.
@@ -405,7 +403,7 @@ Indeed, the type `∀(A : Type) → A` is void.
 If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
 But that is impossible, as the type `<>` has no values.
 
-So, the type `∀(A : Type) → A` is equivalent to the type `<>` and can be used equally well to denote the void type.
+So, the type `∀(A : Type) → A` can be used equally well to denote the void type.
 
 One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
@@ -3160,7 +3158,7 @@ We could say that the `Monoid` typeclass inherits `append` from `Semigroup`.
 The `Monad` typeclass could inherit `fmap` from the `Functor` typeclass and `pure` from the `Pointed` typeclass.
 
 To express this kind of inheritance in Dhall, we can use Dhall's features for manipulating records.
-Dhall has the operator `//\\` that combines all fields from two record types into one larger record type.
+Dhall has the operator `//\\` that combines all fields from two record types into a larger record type.
 The corresponding operator `/\` combines fields from two record values.
 For example:
 
@@ -3176,17 +3174,18 @@ For example:
 
 In these cases, the field names must be different (otherwise it is a type error).
 
-We can use these operators for making typeclass definitions and evidence values shorter.
+We can use these operators for implementing typeclass inheritance, making typeclass definitions and evidence values shorter.
 
 Consider this Dhall code for the `Semigroup` typeclass:
 
 ```dhall
 let Semigroup = λ(m : Type) → { append : m → m → m }
-let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ y }
+let semigroupText : Semigroup Text
+  = { append = λ(x : Text) → λ(y : Text) → x ++ y }
 ```
 
 We can use this definition to rewrite the `Monoid` typeclass using the record type from the `Semigroup` typeclass.
-Then the `Monoid` evidence value for the type `Text` is written as:
+We can also rewrite the `Monoid` evidence value for the type `Text` using the `Semigroup` typeclass instance for `Text` (defined above as `semigroupText`):
 
 ```dhall
 let Monoid = λ(m : Type) → Semigroup m //\\ { empty : m }
@@ -3196,9 +3195,8 @@ let monoidText : Monoid Text = semigroupText /\ { empty = "" }
 Similarly, we may rewrite the `Monad` typeclass to make it more clear that any monad is also a covariant and pointed functor:
 
 ```dhall
-let MonadFP = λ(F : Type → Type) →
-  Functor F //\\ Pointed F //\\
-      { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
+let MonadFP = λ(F : Type → Type) → Functor F //\\ Pointed F //\\
+  { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
 ```
 
 As an example, let us define a `Monad` evidence value for `List` in that way:
@@ -3214,7 +3212,7 @@ let monadList : MonadFP List =
 
 ## Leibniz equality types
 
-Dhall's `assert` feature provides a static check that some expressions are equal.
+Dhall's `assert` feature is a static check that some expressions are equal.
 The syntax is `assert : a === b`, and the type expression `a === b` denotes a type that has a value only if `a` equals `b`.
 That feature can be viewed as syntax sugar for a general facility known as "Leibniz equality types".
 
@@ -3242,7 +3240,7 @@ Define the type `LeibnizEqNat` by applying `LeibnizEqual` to the `Natural` type:
 let LeibnizEqNat =
    λ(a : Natural) → λ(b : Natural) → ∀(f : Natural → Type) → f a → f b
 ```
-The crucial property of `LeibnizEqNat` is that we can have a value of type `LeibnizEqNat x y` _only if_ the natural numbers `x` and `y` are equal to each other.
+The crucial property of `LeibnizEqNat` is that a function of type `LeibnizEqNat x y` can be created _only if_ the natural numbers `x` and `y` are equal to each other.
 
 To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1`:
 
@@ -3251,29 +3249,34 @@ To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1
 LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
 LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
 ```
-We can implement a value of type `LeibnizEqNat 0 0`:
+Note that `f 0` and `f 1` are unknown types because `f` is an arbitrary, unknown function of type `Natural → Type`.
+However, we can always write an identity function of type `f 0 → f 0` even though we do not know anything about the type `f 0`.
+This allows us to implement a function of type `LeibnizEqNat 0 0`:
 
 ```dhall
 let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(p : f 0) → p
 ```
-However, it is impossible to implement any values of type `LeibnizEqNat 0 1`.
-The reason is that a value of that type would be able to return a function of type `f 0 → f 1` for any `f : Natural → Type`. Note that `f 0` and `f 1` are two types that are essentially unknown: these two types are computed by a given function `f` that converts natural numbers into types in an arbitrary and unknown way. 
+
+However, it is impossible to implement a function of type `LeibnizEqNat 0 1`.
+A function of that type would need to return a function of type `f 0 → f 1` given an `f : Natural → Type`.
+Because `f` is a parameter, nothing is known about the types `f 0` and `f 1`.
+These two types are computed by a function `f` that converts natural numbers into types in an arbitrary and unknown way. 
 So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
 It is impossible to implement such a function.
 
-To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `f_contradiction`:
+To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `unit_if_zero`:
 ```dhall
-let f_contradiction : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
--- f_contradiction 0 evaluates to {}
--- f_contradiction 1 evaluates to <>
+let unit_if_zero : Natural → Type = λ(n : Natural) → if Natural/isZero n then {} else <>
+-- unit_if_zero 0 evaluates to {}
+-- unit_if_zero 1 evaluates to <>
 ```
-If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `f_contradiction` and to a unit value `{=}` and obtain a value of the void type.
+If we _could_ have a Dhall value `x : LeibnizEqNat 0 1`, we would then apply `x` to the function `unit_if_zero` and to a unit value `{=}` and obtain a value of the void type.
 That would be a contradiction in the type system (a value of a type that, by definition, has no values).
 Dhall does not allow us to write such code.
 
-These results generalize to any type `T`.
+These conclusions can be generalized from `Natural` to an arbitrary type `T`.
 For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
-That value is commonly denoted `refl`:
+That value is commonly denoted `refl` (meaning **reflexivity**, i.e., the property that any value `t` is always equal to itself):
 
 ```dhall
 let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
@@ -3291,12 +3294,12 @@ This is one of the limitations of the Dhall interpreter with respect to dependen
 To summarize, Leibniz equality types have the following properties:
 
 - One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
-- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x x`.
+- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x y`.
 
 ### Leibniz equality and "assert" expressions
 
 The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
-The expression `assert : x === y` will type-check only if `x` and `y` have the same type and the same normal forms.
+The expression `assert : x === y` will be accepted only if `x` and `y` have the same type and the same normal forms.
 
 It turns out that Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
 To explain that, let us show how a Leibniz equality type may be used to write code that type-checks only if given values `x` and `y` are equal.
@@ -3414,14 +3417,14 @@ let oneDoesNotEqualZero : LeibnizUnequal Natural 1 0
 Similar code would be written for `LeibnizUnequal T a b` when `T` is a union type and the values `a` and `b` are from different parts of the union.
 Then we would apply `k` to a function `f` defined via a suitable `merge` expression instead of `if/then/else`.
 
-We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` at run time via `Bool`-valued functions or via `merge` expressions.
+We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` at _run time_ via `Bool`-valued functions or via `merge` expressions.
 This is a stronger requirement than just being able to find out whether two values of type `T` are equal.
-Dhall does not support `Bool`-valued comparisons for primitive types such as `Double` or `Text`.
+Dhall does not support `Bool`-valued comparisons for types such as `Double` or `Text`.
 So, it is impossible to write Dhall code with type `LeibnizUnequal Text "abc" "def"` or `LeibnizUnequal Double 0.1 0.2`.
 (However, it is perfectly possible to implement values of equality types such as `LeibnizEqual Text "abc" "abc"` and `LeibnizEqual Double 0.1 0.1`, as we have already seen.)
 
-The existence of types whose values  cannot be compared at run time is not due to a limitation of Dhall.
-Even though comparisons for strings or for `Double` numbers could be implemented in another revision of Dhall without significant work, 
+The existence of types whose values cannot be compared at run time is not due to a limitation of Dhall.
+Even though comparisons for strings or for `Double` numbers could be implemented in another revision of Dhall,
 there are types that cannot be efficiently compared at run time.
 A simple example is the function type `T = Natural → Bool`.
 Two functions of that type are `x = λ(n : Natural) → Natural/isZero (Natural/subtract 10000 n)` and `y = λ(_ : Natural) → True`.
@@ -3462,7 +3465,7 @@ let _ = assert : f 10 10 (refl Bool True) === 20
 To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
 There is only one value of that type, and that value is produced by `refl Bool True`.
 The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
-But trying to call `f 100 100 (refl Bool True)` will be a type error.
+But trying to call `f 200 200 (refl Bool True)` will be a type error.
 
 ### Leibniz equality at type level
 
@@ -3488,7 +3491,8 @@ We can use `LeibnizEqualT` to implement an `assert`-like functionality for types
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
-As another example of using `LeibnizEqualT`, let us verify that the types `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1` are equal by creating an evidence value for their equality:
+As another example of using `LeibnizEqualT`, let us verify the type equivalence of `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1`.
+For that, we create an evidence value for their equality:
 
 ```dhall
 let t1 = LeibnizEqNat 0 1
@@ -3523,7 +3527,7 @@ Now we can provide evidence for kind equality like this:
 ```dhall
 let k1 = Type
 let k2 = Type
-let _ = reflK k1 : LeibnizEqualK k1 k2 -- Mimicks `assert : k1 === k2`.
+let _ = reflK k1 : LeibnizEqualK k1 k2 -- Implements `assert : k1 === k2`.
 ```
 
 ### Symbolic reasoning with Leibniz equality
@@ -3559,9 +3563,10 @@ The only way for us to obtain that value is to apply the given evidence value `x
 According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
 The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
 But we are required to compute a value of type `LeibnizEqual T y x`.
-We will achieve that by evaluating `x_eq_y g h` only if the output type `g y` is the same as the required type `LeibnizEqual T y x`.
-To achieve that, we define `g t = LeibnizEqual T t x` and notice that the type `g x` is then just `LeibnizEqual T x x`.
-A suitable value `h : g x` is found as `refl T x`.
+Evaluating `x_eq_y g h` will give the type `LeibnizEqual T y x` only if the output type `g y` is the same as `LeibnizEqual T y x`.
+To achieve that, we define `g t = LeibnizEqual T t x`.
+Then we notice that the type `g x` is just `LeibnizEqual T x x`.
+So, a suitable value `h : g x` is found as `refl T x`.
 
 Putting the code together, we get:
 
@@ -3578,7 +3583,7 @@ let symmetryLeibnizEqual
 
 The transitivity property is that if `x` equals `y` and `y` equals `z` then also `x` equals `z`.
 In the language of equality types, it means we should expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
-How can we implement that function?
+How can we implement that?
 ```dhall
 let transitivityLeibnizEqual
   : ∀(T : Type) → ∀(x : T) → ∀(y : T) → ∀(z : T) →
@@ -3632,7 +3637,7 @@ let identityLeibnizEqual
     in x_eq_y g h
 ```
 
-The analogous property for Leibniz _type_ equality is formulated as the "type identity" and uses an arbitrary type constructor `F` instead of an arbitrary function `f`.
+The analogous property for Leibniz _type_ equality is implemented via an arbitrary type constructor `F` instead of an arbitrary function `f`.
 
 ```dhall
 let identityLeibnizEqualT
@@ -3649,7 +3654,8 @@ let identityLeibnizEqualT
 The property of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
 In other words, `f === g` if and only if we have `f x === g x` for all `x`.
 
-In the language of equality types, this translates into a combinator with the type signature `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`.
+In terms of equality types, we can implement one direction of this equivalence as a combinator of type `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`. This combinator transforms evidence that `f === g` into evidence that `f x === g x` for all `x`.
+
 ```dhall
 let extensionalityLeibnizEqual
   : ∀(T : Type) → ∀(x : T) → ∀(U : Type) → ∀(f : T → U) → ∀(g : T → U) → LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)
@@ -3669,17 +3675,17 @@ let extensionalityLeibnizEqual
     in f_eq_g k h
 ```
 
-#### Examples
+#### Examples of symbolic reasoning
 
 To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
 It is clear that `f x === g y` in that case.
 Can we produce an evidence value for that?
 
-Dhall cannot manipulate values of its built-in equality types.
-There are currently no functions in Dhall that can consume a given value of type `x === y` and derive any other information out of that value.
+Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x === y`).
+There are currently no functions in Dhall that can derive any information out of such values.
 
-But Leibniz equality types and the standard combinators allow us to perform such computations.
-We can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
+But Leibniz equality types and their standard combinators do allow us to perform some computations involving equality.
+In this example, we can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
 It remains to use the "transitivity" combinator to establish that `f x === g y`.
 
 The code that computes evidence of type `f x === g y` is:
@@ -3692,7 +3698,7 @@ let extensional_equality
     in result
 ```
 
-Another example is when we are given a function `f : T → U` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`.
+Another example is when we are given a function `f : T → U → V` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`.
 In that situation, we expect to have `f a c === f b d`, and we would like to derive an evidence value for that equality.
 
 TODO
@@ -10109,11 +10115,18 @@ let fromCCoY : CCoY → K G
     )
 ```
 
+Let us define a type alias (`PackKTo`) for a type expression that we seem to be using often:
+
+```dhall
+let PackKTo = λ(A : Type) → ∀(T : Type) → (T → F T) → K T → A
+```
+Then the type of `fromCCoY` is equivalent to `PackKTo (K G)`.
+
 To implement `toCCoY`, we write:
 
 ```dhall
-let toCCoY : K G → ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
-  = λ(kg : K G) → λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+let toCCoY : K G → ∀(R : Type) → (PackKTo R) → R
+  = λ(kg : K G) → λ(R : Type) → λ(p : PackKTo R) →
     p G unfixf kg
 ```
 
@@ -10160,15 +10173,15 @@ toCCoY (fromCCoY c)   -- Expand the definition of fromCCoY:
   === toCCoY (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))                -- Expand the definition of toCCoY:
-  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+  === λ(R : Type) → λ(p : PackKTo R) →
     p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))
 ```
 
-At this point, we need to use naturality laws, which hold due to parametricity assumptions.
+At this point, we need to use some laws that hold due to parametricity assumptions.
 
-The first law we will use is the naturality law for values `c : CCoY`.
+The first required law is the naturality law for values `c : CCoY`.
 That law says that for any types `Q`, `S`, for any function `f : Q → S`, for any value `q : ∀(T : Type) → (T → F T) → K T → Q`:
 
 `f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))`
@@ -10186,7 +10199,7 @@ p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold 
 ```
 
 The next step is to simplify the sub-expression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
-For that, we use the relational naturality law for values `p : ∀(T : Type) → (T → F T) → K T → R`.
+For that, we use the strong dinaturality law for values `p : PackKTo R`.
 That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
 
 `fmap_F T U h (cT x) === cU (h x)` for all `x : T`,
@@ -10224,18 +10237,18 @@ This allows us to complete the proof of item 2:
 ```dhall
 -- Symbolic derivation. Expect this to equal `c`.
 toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
-  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+  === λ(R : Type) → λ(p : PackKTo R) →
     p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))    -- Use the naturality law of `c`:
-  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+  === λ(R : Type) → λ(p : PackKTo R) →
     c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) →
       p G unfixf (fmap_K T G (unfold T cT) kt))
         -- Use the relational naturality law of `p`:
-  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) →
+  === λ(R : Type) → λ(p : PackKTo R) →
     c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p T cT kt)
        -- Unexpand function: λ T → λ cT → λ kt → p T cT kt === p
-  === λ(R : Type) → λ(p : ∀(T : Type) → (T → F T) → K T → R) → c R p
+  === λ(R : Type) → λ(p : PackKTo R) → c R p
        -- Unexpand function: λ R → λ p → c R p === c
   === c
 ```
@@ -10367,7 +10380,6 @@ Then `T` is expressed as:
 let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
 ```
 
-
 The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
 So, we may use the mutual recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
 
@@ -10385,7 +10397,7 @@ let H = λ(x : Type) → LFix (G x)
 in let T = LFix (λ(x : Type) → F x (H x))
 ```
 
-Now that we have gotten rid of `U` and obtained a fixpoint equation for `T` alone, we may use the known Church encodings:
+Now that we have eliminated `U` and obtained a fixpoint equation for `T` alone, we may use the known Church encodings:
 
 ```dhall
 -- For the greatest fixpoints:
