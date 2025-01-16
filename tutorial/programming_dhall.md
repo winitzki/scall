@@ -3704,9 +3704,9 @@ In that situation, we expect to have `f a c === f b d`, and we would like to der
 TODO
 
 
-## Church encodings for recursive types
+## Church encodings for simple types
 
-### Recursion schemes
+### Fixpoints and Church encoding
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive types are the built-in `Natural` and `List` types. 
@@ -3762,7 +3762,7 @@ let C = ∀(r : Type) → (F r → r) → r
 ```
 As it turns out, the type `C` is equivalent to the type `T` that one would have defined by `T = F T` in a language that supports recursively defined types.
 
-It is far from obvious why the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
+It is far from obvious that the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `C = F C`.
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in the Appendix of this book.
 Here we will focus on the practical uses of Church encoding.
@@ -3826,10 +3826,7 @@ The type equation `C = K C` is non-recursive and simply says that `C = { x : Tex
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 Church encodings of that form do not produce new types.
-Still, these encodings are useful for showing how many types can be represented equivalently via higher-order functions.
-
-TODO Church-encoding for unit, void, products and co-products
-
+Still, these encodings are useful for showing how certain types can be represented equivalently via higher-order functions.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
@@ -3843,12 +3840,60 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 ```
 Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
 
-The Yoneda identities can be proved via the parametricity theorem, or by assuming suitable naturality laws.
+The Yoneda identities can be proved by assuming suitable naturality laws.
 See the Appendix for more details.
+
+For now, we will use the type equivalence `(p → r) → r ≅ p` to derive Church-like encodings for unit types, for the void type, as well as for product and co-product types.
+
+- Unit type. Set `p = {}` in the type equivalence and get:
+
+`∀(r : Type) → ({} → r) → r  ≅  {}`
+
+The type `{} → r` is equivalent to just `r`, because there is only one value of type `{}`.
+So, we have derived the encoding of the unit type via the polymorphic identity function:
+
+`∀(r : Type) → r → r  ≅  {}`
+
+- Void type. Set `p = <>` in the type equivalence and get:
+
+`∀(r : Type) → (<> → r) → r  ≅  <>`
+
+The type `<> → r` is equivalent to the unit type, because there is only one distinct function of the type `<> → r`.
+(That function was called `absurd` in this book.)
+So, the type `(<> → r) → r` can be simplified to `{} → r` and finally to just `r`.
+We have derived the encoding of the void type as `∀(r : Type) → r`.
+
+- Product types. The simplest product type is `Pair`, which is sufficient to define all other product types. Set `p = Pair a b` in the type equivalence and get:
+
+`∀(r : Type) → (Pair a b → r) → r  ≅  Pair a b`
+
+The type `Pair a b → r` is equivalent to the function type `a → b → r`.
+So, we obtain the following encoding of the pair type:
+
+`Pair a b  ≅  ∀(r : Type) → (a → b → r) → r`
+
+- Co-product types. The simplest co-product type is `Either`, which is sufficient to define all other co-product types. Set `p = Either a b` in the type equivalence and get:
+
+`∀(r : Type) → (Either a b → r) → r  ≅  Either a b`
+
+The type `Either a b → r` is equivalent to the type `Pair (a → r) (b → r)`.
+We can use the Church encoding of the pair type derived just previously.
+As a result, we obtain the following encoding of the `Either` type:
+
+`Either a b  ≅  ∀(r : Type) → (a → r) → (b → r) → r`
+
+These derivations show that the curried function types and the universal type quantifier are sufficient to Church-encode all other types that Dhall can have.
+
+Let us also summarize the standard type equivalence identities we have used in these derivations:
+
+- Function from the unit type: `{} → r  ≅  r`
+- Function from the void type: `<> → r  ≅  {}`
+- Function from a record type: `Pair a b → r  ≅  a → b → r`
+- Function from a union type: `Either a b → r  ≅  Pair (a → r) (b → r)`
 
 ### Church encoding in the curried form
 
-Using certain type equivalence identities, we can rewrite the type `ListInt` in a form more convenient for practical applications.
+Using the standard type equivalence identities shown in the previous section, we can rewrite the type `ListInt` in a form more convenient for practical applications.
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
 So, the type `F r → r`, written in full as:
