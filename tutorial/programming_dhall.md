@@ -2463,7 +2463,7 @@ let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A �
 
 The code for `fmap` can be derived mechanically from the type definition of a functor.
 The Haskell compiler will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not have any code generation or metaprogramming facilities.
+But Dhall does not support any metaprogramming facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
 ###### Example: a function with a typeclass constraint
@@ -2491,7 +2491,7 @@ let inject1 : inject1_t
       in functorF.fmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) fb
 ```
 
-##### Exercises
+###### Exercises
 
 The following functions need to work in the same way for any types `a` and `b` and for any functor `F`.
 
@@ -10279,7 +10279,7 @@ We already know how to encode fixpoints of a single recursive type, and we will 
 Then we will use the Church-Yoneda identity (for least fixpoints) or the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
 The derivation for `U` will be omitted because it is exactly similar.
 
-We will need the property we call **mutual recursion lemma**:
+We will need the property we call the "mutual recursion lemma":
 
 ###### Statement 1 (mutual recursion lemma).
 Suppose `J` is any bifunctor. Then the double fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
