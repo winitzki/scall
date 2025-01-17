@@ -696,7 +696,7 @@ and does _not_ mean that `file1.dhall` and `file2.dhall` are submodules of a par
 Any file can import any other file, as long as the file import path is given.
 Dhall does not have a built-in concept of "submodules".
 
-Also, Dhall does not treat names such as `Dir1/file1` in any special way.
+It is important to keep in mind that Dhall does not treat names such as `Dir1/file1` in any special way.
 Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1`.
 
 To imitate a hierarchical library structure having modules and submodules, the Dhall standard library uses nested records.
@@ -706,16 +706,18 @@ The top level of Dhall's standard prelude has a file called [`package.dhall`](ht
 
 Note that the standard prelude is not treated specially by Dhall.
 It is just a regular import from an Internet URL.
+Users' own libraries and modules may use a similar structure and may be imported from external resources.
+In this way, users can organize their Dhall configuration files via modules and common utilities.
 
-#### Frozen imports and hashing
+#### Frozen imports and semantic hashing
 
 Imports from external resources (files, Internet URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
 Dhall has a feature called "frozen imports" for ensuring
 that the contents of an external resource did not unexpectedly change.
-With that check, an import is guaranteed to produce the same value every time (or fail to type-check).
+A freozen import is guaranteed to produce the same value every time (or fail to type-check).
 Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
-As an extreme example: Dhall's test suite uses [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
+An example of that behavior is found in Dhall's test suite that uses [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
 So, this Dhall program:
 
 ```dhall
@@ -761,7 +763,7 @@ Hash values are computed from the _normal form_ of Dhall expressions, and the no
 For this reason, the hash value of a Dhall program remains unchanged under any valid refactoring.
 For instance, we may add or remove comments; reformat the file with fewer or with more spaces; change the order of fields in records; rename, add, or remove local variables; and even change import URLs (as long as the imported content remains equivalent).
 The hash value will remain the same as long as the normal form of the final evaluated expression remains the same.
-
+This form of hashing is known as **semantic hashing**.
 
 ### Miscellaneous features
 
