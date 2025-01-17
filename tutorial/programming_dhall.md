@@ -803,9 +803,9 @@ Dhall has almost no type inference.
 The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
 Other than in `let` bindings, all types of bound variables must be written explicitly.
 
-Although this makes Dhall programs more verbose, it makes for less "magic" in the syntax.
-In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and sometimes even to write type annotations for _types_ (such as, `F : Type → Type`).
-This verbosity may help in learning some of the more advanced concepts of functional programming.
+Although this makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
+In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
+This verbosity has helped the author in learning some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation are the same
 
