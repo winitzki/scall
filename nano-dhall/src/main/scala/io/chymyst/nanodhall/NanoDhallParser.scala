@@ -7,7 +7,7 @@ final case class NanoDhallParser[R <: NanoExpr[R]](create: NanoExpr[R]) {
 
   def parse(input: String): R = parseToResult(input) match {
     case Parsed.Success(value: R, index) => value
-    case failure: Parsed.Failure =>
+    case failure: Parsed.Failure         =>
       Memoize.clearAll() // Parser will be re-run on trace(). So, the parser cache needs to be cleared.
       throw new Exception(s"Dhall parser error: ${failure.extra.trace().longMsg}")
   }

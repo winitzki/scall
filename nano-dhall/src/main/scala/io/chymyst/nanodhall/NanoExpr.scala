@@ -26,7 +26,6 @@ trait NanoExpr[R <: NanoExpr[R]] {
   def Operator(l: R, op: NanoOperator, r: R): R
 }
 
-
 final case class VarName(name: String) extends AnyVal
 
 object VarName {
@@ -86,10 +85,7 @@ object NanoExprADT {
   final case class Operator(l: NanoExprADT, op: NanoOperator, r: NanoExprADT) extends NanoExprADT
 }
 
-
-sealed abstract class NanoConstant(override val entryName: String) extends EnumEntry {
-
-}
+sealed abstract class NanoConstant(override val entryName: String) extends EnumEntry {}
 
 object NanoConstant extends Enum[NanoConstant] {
 
@@ -104,10 +100,8 @@ object NanoConstant extends Enum[NanoConstant] {
   case object NaturalIsZero extends NanoConstant("Natural/isZero")
 
   case object NaturalSubtract extends NanoConstant("Natural/subtract")
-  case object Type extends NanoConstant("Type")
+  case object Type            extends NanoConstant("Type")
 }
-
-
 
 sealed abstract class NanoOperator(val name: String) extends EnumEntry
 

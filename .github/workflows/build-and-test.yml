@@ -97,7 +97,7 @@ jobs:
       - name: Setup dhall executable
         uses: "dhall-lang/setup-dhall@v4"
         with:
-          version: '1.42.0'
+          version: '1.42.2'
       - name: Setup latex
         uses: "zauguin/install-texlive@v3"
         with:

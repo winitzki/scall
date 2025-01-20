@@ -49,7 +49,7 @@ in  GithubActions.Workflow::{
                 , GithubActions.Step::{
                   , name = Some "Setup dhall executable"
                   , uses = Some "dhall-lang/setup-dhall@v4"
-                  , `with` = Some (toMap { version = "1.42.0" })
+                  , `with` = Some (toMap { version = "1.42.2" })
                   }
                 , GithubActions.Step::{
                   , name = Some "Setup latex"
