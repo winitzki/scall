@@ -41,8 +41,10 @@ This book is written for the [Dhall standard 23.0.0](https://github.com/dhall-la
 
 Dhall is a purely functional language with very few features.
 It will be easy to learn Dhall for readers already familiar with functional programming.
-One major difference is the syntax for functions, which is similar to the notation adopted in System F and System Fω.
-System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
+
+The syntax of Dhall is similar to that of Haskell.
+One major difference is Dhall's syntax for functions, which resembles the notation of System F and System Fω.
+Namely, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
 $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 Here is an example of a Dhall program:
@@ -53,7 +55,6 @@ let id = λ(A : Type) → λ(x : A) → x
 in f 10 (id Natural 20)
   -- This is a complete program; it evaluates to 32 of type Natural.
 ```
-One can see that the syntax of Dhall resembles the syntax of ML-family languages (OCaml, Haskell, `F#`, and others).
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
@@ -88,7 +89,7 @@ Identifiers may contain arbitrary characters (even keywords or whitespace) if es
 3
 ```
 
-The standalone underscore character (`_`) in OCaml, Haskell, and Scala is a syntax for a special "unused" variable.
+The standalone underscore character (`_`) in OCaml, Haskell, Scala, and F`#` as syntax for a special "unused" variable.
 But in Dhall, the variable named `_` is a variable like any other:
 
 ```dhall
@@ -138,8 +139,8 @@ Function _values_ corresponding to that function type are written like this:
 Here `expr` is a function body, which must be an expression of type `res_t`.
 
 Usually, the function body is an expression that uses the bound variable `x`.
-However, the type `res_t` itself might also depend on `x`.
-We will consider such functions in more detail later.
+However, the type expression `res_t` might itself also depend on `x`.
+We will discuss such functions in more detail later.
 In many cases, `res_t` will not depend on `x`.
 Then the function's type can be written in a simpler form: `arg_t → res_t`.
 
@@ -168,6 +169,8 @@ Dhall functions need to be written via `λ` symbols and explicit type annotation
 let f = λ(x : Natural) → x + 1
 ```
 
+Instead of the Unicode symbols `∀`, `λ`, and `→`, one may be use the equivalent ASCII representations `forall`, `\`, and `->`. 
+
 #### Curried functions
 
 All Dhall functions have one argument.
@@ -185,12 +188,36 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 ```
 
 Most functions in the Dhall standard library are curried.
-Currying allows function types to depend on some of the previous curried arguments.
+Currying allows function argument types to depend on some of the previous curried arguments.
+
+#### Functions of types
+
+Types in Dhall are treated somewhat similar to values of type `Type`.
+For example, the symbol `Natural` is considered to have type `Type`:
+
+```dhall
+⊢ Natural
+
+Natural : Type
+```
+
+Because of this, we can define functions whose input arguments are types.
+The output value of a function can also be a type, or again function having types as inputs and/or outputs, and so on.
+
+We will discuss functions of types in more detail later in this chapter.
+For now, we note that a function argument's type may depend on a previous curried argument, which can be itself a type.
+This allows Dhall to implement a rich set of type-level features:
+
+- Functions with type parameters: for example, `λ(A : Type) → λ(x : A) → ...`  
+- Type constructors, via functions of type `Type → Type` (both the input and the output is a type).
+- Type constructor parameters: for example, `λ(F : Type → Type) → λ(A : Type) → λ(x : F A) → ...`
+- Dependent types, via functions whose inputs are values and outputs are types.
 
 ### Product types
 
 Product types are implemented via records.
-For example, `{ x = 123, y = True }` is a "record value" whose type is `{ x : Natural, y : Bool }`, which is called a "record type".
+For example, `{ x = 123, y = True }` is a "record value" whose type is `{ x : Natural, y : Bool }`.
+Types of that form are called "record types".
 
 There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`.
 Records with field names must be used instead.
@@ -493,16 +520,22 @@ Here is an example of defining a type constructor similar to Haskell's and Scala
 let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
 ```
 
-The type of `Either` is `Type → Type → Type`.
+Because Dhall does not have built-in tuple types, it is convenient to define a `Pair` type constructor:
 
-As with all Dhall types, type constructor names such as `AAInt` or `Either` are no more than type aliases.
-Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves.
+```dhall
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+```
+
+The types of `Either` and `Pair` is `Type → Type → Type`.
+
+As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are no more than type aliases.
+Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves ("structural typing").
 
 ### Functions with type parameters
 
 Functions with type parameters are written as functions with extra arguments of type `Type`.
 
-To motivate this, first consider a function that takes a pair of `Natural` numbers and swaps the order of numbers in the pair.
+To see how this works, first consider a function that takes a pair of `Natural` numbers and swaps the order of numbers in the pair.
 We use a record type `{ _1 : Natural, _2 : Natural }` to represent a pair of `Natural` numbers.
 For brevity, we will define a type alias (`PairNatNat`) to denote that type:
 
@@ -511,17 +544,15 @@ let PairNatNat : Type = { _1 : Natural, _2 : Natural }
 let swapNatNat : PairNatNat → PairNatNat = λ(p : PairNatNat) → { _1 = p._2, _2 = p._1 }
 ```
 
-Notice that the code of `swapNatNat` does not depend on having values of type `Natural`.
+Note that the code of `swapNatNat` does not depend on having values of type `Natural`.
 The same logic would work with any two types.
 So, we can generalize `swapNatNat` to a function `swap` that supports arbitrary types of values in the pair.
 The two types will become type parameters (`a` and `b`).
-The input type of `swap` will be `{ _1 : a, _2 : b }` instead of `{ _1 : Natural, _2 : Natural }`, and the output type will be `{ _1 : b, _2 : a }`
+The input type of `swap` will be `{ _1 : a, _2 : b }` (which is the same as `Pair a b `) instead of `{ _1 : Natural, _2 : Natural }`, and the output type will be `{ _1 : b, _2 : a }` (which is the same as `Pair b a`).
 The type parameters are given as additional curried arguments of `swap`.
 The new code is:
 
 ```dhall
-let Pair : Type → Type → Type
-  = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → { _1 = p._2, _2 = p._1 }
 ```
@@ -833,14 +864,17 @@ A type error such as `let x : Natural = "abc"` will prevent the entire program f
 
 #### No computations with custom data
 
-In Dhall, the majority of built-in types (`Text`, `Double`, `Bytes`, `Date`, etc.) are completely opaque to the user.
-In addition to specifying literal values of those types, the following operations are available:
+In Dhall, most built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`) are completely opaque to the user.
+One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
+Those types are intended for creating configuration files.
 
-- `Bool` values support the boolean operations and can be used as conditions in `if` expressions.
-- `Natural` numbers can be added, multiplied, and compared for equality.
-- `List` values may be concatenated and support some other functions (`List/map`, `List/length` and so on).
-- `Text` strings may be concatenated, interpolated, and support a search/replace operation.
-- The types `Natural`, `Integer`, `Double`, `Date`, `Time`, `TimeZone` may be converted to `Text`.
+The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
+In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
+
+- Use `Bool` values as conditions in `if` expressions or with the standard boolean operations.
+- Add, multiply, and compare `Natural` numbers.
+- Concatenate lists and compute certain other functions on lists (`List/indexed`, `List/length`).
+- Concatenate, interpolate, and replace substrings in `Text` strings.
 
 Dhall cannot compare `Text` strings for equality or compute the length of a `Text` string.
 Neither can Dhall compare `Double` values or date / time values with each other.
@@ -1209,15 +1243,13 @@ This makes Dhall code more verbose but also helps remove "magic" from the syntax
 ### Kinds and sorts
 
 We have seen that in many cases Dhall treats types (such as `Natural` or `Text`) similarly to values.
-For instance, we could write `let N = Natural in ...` and then use the variable `N` interchangeably with the built-in symbol `Natural`.
-The variable `N` itself has a type that is denoted by the symbol `Type`.
-So, we may write the type annotation `N : Type`.
+For instance, we could write `let N = Natural in ...` and then use `N` interchangeably with the built-in symbol `Natural`.
+The value `N` itself has a type that is denoted by the symbol `Type`, and may write the type annotation as `N : Type`.
 ```dhall
 ⊢ :let N = Natural
 
 N : Type
 ```
-
 
 The symbol `Type` is itself treated as a special value whose type is `Kind`:
 
@@ -1352,12 +1384,12 @@ But that effort was abandoned after it was discovered that it would [break the c
 Dependent types are types that depend on _values_.
 
 Dhall supports **dependent functions**: those are functions whose output type depends on the input value.
-More generally, Dhall allows an argument type to depend on any previously given arguments.
+More generally, Dhall allows an argument type to depend on any previously given curried arguments.
 
 A simple instance of this dependence is the type of the polymorphic identity function is:
 
 ```dhall
-let example1 = ∀(A : Type) → ∀(x : A) → A
+let example1 : Type = ∀(A : Type) → ∀(x : A) → A
 ```
 
 In this function type, the second curried argument (`x : A`) has a type that is given by the first curried argument (`A : Type`).
@@ -1365,7 +1397,7 @@ In this function type, the second curried argument (`x : A`) has a type that is 
 As another example, consider the following function type:
 
 ```dhall
-let example2 = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
+let example2 : Type = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
 ```
 
 In the type `example2`, the argument `x` has type `A`, which is given by a previous argument.
@@ -1373,7 +1405,8 @@ The output type `F A` depends on the first two arguments.
 
 Both `example1` and `example2` are types that describe functions from types to values.
 
-In Dhall, one can also define functions from types to types or from values to types in the same way as one defines any other functions:
+In Dhall, one can also define functions from types to types or from values to types via the same syntax as for defining ordinary functions.
+As an example, look at this function that transforms a value into a type:
 
 ```dhall
 let f : ∀(x : Bool) → Type  -- From value to type.
@@ -1381,23 +1414,21 @@ let f : ∀(x : Bool) → Type  -- From value to type.
 ```
 
 The result of evaluating `f False` is the _type_ `Text` itself.
-The type of `f` is an example of a "dependent type", that is, a type that depends on a value (`x`).
-
-This `f` can be used within the type signature for another function as a type annotation:
+This is an example of a **dependent type**, that is, a type that depends on a value (`x`).
+This `f` can be used within the type signature for another function as a type annotation, like this:
 
 ```dhall
 let some_func_type = ∀(x : Bool) → ∀(y : f x) → Text
 ```
 A value of type `some_func_type` is a curried function that takes a natural number `x` and a second argument `y`.
 The type of `y` must be either `Natural` or `Text` depending on the _value_ of the argument `x`.
-If we imagine uncurrying that function, we would get a type that we could write symbolically as `{ x : Bool, y : f x } → Text`.
-This type is not valid in Dhall, because a field's type in a record must be fixed and cannot depend on the value of another field.
-Such "dependent records" or "dependent pairs" are directly supported in languages that are intended for working with dependent types.
-We will show later in this book how Dhall can encode dependent pairs.
+
+If we imagine uncurrying that function, we would get a function of type that we could write symbolically as `{ x : Bool, y : f x } → Text`.
+This type is not valid in Dhall, because a record's field types must be fixed and cannot depend on the _value_ of another field.
+Such "dependent records" or "dependent pairs" are directly supported in more advanced languages that are intended for working with dependent types.
+We will show later in this book how Dhall can encode dependent pairs despite that limitation.
 
 The type `∀(x : Bool) → ∀(y : f x)` is also a form of a dependent type, known as a "dependent function".
-
-For an example of using dependent types for implementing safe division, see below in the chapter "Numerical algorithms".
 
 One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
 The main limitation is that Dhall cannot correctly infer types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
@@ -1413,11 +1444,13 @@ The `if/then/else` construction fails to typecheck even though we expect both `i
 If we are in the `if/then` branch, we return a `Text` value (an empty string).
 If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
 That type depends on the value `x`.
-In the `else` branch, `x` is `False` because the `if/then/else` construction begins with `if x`.
-So, the `else` branch must have type `f False`, which is the same as the type `Text`.
+In the `else` branch, `x` equals `False` because the `if/then/else` construction begins with `if x`.
+So, the `else` branch gets the type `f False`, which is the same as the type `Text`.
 But Dhall does not implement this logic and cannot see that both branches have the same type (`Text`).
 
 Because of this and other limitations, Dhall can work productively with dependent types only in certain simple cases, such as validation of properties for function arguments.
+
+Below in the chapter "Numerical algorithms" we will see an example of using dependent types (for implementing a safe division operation).
 
 ## Numerical algorithms
 
@@ -1518,10 +1551,9 @@ A safe upper bound for the number of subtractions is the value `x` itself (becau
 So, our code will use the function call `Natural/fold x ...`.
 
 In most cases, the actual required number of iterations will be smaller than `x`.
-For clarity, we will maintain a boolean flag `done` and set it to `True` once we reach the final result.
-The code will ensure that any further iterations do not modify the final result. 
-
-The code is:
+For clarity, we will maintain a Boolean flag (`done`) and set it to `True` once we reach the final result.
+The code will use that flag to ensure that any further iterations do not modify the final result.
+(The same functionality could be implemented also without using such a flag.)
 
 ```dhall
 let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
@@ -1532,7 +1564,7 @@ let unsafeDiv : Natural → Natural → Natural =
   in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = { result = 0, sub = x, done = False}
          let update : Accum → Accum = λ(acc : Accum) →
-             if acc.done then acc
+             if acc.done then acc    -- Stop modifying the result.
              else if Natural/lessThan acc.sub y then acc // { done = True }
              else acc // { result = acc.result + 1, sub = Natural/subtract y acc.sub }
          let r : Accum = Natural/fold x Accum update init
@@ -1555,7 +1587,6 @@ The first step is to define a dependent type that will be void (with no values) 
 let Nonzero : Natural → Type
   = λ(y : Natural) → if Natural/isZero y then <> else {}
 ```
-
 This `Nonzero` is a type function that returns one or another type given a `Natural` value.
 For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
 This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
@@ -1587,7 +1618,7 @@ In this way, dependently-typed evidence values enforce value constraints at comp
 
 If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has type `{}`, but we expected type `<>`".
 This message is not particularly helpful.
-We can define the dependent type `Nonzero` in a different way, so that the error message clearly shows why the assertion failed.
+We can define the dependent type `Nonzero` in a different way, so that the error message shows more clearly why the assertion failed.
 For that, we replace the void type `<>` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
 Those strings will be printed by Dhall as part of the error message.
 
@@ -9440,7 +9471,7 @@ The next statement gives a necessary and sufficient condition for the existence 
 
 For any (covariant) functor `F`, the least fixpoint type `LFix F` is non-void if and only if the type `F <>` is non-void (here, `<>` is Dhall's representation of the void type).
 
-The intuitive picture is that the type `F <>` supplies the base cases of induction on which the definition of the least fixpoint is based.
+The intuitive picture is that the type `F <>` describes the base case(s) of induction on which the definition of the least fixpoint is based.
 
 ####### Proof
 
