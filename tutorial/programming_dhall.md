@@ -980,9 +980,64 @@ However, the lack of Turing-completeness is _not_ a significant limitation for a
 
 ## Other features of Dhall's type system
 
+### Working with records polymorphically
+
+"Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
+A function that requires its argument to have type `{ y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool }`.
+(The value `x` will be simply ignored.)
+So, the record type `{ y : Bool }` is actually treated as the type of any record having a Boolean field `y` and possibly other unknown fields.
+
+Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
+
+A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
+The function only needs the fields `a` and `b` and should ignore all other fields in the record.
+
+To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let f = λ(tuple : MyTuple) → tuple._2
+let r1 = { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+in f r1.(MyTuple)  -- This is a complete program that returns 123.
+```
+
+The field selection operation `r1.(MyTuple)` removes all fields other than those defined in the type `MyTuple`.
+We cannot write `f r1` because `r1` does not have the type `MyTuple`.
+Instead, we write `f r1.(MyTuple)`.
+We would need to use the field selection each time we call the function `f`.
+
+Another often used behavior is to provide default values for missing fields.
+This is implemented with Dhall's record update operation:
+
+```dhall
+let MyTuple = { _1 : Bool, _2 : Natural}
+let myTupleDefault = { _1 = False, _2 = 0 }
+let f = λ(tuple : MyTuple) → tuple._2
+let r2 = { _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
+in f (myTupleDefault // r2).(MyTuple)  -- This is a complete program that returns 123.
+```
+
+We cannot write `f r2.(MyTuple)` because `r2` does not have the required field `_1`.
+The default record `myTupleDefault` provides that value.
+
+The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` of any record type whatsoever.
+If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
+The field selection `.(MyTuple)` will get rid of any other fields.
+
+The built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
+For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
+Similarly, `myTupleDefault // r` will accept records `r` of any record type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
+
+But Dhall cannot directly describe the type of records with unknown fields.
+(There is no type that means "any record".)
+So, one cannot write a custom Dhall function taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
+
+Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
+
+
 ### Types and values
 
-As in every programming language, types are different from values.
+In Dhall, as in every programming language, types are different from values.
 Each value has an assigned type, but it is not true that each type has only one assigned value.
 
 Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given.
@@ -1061,59 +1116,79 @@ let OptionalType = < NoneT | SomeT : Type >
 (Later chapters in this book will show how to do that.)
 
 
-### Working with records polymorphically
 
-"Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
-A function that requires its argument to have type `{ y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool }`.
-(The value `x` will be simply ignored.)
-So, the record type `{ y : Bool }` is actually treated as the type of any record having a Boolean field `y` and possibly other unknown fields.
+### Dependent types in Dhall
 
-Dhall supports neither subtyping nor polymorphic records, but does include some limited facilities to make working with records easier.
+Dependent types are types that depend on _values_.
 
-A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
-The function only needs the fields `a` and `b` and should ignore all other fields in the record.
+Dhall supports **dependent functions**: those are functions whose output type depends on the input value.
+More generally, Dhall allows an argument type to depend on any previously given curried arguments.
 
-To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
+A simple instance of this dependence is the type of the polymorphic identity function is:
 
 ```dhall
-let MyTuple = { _1 : Bool, _2 : Natural}
-let f = λ(tuple : MyTuple) → tuple._2
-let r1 = { _1 = True, _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
-in f r1.(MyTuple)  -- This is a complete program that returns 123.
+let example1 : Type = ∀(A : Type) → ∀(x : A) → A
 ```
 
-The field selection operation `r1.(MyTuple)` removes all fields other than those defined in the type `MyTuple`.
-We cannot write `f r1` because `r1` does not have the type `MyTuple`.
-Instead, we write `f r1.(MyTuple)`.
-We would need to use the field selection each time we call the function `f`.
+In this function type, the second curried argument (`x : A`) has a type that is given by the first curried argument (`A : Type`).
 
-Another often used behavior is to provide default values for missing fields.
-This is implemented with Dhall's record update operation:
+As another example, consider the following function type:
 
 ```dhall
-let MyTuple = { _1 : Bool, _2 : Natural}
-let myTupleDefault = { _1 = False, _2 = 0 }
-let f = λ(tuple : MyTuple) → tuple._2
-let r2 = { _2 = 123, _3 = "abc", other = [ 1, 2, 3 ] }
-in f (myTupleDefault // r2).(MyTuple)  -- This is a complete program that returns 123.
+let example2 : Type = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
 ```
 
-We cannot write `f r2.(MyTuple)` because `r2` does not have the required field `_1`.
-The default record `myTupleDefault` provides that value.
+In the type `example2`, the argument `x` has type `A`, which is given by a previous argument.
+The output type `F A` depends on the first two arguments.
 
-The expression `(myTupleDefault // r).(MyTuple)` will accept record values `r` of any record type whatsoever.
-If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault // r` will preserve those fields while filling in the default values for any missing fields.
-The field selection `.(MyTuple)` will get rid of any other fields.
+Both `example1` and `example2` are types that describe functions from types to values.
 
-The built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
-For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
-Similarly, `myTupleDefault // r` will accept records `r` of any record type and return a record that is guaranteed to have the field values `_1 = False` and `_2 = 0`.
+In Dhall, one can also define functions from types to types or from values to types via the same syntax as for defining ordinary functions.
+As an example, look at this function that transforms a value into a type:
 
-But Dhall cannot directly describe the type of records with unknown fields.
-(There is no type that means "any record".)
-So, one cannot write a custom Dhall function taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
+```dhall
+let f : ∀(x : Bool) → Type  -- From value to type.
+  = λ(x : Bool) → if x then Natural else Text 
+```
 
-Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
+The result of evaluating `f False` is the _type_ `Text` itself.
+This is an example of a **dependent type**, that is, a type that depends on a value (`x`).
+This `f` can be used within the type signature for another function as a type annotation, like this:
+
+```dhall
+let some_func_type = ∀(x : Bool) → ∀(y : f x) → Text
+```
+A value of type `some_func_type` is a curried function that takes a natural number `x` and a second argument `y`.
+The type of `y` must be either `Natural` or `Text` depending on the _value_ of the argument `x`.
+
+If we imagine uncurrying that function, we would get a function of type that we could write symbolically as `{ x : Bool, y : f x } → Text`.
+This type is not valid in Dhall, because a record's field types must be fixed and cannot depend on the _value_ of another field.
+Such "dependent records" or "dependent pairs" are directly supported in more advanced languages that are intended for working with dependent types.
+We will show later in this book how Dhall can encode dependent pairs despite that limitation.
+
+The type `∀(x : Bool) → ∀(y : f x)` is also a form of a dependent type, known as a "dependent function".
+
+One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
+The main limitation is that Dhall cannot correctly infer types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
+
+The following example (using the function `f` defined above) shows that Dhall does not recognize that a value of a dependent type is well-typed inside an `if` branch.
+
+```dhall
+⊢ :let g : ∀(x : Bool) → f x → Text = λ(x : Bool) → λ(y : f x) → if x then "" else y
+
+Error: ❰if❱ branches must have matching types
+```
+The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
+If we are in the `if/then` branch, we return a `Text` value (an empty string).
+If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
+That type depends on the value `x`.
+In the `else` branch, `x` equals `False` because the `if/then/else` construction begins with `if x`.
+So, the `else` branch gets the type `f False`, which is the same as the type `Text`.
+But Dhall does not implement this logic and cannot see that both branches have the same type (`Text`).
+
+Because of this and other limitations, Dhall can work productively with dependent types only in certain simple cases, such as validation of properties for function arguments.
+
+Below in the chapter "Numerical algorithms" we will see an example of using dependent types (for implementing a safe division operation).
 
 ### The "assert" keyword and equality types
 
@@ -1129,10 +1204,11 @@ in x ++ "1"
 ```
 
 The `assert` construction is a special Dhall syntax that implements values of **equality types**.
-The Unicode symbol `≡` may be used in Dhall instead of `===`.
+(The Unicode symbol `≡` may be used instead of `===`.)
 
 The Dhall expression `a === b` is a special _type_ that depends on the values `a` and `b`.
 The type `a === b` is different for each pair `a`, `b`.
+It is an example of a **dependent type**.
 
 The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
 For example, the types `1 === 2` and `λ(x : Text) → λ(y : Text) → x === λ(x : Text) → λ(y : Text) → y` are void.
@@ -1441,78 +1517,6 @@ This prevents Dhall from defining recursive kind-polymorphic type constructors (
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
-### Dependent types in Dhall
-
-Dependent types are types that depend on _values_.
-
-Dhall supports **dependent functions**: those are functions whose output type depends on the input value.
-More generally, Dhall allows an argument type to depend on any previously given curried arguments.
-
-A simple instance of this dependence is the type of the polymorphic identity function is:
-
-```dhall
-let example1 : Type = ∀(A : Type) → ∀(x : A) → A
-```
-
-In this function type, the second curried argument (`x : A`) has a type that is given by the first curried argument (`A : Type`).
-
-As another example, consider the following function type:
-
-```dhall
-let example2 : Type = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) → F A
-```
-
-In the type `example2`, the argument `x` has type `A`, which is given by a previous argument.
-The output type `F A` depends on the first two arguments.
-
-Both `example1` and `example2` are types that describe functions from types to values.
-
-In Dhall, one can also define functions from types to types or from values to types via the same syntax as for defining ordinary functions.
-As an example, look at this function that transforms a value into a type:
-
-```dhall
-let f : ∀(x : Bool) → Type  -- From value to type.
-  = λ(x : Bool) → if x then Natural else Text 
-```
-
-The result of evaluating `f False` is the _type_ `Text` itself.
-This is an example of a **dependent type**, that is, a type that depends on a value (`x`).
-This `f` can be used within the type signature for another function as a type annotation, like this:
-
-```dhall
-let some_func_type = ∀(x : Bool) → ∀(y : f x) → Text
-```
-A value of type `some_func_type` is a curried function that takes a natural number `x` and a second argument `y`.
-The type of `y` must be either `Natural` or `Text` depending on the _value_ of the argument `x`.
-
-If we imagine uncurrying that function, we would get a function of type that we could write symbolically as `{ x : Bool, y : f x } → Text`.
-This type is not valid in Dhall, because a record's field types must be fixed and cannot depend on the _value_ of another field.
-Such "dependent records" or "dependent pairs" are directly supported in more advanced languages that are intended for working with dependent types.
-We will show later in this book how Dhall can encode dependent pairs despite that limitation.
-
-The type `∀(x : Bool) → ∀(y : f x)` is also a form of a dependent type, known as a "dependent function".
-
-One must keep in mind that Dhall's implementation of dependent types is limited to the simplest use cases.
-The main limitation is that Dhall cannot correctly infer types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
-
-The following example (using the function `f` defined above) shows that Dhall does not recognize that a value of a dependent type is well-typed inside an `if` branch.
-
-```dhall
-⊢ :let g : ∀(x : Bool) → f x → Text = λ(x : Bool) → λ(y : f x) → if x then "" else y
-
-Error: ❰if❱ branches must have matching types
-```
-The `if/then/else` construction fails to typecheck even though we expect both `if` branches to return `Text` values.
-If we are in the `if/then` branch, we return a `Text` value (an empty string).
-If we are in the `if/else` branch, we return a value of type `if x then Natural else Text`.
-That type depends on the value `x`.
-In the `else` branch, `x` equals `False` because the `if/then/else` construction begins with `if x`.
-So, the `else` branch gets the type `f False`, which is the same as the type `Text`.
-But Dhall does not implement this logic and cannot see that both branches have the same type (`Text`).
-
-Because of this and other limitations, Dhall can work productively with dependent types only in certain simple cases, such as validation of properties for function arguments.
-
-Below in the chapter "Numerical algorithms" we will see an example of using dependent types (for implementing a safe division operation).
 
 ## Numerical algorithms
 
