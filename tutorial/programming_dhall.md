@@ -130,27 +130,37 @@ These restrictions are intentional and are designed to keep users from writing D
 
 ### Functions and function types
 
-Function types are written as `∀(x : arg_t) → res_t`, where `x` is a bound variable representing the function's argument, `arg_t` is the argument's type, and `res_t` is a type expression that describes the type of the result value.
-
-Function _values_ corresponding to that function type are written like this:
-
-`λ(x : arg_t) → expr`
-
-Here `expr` is a function body, which must be an expression of type `res_t`.
-
-Usually, the function body is an expression that uses the bound variable `x`.
-However, the type expression `res_t` might itself also depend on `x`.
-We will discuss such functions in more detail later.
-In many cases, `res_t` will not depend on `x`.
-Then the function's type can be written in a simpler form: `arg_t → res_t`.
-
-For example, consider a function that adds `1` to a `Natural` argument:
+An example of a function in Dhall is:
 
 ```dhall
 let inc = λ(x : Natural) → x + 1
 ```
+Dhall does not support Haskell's concise function definition syntax such as  `inc x = x + 1`, where arguments are given on the left-hand side and types are inferred automatically.
+Functions must be defined via `λ` symbols as we have just seen.
 
-We may write the code of `inc` with a type annotation like this:
+Generally, functions in Dhall look like `λ(x : input_t) → body`, where:
+
+- `x` is a bound variable representing the function's input argument,
+- `input_t` is a type expression representing the type of the function's input, and
+- `body` is an expression that may use `x`; this expression computes the output value of the function.
+
+Functions are values of type `∀(x : input_t) → output_t`, where:
+
+- `input_t` is the type of the function's input value, and
+- `output_t` is the type of the function's output value.
+
+The function `inc` shown above has type `∀(x : Natural) → Natural`.
+
+Instead of the Unicode symbols `∀`, `λ`, and `→`, we may use the equivalent ASCII representations `forall`, `\`, and `->`.
+In this book, we will use the Unicode symbols for brevity.
+
+Usually, the function body is an expression that uses the bound variable `x`.
+However, the type expression `output_t` might itself also depend on `x`.
+We will discuss such functions in more detail later.
+In many cases, the output type does not depend on `x`.
+Then the function's type may be written in a simpler form: `input_t → output_t`.
+
+For example, the function `inc` shown above may be written with a type annotation like this:
 
 ```dhall
 let inc : Natural → Natural = λ(x : Natural) → x + 1
@@ -161,20 +171,17 @@ We may also write a fully detailed type annotation if we like:
 ```dhall
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
-
-Dhall does not support Haskell's concise function definition syntax such as  `f x y = x + y + 1`, where arguments is given on the left-hand side and types are inferred automatically.
-Dhall functions need to be written via `λ` symbols and explicit type annotations:
+However, it is not required that the name `x` in the type annotation (`∀(x : Natural)`) should be the same as the name `x` in the function (`λ(x : Natural)`).
+So, the following code is just as valid (although may be confusing):
 
 ```dhall
-let f = λ(x : Natural) → x + 1
+let inc : ∀(a : Natural) → Natural = λ(b : Natural) → b + 1
 ```
-
-Instead of the Unicode symbols `∀`, `λ`, and `→`, one may be use the equivalent ASCII representations `forall`, `\`, and `->`. 
 
 #### Curried functions
 
-All Dhall functions have one argument.
-To implement functions with more than one argument, one can use either curried functions or record types.
+All Dhall functions have just one argument.
+To implement functions with more than one argument, one can use either curried functions or record types (see below).
 
 For example, a function that adds 3 numbers can be written in different ways according to convenience:
 
@@ -201,11 +208,11 @@ For example, the symbol `Natural` is considered to have type `Type`:
 Natural : Type
 ```
 
-Because of this, we can define functions whose input arguments are types.
-The output value of a function can also be a type, or again function having types as inputs and/or outputs, and so on.
+Because of this, we can define functions whose input is a type (rather than a value).
+The output of a function can also be a type, or again a function having types as inputs and/or outputs, and so on.
 
 We will discuss functions of types in more detail later in this chapter.
-For now, we note that a function argument's type may depend on a previous curried argument, which can be itself a type.
+For now, we note that an argument's type may depend on a previous curried argument, which can be itself a type.
 This allows Dhall to implement a rich set of type-level features:
 
 - Functions with type parameters: for example, `λ(A : Type) → λ(x : A) → ...`  
@@ -236,6 +243,17 @@ tuple : { _1 : Integer, _2 : Text }
 ```
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
+Fields of nested record types may be accessed via the "dot" operator:
+
+```dhall
+⊢ :let a = { x = 1, y = { z = True, t = "abc" } }
+
+a : { x : Natural, y : { t : Text, z : Bool } }
+
+⊢ a.y.t
+
+"abc"
+```
 
 It is important that Dhall's record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
 So, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
@@ -261,7 +279,7 @@ Co-product types (called "union types" in Dhall) are implemented via tagged unio
 Here `X` and `Y` are called the **constructors** of the given union type.
 
 Values of union types are created via constructor functions.
-Constructor functions are written using record-like access notation.
+Constructor functions are written using the "dot" operator.
 For example, the Dhall expression `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`.
 Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`, as shown in this example:
 
@@ -269,19 +287,24 @@ Applying that function to a value of type `Natural` will create a value of the u
 let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
 ```
 
-Constructor names are often capitalized (`X`, `Y`, etc.) but Dhall does not enforce that convention.
+Constructor names are often capitalized (`X`, `Y`, etc.), but Dhall does not enforce that convention.
 
 Constructors may have _at most one_ argument.
-Constructors with multiple curried arguments (as in Haskell: `P1 Int Int | P2 Bool`) are not supported in Dhall.
+Constructors with multiple curried arguments (as in Haskell: `P1 Int Int | P2 Bool`) are _not_ supported in Dhall.
 Record types must be used instead of multiple arguments.
 For example, Haskell's union type `P1 Int Int | P2 Bool` may be replaced by Dhall's union type `< P1 : { _1 : Integer, _2 : Integer } | P2 : Bool >`.
 
 Union types can have empty constructors (that is, constructors without arguments).
-For example, the union type `< X : Natural | Y >` has an empty constructor `Y`.
+For example, the union type `< X : Natural | Y >` has an empty constructor (`Y`).
 The corresponding value is written as `< X : Natural | Y >.Y`.
+This is the only value that can be created via that constructor. 
 
-Union types can be nested, for example, `< X : < Y | Z : Natural > | T >`.
-Union types and be freely combined with any other types (record types, function types).
+Union types can be nested, for example, `< T | X : < Y | Z : Natural > >`.
+Here is an (artificial) example of creating a value of that type:
+
+```dhall
+let nested = < T | X : < Y | Z : Natural > >.X (< Y | Z : Natural >.Z 123)
+```
 
 It is important that Dhall's union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
 So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different.
@@ -350,10 +373,11 @@ let P = < X : Integer | Y : Bool | Z >
 Here is the Dhall code for a function that prints a value of type `P`:
 
 ```dhall
+let Bool/show = https://prelude.dhall-lang.org/Bool/show
 let pToText : P → Text = λ(x : P) →
   merge {
           X = λ(x : Integer) → "X " ++ Integer/show x,
-          Y = λ(y : Bool) → "Y " ++  (if y then "True" else "False"),
+          Y = λ(y : Bool) → "Y " ++ Bool/show y,
           Z = "Z",
         } x
 ```
@@ -744,8 +768,8 @@ In this way, users can organize their Dhall configuration files via modules and 
 
 Imports from external resources (files, Internet URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
 Dhall has a feature called "frozen imports" for ensuring
-that the contents of an external resource did not unexpectedly change.
-A freozen import is guaranteed to produce the same value every time (or fail to type-check).
+that the contents of an external resource does not unexpectedly change.
+A frozen import is guaranteed to produce the same value every time (otherwise it will fail to type-check).
 Without that check, some Dhall programs may produce different results if we run those programs at different times.
 
 An example of that behavior is found in Dhall's test suite that uses [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
@@ -767,7 +791,7 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 ''
 ```
 
-If `https://test.dhall-lang.org/random-string` is imported several times within one Dhall program, the first imported value will be internally cached and used for all subsequent imports.
+Nevertheless, if `https://test.dhall-lang.org/random-string` is imported several times within one Dhall program, the first imported value will be internally cached and used for all subsequent imports.
 This is a general feature of imports that guarantees referential transparency.
 
 To ensure that imported code remains unchanged, the import expression can be annotated by the imported code's SHA256 hash value.
@@ -795,6 +819,34 @@ For this reason, the hash value of a Dhall program remains unchanged under any v
 For instance, we may add or remove comments; reformat the file with fewer or with more spaces; change the order of fields in records; rename, add, or remove local variables; and even change import URLs (as long as the imported content remains equivalent).
 The hash value will remain the same as long as the normal form of the final evaluated expression remains the same.
 This form of hashing is known as **semantic hashing**.
+
+The Dhall executable will cache all frozen imports in the local filesystem, using the SHA256 semantic hash value as part of the file name.
+This makes importing libraries faster.
+
+#### Import alternatives
+
+Dhall has features for providing alternative external resources when an import fails.
+Any number of alternative imports may be specified, separated by the question mark (`?`):
+
+```dhall
+let Natural/lessThan = ./MyLessThanImplementation.dhall
+  ? ./AnotherImplementationOfLessThan.dhall
+  ? https://prelude.dhall-lang.org/Natural/lessThan
+```
+Only non-fatal import failures (that is, when the external resource was not found) may be resolved in this way.
+A "fatal" import failure means that the external resource was found but gave a Dhall expression that failed to parse or to type-check, or the semantic hash did not match.
+
+The special keyword `missing` denotes an external resource that can never be found.
+This keyword can be used together with an SHA256 hash value:
+```dhall
+let Natural/lessThan
+  = missing sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
+  ? https://prelude.dhall-lang.org/Natural/lessThan
+```
+If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without need for resolving any URLs.
+Otherwise, there will be a lookup and the function will be loaded and cached.
+This trick speeds up import resolution.
+  
 
 ### Miscellaneous features
 
@@ -856,7 +908,7 @@ The final result of evaluating a Dhall program will be the same.
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
 This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
 
-In addition, if that Dhall program is self-contained (has no external imports), it will always return _the same_ `Natural` value.
+In addition, if that Dhall program is self-contained (has no imports), it will always return _the same_ `Natural` value.
 A self-contained program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that.
 
 Keep in mind that Dhall's _typechecking_ is eager.
@@ -901,14 +953,14 @@ There are no mutable values, no exceptions, no multithreading, no writing to dis
 and no reading from any external devices (keyboard, mouse, microphone, camera, etc.).
 
 A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
-What happens with that normal form is up to the user.
-The user may print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+The user may then print that expression to the terminal, or convert it to JSON, YAML, and other formats.
 
-The only feature of Dhall that is in some way similar to a side effect is the "value import":
+The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
 a Dhall program can read Dhall values from external resources (files, Internet URLs, and environment variables).
 The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
 For instance, it is not possible to write a Dhall program that will repeatedly read a value from an external file and react to changes in the file's contents.
-The names of external resources are fixed in advance and cannot be changed.
+
+The names and URLs of external resources must be hard-coded and cannot be chosen at run time depending on some other values.
 Most often, Dhall imports are used to organize code into modules with known contents that is not expected to change.
 
 #### Guaranteed termination
@@ -970,20 +1022,20 @@ The same syntax works if `t` were a type parameter (having type `Type`):
 let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
 
-Records and union types may contain types as well as values within the same data type:
+Records and unions may use types or values as their data, as in these (artificial) examples:
 
 
 ```dhall
-⊢ :type { a = 1, b = Bool }
+⊢ :type { a = 1, b = Bool, c = "xyz" }
 
-{ a : Natural, b : Type } 
+{ a : Natural, b : Type, c : Text } 
 
-⊢ :type < A : Bool | B : Type >.B Text
+⊢ :type < A : Type | B : Text >.A Natural
 
-< A : Bool | B : Type >
+< A : Type | B : Text >
 ```
 
-Note that the built-in type constructors `List` and `Optional` are limited to values; one cannot create a `List` of types in the same way as one creates a list of integers.
+The built-in type constructors `List` and `Optional` are limited to _values_; one cannot create a `List` of types in the same way as one creates a list of integers, and one cannot define an "optional type".
 
 ```dhall
 ⊢ :let a = [ 1, 2, 3 ]
@@ -993,10 +1045,20 @@ a : List Natural
 ⊢ :let b = [ Bool, Natural, Text ]
 
 Error: Invalid type for ❰List❱
+
+⊢ :let c = Some Natural
+
+Error: ❰Some❱ argument has the wrong type
 ```
 
-If a "list of types" is desired, such a data structure needs to be defined by the user.
-(This book will show how to do that.)
+Nevertheless, Dhall can implement data structures corresponding to a `List` of types or an `Optional` containing types.
+
+```dhall
+let OptionalType = < NoneT | SomeT : Type >
+
+```
+
+(Later chapters in this book will show how to do that.)
 
 
 ### Working with records polymorphically
