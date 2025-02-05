@@ -4752,7 +4752,7 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
 ```
 
-### Performance of `unfix`
+### Performance of "unfix"
 
 Note that `unfix` is implemented by applying the Church-encoded argument to some function.
 In practice, this means that `unfix` will to traverse the entire data structure.
@@ -5883,7 +5883,7 @@ We can then perform pattern-matching directly on that value, since `F` is typica
 
 So, similarly to the case of Church encodings, `fixG` provides constructors and `unfixG` provides pattern-matching for co-inductive types.
 
-### Example of a co-inductive type: Streams
+### Example of a co-inductive type: "Stream"
 
 To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
 

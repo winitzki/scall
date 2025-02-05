@@ -244,7 +244,8 @@ def toLatex: Markdown => String = {
 
 @main
 def main(code: Boolean): Unit =
-  val result: Seq[Markdown] = parse(System.in, markdown(_)).get.value
+  val result: Seq[Markdown] = parse(System.in, markdown(using _)).get.value
+  // The syntax `using _` was suggested as a workaround in https://github.com/scala/scala3/issues/19872
 
   val convert = if code then toDhall else toLatex
   val sep = if code then "" else "\n"
