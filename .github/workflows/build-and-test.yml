@@ -27,6 +27,8 @@ jobs:
           architecture: x64
           java-package: jdk
           java-version: "${{ matrix.java }}"
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
       - run: "sbt -DJDK_VERSION=${{ matrix.java }} ++${{ matrix.scala }} coverage test coverageReport"
       - if: "success() || failure()"
         name: Report test results
@@ -69,6 +71,8 @@ jobs:
           architecture: x64
           java-package: jdk
           java-version: '17'
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
       - run: sbt scalafmtCheckAll scalafmtSbtCheck
   pdftutorial:
     name: Build and validate the tutorial
@@ -97,7 +101,7 @@ jobs:
       - name: Setup dhall executable
         uses: "dhall-lang/setup-dhall@v4"
         with:
-          version: '1.42.0'
+          version: '1.42.2'
       - name: Setup latex
         uses: "zauguin/install-texlive@v3"
         with:

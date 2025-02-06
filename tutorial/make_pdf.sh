@@ -2,7 +2,12 @@ if [ x"$1" == xdryrun ]; then exit 0; fi
 test -d tutorial && cd tutorial || echo "No directory 'tutorial'"
 rm -f generated.*
 name=programming_dhall
-scala-cli convertMd.scala --   false < $name.md  > generated.tex
+command="scala-cli convertMd.scala --"
+if test -s convertMd.graal; then
+  command="./convertMd.graal"
+fi
+$command false < $name.md  > generated.tex
+$command true < programming_dhall.md  > generated.dhall 2> /dev/null
 (
 	bash check_dhall_code.sh
 ) &

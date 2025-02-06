@@ -21,7 +21,7 @@ object Parser {
   }
 
   def parseDhallBytes(source: Array[Byte]): Parsed[DhallFile] = {
-    val init   = System.nanoTime()
+//    val init   = System.nanoTime()
     val result = Memoize.parse(source, Grammar.complete_dhall_file(_))
 
     // println(s"DEBUG: elapsed time is ${(System.nanoTime()  - init)/1e9} for dhall bytes: ${new String(source.slice(0, 100))}")

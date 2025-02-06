@@ -136,7 +136,7 @@ def regularText_no_markup[$: P]: P[Span] = P((!CharIn("*_`[") ~ not_end_of_line)
 def heading[$: P](level: Int): P[Heading] =
   P(("#" * level) ~ space ~ paragraph ~ closingSequence).map(Heading(level, _))
 
-def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5) | heading(6))
+def anyHeading[$: P]: P[Heading] = P(heading(1) | heading(2) | heading(3) | heading(4) | heading(5) | heading(6) | heading(7))
 
 def latexSpan[$: P]: P[Span] = P("$" ~ regularText_no_dollar.! ~ "$").map(Span(LatexSpan, _))
 
@@ -223,6 +223,7 @@ def toLatex: Markdown => String = {
       case 4 => "subsection"
       case 5 => "subsubsection"
       case 6 => "paragraph"
+      case 7 => "subparagraph"
       case _ => "relax"
     }
     // Disable book parts! But enable appendix.
@@ -243,7 +244,8 @@ def toLatex: Markdown => String = {
 
 @main
 def main(code: Boolean): Unit =
-  val result: Seq[Markdown] = parse(System.in, markdown(_)).get.value
+  val result: Seq[Markdown] = parse(System.in, markdown(using _)).get.value
+  // The syntax `using _` was suggested as a workaround in https://github.com/scala/scala3/issues/19872
 
   val convert = if code then toDhall else toLatex
   val sep = if code then "" else "\n"

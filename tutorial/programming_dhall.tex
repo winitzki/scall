@@ -41,13 +41,27 @@
     bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
     breaklinks=true,pdfborder={0 0 0},pdfborderstyle={},backref=page,colorlinks=true]
 {hyperref}
-\hypersetup{pdftitle={TAdvanced Functional Programming in System Fω using Dhall},
+\hypersetup{pdftitle={Programming in System Fω using Dhall},
     pdfauthor={Sergei Winitzki},
-    pdfsubject={Functional programming},
+    pdfsubject={functional programming},
     pdfkeywords={functional programming, Haskell, Dhall, System Fω, type theory, category theory, formal logic, programming languages, lambda calculus},
     linkcolor=hlink}
 
 \usepackage{textgreek}
+
+\RedeclareSectionCommand[ % Proof
+  runin=true,
+  font={\normalfont\normalsize\bfseries},
+  afterindent=false,
+  afterskip=2ex,
+  beforeskip=0pt
+]{subparagraph}
+\RedeclareSectionCommand[
+  runin=true,
+  font={\normalfont\normalsize\bfseries},
+  afterskip=1.3ex,
+  beforeskip=0pt
+]{paragraph}
 
 % Cover picture on first page.
 \usepackage{wallpaper}
@@ -134,6 +148,7 @@
         {ä}{{\"a}}1
         {ö}{{\"o}}1
         {λ}{{\textgreek{l}}}1
+        {Λ}{{\textgreek{L}}}1
         {→}{{$\to$}}1
         {∀}{{$\mathrm{\forall}$}}1
         {⊢}{{$\vdash$}}1
@@ -153,26 +168,17 @@
 \DeclareUnicodeCharacter{2500}{\textendash}
 
 \begin{document}
-    %\sloppy
-
-    %\input{afpd-cover-for-main-pdf}
     \extratitle{\hfill{}\thispagestyle{empty}Programming in System Fω using Dhall\hspace{1in}}
     \title{Programming in System Fω using Dhall}
     \author{by Sergei Winitzki, Ph.D.}
     \date{Version of \today}
-    \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2024}
+    \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2025}
     \maketitle
     \frontmatter\pagenumbering{roman}
-
     \tableofcontents{}
-
     \setcounter{chapter}{-1}
     \mainmatter\pagenumbering{arabic}
     \global\long\def\bbnum#1{\custombb{#1}}%
-
-    \input{generated}
-
+    \input{generated} % The file `generated.tex` is produced by running `convertMd.scala` on `programming_dhall.md`.
     \printindex{}
-
-    %\input{afpd-back-cover-for-main-pdf}
 \end{document}
