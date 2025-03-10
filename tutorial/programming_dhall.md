@@ -833,8 +833,12 @@ let Natural/lessThan = ./MyLessThanImplementation.dhall
   ? ./AnotherImplementationOfLessThan.dhall
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
-Only non-fatal import failures (that is, when the external resource was not found) may be resolved in this way.
-A "fatal" import failure means that the external resource was found but gave a Dhall expression that failed to parse or to type-check, or the semantic hash did not match.
+This mechanism resolves only "non-fatal" import failures: that is, failures to read an external resource.
+A "fatal" import failure means that the external resource was read but gave a Dhall expression that failed to parse, to type-check, or to validate the given semantic hash.
+
+The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be unavailable.
+If all alternatives fail to read, the import fails.
+Other than providing import alternatives, Dhall does not support any possibility of reacting to an import failure in a custom way.
 
 The special keyword `missing` denotes an external resource that can never be found.
 This keyword can be used together with an SHA256 hash value:
@@ -846,7 +850,6 @@ let Natural/lessThan
 If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without need for resolving any URLs.
 Otherwise, there will be a lookup and the function will be loaded and cached.
 This trick speeds up import resolution.
-  
 
 ### Miscellaneous features
 
@@ -878,7 +881,7 @@ Pair : ∀(a : Type) → ∀(b : Type) → Type
 Dhall does not require capitalizing the names of types and type parameters.
 In this book, we capitalize all type constructors (such as `List`).
 Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.) for additional clarity.
-Values are never be capitalized in this book.
+Values are never capitalized in this book.
 
 #### Almost no type inference
 
@@ -890,35 +893,57 @@ Although this makes Dhall programs more verbose, it also removes the "magic" fro
 In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
 This verbosity has helped the author in learning some of the more advanced concepts of functional programming.
 
-#### Strict and lazy evaluation are the same
+#### Strict and lazy evaluation are logically the same
 
-All well-typed functions in Dhall are total (never partial).
+In a programming language, the **strict evaluation** strategy means that all expressions in a program are evaluated even if they are not used to compute the final result of the program.
+The **lazy evaluation** strategy means that only those expressions are evaluated that are necessary for the final result to be computed.
+
+In this sense, the Dhall interpreter uses lazy evaluation.
+For example, the following Dhall program will be quick to run:
+```dhall
+let x = some_function 1000000 ??? -- Imagine that this is a long computation.
+in 123
+```
+The value `x` will not be evaluated because it is not actually needed for computing the final value (`123`).
+
+On the other hand, if we modify this program to include an `assert` test (this feature will be described below), the program will take a longer time to run:
+```dhall
+let x = some_function 1000000 ??? -- Imagine that this is a long computation.
+let _ = validate x === True -- Imagine that we are validating this result.
+in 123
+```
+The value `x` now needs to be evaluated in order to verify that `validate x` actually returns `True`.
+
+Keep in mind, however, that Dhall's _typechecking_ is strict (not lazy).
+A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
+
+Other than the run time, there would be no difference between strict and lazy evaluation in Dhall.
+The reason is that all well-typed Dhall expressions can be always evaluated to a unique normal form.
+Functions in Dhall are always total (never partial).
+It is impossible to write a Dhall program that typechecks but somehow fails to evaluate (other than running out of memory).
+
 For instance, a pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
 There is no `if / then` without an `else` clause.
-There are no partial functions (all functions must be total).
-There is no analog of Haskell's "bottom" or of Java's "null".
+There is no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
 There are no exceptions or other run-time errors.
-All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
-The Dhall language always typechecks all terms and either stops with a type error or evaluates the well-typed terms to a normal form.
+All errors are detected at the typechecking stage, which is analogous to "compile-time" in other languages.
+The Dhall interpreters always typecheck the entire program and either stop with a type error or go on evaluating the well-typed program to a normal form.
 
-Becase all well-typed expressions _can_ be evaluated without errors, there is no difference between eager ("strict") and lazy ("non-strict") evaluation in Dhall.
-One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
-The final result of evaluating a Dhall program will be the same.
+Because all well-typed expressions _can_ be evaluated without errors, there is no logical difference between the results of strict and lazy evaluation in Dhall.
+As far as the result values are concerned, one can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
 
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
 This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
 
-In addition, if that Dhall program is self-contained (has no imports), it will always return _the same_ `Natural` value.
+In addition, if that Dhall program is self-contained (either has no imports, or all its imports are frozen), the program will always return _the same_ `Natural` value.
 A self-contained program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that.
-
-Keep in mind that Dhall's _typechecking_ is eager.
-A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
+It will always return the same literal `Natural` value.
 
 #### No computations with custom data
 
 In Dhall, most built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`) are completely opaque to the user.
 One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
-Those types are intended for creating configuration files.
+Those types are intended for creating strongly-typed configuration data schemas and for safely exporting data to configuration files.
 
 The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
@@ -930,38 +955,51 @@ In addition to specifying literal values of those types and printing them to `Te
 
 Dhall cannot compare `Text` strings for equality or compute the length of a `Text` string.
 Neither can Dhall compare `Double` values or date / time values with each other.
-Comparison functions are only available for `Bool`, `Integer`, and `Natural` values.
-(Comparison functions for `Integer` values are defined in the standard prelude.)
+Comparison functions are only possible for `Bool`, `Integer`, and `Natural` values.
 
 #### No recursion
 
 Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
+Arbitrary recursion is not possible (because it cannot guarantee termination).
 The only recursive type directly supported by Dhall is the built-in type `List`.
 The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them (such as `List/map` and so on).
-Loops written in that way are guarenteed to terminate because the total number of iterations is always fixed in advance.
+Loops written in that way are guaranteed to terminate because the total number of iterations is always fixed in advance.
+Unlike other programming languages, Dhall supports no "while" loops, because one cannot statically guarantee termination for loops that repeat for an unknown number of times until some condition holds.
 
-User-defined recursive types and functions must be encoded in a non-recursive way.
-Later chapters in this book will show how to use the Church encoding or existential types for that purpose.
-In practice, this means the user is limited to working with finite data structures and fold-like iterative functions on them.
-Arbitrary recursion is not possible (because it cannot guarantee termination).
-Nevertheless, this book will show that Dhall supports a wide variety of iterative and recursive computations.
+Also, `List` values may be created only when the length of the list is finite and computed in advance.
+It is not possible to create a `List` by adding more elements until some condition holds.
+Dhall's `List` is also not similar to Haskell's "lazy infinite list" defined by this code:
 
-#### No mutability and no side effects
+```haskell
+onetwo :: [Integer]
+onetwo = 1 : 2 : onetwo  -- [ 1, 2, 1, 2, 1, 2, ... ]
+```
+
+Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions for recursive types, recursive functions, and "lazy infinite" data structures.
+Later chapters in this book will show how that can be achieved.
+In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
+With this limitation, Dhall supports a wide variety of iterative and recursive computations.
+
+#### No side effects
 
 Dhall is a purely functional language with no side effects.
 There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound,
-and no reading from any external devices (keyboard, mouse, microphone, camera, etc.).
+and generally no interaction with any external devices (keyboard, mouse, video camera, etc.).
 
-A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
+A valid Dhall program may contain only a single expression that will be type-checked and evaluated to a normal form by the Dhall interpreter.
 The user may then print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
-a Dhall program can read Dhall values from external resources (files, Internet URLs, and environment variables).
-The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
-For instance, it is not possible to write a Dhall program that will repeatedly read a value from an external file and react to changes in the file's contents.
+a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
+The import feature does one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
+For instance, it is not possible to write a Dhall program that repeatedly reads a value from an external file and, say, reacts to changes in the file's contents.
+A Dhall program also cannot have a custom behavior reacting to a failure while importing the external resources.
+There is only a simple mechanism providing fall-back alternative imports in case a resource is missing. 
+If a resource fails to read, fails to type-check, or fails the integrity check, the Dhall interpreter stops evaluating the program.
 
 The names and URLs of external resources must be hard-coded and cannot be chosen at run time depending on some other values.
-Most often, Dhall imports are used to organize code into modules with known contents that is not expected to change.
+Most often, the import feature is used to read library modules with known contents that is not expected to change.
 
 #### Guaranteed termination
 
@@ -4301,14 +4339,13 @@ We see that the code is equivalent to the code we wrote earlier by guessing.
 
 ### Aggregations ("folds")
 
-The type `C` itself is a type of fold-like functions.
+The type `C` itself can be viewed as a type of fold-like functions.
 
 To see the similarity, compare the curried form of the Church-encoded `ListInt` type:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
-
 with the type signature of the `foldRight` function for the type `List Integer`:
 
 ```dhall
@@ -4356,7 +4393,7 @@ The result value of the aggregation is the last computed value of the accumulato
 
 Let us show some examples of how this is done.
 
-### Apply a function many times
+### Applying a function many times
 
 Perhaps the simplest nontrivial Church-encoded type is the type of natural numbers.
 
@@ -4374,7 +4411,7 @@ This code applies `f` three times.
 It can be proved (although the proof is not easy) that any value of type `Nat` must be of this form, applying `f` a certain (hard-coded) number of times.
 
 Given a value `n : Nat`, a type `A`, a value `x : A`, and a function `f : A → A`, we can write the expression `n A x f`.
-This expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
+That expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
 
 This computation can be seen as a fold-like aggregation that accumulates a value of type `A` by repeatedly applying the function `f`.
 We could implement a function `Nat/fold` with a fold-like type signature:
@@ -4407,7 +4444,7 @@ let _ = assert : sumListInt example1 === 1368
 ```
 
 The function `sumListInt` is a "fold-like" aggregation operation.
-To run the aggregation, we simply apply the value `list` to some arguments.
+To run the aggregation, we need to apply the value `list` to some arguments.
 What are those arguments?
 
 The type `ListInt` is a curried function with three arguments.
@@ -4521,15 +4558,15 @@ In a similar way, many recursive functions can be reduced to fold-like operation
 
 ### Where did the recursion go?
 
-The technique of Church encoding may be perplexing.
+The technique of Church encoding is not obvious and may be perplexing.
 If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion or iteration in the code?
 
-In the code of `sumListInt` and `printTree`, where are the parts that iterate over the data?
+Specifically, in the code of `sumListInt` and `printTree`, where are the parts that iterate over the data?
 
 In fact, the functions `sumListInt` and `printTree` are _not_ recursive.
 The possibility of iteration over the data stored in the list or in the tree is provided by the types `ListInt` and `TreeText` themselves.
 But the iteration is not provided via loops or recursion.
-Instead, it is hard-coded in the values `list : ListInt` and `tree: TreeText`.
+Instead, iteration is hard-coded in the values `list : ListInt` and `tree: TreeText`.
 
 To see how, consider the value `example1` shown above:
 
@@ -4553,16 +4590,16 @@ The Dhall interpreter can print that function's normal form for us:
 
 The function `example1` includes nested calls to `a1` and `a2`, that correspond to the two constructors (`nil` and `cons`) of `ListInt`.
 The code of `example1` applies the function `a2` three times, which corresponds to having three items in the list.
-But there is no loop in `example1`.
-It is just hard-coded in the expression `example1` that `a2` needs to be applied three times to some arguments.
+But there is no loop or iteration in the code of `example1`.
+It is just hard-coded in the body of `example1` that `a2` is applied three times to some arguments.
 
 When we compute an aggregation such as `sumListInt example1`, we apply `example1` to three arguments.
-The last of those arguments is a certain function that we called `update`.
-When we apply `example1` to its arguments, the code of `example1` will call `update` three times.
-This is how the Church encoding actually performs iteration.
+The last of those arguments is a certain function we called `update`.
+The code of `example1` will call `update` three times.
+This is how the Church encoding performs iterative computations.
 
-Similarly, consider the value `example2` shown above.
-When we expand the constructors `branch` and `leaf`, we will find that `example2` is a higher-order function:
+The value `example2` shown above works in a similar way.
+If we expand the constructors `branch` and `leaf`, we find that `example2` is a higher-order function:
 
 ```dhall
 ⊢ example2
@@ -9049,17 +9086,17 @@ let inY : F A → Y
   = λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
 
 let outY : Y → F A
-  = λ(y : Y) → y (identity A)
+  = λ(y : Y) → y A (identity A)
 ```
 
-We have imposed a requirement that any value of type `Y` must be a natural transformation.
+We have imposed the requirement that any value of type `Y` must be a natural transformation.
 So, we need to begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
 
 The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) → F B` says that, for any `y : Y` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
 
 ```dhall
 -- Symbolic derivation.
-y C (compose_forward A B C f g) === fmap B C g (y B f)
+y C (compose_forward A B C f g) === fmap_F B C g (y B f)
 ```
 
 We substitute `y = inY fa` into the left-hand side of this naturality law:
