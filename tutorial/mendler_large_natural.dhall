@@ -44,7 +44,7 @@ let mendler_two
     = mendler_succ mendler_one
 
 let mendler_to_natural
-    : MendlerNat → MendlerNat
+    : MendlerNat → Natural
     = λ(c : MendlerNat) →
         let reduce
             : ∀(r : Type) → (r → Natural) → F r → Natural
@@ -62,7 +62,7 @@ let mendler_is_zero
     = λ(c : MendlerNat) →
      let reduce
                 : ∀(r : Type) → (r → Bool) → F r → Bool
-                = \(r : Type) ->  λ(f : r -> Natural) → \(fr : F r) ->
+                = \(r : Type) ->  λ(f : r -> Bool) → \(fr : F r) ->
                     merge { Z = True, S = λ(pred : r) → False } fr
 
             in  c Bool reduce
@@ -78,6 +78,22 @@ let _ = assert : mendler_is_zero mendler_one ≡ False
 let _ = assert : mendler_to_natural mendler_two ≡ 2
 
 let _ = assert : mendler_is_zero mendler_two ≡ False
+
+
+let mendler_predecessor
+    : MendlerNat → MendlerNat
+    = λ(c : MendlerNat) →
+         let reduce
+                         : ∀(r : Type) → (r → MendlerNat) → F r → MendlerNat
+                         = \(r : Type) ->  λ(f : r -> MendlerNat) → \(fr : F r) ->
+                             merge { Z = mendler_zero, S = λ(pred : r) → f pred } fr
+
+                     in  c MendlerNat reduce
+
+
+let _ = assert : mendler_to_natural (mendler_predecessor mendler_zero) ≡ 0
+let _ = assert : mendler_to_natural (mendler_predecessor mendler_one) ≡ 0
+let _ = assert : mendler_to_natural (mendler_predecessor mendler_two) ≡ 1
 {-
 let fix
     -- Mendler encoded `fix`
@@ -120,7 +136,7 @@ let unfix
 
         in  λ(c : C) → c (F C) fmap_fix
 
-let mendler_predecessor
+let mendler_predecessor_unfix
     : MendlerNat → MendlerNat
     = λ(c : MendlerNat) →
         merge
