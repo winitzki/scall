@@ -80,7 +80,7 @@ let _ = assert : mendler_to_natural mendler_two ≡ 2
 let _ = assert : mendler_is_zero mendler_two ≡ False
 
 
-let mendler_predecessor
+let mendler_predecessor_wrong
     : MendlerNat → MendlerNat
     = λ(c : MendlerNat) →
          let reduce
@@ -91,9 +91,9 @@ let mendler_predecessor
                      in  c MendlerNat reduce
 
 
-let _ = assert : mendler_to_natural (mendler_predecessor mendler_zero) ≡ 0
-let _ = assert : mendler_to_natural (mendler_predecessor mendler_one) ≡ 0
-let _ = assert : mendler_to_natural (mendler_predecessor mendler_two) ≡ 1
+let _ = assert : mendler_to_natural (mendler_predecessor_wrong mendler_zero) ≡ 0
+let _ = assert : mendler_to_natural (mendler_predecessor_wrong mendler_one) ≡ 0
+--let _ = assert : mendler_to_natural (mendler_predecessor_wrong mendler_two) ≡ 1
 {-
 let fix
     -- Mendler encoded `fix`
@@ -136,14 +136,14 @@ let unfix
 
         in  λ(c : C) → c (F C) fmap_fix
 
-let mendler_predecessor_unfix
+let mendler_predecessor_wrong_unfix
     : MendlerNat → MendlerNat
     = λ(c : MendlerNat) →
         merge
           { Z = mendler_zero, S = λ(pred : MendlerNat) → pred }
           (unfix F functorF c)
 
-let _ = assert : mendler_predecessor mendler_two ≡ mendler_one
+let _ = assert : mendler_predecessor_wrong mendler_two ≡ mendler_one
 
 let large_natural =
     -- Takes about 1 second.
@@ -155,7 +155,7 @@ in  { F
     , mendler_to_natural
     , natural_to_mendler
     , mendler_is_zero
-    , mendler_predecessor
+    , mendler_predecessor_wrong
     , large_natural
     }
 -}
