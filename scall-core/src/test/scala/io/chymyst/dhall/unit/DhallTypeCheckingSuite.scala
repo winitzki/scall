@@ -31,7 +31,8 @@ class DhallTypeCheckingSuite extends DhallTest {
         expect(x.print == y.print, x == y)
         file.getName
       }
-      if (result.isFailure) println(s"DhallTypeCheckingSuite failure: ${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})
+      if (result.isFailure)
+        println(s"DhallTypeCheckingSuite failure: ${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})
       result
     }
     TestUtils.requireSuccessAtLeast(364, results)
