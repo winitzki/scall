@@ -32,7 +32,7 @@ class DhallTypeCheckingSuite extends DhallTest {
         file.getName
       }
       if (result.isFailure)
-        println(s"DhallTypeCheckingSuite failure: ${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})
+        println(s"DhallTypeCheckingSuite expected success but got: ${file.getPath}: ${result.failed.get.getMessage}") // \n${Throwables.printThrowable(result.failed.get)})
       result
     }
     TestUtils.requireSuccessAtLeast(364, results)
@@ -45,7 +45,7 @@ class DhallTypeCheckingSuite extends DhallTest {
         expect(!ourResult.resolveImports(file.toPath).inferType.isValid)
         file.getName
       }
-      if (result.isFailure) println(s"${file.getName}: ${result.failed.get.getMessage}")
+      if (result.isFailure) println(s"DhallTypeCheckingSuite expected failure but got inferred type: ${file.getName}: ${result.failed.get.getMessage}")
       result
     }
     TestUtils.requireSuccessAtLeast(121, results)

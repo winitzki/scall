@@ -5,7 +5,7 @@ import xerial.sbt.Sonatype.GitHubHosting
 
 val thisReleaseVersion = "0.2.1"
 
-val scala2V                = "2.13.15"
+val scala2V                = "2.13.16"
 val scala212V              = "2.12.20"
 val scala3V                = "3.4.2"
 val scalaV                 = scala2V
