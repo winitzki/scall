@@ -28,7 +28,10 @@ class DhallTypeCheckingSuite extends DhallTest {
           case Valid(a) => a
         }
         val y = validationResult
-        expect(x.print == y.print, x == y)
+        val xPrinted = x.print
+        val yPrinted = y.print
+        if (xPrinted != yPrinted) println(s"DEBUG: strings are not equal:\n$xPrinted\n$yPrinted")
+        expect(xPrinted == yPrinted, x == y)
         file.getName
       }
       if (result.isFailure)

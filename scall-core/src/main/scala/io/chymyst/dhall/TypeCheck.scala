@@ -413,18 +413,6 @@ object TypeCheck {
               else typeError(s"List types in ${exprToInferTypeOf.print} must be equal for ListAppend but found ${l.print} and ${r.print}")
             }
 
-          case Operator.CombineRecordTerms => // Recursive merge for record values.
-            (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap {
-              // The operator /\ supports two cases: (1) to merge record values, (2) to merge record types.
-              // In the first case, lopType and ropType are record types.
-              // In the second case, lopType and ropType are special built-in type constants (Type, Kind, or Sort).
-              case (lopType @ Expression(RecordType(_)), ropType @ Expression(RecordType(_))) =>
-                Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).typeCheckAndBetaNormalize(gamma)
-
-              case (Expression(ExprConstant(lopType)), Expression(ExprConstant(ropType))) =>
-                Expression(ExprOperator(lop, Operator.CombineRecordTypes, rop)).inferTypeWith(gamma).map(_ => Expression(ExprConstant(lopType union ropType)))
-            }
-
           case Operator.Prefer =>
             (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap {
               case (Expression(RecordType(leftDefs)), Expression(RecordType(rightDefs))) =>
@@ -436,6 +424,33 @@ object TypeCheck {
                   s"Arguments of Operator.Prefer (${Operator.Prefer.name}) must both have record types, instead found ${other1.print} and ${other2.print}"
                 )
             }
+
+          case Operator.CombineRecordTerms => { // Recursive merge for record values.
+            lazy val lopN = lop.betaNormalized
+            lazy val ropN = rop.betaNormalized
+            (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap {
+              // The operator /\ supports two cases: (1) to merge record values, (2) to merge record types.
+              // In the first case, lopType and ropType are record types.
+              // In the second case, lopType and ropType are special built-in type constants (Type, Kind, or Sort).
+              case (lopType@Expression(RecordType(_)), ropType@Expression(RecordType(_))) =>
+                Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).typeCheckAndBetaNormalize(gamma)
+
+              case (Expression(ExprConstant(lopType)), Expression(ExprConstant(ropType)))
+                if ((lopN.scheme, ropN.scheme) match {
+                  case (RecordType(_), RecordType(_)) => true
+                  case _ => false
+                })
+              =>
+                Expression(ExprOperator(lop, Operator.CombineRecordTypes, rop)).inferTypeWith(gamma).map(_ => Expression(ExprConstant(lopType union ropType)))
+
+              case (t1, t2) =>
+                val other1 = lopN
+                val other2 = ropN
+                typeError(
+                  s"Arguments of Operator.CombineRecordTerms (${Operator.CombineRecordTerms.name}) must both be record terms or record types, instead found ${other1.print} : ${t1.print} and ${other2.print} : ${t2.print}"
+                )
+            }
+          }
 
           case Operator.CombineRecordTypes => // Recursive merge for record types.
             (lop.inferTypeWith(gamma) zip rop.inferTypeWith(gamma)) flatMap { case (lopType, ropType) =>
