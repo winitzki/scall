@@ -12,6 +12,7 @@ import io.chymyst.dhall.{Parser, TypecheckResult}
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 
 import java.io.FileInputStream
+import java.nio.file.Paths
 
 class SimpleTypecheckTest extends DhallTest {
   test("typecheck record of types") {
@@ -106,5 +107,24 @@ class SimpleTypecheckTest extends DhallTest {
     expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.print == "∀(x : Natural) → Natural")
     expect("\\(x: Natural) -> x + 1".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "λ(x : Natural) → x + 1")
     expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.betaNormalized.print == "∀(x : Natural) → Natural")
+  }
+
+  test("standard test regressions") {
+    val input =
+      """
+        |--| Flip the value of a `Bool`
+        |let not
+        |    : Bool → Bool
+        |    = λ(b : Bool) → b == False
+        |
+        |let example0 = assert : not True ≡ False
+        |
+        |let example1 = assert : not False ≡ True
+        |
+        |in  not
+        |
+        |""".stripMargin
+
+    expect(input.dhall.resolveImports(Paths.get(".")).inferType.unsafeGet.print == "∀(b : Bool) → Bool")
   }
 }

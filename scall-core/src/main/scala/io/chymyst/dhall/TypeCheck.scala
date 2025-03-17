@@ -432,15 +432,13 @@ object TypeCheck {
               // The operator /\ supports two cases: (1) to merge record values, (2) to merge record types.
               // In the first case, lopType and ropType are record types.
               // In the second case, lopType and ropType are special built-in type constants (Type, Kind, or Sort).
-              case (lopType@Expression(RecordType(_)), ropType@Expression(RecordType(_))) =>
+              case (lopType @ Expression(RecordType(_)), ropType @ Expression(RecordType(_))) =>
                 Expression(ExprOperator(lopType, Operator.CombineRecordTypes, ropType)).typeCheckAndBetaNormalize(gamma)
 
-              case (Expression(ExprConstant(lopType)), Expression(ExprConstant(ropType)))
-                if ((lopN.scheme, ropN.scheme) match {
-                  case (RecordType(_), RecordType(_)) => true
-                  case _ => false
-                })
-              =>
+              case (Expression(ExprConstant(lopType)), Expression(ExprConstant(ropType))) if ((lopN.scheme, ropN.scheme) match {
+                    case (RecordType(_), RecordType(_)) => true
+                    case _                              => false
+                  }) =>
                 Expression(ExprOperator(lop, Operator.CombineRecordTypes, rop)).inferTypeWith(gamma).map(_ => Expression(ExprConstant(lopType union ropType)))
 
               case (t1, t2) =>
