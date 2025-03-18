@@ -745,34 +745,37 @@ let Dir1/file2 = ./Dir1/file2.dhall
 in ???
 ```
 Also, code in `file1.dhall` can import the contents of `file2.dhall` using a relative path import: `let file2 = ./file2.dhall`.
-However, values imported from files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall` are independent.
-The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory `Dir1` has no special significance
-and does _not_ mean that `file1.dhall` and `file2.dhall` are submodules of a parent module.
-Any file can import any other file, as long as the file import path is given.
+However, the fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory (`Dir1`) has no special significance
+and does _not_ mean that `file1.dhall` must be `file2.dhall` submodules of a parent module.
+Any file can import any other file, as long as an import path is given.
 Dhall does not have a built-in concept of "submodules".
 
-It is important to keep in mind that Dhall does not treat names such as `Dir1/file1` in any special way.
-Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1`.
+It is important to keep in mind that Dhall does not have any special treatment for values with names such as `Dir1/file1`.
+Dhall will neither require nor verify that `let Dir1/file1 = ...` defines a value imported from a subdirectory called `Dir1` and a file called `file1`.
 
 To imitate a hierarchical library structure having modules and submodules, the Dhall standard library uses nested records.
 By convention, each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's standard prelude has a file called [`package.dhall`](https://prelude.dhall-lang.org/package.dhall) that contains a record with all modules in the prelude.
+The top level of Dhall's standard prelude has a file called [package.dhall](https://prelude.dhall-lang.org/package.dhall) that contains a record with all modules in the prelude.
 
-Note that the standard prelude is not treated specially by Dhall.
-It is just a regular import from an Internet URL.
-Users' own libraries and modules may use a similar structure and may be imported from external resources.
-In this way, users can organize their Dhall configuration files via modules and common utilities.
+The standard prelude is not treated specially by Dhall.
+It is just an ordinary import from a Web URL.
+Users' own libraries and modules may use a similar structure and may be imported as external resources.
+In this way, users can organize their Dhall configuration files via shared libraries and modules.
 
 #### Frozen imports and semantic hashing
 
-Imports from external resources (files, Internet URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
-Dhall has a feature called "frozen imports" for ensuring
+Importing from external resources (files, Web URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
+Dhall has a feature called **frozen imports** for ensuring
 that the contents of an external resource does not unexpectedly change.
-A frozen import is guaranteed to produce the same value every time (otherwise it will fail to type-check).
-Without that check, some Dhall programs may produce different results if we run those programs at different times.
+Frozen imports are annotated by the SHA256 hash value of the imported content's normal form.
+A frozen import is guaranteed to produce the same value every time,
+because the imported value's hash is always validated.
+If the contents of the external resource changes, its SHA256 hash will no longer match the annotation, which will cause an error at type-checking time.
 
-An example of that behavior is found in Dhall's test suite that uses [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
+Dhall programs with non-frozen imports may produce different results if we run those programs at different times.
+
+An example of that behavior is found in Dhall's test suite. It imports [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
 So, this Dhall program:
 
 ```dhall
@@ -791,13 +794,15 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 ''
 ```
 
-Nevertheless, if `https://test.dhall-lang.org/random-string` is imported several times within one Dhall program, the first imported value will be internally cached and used for all subsequent imports.
-This is a general feature of imports that guarantees referential transparency.
+Nevertheless, a Dhall program cannot query the random string several times and make any decisions based on the changes in the random string.
+The reason is that each import is cached on its first use within a Dhall program.
+If the resource `https://test.dhall-lang.org/random-string` is imported several times within one Dhall program, the first imported value will be internally cached and substituted for all subsequent imports of that resource.
+The run-time value caching of imports is an important feature that guarantees referential transparency.
 
-To ensure that imported code remains unchanged, the import expression can be annotated by the imported code's SHA256 hash value.
+Another feature of Dhall is annotation of imported resources by SHA256 hash values.
 Such imports are called "frozen".
 Dhall will refuse to process a frozen import if the external resource gives
-an expression with a different SHA256 hash value than that in the Dhall code.
+an expression with a different SHA256 hash value than that specified in the Dhall code.
 
 For example, consider a file called `simple.dhall` that contains just the number `3`:
 
@@ -820,7 +825,7 @@ For instance, we may add or remove comments; reformat the file with fewer or wit
 The hash value will remain the same as long as the normal form of the final evaluated expression remains the same.
 This form of hashing is known as **semantic hashing**.
 
-The Dhall executable will cache all frozen imports in the local filesystem, using the SHA256 semantic hash value as part of the file name.
+The Dhall interpreter will cache all frozen imports in the local filesystem, using the SHA256 semantic hash value as part of the file name.
 This makes importing libraries faster.
 
 #### Import alternatives
@@ -833,8 +838,12 @@ let Natural/lessThan = ./MyLessThanImplementation.dhall
   ? ./AnotherImplementationOfLessThan.dhall
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
-Only non-fatal import failures (that is, when the external resource was not found) may be resolved in this way.
-A "fatal" import failure means that the external resource was found but gave a Dhall expression that failed to parse or to type-check, or the semantic hash did not match.
+This mechanism resolves only "non-fatal" import failures: that is, failures to read an external resource.
+A "fatal" import failure means that the external resource was read but gave a Dhall expression that failed to parse, to type-check, or to validate the given semantic hash.
+
+The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be unavailable.
+If all alternatives fail to read, the import fails.
+Other than providing import alternatives, Dhall does not support any possibility of reacting to an import failure in a custom way.
 
 The special keyword `missing` denotes an external resource that can never be found.
 This keyword can be used together with an SHA256 hash value:
@@ -846,7 +855,6 @@ let Natural/lessThan
 If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without need for resolving any URLs.
 Otherwise, there will be a lookup and the function will be loaded and cached.
 This trick speeds up import resolution.
-  
 
 ### Miscellaneous features
 
@@ -878,7 +886,7 @@ Pair : ∀(a : Type) → ∀(b : Type) → Type
 Dhall does not require capitalizing the names of types and type parameters.
 In this book, we capitalize all type constructors (such as `List`).
 Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.) for additional clarity.
-Values are never be capitalized in this book.
+Values are never capitalized in this book.
 
 #### Almost no type inference
 
@@ -890,35 +898,57 @@ Although this makes Dhall programs more verbose, it also removes the "magic" fro
 In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
 This verbosity has helped the author in learning some of the more advanced concepts of functional programming.
 
-#### Strict and lazy evaluation are the same
+#### Strict and lazy evaluation are logically the same
 
-All well-typed functions in Dhall are total (never partial).
+In a programming language, the **strict evaluation** strategy means that all sub-expressions in a program are evaluated even if they are not used to compute the final result of the program.
+The **lazy evaluation** strategy means that sub-expressions are evaluated only if they are needed for computing the program's final result.
+
+In this sense, the Dhall interpreter uses lazy evaluation.
+For example, it will be quick to run Dhall programs similar to this:
+```dhall
+let x = some_function 1000000 ??? -- Imagine that this is a long computation.
+in 123
+```
+The value `x` will not be evaluated because it is not actually needed for computing the final value (`123`).
+
+On the other hand, if we modify this program to include an `assert` test (that feature will be described below), the program will take a longer time to run:
+```dhall
+let x = some_function 1000000 ??? -- Imagine that this is a long computation.
+let _ = assert : validate x === True -- Validate the result somehow.
+in 123
+```
+The value `x` now needs to be evaluated in order to verify that `validate x` actually returns `True`.
+
+Validation of `assert` expressions will happen at typechecking time, and Dhall's _typechecking_ is strict (not lazy).
+A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
+
+If not for the run time, there would be no difference between strict and lazy evaluation in Dhall.
+The reason is that all well-typed Dhall expressions will be always evaluated to a unique normal form.
+Functions in Dhall are always total (never partial).
+It is impossible to write a Dhall program that typechecks but somehow fails to evaluate (other than running out of memory).
+
 For instance, a pattern-matching expression will not typecheck unless it handles all parts of the union type being matched.
 There is no `if / then` without an `else` clause.
-There are no partial functions (all functions must be total).
-There is no analog of Haskell's "bottom" or of Java's "null".
-There are no exceptions or other run-time errors.
-All errors are detected at the typechecking stage (analogous to "compile-time" in other languages).
-The Dhall language always typechecks all terms and either stops with a type error or evaluates the well-typed terms to a normal form.
+There is no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
+The language supports no exceptions or any other run-time errors.
+All errors are detected at the typechecking stage, which is analogous to the compile-time stage in compiled programming languages.
+The Dhall interpreter always typechecks the entire program and either stops with a type error or goes on evaluating the well-typed program to a normal form.
 
-Becase all well-typed expressions _can_ be evaluated without errors, there is no difference between eager ("strict") and lazy ("non-strict") evaluation in Dhall.
-One can equally well imagine that all Dhall values are lazily evaluated, or that they are all eagerly evaluated.
-The final result of evaluating a Dhall program will be the same.
+Because all well-typed expressions _can_ be evaluated without errors, there is no logical difference between the results of strict and lazy evaluation in Dhall.
+As far as the result values are concerned, one can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
 
 For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
-This is because there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
+Indeed, there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
 
-In addition, if that Dhall program is self-contained (has no imports), it will always return _the same_ `Natural` value.
+In addition, if that Dhall program is self-contained (either has no imports, or all its imports are frozen), the program will always return _the same_ `Natural` value.
 A self-contained program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that.
-
-Keep in mind that Dhall's _typechecking_ is eager.
-A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
+It will always return the same literal `Natural` value.
 
 #### No computations with custom data
 
 In Dhall, most built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`) are completely opaque to the user.
 One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
-Those types are intended for creating configuration files.
+Those types are intended for creating strongly-typed configuration data schemas and for safely exporting data to configuration files.
 
 The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
@@ -930,38 +960,52 @@ In addition to specifying literal values of those types and printing them to `Te
 
 Dhall cannot compare `Text` strings for equality or compute the length of a `Text` string.
 Neither can Dhall compare `Double` values or date / time values with each other.
-Comparison functions are only available for `Bool`, `Integer`, and `Natural` values.
-(Comparison functions for `Integer` values are defined in the standard prelude.)
+Comparison functions are only possible for `Bool`, `Integer`, and `Natural` values.
 
 #### No recursion
 
-Another difference from most other FP languages is that Dhall does not support recursive definitions (neither for types nor for values).
-The only recursive type directly supported by Dhall is the built-in type `List`.
+Another difference from most other FP languages is that Dhall does not support recursive definitions, neither for types nor for values.
+The only recursive type directly supported by Dhall is the built-in type `List` (representing finite sequences).
 The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them (such as `List/map` and so on).
-Loops written in that way are guarenteed to terminate because the total number of iterations is always fixed in advance.
+Loops written in that way are guaranteed to terminate because the total number of iterations is always fixed in advance.
+Unlike other programming languages, Dhall supports no "while" loops, because one cannot statically guarantee termination for loops that repeat for an unknown number of times until some condition holds.
 
-User-defined recursive types and functions must be encoded in a non-recursive way.
-Later chapters in this book will show how to use the Church encoding or existential types for that purpose.
-In practice, this means the user is limited to working with finite data structures and fold-like iterative functions on them.
-Arbitrary recursion is not possible (because it cannot guarantee termination).
-Nevertheless, this book will show that Dhall supports a wide variety of iterative and recursive computations.
+Also, `List` values may be created only if the length of the list is limited in advance.
+It is not possible to create a `List` by adding more and more elements until some condition holds, without setting an upper limit in advance.
 
-#### No mutability and no side effects
+Dhall's `List` is also not similar to Haskell's "lazy infinite list" defined by this code:
+
+```haskell
+onetwo :: [Integer]
+onetwo = 1 : 2 : onetwo  -- [ 1, 2, 1, 2, 1, 2, ... ]
+```
+
+Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that implement recursive types, recursive functions, and "lazy infinite" data structures.
+Later chapters in this book will show how that can be achieved.
+
+In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
+Within this limitation, Dhall supports a wide variety of iterative and recursive computations.
+
+#### No side effects
 
 Dhall is a purely functional language with no side effects.
 There are no mutable values, no exceptions, no multithreading, no writing to disk, no graphics, no sound,
-and no reading from any external devices (keyboard, mouse, microphone, camera, etc.).
+and generally no interaction with any external devices (keyboard, mouse, video camera, etc.).
 
-A well-formed Dhall program may contain only a single expression that will be evaluated to a normal form by the Dhall interpreter.
+A valid Dhall program may contain only a single expression that will be type-checked and evaluated to a normal form by the Dhall interpreter.
 The user may then print that expression to the terminal, or convert it to JSON, YAML, and other formats.
+But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
-a Dhall program can read Dhall values from external resources (files, Internet URLs, and environment variables).
-The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
-For instance, it is not possible to write a Dhall program that will repeatedly read a value from an external file and react to changes in the file's contents.
+a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
+The import feature does one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
+For instance, it is not possible to write a Dhall program that repeatedly reads a value from an external file and, say, reacts to changes in the file's contents.
+A Dhall program also cannot have a custom behavior reacting to a failure while importing the external resources.
+There is only a simple mechanism providing fall-back alternative imports in case a resource is missing. 
+If a resource fails to read, fails to type-check, or fails the integrity check, the Dhall interpreter stops evaluating the program.
 
 The names and URLs of external resources must be hard-coded and cannot be chosen at run time depending on some other values.
-Most often, Dhall imports are used to organize code into modules with known contents that is not expected to change.
+Most often, the import feature is used to read library modules with known contents that is not expected to change.
 
 #### Guaranteed termination
 
@@ -1881,10 +1925,10 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [some proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) that implements a number of floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
+The `scall` repository contains [proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
 Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and may have arbitrarily high precision (in both mantissa and exponent).
 
-An example of an arbitrary-precision numerical algorithm is the computation of a floating-point square root.
+To illustrate how Dhall can implement an arbitrary-precision numerical algorithm, consider the computation of a floating-point square root.
 
 We will use the following algorithm that computes successive approximations for $x = \sqrt p$, where $p$ is a given non-negative number:
 
@@ -1899,15 +1943,13 @@ The result is the Dhall code `Natural/fold n update x0`.
 The initial approximation is defined as follows:
 
  
-1. Find the largest integer number $k$ such that $p = 10^{2k} q$ and $q \ge 1$. Then we will have $1 \le q \lt 100$.
+1. Find the largest integer number $k$ such that $p = 10^{2k} q$ and $q \ge 1$. Then we will have $1 \le q < 100$.
 
-2. If $q < 2$ then the initial value is $x0 = (3 + 10  q) / 15$. If $2 \le q < 16$ then $x0 = (15 + 3  q) / 15$. If $16 \le q < 100$ then $x0 = (45 + q) / 14$. The divisions here may be performed in very low precision (2-3 digits).
+2.  The initial approximation to $\sqrt p$ will be some number $r 10^k$ where $1 \le r < 10$. To find $r$, we use a table lookup based on $q$.
 
-3. The update function is defined as $u(x) = \frac{1}{2}(x+p/x) $.
-
-The number of correct decimal digits doubles after each update. The total number of iterations is estimated as $n = 1 + \log N$ (where the logarithm is in base 2).
+The initial value is chosen such that the number of correct decimal digits doubles after each update.
 The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
-
+The total number of iterations is set to $n = 1 + \log N$ (where the logarithm is in base 2).
 ```dhall
 let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   let iterations = 1 + (./numerics.dhall).log 2 prec
@@ -1915,7 +1957,7 @@ let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
   in Natural/fold iterations Float update init
 ```
-(This code is shown for illustration only! For a fully tested version of this code, see  [Float/sqrt.dhall](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).) 
+(This code is shown for illustration only! A fully tested version of this code is in the file `Float/sqrt.dhall` [in the source code repository](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).) 
 
 ## Programming with functions
 
@@ -2124,10 +2166,10 @@ The type of `f` is `(Type → Type) → Type`.
 ### Verifying laws symbolically with `assert`
 
 The function combinators from the previous subsection obey a number of algebraic laws.
-In most programming languages, such laws may be verified only through random testing.
+In most programming languages, such laws may be verified only through testing.
 Dhall's `assert` feature may be used to verify certain laws rigorously.
 
-A simple example of a law is the basic property of any constant function: the function's output should be independent of its input.
+A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x === f y` for all `x` and `y` of a suitable type.
 
 ```dhall
@@ -2135,18 +2177,32 @@ let f : Natural → Text = λ(_ : Natural) → "abc"
 let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x === f y
 ```
 
-Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `const_law`.
-Dhall's interpreter evaluates expressions also inside function bodies, as much as possible.
+Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `f_const_law`.
+Dhall's interpreter can simplify expressions inside function bodies.
 So, an `assert` within a function body will verify that the equation holds for all possible function arguments.
 
-In a similar way, we can verify that this property holds for any functions created via `const`:
+In a similar way, we can verify that the same law holds for any functions created via `const`:
 
 ```dhall
-let general_const_law = λ(a : Type) → λ(b : Type) → λ(c : b) → λ(x : a) → λ(y : a) →
+let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) → λ(x : a) → λ(y : a) →
   assert : const a b c x === const a b c y
 ```
 
-Another example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice in a row, we recover the original function.
+The Dhall interpreter will substitute the definition of `const` into that code and perform some evaluation, even though that code is under several layers of λ and arguments `a`, `b`, `c`, `x`, `y` have not yet been given.
+In this way, Dhall will be able to verify that the `assert` expression is valid.
+
+To see how this works in detail, begin by evaluating `const a b c x` within the body of the function `const_law`.
+
+Using the definition of `const`, Dhall will evaluate `const a b c x` to just `c`.
+Also, `const a b c y` will be evaluaed to just `c`.
+There cannot be any further evaluation because the value `c` is unknown in the body of the function.
+In other words, the normal form of `c` in that scope is just `c` itself.
+So, Dhall obtains an `assert` expression of the form `assert : c === c`.
+Because the normal forms are equal, the `assert` expression is accepted as valid.
+In this way, the function `const_law` is type-checked as valid.
+This verifies the law.
+
+Another example of a law is the identity law of `flip`: If we "flip" a curried function's arguments twice, we will recover the original function.
 
 The Dhall code for verifying the law is:
 
@@ -2155,8 +2211,11 @@ let verify_flip_flip_law = λ(a : Type) → λ(b : Type) → λ(c : Type) →
   λ(k : a → b → c) →
     assert : flip b a c (flip a b c k) === k
 ```
-When this code is type-checked, Dhall will compute the normal forms for both sides of the given assertion and verify that those normal forms are equal.
+
+Let us see what happens when this code is type-checked.
+Dhall will compute the normal forms for both sides of the given assertion and check whether those normal forms are equal.
 The normal forms will be computed _inside_ the function's body (that is, under several layers of λ).
+
 To validate the assertion, Dhall first computes the normal form of `flip a b c k`.
 In that scope, the parameters `a`, `b`, `c`, `k` are not yet assigned, so their normal forms are just those parameters themselves, as free variables.
 So, the normal form of `flip a b c k` is the expression `λ(x : b) → λ(y : a) → k y x`.
@@ -2175,7 +2234,7 @@ The right-hand side of the assertion is the function `k`.
 The expression `λ(xx : a) → λ(yy : b) → k xx yy` is just an expanded form of the same function `k`.
 So, both sides of the assertion are equal.
 
-Note that Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
+Here, Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
 This code does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k` for the `assert` test.
 The `assert` verifies that both sides are equal "symbolically" (that is, equal as unevaluated code expressions with free variables).
 This check is equivalent to a rigorous mathematical proof that the law holds.
@@ -2215,9 +2274,10 @@ id . f == f                  -- Right identity law.
 (h . g) . f == h . (g . f)   -- Associativity law.
 ```
 
-Using `assert` under a lambda with type parameters, we can verify a wide range of algebraic laws.
+Using `assert` and functions with type parameters, one can verify a wide range of algebraic laws.
+We will show some more examples later in this book.
 
-### Function pair products and co-products
+### Function pair products and pair co-products
 
 The **pair product** operation takes two functions `f : a → b` and `g : c → d` and returns a new function of type `Pair a c → Pair b d`.
 
@@ -2247,13 +2307,13 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 
 ## Typeclasses
 
-Typeclasses can be implemented in Dhall via evidence values (also called "typeclass instance values").
+Typeclasses can be implemented in Dhall via evidence values.
 Those values are used as explicit additional arguments to functions that require a typeclass constraint.
 
 This is somewhat similar to the way Scala implements typeclasses.
-With that technique, one can define different typeclass evidence values for the same type, when that is necessary.
+With that technique, one can define different typeclass evidence values for the same type, if that is necessary.
 
-In addition, Dhall's `assert` feature may be sometimes used to verify the typeclass laws.
+In addition, Dhall's `assert` feature may be sometimes used to verify the laws of a typeclass.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
@@ -2318,8 +2378,14 @@ let printed = printWithPrefix UserWithId showUserWithId "users: " users
 let _ = assert : printed === "users: user a with id 1, user b with id 2" 
 ```
 
-Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could easily define `Show` instances for the built-in types.
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could define `Show` typeclass evidence values for the built-in types.
 Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc.
+
+Typeclass evidence values are also called **typeclass instances**.
+To "provide a typeclass instance" of typeclass `Show` for the type `UserWithId` means just to define a value of type `Show UserWithId`. 
+
+To avoid confusion, keep in mind that an "instance of a typeclass" does not mean a type that belongs to a typeclass.
+An "instance of a typeclass" is a _value_ that provides evidence that a certain type belongs to that typeclass.
 
 ### Monoids and semigroups
 
@@ -2344,18 +2410,16 @@ trait Monoid[M] {
 ```
 Here, the `Monoid` typeclass methods are called `empty` and `combine`.
 
-We see that an evidence value for `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
-A Dhall record type containing values of those types could be `{ empty : m, append : m → m → m }`.
-A value of that type provides evidence that the type `m` has the required methods for a monoid.
+We see that an evidence value of type `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
+A Dhall record type containing values of those types could be written as `{ empty : m, append : m → m → m }`.
+A value of that type provides evidence that the type `m` has the methods required of a monoid.
 
 To use the typeclass more easily, we define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
-Values of that type are evidence values for a monoid structure in the type `Bool`.
-
-These evidence values are also called **typeclass instances**.
+Values of that type are evidence values for a monoid property in the type `Bool`.
 
 Now we can create evidence values for specific types and use them in programs.
 
@@ -4301,14 +4365,13 @@ We see that the code is equivalent to the code we wrote earlier by guessing.
 
 ### Aggregations ("folds")
 
-The type `C` itself is a type of fold-like functions.
+The type `C` itself can be viewed as a type of fold-like functions.
 
 To see the similarity, compare the curried form of the Church-encoded `ListInt` type:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
-
 with the type signature of the `foldRight` function for the type `List Integer`:
 
 ```dhall
@@ -4356,7 +4419,7 @@ The result value of the aggregation is the last computed value of the accumulato
 
 Let us show some examples of how this is done.
 
-### Apply a function many times
+### Applying a function many times
 
 Perhaps the simplest nontrivial Church-encoded type is the type of natural numbers.
 
@@ -4374,7 +4437,7 @@ This code applies `f` three times.
 It can be proved (although the proof is not easy) that any value of type `Nat` must be of this form, applying `f` a certain (hard-coded) number of times.
 
 Given a value `n : Nat`, a type `A`, a value `x : A`, and a function `f : A → A`, we can write the expression `n A x f`.
-This expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
+That expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
 
 This computation can be seen as a fold-like aggregation that accumulates a value of type `A` by repeatedly applying the function `f`.
 We could implement a function `Nat/fold` with a fold-like type signature:
@@ -4407,7 +4470,7 @@ let _ = assert : sumListInt example1 === 1368
 ```
 
 The function `sumListInt` is a "fold-like" aggregation operation.
-To run the aggregation, we simply apply the value `list` to some arguments.
+To run the aggregation, we need to apply the value `list` to some arguments.
 What are those arguments?
 
 The type `ListInt` is a curried function with three arguments.
@@ -4521,15 +4584,15 @@ In a similar way, many recursive functions can be reduced to fold-like operation
 
 ### Where did the recursion go?
 
-The technique of Church encoding may be perplexing.
+The technique of Church encoding is not obvious and may be perplexing.
 If we are actually implementing recursive types and recursive functions, why do we no longer see any recursion or iteration in the code?
 
-In the code of `sumListInt` and `printTree`, where are the parts that iterate over the data?
+Specifically, in the code of `sumListInt` and `printTree`, where are the parts that iterate over the data?
 
 In fact, the functions `sumListInt` and `printTree` are _not_ recursive.
 The possibility of iteration over the data stored in the list or in the tree is provided by the types `ListInt` and `TreeText` themselves.
 But the iteration is not provided via loops or recursion.
-Instead, it is hard-coded in the values `list : ListInt` and `tree: TreeText`.
+Instead, iteration is hard-coded in the values `list : ListInt` and `tree: TreeText`.
 
 To see how, consider the value `example1` shown above:
 
@@ -4553,16 +4616,16 @@ The Dhall interpreter can print that function's normal form for us:
 
 The function `example1` includes nested calls to `a1` and `a2`, that correspond to the two constructors (`nil` and `cons`) of `ListInt`.
 The code of `example1` applies the function `a2` three times, which corresponds to having three items in the list.
-But there is no loop in `example1`.
-It is just hard-coded in the expression `example1` that `a2` needs to be applied three times to some arguments.
+But there is no loop or iteration in the code of `example1`.
+It is just hard-coded in the body of `example1` that `a2` is applied three times to some arguments.
 
 When we compute an aggregation such as `sumListInt example1`, we apply `example1` to three arguments.
-The last of those arguments is a certain function that we called `update`.
-When we apply `example1` to its arguments, the code of `example1` will call `update` three times.
-This is how the Church encoding actually performs iteration.
+The last of those arguments is a certain function we called `update`.
+The code of `example1` will call `update` three times.
+This is how the Church encoding performs iterative computations.
 
-Similarly, consider the value `example2` shown above.
-When we expand the constructors `branch` and `leaf`, we will find that `example2` is a higher-order function:
+The value `example2` shown above works in a similar way.
+If we expand the constructors `branch` and `leaf`, we find that `example2` is a higher-order function:
 
 ```dhall
 ⊢ example2
@@ -9049,17 +9112,17 @@ let inY : F A → Y
   = λ(fa : F A) → λ(B : Type) → λ(f : A → B) → fmap_F A B f fa
 
 let outY : Y → F A
-  = λ(y : Y) → y (identity A)
+  = λ(y : Y) → y A (identity A)
 ```
 
-We have imposed a requirement that any value of type `Y` must be a natural transformation.
+We have imposed the requirement that any value of type `Y` must be a natural transformation.
 So, we need to begin by showing that, for any `fa : F A`, the value `inY fa` is automatically a natural transformation of type `Y`.
 
 The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) → F B` says that, for any `y : Y` and any types `B`, `C`, and for any functions `f : A → B`, `g : B → C`, the following equation must hold:
 
 ```dhall
 -- Symbolic derivation.
-y C (compose_forward A B C f g) === fmap B C g (y B f)
+y C (compose_forward A B C f g) === fmap_F B C g (y B f)
 ```
 
 We substitute `y = inY fa` into the left-hand side of this naturality law:

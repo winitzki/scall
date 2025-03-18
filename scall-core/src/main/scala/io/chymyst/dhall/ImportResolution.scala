@@ -87,7 +87,7 @@ object ImportResolution {
     } yield expr
   }
 
-  def readFirstCached(digest: BytesLiteral): Option[Expression] =
+  private def readFirstCached(digest: BytesLiteral): Option[Expression] =
     dhallCacheRoots
       .map(readCached(_, digest))
       .map { t =>
@@ -97,27 +97,29 @@ object ImportResolution {
       .filter(_.isSuccess)
       .take(1).map(_.toOption).headOption.flatten // Force evaluation of the first valid operation over all candidate cache roots.
 
-  def validateHashAndCacheResolved(expr: Expression, digest: Option[BytesLiteral]): ImportResolutionResult[Expression] = digest match {
-    case None => Resolved(expr)
+  private def validateHashAndCacheResolved(expr: Expression, digest: Option[BytesLiteral], enableCache: Boolean): ImportResolutionResult[Expression] =
+    digest match {
+      case None => Resolved(expr)
 
-    case Some(BytesLiteral(hex)) =>
-      val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor2
-      val ourHash  = Semantics.computeHash(ourBytes).toLowerCase
-      if (hex.toLowerCase == ourHash) {
-        dhallCacheRoots
-          .map { cachePath =>
-            Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
-            // TODO: log errors while writing the cache file
-            // TODO verify that we will attempt to read the cached file from any of the locations, not just from the first one.
-          }.filter(_.isSuccess)
-          .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
-        Resolved(expr)
-      } else {
-        val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.print}"
-        println(s"Error: $message")
-        PermanentFailure(Seq(message))
-      }
-  }
+      case Some(BytesLiteral(hex)) =>
+        val ourBytes = expr.alphaNormalized.betaNormalized.toCBORmodel.encodeCbor2
+        val ourHash  = Semantics.computeHash(ourBytes).toLowerCase
+        if (hex.toLowerCase == ourHash) {
+          dhallCacheRoots
+            .filter(_ => enableCache)
+            .map { cachePath =>
+              Try(Files.write(cachePath.resolve("1220" + ourHash), ourBytes))
+              // TODO: log errors while writing the cache file
+              // TODO verify that we will attempt to read the cached file from any of the locations, not just from the first one.
+            }.filter(_.isSuccess)
+            .take(1).headOption // Force evaluation of the first valid operation over all candidate cache roots.
+          Resolved(expr)
+        } else {
+          val message = s"sha-256 mismatch: found $ourHash instead of specified $hex from expression ${expr.print}"
+          println(s"Error: $message")
+          PermanentFailure(Seq(message))
+        }
+    }
 
   lazy val isWindowsOS: Boolean = System.getProperty("os.name").toLowerCase.contains("windows")
 
@@ -144,12 +146,12 @@ object ImportResolution {
   // TODO report issue - imports.md does not say how to bootstrap reading a dhall expression from string, what is the initial "parent" import?
   // TODO workaround: allow the "visited" list to be empty initially? Or make the initial import "."?
   // TODO: return an Either instead of throwing exceptions?
-  def resolveAllImports(expr: Expression, currentImport: Import[Expression]): Expression = {
+  def resolveAllImports(expr: Expression, currentImport: Import[Expression], enableCache: Boolean): Expression = {
     val initialVisited = currentImport
 
     val initState = ImportContext(Map())
 
-    resolveImportsStep(expr, Seq(initialVisited), currentImport).run(initState) match {
+    resolveImportsStep(expr, Seq(initialVisited), currentImport, enableCache).run(initState) match {
       case (resolved, finalState) =>
         resolved match {
           case TransientFailure(messages) =>
@@ -161,7 +163,8 @@ object ImportResolution {
     }
   }
 
-  def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.print).mkString("[", ", ", "]")
+  // TODO: remove this code
+//  def printVisited(visited: Seq[Import[Expression]]): String = visited.map(_.print).mkString("[", ", ", "]")
 
   private def extractHeaders(h: Expression, keyName: String, valueName: String): Iterable[(String, String)] = h.betaNormalized.scheme match {
     case EmptyList(_)        => emptyHeadersForHost
@@ -238,7 +241,12 @@ object ImportResolution {
     * @return
     *   A function that updates the import context and returns an [[ImportResolutionResult]].
     */
-  def resolveImportsStep(expr: Expression, visited: Seq[Import[Expression]], parent: Import[Expression]): ImportResolutionStep[Expression] =
+  private def resolveImportsStep(
+    expr: Expression,
+    visited: Seq[Import[Expression]],
+    parent: Import[Expression],
+    enableCache: Boolean,
+  ): ImportResolutionStep[Expression] =
     ImportResolutionStep[Expression] { case stateGamma0 @ ImportContext(gamma) =>
       val (importResolutionResult, finalState) = expr.scheme match {
         // If `expr` is not an Import, we will defer to other `case` clauses to iterate over its subexpressions.
@@ -268,7 +276,7 @@ object ImportResolution {
           lazy val (defaultHeadersForHost, stateGamma1) = child.importType.remoteOrigin match {
             case None                                  => (emptyHeadersForHost, stateGamma0)
             case Some((remoteScheme, remoteAuthority)) =>
-              val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent).run(stateGamma0)
+              val (result, state01) = resolveImportsStep(defaultHeadersLocation, visited, parent, enableCache).run(stateGamma0)
               result match {
                 case Resolved(expr)             =>
                   val headersForOrigin: Iterable[(String, String)] = (expr | typeOfGenericHeadersForAllHosts).inferType match {
@@ -413,9 +421,9 @@ object ImportResolution {
           }
 
           // Resolve imports in the expression we just parsed.
-          val result: Either[ImportResolutionResult[Expression], Expression] = for {
+          val importReadSuccessOrFailure: Either[ImportResolutionResult[Expression], Expression] = for {
             _                <- checkIfAlreadyResolved
-            _                <- resolveIfCached
+            _                <- if (enableCache) resolveIfCached else Right(())
             _                <- cyclicImportCheck
             _                <- referentialCheck
             readByImportMode <- resolveByImportMode
@@ -427,10 +435,10 @@ object ImportResolution {
                                 }
           } yield successfullyRead
 
-          val newState: (ImportResolutionResult[Expression], ImportContext) = result match {
+          val newState: (ImportResolutionResult[Expression], ImportContext) = importReadSuccessOrFailure match {
             case Left(gotEarlyResult)  => (gotEarlyResult, stateGamma1)
             case Right(readExpression) =>
-              resolveImportsStep(readExpression, visited :+ parent, child).run(stateGamma1) match {
+              resolveImportsStep(readExpression, visited :+ parent, child, enableCache).run(stateGamma1) match {
                 case (result1, stateGamma2) =>
                   // If the expression was successfully imported, we need to type-check and beta-normalize it.
                   val result2: ImportResolutionResult[Expression] = result1.flatMap { r =>
@@ -450,7 +458,7 @@ object ImportResolution {
             case (result2, state2) =>
               // Corner case: import as Location must not attempt to use the digest cache.
               val effectiveDigest = if (child.importMode == ImportMode.Location) None else child.digest
-              result2.flatMap(validateHashAndCacheResolved(_, effectiveDigest)) match {
+              result2.flatMap(validateHashAndCacheResolved(_, effectiveDigest, enableCache)) match {
                 case Resolved(r) => (result2, state2.copy(state2.resolved.updated(child, r)))
                 case failure     => (failure, state2)
               }
@@ -458,13 +466,13 @@ object ImportResolution {
 
         // Try resolving `lop`. If failed non-permanently, try resolving `rop`. Accumulate error messages.
         case ExprOperator(lop, Alternative, rop) =>
-          resolveImportsStep(lop, visited, parent).run(stateGamma0) match {
+          resolveImportsStep(lop, visited, parent, enableCache).run(stateGamma0) match {
             case resolved @ (Resolved(_), _) => resolved
 
             case failed @ (PermanentFailure(_), _) => failed
 
             case (TransientFailure(messages1), state1) =>
-              resolveImportsStep(rop, visited, parent).run(state1) match {
+              resolveImportsStep(rop, visited, parent, enableCache).run(state1) match {
                 case resolved @ (Resolved(_), _)           => resolved
                 case (PermanentFailure(messages2), state2) => (PermanentFailure(messages1 ++ messages2), state2)
                 case (TransientFailure(messages2), state2) => (TransientFailure(messages1 ++ messages2), state2)
@@ -472,12 +480,12 @@ object ImportResolution {
           }
 
         case _ =>
-          expr.scheme.traverse(resolveImportsStep(_, visited, parent)).run(stateGamma0) match {
+          expr.scheme.traverse(resolveImportsStep(_, visited, parent, enableCache)).run(stateGamma0) match {
             case (scheme, state) => (scheme.map(Expression.apply), state)
           }
       }
       val checkDigest                          = importResolutionResult.flatMap {
-        case e @ Expression(Import(importType, importMode, digest)) => validateHashAndCacheResolved(e, digest)
+        case e @ Expression(Import(importType, importMode, digest)) => validateHashAndCacheResolved(e, digest, enableCache)
         case e @ _                                                  => Resolved(e)
       }
       (checkDigest, finalState)

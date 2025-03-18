@@ -150,7 +150,7 @@ let egyptian_div_mod_A
 
 let _ = assert : egyptian_div_mod_A 11 2 ≡ { div = 5, rem = 1 }
 
-let powersOf2Until
+let powersOf2Until_
     -- create a list [1, 2, 4, 8, ..., 2^p] such that a < b * 2 ^ (p + 1) .
     : Natural → Natural → List Natural
     = λ(a : Natural) →
@@ -168,6 +168,24 @@ let powersOf2Until
                           }
 
         in  (Natural/fold a TableT succ { result = [ 1 ], power2 = 1 }).result
+
+let Optional/default = https://prelude.dhall-lang.org/Optional/default
+
+let powersOf2Until
+    -- create a list [1, 2, 4, 8, ..., 2^p] such that a < b * 2 ^ (p + 1) .
+    : Natural → Natural → List Natural
+    = λ(a : Natural) →
+      λ(b : Natural) →
+        let appendNewPower =
+              λ(prev : List Natural) →
+                let nextPower =
+                      2 * Optional/default Natural 0 (List/last Natural prev)
+
+                in  if    Natural/lessThan a (nextPower * b)
+                    then  prev
+                    else  prev # [ nextPower ]
+
+        in  Natural/fold a (List Natural) appendNewPower [ 1 ]
 
 let egyptian_div_mod
     : Natural → Natural → Result

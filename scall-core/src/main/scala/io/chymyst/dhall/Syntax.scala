@@ -942,7 +942,8 @@ object Syntax {
       u._1
     }*/
 
-    def resolveImports(currentFile: java.nio.file.Path = Paths.get(".")): Expression = ImportResolution.resolveAllImports(this, currentFile)
+    def resolveImports(currentFile: java.nio.file.Path = Paths.get("."), enableCache: Boolean = true): Expression =
+      ImportResolution.resolveAllImports(this, currentFile, enableCache)
 
     def op(operator: Operator)(arg: Expression): Expression = Expression(ExprOperator(scheme, operator, arg))
 

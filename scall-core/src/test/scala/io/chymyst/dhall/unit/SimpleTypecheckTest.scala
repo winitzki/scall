@@ -12,6 +12,7 @@ import io.chymyst.dhall.{Parser, TypecheckResult}
 import io.chymyst.test.ResourceFiles.enumerateResourceFiles
 
 import java.io.FileInputStream
+import java.nio.file.Paths
 
 class SimpleTypecheckTest extends DhallTest {
   test("typecheck record of types") {
@@ -106,5 +107,10 @@ class SimpleTypecheckTest extends DhallTest {
     expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.print == "∀(x : Natural) → Natural")
     expect("\\(x: Natural) -> x + 1".dhall.typeCheckAndBetaNormalize().unsafeGet.print == "λ(x : Natural) → x + 1")
     expect("\\(x: Natural) -> x + 1".dhall.inferType.unsafeGet.betaNormalized.print == "∀(x : Natural) → Natural")
+  }
+
+  test("infer type from the new CombineRecordTerms operator semantics") {
+    expect(""" { a : Bool } /\ { b : Natural } """.dhall.inferType.unsafeGet.print == "Type")
+    expect(""" { a = { x : Bool }, a = { b : Natural } }""".dhall.inferType.unsafeGet.print == "{ a : Type }")
   }
 }
