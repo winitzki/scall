@@ -103,6 +103,15 @@ let _ =
 let _ =
         assert
       : to_base 16 64 ≡ { digits_so_far = [ 4, 0 ] : List Natural, remainder = 0 }
+
+let stop = ./Float/reduce_growth.dhall
+let indexTextStop1
+    : Natural → List Text → Optional Text
+    = stop.reduce_growth_Natural
+        (List Text → Optional Text)
+        (λ(_ : List Text) → None Text)
+        (λ(i : Natural) → λ(digits : List Text) → List/index i Text digits)
+
 let Natural/showInBase : Natural → Natural → Text
                            = λ(base : Natural) → λ(x : Natural) →
                                if    Natural/isZero x
@@ -110,7 +119,7 @@ let Natural/showInBase : Natural → Natural → Text
                                else       Text/concatMap
                                            Natural
                                            ( λ(d : Natural) →
-                                               Optional/default Text "" (List/index d Text digits)
+                                               Optional/default Text "" (indexTextStop1 d   digits)
                                            )
                                            (to_base base x).digits_so_far
 let Natural/showHex
