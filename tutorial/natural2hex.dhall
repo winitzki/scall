@@ -28,6 +28,8 @@ let Optional/default =
       https://prelude.dhall-lang.org/Optional/default
         sha256:5bd665b0d6605c374b3c4a7e2e2bd3b9c1e39323d41441149ed5e30d86e889ad
 
+let stop = ./Float/reduce_growth.dhall
+
 let unsafeDivMod
     : Natural → Natural → DivMod
     = let Accum = DivMod
@@ -50,6 +52,19 @@ let unsafeDivMod
                               }
 
             in  Natural/fold x Accum update init
+
+let unsafeDivModStop  : Natural → Natural → DivMod
+= stop.reduce_growth_Natural_Natural   DivMod  { rem = 0, div = 0 } unsafeDivMod
+
+let concatMapStop : (Natural -> Text) -> List Natural -> Text
+= \(f : Natural -> Text) -> stop.reduce_growth_List  Text "" Natural (Text/concatMap Natural f)
+
+let indexTextStop : Natural -> List Text -> Optional Text
+= stop.reduce_growth_Natural (List Text -> Optional Text) (\(_ : List Text) -> None Text) ( \(i : Natural) ->
+   stop.reduce_growth_List (Optional Text) (None Text) Text ( \(digits: List Text) ->
+     List/index i Text digits
+   )
+)
 
 let log
     : Natural → Natural → Natural
@@ -89,6 +104,8 @@ let hex_digits =
       , "E"
       , "F"
       ]
+
+let lookupStop = stop.reduce_growth_Natural (Optional Text) (None Text) (\(d : Natural) -> indexTextStop d hex_digits)
 
 let tohex =
       λ(x : Natural) →
@@ -132,9 +149,9 @@ let Natural/toHex
         then  "0x0"
         else      "0x"
               ++  Text/concatMap
-                    Natural
+Natural
                     ( λ(d : Natural) →
-                        Optional/default Text "" (List/index d Text hex_digits)
+                        Optional/default Text "" (indexTextStop d hex_digits)
                     )
                     (tohex x).digits_so_far
 
@@ -154,4 +171,4 @@ let _ = assert : Natural/toHex 1025 ≡ "0x401"
 
 let _ = assert : Natural/toHex 12345 ≡ "0x3039"
 
-in  { Natural/toHex, Natural/unsafeDivMod = unsafeDivMod, DivMod }
+in  { Natural/toHex }

@@ -171,27 +171,27 @@ let powersOf2Until_
 
 let Optional/default = https://prelude.dhall-lang.org/Optional/default
 
-let powersOf2Until
-    -- create a list [1, 2, 4, 8, ..., 2^p] such that a < b * 2 ^ (p + 1) .
-    : Natural → Natural → List Natural
-    = λ(a : Natural) →
-      λ(b : Natural) →
+let powersUntil
+    -- `powersUntil b p q` will create a list [1, b, b^2, b^3, ..., b^k] where k is such that q * b ^ k <= p < q * b ^ (k + 1) .
+    : Natural → Natural → Natural → List Natural
+    = λ(b : Natural) → λ(p : Natural) →
+      λ(q : Natural) →
         let appendNewPower =
               λ(prev : List Natural) →
                 let nextPower =
-                      2 * Optional/default Natural 0 (List/last Natural prev)
+                      b * Optional/default Natural 0 (List/last Natural prev)
 
-                in  if    Natural/lessThan a (nextPower * b)
+                in  if    Natural/lessThan p (nextPower * q)
                     then  prev
                     else  prev # [ nextPower ]
 
-        in  Natural/fold a (List Natural) appendNewPower [ 1 ]
+        in  Natural/fold p (List Natural) appendNewPower [ 1 ]
 
 let egyptian_div_mod
     : Natural → Natural → Result
     = λ(a : Natural) →
       λ(b : Natural) →
-        let powers2 = powersOf2Until a b
+        let powers2 = powersUntil 2 a b
 
         let update
             : Natural → Result → Result
@@ -205,13 +205,15 @@ let egyptian_div_mod
 
         in  List/fold Natural powers2 Result update { div = 0, rem = a }
 
-let _ = assert : powersOf2Until 15 1 ≡ [ 1, 2, 4, 8 ]
+let _ = assert : powersUntil 2 15 1 ≡ [ 1, 2, 4, 8 ]
 
-let _ = assert : powersOf2Until 16 1 ≡ [ 1, 2, 4, 8, 16 ]
+let _ = assert : powersUntil 2 16 1 ≡ [ 1, 2, 4, 8, 16 ]
 
-let _ = assert : powersOf2Until 17 1 ≡ [ 1, 2, 4, 8, 16 ]
+let _ = assert : powersUntil 2 17 1 ≡ [ 1, 2, 4, 8, 16 ]
 
-let _ = assert : powersOf2Until 11 2 ≡ [ 1, 2, 4 ]
+let _ = assert : powersUntil 2 11 2 ≡ [ 1, 2, 4 ]
+
+let _ = assert : powersUntil 10 170 3 ≡ [ 1, 10 ]
 
 let _ = assert : egyptian_div_mod 10 1 ≡ { div = 10, rem = 0 }
 
@@ -223,4 +225,4 @@ let _ = assert : egyptian_div_mod 10 2 ≡ { div = 5, rem = 0 }
 
 let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
 
-in  { egyptian_div_mod, egyptian_div_mod_A, egyptian_div_mod_N }
+in  { egyptian_div_mod, egyptian_div_mod_A, egyptian_div_mod_N, Result, powersUntil }
