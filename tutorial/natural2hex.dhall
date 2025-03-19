@@ -179,7 +179,7 @@ let Natural/toHex
               ++  Text/concatMap
                     Natural
                     ( λ(d : Natural) →
-                        Optional/default Text "" (indexTextStop1 d hex_digits)
+                        Optional/default Text "?" (indexTextStop1 d hex_digits)
                     )
                     (tohex x).digits_so_far
 
