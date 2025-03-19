@@ -23,8 +23,13 @@ let Text/concatMap =
         sha256:7a0b0b99643de69d6f94ba49441cd0fa0507cbdfa8ace0295f16097af37e226f
 
 let E = ./EgyptianDivision.dhall
+
 let unsafeDivMod = E.egyptian_div_mod
-let DivMod = E.Result
+
+let unsafeDivMod = E.unsafeDivModSimple
+
+let DivMod = E.DivMod
+
 let powersUntil = E.powersUntil
 
 let Optional/default =
@@ -60,18 +65,19 @@ let digits =
       , "P"
       , "Q"
       , "R"
-            , "S"
-            , "T"
-            , "U"
-            , "V"
-            , "W"
-            , "X"
-            , "Y"
-            , "Z"
-            ]
+      , "S"
+      , "T"
+      , "U"
+      , "V"
+      , "W"
+      , "X"
+      , "Y"
+      , "Z"
+      ]
 
 let to_base =
-      λ(b : Natural) → λ(x : Natural) →
+      λ(b : Natural) →
+      λ(x : Natural) →
         let Accum = { digits_so_far : List Natural, remainder : Natural }
 
         let init
@@ -102,9 +108,11 @@ let _ =
 
 let _ =
         assert
-      : to_base 16 64 ≡ { digits_so_far = [ 4, 0 ] : List Natural, remainder = 0 }
+      :   to_base 16 64
+        ≡ { digits_so_far = [ 4, 0 ] : List Natural, remainder = 0 }
 
 let stop = ./Float/reduce_growth.dhall
+
 let indexTextStop1
     : Natural → List Text → Optional Text
     = stop.reduce_growth_Natural
@@ -112,19 +120,22 @@ let indexTextStop1
         (λ(_ : List Text) → None Text)
         (λ(i : Natural) → λ(digits : List Text) → List/index i Text digits)
 
-let Natural/showInBase : Natural → Natural → Text
-                           = λ(base : Natural) → λ(x : Natural) →
-                               if    Natural/isZero x
-                               then  "0"
-                               else       Text/concatMap
-                                           Natural
-                                           ( λ(d : Natural) →
-                                               Optional/default Text "" (indexTextStop1 d   digits)
-                                           )
-                                           (to_base base x).digits_so_far
+let Natural/showInBase
+    : Natural → Natural → Text
+    = λ(base : Natural) →
+      λ(x : Natural) →
+        if    Natural/isZero x
+        then  "0"
+        else  Text/concatMap
+                Natural
+                ( λ(d : Natural) →
+                    Optional/default Text "?" (indexTextStop1 d digits)
+                )
+                (to_base base x).digits_so_far
+
 let Natural/showHex
-    :   Natural → Text
-    =  λ(x : Natural) → "0x" ++ Natural/showInBase 16 x
+    : Natural → Text
+    = λ(x : Natural) → "0x" ++ Natural/showInBase 16 x
 
 let _ = assert : Natural/showHex 0 ≡ "0x0"
 

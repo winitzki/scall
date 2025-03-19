@@ -174,7 +174,8 @@ let Optional/default = https://prelude.dhall-lang.org/Optional/default
 let powersUntil
     -- `powersUntil b p q` will create a list [1, b, b^2, b^3, ..., b^k] where k is such that q * b ^ k <= p < q * b ^ (k + 1) .
     : Natural → Natural → Natural → List Natural
-    = λ(b : Natural) → λ(p : Natural) →
+    = λ(b : Natural) →
+      λ(p : Natural) →
       λ(q : Natural) →
         let appendNewPower =
               λ(prev : List Natural) →
@@ -205,6 +206,25 @@ let egyptian_div_mod
 
         in  List/fold Natural powers2 Result update { div = 0, rem = a }
 
+let unsafeDivModSimple
+    : Natural → Natural → Result
+    = λ(x : Natural) →
+      λ(y : Natural) →
+        let init
+            : Result
+            = { div = 0, rem = x }
+
+        let update
+            : Result → Result
+            =
+              -- Loop invariant: x === div * y + rem
+              λ(acc : Result) →
+                if    Natural/lessThan acc.rem y
+                then  acc
+                else  { div = acc.div + 1, rem = Natural/subtract y acc.rem }
+
+        in  Natural/fold x Result update init
+
 let _ = assert : powersUntil 2 15 1 ≡ [ 1, 2, 4, 8 ]
 
 let _ = assert : powersUntil 2 16 1 ≡ [ 1, 2, 4, 8, 16 ]
@@ -225,4 +245,10 @@ let _ = assert : egyptian_div_mod 10 2 ≡ { div = 5, rem = 0 }
 
 let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
 
-in  { egyptian_div_mod, egyptian_div_mod_A, egyptian_div_mod_N, Result, powersUntil }
+in  { egyptian_div_mod
+    , egyptian_div_mod_A
+    , egyptian_div_mod_N
+    , DivMod = Result
+    , powersUntil
+    , unsafeDivModSimple
+    }

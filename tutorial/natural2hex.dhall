@@ -24,13 +24,13 @@ let Text/concatMap =
       https://prelude.dhall-lang.org/Text/concatMap
         sha256:7a0b0b99643de69d6f94ba49441cd0fa0507cbdfa8ace0295f16097af37e226f
 
-let DivMod = { div : Natural, rem : Natural }
-
 let Optional/default =
       https://prelude.dhall-lang.org/Optional/default
         sha256:5bd665b0d6605c374b3c4a7e2e2bd3b9c1e39323d41441149ed5e30d86e889ad
 
 let stop = ./Float/reduce_growth.dhall
+
+let DivMod = { div : Natural, rem : Natural }
 
 let unsafeDivMod
     : Natural → Natural → DivMod
