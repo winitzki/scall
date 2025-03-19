@@ -53,18 +53,46 @@ let unsafeDivMod
 
             in  Natural/fold x Accum update init
 
-let unsafeDivModStop  : Natural → Natural → DivMod
-= stop.reduce_growth_Natural_Natural   DivMod  { rem = 0, div = 0 } unsafeDivMod
+let unsafeDivModStop
+    : Natural → Natural → DivMod
+    = stop.reduce_growth_Natural_Natural
+        DivMod
+        { rem = 0, div = 0 }
+        unsafeDivMod
 
-let concatMapStop : (Natural -> Text) -> List Natural -> Text
-= \(f : Natural -> Text) -> stop.reduce_growth_List  Text "" Natural (Text/concatMap Natural f)
+let concatMapStop
+    : (Natural → Text) → List Natural → Text
+    = λ(f : Natural → Text) →
+        stop.reduce_growth_List Text "" Natural (Text/concatMap Natural f)
 
-let indexTextStop : Natural -> List Text -> Optional Text
-= stop.reduce_growth_Natural (List Text -> Optional Text) (\(_ : List Text) -> None Text) ( \(i : Natural) ->
-   stop.reduce_growth_List (Optional Text) (None Text) Text ( \(digits: List Text) ->
-     List/index i Text digits
-   )
-)
+let indexTextStop
+    : Natural → List Text → Optional Text
+    = stop.reduce_growth_Natural
+        (List Text → Optional Text)
+        (λ(_ : List Text) → None Text)
+        ( λ(i : Natural) →
+            stop.reduce_growth_List
+              (Optional Text)
+              (None Text)
+              Text
+              (λ(digits : List Text) → List/index i Text digits)
+        )
+
+let indexTextStop1
+    : Natural → List Text → Optional Text
+    = stop.reduce_growth_Natural
+        (List Text → Optional Text)
+        (λ(_ : List Text) → None Text)
+        (λ(i : Natural) → λ(digits : List Text) → List/index i Text digits)
+
+let indexTextStop2
+    : Natural → List Text → Optional Text
+    = λ(i : Natural) →
+        stop.reduce_growth_List
+          (Optional Text)
+          (None Text)
+          Text
+          (λ(digits : List Text) → List/index i Text digits)
 
 let log
     : Natural → Natural → Natural
@@ -104,8 +132,6 @@ let hex_digits =
       , "E"
       , "F"
       ]
-
-let lookupStop = stop.reduce_growth_Natural (Optional Text) (None Text) (\(d : Natural) -> indexTextStop d hex_digits)
 
 let tohex =
       λ(x : Natural) →
@@ -149,9 +175,9 @@ let Natural/toHex
         then  "0x0"
         else      "0x"
               ++  Text/concatMap
-Natural
+                    Natural
                     ( λ(d : Natural) →
-                        Optional/default Text "" (indexTextStop d hex_digits)
+                        Optional/default Text "" (indexTextStop1 d hex_digits)
                     )
                     (tohex x).digits_so_far
 
