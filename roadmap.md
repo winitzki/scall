@@ -6,7 +6,7 @@
 - Implement parsing enhancements, without changing normal forms. (See below.)
 - Implement a type-checker that can modify the expression being type checked. The new expression may have some arguments inserted and some type annotations inserted, etc.
 - Implement "one-step" type inference for ∀-spines using that feature. (Not sure whether also λ-spines are required for this to work.) Modify the do-notation by using type inference.
-- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/negate x) = Integer/clamp x` or some more rules for `Natural` number operations.
+- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x` or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code.
 - Automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
 - Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
