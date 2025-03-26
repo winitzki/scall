@@ -1,11 +1,12 @@
 Features that are good to have in IDE support for Dhall:
 
-- Display typechecking and syntax errors
+- Display typechecking and syntax errors, suggest edits
 - Collapse/expand code regions:  "let" definitions, lists, records, if/then/else
-- Go to definition of any variable, go to usages for any variable
-- Load imported files and navigate in them, keeping them read-only
+- Go to definition of any variable, go to usages / list usages for any variable
+- Load imported files and navigate in their source code, keeping them read-only
 - Tooltip: hover on a variable to see its type, or display its type on Command-hover or otherwise
 - Type error: say where and what types were expected and what types were found instead
+- Assertion error: display full values and types that do not match
 - Autocomplete possible arguments for curried functions
 - Autocomplete possible functions that apply to a given argument type
 - Autocomplete constructor names after union types and record field names after record types / names
@@ -16,17 +17,19 @@ Features that are good to have in IDE support for Dhall:
 - Fill in the inferred type for let bindings or lambda arguments or any other terms
 - Reduce to normal form and replace selected expression
 - Alpha-normalize, beta-normalize, eta-reduce inline
-- Freeze / unfreeze imports
-- Rename variables within their definition's scope
+- Freeze / unfreeze imports, creating `missing` clauses
+- Organize imports (remove unused imports, move imports to top of file, sort imports)
+- Remove unused `let` definitions in general (not imports)
+- Rename variables within their definition's scope (including variables with de Bruijn indices)
 - Suggest edits when typechecking fails or when variables are undefined
 - When assert fails, show the two unequal asserted values in normal form
 - Autocomplete available symbols that can be imported from known already imported files or from the standard prelude
 - Autocomplete available functions that may be left-applied to a given value
-- Autoformat the Dhall code, even if it does not typecheck
+- Autoformat the Dhall code, even if it does not typecheck (but not when parsing fails)
 - Infer type for an expression and create a separate type value
 - Refactor a value from a subexpression into a local variable
 - Inline a local variable into places where it is used, eliminating the local variable
 - Use `curryhoward` to generate code when possible; or "derive functor", etc.
 - Work with typed holes
 - Simplify arithmetic with Bool, Natural, Integer
-
+- Import from JSON / YAML, optionally with schemas
