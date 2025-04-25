@@ -57,4 +57,4 @@ let torsor8
           (Integer/add k1 k2)
           (Integer/add l1 l2)
 
-in  torsor2
+in  torsor8
