@@ -3533,7 +3533,7 @@ In later chapters of this book, we will show more systematically the typeclass d
 ## Leibniz equality types
 
 Dhall's `assert` feature is a static check that some expressions are equal.
-The syntax is `assert : a === b`, and the type expression `a === b` denotes a type that has a value only if `a` equals `b`.
+The syntax is `assert : a === b`, where the expression `a === b` denotes a _type_ that has a value only if `a` equals `b`.
 That feature can be viewed as syntax sugar for a general facility known as "Leibniz equality types".
 
 A **Leibniz equality type** is a type that depends on two values, say `a` and `b`, of the same type.
@@ -3553,7 +3553,7 @@ let LeibnizEqual
 This complicated expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
 It is not obvious how to work with types of the form `LeibnizEqual`.
 
-To explain that, we begin by considering an example where `T = Natural`.
+To figure that out, we begin by considering an example where `T = Natural`.
 Define the type `LeibnizEqNat` by applying `LeibnizEqual` to the `Natural` type:
 
 ```dhall
@@ -3569,7 +3569,7 @@ To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1
 LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
 LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
 ```
-Note that `f 0` and `f 1` are unknown types because `f` is an arbitrary, unknown function of type `Natural → Type`.
+Note that `f 0` and `f 1` are unknown _types_ because `f` is an arbitrary, unknown function of type `Natural → Type`.
 However, we can always write an identity function of type `f 0 → f 0` even though we do not know anything about the type `f 0`.
 This allows us to implement a function of type `LeibnizEqNat 0 0`:
 
@@ -3596,7 +3596,7 @@ Dhall does not allow us to write such code.
 
 These conclusions can be generalized from `Natural` to an arbitrary type `T`.
 For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
-That value is commonly denoted `refl` (meaning **reflexivity**, i.e., the property that any value `t` is always equal to itself):
+That value is often called `refl` (meaning **reflexivity**, i.e., the property that any value `t` is always equal to itself):
 
 ```dhall
 let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
@@ -3606,8 +3606,9 @@ let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
 But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y` are different values.
 More precisely, this will happen for any `x` and `y` such that the Dhall type-checker will think that `f x` and `f y` are not the same type.
 
-Keep in mind that the Dhall type-checker will not always detect semantic equality in situations where the expressions are syntactically different.
-For example, `y * 2` will always evaluate to the same natural number as `y + y`, but the Dhall type-checker will not recognize that in situations where `y` is a bound variable whose value is not yet known.
+Keep in mind that the Dhall type-checker will not always detect semantic equality in situations where the expressions are syntactically different but actually equal after evaluation.
+For example, `y * 2` will always evaluate to the same natural number as `y + y`.
+But the Dhall type-checker will not recognize that `y * 2 === y + y` when `y` is a parameter whose value is not yet known.
 As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
 This is one of the limitations of the Dhall interpreter with respect to dependent types.
 
@@ -3621,12 +3622,12 @@ To summarize, Leibniz equality types have the following properties:
 The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
 The expression `assert : x === y` will be accepted only if `x` and `y` have the same type and the same normal forms.
 
-It turns out that Dhall's `assert` feature may be viewed as syntactic sugar for the Leibniz equality.
+It turns out that Dhall's `assert` feature is equivalent to a certain expression involving the Leibniz equality.
 To explain that, let us show how a Leibniz equality type may be used to write code that type-checks only if given values `x` and `y` are equal.
 
 If `x` and `y` are equal then `f x` and `f y` are the same type for any function `f : T → Type`.
 If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having the type `LeibnizEqual T x y`.
-We can write that constraint as a type annotation (which is also validated at type-checking time) in the form `refl T x : LeibnizEqual T x y`.
+We can write that constraint as a type annotation (which will be validated at type-checking time) in the form `refl T x : LeibnizEqual T x y`.
 That type annotation will be accepted only when `x` equals `y` at type-checking time.
 
 As an example, here is how to assert that `123` equals `100 + 20 + 3`:
@@ -3677,7 +3678,7 @@ We have seen that the Leibniz equality type can be converted to `assert` values.
 However, `assert` values currently cannot be converted back to Leibniz equality values.
 Dhall currently implements `a === b` and `assert` as special expression types that cannot be manipulated in any way, other than type-checked.
 
-Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality type where the built-in Dhall features are insufficient. 
+Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall features are insufficient. 
 
 ### Leibniz inequality types
 
