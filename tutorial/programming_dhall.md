@@ -138,16 +138,16 @@ let inc = λ(x : Natural) → x + 1
 Dhall does not support Haskell's concise function definition syntax such as  `inc x = x + 1`, where arguments are given on the left-hand side and types are inferred automatically.
 Functions must be defined via `λ` symbols as we have just seen.
 
-Generally, functions in Dhall look like `λ(x : input_t) → body`, where:
+Generally, functions in Dhall look like `λ(x : input_type) → body`, where:
 
 - `x` is a bound variable representing the function's input argument,
-- `input_t` is a type expression representing the type of the function's input, and
+- `input_type` is the type of the function's input argument, and
 - `body` is an expression that may use `x`; this expression computes the output value of the function.
 
-Functions are values of type `∀(x : input_t) → output_t`, where:
+A function's type must have the form `∀(x : input_type) → output_type`, where:
 
-- `input_t` is the type of the function's input value, and
-- `output_t` is the type of the function's output value.
+- `input_type` is the type of the function's input value, and
+- `output_type` is the type of the function's output value.
 
 The function `inc` shown above has type `∀(x : Natural) → Natural`.
 
@@ -155,10 +155,10 @@ Instead of the Unicode symbols `∀`, `λ`, and `→`, we may use the equivalent
 In this book, we will use the Unicode symbols for brevity.
 
 Usually, the function body is an expression that uses the bound variable `x`.
-However, the type expression `output_t` might itself also depend on `x`.
+However, the type expression `output_type` might itself also depend on the input _value_ `x`.
 We will discuss such functions in more detail later.
 In many cases, the output type does not depend on `x`.
-Then the function's type may be written in a simpler form: `input_t → output_t`.
+Then the function's type may be written in a simpler form: `input_type → output_type`.
 
 For example, the function `inc` shown above may be written with a type annotation like this:
 
@@ -171,7 +171,8 @@ We may also write a fully detailed type annotation if we like:
 ```dhall
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
-However, it is not required that the name `x` in the type annotation (`∀(x : Natural)`) should be the same as the name `x` in the function (`λ(x : Natural)`).
+
+It is not required that the name `x` in the type annotation (`∀(x : Natural)`) should be the same as the name `x` in the function (`λ(x : Natural)`).
 So, the following code is just as valid (although may be confusing):
 
 ```dhall
@@ -255,8 +256,8 @@ a : { x : Natural, y : { t : Text, z : Bool } }
 "abc"
 ```
 
-It is important that Dhall's record types are "structural": two record types are distinguished only via their field names and types, and record fields are unordered.
-So, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated.
+It is important that Dhall's records have **structural typing**: two record types are distinguished only via their field names and types, while record fields are unordered.
+So, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated to each other.
 There is no **nominal typing**: that is, no way of assigning a permanent unique name to a certain record type, as it is done in OCaml, Haskell, and Scala in order to distinguish one record type from another.
 
 For convenience, a Dhall program may define local names for types:
@@ -268,9 +269,9 @@ let RecordType2 = { b : Bool, a : Natural }
 let y : RecordType2 = { a = 2, b = False }
 ```
 But the names `RecordType1` and `RecordType2` are no more than (locally defined) values that are used as type aliases.
-Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`.
-(The order of record fields is also not significant.) 
-So, the values `x` and `y` actually have the same type in that code.
+Dhall does not distinguish `RecordType1` and `RecordType2` from each other or from the literal type expression `{ a : Natural, b : Bool }`,
+as the order of record fields is not significant. 
+So, the values `x` and `y` actually have the same type in this code.
 
 
 ### Co-product types ("union types")
@@ -306,9 +307,9 @@ Here is an (artificial) example of creating a value of that type:
 let nested = < T | X : < Y | Z : Natural > >.X (< Y | Z : Natural >.Z 123)
 ```
 
-It is important that Dhall's union types are "structural": two union types are distinguished only via their constructor names and types, and constructors are unordered.
-So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different.
-There is no **nominal typing** for union types, that is, no way of assigning a permanent unique name to a certain union type, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
+It is important that Dhall's union types use **structural typing**: two union types are distinguished only via their constructor names and types, while constructors are unordered.
+So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated to each other.
+There is no **nominal typing** for union types; that is, no way of assigning a permanent unique name to a certain union type, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
 
 For convenience, Dhall programs often define local names for union types:
 
@@ -318,11 +319,11 @@ let x : MyXY = MyXY.X 123
 ```
 The constructor expression `MyXY.X` is a function of type `Bool → MyXY`.
 But the name `MyXY` is no more than a (locally defined) value that is used as a type alias.
-Dhall considers `MyXY` to be the same type as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`
-(the order of a union type's constructors is also not significant).
+Dhall considers `MyXY` to be the same type as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`,
+as the order of a union type's constructors is not significant.
 
 Dhall requires the union type's constructors to be explicitly annotated by the full union types.
-In Haskell or Scala, one may simply write `Left(x)` and `Right(y)` and let the compiler fill in the type parameters.
+In Haskell or Scala, one may simply write `Left(x)` and `Right(y)` and the compiler will automatically find the relevant union type.
 But Dhall requires us to write `< Left : Text | Right : Bool >.Left x` or `< Left : Text | Right : Bool >.Right y`, fully specifying the union type whose value is being constructed.
 
 An advantage of this syntax is that there is no need to keep the constructor names unique across all union types in scope (as it is necessary in Haskell and Scala).
@@ -338,14 +339,14 @@ let x : Union1 = Union1.Right
 let y : Union2 = Union2.Right True
 ```
 
-The types `Union1` and `Union2` are different because the constructor named `Right` requires different data types within `Union1` and `Union2`.
+The types `Union1` and `Union2` are different because the constructors named `Right` require different data types within `Union1` and `Union2`.
 Constructor names are always written together with the union type.
 So, there is no conflict between `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
-A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.
+(A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.)
 
 ### Pattern matching
 
-Pattern matching for union types is implemented via `merge` expressions.
+Pattern matching for union types is implemented via the `merge` keyword.
 Dhall's `merge` expressions are similar to `match/with` expressions in OCaml, `case/of` expressions in Haskell, and `match/case` expressions in Scala.
 One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation.
 
@@ -354,7 +355,7 @@ As an example, consider a union type defined in Haskell by:
 ```haskell
 data P = X Int | Y Bool | Z    -- Haskell.
 ```
-A function `toString` that prints a value of that type can be written in Haskell via pattern matching:
+A function `toString` that prints values of type `P` can be written in Haskell via pattern matching:
 
 ```haskell
 -- Haskell
@@ -370,7 +371,7 @@ The corresponding type is defined in Dhall by:
 let P = < X : Integer | Y : Bool | Z >
 ```
 
-Here is the Dhall code for a function that prints a value of type `P`:
+Here is the Dhall code for a function that prints values of type `P`:
 
 ```dhall
 let Bool/show = https://prelude.dhall-lang.org/Bool/show
@@ -382,13 +383,15 @@ let pToText : P → Text = λ(x : P) →
         } x
 ```
 
-The `merge` keyword looks like a curried function whose first argument is a _record value_ and the second argument is a value of a union type.
+The `merge` keyword works like a curried function whose first argument is a _record value_ and the second argument is a value of a union type.
 The field names of the record must correspond to all the constructor names in the union type.
-The values inside the record are functions that describe what to compute in each case where the union type's constructor has arguments.
+The values inside the record are functions describing what to compute in each case where the union type's constructor has arguments.
 For no-argument constructors (e.g., for the constructor `Z` in the example shown above) the value inside the record does not need to be a function.
 
-The second argument of `merge` is a value of a union type on which the pattern matching will be done.
-(Note that `merge` in Dhall is a special keyword, not a function, although its syntax looks like that of a curried function.)
+The second argument of `merge` is a value of a union type on which the pattern matching is being done.
+
+Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
+It is a syntax error to write `merge { X = 0 }` without specifying a value (`x`) of a union type.
 
 ### The `Optional` type
 
@@ -949,47 +952,72 @@ let constZero = λ(x : Natural) → 0 -- This function ignores its argument.
 let ??? = constZero ./nonexisting_file.dhall -- Error at type-checking time!
 ```
 
-It is important to keep in mind that lazy evaluation in Dhall is merely an optimization that makes some programs run faster.
-The Dhall standard does not specify whether to use lazy or strict evaluation.
-All well-typed Dhall programs should return the same values whether evaluated lazily or strictly.
+The type-checking stage is analogous to the compile-time stage in compiled programming languages.
+At that stage, the Dhall interpreter resolves all imports and then typechecks all sub-expressions in the program, whether they are used or not.
+(Imports must be resolved first, in order to be able to proceed with typechecking.)
 
-The reason is that all well-typed Dhall expressions can be always evaluated to a unique normal form.
-The lazy and strict evaluation strategies will give different results only in one situation:
-when we manage to define a "rogue" expression that fails to evaluate (crashes or enters an infinite loop) but is not actually needed for computing the final result.
-In that situation, the lazy evaluation will avoid computing the rogue expression, and the program will complete successfully.
-But the strict evaluation will try to compute all expressions (whether or not they are used for obtaining the final result).
-So, strict evaluation will fail to obtain the result because it will fail evaluating the "rogue" expression.
+When no type errors are found, the interpreter goes on evaluating the program to a normal form, using the lazy evaluation strategy.
 
-Dhall goes very far towards guaranteeing that no "rogue" expressions can ever be created.
+It is important to keep in mind that in almost all cases a well-typed Dhall program should give the same result whether evaluated lazily or strictly.
+
+The lazy and strict evaluation strategies will give different results in two situations:
+- When a certain sub-expression creates a lazy side effect whose execution may influence the result value.
+- When a certain "rogue" sub-expression _cannot_ be evaluated (because it will either crash the program or enter an infinite loop).
+
+To implement the first case, we would need to create a Dhall expression containing a side effect.
+The only side effect in Dhall is importing an external resource.
+However, Dhall makes all imports strictly evaluated and validated at type-checking time.
+So, imports are never lazily evaluated.
+As Dhall has no other side effects, we see that the first case does not create a difference between lazy and strict evaluation strategies at evaluation time.
+
+To see how the second case could work, suppose a program defines a rogue expression but does it in such a way that the rogue expression is _not_ actually needed for computing the final result.
+Under the lazy evaluation strategy, the rogue expression will not be evaluated (because it is not used), and the program will complete successfully.
+But the strict evaluation strategy will try to compute all expressions (whether or not they are used for obtaining the final result).
+In that case, the program will fail due to failure evaluating the rogue expression.
+
+Dhall goes quite far towards guaranteeing that no rogue expressions can ever be created.
 This is due to Dhall's specific choice of features and strict type-checking:
 
-- A pattern-matching expression will not typecheck unless it handles _all_ parts of the union type being matched.
-- There is no `if / then` without an `else` clause.
+- A function call will typecheck only if all arguments have correct types.
+- A pattern-matching expression will typecheck only if it handles _all_ parts of the union type being matched.
+- All `if / then` constructions must have an `else` clause; both clauses must be values of the same type.
 - There are no "undefined" values: Dhall has no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
 - A program cannot create exceptions or other run-time errors.
 - Infinite loops are not possible, as every loop must have an upper bound on the number of iterations.
 
-Of course, Dhall _will_ crash if it runs out of memory.
-So, a Dhall program that tries to create an extremely large data structure would be effectively a "rogue" expression.
-Triggering an out-of-memory situation does allow us to implement (an artificial example of) a **partial function** in Dhall.
+These features eliminate large classes of programmer errors that could create rogue expressions inadvertently.
+Nevertheless, two possibilities for creating "rogue" expressions still remain:
+- Create such a large data structure that no realistic computer could fit it in memory.
+- Start a computation that takes such a long time that no realistic user could wait for its completion.
 
-In the following code, `crash` is a partial function: `crash False` returns an empty string, but `crash True` tries to return over a petabyte of text, which will almost certainly crash any computer:
+These situations are impossible to avoid, because (even with Dhall's restrictions) it is not possible to determine in advance the maximum memory requirements and run times of an arbitrary given program.
+
+Here are examples of implementing these two possibilities in Dhall:
 ```dhall
 let doubleText = λ(x : Text) → x ++ x
-let rogueExpression : Text = Natural/fold 50 Text doubleText "x"
 -- It is important that Dhall uses lazy evaluation here.
--- A strict evaluation of `rogueExpression` would require a petabyte of memory!
-let crash = λ(b : Bool) → if b then rogueExpression else ""
+-- A strict evaluation of `petabyte` would require over a petabyte of memory!
+let petabyte : Text = Natural/fold 50 Text doubleText "x"
+-- A strict evaluation of `slow` would require over a thousand years!
+let slow : Natural = Natural/fold 1000000000000000000 Natural (λ(x : Natural) → Natural/subtract x 1) 1
 ```
 
-Barring such pathological cases and assuming that memory is always sufficient, "rogue" expressions and partial functions will be impossible to implement in Dhall.
+Triggering one of these situations will implement (an artificial example of) a **partial function** in Dhall.
+A function is partial if it works only for a certain subset of possible argument values; when applied to other values, the partial function crashes or never completes evaluation.
+Typically, a partial function applied to wrong values will create a rogue expression.
 
-All errors are detected at the typechecking stage, which is analogous to the compile-time stage in compiled programming languages.
-The Dhall interpreter always typechecks the entire program (after resolving all imports) and either stops with a type error or goes on evaluating the program to a normal form.
+As an example, consider the following code that implements a partial function called `crash`.
+Evaluating `crash False` returns an empty string.
+But `crash True` tries to return a petabyte of text, which will almost certainly crash any computer:
+```dhall
+let crash = λ(b : Bool) → if b then petabyte else ""
+```
 
-Because all well-typed expressions _can_ be evaluated without errors (assuming enough memory), and because there are no side effects, there is no logical difference between the results of strict and lazy evaluation in Dhall.
-As far as the result values are concerned, one can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
-The Dhall programmer rarely needs to deal with problems of strictness and laziness.
+Barring such artificial situations, rogue expressions and partial functions will be impossible to implement in Dhall.
+
+So, a Dhall programmer typically does not need to distinguish strict and lazy evaluation.
+One can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
+The result values of any Dhall program will be the same, as long as memory or time constraints are satisfied, and as long as all imported external resources are valid.
 
 
 #### No computations with custom data
@@ -1382,7 +1410,8 @@ Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functio
 
 An expression of the form `λ(x : sometype1) → something2` is a function: it is something that can be applied to an argument to compute a new value.
 
-An expression of the form `∀(x : sometype1) → sometype2` is a _type_: it is something that can be used as a type annotation for some values.
+An expression of the form `∀(x : sometype1) → sometype2` is always a _type_: it is something that can be used as a type annotation for some values.
+In particular, `sometype2` must be a type that may annotate values.
 
 Expressions of the form `∀(x : sometype1) → sometype2` are used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 
@@ -2067,7 +2096,7 @@ The Dhall code is:
 ```dhall
 let identityK = λ(k : Kind) → λ(t : k) → t
 ```
-Here, `t` is anything that has type `k`, and `k` could be `Type`, or `Type → Type`, etc., because the only constraint is `k : Kind`.
+Here, `t` is anything that has type `k`, while `k` could be `Type`, or `Type → Type`, etc., because the only constraint is `k : Kind`.
 
 Now we can test this function on various inputs:
 
@@ -2084,7 +2113,7 @@ List
 #### No support for kind-polymorphic functions
 
 We implemented different functions (`identity`, `identityT`, `identityK`) that accept arguments of specific kinds.
-What if we wanted to implement an identity function that supports arguments of arbitrary kind at once?
+What if we wanted to implement an identity function that supports arguments of arbitrary kinds?
 
 Dhall does not support function arguments whose type is of unknown kind.
 To see why this does not work, consider this attempt to define a "fully general" function `identityX`:
@@ -2114,33 +2143,53 @@ You annotated a function input with the following expression:
 ```
 This error message still needs some explanation.
 
-Dhall requires any function's input type to itself be of type `Type`, `Kind`, or `Sort`.
-In our example, the function under typechecking is the inner function `λ(x : t) → x`.
-Its input `x` is annotated to have type `t`.
-So, the input type of that function is `t`,
-and
-Dhall requires `t` itself to have a well-defined type, which must be one of `Type`, `Kind`, or `Sort`.
+We must keep in mind that any function's input type and output type must be types that can be used to annotate values.
+    
+Examples of types that can be used to annotate values are: `Natural`, `List Bool`, `Type`, `Type → Type`, and `Kind`.
+Indeed, we can use each of those types to annotate some values, for instance:
 
-But all we know in our case is that `t` has type `k`.
+`0 : Natural`
 
-It is given that `k` has type `Kind`, but that's all we know.
+`[ True ] : List Bool`
+
+`Text : Type`
+
+`List : Type → Type`
+
+`Type → Type : Kind`
+
+So, it is valid to write functions of the form `λ(x : List Bool) → ...` or `λ(x : Type) → ...`.
+
+Examples of a type that _cannot_ be used to annotate values is `List`.
+It is a type _constructor_, that is, a function from `Type` to `Type`. (The type of `List` is `Type → Type`.)
+There are no Dhall expressions `x` such that `x : List` is a valid type annotation.
+So, the function code `λ(x : List) → ...` is invalid.
+The input type of that function (`List`) is not a type that can ever annotate anything. 
+
+In the example shown above, the expression causing a type error is the inner function `λ(x : t) → x`.
+The input type of that function is designated as `t`.
+So, Dhall requires `t` to be a type that can annotate values.
+But all we know in our case is that `t` has type `k`, and that `k` is something of type `Kind`.
 It is not guaranteed that `k` is `Type`.
-For example, `k` could be `Type → Type` while `t` could be `List`.
-This would be the case if we applied `identityX` to these arguments:
+For example, `k` could be `Type → Type`, while `t` could be `List`.
+This would be the case if we applied `identityX` like this:
 
 ```dhall
 identityX (Type → Type) List  -- ???
 ```
 Then the type annotations `k : Kind` and `t : k` would both match.
-(Recall that `List` is a type constructor and has type `Type → Type` in Dhall.)
 
 However, it will not be valid in that case to write `x : t`, that is, `x : List`,
-because `List` is a type _constructor_ and not a type.
-We may not use `List` for type annotations.
-We may write `x : List Bool` or `y : List Natural`, but it is not valid to write the type annotation `x : List`.
-For this reason, the function `λ(x : List) → x` is invalid.
+because `List` is a type _constructor_.
+
+So, the error is that `t` is not a type that can be used to annotate a value.
 Dhall indicates such situations by the error message "Invalid function input".
 
+A more formal condition is that a type `X` "can be used for annotating a value" if we have `X : Type`, or `X : Kind`, or `X : Sort`.
+So, Dhall functions of the form `λ(X : Kind) → λ(Y : X) → body` may not use `Y` in any type annotations within `body`.
+The argument `Y` may only be used as part of the function's return value.
+
+Dhall functions of the form `λ(X : Type) → body` or `λ(X : Kind) → body` _may_ use `X` in type annotations within `body`.
 
 ### Function combinators
 
@@ -3420,6 +3469,66 @@ let monadList : MonadFP List =
         List/concatMap a b f fa
       }
 ```
+
+### Typeclass derivation
+
+For many typeclasses, it is possible to compute typeclass evidence values for more complicated types automatically from given typeclass evidence values for simpler types.
+This sort of computation is known as "typeclass derivation".
+
+In Haskell and Scala, the compiler performs sophisticated typeclass derivation automatically.
+In Dhall, we need to pass typeclass evidence manually to appropriate derivation functions.
+We will now look at some simple examples of how this works.
+
+A simple example is the derivation of a `Monoid` typeclass evidence for a product type.
+If `Monoid` evidence values are given for types `P` and `Q`, the `Monoid` evidence value can be computed automatically for the product type `{ _1 : P, _2 : Q }`.
+(We have denoted this type for brevity by `Pair P Q`.)
+
+To define a `Monoid` evidence value for `Pair P Q`, we need to:
+- Provide an "empty" value of type `Pair P Q`.
+- Define a function `append` that combines two values of type `Pair P Q` into a new value of the same type.
+- Verify that the monoid laws still hold for the new evidence value.
+
+All this needs to be done assuming that `Monoid` evidence values for `P` and `Q` are already given (as values `monoidP` and `monoidQ`) and obey the monoid laws.
+So, we need to implement a function of type `Monoid P → Monoid Q → Monoid (Pair P Q)`, where `P`, `Q` are type parameters.
+
+To derive the new `Monoid` evidence value, begin by noting that the "empty" values of types `P` and `Q` are already known (`monoidP.empty` and `monoidQ.empty`).
+So, we can construct the pair `{ _1 = monoidP.empty, _2 = monoidQ.empty }` and designate that as the "empty" value for the new monoid.
+
+The `append` function is implemented similarly by combining the functions `monoidP.append` and `monoidQ.append`.
+
+The following code performs the full computation:
+
+```dhall
+let monoidPair
+  : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Pair P Q)
+  = λ(P : Type) → λ(monoidP : Monoid P) → λ(Q : Type) → λ(monoidQ : Monoid Q) →
+    { empty = { _1 = monoidP.empty, _2 = monoidQ.empty }
+    , append = λ(x : Pair P Q) → λ(y : Pair P Q) →
+       { _1 = monoidP.append x._1 y._1, _2 = monoidQ.append x._2 y._2 }
+    }  
+```
+
+As an example of using this code, let us derive a `Monoid` evidence value for the type `Pair Bool Natural` using the previously defined evidence values `monoidBool` and `monoidNatural`.
+
+```dhall
+let monoidBoolNatural : Monoid (Pair Bool Natural)
+  = monoidPair Bool monoidBool Natural monoidNatural
+```
+
+It turns out that the monoid laws will hold automatically for all `Monoid` evidence values obtained via `monoidPair`.
+
+The automatic typeclass derivation for pairs is available for a wide range of typeclasses (`Monoid`, `Semigroup`, `Functor`, `Filterable`, `Applicative`, `Monad`, and some others).
+In all those cases, the typeclass laws will also hold automatically for the newly derived evidence values.
+This is proved in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapters 8 and 13, which develop a more general theory of typeclasses with laws.
+
+There are many type combinators (other than `Pair`) that allow us to derive a new typeclass evidence automatically.
+An example is a function type combinator:
+
+- If `P` is a monoid and `R` is any fixed type then the type `Q = R → P` is again a monoid.
+- If `F` is a functor and `G` is a contrafunctor then the type constructor `H` defined by `H a = G a → F a` is again a functor.
+
+In later chapters of this book, we will show more systematically the typeclass derivation functions for a number of typeclasses and type combinators.
+
 
 ## Leibniz equality types
 
@@ -7352,7 +7461,7 @@ As we have seen in the "Typeclasses" chapter,
 Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
 It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
-The proofs that the laws hold are shown in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
+The proofs that the laws hold are given in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
 
 ### "Optional" monoid
 
@@ -7506,7 +7615,7 @@ We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from smaller ones.
 
 All the combinators preserve functor laws; the created new functor instances are automatically lawful.
-This is proved in the book ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+This is proved in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
 We will only give the Dhall code that creates the typeclass instance values for all the combinators.
 
 ### Constant (contra)functors
@@ -7983,7 +8092,7 @@ let cfilter
     in contrafilterableF.cmap a (Optional a) a2opt foa
 ```
 
-The functions `deflate` and `inflate` must satisfy certain laws that are detailed in Chapter 9 of "The Science of Functional Programming".
+The functions `deflate` and `inflate` must satisfy certain laws that are detailed in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 9.
 That book also shows various combinators that create new `Filterable` and `Contrafilterable` instances out of previous ones, and proves that the resulting instances always obey the laws.
 Here, we will focus on implementing those combinators in Dhall.
 
@@ -8066,7 +8175,8 @@ let freeFilterable
 We may define the new functor as `G a = Optional (F a)`. 
 To implement a `Filterable` evidence for `G`, we need a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
+Details and proofs are in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13.
+
 ```dhall
 let Optional/map = https://prelude.dhall-lang.org/Optional/map
 let swapFilterable
@@ -8140,7 +8250,8 @@ In addition to the `Arrow` combinator that works with any filterable functors or
 If `F` is any polynomial functor (not necessarily filterable) and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 This construction requires a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-(Details and proofs are in Chapter 13 of "The Science of Functional Programming".)
+Details and proofs are in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13.
+
 ```dhall
 let filterableContrafunctorSwap
   : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Arrow F (Compose Optional G))
@@ -8870,7 +8981,7 @@ It works by wrapping the type `T` by the `List` functor.
 Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
 
 To qualify as a free typeclass, the wrapping must satisfy certain laws that we will not discuss here.
-See Chapter 13 of "The Science of Functional Programming" for full details.
+See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for full details.
 
 As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
 This construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
