@@ -916,7 +916,7 @@ Although this makes Dhall programs more verbose, it also removes the "magic" fro
 In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
 This verbosity has helped the author in learning some of the more advanced concepts of functional programming.
 
-#### Strict and lazy evaluation are logically the same
+#### Strict and lazy evaluation. Partial functions
 
 In a programming language, the **strict evaluation** strategy means that all sub-expressions in a program are evaluated even if they are not used to compute the final result of the program.
 The **lazy evaluation** strategy means that sub-expressions are evaluated only if they are needed for computing the program's final result.
@@ -941,47 +941,56 @@ Validation of `assert` expressions will happen at typechecking time, and Dhall's
 A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
 For this reason, the value `x` will get evaluated in the program shown above, even though `x` is not used anywhere later in the code.
 
-Another situation where Dhall enforces strict evaluation is when importing values from external resources.
-Imported values are loaded and validated at type-checking time, even if they are not used in the code that follows. 
+Another case where Dhall enforces strict evaluation is when importing values from external resources.
+Each imported value is loaded and validated at type-checking time, even if the value is not used in the code that follows:
 
-It is important to keep in mind that lazy evaluation in Dhall is merely an optimization.
+```dhall
+let constZero = λ(x : Natural) → 0 -- This function ignores its argument.
+let ??? = constZero ./nonexisting_file.dhall -- Error at type-checking time!
+```
+
+It is important to keep in mind that lazy evaluation in Dhall is merely an optimization that makes some programs run faster.
 The Dhall standard does not specify whether to use lazy or strict evaluation.
 All well-typed Dhall programs should return the same values whether evaluated lazily or strictly.
 
 The reason is that all well-typed Dhall expressions can be always evaluated to a unique normal form.
 The lazy and strict evaluation strategies will give different results only in one situation:
-namely, if we manage to define a "rogue" expression that fails to evaluate (crashes or enters an infinite loop) but is not actually needed for computing the final result.
+when we manage to define a "rogue" expression that fails to evaluate (crashes or enters an infinite loop) but is not actually needed for computing the final result.
 In that situation, the lazy evaluation will avoid computing the rogue expression, and the program will complete successfully.
-But the strict evaluation tries to compute all expressions (whether or not they are used for obtaining the final result).
-So, strict evaluation will fail to obtain the result.
+But the strict evaluation will try to compute all expressions (whether or not they are used for obtaining the final result).
+So, strict evaluation will fail to obtain the result because it will fail evaluating the "rogue" expression.
 
-The only crash possible in Dhall is due to running out of memory.
+Dhall goes very far towards guaranteeing that no "rogue" expressions can ever be created.
+This is due to Dhall's specific choice of features and strict type-checking:
+
+- A pattern-matching expression will not typecheck unless it handles _all_ parts of the union type being matched.
+- There is no `if / then` without an `else` clause.
+- There are no "undefined" values: Dhall has no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
+- A program cannot create exceptions or other run-time errors.
+- Infinite loops are not possible, as every loop must have an upper bound on the number of iterations.
+
+Of course, Dhall _will_ crash if it runs out of memory.
+So, a Dhall program that tries to create an extremely large data structure would be effectively a "rogue" expression.
+Triggering an out-of-memory situation does allow us to implement (an artificial example of) a **partial function** in Dhall.
+
+In the following code, `crash` is a partial function: `crash False` returns an empty string, but `crash True` tries to return over a petabyte of text, which will almost certainly crash any computer:
 ```dhall
 let doubleText = λ(x : Text) → x ++ x
--- Gives 10 terabytes of text under strict evaluation!
-let _ = Natural/fold 40 Text doubleText "0123456789"
+let rogueExpression : Text = Natural/fold 50 Text doubleText "x"
+-- It is important that Dhall uses lazy evaluation here.
+-- A strict evaluation of `rogueExpression` would require a petabyte of memory!
+let crash = λ(b : Bool) → if b then rogueExpression else ""
 ```
-Assuming that memory is sufficient, no Dhall expressions will ever fail to be evaluated. 
 
-Because of Dhall's strict typechecking and a specific choice of features, functions in Dhall are always total: no well-typed function will fail to evaluate for certain argument values (assuming, of course, that Dhall cannot run out of memory).
-
-For instance, a pattern-matching expression will not typecheck unless it handles _all_ parts of the union type being matched.
-There is no `if / then` without an `else` clause.
-There is no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
-Dhall supports no exceptions or run-time errors that a program could generate.
+Barring such pathological cases and assuming that memory is always sufficient, "rogue" expressions and partial functions will be impossible to implement in Dhall.
 
 All errors are detected at the typechecking stage, which is analogous to the compile-time stage in compiled programming languages.
-The Dhall interpreter always typechecks the entire program and either stops with a type error or goes on evaluating the program to a normal form.
+The Dhall interpreter always typechecks the entire program (after resolving all imports) and either stops with a type error or goes on evaluating the program to a normal form.
 
-Because all well-typed expressions _can_ be evaluated without errors (assuming enough memory), there is no logical difference between the results of strict and lazy evaluation in Dhall.
+Because all well-typed expressions _can_ be evaluated without errors (assuming enough memory), and because there are no side effects, there is no logical difference between the results of strict and lazy evaluation in Dhall.
 As far as the result values are concerned, one can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
+The Dhall programmer rarely needs to deal with problems of strictness and laziness.
 
-For example, any well-typed Dhall program that returns a value of type `Natural` will always return a _literal_ `Natural` value.
-Indeed, there is no other normal form for `Natural` values, and a well-typed Dhall program always evaluates to a normal form.
-
-In addition, if that Dhall program is self-contained (either has no imports, or all its imports are frozen), the program will always return _the same_ `Natural` value.
-A self-contained program cannot return a `Natural` value that will be computed "later", or an "undefined" `Natural` value, or a random `Natural` value, or anything else like that.
-It will always return the same literal `Natural` value.
 
 #### No computations with custom data
 
