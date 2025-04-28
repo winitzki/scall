@@ -745,7 +745,7 @@ For instance, functions working with the `Natural` type are in the `Natural/` su
 This convention helps make the code for imports more visual:
 
 ```dhall
-let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
+let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 -- And so on.
 ```
@@ -3759,11 +3759,12 @@ We conclude that there is no practical way of writing a comparison function of t
 ### Constraining a function argument's value
 
 We can use Leibniz equality types for constraining a function argument to be equal or not equal to some value.
-To achieve that, we add an extra "evidence" argument to the function.
-The user can call the function only when an evidence value of the required type can be provided.
+To achieve that, we add an extra argument to the function.
+The type of that argument will be a suitable Leibniz equality type.
+Then the function can only be called only when an evidence value of the required type is provided.
 
-For example, a value of type `LeibnizEqual T x y` is "evidence" that `x` and `y` are the same.
-So, a function with an argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
+For example, a value of type `LeibnizEqual T x y` is evidence that `x` and `y` are equal.
+So, a function with an extra argument of type `LeibnizEqual T x y` can be called only if `x` and `y` have equal normal forms; otherwise, no argument of type `LeibnizEqual T x y` could be provided by the caller.
 
 A function with an argument of type `LeibnizUnequal T x y` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality at run time.
 
@@ -3772,21 +3773,26 @@ In that chapter, we added an extra evidence argument of type `Nonzero y` to the 
 The type `Nonzero y` is equivalent to the type `LeibnizUnequal Natural 0 y`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
 In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
 
-Another way of using Leibniz equality is for imposing the requirement that some Boolean-valued function is `True`.
-For example, suppose we need to implement a function with two `Natural` arguments, and we need to ensure that `f x y` will be called only when `x + y < 100`.
+Another way of using Leibniz equality is for imposing the requirement that some `Bool`-valued function returns `True`.
+For example, suppose we need to implement a function with two `Natural` arguments, and we need to ensure that `f x y` will be called only when `x + y > 100`.
 We write:
 
 ```dhall
 let f = λ(x : Natural) → λ(y : Natural) →
-  λ(constraint : LeibnizEqual Bool True (Natural/lessThan (x + y) 100)) →
+  λ(constraint : LeibnizEqual Bool True (Natural/greaterThan (x + y) 100)) →
     x + y  -- Whatever the function is supposed to do with x and y.
-let _ = assert : f 10 10 (refl Bool True) === 20
+let _ = assert : f 100 10 (refl Bool True) === 110
 ```
 
 To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
 There is only one value of that type, and that value is produced by `refl Bool True`.
-The Dhall typechecker will accept the function call `f 10 10 (refl Bool True)`.
-But trying to call `f 200 200 (refl Bool True)` will be a type error.
+The Dhall typechecker will accept the function call `f 100 10 (refl Bool True)`.
+But trying to call `f 1 1 (refl Bool True)` will be a type error.
+
+This technique works only when function arguments are literal constants.
+For instance, the expression `λ(n : Natural) → f 200 n (refl Bool True)` will not be accepted by Dhall, even though `200 + n` is always greater than `100`.
+This is because Dhall's type-checker is not powerful enough to determine symbolically that `200 + n > 100` for any natural `n`.
+
 
 ### Leibniz equality at type level
 
@@ -3805,14 +3811,31 @@ let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) �
 Now, the type `LeibnizEqualT Type Natural Bool` will be void because `Natural` and `Bool` are different.
 But the type `LeibnizEqualT Type Bool Bool` will _not_ be void because there will be a value `reflT Type Bool` of that type.
 
-We can use `LeibnizEqualT` to implement an `assert`-like functionality for types:
+If a value of `LeibnizEqualT Type P Q` is given, we have evidence that the types `P` and `Q` are equal.
+This allows us to type-cast values of type `P` into values of type `Q`:
+
+```dhall
+let LeibnizTypeCast : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → P → Q
+  = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev (λ(A : Type) → A)
+```
+This function is a "type-cast" because it reassigns the types without actually changing the values.
+
+
+A more general form of such type-cast is to transform, for any type constructor `F`, values of type `F P` into type `P Q`:
+```dhall
+let LeibnizTypeCastF : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → ∀(F : Type → Type) → F P → F Q
+  = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev
+```
+So, we can view an evidence value of type `LeibnizEqualT Type P Q` as a generator of type-cast functions of type `F P → F Q` that works for arbitrary type constructors `F`.
+
+Another use for `LeibnizEqualT` is when implementing an `assert`-like functionality for types:
 
 ```dhall
 -- This is analogous to assert : Bool === Bool.
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
-As another example of using `LeibnizEqualT`, let us verify the type equivalence of `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1`.
+As an example of this usage, let us verify the type equivalence of `LeibnizEqNat 0 1` and `∀(f : Natural → Type) → f 0 → f 1`.
 For that, we create an evidence value for their equality:
 
 ```dhall
@@ -3821,15 +3844,13 @@ let t2 = ∀(f : Natural → Type) → f 0 → f 1
 let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 ```
 The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
+This line validates statically (at type-checking time) that the types are equal.
 
 Because of Dhall's limitations on polymorphism, we cannot implement a single function `LeibnizEqual` that would work both for values and for types.
 We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
-We cannot define an inequality type at type level, because Dhall cannot compare type symbols at run time.
-(It is not possible to write a function `compareT : Type → Type → Bool` such that `compareT Text Text === True` but `compareT Text Double === False`.)
-
-We also cannot define a Leibniz equality type for comparing arbitrary kinds.
-That would require Dhall code such as `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
+We also cannot define a Leibniz equality type for comparing arbitrary _kinds_.
+That would require writing something like `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
 while all function types are required to have a type themselves.
 
 How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
@@ -3851,21 +3872,27 @@ let k2 = Type
 let _ = reflK k1 : LeibnizEqualK k1 k2 -- Implements `assert : k1 === k2`.
 ```
 
+What about _inequalities_ at type level?
+Recall that an inequality type requires us to have a function that compares values at run time.
+However, Dhall cannot compare type symbols at run time.
+(It is not possible to write a function `equalT : Type → Type → Bool` such that `equalT Text Text === True` but `equalT Text Double === False`.)
+So, we cannot define a type-level inequality type such as `LeibnizUnequalT`.
+
 ### Symbolic reasoning with Leibniz equality
 
-One can implement "equality combinators" that manipulate Leibniz equality types and enable symbolic reasoning about equal values.
-The five basic combinators correspond to the standard properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
+One can implement "equality combinators" that manipulate Leibniz equality types and enable certain patterns of symbolic reasoning about equality of values.
+There are five basic "equality combinators" corresponding to the five properties of the equality relation: reflexivity, symmetry, transitivity, value identity, and function extensionality.
 
-The next subsections will show how to translate these properties into Dhall code for the Leibniz equality.
+The next subsections will show how to translate those properties into Dhall code manipulating the Leibniz equality types.
 We will focus on Leibniz equality between values, as Leibniz equality between types or kinds will have similar properties.
 
 #### Reflexivity
 
 The reflexivity property is that any value `x` equals itself.
-Translated into equality types, it means that for any `x : T` there must exist a value of type `LeibnizEqual T x x`.
+Translated into the language of equality types, it means that for any `x : T` there must exist a value of type `LeibnizEqual T x x`.
 Indeed, we have seen that such a value is created as `refl T x`.
 
-So, we view `refl` as the "reflexivity constructor".
+So, we view `refl` as the "reflexivity combinator".
 
 #### Symmetry
 
@@ -3880,11 +3907,11 @@ let symmetryLeibnizEqual
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual T y x
 ```
 We need to return a value of type `LeibnizEqual T y x`.
-The only way for us to obtain that value is to apply the given evidence value `x_eq_y` to some arguments.
-According to the type of `x_eq_y`, we may apply it as `x_eq_y g h` where the type constructor `g : T → Type` and the value `h : g x` must be chosen appropriately.
+The only way to obtain that value is by applying the given evidence value `x_eq_y` to some arguments.
+According to the type of `x_eq_y`, we may apply it as `x_eq_y g h`, where the type constructor `g : T → Type` and the value `h : g x` can be chosen as we wish.
 The result of evaluating `x_eq_y g h` will then be a value of type `g y`.
 But we are required to compute a value of type `LeibnizEqual T y x`.
-Evaluating `x_eq_y g h` will give the type `LeibnizEqual T y x` only if the output type `g y` is the same as `LeibnizEqual T y x`.
+Evaluating `x_eq_y g h` will give the type `LeibnizEqual T y x` only if the output type `g y` is the same as the type `LeibnizEqual T y x`.
 To achieve that, we define `g t = LeibnizEqual T t x`.
 Then we notice that the type `g x` is just `LeibnizEqual T x x`.
 So, a suitable value `h : g x` is found as `refl T x`.
