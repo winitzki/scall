@@ -3818,7 +3818,7 @@ This allows us to type-cast values of type `P` into values of type `Q`:
 let LeibnizTypeCast : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → P → Q
   = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev (λ(A : Type) → A)
 ```
-This function is a "type-cast" because it reassigns the types without actually changing the values.
+This function is a **type-cast** because it reassigns the types without actually changing the values.
 
 
 A more general form of such type-cast is to transform, for any type constructor `F`, values of type `F P` into type `P Q`:
