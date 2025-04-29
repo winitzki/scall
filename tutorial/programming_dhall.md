@@ -3379,6 +3379,16 @@ let Foldable
   = λ(F : Type → Type) → { reduce : ∀(M : Type) → Monoid M → F M → M }
 ```
 
+Here is an implementation of `toList` for any foldable functor:
+
+```dhall
+let toList
+  : ∀(F : Type → Type) → Functor F → Foldable F → ∀(a : Type) → F a → List a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(a : Type) → λ(fa : F a) →
+    let p : F (List a) = functorF.fmap a (List a) (λ(x : a) → [x]) fa
+    in foldableF.reduce (List a) (monoidList a) p
+```
+
 A functor is called a **traversable functor** if it supports a method called `traverse` with the type signature written in Haskell like this:
 
 ```haskell
@@ -5361,13 +5371,15 @@ let test =
   in assert : 3 === size F Natural sizeF_NEL exampleNEL3 
 ```
 
-Here is the size calculation for a binary tree containing a single branch with two leaf values of an arbitrary type.
+Here is the size calculation for some example binary tree values:
 ```dhall
 let Tree2 = λ(a : Type) → LFix (FTree a)
 let leaf = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Leaf x)
 let branch = λ(a : Type) → λ(x : Tree2 a) → λ(y : Tree2 a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Branch { left = x r frr, right = y r frr } )
 let exampleTree2 : Tree2 Natural = branch Natural (leaf Natural 1) (leaf Natural 2)
-let test = assert : 2 === size FTree Natural sizeF_Tree exampleTree2 
+let _ = assert : 2 === size FTree Natural sizeF_Tree exampleTree2
+let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 1) (leaf Natural 2)) (leaf Natural 3)
+let _ = assert : 3 === size FTree Natural sizeF_Tree exampleTree3
 ```
 
 Turning now to the depth calculation, we proceed similarly and find that the only difference is in the `sizeF` function.
@@ -5401,14 +5413,16 @@ To test:
 
 ```dhall
 let _ = assert : 1 === depth FTree Natural depthF_Tree exampleTree2
-let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 1) (leaf Natural 2)) (leaf Natural 3)
 let _ = assert : 2 === depth FTree Natural depthF_Tree exampleTree3
 ```
 
 One may notice that the implementations of `size` and `depth` are actually the same code.
 The only difference is the argument given as either `sizeF` or `depthF`.
+Also, the functions `sizeF` are `depthF` are quite similar.
 
-TODO express this via Traversable instances for F, use F {} Natural -> Natural as type signature
+It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has a `Foldable` typeclass evidence with respect to _both_ type parameters.
+
+TODO express this via Foldable instances for F
 
 ### Example: implementing "fmap"
 
