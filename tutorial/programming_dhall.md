@@ -4351,12 +4351,12 @@ let fmapF : FmapT F = ???
 The required code for the text-valued trees would be:
 
 ```dhall
-let FTtext = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let fmapF : FmapT FTtext
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FTtext a) →
+let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let fmapF : FmapT FT
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FT a) →
     merge { 
-      Leaf = λ(t : Text) → (FTtext b).Leaf t,
-      Branch = λ(br : { left : a, right : a }) → (FTtext b).Branch { left = f br.left, right = f br.right },
+      Leaf = λ(t : Text) → (FT b).Leaf t,
+      Branch = λ(br : { left : a, right : a }) → (FT b).Branch { left = f br.left, right = f br.right },
     } fa
 ```
 
@@ -4851,7 +4851,7 @@ We will consider three possible size computations:
 - The total number of data items in the tree. (`treeCount`)
 - The maximum depth of leaves. (`treeDepth`)
 
-Each computation is a fold-like aggregation, so we will implement all of them via similar-looking code:
+Each computation is a fold-like function, so we will implement all of them via similar-looking code:
 
 ```dhall
 let treeSum : TreeNat → Natural =
@@ -5271,11 +5271,16 @@ The functions `concatNEL` and `reverseNEL` shown in the previous section are spe
 We will now consider functions that _can_ work with all Church-encoded type constructors.
 Examples are functions that compute the total size and the recursion depth of a data structure.
 
-Suppose we are given an arbitrary pattern functor `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
+In a previous section, we have seen such functions implemented for specific recursive types.
+Now we will generalize those computations to arbitrary Church-encoded data types.
+For that, it is more convenient to use the Church encoding definition via `LFix`, rather than via curried functions.
+
+Suppose we are given an arbitrary pattern functor `F` with two type parameters.
+It defines a type constructor `C` via Church encoding as:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → ???
-let C = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
+let C = λ(a : Type) → LFix (F a)
 ```
 
 Typically, a value `p : C a` is a data structure that stores zero or more values of type `a`.
@@ -5324,12 +5329,13 @@ let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural }
     } fa
 ```
 
-Binary trees are described by `F a r = < Leaf : a | Branch : { left : r, right: r } >`.
+Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right: r } >`.
 The corresponding `sizeF` function is:
 
 ```dhall
-let sizeF_BTree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
-  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
+let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
+let sizeF_Tree : ∀(a : Type) → FTree a Natural → Natural
+  = λ(a : Type) → λ(fa : FTree a Natural) →
     merge {
       Leaf = λ(x : a) → 1,
       Branch = λ(x : { left : Natural, right: Natural }) → x.left + x.right,
@@ -5346,16 +5352,23 @@ let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀
     ca Natural (sizeF a)
 ```
 
-To test this code, let us compute the size of a non-empty list with three elements:
+To test this code, let us compute the size of a non-empty list with three values:
 
 ```dhall
-let exampleNEL : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
+let exampleNEL3 : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
 let test =
   let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail: r } >
-  in assert : size F Natural sizeF_NEL exampleNEL === 3 
+  in assert : size F Natural sizeF_NEL exampleNEL3 === 3 
 ```
 
-TODO 
+Here is the size calculation for a binary tree containing a single branch with two leaf values of an arbitrary type.
+```dhall
+let Tree2 = λ(a : Type) → LFix (FTree a)
+let leaf = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Leaf x)
+let branch = λ(a : Type) → λ(x : Tree2 a) → λ(y : Tree2 a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Branch { left = x r frr, right = y r frr } )
+let exampleTree2 : Tree2 Natural = branch Natural (leaf Natural 1) (leaf Natural 2)
+let test = assert : size FTree Natural sizeF_Tree exampleTree2 === 2 
+```
 
 Turning now to the depth calculation, we proceed similarly and realize that the only difference is in the `sizeF` function.
 Instead of `sizeF` described above, we need a function we may call `depthF` with the same type signature `∀(b : Type) → F b Natural → Natural`.
