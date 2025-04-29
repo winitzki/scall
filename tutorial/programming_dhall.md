@@ -560,7 +560,7 @@ Dhall distinguishes types and type constructors not by assigned names but by the
 
 ### Functions with type parameters
 
-Functions with type parameters are written as functions with extra arguments of type `Type`.
+Functions with type parameters (also known as **generic functions**) are written as functions with extra arguments of type `Type`.
 
 To see how this works, first consider a function that takes a pair of `Natural` numbers and swaps the order of numbers in the pair.
 We use a record type `{ _1 : Natural, _2 : Natural }` to represent a pair of `Natural` numbers.
@@ -1008,7 +1008,7 @@ Typically, a partial function applied to wrong values will create a rogue expres
 
 As an example, consider the following code that implements a partial function called `crash`.
 Evaluating `crash False` returns an empty string.
-But `crash True` tries to return a petabyte of text, which will almost certainly crash any computer:
+But `crash True` tries to return a **petabyte** of text, which will almost certainly crash any computer:
 ```dhall
 let crash = λ(b : Bool) → if b then petabyte else ""
 ```
@@ -4153,8 +4153,8 @@ let ListInt = ∀(r : Type) → (F r → r) → r
 The type `TreeText` (a binary tree with `Text` strings in leaves):
 
 ```dhall
-let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (F r → r) → r
+let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (FT r → r) → r
 ```
 
 ### Church encoding of non-recursive types
@@ -4280,19 +4280,19 @@ Using these type equivalences, we may rewrite the type `ListInt` in the **currie
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 ```
+This type is isomorphic to the previous definition of `ListInt`, but now the code does not involve union types or record types any more.
+Working with curried functions often gives shorter code than working with union types and record types.
+Writing the Church-encoded types in the form `∀(r : Type) → (F r → r) → r` is more convenient for proving general properties of Church encodings than for practical programming.
 
-It is now less clear that we are dealing with a type of the form `∀(r : Type) → (F r → r) → r`.
-However, working with curried functions often gives shorter code than working with union types and record types.
-
-As an example, let us rewrite the type `TreeText` defined above in a curried form.
+As an example, let us rewrite the type `TreeText` defined above in the curried form.
 Begin with the definition already shown:
 
 ```dhall
-let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (F r → r) → r
+let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (FT r → r) → r
 ```
 
-Since `F r` is a union type with two parts, the type of functions `F r → r` can be replaced by a pair of functions.
+Since `FT r` is a union type with two parts, the type of functions `FT r → r` can be replaced by a pair of functions.
 
 We can also replace functions from a record type by curried functions.
 
@@ -4351,12 +4351,12 @@ let fmapF : FmapT F = ???
 The required code for the text-valued trees would be:
 
 ```dhall
-let F = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let fmapF : FmapT F
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
+let FTtext = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let fmapF : FmapT FTtext
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FTtext a) →
     merge { 
-      Leaf = λ(t : Text) → (F b).Leaf t,
-      Branch = λ(br : { left : a, right : a }) → (F b).Branch { left = f br.left, right = f br.right },
+      Leaf = λ(t : Text) → (FTtext b).Leaf t,
+      Branch = λ(br : { left : a, right : a }) → (FTtext b).Branch { left = f br.left, right = f br.right },
     } fa
 ```
 
@@ -5173,11 +5173,30 @@ Convert this definition to Dhall and write the corresponding Church encoding:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < One : a |  Cons : { head : a, tail: r } >
-let NEL = ∀(a : Type) → ∀(r : Type) → (F a r → r) → r
+let NEL_F = λ(a : Type) → LFix (F a)
 ```
 
-It will be more convenient to rewrite the type `NEL` without using union or record types.
-This is achieved if we use the curried form of the Church encoding:
+To construct values of types `NEL_F a`, we will write two functions that we will call `last` und `more`.
+The result of `last Natural 1` should be be a one-element non-empty list containing the value `1`.
+The result of `more Natural nel 1`, where `nel` is a non-empty list of type `NEL_F Natural`, should be the list `nel` with the value `1` prepended at the beginning.
+So, we expect the type signatures of the functions `last` and `more` to be:
+```dhall
+let last : ∀(a : Type) → a → NEL_F a = ???
+let more : ∀(a : Type) → NEL_F a → a → NEL_F a = ??? 
+```
+
+To implement these functions, we use the definition of `NEL_F` and figure out how to construct the suitable parts of the union type `F a r`.
+The code is:
+```dhall
+let last : ∀(a : Type) → a → NEL_F a
+  = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(farr : F a r → r) → farr ((F a r).One x)
+let more : ∀(a : Type) → a → NEL_F a → NEL_F a
+  = λ(a : Type) → λ(x : a) → λ(nel : NEL_F a) → λ(r : Type) → λ(farr : F a r → r) → farr ((F a r).Cons { head = x, tail = nel r farr } )
+let exampleNEL : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
+```
+
+It is more convenient to work with non-empty lists if we define them without using union types or record types.
+This is achieved if we use the _curried form_ of the Church encoding:
 
 ```dhall
 let NEL = λ(a : Type) → ∀(r : Type) → (a → r) → (a → r → r) → r
@@ -5206,8 +5225,8 @@ let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a →
   = λ(a : Type) → λ(nel : NEL a) → nel
 ```
 
-To see that this is a "right fold", apply `foldNEL` to some functions `ar : a → r` and `arr : a → r → r` and a three-element list such as `example1`. The result
-will be `arr 1 (arr 2 (ar 3))`; the first function evaluation is at the right-most element of the list.
+To see that this is a "right fold", apply `foldNEL` to some functions `last : a → r` and `next : a → r → r` and a three-element list such as `example1`. The result
+will be `next 1 (next 2 (last 3))`; the first function evaluation is at the right-most element of the list.
 
 Folding with `one` and `consn` gives again the initial list:
 
@@ -5226,31 +5245,31 @@ let test = assert : concatNEL Natural example1 example2 === consn Natural 1 (con
 
 To reverse a list, we right-fold over it and accumulate a new list by appending elements to it.
 
-So, we will need a new constructor (`snoc`) that appends a given value of type `a` to a list of type `NEL a`, rather than prepending as `cons` does.
+So, we will need a new constructor (`nsnoc`) that appends a given value of type `a` to a list of type `NEL a`, rather than prepending as `consn` does.
 
 ```dhall
-let snoc : ∀(a : Type) → a → NEL a → NEL a
+let nsnoc : ∀(a : Type) → a → NEL a → NEL a
   = λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
     foldNEL a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
-let test = assert : example1 === snoc Natural 3 (snoc Natural 2 (one Natural 1))
+let test = assert : example1 === nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
 ```
 
 Now we can write the reversing function:
 
 ```dhall
 let reverseNEL : ∀(a : Type) → NEL a → NEL a =
-    λ(a : Type) → λ(nel : NEL a) → foldNEL a nel (NEL a) (one a) (snoc a)
+    λ(a : Type) → λ(nel : NEL a) → foldNEL a nel (NEL a) (one a) (nsnoc a)
 let test = assert : reverseNEL Natural example1 === example2
 let test = assert : reverseNEL Natural example2 === example1
 ```
 
 
-### Sizing up a Church-encoded type constructor
+### Determining the size and the depth of Church-encoded data
 
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
-We will now consider functions that can work with all Church-encoded type constructors.
-Examples are functions that compute the total size and the maximum recursion depth of a data structure.
+We will now consider functions that _can_ work with all Church-encoded type constructors.
+Examples are functions that compute the total size and the recursion depth of a data structure.
 
 Suppose we are given an arbitrary pattern functor `F` with two type parameters. It defines a type constructor `C` via Church encoding as:
 
@@ -5259,15 +5278,23 @@ let F = λ(a : Type) → λ(r : Type) → ???
 let C = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
 ```
 
-We imagine that a value `p : C a` is a data structure that stores zero or more values of type `a`.
-The "total size" of `p` is the number of the values of type `a` that it stores. For example, if `p` is a list of 5 elements then the size of `p` is 5. The size
-of a `TreeInt` value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` is 3 because it stores three numbers.
+Typically, a value `p : C a` is a data structure that stores zero or more values of type `a`.
+The "total size" of `p` is the number of the values of type `a` that it stores.
+For example, if `p` is a list of 5 elements then the size of `p` is 5.
+The size of a `TreeInt` value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` is 3 because it stores three numbers.
 
-The "maximum depth" of `p` is the depth of nested recursion required to obtain that value. For example, if `p` is a `TreeInt`
-value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` then the depth of `p` is 2. The depth of a single-leaf tree (such as `leaf +10`) is 0.
+The "depth" of `p` is the maximum depth of nested constructors required to build that value.
+For example, if `p` is a `TreeInt` value `branch (branch (leaf +10) (leaf +20)) (leaf +30)` then the depth of `p` is 2.
+The depth of a single-leaf tree (such as `leaf +10`) is 0.
 
-The goal is to implement those functions generically, for all Church-encoded data structures at once.
-Both of those functions need to traverse the entire data structure and to accumulate a `Natural` value. Let us begin with `size`:
+The goal of this section is to implement these computations as generic functions `size` and `depth` that work in the same way for any Church-encoded data structure `p : C a`.
+
+The functions `size` and `depth` will need to traverse the entire data structure and to accumulate a `Natural` value.
+The only way of doing the traversal is to apply the Church-encoded value (`p : C a`) to some arguments.
+In order to obtain a value of type `Natural`, we need to apply `p` to the type `Natural` and to a function of type `F a Natural → Natural`.
+So, the code of both `size` and `depth` needs to have the form `size p = p Natural sizeF` and `depth p = p Natural depthF`, where `sizeF` and `depthF` are suitable functions of type `F a Natural → Natural`.
+
+Let us begin with writing the code for `size` in more detail:
 
 ```dhall
 let size : ∀(a : Type) → ∀(ca : C a) → Natural
@@ -5276,18 +5303,20 @@ let size : ∀(a : Type) → ∀(ca : C a) → Natural
     in ca Natural sizeF
 ```
 
-The function `sizeF` should count the number of data items stored in `F a Natural`. The values of type `Natural` inside `F` represent the sizes of nested
-instances of `C a`; those sizes have been already computed.
+A data structure of type `F a Natural` will typically store some values of type `a` and some values of type `Natural`.
+The function `sizeF` should count the number of data items (of type `a`) stored in a value of type `F a Natural`.
+The values of type `Natural` stored inside `F` represent the sizes of recursively nested data structures of type `C a`.
+The sizes of those nested data structures have been already computed at the time when the function `sizeF` is being called.
+(This is how the Church encoding implements working with recursive structures.)
 
+So, for a given value `fa : f a Natural`, the result of `sizeF fa` needs to be equal to the number of values of type `a` stored in `fa` plus the sum of all natural numbers stored in `fa`.
 It is clear that the function `sizeF` will need to be different for each pattern functor `F`.
-For a given value `fa : f a Natural`, the result of `sizeF fa` will be equal to the number of values of type `a` stored in `fa` plus the sum of all natural
-numbers stored in `fa`.
 
-For example, non-empty lists are described by `F a r = < One : a | Cons : { head : a, tail: r } >`.
-The corresponding `sizeF` function is:
+For example, non-empty lists (`NEL`) are described by the pattern functor `F` such that `F a r = < One : a | Cons : { head : a, tail: r } >`.
+The corresponding function `sizeF_NEL` is:
 
 ```dhall
-let sizeF : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural } > → Natural
+let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural } > → Natural
   = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail: Natural } >) →
     merge {
       One = λ(x : a) → 1,
@@ -5299,7 +5328,7 @@ Binary trees are described by `F a r = < Leaf : a | Branch : { left : r, right: 
 The corresponding `sizeF` function is:
 
 ```dhall
-let sizeF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
+let sizeF_BTree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
   = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
     merge {
       Leaf = λ(x : a) → 1,
@@ -5307,23 +5336,42 @@ let sizeF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Nat
     } fa
 ```
 
-Having realized that `sizeF` needs to be supplied for each pattern functor `F`, we can implement `size` as a function of `F`.
-The type `C` will be expressed as `LFix F`:
+Having realized that `sizeF` needs to be defined separately for each pattern functor `F`, we now implement `size` as a function of `F` and of `sizeF`.
+The type `C` will be expressed as `LFix F`.
+We can write a generic implementation of `size` as:
 
 ```dhall
-let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → ∀(ca : LFix (F a)) → Natural
+let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(a : Type) → λ(sizeF : ∀(b : Type) → F b Natural → Natural) → λ(ca : LFix (F a)) → 
     ca Natural (sizeF a)
 ```
 
+To test this code, let us compute the size of a non-empty list with three elements:
+
+```dhall
+let exampleNEL : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
+let test =
+  let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail: r } >
+  in assert : size F Natural sizeF_NEL exampleNEL === 3 
+```
+
+TODO 
+
 Turning now to the depth calculation, we proceed similarly and realize that the only difference is in the `sizeF` function.
-Instead of `sizeF` described above, we need `depthF` with the same type signature `∀(b : Type) → F b Natural → Natural`.
-For the depth calculation, `depthF` should return 1 plus the maximum of all values of type `Natural` that are present. If no such values are present, it just
-returns 1.
+Instead of `sizeF` described above, we need a function we may call `depthF` with the same type signature `∀(b : Type) → F b Natural → Natural`.
 
-For non-empty lists (and also for empty lists), the `depthF` function is the same as `sizeF` (because the recursion depth is the same as the list size).
+```dhall
+let depth : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(depthF : ∀(b : Type) → F b Natural → Natural) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(a : Type) → λ(depthF : ∀(b : Type) → F b Natural → Natural) → λ(ca : LFix (F a)) → 
+    ca Natural (depthF a)
+```
 
-For binary trees, the corresponding `depthF` function is defined like this:
+For the correct calculation of depth, `depthF` should return `1` plus the maximum of all values of type `Natural` that are present.
+If no such values are present, it just returns `1`.
+
+For non-empty lists (and also for empty lists), the `depthF` function is the same as `sizeF` because the recursion depth is equal to the length of the list.
+
+For binary trees, the corresponding `depthF` is defined by finding the maximum of depths of two branches:
 
 ```dhall
 let Natural/max = https://prelude.dhall-lang.org/Natural/max
@@ -5336,7 +5384,10 @@ let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Na
   )
 ```
 
+
 TODO finish the code for depth and run both size and depth on an example tree
+
+One may notice that the implementations of `size` and `depth` are actually the same code.
 
 TODO express this via Traversable instances for F, use F {} Natural -> Natural as type signature
 
@@ -5785,7 +5836,7 @@ Without knowing `x`, we cannot correctly assign a type to a function that extrac
 
 Extracting the second value from a dependent pair requires advanced support of dependent types that Dhall does not provide. 
 
-### Refinement types and singleton types
+### Refinement types, singleton types, subset types
 
 The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that all values of that type satisfy a given condition.
 Dependent pairs provide an encoding of refinement types in Dhall.
@@ -5833,7 +5884,7 @@ let NaturalLessEqualAssert = assert : 0 === 0
 let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
-As another example, we show how to encode a **singleton type**: a type that has only one value.
+As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
 For example, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
 This code defines a type `Text_abc` and a value `x` of that type:
 ```dhall
@@ -5864,8 +5915,8 @@ The repetition in this code can be reduced by using Dhall's built-in function `T
 
 TODO
 
-Another way of reducing duplication is to change the definition of `NaturalLessEqual10Predicate` to simplify the returned type.
-We notice that instead of returning an equality type it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
+Another way of reducing duplication is to change the definition of `NaturalLessEqual10Predicate` by simplifying the returned type.
+We notice that instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
 We can use an `if/then/else` expression that returns the unit or the void types according to the value of `x`.
 Then the definition and the usage become simpler while the functionality remains the same.
 Let us use more descriptive names for the new code:
@@ -5907,6 +5958,15 @@ let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
 
 This method works whenever the refinement condition can be expressed via `Bool` values.
 This is not always the case in Dhall; for instance, the condition for a string to be non-empty is not expressible as a function of type `Text → Bool`.
+
+When this technique works, it can be used to implement **subset types** whose values must satisfy a given predicate.
+The result is a subset of values of a given type `T`.
+
+TODO
+
+For `Text` types, certain tricks (see the textutils library) allow us to implement subset types of `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
+
+TODO 
 
 ## Co-inductive types
 
@@ -6889,7 +6949,7 @@ let contains_t
     in findTrueValues (replaceByTrue p)
 ```
 
-To test this code, we define the following functor `FT`, which is the pattern functor of a binary tree with `Natural` leaf values:
+To test this code, we define the functor `FT`, which is the pattern functor of a binary tree with `Natural` leaf values:
 
 ```dhall
 let FT = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
@@ -6969,7 +7029,7 @@ let hylo_max_depth
 
 To test this code, we use the functor `FT` defined above and implement a function `coalg : Natural → FT Natural` such that iterating `coalg n` beyond depth `n` will no longer put values of type `t` into trees of type `FT (FT (... (FT t)...))`.
 ```dhall
--- FT t = < Leaf : Natural | Branch : { left : t, right : t } >
+-- Note that FT t is just < Leaf : Natural | Branch : { left : t, right : t } >
 let FNat = FT Natural
 let coalg : Natural → FT Natural = λ(n : Natural) →
   let n-1 = Natural/subtract 1 n
