@@ -5405,9 +5405,8 @@ let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 
 let _ = assert : 2 === depth FTree Natural depthF_Tree exampleTree3
 ```
 
-TODO finish the code for depth and run both size and depth on an example tree
-
 One may notice that the implementations of `size` and `depth` are actually the same code.
+The only difference is the argument given as either `sizeF` or `depthF`.
 
 TODO express this via Traversable instances for F, use F {} Natural -> Natural as type signature
 
