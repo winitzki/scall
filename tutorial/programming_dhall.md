@@ -5358,7 +5358,7 @@ To test this code, let us compute the size of a non-empty list with three values
 let exampleNEL3 : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
 let test =
   let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail: r } >
-  in assert : size F Natural sizeF_NEL exampleNEL3 === 3 
+  in assert : 3 === size F Natural sizeF_NEL exampleNEL3 
 ```
 
 Here is the size calculation for a binary tree containing a single branch with two leaf values of an arbitrary type.
@@ -5367,11 +5367,12 @@ let Tree2 = λ(a : Type) → LFix (FTree a)
 let leaf = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Leaf x)
 let branch = λ(a : Type) → λ(x : Tree2 a) → λ(y : Tree2 a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Branch { left = x r frr, right = y r frr } )
 let exampleTree2 : Tree2 Natural = branch Natural (leaf Natural 1) (leaf Natural 2)
-let test = assert : size FTree Natural sizeF_Tree exampleTree2 === 2 
+let test = assert : 2 === size FTree Natural sizeF_Tree exampleTree2 
 ```
 
-Turning now to the depth calculation, we proceed similarly and realize that the only difference is in the `sizeF` function.
+Turning now to the depth calculation, we proceed similarly and find that the only difference is in the `sizeF` function.
 Instead of `sizeF` described above, we need a function we may call `depthF` with the same type signature `∀(b : Type) → F b Natural → Natural`.
+The depth calculation will use that function instead of `sizeF`:
 
 ```dhall
 let depth : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(depthF : ∀(b : Type) → F b Natural → Natural) → LFix (F a) → Natural
@@ -5379,24 +5380,30 @@ let depth : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(depthF : �
     ca Natural (depthF a)
 ```
 
-For the correct calculation of depth, `depthF` should return `1` plus the maximum of all values of type `Natural` that are present.
-If no such values are present, it just returns `1`.
+For the correct calculation of depth of a value `p : F a Natural`, the value `depthF p` should equal `1` plus the maximum of all values of type `Natural` that are stored in the data structure `p`.
+If no such values are present, `depthF p` returns `0`.
 
 For non-empty lists (and also for empty lists), the `depthF` function is the same as `sizeF` because the recursion depth is equal to the length of the list.
 
-For binary trees, the corresponding `depthF` is defined by finding the maximum of depths of two branches:
+For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
 let Natural/max = https://prelude.dhall-lang.org/Natural/max
-let depthF : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
-  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) → Natural/subtract 1 (
+let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
+  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
     merge {
-      Leaf = λ(x : a) → 1,
+      Leaf = λ(x : a) → 0,
       Branch = λ(x : { left : Natural, right: Natural }) → 1 + Natural/max x.left x.right,
     } fa
-  )
 ```
 
+To test:
+
+```dhall
+let _ = assert : 1 === depth FTree Natural depthF_Tree exampleTree2
+let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 1) (leaf Natural 2)) (leaf Natural 3)
+let _ = assert : 2 === depth FTree Natural depthF_Tree exampleTree3
+```
 
 TODO finish the code for depth and run both size and depth on an example tree
 
