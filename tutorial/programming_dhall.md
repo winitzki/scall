@@ -745,8 +745,10 @@ For instance, functions working with the `Natural` type are in the `Natural/` su
 This convention helps make the code for imports more visual:
 
 ```dhall
+let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
 let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
+let Optional/default = https://prelude.dhall-lang.org/Optional/default
 -- And so on.
 ```
 
@@ -2536,7 +2538,7 @@ let monoidList : ∀(a : Type) → Monoid (List a)
 The `Monoid` instances shown above are not the only ones possible.
 For example, one could implement a `Monoid` instance for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
 A `Monoid` instance for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
-The specific implementation of `Monoid` depends on the needs of a specific application.
+The specific implementation of `Monoid` should be chosen according to the needs of a specific application.
 
 A **semigroup** is a weaker typeclass hat has the `append` method like a monoid, but without the `empty` method.
 
@@ -2997,6 +2999,12 @@ let bimap
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
 ```
 
+The `Bifunctor` typeclass is defined via this method:
+```dhall
+let Bifunctor : (Type → Type → Type) → Type
+  = λ(F : Type → Type → Type) → { bimap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d }
+```
+
 Given `bimap`, one can then define two `fmap` methods that work only on the first or on the second of `P`'s type parameters.
 
 ```dhall
@@ -3010,17 +3018,24 @@ let fmap2
   : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
   = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap a a (identity a) b d g
 ```
-
 Here, we have used the `identity` function defined earlier.
+
+These definitions allow us to compute `Functor` typeclass evidence values for the two functors obtained from a bifunctor `P` by setting one of its type parameters to a fixed type.
+The code is:
+```dhall
+let functor1
+  : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → Functor (λ(b : Type) → P a b)
+  = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → { fmap = λ(b : Type) → λ(c : Type) → λ(f : b → c) → bifunctorP.bimap a a (identity a) b c f }
+let functor2
+  : ∀(P : Type → Type → Type) → Bifunctor P → ∀(b : Type) → Functor (λ(a : Type) → P a b)
+  = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(b : Type) → { fmap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → bifunctorP.bimap a c f b b (identity b) }
+```
 
 Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of types.
 
-The Dhall definitions of the typeclasses `Bifunctor` and `Profunctor` are:
+A Dhall definition of the `Profunctor` typeclass can be written as:
 
 ```dhall
-let Bifunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { bimap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d }
-
 let Profunctor : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F c b → F a d }
 ```
@@ -3369,24 +3384,29 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
 
 ### Foldable and traversable functors
 
-A functor `F` is called a **foldable functor** if one can extract all data of type `t` out of a value of type `F t`.
+A functor `F` is called a **foldable functor** if one can extract all data of type `t` stored in a data structure of type `F t`.
 This extraction operation can be implemented as a method `toList` with the type signature `F t → List t`.
 
-A quite different but equivalent formulation of the foldable property is through the `reduce` method with the type signature `Monoid m → F m → m`.
-We will use that formulation to define the `Foldable` typeclass in Dhall:
+We will use this operation to define the `Foldable` typeclass in Dhall:
 ```dhall
 let Foldable
-  = λ(F : Type → Type) → { reduce : ∀(M : Type) → Monoid M → F M → M }
+  = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
 ```
+The extracted values are stored in a list in a chosen order (different orders can be used to create different `Foldable` evidence values).
 
-Here is an implementation of `toList` for any foldable functor:
+Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a -> m) -> F a -> m` that assumes `m` to have a `Monoid` typeclass evidence.
+The function `foldMap` can be implemented for any `Foldable` functor:
 
 ```dhall
-let toList
-  : ∀(F : Type → Type) → Functor F → Foldable F → ∀(a : Type) → F a → List a
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(a : Type) → λ(fa : F a) →
-    let p : F (List a) = functorF.fmap a (List a) (λ(x : a) → [x]) fa
-    in foldableF.reduce (List a) (monoidList a) p
+let foldMap
+  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a -> m) -> ∀(F : Type → Type) → Foldable F → F a -> m
+  = λ(m : Type) → λ(monoidM : Monoid m) → λ(a : Type) → λ(f : a -> m) -> λ(F : Type → Type) → λ(foldableF : Foldable F) → λ(fa : F a) ->
+    let listA : List a = foldableF.toList a fa 
+    in List/fold a listA m (λ(x : a) → λ(y : m) → monoidM.append (f x) y) monoidM.empty
+```
+Here, we use the built-in function `List/fold` that has the following type:
+```dhall
+let _ = List/fold : ∀(a : Type) → List a → ∀(r : Type) → ∀(cons : a → r → r) → ∀(nil : r) → r
 ```
 
 A functor is called a **traversable functor** if it supports a method called `traverse` with the type signature written in Haskell like this:
@@ -3473,11 +3493,10 @@ As an example, let us define a `Monad` evidence value for `List` in that way:
 
 ```dhall
 let monadList : MonadFP List =
-  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
-  in functorList /\ pointedList /\
-      { bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
-        List/concatMap a b f fa
-      }
+  functorList /\ pointedList /\
+    { bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
+      List/concatMap a b f fa
+    }
 ```
 
 ### Typeclass derivation
@@ -4841,12 +4860,11 @@ That function is hard-coded to call its arguments 1000 times.
 In this way, it is guaranteed that all recursive structures will be finite and all operations on those structures will terminate.
 That's why Dhall is able to accept Church encodings of recursive types and perform iterative and recursive operations on Church-encoded data without compromising any safety guarantees.
 
-As another example, we will show how to compute the size of a Church-encoded data structure.
+As another example, we will show how to compute the size of Church-encoded binary trees.
 
-### Computing the size of a recursive data structure
+### Example: Size and depth of binary trees
 
-To motivate the method for computing the size of an arbitrary Church-encoded type, we
-first consider a specific recursive data structure: a binary trees with `Natural`-valued leaves.
+We consider binary trees with `Natural`-valued leaves.
 The type `TreeNat` is defined by:
 
 ```dhall
@@ -4855,7 +4873,7 @@ let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
 Values of this type can store one or more `Natural` numbers.
 The present task is to compute various numerical measures characterizing the tree's stored data.
 
-We will consider three possible size computations:
+We will implement three computations:
 
 - The sum of all natural numbers stored in the tree. (`treeSum`)
 - The total number of data items in the tree. (`treeCount`)
@@ -5274,11 +5292,11 @@ let test = assert : reverseNEL Natural example2 === example1
 ```
 
 
-### Determining the size and the depth of Church-encoded data
+### Example: Size and depth of generic Church-encoded data
 
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
-We will now consider functions that _can_ work with all Church-encoded type constructors.
+We will now consider functions that _can_ work with any Church-encoded type constructor.
 Examples are functions that compute the total size and the recursion depth of a data structure.
 
 In a previous section, we have seen such functions implemented for specific recursive types.
@@ -5420,9 +5438,53 @@ One may notice that the implementations of `size` and `depth` are actually the s
 The only difference is the argument given as either `sizeF` or `depthF`.
 Also, the functions `sizeF` are `depthF` are quite similar.
 
-It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has a `Foldable` typeclass evidence with respect to _both_ type parameters.
+It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has `Foldable` and `Functor` typeclass evidence values with respect to _both_ type parameters.
+Let us now see how that works.
 
-TODO express this via Foldable instances for F
+The functions `sizeF` and `depthF` have type `F a Natural → Natural` and may need to count the number of values of type `a` or iterate over all values of type `Natural` stored inside the data structure of type `F a Natural`.
+
+If `F x y` is a foldable functor with respect to both `x` and `y`, it means that we can iterate over all values of type `x` and separately over all values of type `y` stored in `F x y`.
+For convenience, let us define the types of the `Foldable` instances corresponding to the two functors obtained from the bifunctor `F` by fixing one of its type parameters:
+
+```dhall
+let Foldable1 = λ(F : Type → Type → Type) → ∀(b : Type) → Foldable (λ(a : Type) → F a b)
+let Foldable2 = λ(F : Type → Type → Type) → ∀(a : Type) → Foldable (λ(b : Type) → F a b)
+```
+
+Two `Foldable` instances give us two `toList` functions (having types `F a b → List a` and `F a b → List b`).
+Those functions allow us to extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
+With that, it is straightforward to perform the computations required for `sizeF` and `depthF`.
+The code is:
+
+```dhall
+let Natural/listMax = https://prelude.dhall-lang.org/Natural/listMax
+let Natural/sum = https://prelude.dhall-lang.org/Natural/sum
+let sizeAndDepthF
+  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → { size : Natural, depth : Natural }
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
+    let listC : List c = (foldableF1 Natural).toList c p
+    let listNatural : List Natural = (foldableF2 c).toList Natural p
+    let size = List/length c listC + Natural/sum listNatural
+    let depth = Optional/default Natural 0 (Natural/listMax listNatural)
+    in { size, depth }
+```
+
+Now we can implement the fully generic `size` and `depth` functions that work for any Church-encoded type constructor.
+
+```dhall
+let size
+  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
+   let sizeF = λ(fa : F a Natural) → (sizeAndDepthF F bifunctorF foldableF1 foldableF2 a fa).size
+   in ca Natural sizeF   
+let depth
+  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
+    let depthF = λ(fa : F a Natural) → (sizeAndDepthF F bifunctorF foldableF1 foldableF2 a fa).depth
+    in ca Natural depthF
+```
+
+TODO test examples for binary tree
 
 ### Example: implementing "fmap"
 
@@ -6648,10 +6710,11 @@ Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat 
 The main difference between `Stream/map` and `Stream/scanMap` is that `Stream/scanMap` can accumulate information about previously transformed data items in the stream, while `Stream/map` can only transform one data item at a time.
 
 It turns out that `scanMap` is equivalent to `scan` at the level of types, as long as the parametricity assumptions hold.
-The equivalence "at the level of types" means that _all possible_ implementations of `scan` (satisfying appropriate laws) are in a one-to-one correspondence to all possible implementations of `scanMap`.
+The equivalence "at the level of types" (that is, a **type isomorphism**) means that _all possible_ implementations of `scan` (satisfying appropriate laws) are in a one-to-one correspondence to all possible implementations of `scanMap`.
 So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
 
-The equivalence between `scan` and `scanMap` is analogous to the equivalence between the functions `foldLeft` and `reduceE` as proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
+The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
+In this book, we will not show the full proof, as the focus is on practical applications.
 
 
 ### Converting from the least fixpoint to the greatest fixpoint
@@ -6968,18 +7031,17 @@ Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
 (The Haskell code would be `fmap (\_ -> True) p`.)
 The result is a value of type `F Bool`.
-Then we use `F`'s `reduce` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
-For that, we need to use the type `Bool` as a monoid with the empty value equal to `False` and the binary operation chosen as `||`.
+Then we use `F`'s `toList` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
+For that, we will use the Dhall library function `Bool/or` that performs the "or" operation over all Boolean values in a list.
 The resulting value will be `True` if the data structure contains any `True` values.
 The Dhall code is:
 ```dhall
-let monoidBoolOr : Monoid Bool = { empty = False, append = λ(x : Bool) → λ(y : Bool) → x || y }
+let Bool/or = https://prelude.dhall-lang.org/Bool/or
 let contains_t
   : ∀(F : Type → Type) → Functor F → Foldable F → ∀(t : Type) → F t → Bool
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(t : Type) → λ(p : F t) →
-    let replaceByTrue : F t → F Bool = functorF.fmap t Bool (λ(_ : t) → True)
-    let findTrueValues : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
-    in findTrueValues (replaceByTrue p)
+    let replacedByTrue : F Bool = functorF.fmap t Bool (λ(_ : t) → True) p
+    in Bool/or (foldableF.toList Bool replacedByTrue) 
 ```
 
 To test this code, we define the functor `FT`, which is the pattern functor of a binary tree with `Natural` leaf values:
@@ -6987,7 +7049,7 @@ To test this code, we define the functor `FT`, which is the pattern functor of a
 ```dhall
 let FT = λ(t : Type) → < Leaf : Natural | Branch : { left : t, right : t } >
 let functorFT = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(f1a : FT a) → merge { Leaf = (FT b).Leaf, Branch = λ(branch : { left : a, right : a }) → (FT b).Branch { left = f branch.left, right = f branch.right } } f1a }
-let foldableFT = { reduce = λ(M : Type) → λ(monoidM : Monoid M) → λ(f1m : FT M) → merge { Leaf = λ(_ : Natural) → monoidM.empty, Branch = λ(branch : { left : M, right : M }) → monoidM.append branch.left branch.right } f1m }
+let foldableFT = { toList = λ(a : Type) → λ(fa : FT a) → merge { Leaf = λ(_ : Natural) → [] : List a, Branch = λ(branch : { left : a, right : a }) → [ branch.left, branch.right ] } fa }
 ```
 
 To see that the function `contains_t` works as expected, let us test it on some values of type `FT t`:
@@ -7015,7 +7077,7 @@ We need to keep doing this until we remove all layers of `F` and obtain a `Bool`
 We may describe the procedure symbolically like this:
 
 ```haskell
-findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+findTrue : F Bool → Bool = Bool/or . foldableF.toList Bool
 replace = λ(_ : t) → True
 
 h0 : t → Bool = replace
@@ -7049,7 +7111,7 @@ let hylo_max_depth
   : ∀(F : Type → Type) → Functor F → Foldable F → Natural → ∀(t : Type) → (t → F t) → t → Natural
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(limit : Natural) → λ(t : Type) → λ(coalg : t → F t) → λ(p : t) →
     let replace : t → Bool = λ(_ : t) → True
-    let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+    let findTrue : F Bool → Bool = λ(p : F Bool) → Bool/or (foldableF.toList Bool p)
     let Acc = { depth : Natural, hylo : t → Bool }
     let update : Acc → Acc = λ(acc : Acc) →
       let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.hylo (coalg x))
@@ -7100,7 +7162,7 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) →
     λ(limit : Natural) → λ(t : Type) → λ(seed : t) → λ(coalg : t → F t) → λ(r : Type) → λ(alg : F r → r) → λ(stopgap : t → r) →
       let replace : t → Bool = λ(_ : t) → True
-      let findTrue : F Bool → Bool = foldableF.reduce Bool monoidBoolOr
+      let findTrue : F Bool → Bool = λ(p : F Bool) → Bool/or (foldableF.toList Bool p)
       let Acc = { depthHylo : t → Bool, resultHylo : t → r }
       let update : Acc → Acc = λ(acc : Acc) →
         let newDepthHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.depthHylo (coalg x))
@@ -7219,12 +7281,12 @@ let fmap_P : FmapT P
       P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b },
     } pa
 let functorP : Functor P = { fmap = fmap_P }
-let reduce_P : ∀(M : Type) → Monoid M → P M → M
-  = λ(M : Type) → λ(monoidM : Monoid M) → λ(pm : P M) → merge {
-      P1 = λ(_ : Natural) → monoidM.empty,
-      P2 = λ(x : { p : M, b : Natural }) → x.p,
-  } pm
-let foldableP : Foldable P = { reduce = reduce_P }
+let toList_P : ∀(a : Type) → P a → List a
+  = λ(a : Type) → λ(pa : P a) → merge {
+      P1 = λ(_ : Natural) → [] : List a,
+      P2 = λ(x : { p : a, b : Natural }) → [x.p],
+  } pa
+let foldableP : Foldable P = { toList = toList_P }
 ```
 
 The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) -> (Int, Int)` implemented in Haskell as:
@@ -8562,7 +8624,6 @@ let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → �
 Another useful function is `CList/show`.
 We will implement it in a simple way that leaves a trailing comma in the lists.
 ```dhall
-let Optional/default = https://prelude.dhall-lang.org/Optional/default
 let CList/show : ∀(a : Type) → Show a → CList a → Text
   = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
     let printFList

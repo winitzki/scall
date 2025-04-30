@@ -206,12 +206,20 @@ val dhallToIgnore = Seq(
   "$ dhall --file ",
 )
 
-def toDhall: Markdown => String = {
-  case Markdown.CodeBlock("dhall", content) if dhallAddLet.exists(content.contains(_)) =>
-    s"let _ = $content"
-  case Markdown.CodeBlock("dhall", content) if !dhallToIgnore.exists(content.contains(_)) =>
-     content
-  case _ => ""
+val preludeRegex = "https://prelude.dhall-lang.org/([-.A-z0-9]+/[-.A-z0-9]+)".r
+
+def getSha256(prelude: String, path: String): String =
+  sys.process.stringToProcess(s"dhall hash --file $prelude/$path").!!
+
+def toDhall(preludePath: String)(markdown: Markdown) : String = {
+  val dhallContent = markdown match {
+    case Markdown.CodeBlock("dhall", content) if dhallAddLet.exists(content.contains(_)) =>
+      s"let _ = $content"
+    case Markdown.CodeBlock("dhall", content) if !dhallToIgnore.exists(content.contains(_)) =>
+       content
+    case _ => ""
+  }
+  preludeRegex.replaceAllIn(dhallContent, m => m.matched + " " + getSha256(preludePath, m.group(1)))
 }
 
 def toLatex: Markdown => String = {
@@ -243,11 +251,11 @@ def toLatex: Markdown => String = {
 }
 
 @main
-def main(code: Boolean): Unit =
+def main(code: Boolean, preludePath: String): Unit =
   val result: Seq[Markdown] = parse(System.in, markdown(using _)).get.value
   // The syntax `using _` was suggested as a workaround in https://github.com/scala/scala3/issues/19872
 
-  val convert = if code then toDhall else toLatex
+  val convert = if code then toDhall(preludePath) else toLatex
   val sep = if code then "" else "\n"
   val finalLine = if code then " in \"Example code from the book was evaluated successfully.\"\n" else ""
   
