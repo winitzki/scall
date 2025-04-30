@@ -4455,40 +4455,6 @@ The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/pap
 
 A proof is also shown in "Statement 2" in the section "Some properties of the Church encoding" of Appendix A in this book.
 
-#### Mendler encoding
-
-An alternative encoding of a recursive type is known as the **Mendler encoding**.
-We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
-
-```dhall
-let MFix : (Type → Type) → Type
-  = λ(F : Type → Type) → ∀(r : Type) → (∀(s : Type) → (s → r) → F s → r) → r
-```
-When `F` is a functor, the type `∀(s : Type) → (s → r) → F s → r` is isomorphic to just `F r → r` (by the contravariant Yoneda identity).
-Then the Mendler encoding is isomorphic to the Church encoding of the least fixpoint of `F`.
-
-When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
-We will show the "free functor" construction later in this book. 
-
-Let us implement the `fix` and `unfix` methods for the Mendler encoding.
-Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
-(But `unfix` still does!)
-```dhall
-let fix_M : ∀(F : Type → Type) → F (MFix F) → MFix F
-  = λ(F : Type → Type) →
-    let C = MFix F
-    in λ(fc : F C) → λ(r : Type) → λ(y : ∀(s : Type) → (s → r) → F s → r) →
-      let c2r : C → r = λ(c : C) → c r y
-      in y C c2r fc
-
-let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
-  = λ(F : Type → Type) → λ(functorF : Functor F) →
-    let C = MFix F
-    let fmap_fix_M : F (F C) → F C = functorF.fmap (F C) C (fix_M F)
-    let y : ∀(s : Type) → (s → F C) → F s → F C = λ(s : Type) → λ(f : s → F C) → λ(fs : F s) → fmap_fix_M (functorF.fmap s (F C) f fs)
-    in λ(c : C) → c (F C) y 
-```
-
 ### Data constructors
 
 The function `fix : F C → C` (sometimes this function is also called `build`) provides a general way of creating new values of type `C` out of previously known values or from scratch.
@@ -10057,6 +10023,42 @@ let fVoidVoidToLFixVoid : ∀(F : Type → Type)  → (F <> → <>) → LFix F �
     c <> p
 ```
 For this part of the proof, we do not need to use the functor property of `F`.
+
+### Mendler encodings
+
+An alternative encoding of a recursive type is known as the **Mendler encoding**.
+We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
+The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types.
+The Mendler encoding does not appear to provide any performance improvements.
+
+```dhall
+let MFix : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (∀(s : Type) → (s → r) → F s → r) → r
+```
+When `F` is a covariant functor, the type `∀(s : Type) → (s → r) → F s → r` is isomorphic to just `F r → r` (by the contravariant Yoneda identity).
+Then the Mendler encoding is isomorphic to the Church encoding of the least fixpoint of `F`.
+
+When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
+We will show the "free functor" construction later in this book.
+
+Let us implement the `fix` and `unfix` methods for the Mendler encoding.
+Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
+(But `unfix` still does!)
+```dhall
+let fix_M : ∀(F : Type → Type) → F (MFix F) → MFix F
+  = λ(F : Type → Type) →
+    let C = MFix F
+    in λ(fc : F C) → λ(r : Type) → λ(y : ∀(s : Type) → (s → r) → F s → r) →
+      let c2r : C → r = λ(c : C) → c r y
+      in y C c2r fc
+
+let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    let C = MFix F
+    let fmap_fix_M : F (F C) → F C = functorF.fmap (F C) C (fix_M F)
+    let y : ∀(s : Type) → (s → F C) → F s → F C = λ(s : Type) → λ(f : s → F C) → λ(fs : F s) → fmap_fix_M (functorF.fmap s (F C) f fs)
+    in λ(c : C) → c (F C) y 
+```
 
 
 ### The Church-Yoneda identity
