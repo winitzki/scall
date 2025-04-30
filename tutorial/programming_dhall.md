@@ -10947,9 +10947,9 @@ We already know how to encode fixpoints of a single recursive type, and we will 
 Then we will use the Church-Yoneda identity (for least fixpoints) or the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
 The derivation for `U` will be omitted because it is exactly similar.
 
-We will need the property we call the "mutual recursion lemma":
+We will need the property we call the "joint recursion lemma":
 
-###### Statement 1 (mutual recursion lemma).
+###### Statement 1 (joint recursion lemma).
 Suppose `J` is any bifunctor. Then the double fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
 That property holds for all fixpoints (least or greatest or any other fixpoints).
 
@@ -10998,7 +10998,7 @@ T = GFix (λ(x : Type) → F x U)
 U = GFix (λ(y : Type) → G T y)
 ```
 
-We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equtaions.
+We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equations.
 We notice that the last equation expresses `U` via `T`.
 It will be more convenient to write that expression as `U = H T` where the functor `H` is defined by:
 
@@ -11036,7 +11036,7 @@ let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
 ```
 
 The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
-So, we may use the mutual recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
+So, we may use the joint recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
 
 ```dhall
 let T = GFix (λ(x : Type) → J x x)
@@ -11161,7 +11161,7 @@ Exists P → R  ≅  ∀(T : Type) → P T → R
 ```
 $$ (\exists A.~P~A) \to R \cong \forall T.~P~T\to R $$
 
-Mutual recursion lemma (for any covariant bifunctor `J`):
+joint recursion lemma (for any covariant bifunctor `J`):
 
 ```dhall
 LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
