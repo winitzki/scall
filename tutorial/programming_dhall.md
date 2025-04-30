@@ -5104,10 +5104,17 @@ Recursive "type-level" data structures can be implemented via the Church encodin
 We use the same pattern as before, except that stored data items will now have type `Type`.
 
 The definition of the type-level `Optional` is straightforward because Dhall's union types support arbitrary kinds.
-
+We will first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
+Then we will define a more limited `OptionalT` that can be used with types such as `Bool` or `Natural`.
 ```dhall
-let OptionalK : Kind → Kind = λ(k : Kind) → < None | Some : k >
+let OptionalK : Kind → Kind = λ(k : Kind) → < NoneK | SomeK : k >
+let OptionalT = OptionalK Type
+let example1 = OptionalT.NoneK
+let example2 = OptionalT.SomeK Natural
+let example3 = (OptionalK (Type → Type)).SomeK List
 ```
+Note that we used the name `SomeK` rather than `Some` for the constructor in `OptionalK`.
+Using `Some` would leads to a parse error in Dhall, because `Some` is treated as a special keyword.
 
 TODO
 
