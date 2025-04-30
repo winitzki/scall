@@ -6,7 +6,7 @@ fi
 prelude_path="$2"
 
 if [ x"$1" == xtex ] ; then
-  $command false < programming_dhall.md  > generated.tex
+  $command false "$prelude_path" < programming_dhall.md  > generated.tex
 elif [ x"$1" == xdhall ] ; then
   $command true "$prelude_path" < programming_dhall.md > generated.dhall 2> /dev/null
 else

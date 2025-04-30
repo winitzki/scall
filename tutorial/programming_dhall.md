@@ -749,6 +749,7 @@ let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
 let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 let Optional/default = https://prelude.dhall-lang.org/Optional/default
+let Optional/map = https://prelude.dhall-lang.org/Optional/map
 -- And so on.
 ```
 
@@ -5102,13 +5103,18 @@ But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbo
 Recursive "type-level" data structures can be implemented via the Church encoding technique.
 We use the same pattern as before, except that stored data items will now have type `Type`.
 
+The definition of the type-level `Optional` is straightforward because Dhall's union types support arbitrary kinds.
+
+```dhall
+let OptionalK : Kind → Kind = λ(k : Kind) → < None | Some : k >
+```
+
 TODO
 
 ### Recursive type constructors
 
 A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
-
-For this to work, the pattern functor `F` must have one more type parameter than `T`.
+So, the pattern functor `F` must have more type parameters.
 
 For example, consider this Haskell definition of a binary tree with leaves of type `a`:
 
@@ -5179,6 +5185,73 @@ let F = λ(a : Type) → λ(b : Type) → λ(r : Type) →
    < LeafA : a | LeafB : b | Branch : { left : r, right : r } >
 let TreeAB = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (F a b r → r) → r
 ```
+
+### Example: Church-encoded list
+
+The `List` functor is a built-in type in Dhall.
+As a pedagogical example, let us now implement an equivalent type constructor using Church encoding. 
+
+The recursive type equation for `List` has the form (in Haskell-like syntax):
+
+`List a = Nil | Cons a (List a)`
+
+The right-hand side is equivalent to the Dhall type `Optional (Pair a (List a))`.
+So, we can represent the type equation for `List` in the form `List a = FList a (List a)` if we define `FList` by:
+
+```dhall
+let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
+```
+Then the recursive type `CList` is expressed as:
+```dhall
+let CList = λ(a : Type) → LFix (FList a)
+```
+or equivalently:
+```dhall
+let CList = LFixT FList
+```
+
+To create values of type `CList x` (where `x` is a specific type), we will implement helper functions `nilCList` and `consCList`.
+Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
+That method uses the generic `fix` function for the fixpoint type.
+
+
+We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
+For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a` and is implemented like this:
+```dhall
+let bifunctorFList : Bifunctor FList = { bimap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → Optional/map (Pair a c) (Pair b d) (λ(xy : Pair a c) → { _1 = f xy._1, _2 = g xy._2 }) }
+let fixCList
+  : ∀(a : Type) → FList a (CList a) → CList a
+  = λ(a : Type) → λ(fc : FList a (CList a)) →
+    λ(r : Type) → λ(frr : FList a r → r) →
+      let c2r : CList a → r = λ(ca : CList a) → ca r frr
+      let fmap_c2r : FList a (CList a) → FList a r = bifunctorFList.bimap a a (identity a) (CList a) r c2r
+      let fr : FList a r = fmap_c2r fc
+      in frr fr
+```
+Now we write the constructors for `CList`-typed lists:
+
+```dhall
+let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
+let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
+```
+
+Another useful function is `CList/show`.
+We will implement it in a simple way that leaves a trailing comma in the lists.
+```dhall
+let CList/show : ∀(a : Type) → Show a → CList a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
+    let printFList
+      : FList a Text → Text
+      = λ(flist : FList a Text) → Optional/default Text "" (Optional/map (Pair a Text) Text (λ(p : Pair a Text) → "${showA.show p._1}, ${p._2}") flist) 
+    in "[ ${clist Text printFList}]"
+```
+
+As an example of using these tools, let us write a `CList` value corresponding to the list `[ 1, 3, 4, 5 ]` and print it:
+```dhall
+let exampleCList1345 : CList Natural = consCList Natural 1 (consCList Natural 3 (consCList Natural 4 (consCList Natural 5 (nilCList Natural))))
+let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 === "[ 1, 3, 4, 5, ]"
+```
+
 
 ### Example: Concatenating and reversing non-empty lists
 
@@ -8361,7 +8434,6 @@ Such a function can be always implemented for any polynomial functor `F`.
 Details and proofs are in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13.
 
 ```dhall
-let Optional/map = https://prelude.dhall-lang.org/Optional/map
 let swapFilterable
   : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)  
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) →
@@ -8586,59 +8658,7 @@ let contrafilterableGFix
 ```
 
 While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we expect.
-To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `List` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)`.
-
-
-TODO Move this code about FList/CList to the chapter/section about Church-encoded type constructors.
-
-
-```dhall
-let FList = λ(a : Type) → λ(b : Type) → Optional (Pair a b)
-let CList = λ(a : Type) → LFix (FList a)
-```
-To create values of type `CList x` (where `x` is a specific type), we will implement helper functions `nilCList` and `consCList`.
-Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
-That method uses the generic `fix` function for the fixpoint type.
-
-
-We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
-For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a` and is implemented like this:
-```dhall
-let bifunctorFList : Bifunctor FList = { bimap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → Optional/map (Pair a c) (Pair b d) (λ(xy : Pair a c) → { _1 = f xy._1, _2 = g xy._2 }) }
-let fixCList
-  : ∀(a : Type) → FList a (CList a) → CList a
-  = λ(a : Type) → λ(fc : FList a (CList a)) →
-    λ(r : Type) → λ(frr : FList a r → r) →
-      let c2r : CList a → r = λ(ca : CList a) → ca r frr
-      let fmap_c2r : FList a (CList a) → FList a r = bifunctorFList.bimap a a (identity a) (CList a) r c2r
-      let fr : FList a r = fmap_c2r fc
-      in frr fr
-```
-Now we write the constructors for `CList`-typed lists:
-
-```dhall
-let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
-let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
-```
-
-Another useful function is `CList/show`.
-We will implement it in a simple way that leaves a trailing comma in the lists.
-```dhall
-let CList/show : ∀(a : Type) → Show a → CList a → Text
-  = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
-    let printFList
-      : FList a Text → Text
-      = λ(flist : FList a Text) → Optional/default Text "" (Optional/map (Pair a Text) Text (λ(p : Pair a Text) → "${showA.show p._1}, ${p._2}") flist) 
-    in "[ ${clist Text printFList}]"
-```
-
-As an example of using these tools, let us write a `CList` value corresponding to the list `[ 1, 3, 4, 5 ]` and print it:
-```dhall
-let exampleCList1345 : CList Natural = consCList Natural 1 (consCList Natural 3 (consCList Natural 4 (consCList Natural 5 (nilCList Natural))))
-let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 === "[ 1, 3, 4, 5, ]"
-```
-
-TODO  move the above code to another chapter
+To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `CList` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)` as we defined earlier.
 
 A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
 This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
