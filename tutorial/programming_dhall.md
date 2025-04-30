@@ -641,13 +641,15 @@ For complicated type signatures, it still helps to write type annotations, becau
 ### Modules and imports
 
 Dhall has a simple file-based module system.
-Each Dhall file must contain a definition of a _single_ Dhall value.
-(That value is often written in the form `let x = ... in ...`, but it's still a single value.)
+The module system is built on the principle that each Dhall file must contain a valid program that is evaluated to a _single_ result value.
+(Programs are often written in the form `let x = ... let y = ... in ...`, but the result is still a single value.)
+
 A file's value may be imported into another Dhall file by specifying the path to the first Dhall file.
 The second Dhall file can then directly use that value as a sub-expression in any further code.
-For convenience, the imported value is usully assigned to a variable with a meaningful name.
+For convenience, the imported value is usually assigned to a variable with a meaningful name.
 
 In this way, each Dhall file is seen as a "module" that exports a single value.
+There are no special keywords to denote the exported value; there is only one such value in any case.
 
 Here is an example: the first file contains a list of numbers, and the second file computes the sum of those numbers.
 
@@ -658,7 +660,7 @@ Here is an example: the first file contains a list of numbers, and the second fi
 
 ```dhall
 -- This file is `./sum.dhall`.
-let input_list = ./first.dhall  -- Import from relative path.
+let input_list = ./first.dhall  -- Import from a file at a relative path.
 let sum = https://prelude.dhall-lang.org/Natural/sum  -- Import from URL.
 in sum input_list
 ```
@@ -669,13 +671,6 @@ Running `dhall` on the second file will compute and show the result:
 $ dhall --file ./sum.dhall
 10
 ```
-
-Dhall uses no special keywords to denote imports or exported values.
-Imports are just values that are named in a special way:
-- If a Dhall value begins with `/`, it is an import of a file given by an absolute path.
-- If a Dhall value begins with `./`, it is an import from a relative path (relative to the directory containing the currently evaluated Dhall file).
-- If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
-- A Dhall value of the form `env:xyz` is an import from a shell environment variable `xyz` (in Bash, this would be `$xyz`).
 
 Although each Dhall module exports only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
@@ -732,11 +727,53 @@ In this way, Dhall programs may perform computations with external inputs.
 
 However, most often the imported Dhall values are not simple data but records containing types, values, and functions.
 
-The Dhall import system implements strict limitations on what can be imported to ensure that users can prevent wrong or malicious code from being injected into a Dhall program.
-For instance, all imported modules are required to be well-typed.
-Circular imports are not allowed (a module cannot import itself directly or via other imports).
-Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value.
+
+
+Dhall denotes imports via special syntax:
+- If a Dhall value begins with `/`, it is an import of a file given by an absolute path.
+- If a Dhall value begins with `./`, it is an import from a relative path (relative to the directory containing the currently evaluated Dhall file).
+- If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
+- A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
+
+It is important to keep in mind that the import paths, environment variable names, and SHA256 hash values are _not_ strings and cannot be manipulated at run time.
+
+For instance, one cannot write anything like `let a = ./Dir/${filename}`, with the intention of substituting the value `filename` as part of the path to the imported file.
+It is not supported to import a file whose name is computed by concatenating some strings.
+Also, one cannot read a URL string from an external resource and then import data from that URL.
+
+It is possible to read the contents of the imported resource as plain text or as binary data, instead of treating it as Dhall code.
+This is achieved with the syntax `as Text` or `as Bytes`.
+For example, environment variables typically contain plain text rather than Dhall code, and they should be imported `as Text`:
+
+```dhall
+⊢ env:SHELL as Text
+
+"/bin/bash"
+```
+
+It is possible to read the _path_ to the imported resource as a value, using the syntax `as Location`.
+For example:
+
+```dhall
+⊢ env:SHELL as Location
+
+< Environment : Text | Local : Text | Missing | Remote : Text >.Environment
+  "SHELL"
+```
+The result is a value of a special union type that describes all possible external resources.
+
+However, the `Location` values cannot be reused to perform further imports.
+
+The Dhall import system implements other limitations on what can be imported to ensure that users can prevent wrong or malicious code from being injected into a Dhall program:
+
+- All imported modules are required to be well-typed.
+- All imported resources are loaded and validated at type-checking time, before any evaluation may start. (This is the reason why import paths must be hard-coded and cannot be computed at run time.)
+- Circular imports are not allowed: a module may not import itself either directly or via other imports.
+- Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
+- Web URLs that require authentication headers will not leak those headers to other Web URLs.
+
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
+
 
 #### Organizing modules and submodules
 
@@ -4874,7 +4911,7 @@ As another example, we will show how to compute the size of Church-encoded binar
 ### Example: Size and depth of binary trees
 
 We consider binary trees with `Natural`-valued leaves.
-The type `TreeNat` is defined by:
+The corresponding type `TreeNat` is defined by:
 
 ```dhall
 let TreeNat = ∀(r : Type) → (Natural → r) → (r → r → r) → r
@@ -4909,7 +4946,7 @@ let treeDepth : TreeNat → Natural =
 
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
 
-TODO
+TODO 
 
 
 ### Pattern matching
@@ -10928,29 +10965,31 @@ let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a,
 
 Then we may consider two possibilities: either we need the least fixpoints, or we need the greatest fixpoints.
 
-In this section, we will prove that the least fixpoints are given by the following Church encodings:
+In this section, we will prove the Church encoding formulas for the least and the greatest fixpoints.
+The least fixpoints are given by the following encodings:
 
 ```dhall
 let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 let U = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → b
 ```
-while the greatest fixpoints are given by the following encodings:
+
+The greatest fixpoints are given by the following encodings:
 
 ```dhall
 let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
 let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
 ```
 
-The proofs in both cases are similar, and so we will write both proofs at the same time.
+The proofs in both cases have many similar steps.
 The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
-We already know how to encode fixpoints of a single recursive type, and we will use those encodings to express `T`.
-Then we will use the Church-Yoneda identity (for least fixpoints) or the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
+We already know how to encode fixpoints defining a single recursive type, and we will use those encodings to express `T`.
+Then we will use the Church-Yoneda identity (for least fixpoints) and the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
 The derivation for `U` will be omitted because it is exactly similar.
 
 We will need the property we call the "joint recursion lemma":
 
 ###### Statement 1 (joint recursion lemma).
-Suppose `J` is any bifunctor. Then the double fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
+Suppose `J` is any bifunctor. Then the joint fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
 That property holds for all fixpoints (least or greatest or any other fixpoints).
 
 ####### Proof
@@ -10970,16 +11009,16 @@ The last equation is a type equation for `W`, whose solution is written as:
 
 `W = Fix (λ(w : Type) → Fix (λ(y : Type) → J w y))`
 
-So, we have shown that `W` is a double fixpoint of `J x y` with respect to both `x` and `y`.
+So, we have shown that `W` is a joint fixpoint of `J x y` with respect to both `x` and `y`.
 
-Conversely, consider any `W` which is a double fixpoint of `J x y` with respect to both `x` and `y`:
+Conversely, consider any `W` which is a joint fixpoint of `J x y` with respect to both `x` and `y`:
 
 `W = Fix (λ(x : Type) → Fix (λ(y : Type) → J x y))`
 
 This `W` satisfies the type equation `W = Fix (λ(y : Type) → J W y)`.
-Consider that type equation separately: a type `V = Fix (λ(y : Type) → J W y)` must be such that the type isomorphism `V ≅ J W V` holds.
-But we know that `W` _equals_ `Fix (λ(y : Type) → J W y)`; in other words, `W = V`.
-So, `W` satisfies the type isomorphism `W ≅ J W W`.
+Consider the right-hand side of that type equation separately: if `Fix (λ(y : Type) → J W y)` is some type `V` then `V` must be such that the type isomorphism `V ≅ J W V` holds.
+But we know that `W` _equals_ `Fix (λ(y : Type) → J W y)`.
+So, `W = V` and the type isomorphism `W ≅ J W W` holds.
 It means that `W` is a fixpoint of `J x x` with respect to `x`. 
 
 We have shown that every fixpoint of `J x x` with respect to `x` is at the same time a fixpoint of `J x y` with respect to `x` and `y`, and vice versa.
@@ -10988,7 +11027,7 @@ All fixpoints of `J x x` and all fixpoints of `J x y` are in a one-to-one corres
 It follows that the greatest fixpoint of `J x x` is the same as the greatest fixpoint of `J x y`, and similarly for the least fixpoints.
 $\square$
 
-Now we begin the proof of the mutual recursion encodings.
+Now we begin the proof of the encodings for mutually recursive types.
 
 Let us first consider the greatest fixpoints and rewrite the equations `T = F T U` and `U = G T U` as:
 
@@ -11016,8 +11055,8 @@ As `U = H T`, we can derive a fixpoint equation that contains just `T` and no `U
 
 ```dhall
 -- Symbolic derivation.
-T === LFix (λ(x : Type) → F x U)
-  === LFix (λ(x : Type) → F x (H T))
+T === GFix (λ(x : Type) → F x U)
+  === GFix (λ(x : Type) → F x (H T))
 ```
 This is a fixpoint equation for `T` alone. The solution can be written as:
 
@@ -11045,7 +11084,7 @@ let H = λ(x : Type) → GFix (G x)
 in let T = GFix (λ(x : Type) → F x (H x))
 ```
 
-For the case of least fixpoints, the argument will be exactly similar. The resulting definitions for `H` and `T` are:
+For the case of least fixpoints, the argument is similar. The resulting definitions for `H` and `T` are:
 
 ```dhall
 let H = λ(x : Type) → LFix (G x)
@@ -11107,7 +11146,8 @@ T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
   === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed: x, step: x → F x y }, step : y → G x y }))
 ```
 
-Transform the record type into an equivalent record type, and obtain the required type formula for `T`:
+It remains to replace the record type `{ seed : { seed: x, step: x → F x y }, step : y → G x y }` by an equivalent record type `{ seed : x, stepA : x → F x y, stepB : y → G x y }`.
+Then we get the required type formula for `T`:
 
 ```dhall
 -- Symbolic derivation.
@@ -11116,19 +11156,19 @@ T === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x �
 
 This concludes the proof for the greatest fixpoints.
 
-For the least fixpoints, we write the last obtained type expression for `T`:
+For the least fixpoints, we recall the last obtained type expression for `T`:
 
 ```dhall
 let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 ```
 
-The Church-Yoneda identity says that, for any functors `P` and `Q`,
+The Church-Yoneda identity says that, for any functors `P` and `Q`:
 
 `P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y`
 
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = (F x a → x) → x` and `Q a = G x a`.
 Defined in that way, both `P` and `Q` are covariant functors.
-Then we may use the Church-Yoneda identity to obtain:
+Then we may apply the Church-Yoneda identity to obtain:
 
 ```dhall
 -- Symbolic derivation.
