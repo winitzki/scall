@@ -393,35 +393,6 @@ The second argument of `merge` is a value of a union type on which the pattern m
 Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
 It is a syntax error to write `merge { X = 0 }` without specifying a value (`x`) of a union type.
 
-### The `Optional` type
-
-An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
-
-```dhall
-let MyOptional = λ(a : Type) → < MyNone | MySome : a >
-let x : MyOptional Natural = (MyOptional Natural).MySome 123
-let y : MyOptional Text = (MyOptional Text).MyNone
-```
-
-The built-in `Optional` type is a less verbose equivalent of this code.
-One writes `None Text` instead of `(MyOptional Text).MyNone`, and `Some 123` instead  of `(MyOptional Natural).MySome 123`.
-(The type parameter `Natural` is determined automatically by Dhall.)
-Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
-
-Here is an example of using Dhall's `merge` for implementing a `getOrElse` function for `Optional` types:
-
-```dhall
-let getOrElse : ∀(a : Type) → Optional a → a → a
-  = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
-    merge {
-            None = default,
-            Some = λ(x : a) → x
-          } oa
-```
-
-The `Optional` type is a built-in Dhall type rather than a library-defined type for pragmatic reasons.
-First, a built-in type is integrated with the typechecker and supports more concise code (`Some 123` instead of `(Optional Natural).Some 123`).
-Second, the `Optional` type plays a special role when exporting data to JSON and YAML formats: record fields with `None` values are typically omitted from the generated configuration files.
 
 ### The void type and its use
 
@@ -557,6 +528,36 @@ The types of `Either` and `Pair` is `Type → Type → Type`.
 
 As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are no more than type aliases.
 Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves ("structural typing").
+
+### The `Optional` type constructor
+
+An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
+
+```dhall
+let MyOptional = λ(a : Type) → < MyNone | MySome : a >
+let x : MyOptional Natural = (MyOptional Natural).MySome 123
+let y : MyOptional Text = (MyOptional Text).MyNone
+```
+
+The built-in `Optional` type constructor is a less verbose equivalent of this code.
+One writes `None Text` instead of `(MyOptional Text).MyNone`, and `Some 123` instead  of `(MyOptional Natural).MySome 123`.
+(The type parameter `Natural` is determined automatically by Dhall.)
+Other than that, the built-in `Optional` type behaves as if it were a union type with constructor names `None` and `Some`.
+
+Here is an example of using Dhall's `merge` for implementing a `getOrElse` function for `Optional` types:
+
+```dhall
+let getOrElse : ∀(a : Type) → Optional a → a → a
+  = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
+    merge {
+            None = default,
+            Some = λ(x : a) → x
+          } oa
+```
+
+The `Optional` type is a built-in Dhall type rather than a library-defined type for pragmatic reasons.
+First, a built-in type is integrated with the typechecker and supports more concise code (`Some 123` instead of `(Optional Natural).Some 123`).
+Second, the `Optional` type plays a special role when exporting data to JSON and YAML formats: record fields with `None` values are typically omitted from the generated configuration files.
 
 ### Functions with type parameters
 
@@ -767,10 +768,10 @@ However, the `Location` values cannot be reused to perform further imports.
 The Dhall import system implements other limitations on what can be imported to ensure that users can prevent wrong or malicious code from being injected into a Dhall program:
 
 - All imported modules are required to be well-typed.
-- All imported resources are loaded and validated at type-checking time, before any evaluation may start. (This is the reason why import paths must be hard-coded and cannot be computed at run time.)
+- All imported resources are loaded and validated at type-checking time, before any evaluation may start. (So, import paths must be hard-coded and cannot be computed at run time.)
 - Circular imports are not allowed: a module may not import itself either directly or via other imports.
 - Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
-- Web URLs that require authentication headers will not leak those headers to other Web URLs.
+- Web URL imports that require authentication headers will not leak those headers to other Web URLs.
 
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
