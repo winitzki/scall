@@ -4455,6 +4455,40 @@ The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/pap
 
 A proof is also shown in "Statement 2" in the section "Some properties of the Church encoding" of Appendix A in this book.
 
+#### Mendler encoding
+
+An alternative encoding of a recursive type is known as the **Mendler encoding**.
+We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
+
+```dhall
+let MFix : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (∀(s : Type) → (s → r) → F s → r) → r
+```
+When `F` is a functor, the type `∀(s : Type) → (s → r) → F s → r` is isomorphic to just `F r → r` (by the contravariant Yoneda identity).
+Then the Mendler encoding is isomorphic to the Church encoding of the least fixpoint of `F`.
+
+When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
+We will show the "free functor" construction later in this book. 
+
+Let us implement the `fix` and `unfix` methods for the Mendler encoding.
+Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
+(But `unfix` still does!)
+```dhall
+let fix_M : ∀(F : Type → Type) → F (MFix F) → MFix F
+  = λ(F : Type → Type) →
+    let C = MFix F
+    in λ(fc : F C) → λ(r : Type) → λ(y : ∀(s : Type) → (s → r) → F s → r) →
+      let c2r : C → r = λ(c : C) → c r y
+      in y C c2r fc
+
+let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    let C = MFix F
+    let fmap_fix_M : F (F C) → F C = functorF.fmap (F C) C (fix_M F)
+    let y : ∀(s : Type) → (s → F C) → F s → F C = λ(s : Type) → λ(f : s → F C) → λ(fs : F s) → fmap_fix_M (functorF.fmap s (F C) f fs)
+    in λ(c : C) → c (F C) y 
+```
+
 ### Data constructors
 
 The function `fix : F C → C` (sometimes this function is also called `build`) provides a general way of creating new values of type `C` out of previously known values or from scratch.
@@ -4464,8 +4498,8 @@ We can write this in a mathematical notation:
 $$F ~C \to C  ~≅~  (F_1 ~C \to C) \times (F_2 ~C \to C) \times ... $$
 where each of $F_1 ~ C$, $F_2 ~C$, etc., are product types such as $C \times C$ or $\mathrm{Text} \times  C$, etc.
 
-Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor that we may assign a name for convenience.
-In this way, we will replace a single function `fix` by a product of constructors that can be used to create values the complicated type `C` more easily.
+Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor to which we may assign a name for convenience.
+In this way, we will replace a single function `fix` by a product of named constructors that can be used to create values the complicated type `C` more easily.
 
 The code for the constructors can be derived mechanically from the general code of `fix`.
 But in some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
@@ -4634,11 +4668,18 @@ Let us show some examples of how this is done.
 
 ### Applying a function many times
 
-Perhaps the simplest nontrivial Church-encoded type is the type of natural numbers.
+Perhaps the simplest nontrivial recursive type is the type of natural numbers (often denoted "`Nat`").
+The type `Nat` is the least fixpoint of the type equation `Nat = F Nat` with `F = Optional`.
+So, the Church encoding of `Nat` is the type `∀(r : Type) → (Optional r → r) → r`.
 
+It is more convenient to use the curried form of the Church encoding.
+The function type `Optional r → r` is isomorphic to the pair `(r, r → r)`.
+If we curry the function type `(Optional r → r) → r`, we obtain `r → (r → r) → r`.
+In this way, we derive the Church encoding for `Nat` as it is often shown in tutorials:
 ```dhall
 let Nat = ∀(r : Type) → r → (r → r) → r
 ```
+
 Values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
 Because the type `r` is arbitrary, the only way such a function could work is by applying `f` to the value `x`, then applying `f` to the result, etc., repeating this procedure a certain number of times.
 An example is:
@@ -4647,10 +4688,11 @@ let three : Nat = λ(r : Type) → λ(x : r) → λ(f : r → r) → f (f (f x))
 ```
 This code applies `f` three times.
 
-It can be proved (although the proof is not easy) that any value of type `Nat` must be of this form, applying `f` a certain (hard-coded) number of times.
+It can be proved that any value of type `Nat` must be of this form, applying `f` a certain (hard-coded) number of times.
+This follows from the fact that the Church encoding is isomorphic to the least fixpoint of the type equation `Nat = Optional Nat`.
 
-Given a value `n : Nat`, a type `A`, a value `x : A`, and a function `f : A → A`, we can write the expression `n A x f`.
-That expression will evaluate to `f (f (... (f x) ... ))`, where `f` is applied `n` times.
+Given a value `n : Nat`, a type `A`, a value `a : A`, and a function `f : A → A`, we can write the expression `n A a f`.
+That expression will evaluate to `f (f (... (f a) ... ))`, where `f` is applied `n` times.
 
 This computation can be seen as a fold-like aggregation that accumulates a value of type `A` by repeatedly applying the function `f`.
 We could implement a function `Nat/fold` with a fold-like type signature:
@@ -5091,32 +5133,6 @@ The definitions appear very similar, except for the output types of the function
 But that difference is crucial.
 
 See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
-
-### Church-encoded data structures at type level
-
-Dhall's built-in type constructors  `List` and `Optional` only work with values of ground types (that is, types of type `Type`).
-One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
-But it is a type error to write `[ Bool, Natural ]` meaning a list of type symbols, or `Some Text` (meaning an `Optional` value storing the `Text` type symbol).
-
-
-
-Recursive "type-level" data structures can be implemented via the Church encoding technique.
-We use the same pattern as before, except that stored data items will now have type `Type`.
-
-The definition of the type-level `Optional` is straightforward because Dhall's union types support arbitrary kinds.
-We will first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
-Then we will define a more limited `OptionalT` that can be used with types such as `Bool` or `Natural`.
-```dhall
-let OptionalK : Kind → Kind = λ(k : Kind) → < NoneK | SomeK : k >
-let OptionalT = OptionalK Type
-let example1 = OptionalT.NoneK
-let example2 = OptionalT.SomeK Natural
-let example3 = (OptionalK (Type → Type)).SomeK List
-```
-Note that we used the name `SomeK` rather than `Some` for the constructor in `OptionalK`.
-Using `Some` would leads to a parse error in Dhall, because `Some` is treated as a special keyword.
-
-TODO
 
 ### Recursive type constructors
 
@@ -5617,7 +5633,7 @@ let fmapC
       in ca r farr
 ```
 
-We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a functor `LFix (F a)`.
+We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a `Functor` evidence for the type constructor `LFix (F a)`:
 
 ```dhall
 let bifunctorLFix
@@ -5632,7 +5648,34 @@ let bifunctorLFix
   }
 ```
 
-In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on, implementing typeclass evidence for Church-encoded type constructors whenever possible.
+In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on.
+Each time, if possible, we will implement typeclass evidence values for Church-encoded type constructors.
+
+### Church-encoded data structures at type level
+
+Dhall's built-in type constructors  `List` and `Optional` only work with values of **ground types** (that is, types of type `Type`).
+One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
+But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols.
+One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
+
+Recursive "type-level" data structures can be implemented via the Church encoding technique.
+We use the same pattern as before, except that stored data items will now have type `Type`.
+
+The definition of the type-level `Optional` is straightforward because Dhall's union types support arbitrary kinds.
+We will first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
+Then we will define a more limited `OptionalT` that can be used with types such as `Bool` or `Natural`.
+```dhall
+let OptionalK : Kind → Kind = λ(k : Kind) → < NoneK | SomeK : k >
+let OptionalT = OptionalK Type
+let example1 = OptionalT.NoneK
+let example2 = OptionalT.SomeK Natural
+let example3 = (OptionalK (Type → Type)).SomeK List
+```
+Note that we used the name `SomeK` rather than `Some` for the constructor in `OptionalK`.
+Using `Some` would leads to a parse error in Dhall, because `Some` is treated as a special keyword.
+
+TODO implement type-level list and show that it cannot be kind-polymorphic
+
 
 ### Existentially quantified types
 
