@@ -4929,25 +4929,65 @@ We will implement three computations:
 Each computation is a fold-like function, so we will implement all of them via similar-looking code:
 
 ```dhall
-let treeSum : TreeNat → Natural =
-   let leafSum = ???
-   let branchSum = ???
-   in ∀(tree : TreeNat) → tree Natural leafSum branchSum
+let leafSum : Natural → Natural = ???
+let branchSum : Natural → Natural → Natural = ???
+let treeSum : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafSum branchSum
 
-let treeCount : TreeNat → Natural =
-   let leafCount = ???
-   let branchCount = ???
-   in ∀(tree : TreeNat) → tree Natural leafCount branchCount
+let leafCount : Natural → Natural = ???
+let branchCount : Natural → Natural → Natural = ???
+let treeCount : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafCount branchCount
 
-let treeDepth : TreeNat → Natural =
-   let leafDepth = ???
-   let branchDepth = ???
-   in ∀(tree : TreeNat) → tree Natural leafDepth branchDepth
+let leafDepth : Natural → Natural = ???
+let branchDepth : Natural → Natural → Natural = ???
+let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDepth branchDepth
 ```
 
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, and so on.
 
-TODO 
+For the calculation of the sum of all numbers in a tree, `leafSum` should return just the number stored in a leaf, and `branchSum` should return the sum of the two numbers in the branches.
+(During evaluation, those two numbers will be equal to the recursively computed sums over the two sub-trees.)
+So, we write:
+```dhall
+let leafSum : Natural → Natural = λ(leaf : Natural) → leaf 
+let branchSum : Natural → Natural → Natural = λ(left : Natural) → λ(right : Natural) → left + right  
+let treeSum : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafSum branchSum
+```
+
+For the calculation of the total number of data items, we count each leaf as one item.
+The number of items in the two branches needs to be added together.
+
+```dhall
+let leafCount : Natural → Natural = λ(leaf : Natural) → 1 
+let branchCount : Natural → Natural → Natural = λ(left : Natural) → λ(right : Natural) → left + right  
+let treeCount : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafCount branchCount
+```
+
+For the calculation of the depth, each leaf contributes 0 while each branch contributes 1 plus the maximum of the depths of the two subtrees.
+```dhall
+let Natural/max = https://prelude.dhall-lang.org/Natural/max
+let leafDepth : Natural → Natural = λ(leaf : Natural) → 0
+let branchDepth : Natural → Natural → Natural = λ(left : Natural) → λ(right : Natural) → 1 + Natural/max left right
+let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDepth branchDepth  
+```
+
+To test this code, let us implement the constructors and create some `TreeNat` values.
+```dhall
+let leafTreeNat : Natural → TreeNat = λ(n : Natural) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → leaf n
+let branchTreeNat : TreeNat → TreeNat → TreeNat = λ(left : TreeNat) → λ(right : TreeNat) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → branch (left r leaf branch) (right r leaf branch)
+let tree1 : TreeNat = leafTreeNat 10 
+let tree123 : TreeNat = branchTreeNat (leafTreeNat 10) (branchTreeNat (leafTreeNat 20) (leafTreeNat 30)) 
+```
+
+Now we can compute the various numerical metrics for the example trees:
+
+```dhall
+let _ = assert : treeSum tree1 === 10
+let _ = assert : treeSum tree123 === 60
+let _ = assert : treeCount tree1 === 1
+let _ = assert : treeCount tree123 === 3
+let _ = assert : treeDepth tree1 === 0
+let _ = assert : treeDepth tree123 === 2
+```
 
 
 ### Pattern matching
@@ -5518,7 +5558,6 @@ For non-empty lists (and also for empty lists), the `depthF` function is the sam
 For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
-let Natural/max = https://prelude.dhall-lang.org/Natural/max
 let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
   = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
     merge {
