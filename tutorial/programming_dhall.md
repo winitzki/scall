@@ -1937,8 +1937,7 @@ To recognize that, the interpreter would need to deduce that the condition under
 But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
 So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional witness argument of type `Nonzero y`.
-
-We also cannot divide by a number `y` imported from a different Dhall file, unless that file also exports a witness value of type `Nonzero y`.
+That argument can be easily provided as `{=}` when calling that function, as long as `y` can be computed as a literal `Natural` value.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
@@ -5180,8 +5179,8 @@ See the Appendix "Naturality and Parametricity" for a proof that the Church enco
 
 ### Recursive type constructors
 
-A recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
-So, the pattern functor `F` must have more type parameters.
+Typically, a recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
+To describe such type equations, the pattern functor `F` must have more type parameters.
 
 For example, consider this Haskell definition of a binary tree with leaves of type `a`:
 
@@ -5432,7 +5431,7 @@ let test = assert : reverseNEL Natural example2 === example1
 ```
 
 
-### Example: Size and depth of generic Church-encoded data
+### Size and depth of generic Church-encoded data
 
 The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
 
@@ -5625,7 +5624,7 @@ let depth
 
 TODO test examples for binary tree
 
-### Example: implementing "fmap"
+### Implementing "fmap" for recursive functors
 
 A type constructor `F` is a **covariant functor** if it admits an `fmap` method with the type signature:
 
@@ -5694,7 +5693,7 @@ let bifunctorLFix
 In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on.
 Each time, if possible, we will implement typeclass evidence values for Church-encoded type constructors.
 
-### Church-encoded data structures at type level
+### Data structures at type level
 
 Dhall's built-in type constructors  `List` and `Optional` only work with values of **ground types** (that is, types of type `Type`).
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
@@ -5717,8 +5716,183 @@ let example3 = (OptionalK (Type → Type)).SomeK List
 Note that we used the name `SomeK` rather than `Some` for the constructor in `OptionalK`.
 Using `Some` would leads to a parse error in Dhall, because `Some` is treated as a special keyword.
 
+TODO show examples of code with typechecking using OptionalK
+
 TODO implement type-level list and show that it cannot be kind-polymorphic
 
+
+### Perfect trees and other nested recursive types
+
+A "perfect tree" is a tree-like data structure whose branches are constrained to have the same shape until a chosen depth is reached.
+For example, a perfect _binary_ tree of depth $n$ must have exactly $2^n$ leaves.
+
+A Haskell definition of a perfect binary tree can be written like this:
+
+```haskell
+data PBTree a = Leaf a | Branch (PBTree (a, a))   -- Haskell.
+```
+Example values of type `PBTree Int` are:
+
+`Leaf 10`
+
+`Branch (Leaf (10, 20))`
+
+`Branch (Branch (Leaf ((10, 20), (30, 40))))`
+
+The code will type-check only when there are as many `Branch` levels as the nesting levels in the tuples.
+
+The definition of `PBTree` is recursive because it uses `PBTree` itself.
+To define this data structure in Dhall, we need to use Church encoding.
+But it turns out that we cannot use the Church encoding techniques shown so far.
+The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` as the type parameter of `PBTree`.
+
+Recursive definitions of this form are called **nested types**, indicating that a nontrivial type expression is nested in the type constructor being defined.
+
+Compare with the Haskell definition of the `List` type constructor:
+```haskell
+data List a = Nil | Cons a (List a)   -- Haskell.
+```
+This is a type equation of the form `List a = F (List a)`, where the pattern functor `F` is defined by `F r = Nil | Cons a r` if we temporarily pretend that `a` is a fixed type.
+We can then denote `List a = T` and rewrite the recursive definition of `List a` as a simple type equation `T = F T`.
+The Church encoding technique shown in previous sections will give us an equivalent type implemented in Dhall.
+
+Coming back to the perfect binary tree, we find that we _cannot_ temporarily fix `a`, set `T = PBTree a`, and rewrite the recursive definition of `PBTree` as `T = F T` with some `F`.
+Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a))` requires us to change the nested type parameter from `a` to `(a, a)` in the recursive use of `PBTree`.
+Because of that change, the type equation for `PBTree` is not of the form `PBTree a = F (PBTree a)` with any functor `F`.
+
+The pattern functor `F` needs to be able to apply `PBTree` to different type parameters.
+So, `F` must have the type constructor `PBTree` as its parameter.
+The result of applying `F PBTree` must be a new type constructor that takes a type parameter `a` and applies `PBTree` to the pair `(a, a)`.
+Then we will be able to rewrite the definition of `PBTree` in the form `PBTree = F PBtree`.
+For that, we need to define `F` by:
+
+```haskell
+type F p a = Leaf a | Branch (p (a, a))   -- Haskell.
+```
+The corresponding Dhall definition is:
+```dhall
+let F = λ(P : Type → Type) → λ(a : Type) → < Leaf : a | Branch : P (Pair a a) > 
+```
+The type of this `F` is `(Type → Type) → (Type → Type)`.
+It is a pattern functor at the level of _type constructors_.
+
+The Church encoding formula `∀(r : Type) → (F r → r) → r` needs some changes in order to make it work at the level of type constructors:
+- Replace `r : Type` by `r : Type → Type`.
+- As `F r` is now a type constructor, replace `F r → r` by `∀(s : Type) → F r s → r s`.
+- Add a type parameter to the final output `r` at the end of the formula.
+
+The resulting type formula is:
+
+```dhall
+let LFixT = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(s : Type) → F r s → r s) → r a
+```
+This is the general Church encoding at the level of type constructors.
+
+For instance, with the pattern functor `F` defined above, we obtain the type constructor for perfect binary trees:
+
+```dhall
+let PBTree : Type → Type = LFixT F
+```
+
+TODO example code, creating and consuming a PBTree
+
+
+### Church encodings for GADTs
+
+GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
+
+Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
+
+We begin by reviewing how a usual **algebraic data type** (ADT) is defined.
+Haskell and Scala have a "short syntax" and a "long syntax" for defining ADTs.
+
+The short syntax resembles a union type:
+
+```haskell
+data Tree a = Leaf a | Branch (Tree a) (Tree a)   -- Haskell.  
+```
+
+The analogous type in Scala 3 looks like this:
+
+```scala
+enum Tree[A]:                                            // Scala 3.
+  case Leaf[A](a: A);  case Branch[A](left: Tree[A], right: Tree[A])
+```
+
+The type `Tree` has two constructors, which may be viewed as functions whose output type is `Tree a`.
+For instance, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
+
+The long syntax makes this explicit and writes out each constructor separately as a function.
+In Haskell, the long syntax for defining `Tree` looks like this:
+```haskell
+data Tree a where   -- Haskell.
+  Leaf :: a -> Tree a
+  Branch :: Tree a -> Tree a -> Tree a
+```
+
+The Scala 3 uses the keyword `extends` in its long syntax:
+
+```scala
+enum Tree[A]:                                       // Scala 3.
+  case Leaf[A](a: A) extends Tree[A]
+  case Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
+```
+
+The "long syntax" has no advantage in simple situations where all constructors create values of the same type.
+In this example, all three constructors have the same output type `Tree a`.
+
+However, note that the output type parameter `a` in `Tree a` is written out explicitly in the long syntax.
+So, Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
+For example, the output type could be `Tree (a, a)` instead of `Tree a`.
+The result is a data type known as the **perfect binary tree**:
+
+```haskell
+data PTree a where   -- Haskell.
+  Leaf :: a -> PTree a
+  Branch :: PTree a -> PTree a -> PTree (a, a)
+```
+
+Here is an artificial example where we arbitrarily set the output type parameters:
+
+```haskell
+data WeirdBox a where   -- Haskell.
+  Box1 :: a -> WeirdBox Int
+  Box2 :: Bool -> WeirdBox String
+  RGBBox :: Int -> a -> b -> WeirdBox (a, b)
+```
+
+```scala
+enum WeirdBox[A]:                                      // Scala 3.
+  case Box1[A](a: A) extends WeirdBox[Int]
+  case WhiteBox(b: Bool) extends WeirdBox[String]
+  case RGBBox[A, B](rgb: Int, a: A, b: B) extends WeirdBox[(A, B)]
+```
+
+Note that Scala requires us to write more type parameters explicitly, compared with Haskell.
+
+The type constructor `WeirdBox` is an example of a GADT (**generalized algebraic data type**).
+GADTs are type constructors whose definition substitutes specific types or nontrivial type expressions as output type parameters.
+In the `WeirdBox` example, the definition substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the simple type parameter `a` everywhere.
+This makes `WeirdBox` a GADT.
+
+Definitions of GADTs are typically not type-parametric, so GADTs are neither covariant nor contravariant in their type parameters.
+
+A example of using a GADT
+
+TODO haskell, scala - show the short and the long form of definition of ADTs and show how to pass to nested types and to GADTs
+
+
+### GADTs
+
+Types known as "GADT" (generalized algebraic data types) are type constructors whose definitions are not parametric.
+
+
+GADTs can be encoded with the technique similar to the Church encoding of nested types.
+
+In Haskell or Scala, a GADT is a type constructor (with one or more type parameters) defined by a set of value constructors.
+Each value constructor is specified by its type signature.
+Typically, GADTs are recursively defined because the constructor arguments will use the GADT itself.
+So, we use the Church
 
 ### Existentially quantified types
 
@@ -9162,7 +9336,7 @@ TODO
 ### Least fixpoint types
 
 Implementing a `zip` method for recursive type constructors turns out to require quite a bit of work.
-In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
+In this section, we will show how a `zip` method can be written for all type constructors defined via `LFix`, such as lists and trees.
 
 Given a pattern bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
 ```dhall
@@ -9199,7 +9373,7 @@ The function `maxF2` is available for any given polynomial bifunctor `F` and can
 
 TODO implement maxF2
 
-The code of `depth` is then written as shown in section "".
+The code of `depth` is then written as shown in section "Size and depth of generic Church-encoded data".
 
 TODO implement depth here or there
 
@@ -9303,8 +9477,6 @@ Examples of typeclasses that cannot have free instances are `Show`, `Comonad`, a
 ### Free filterable
 
 ### Free applicative
-
-## Nested types and GADTs
 
 ## Dhall as a scripting DSL
 
