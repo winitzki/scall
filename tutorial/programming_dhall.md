@@ -3868,6 +3868,75 @@ This technique works only when function arguments are literal constants.
 For instance, the expression `λ(n : Natural) → f 200 n (refl Bool True)` will not be accepted by Dhall, even though `200 + n` is always greater than `100`.
 This is because Dhall's type-checker is not powerful enough to determine symbolically that `200 + n > 100` for any natural `n`.
 
+### Asserting that a value is literal
+
+A curious consequence of the limitations of Dhall's evaluator and type-checker is that a function can assert that one of its parameters is a literal value.
+This will prevent that function from being called by other functions; only top-level code (where all values are literals) may call such a function.
+
+The method is based on asserting some property that always holds, but such that Dhall cannot recognize that the property holds unless all values are literal values.
+
+A suitable property for `Natural` numbers is the following:
+
+```dhall
+let zeroNatural : Natural → Natural = λ(x : Natural) → Natural/subtract 1 (Natural/subtract x 1)
+```
+The function `zeroNatural` is a constant function that always returns `0`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a literal `Natural` argument.
+```dhall
+let _ = assert : zeroNatural 0 === 0
+let _ = assert : zeroNatural 1 === 0
+let _ = assert : zeroNatural 2 === 0
+-- This fails with a type error:
+-- λ(x : Natural) → assert : zeroNatural x === 0
+```
+
+With this function, we can create an equality type dependent type that is always equivalent to the unit type (`{=}`) except that Dhall will only recognize that property for literal values.
+```dhall
+let literalNatural : Natural → Type = λ(x : Natural) → zeroNatural x === 0
+let _ = assert : literalNatural 123      -- OK.
+-- But this fails with a type error because `x` is not a literal value:
+-- λ(x : Natural) → assert : literalNatural x
+```
+
+Now write a function taking a `Natural` argument `n` together with an argument of type `literalNatural n`:
+```dhall
+let functionTopLevelOnly = λ(n : Natural) → λ(ev : literalNatural n) → n + 1 
+```
+We can call this function at the top level of a Dhall program, where all `Natural` values are evaluated to literals and an `assert : literalNatural n` will always succeed.
+```dhall
+-- Write is at top level.
+let x = 123
+let xIsLiteral = assert : literalNatural x
+let y = functionTopLevelOnly x xIsLiteral
+let _ = assert : y === 124
+```
+But it will be impossible to call `functionTopLevelOnly` within another function, without having an evidence value of type `literalNatural x`:
+```dhall
+-- Type error: assertion will fail.
+let _ = λ(x : Natural) →
+  let xIsLiteral = assert : literalNatural x  -- This fails.
+  in functionTopLevelOnly x xIsLiteral
+```
+
+A suitable equality type for `Integer` numbers is defined by:
+```dhall
+let zeroInteger : Integer → Integer = λ(x : Integer) → Natural/toInteger (zeroNatural (Integer/clamp x))
+let literalInteger : Integer → Type = λ(x : Integer) → zeroInteger x === +0
+```
+
+For `Bool` arguments, the code could look like this:
+
+```dhall
+let trueBool : Bool → Bool = λ(x : Bool) → if x then x else (x == False)
+let literalBool : Bool → Type = λ(x : Bool) → trueBool x === True
+```
+
+For `Text` arguments, we create a sequence of operations that will always return an empty string, and we assert on that property.
+But the Dhall interpreter will not recognize that property statically.
+
+```dhall
+let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
+let literalText : Text → Type = λ(x : Text) → emptyText x === ""
+```
 
 ### Leibniz equality at type level
 
@@ -5857,6 +5926,8 @@ let pbTreeToList : ∀(a : Type) → PBTree a → List a
 let _ = assert : pbTreeToList Natural examplePB1 === [ 10 ]
 let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
 ```
+
+The ability to implement `pbTreeToList` means that `PBTree` is a `Foldable` functor.
 
 To compute the depth of a perfect binary tree, we 
 
