@@ -5767,13 +5767,13 @@ Then we will be able to rewrite the definition of `PBTree` in the form `PBTree =
 For that, we need to define `F` by:
 
 ```haskell
-type F p a = Leaf a | Branch (p (a, a))   -- Haskell.
+type F r a = Leaf a | Branch (r (a, a))   -- Haskell.
 ```
 The corresponding Dhall definition is:
 ```dhall
-let F = λ(P : Type → Type) → λ(a : Type) → < Leaf : a | Branch : P (Pair a a) > 
+let F = λ(r : Type → Type) → λ(a : Type) → < Leaf : a | Branch : r (Pair a a) > 
 ```
-The type of this `F` is `(Type → Type) → (Type → Type)`.
+The type of `F` is `(Type → Type) → (Type → Type)`.
 It is a pattern functor at the level of _type constructors_.
 
 The Church encoding formula `∀(r : Type) → (F r → r) → r` needs some changes in order to make it work at the level of type constructors:
@@ -5792,6 +5792,18 @@ For instance, with the pattern functor `F` defined above, we obtain the type con
 
 ```dhall
 let PBTree : Type → Type = LFixT F
+```
+
+To create values of type `PBTree a`, we implement the constructor functions:
+
+```dhall
+let leafPB : ∀(a : Type) → a → PBTree a
+  = λ(a : Type) → λ(x : a) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
+    f a ((F r a).Leaf x)
+let brnchPB : ∀(a : Type) → PBTree (Pair a a) → PBTree a
+  = λ(a : Type) → λ(sub : PBTree (Pair a a)) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
+    let raa : r (Pair a a) = sub r f
+    in f a ((F r a).Branch raa)
 ```
 
 TODO example code, creating and consuming a PBTree
