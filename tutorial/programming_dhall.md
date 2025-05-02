@@ -3936,6 +3936,8 @@ But the Dhall interpreter will not recognize that property statically.
 ```dhall
 let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
 let literalText : Text → Type = λ(x : Text) → emptyText x === ""
+-- This fails with a type error because `x` is not a literal Text value:
+-- λ(x : Text) → assert : literalText x
 ```
 
 ### Leibniz equality at type level
@@ -5928,10 +5930,40 @@ let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
 ```
 
 The ability to implement `pbTreeToList` means that `PBTree` is a `Foldable` functor.
+```dhall
+let foldablePBTree : Foldable PBTree = { toList = pbTreeToList }
+```
 
-To compute the depth of a perfect binary tree, we 
+To compute the depth of a perfect binary tree, we will implement a function of type `PBTree a → Natural`.
+The code will look like this:
+```dhall
+let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
+  = λ(a : Type) → λ(tree : PBTree a) →
+    let P : Type → Type = ???
+    let q : ∀(s : Type) → F P s → P s = ???
+    in tree P q
+```
+The type parameter `P` in the function call `tree P q` must be a type constructor.
+How should we choose it? Note that the result type of `tree P q` will be `P a`.
+So, we have to choose `P` as a constant functor such that `P a = Natural` for all `a`.
 
-TODO
+The parameter `q` will then have type `∀(s : Type) → < Leaf : s | Branch : Natural > → Natural`.
+This function should compute the depth of the tree, assuming that the depth for branches has been already computed.
+
+The complete code with tests is:
+```dhall
+let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
+  = λ(a : Type) → λ(tree : PBTree a) →
+    let P : Type → Type = λ(_ : Type) → Natural
+    let q : ∀(s : Type) → F P s → P s = λ(s : Type) → λ(p : < Leaf : s | Branch : Natural >) →
+      merge { Leaf = λ(_ : s) → 0
+            , Branch = λ(depth : Natural) → depth + 1
+            } p
+    in tree P q
+let _ = assert : pbTreeDepth Natural examplePB1 === 0
+let _ = assert : pbTreeDepth Natural examplePB2 === 2
+```
+
 
 
 ### Church encodings for GADTs
