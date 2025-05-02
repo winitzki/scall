@@ -5825,9 +5825,9 @@ To define this data structure in Dhall, we need to use Church encoding.
 But it turns out that we cannot use the Church encoding techniques shown so far.
 The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` as the type parameter of `PBTree`.
 
-Recursive definitions of this form are called **nested types**, indicating that a nontrivial type expression is nested in the type constructor being defined.
+Recursive definitions of this form are called **nested types**, indicating that a nontrivial type expression is "nested" in the type constructor being defined.
 
-Compare with the Haskell definition of the `List` type constructor:
+Compare the definition of `PBTree` with this Haskell definition of the `List` type constructor:
 ```haskell
 data List a = Nil | Cons a (List a)   -- Haskell.
 ```
@@ -5964,7 +5964,9 @@ let _ = assert : pbTreeDepth Natural examplePB1 === 0
 let _ = assert : pbTreeDepth Natural examplePB2 === 2
 ```
 
-
+In this section, we studied only one example of a nested type (the "perfect binary tree").
+This and other advanced examples of designing and using nested recursive types
+are explained in the paper ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001) by Ralph Hinze.
 
 ### Church encodings for GADTs
 
