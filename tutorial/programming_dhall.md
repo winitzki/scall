@@ -221,7 +221,7 @@ This allows Dhall to implement a rich set of type-level features:
 - Type constructor parameters: for example, `λ(F : Type → Type) → λ(A : Type) → λ(x : F A) → ...`
 - Dependent types, via functions whose inputs are values and outputs are types.
 
-### Product types
+### Product types (records)
 
 Product types are implemented via records.
 For example, `{ x = 123, y = True }` is a "record value" whose type is `{ x : Natural, y : Bool }`.
@@ -273,6 +273,10 @@ Dhall does not distinguish `RecordType1` and `RecordType2` from each other or fr
 as the order of record fields is not significant. 
 So, the values `x` and `y` actually have the same type in this code.
 
+It will be convenient to define a `Pair` type constructor:
+```dhall
+let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
+```
 
 ### Co-product types ("union types")
 
@@ -343,6 +347,11 @@ The types `Union1` and `Union2` are different because the constructors named `Ri
 Constructor names are always written together with the union type.
 So, there is no conflict between `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
 (A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.)
+
+It will be convenient to define an `Either` type constructor:
+```dhall
+let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b > 
+```
 
 ### Pattern matching
 
@@ -526,8 +535,8 @@ let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 
 The types of `Either` and `Pair` is `Type → Type → Type`.
 
-As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are no more than type aliases.
-Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves ("structural typing").
+As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are just type aliases.
+Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves (**structural typing**).
 
 ### The `Optional` type constructor
 
@@ -5794,19 +5803,24 @@ For instance, with the pattern functor `F` defined above, we obtain the type con
 let PBTree : Type → Type = LFixT F
 ```
 
+Let us look at some examples of working with the nested type `PBTree`.
+
 To create values of type `PBTree a`, we implement the constructor functions:
 
 ```dhall
 let leafPB : ∀(a : Type) → a → PBTree a
   = λ(a : Type) → λ(x : a) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
     f a ((F r a).Leaf x)
-let brnchPB : ∀(a : Type) → PBTree (Pair a a) → PBTree a
+let branchPB : ∀(a : Type) → PBTree (Pair a a) → PBTree a
   = λ(a : Type) → λ(sub : PBTree (Pair a a)) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
     let raa : r (Pair a a) = sub r f
     in f a ((F r a).Branch raa)
+let examplePB1 : PBTree Natural = leafPB Natural 10
+let examplePB2 : PBTree Natural = branchPB Natural (branchPB (Pair Natural Natural) (leafPB (Pair (Pair Natural Natural) (Pair Natural Natural)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } )) 
 ```
 
-TODO example code, creating and consuming a PBTree
+When defining `examplePB2`, we used the nested record syntax.
+The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records.
 
 
 ### Church encodings for GADTs
