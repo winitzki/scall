@@ -3208,7 +3208,6 @@ As an example, let us define a `Monad` evidence value for `List`:
 
 ```dhall
 let monadList : Monad List =
-  let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
   let pure = λ(a : Type) → λ(x : a) → [ x ]
   let bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
       List/concatMap a b f fa
@@ -5819,8 +5818,49 @@ let examplePB1 : PBTree Natural = leafPB Natural 10
 let examplePB2 : PBTree Natural = branchPB Natural (branchPB (Pair Natural Natural) (leafPB (Pair (Pair Natural Natural) (Pair Natural Natural)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } )) 
 ```
 
-When defining `examplePB2`, we used the nested record syntax.
-The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records.
+When defining `examplePB2`, we used the nested record syntax, and we had to write out the nested `Pair` types explicitly.
+The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records and types.
+
+Let us now write a function that extracts all values stored in a perfect tree to a list,
+and another function that computes the depth of a perfect tree.
+
+Extracting values from a perfect tree will be done by code like this:
+```dhall
+let pbTreeToList : ∀(a : Type) → PBTree a → List a = ???
+```
+
+As always with Church encodings, a recursive data structure is encapsulated in a higher-order function.
+The only way of traversing the data structure is by applying that higher-order function to suitable arguments.
+
+A value such as `examplePB1 : PBTree Natural` is a higher-order function whose type parameter `r` is a type constructor.
+That type constructor will determine the output type when we apply `examplePB1`.
+Since we need to produce a `List a` out of `PBTree a`, we supply `List` as that type constructor.
+```dhall
+let pbTreeToList : ∀(a : Type) → PBTree a → List a
+  = λ(a : Type) → λ(tree : PBTree a) → tree List ???
+let _ = assert : pbTreeToList Natural examplePB1 === [ 10 ]
+let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
+```
+The next argument is a function of type `∀(s : Type) → F r s → r s`, where `F` is the pattern functor for the perfect binary tree, and `r` is already set to `List`.
+So, it remains to implement a function of type `∀(s : Type) → < Leaf : s | Branch : List (Pair s s) > → List s`.
+This function should just extract all values of type `s` into a list of type `List s`.
+Implementing that function is straightforward, and we get the final code of `pbTreeToList`:
+```dhall
+let pbTreeToList : ∀(a : Type) → PBTree a → List a
+  = λ(a : Type) → λ(tree : PBTree a) →
+    let toList : ∀(s : Type) → < Leaf : s | Branch : List (Pair s s) > → List s
+      = λ(s : Type) → λ(p : < Leaf : s | Branch : List (Pair s s) >) →
+        merge { Leaf = λ(leaf : s) → [ leaf ]
+              , Branch = λ(branch : List (Pair s s)) → List/concatMap (Pair s s) s (λ(pair : Pair s s) → [ pair._1, pair._2 ] ) branch 
+              } p 
+    in tree List toList
+let _ = assert : pbTreeToList Natural examplePB1 === [ 10 ]
+let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
+```
+
+To compute the depth of a perfect binary tree, we 
+
+TODO
 
 
 ### Church encodings for GADTs
