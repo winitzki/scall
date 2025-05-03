@@ -5703,7 +5703,7 @@ let depth
 
 TODO test examples for binary tree
 
-### Implementing "fmap" for recursive functors
+### Implementing "fmap" for Church-encoded functors
 
 A type constructor `F` is a **covariant functor** if it admits an `fmap` method with the type signature:
 
@@ -5966,7 +5966,7 @@ let _ = assert : pbTreeDepth Natural examplePB2 === 2
 
 In this section, we studied only one example of a nested type (the "perfect binary tree").
 This and other advanced examples of designing and using nested recursive types
-are explained in the paper ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001) by Ralph Hinze.
+are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001).
 
 ### Church encodings for GADTs
 
@@ -10449,7 +10449,6 @@ For this part of the proof, we do not need to use the functor property of `F`.
 An alternative encoding of a recursive type is known as the **Mendler encoding**.
 We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
 The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types.
-The Mendler encoding does not appear to provide any performance improvements.
 
 ```dhall
 let MFix : (Type → Type) → Type
@@ -10460,6 +10459,15 @@ Then the Mendler encoding is isomorphic to the Church encoding of the least fixp
 
 When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
 We will show the "free functor" construction later in this book.
+
+As an example, let us implement the `List` functor using the Mendler encoding.
+```dhall
+let ListF = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
+let ListM = λ(a : Type) → MFix (ListF a)
+let nilM = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (None (Pair a r))
+let nilM0 = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f <> (absurd r) (None (Pair a <>))
+let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) →  λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (Some { _1 = head, _2 = tail r f } )  
+```
 
 Let us implement the `fix` and `unfix` methods for the Mendler encoding.
 Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
