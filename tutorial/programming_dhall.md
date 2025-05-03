@@ -4746,7 +4746,7 @@ To implement those operations in Dhall, we need to reformulate them as "fold-lik
 A **fold-like aggregation** iterates over the data while some sort of accumulator value is updated at each step.
 The result value of the aggregation is the last computed value of the accumulator.
 
-Let us show some examples of how this is done.
+Let us look at some examples of how this is done.
 
 ### Applying a function many times
 
@@ -4796,7 +4796,7 @@ let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 let list : ListInt = ???
 ```
 
-The task is to compute the sum of the absolute values of all integers in `list`.
+Suppose our task is to compute the sum of the absolute values of all integers in `list`.
 So, we need to implement a function `sumListInt : ListInt → Natural`.
 An example test could be:
 
@@ -4830,12 +4830,12 @@ The meaning of `init` is the result of `sumListInt` when the list is empty.
 The meaning of `update` is the next accumulator value (of type Natural) computed from a current item from the list (of type `Integer`) and a value of type `Natural` that has been accumulated so far (by aggregating the tail of the list).
 
 In our case, it is natural to set `init` is zero.
-The `update` function is implemented via the standard Prelude function `Integer/abs`:
+The `update` function is implemented via the standard library function `Integer/abs`:
 
 ```dhall
-let abs = https://prelude.dhall-lang.org/Integer/abs
+let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
 let update : Integer → Natural → Natural
-  = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+  = λ(i : Integer) → λ(previous : Natural) → previous + Integer/abs i
 ```
 
 The complete test code is:
@@ -4850,9 +4850,9 @@ let cons : Integer → ListInt → ListInt
 ```
 
 ```dhall
-let abs = https://prelude.dhall-lang.org/Integer/abs
+let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
 let update : Integer → Natural → Natural
-  = λ(i : Integer) → λ(previous : Natural) → previous + abs i
+  = λ(i : Integer) → λ(previous : Natural) → previous + Integer/abs i
 let sumListInt : ListInt → Natural
   = λ(list : ListInt) → list Natural 0 update
 ```
@@ -5096,7 +5096,7 @@ tailMaybe []     = Nothing
 tailMaybe (x:xs) = Just xs
 ```
 
-The Dhall translations of `TreeInt` and `ListInt` are the following Church-encoded types:
+The Dhall translations of `TreeInt` and `ListInt` are Church-encoded types:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
@@ -5120,7 +5120,7 @@ Values of type `TreeInt` and `ListInt` are functions, and one cannot perform pat
 How can we implement functions like `isSingleLeaf` and `headMaybe` in Dhall?
 
 The general method for translating pattern matching into Church-encoded types `C` consists of two steps.
-The first step is to apply the standard function `unfix` of type `C → F C`.
+The first step is to apply the general function `unfix` of type `C → F C`.
 The function `unfix` is available for all Church-encoded types; we have shown its implementation above.
 
 Given a value `c : C` of a Church-encoded type, the value `unfix c` will have type `F C`, which is typically a union type.
@@ -10466,8 +10466,17 @@ let ListF = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
 let ListM = λ(a : Type) → MFix (ListF a)
 let nilM = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (None (Pair a r))
 let nilM0 = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f <> (absurd r) (None (Pair a <>))
-let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) →  λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (Some { _1 = head, _2 = tail r f } )  
+let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (Some { _1 = head, _2 = tail r f } )  
 ```
+
+Here are some example values of type `ListM Natural`:
+
+```dhall
+let exampleListM0 : ListM Natural = nilM Natural
+let exampleListM3 : ListM Natural = consM Natural 10 (consM Natural 20 (consM Natural 30 (nilM Natural)))
+```
+
+TODO implement headOptional for ListM and discuss performance
 
 Let us implement the `fix` and `unfix` methods for the Mendler encoding.
 Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
