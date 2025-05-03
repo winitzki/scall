@@ -1732,7 +1732,7 @@ For example, consider this (artificial) example:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 100000000 Natural f 0
--- let _ = assert : result === 1  -- Uncomment if using dhall-haskell 1.42.2 or later, or dhall-scala-cli 0.2.1 or later.
+let _ = assert : result === 1
 ```
 
 Theoretically, `Natural/fold 100000000` needs to apply a given function `100000000` times.
