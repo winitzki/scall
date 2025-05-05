@@ -5927,19 +5927,46 @@ The definition of the type-level `Optional` is straightforward because Dhall's u
 We will first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
 Then we will define a more limited `OptionalT` that can be used with types such as `Bool` or `Natural`.
 ```dhall
-let OptionalK : Kind → Kind = λ(k : Kind) → < NoneK | SomeK : k >
+let OptionalK : Kind → Kind = λ(k : Kind) → < None | Some : k >
 let OptionalT = OptionalK Type
-let example1 = OptionalT.NoneK
-let example2 = OptionalT.SomeK Natural
-let example3 = (OptionalK (Type → Type)).SomeK List
+let example1 = OptionalT.None
+let example2 = OptionalT.`Some` Natural
+let example3 = (OptionalK (Type → Type)).`Some` List
 ```
-Note that we used the name `SomeK` rather than `Some` for the constructor in `OptionalK`.
-Using `Some` would leads to a parse error in Dhall, because `Some` is treated as a special keyword.
+Note that we have to backquote the constructor name `Some` in `OptionalK`.
+Using `Some` without backquotes would lead to a parse error in Dhall, because `Some` is a built-in keyword.
 
 TODO show examples of code with typechecking using OptionalK
 
 TODO implement type-level list and show that it cannot be kind-polymorphic
 
+```dhall
+let TList = ∀(r : Kind) → ∀(cons : Type → r → r) → ∀(nil : r) → r
+
+
+let example
+    : TList
+    = λ(list : Kind) →
+      λ(cons : Type → list → list) →
+      λ(nil : list) →
+        cons Text (cons Bool (cons Natural nil))
+
+let TOpt = < None | Some : Type >
+
+let THeadOpt
+    : TList → TOpt
+    = λ(tl : TList) →
+        let cons = λ(t : Type) → λ(_ : TOpt) → TOpt.`Some` t
+        let nil = TOpt.None
+
+        in  tl TOpt cons nil
+
+let someText = THeadOpt example  -- This is equal to TOpt.`Some` Text but we cannot assert on values of that type.
+
+let shouldBeTextType = merge { None = {}, Some = λ(t : Type) → t } someText
+
+let _ = "abc" : shouldBeTextType
+```
 
 ### Perfect trees and other nested recursive types
 
