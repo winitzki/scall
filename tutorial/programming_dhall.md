@@ -2470,9 +2470,17 @@ A **typeclass instance** is a type `t` together with a value of type `P t` that 
 That value is called an **evidence value** for the typeclass membership of `t`.
 We say that a type `t` "has an instance" of the typeclass (or "is an instance" of the typeclass) if we are able to compute an evidence value of type `P t`.
 We say that we have "computed a typeclass instance for `t`" if we have computed an evidence value.
-We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. 
+We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws.
 
-###### Example
+To clarify this definition, let us give an example using the `Semigroup` typeclass.
+Below we will look at other typeclasses more systematically.
+
+###### Example: The `Semigroup` typeclass
+
+
+
+TODO rewrite the text below:
+
 
 Typeclasses as a language feature was first introduced in Haskell, where working with typeclasses requires two special keywords (`class` and `instance`) and special syntax for typeclass constraints (`Monoid m => ...`).
 
@@ -2557,6 +2565,70 @@ let _ = assert : printed === "users: user a with id 1, user b with id 2"
 
 Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could define `Show` typeclass evidence values for the built-in types.
 Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc.
+
+###  The "Eq" typeclass
+
+The `Eq` typeclass provides a method for checking if two values of a type `t` are equal.
+
+We say that a type `t` belongs to the `Eq` typeclass if there is a function `equal : t → t → Bool` that returns `True` if and only if the two arguments of type `t` are equal.
+The function `equal` must satisfy the usual laws of a equality relation: reflexivity, symmetry, transitivity, and extensional identity.
+- Reflexivity: for all `x : t` we must have `equal x x === True`. It says that any value should be equal to itself.
+- Symmetry: for all `x : t` and `y : t` we must have `equal x y === equal y x`. It says that equality is symmetric.
+- Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y === True` and `equal y z === True` then we must have `equal x z === True`.
+- Extensional identity: for all `t : Type` and `u : Type`, and for all `x : t`, `y : t`, `f : t → u`, if both `t` and `u` are instances of `Eq`, and if `equal x y === True`, then we must have `equal (f x) (f y) === True`. It says that for any `x` and `y` that are equal, any function `f` will also compute equal results `f x` and `f y`.
+
+The type constructor for the `Eq` typeclass can be defined like this:
+```dhall
+let Eq = λ(t : Type) → { equal : t → t → Bool}
+```
+
+In Dhall, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
+Let us write the corresponding evidence values:
+
+```dhall
+let Bool/equal = https://prelude.dhall-lang.org/Bool/equal
+let eqBool: Eq Bool = { equal = Bool/equal }
+let Natural/equal = https://prelude.dhall-lang.org/Natural/equal
+let eqInteger: Eq Integer = { equal = https://prelude.dhall-lang.org/Integer/equal }
+let eqNatural: Eq Natural = { equal = Natural/equal }
+```
+
+These evidence values satisfy all the required laws.
+
+We can then implement `Eq` instances for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, and other types for which `Eq` instances are given.
+
+
+
+Let us also show examples of `Eq` evidence values that violate some of the laws.
+
+The first example uses a record as the type `t`.
+The comparison operation will only compare the first field of the record and ignore the second one:
+```dhall
+let Record2 : Type = { n : Natural, label : Text }
+let eqRecord2: Eq Record2 = { equal = λ(x : Record2) → λ(y : Record2) → Natural/equal x.n y.n }
+```
+
+This operation violates the extensional identity law: there are some functions `f` that give unequal results for records that are supposedly equal according to this typeclass instance.
+That will be the case for any function that uses the `label` field of the record, for instance:
+```dhall
+let f : Record2 → Text = λ(x : Record2) → x.label ++ Natural/show x.n
+```
+
+The second example uses the union type `Either Bool Text`.
+The comparison operation compares the two `Bool` values but refuses to compare `Text` values with anything.
+It returns `False` whenever one of the arguments is a `Text` value.
+```dhall
+let Union2 : Type = Either Bool Text
+let eqUnion2 : Eq Union2 = { equal = λ(x : Union2) → λ(y : Union2) →
+  merge { Right = λ(_ : Text) → False
+        , Left = λ(bx : Bool) →
+          merge { Right = λ(_ : Text) → False
+                , Left = λ(by : Bool) → Bool/equal bx by
+          } y                
+        } x
+}
+```
+This operation violates the reflexivity law: values such as `Union2.Right "abc"` are not equal to themselves.
 
 ### Monoids and semigroups
 
@@ -3587,7 +3659,7 @@ So, we need to implement a function of type `Monoid P → Monoid Q → Monoid (P
 To derive the new `Monoid` evidence value, begin by noting that the "empty" values of types `P` and `Q` are already known (`monoidP.empty` and `monoidQ.empty`).
 So, we can construct the pair `{ _1 = monoidP.empty, _2 = monoidQ.empty }` and designate that as the "empty" value for the new monoid.
 
-The `append` function is implemented similarly by combining the functions `monoidP.append` and `monoidQ.append`.
+The `append` function is implemented similarly by combining `monoidP.append` and `monoidQ.append`.
 
 The following code performs the full computation:
 
