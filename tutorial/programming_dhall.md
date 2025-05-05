@@ -2461,7 +2461,7 @@ This is similar to the way Scala implements typeclasses (except Scala makes evid
 
 ### Instances and evidence values
 
-Let us now clarify the terminology used with typeclasses, beginning with a definition that is sufficient for the purposes of this book:
+Let us first clarify the terminology used with typeclasses, beginning with a definition that is sufficient for the purposes of this book:
 
 ###### Definition
 
@@ -2472,29 +2472,58 @@ We say that a type `t` "has an instance" of the typeclass (or "is an instance" o
 We say that we have "computed a typeclass instance for `t`" if we have computed an evidence value.
 We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws.
 
-To clarify this definition, let us give an example using the `Semigroup` typeclass.
+To illustrate this definition, let us give an example using the `Semigroup` typeclass.
 Below we will look at other typeclasses more systematically.
 
 ###### Example: The `Semigroup` typeclass
 
+A set is called a "semigroup" if there is a binary associative operation for it.
+In the language of types, a type `t` is a semigroup if there is a function `append: t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
 
+`append x (append y z) = append (append x y) z`
 
-TODO rewrite the text below:
+To express this property as a typeclass, we introduce a type constructor called `Semigroup`:
 
+```dhall
+let Semigroup = λ(t : Type) → { append : t → t → t }
+```
+For example, `Natural` is a type that can be an instance of `Semigroup`.
+A `Semigroup` typeclass evidence value for the type `Natural` is a value of type `Semigroup Natural` that satisfies the associativity law.
+Here are some examples of `Semigroup` evidence values:
+```dhall
+let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
+let semigroupBool2Bool : Semigroup (Bool → Bool) = { append = compose_forward Bool Bool Bool } 
+```
 
-Typeclasses as a language feature was first introduced in Haskell, where working with typeclasses requires two special keywords (`class` and `instance`) and special syntax for typeclass constraints (`Monoid m => ...`).
+The type `Natural` together with the value `semigroupNatural` is an instance of `Semigroup` because the associativity law holds for that evidence value.
 
+The associativity law can be expressed using Dhall's equality types like this:
+```dhall
+let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
+  λ(x : t) → λ(y : t) → λ(z : t) → 
+    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+```
 
-In Haskell, typeclass evidence values (often called "typeclass dictionaries") must be unique and are always passed to functions automatically.
-Typeclass evidence values are not actually represented directly as Haskell values, but are defined via the special "class / instance" syntax.
-Let us clarify the terminology.
+Dhall's typechecker is able to validate the associativity law for `semigroupBool2Bool` (but not for `semigroupNatural`):
 
-Typeclass evidence values are also called **typeclass instances**.
-To "provide a typeclass instance" of typeclass `Show` for the type `UserWithId` means to compue a value of type `Show UserWithId`.
+```dhall
+let _ = λ(x : Bool → Bool) → λ(y : Bool → Bool) → λ(z : Bool → Bool) →
+  assert : semigroup_law (Bool → Bool) semigroupBool2Bool x y z
+```
+A value of type `semigroup_law (Bool → Bool) semigroupBool2Bool` can be seen as a symbolic proof that the `Semigroup` typeclass instance for `Bool → Bool` satisfies the associativity law.
 
-To avoid confusion, keep in mind that an "instance of a typeclass" does not mean a type that belongs to a typeclass.
-An "instance of a typeclass" is a _value_ that provides evidence that a certain type belongs to that typeclass.
-In this book, we prefer to talk about "evidence values" for clarity.
+The typeclass laws are an essential part of the definition of a typeclass, because program correctness often implicitly depends on those laws.
+So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type `semigroup_law t ev`.
+
+This is not a simple pair of values, because the _type_ of the second value depends on the first _value_.
+This sort of type is called a **dependent pair**.
+
+Most programming languages do not support dependent pairs.
+Dhall can encode their type (see the chapter "Church encodings for more complicated types" below) but provides only quite limited ways of working with dependent pairs.
+
+For this reason, one usually makes the pragmatic decision to represent typeclass instances only via evidence values (of type `P t`) and omit the equality type evidence altogether, relying on the programmer to validate the laws (e.g., by writing a proof by hand).  
+
+Below we will construct evidence values and only occasionally try a symbolic validation of the laws.
 
 As Dhall does not support implicit arguments, all typeclass evidence values must be defined and passed to functions explicitly.
 
@@ -2596,8 +2625,28 @@ let eqNatural: Eq Natural = { equal = Natural/equal }
 These evidence values satisfy all the required laws.
 
 We can then implement `Eq` instances for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, and other types for which `Eq` instances are given.
+To illustrate how that works in general, let us implement combinators that compute `Eq` instances for `Pair a b` and for `Either a b` from given `Eq` instances for arbitrary types `a` and `b`.
+```dhall
+let eqPair : ∀(a : Type) → Eq a → ∀(b : Type) → Eq b → Eq (Pair a b)
+  = λ(a : Type) → λ(eq_a : Eq a) → λ(b : Type) → λ(eq_b : Eq b) →
+    { equal = λ(x : Pair a b) → λ(y : Pair a b) → eq_a.equal x._1 y._1 && eq_b.equal x._2 y._2 } 
 
-
+let eqEither : ∀(a : Type) → Eq a → ∀(b : Type) → Eq b → Eq (Either a b)
+  = λ(a : Type) → λ(eq_a : Eq a) → λ(b : Type) → λ(eq_b : Eq b) →
+    { equal = λ(x : Either a b) → λ(y : Either a b) →
+      merge { Left = λ(xa : a) →
+              merge { Left = λ(ya : a) → eq_a.equal xa ya
+                    , Right = λ(_ : b) → False
+                    } y
+            , Right = λ(xb : b) →
+              merge { Left = λ(_ : a) → False
+                    , Right = λ(yb : b) → eq_b.equal xb yb
+                    } y
+            } x 
+    } 
+```
+These combinators perform **typeclass derivation**: a typeclass instance for a more complicated type is derived from given typeclass instances for simpler types.
+When `Eq` instances are derived using `eqPair` and `eqEither`, it is guaranteed that the laws will all hold (assuming that those laws already hold for the simpler types).
 
 Let us also show examples of `Eq` evidence values that violate some of the laws.
 
