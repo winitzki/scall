@@ -2019,7 +2019,7 @@ let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natura
 let _ = assert : log 10 100 ≡ 2
 ```
 
-### Greatest common divisor (`gcd`)
+### Greatest common divisor
 
 The greatest common divisor (`gcd x y`) is computed by a simple algorithm using subtraction.
 
@@ -2456,8 +2456,39 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 Typeclasses can be implemented in Dhall via evidence values.
 Those values are used as explicit additional arguments to functions that require a typeclass constraint.
 
-With that technique, one can define different typeclass evidence values for the same type, if that is necessary.
-This is similar to the way Scala implements typeclasses (except Scala makes evidence values into "implicit" arguments).
+With that technique, one can define and use different typeclass evidence values for the same type, if that is necessary.
+This is similar to the way Scala implements typeclasses (except Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
+
+### Instances and evidence values
+
+Let us now clarify the terminology used with typeclasses, beginning with a definition that is sufficient for the purposes of this book:
+
+###### Definition
+
+A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy (for all `t : Type`).
+A **typeclass instance** is a type `t` together with a value of type `P t` that satisfies those laws.
+That value is called an **evidence value** for the typeclass membership of `t`.
+We say that a type `t` "has an instance" of the typeclass (or "is an instance" of the typeclass) if we are able to compute an evidence value of type `P t`.
+We say that we have "computed a typeclass instance for `t`" if we have computed an evidence value.
+We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. 
+
+###### Example
+
+Typeclasses as a language feature was first introduced in Haskell, where working with typeclasses requires two special keywords (`class` and `instance`) and special syntax for typeclass constraints (`Monoid m => ...`).
+
+
+In Haskell, typeclass evidence values (often called "typeclass dictionaries") must be unique and are always passed to functions automatically.
+Typeclass evidence values are not actually represented directly as Haskell values, but are defined via the special "class / instance" syntax.
+Let us clarify the terminology.
+
+Typeclass evidence values are also called **typeclass instances**.
+To "provide a typeclass instance" of typeclass `Show` for the type `UserWithId` means to compue a value of type `Show UserWithId`.
+
+To avoid confusion, keep in mind that an "instance of a typeclass" does not mean a type that belongs to a typeclass.
+An "instance of a typeclass" is a _value_ that provides evidence that a certain type belongs to that typeclass.
+In this book, we prefer to talk about "evidence values" for clarity.
+
+As Dhall does not support implicit arguments, all typeclass evidence values must be defined and passed to functions explicitly.
 
 In addition, Dhall's `assert` feature may be sometimes used to verify the laws of a typeclass.
 
@@ -2526,13 +2557,6 @@ let _ = assert : printed === "users: user a with id 1, user b with id 2"
 
 Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could define `Show` typeclass evidence values for the built-in types.
 Then the function `printWithPrefix` could be used with lists of types `List Natural`, `List Double`, etc.
-
-Typeclass evidence values are also called **typeclass instances**.
-To "provide a typeclass instance" of typeclass `Show` for the type `UserWithId` means to compue a value of type `Show UserWithId`. 
-
-To avoid confusion, keep in mind that an "instance of a typeclass" does not mean a type that belongs to a typeclass.
-An "instance of a typeclass" is a _value_ that provides evidence that a certain type belongs to that typeclass.
-In this book, we prefer to talk about "evidence values" for clarity.
 
 ### Monoids and semigroups
 
@@ -2702,7 +2726,7 @@ The corresponding Dhall code is:
 ```dhall
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
-let fmap
+let fmap_F
  : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
@@ -2710,7 +2734,7 @@ let fmap
 To test:
 ```dhall
 let example : F Natural = { x = 1, y = 2, t = True }
-let after_fmap : F Text = fmap Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
+let after_fmap : F Text = fmap_F Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
 let test = assert : after_fmap === { x = "odd", y = "even", t = True }
 ```
 
@@ -2719,7 +2743,7 @@ For convenience, let us define the standard type signature of `fmap` as a type c
 ```dhall
 let FmapT = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
 ```
-Then we can write code more concisely as `let fmap : FmapT F = ???`.
+Then we can write code more concisely as `let fmap_F : FmapT F = ???`.
 
 As another example of defining `fmap`, consider a type constructor that involves a union type:
 ```dhall
@@ -2727,7 +2751,7 @@ let G : Type → Type = λ(a : Type) → < Left : Text | Right : a >
 ```
 The `fmap` method for `G` is implemented as:
 ```dhall
-let fmap : FmapT G
+let fmap_G : FmapT G
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : G a) →
     merge { Left = λ(t : Text) → (G b).Left t
           , Right = λ(x : a) → (G b).Right (f x)
@@ -2735,7 +2759,7 @@ let fmap : FmapT G
 ```
 
 The `Functor` typeclass is a constraint for a _type constructor_.
-If a type constructor `F` is a functor, we should have an evidence value of type `Functor F`.
+We say that a type constructor `F` is a functor if we can compute an evidence value of type `Functor F` that satisfies the functor laws.
 So, the type parameter of `Functor` must be of the kind `Type → Type`.
 
 The required data for an evidence value is a `fmap` method for that type constructor.
@@ -2755,22 +2779,16 @@ let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/ma
 let functorOptional : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
 ```
 
-As another example, let us write the evidence values for the type constructors `F` and `G` shown above:
+Using the functions `fmap_F` and `fmap_G` shown above, we may write `Functor` evidence values for the type constructors `F` and `G` as:
 
 ```dhall
-let functorF : Functor F = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(fa : F A) →
-    { x = f fa.x, y = f fa.y, t = fa.t }
-  }
-let functorG : Functor G = { fmap = λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(ga : G A) →
-    merge { Left = λ(t : Text) → (G B).Left t
-          , Right = λ(x : A) → (G B).Right (f x)
-          } ga  
-  }
+let functorF : Functor F = { fmap = fmap_F }
+let functorG : Functor G = { fmap = fmap_G }
 ```
 
-The code for `fmap` can be derived mechanically from the type definition of a functor.
+It turns out that the code for `fmap` can be derived mechanically from the type definition of a functor.
 The Haskell compiler will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not support any metaprogramming facilities.
+But Dhall does not support any such metaprogramming facilities.
 The code of `fmap` must be written in Dhall programs by hand.
 
 ###### Example: a function with a typeclass constraint
@@ -5068,7 +5086,7 @@ let _ = assert : treeDepth tree123 === 2
 ```
 
 
-### Pattern matching
+### Pattern matching via "unfix"
 
 When working with recursive types in ordinary functional languages, one often uses pattern matching.
 For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
@@ -5194,16 +5212,18 @@ let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 ni
 ### Performance of "unfix"
 
 Note that `unfix` is implemented by applying the Church-encoded argument to some function.
-In practice, this means that `unfix` will to traverse the entire data structure.
-This may be counter-intuitive.
+In practice, this means that `unfix` will need to traverse the entire data structure.
+This behavior may be counter-intuitive.
 For example, `headOptional` (as shown above) will need to traverse the entire list of type `ListInt` before
 it can determine whether the list is not empty.
 
 Church-encoded data are higher-order functions, and it is not possible to pattern match on them directly.
 The data traversal is necessary to enable pattern matching for Church-encoded types.
 
-As a result, the performance of programs will be often significantly slower when working with large Church-encoded data structures.
+As a result, the performance of programs will be often slow when working with large Church-encoded data structures.
 For example, concatenating or reversing lists of type `ListInt` takes time quadratic in the list length.
+
+TODO validate these statements!
 
 ## Church encodings for more complicated types
 
