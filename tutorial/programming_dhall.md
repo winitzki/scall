@@ -6,7 +6,7 @@ This book is an advanced-level tutorial on [Dhall](https://dhall-lang.org) for s
 as practiced in languages such as OCaml, Haskell, Scala, and others.
 
 Dhall is positioned as an open-source language for programmable configuration files.
-The primary design goal of Dhall is to replace various templating languages for JSON, YAML, and other configuration formats by a powerful and safe programming language.
+Its primary design goal is to replace various templating languages for JSON, YAML, and other configuration formats, providing a powerful and safe programming language.
 The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-choices.html) discusses some other considerations behind the design of Dhall.
 
 This book views Dhall as:
@@ -37,7 +37,7 @@ _The text of this book was written and edited without using any LLMs._
 
 ## Overview of Dhall
 
-This book is written for the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0).
+This book is written using the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0) and Dhall version `1.42.2`.
 
 Dhall is a purely functional language with very few features.
 It will be easy to learn Dhall for readers already familiar with functional programming.
@@ -63,19 +63,21 @@ such as `Natural/lessThan` or `List/map`.
 
 ### Identifiers
 
-Identifiers may contain dash and slash characters; for example, `List/map` and `start-here` are valid identifiers.
+Identifiers may contain dash and slash characters.
+Examples of valid identifiers are `List/map` and `start-here`.
 
-The slash character is used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
-However, Dhall does not treat those names specially and does not require that functions working with `List` should have names such as `List/map` or `List/length`.
+The slash character is often used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
+However, Dhall does not treat those names specially.
+It is not required that functions working with `List` should have names such as `List/map` or `List/length`.
 
-Identifiers with dashes can be used, for example, as record field names, as it is sometimes required in configuration files:
+Identifiers with dashes can be used, for example, as record field names, as it is sometimes needed in configuration files:
 
 ```dhall
 ⊢ { first-name = "John", last-name = "Reynolds" }
 
 { first-name = "John", last-name = "Reynolds" }
 ```
-(However, identifiers may not _start_ with a dash or a slash character.)
+However, identifiers may not _start_ with a dash or a slash character.
 
 Identifiers may contain arbitrary characters (even keywords or whitespace) if escaped in backquotes.
 
@@ -89,8 +91,8 @@ Identifiers may contain arbitrary characters (even keywords or whitespace) if es
 3
 ```
 
-The standalone underscore character (`_`) in OCaml, Haskell, Scala, and F`#` as syntax for a special "unused" variable.
-But in Dhall, the variable named `_` is a variable like any other:
+The standalone underscore character (`_`) is used in Haskell, Scala, other languages as syntax for a special "unused" variable.
+But in Dhall, the variable named "`_`" is a variable like any other:
 
 ```dhall
 ⊢ let _ = 123 in _ + _
@@ -151,7 +153,7 @@ A function's type must have the form `∀(x : input_type) → output_type`, wher
 
 The function `inc` shown above has type `∀(x : Natural) → Natural`.
 
-Instead of the Unicode symbols `∀`, `λ`, and `→`, we may use the equivalent ASCII representations `forall`, `\`, and `->`.
+The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with the equivalent ASCII representations: `forall`, `\`, and `->`.
 In this book, we will use the Unicode symbols for brevity.
 
 Usually, the function body is an expression that uses the bound variable `x`.
@@ -258,7 +260,7 @@ a : { x : Natural, y : { t : Text, z : Bool } }
 
 It is important that Dhall's records have **structural typing**: two record types are distinguished only via their field names and types, while record fields are unordered.
 So, the record types `{ x : Natural, y : Bool }` and `{ y : Bool, x : Natural }` are the same, while the types `{ x : Natural, y : Bool }` and `{ x : Text, y : Natural }` are different and unrelated to each other.
-There is no **nominal typing**: that is, no way of assigning a permanent unique name to a certain record type, as it is done in OCaml, Haskell, and Scala in order to distinguish one record type from another.
+There is no **nominal typing**: that is, no way of assigning a permanent unique name to a certain record type, as it is done in Haskell, Scala, and other languages in order to distinguish one record type from another.
 
 For convenience, a Dhall program may define local names for types:
 
@@ -313,7 +315,7 @@ let nested = < T | X : < Y | Z : Natural > >.X (< Y | Z : Natural >.Z 123)
 
 It is important that Dhall's union types use **structural typing**: two union types are distinguished only via their constructor names and types, while constructors are unordered.
 So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated to each other.
-There is no **nominal typing** for union types; that is, no way of assigning a permanent unique name to a certain union type, as it is done in OCaml, Haskell, and Scala to distinguish that union type from others.
+There is no **nominal typing** for union types; that is, no way of assigning a permanent unique name to a certain union type, as it is done in Haskell, Scala, and other languages to distinguish one union type from another.
 
 For convenience, Dhall programs often define local names for union types:
 
@@ -403,7 +405,7 @@ Note that `merge` in Dhall is a special keyword, not a function, although its sy
 It is a syntax error to write `merge { X = 0 }` without specifying a value (`x`) of a union type.
 
 
-### The void type and its use
+### The void type
 
 The **void type** is a type that cannot have any values.
 
@@ -412,26 +414,20 @@ Values of union types may be created only via constructors, but the type `<>` ha
 So, no Dhall code will ever be able to create a value of type `<>`.
 
 If a value of the void type existed, one would be able to compute from it a value of _any other type_.
-This is absurd, but this is indeed an important property of the void type.
-This property of the void type can be expressed formally via the function that we may denote `absurd`.
+This may appear absurd, but this is indeed an important property of the void type.
+This property can be expressed formally via the function that we may denote `absurd`.
 That function computes a value of an arbitrary type `A` given a value of the void type `<>`:
 
 ```dhall
-let absurd : ∀(A : Type) → <> → A
-  = λ(A : Type) → λ(x : <>) → merge {=} x : A 
-```
-
-Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
-Nevertheless, the existence of the void type and a function of type `∀(A : Type) → <> → A` is useful in some situations, as we will see below.
-
-If we swap the curried arguments in the type signature of `absurd`, we obtain an equivalent function that we call `void_to_any`:
-
-```dhall
-let void_to_any : <> → ∀(A : Type) → A
+let absurd : <> → ∀(A : Type) → A
   = λ(x : <>) → λ(A : Type) → merge {=} x : A 
 ```
 
-The type signature suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
+Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
+Nevertheless, the existence of the void type and a function of type `<> → ∀(A : Type) → A` is useful in some situations, as we will see below.
+
+
+The type signature of `absurd` suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
 Indeed, the type `∀(A : Type) → A` is void.
 If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
@@ -443,34 +439,35 @@ One use case for the void type is to provide a "TODO" functionality.
 While writing Dhall code, we may want to leave a certain value temporarily unimplemented.
 However, we still need to satisfy Dhall's type checker and provide a value that appears to have the right type.
 
-To achieve that, we write our code as a function with an argument of the void type:
+To achieve that, we rewrite our code as a function with an additional argument of the void type:
 
 ```dhall
 let our_program = λ(void : <>) → True
 ```
 
-Now suppose we need a value `x` of any given type `X` in our code, but we do not yet know how to implement that value.
-Then we write `let x : X = void_to_any void X` in the body of `our_program`.
+Now suppose we need a value `x` of some type `X` in our code, but we do not yet know how to implement that value.
+We write `let x : X = absurd void X` in the body of `our_program`:
 
 ```dhall
 let our_program = λ(void : <>) →
-  let x : Integer = void_to_any void Integer
+  let x : Integer = absurd void Integer
   in { x }    -- Whatever.
 ```
-The typechecker will accept this program.
+The typechecker will accept this code.
 Of course, we can never supply a value for the `void : <>` argument.
-So, our program cannot be evaluated until we replace the `void_to_any void X` by correct code computing a value of type `X`.
+So, our program cannot be evaluated until we replace the `absurd void X` by correct code computing a value of type `X`.
 
-To shorten the code, define `let TODO = void_to_any void`.
+To shorten the code, define `let TODO = absurd void`.
 We can then write `TODO X` and pretend to obtain a value of any type `X`.
 
-Note that the partially applied function `void_to_any void` is a value of type `∀(A : Type) → A`.
+Note that the partially applied function `absurd void` is a value of type `∀(A : Type) → A`.
 So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` in our program:
 
 ```dhall
 let our_program = λ(TODO : ∀(A : Type) → A) →
   let x = TODO Natural in { result = x + 123 }     -- Whatever.
 ```
+We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code.
 
 ### The unit type
 
@@ -482,7 +479,7 @@ This denotes a record with no fields or values.
 
 Another way of defining a unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
-In this way, one can conveniently define unit types with different names.
+In this way, one can define unit types with different names.
 
 Another equivalent definition of a unit type is via the following function type:
 ```dhall
@@ -504,13 +501,13 @@ In Haskell, one could define a type constructor as `type AAInt a = (a, a, Int)`.
 The analogous type constructor in Scala looks like `type AAint[A] = (A, A, Int)`.
 To encode this type constructor in Dhall, one writes an explicit function taking a parameter `a` of type `Type` and returning another type.
 
-Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3`:
+Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3` to represent a tuple with three parts:
 
 ```dhall
 let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
-Then `AAInt` is a function that takes an arbitrary type `a` as its argument.
-The output of the function is a record type `{ _1 : a, _2 : a, _3 : Integer }`.
+Then `AAInt` is a function that takes an arbitrary type (`a`) as its argument.
+The output of the function is the record type `{ _1 : a, _2 : a, _3 : Integer }`.
 
 The type of `AAInt` itself is `Type → Type`.
 For more clarity, we may write that as a type annotation:
@@ -520,7 +517,6 @@ let AAInt : Type → Type = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 ```
 
 Type constructors involving more than one type parameter are usually written as curried functions.
-
 Here is an example of defining a type constructor similar to Haskell's and Scala's `Either`:
 
 ```dhall
@@ -584,7 +580,7 @@ let swapNatNat : PairNatNat → PairNatNat = λ(p : PairNatNat) → { _1 = p._2,
 Note that the code of `swapNatNat` does not depend on having values of type `Natural`.
 The same logic would work with any two types.
 So, we can generalize `swapNatNat` to a function `swap` that supports arbitrary types of values in the pair.
-The two types will become type parameters (`a` and `b`).
+The two types will become type parameters; we will denote them by `a` and `b`.
 The input type of `swap` will be `{ _1 : a, _2 : b }` (which is the same as `Pair a b `) instead of `{ _1 : Natural, _2 : Natural }`, and the output type will be `{ _1 : b, _2 : a }` (which is the same as `Pair b a`).
 The type parameters are given as additional curried arguments of `swap`.
 The new code is:
@@ -593,18 +589,17 @@ The new code is:
 let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → { _1 = p._2, _2 = p._1 }
 ```
-Here, the type signature of `swap` has two type parameters (`a`, `b`).
-Some parts of the type signature of `swap` depends on those type parameters (namely, the types `Pair a b` and `Pair b a`).
-To express that dependence, we need to specify the names of type parameters in the type signature of `swap` as `∀(a : Type)` and `∀(b : Type)`.
+Note that some parts of the type signature of `swap` depend on the type parameters (namely, the types `Pair a b` and `Pair b a`).
+To be able to express that dependence, we need to specify the type parameter names in the type signature of `swap` as `∀(a : Type)` and `∀(b : Type)`.
 
 Compare this with the type signature of `Pair`, which is written as `Type → Type → Type`.
-We could write, if we like, `Pair : ∀(a : Type) → ∀(b : Type) → Type` but that would be the same type signature, just longer.
+We could write, if we like, `Pair : ∀(a : Type) → ∀(b : Type) → Type`. That would be the same type signature in a longer syntax.
 But we cannot shorten the type signature of `swap` to `Type → Type → Pair a b → Pair b a`, because the names `a` and `b` would have become undefined.
 The type signature of `swap` requires a longer form that introduces the names `a` and `b`.
 
 As another example, consider functions that extract the first or the second element of a pair.
 These functions also work in the same way for all types.
-So, it is useful to declare those functions with type parameters:
+So, it is useful to declare those functions as "generic functions" having type parameters:
 
 ```dhall
 let take_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
@@ -613,7 +608,7 @@ let take_2 : ∀(a : Type) → ∀(b : Type) → Pair a b → b
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → p._2
 ```
 
-As a further example, consider the standard `map` function for `List`.
+A further example is the standard `map` function for `List`.
 The type signature of that function is `∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b`.
 
 When applying that function, the code must specify both type parameters (`a`, `b`):
@@ -624,7 +619,7 @@ in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
   -- This is a complete program that returns [2, 3, 4].
 ```
 
-A **polymorphic identity function** is written (with a full-length type annotation) as:
+A **polymorphic identity function** is written (with a full type annotation) as:
 
 ```dhall
 let identity : ∀(A : Type) → ∀(x : A) → A 
@@ -643,8 +638,9 @@ let identity : ∀(A : Type) → A → A
 In Dhall, all function arguments (including all type parameters) must be introduced explicitly via the `λ` syntax.
 Each argument must have a type annotation, for example: `λ(x : Natural)`, `λ(a : Type)`, and so on.
 
-However, a `let` binding does not necessarily require a type annotation.
+However, a `let` binding does not require a type annotation.
 So, one may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
+The type of `Pair` will be determined automatically.
 
 For complicated type signatures, it still helps to write type annotations, because Dhall will then detect some type errors earlier.
 
@@ -693,7 +689,7 @@ let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${Natural/show id}]"
 
 let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
-let test = assert : validate === True   -- Cannot import this module unless `validate` is `True`.
+let test = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
 
 in {
   UserName,
@@ -703,9 +699,10 @@ in {
 ```
 When this Dhall file is evaluated, the result is a record of type `{ UserName : Type, UserId : Type, printUser : Text → Natural → Text }`.
 We could say that this module exports two types (`UserName`, `UserId`) and a function `printUser`.
-But technically it still exports a single value (a record).
+But technically it just exports a single value (a record).
+Exporting a record is a common technique in Dhall libraries.
 
-This module may be imported in another Dhall file like this:
+This module may be imported in another Dhall program like this:
 
 ```dhall
 let S = ./SimpleModule.dhall -- Just call it `S` for short.
@@ -719,7 +716,7 @@ This code will not compile unless all types match, including the imported values
 
 All fields of a Dhall record are always public.
 To make values in a Dhall module private, we simply do not include those values into the final exported record.
-Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are part of the final exported value).
+Local values declared using `let x = ...` inside a Dhall module will not be exported (unless they are included in the final exported record).
 
 In the example just shown, the file `SimpleModule.dhall` defines the local values `test` and `validate`.
 Those values are type-checked and computed inside the module, but are not exported.
@@ -737,11 +734,9 @@ In this way, Dhall programs may perform computations with external inputs.
 
 However, most often the imported Dhall values are not simple data but records containing types, values, and functions.
 
-
-
 Dhall denotes imports via special syntax:
-- If a Dhall value begins with `/`, it is an import of a file given by an absolute path.
-- If a Dhall value begins with `./`, it is an import from a relative path (relative to the directory containing the currently evaluated Dhall file).
+- If a Dhall value begins with `/`, it is an import of a file from an absolute path.
+- If a Dhall value begins with `./`, it is an import of a file from a relative path (relative to the directory containing the currently evaluated Dhall file).
 - If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
 - A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
 
@@ -788,7 +783,7 @@ See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/d
 #### Organizing modules and submodules
 
 The Dhall standard library (the ["prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
-For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with `List`s are in the `List/` subdirectory, and so on.
+For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with lists are in the `List/` subdirectory, and so on.
 This convention helps make the code for imports more visual:
 
 ```dhall
@@ -800,54 +795,53 @@ let Optional/map = https://prelude.dhall-lang.org/Optional/map
 -- And so on.
 ```
 
-The import mechanism can be used as a module system that allows us to create libraries and to reuse code.
+The import mechanism can be used as a module system that allows us to create libraries of reusable code.
 For example, suppose we put some Dhall code into files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall`.
-We can the import those files like this:
+We can then import those files like this:
 ```
 let Dir1/file1 = ./Dir1/file1.dhall
 let Dir1/file2 = ./Dir1/file2.dhall
 in ???
 ```
-Code in `file1.dhall` can import `file2.dhall` using a relative path import, such as: `let file2 = ./file2.dhall`.
+Code in `file1.dhall` can also import `file2.dhall` using a relative path, for example like this: `let x = ./file2.dhall`.
 
 The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory (`Dir1`) has no special significance.
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
-An import such as `let Dir1/file1 = ./Dir1/file1.dhall` might appear to suggest that `file1` is in some sense a submodule of `Dir1`.
+An import such as `let Dir1/file1 = ./Dir1/file1.dhall` might appear to suggest that `file1` is a submodule of `Dir1` in some sense.
 But actually Dhall treats all imports in the same way regardless of path; it does not have any special concept of "submodules".
 The file `./Dir1/file1.dhall` is treated as a module like any other.
 
-Also, Dhall does not have any special treatment for values with names such as `Dir1/file1`.
+Names like `Dir1/file` are often used in Dhall libraries, but Dhall does not give any special treatment to such names.
 Dhall will neither require nor verify that `let Dir1/file1 = ...` imports a file called `file1` in a subdirectory called `Dir1`.
-Names `Dir1/file` are conventional in Dhall libraries, but this convention is not enforced or checked by Dhall.
 
-To create a hierarchical library structure having modules and submodules, the Dhall standard library uses nested records.
+To create a hierarchical library structure of modules and submodules, the Dhall standard library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's standard prelude has a file called [package.dhall](https://prelude.dhall-lang.org/package.dhall) that contains a record with all modules in the prelude.
+The top level of Dhall's standard prelude has a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the prelude.
 A Dhall file may import the entire prelude and access its submodules like this:
 ```dhall
 let p = https://prelude.dhall-lang.org/package.dhall -- Takes a while to import!
-let x = p.Bool.not (p.Natural.greaterThan 1 2) -- We can use all modules now.
-in ??? 
+let x = p.Bool.not (p.Natural.greaterThan 1 2)    -- We can use all modules now.
+  in ??? 
 ```
 
 The standard prelude is not treated specially by Dhall.
 It is just an ordinary import from a Web URL.
-Users' own libraries and modules may use a similar structure and may be imported as external resources.
-In this way, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
+A user's own libraries and modules may have a similar structure and may be imported as external resources in the same wy.
+So, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
 
 #### Frozen imports and semantic hashing
 
 Importing from external resources (files, Web URLs, or environment variables) is a form of a side effect because the contents of those resources may change at any time.
 Dhall has a feature called **frozen imports** for ensuring
-that the contents of an external resource does not unexpectedly change.
+that the contents of an external resource does not change unexpectedly.
 Frozen imports are annotated by the SHA256 hash value of the imported content's normal form after a full evaluation.
 A frozen import is guaranteed to produce the same value every time,
 because the imported value's hash is always validated.
 If the contents of the external resource changes such that its SHA256 hash no longer matches the annotation, Dhall will raise an error at type-checking time.
 
-For example, consider a file called `simple.dhall` that contains just the number `3`:
+As an example, create a file called `simple.dhall` containing just the number `3`:
 
 ```dhall
 -- This file is `simple.dhall`.
@@ -895,7 +889,7 @@ tH8kPRKgH3vgbjbRaUYPQwSiaIsfaDYT
 One cannot guarantee that any given Web URL always returns the same results (or always remains reachable).
 To ensure that all expressions are referentially transparent, each successful import is cached on its first use within a Dhall program.
 If a Dhall program imports the same external resource several times, all those imports will always have the same value when the program is evaluated.
-For example, if a program imports the resource `https://test.dhall-lang.org/random-string` several times, the first imported value will be internally cached and substituted for all subsequent imports of that resource.
+For example, if a program imports `https://test.dhall-lang.org/random-string` several times, the first imported value will be internally cached and substituted for all subsequent imports of that resource.
 
 For this reason, a Dhall program cannot query a Web URL several times and make decisions based on the changes in its response.
 
@@ -923,9 +917,9 @@ let Natural/lessThan
   = missing sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
-If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without need for resolving any URLs.
+If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without resolving any URLs.
 Otherwise, there will be a lookup and the function will be loaded and cached.
-This trick speeds up import resolution.
+This trick speeds up import loading.
 
 ### Miscellaneous features
 
@@ -938,7 +932,7 @@ let b = 2
 in a + b  -- This is a complete program that evaluates to 3.
 ```
 Because of this syntax, Dhall programs often have the form `let ... let ... let ... in ...`, where the "`in`" occurs only at the end.
-We will write snippets of Dhall code in the form `let a = ...` without the trailing `in`.
+This book writes most snippets of Dhall code in the form `let a = ...` without the trailing `in`.
 It is implied that all those `let` declarations are part of a larger program with "`in`" somewhere at the end.
 
 When we are working with the Dhall interpreter, we may write a standalone `let` declaration.
@@ -963,7 +957,7 @@ Values are never capitalized in this book.
 
 Dhall has almost no type inference.
 The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
-Other than in `let` bindings, all types of bound variables must be written explicitly.
+Other than in `let` bindings, the types of all bound variables must be written explicitly.
 
 Although this makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
 In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
@@ -985,14 +979,14 @@ The value `x` will not be evaluated because it is not actually needed for comput
 On the other hand, if we modify this program to include an `assert` test (that feature will be described below), the program will take a longer time to run:
 ```dhall
 let x = some_function 1000000 ??? -- Imagine that this is a long computation.
-let _ = assert : validate x === True -- Validate the result somehow.
+let _ = assert : validate x ≡ True -- Validate the result in some way.
 in 123
 ```
 The value `x` now needs to be evaluated in order to verify that `validate x` actually returns `True`.
 
 Validation of `assert` expressions will happen at typechecking time, and Dhall's _typechecking_ is strict (not lazy).
-A type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
 For this reason, the value `x` will get evaluated in the program shown above, even though `x` is not used anywhere later in the code.
+Also, a type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
 
 Another case where Dhall enforces strict evaluation is when importing values from external resources.
 Each imported value is loaded and validated at type-checking time, even if the value is not used in the code that follows:
@@ -1079,7 +1073,7 @@ Those types are intended for creating strongly-typed configuration data schemas 
 The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
 
-- Use `Bool` values as conditions in `if` expressions or with the standard boolean operations.
+- Use `Bool` values as conditions in `if` expressions or with the standard Boolean operations.
 - Add, multiply, and compare `Natural` numbers.
 - Concatenate lists and compute certain other functions on lists (`List/indexed`, `List/length`).
 - Concatenate, interpolate, and replace substrings in `Text` strings.
@@ -1362,46 +1356,46 @@ Below in the chapter "Numerical algorithms" we will see an example of using depe
 
 ### The "assert" keyword and equality types
 
-For values other than booleans and natural numbers, equality testing is not available as a function.
+For values other than `Bool` and `Natural` numbers, equality testing is not available as a function.
 However, values of any type may be tested for equality at compile time via Dhall's `assert` feature.
 That feature is mainly intended for implementing sanity checks and unit tests:
 
 ```dhall
 let x : Text = "123"
-let _ = assert : x === "123"
+let _ = assert : x ≡ "123"
 in x ++ "1"
  -- This is a complete program that returns "1231".
 ```
 
 The `assert` construction is a special Dhall syntax that implements values of **equality types**.
-(The Unicode symbol `≡` may be used instead of `===`.)
+(The ASCII representation `===` may be used instead of the Unicode symbol `≡`.)
 
-The Dhall expression `a === b` is a special _type_ that depends on the values `a` and `b`.
-The type `a === b` is different for each pair `a`, `b`.
+The Dhall expression `a ≡ b` is a special _type_ that depends on the values `a` and `b`.
+The type `a ≡ b` is different for each pair `a`, `b`.
 It is an example of a **dependent type**.
 
-The type `a === b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
-For example, the types `1 === 2` and `λ(x : Text) → λ(y : Text) → x === λ(x : Text) → λ(y : Text) → y` are void.
+The type `a ≡ b` has no values (is void) if `a` and `b` have different normal forms (as Dhall expressions).
+For example, the types `1 ≡ 2` and `λ(x : Text) → λ(y : Text) → x ≡ λ(x : Text) → λ(y : Text) → y` are void.
 (We will never be able to create any values of those types.) 
 
-If `a` and `b` evaluate to the same normal form, the type `a === b` is defined to be a unit type.
-That is, there exists a single value of the type `a === b`.
+If `a` and `b` evaluate to the same normal form, the type `a ≡ b` is defined to be a unit type.
+That is, there exists a single value of the type `a ≡ b`.
 
-If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a === b`.
+If we want to write that value explicitly, we use the `assert` keyword with the following syntax: `assert : a ≡ b`.
 This expression is valid only if the two sides are equal after reducing them to their normal forms.
-If the two sides are not equal after reduction to normal forms, the expression `assert : a === b` will _fail to typecheck_, meaning that the entire program will fail to compile.
+If the two sides are not equal after reduction to normal forms, the expression `assert : a ≡ b` will _fail to typecheck_, meaning that the entire program will fail to compile.
 
 When an `assert` value is valid, we may assign that value to a variable:
 
 ```dhall
-let test1 = assert : 1 + 2 === 0 + 3
+let test1 = assert : 1 + 2 ≡ 0 + 3
 ```
 
-In this example, the two sides of the type `1 + 2 === 0 + 3` are equal after reducing them to normal forms.
-The resulting type `3 === 3` is non-void and has a value.
+In this example, the two sides of the type `1 + 2 ≡ 0 + 3` are equal after reducing them to normal forms.
+The resulting type `3 ≡ 3` is non-void and has a value.
 We assigned that value to `test1`.
 
-It is not actually possible to print the value `test1` of type `3 === 3` or to examine that value in any other way.
+It is not actually possible to print the value `test1` of type `3 ≡ 3` or to examine that value in any other way.
 That value _exists_ (because the `assert` expression was accepted by Dhall), but that's all we know.
 
 The Dhall typechecker will raise a type error _at typechecking time_ if the two sides of an `assert` are not evaluated to the same normal forms.
@@ -1411,9 +1405,9 @@ Some examples:
 ```dhall
 let x = 1
 let y = 2
-let _ = assert : x + 1 === y     -- OK.
+let _ = assert : x + 1 ≡ y     -- OK.
 let print = λ(n : Natural) → λ(prefix : Text) → prefix ++ Natural/show n
-let _ = assert : print (x + 1) === print y    -- OK
+let _ = assert : print (x + 1) ≡ print y    -- OK
 ```
 
 In the last line, the `assert` expression was used to compare two partially evaluated functions, `print (x + 1)` and `print y`.
@@ -1429,7 +1423,7 @@ To see why, try writing this code:
 ```dhall
 let compareTextValues : Text → Text → Bool
   = λ(a : Text) → λ(b : Text) → 
-    let _ = assert : a === b    -- Type error: the two sides are not equal.
+    let _ = assert : a ≡ b    -- Type error: the two sides are not equal.
     in True
 ```
 
@@ -1438,7 +1432,7 @@ Because this code fails to typecheck, we cannot use it to implement a function r
 
 
 As another example: we cannot write a Dhall function that checks whether a string is empty.
-An `assert` expression such as `assert : x === ""` can be used only to verify statically that a given value `x` (that can be computed) is an empty string.
+An `assert` expression such as `assert : x ≡ ""` can be used only to verify statically that a given value `x` (that can be computed) is an empty string.
 
 These examples show that it rarely makes sense to use `assert` inside function bodies.
 The `assert` keyword is most often used to implement unit tests or other static sanity checks on Dhall code.
@@ -1449,8 +1443,8 @@ So, we will usually write unit tests like this:
 ```dhall
 let f = λ(a : Text) → "(" ++ a ++ ")" -- Define a function.
 
-let _ = assert : f "x" === "(x)"  -- OK.
-let _ = assert : f "" === "()"    -- OK.
+let _ = assert : f "x" ≡ "(x)"  -- OK.
+let _ = assert : f "" ≡ "()"    -- OK.
 -- Continue writing code.
 ```
 
@@ -1732,7 +1726,7 @@ For example, consider this (artificial) example:
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
 let result : Natural = Natural/fold 100000000 Natural f 0
-let _ = assert : result === 1
+let _ = assert : result ≡ 1
 ```
 
 Theoretically, `Natural/fold 100000000` needs to apply a given function `100000000` times.
@@ -1772,7 +1766,7 @@ let factorial = λ(n : Natural) →
 Let us test this code:
 
 ```dhall
-let _ = assert : factorial 10 === 3628800
+let _ = assert : factorial 10 ≡ 3628800
 ```
 
 
@@ -1807,7 +1801,7 @@ let unsafeDiv : Natural → Natural → Natural =
          let r : Accum = Natural/fold x Accum update init
          in r.result
 
-let test = assert : unsafeDiv 3 2 === 1
+let test = assert : unsafeDiv 3 2 ≡ 1
 ```
 
 ### Safe division via dependently-typed evidence
@@ -1856,7 +1850,7 @@ In this way, dependently-typed evidence values enforce value constraints at comp
 If we write `safeDiv 4 0 {=}`, we get a type error that says "the value `{=}` has type `{}`, but we expected type `<>`".
 This message is not particularly helpful.
 We can define the dependent type `Nonzero` in a different way, so that the error message shows more clearly why the assertion failed.
-For that, we replace the void type `<>` by the equivalent void type of the form `"a" === "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
+For that, we replace the void type `<>` by the equivalent void type of the form `"a" ≡ "b"` where `"a"` and `"b"` are strings that are guaranteed to be different.
 Those strings will be printed by Dhall as part of the error message.
 
 To implement this idea, let us replace the definition of `Nonzero` by this code:
@@ -1864,7 +1858,7 @@ To implement this idea, let us replace the definition of `Nonzero` by this code:
 ```dhall
 let Nonzero = λ(y : Natural) →
   if Natural/isZero y
-  then "error" === "attempt to divide by zero"
+  then "error" ≡ "attempt to divide by zero"
   else {}
 
 let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
@@ -1890,7 +1884,7 @@ let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
   in
   if Natural/lessThan x limit
   then {}
-  else "error" === "the argument x = ${Natural/show x} must be less than ${Natural/show limit}"
+  else "error" ≡ "the argument x = ${Natural/show x} must be less than ${Natural/show limit}"
 ```
 
 Suppose we need a function that needs to constrain its natural argument to be below `100`.
@@ -1969,8 +1963,8 @@ let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 let sqrt = λ(n: Natural) →
   let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r 
   in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 1)
-let _ = assert : sqrt 15 === 3
-let _ = assert : sqrt 16 === 4
+let _ = assert : sqrt 15 ≡ 3
+let _ = assert : sqrt 16 ≡ 4
 ```
 
 There are faster algorithms of computing the square root, but those algorithms require division.
@@ -1992,7 +1986,7 @@ The code is:
 ```dhall
 let bitWidth : Natural → Natural = λ(n : Natural) →
   let Accum = { b : Natural, bitWidth : Natural }
-  let init = { b = 1, bitWidth = 0 } -- At all times, b === pow(2, bitWidth).
+  let init = { b = 1, bitWidth = 0 } -- At all times, b ≡ pow(2, bitWidth).
   let update = λ(acc : Accum) →
      if lessThanEqual acc.b n
      then { b = acc.b * 2, bitWidth = acc.bitWidth + 1 }
@@ -2008,7 +2002,7 @@ So, we replace the base 2 in `bitWidth` by an arbitrary base and obtain this cod
 ```dhall
 let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natural) →
   let Accum = { b : Natural, log : Natural }
-  let init = { b = 1, log = 0 } -- At all times, b === pow(base, log).
+  let init = { b = 1, log = 0 } -- At all times, b ≡ pow(base, log).
   let update = λ(acc : Accum) →
      if lessThanEqual acc.b n
      then { b = acc.b * base, log = acc.log + 1 }
@@ -2124,7 +2118,7 @@ For instance, we can apply `identity` to itself and get the same function as a r
 #### Identity functions for types and kinds
 
 What if we wanted the identity function to be able to work on _types_ themselves?
-We expect some code like `identityT Bool === Bool`.
+We expect some code like `identityT Bool ≡ Bool`.
 
 Note that the type of `Bool` is `Type`.
 So, a simple implementation of `identityT` is:
@@ -2316,14 +2310,14 @@ In most programming languages, such laws may be verified only through testing.
 Dhall's `assert` feature may be used to verify certain laws rigorously.
 
 A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
-We can formulate that law by saying that a constant function `f` should satisfy the equation `f x === f y` for all `x` and `y` of a suitable type.
+We can formulate that law by saying that a constant function `f` should satisfy the equation `f x ≡ f y` for all `x` and `y` of a suitable type.
 
 ```dhall
 let f : Natural → Text = λ(_ : Natural) → "abc"
-let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x === f y
+let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x ≡ f y
 ```
 
-Dhall can determine that `f x === f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `f_const_law`.
+Dhall can determine that `f x ≡ f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `f_const_law`.
 Dhall's interpreter can simplify expressions inside function bodies.
 So, an `assert` within a function body will verify that the equation holds for all possible function arguments.
 
@@ -2331,7 +2325,7 @@ In a similar way, we can verify that the same law holds for any functions create
 
 ```dhall
 let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) → λ(x : a) → λ(y : a) →
-  assert : const a b c x === const a b c y
+  assert : const a b c x ≡ const a b c y
 ```
 
 The Dhall interpreter will substitute the definition of `const` into that code and perform some evaluation, even though that code is under several layers of λ and arguments `a`, `b`, `c`, `x`, `y` have not yet been given.
@@ -2343,7 +2337,7 @@ Using the definition of `const`, Dhall will evaluate `const a b c x` to just `c`
 Also, `const a b c y` will be evaluaed to just `c`.
 There cannot be any further evaluation because the value `c` is unknown in the body of the function.
 In other words, the normal form of `c` in that scope is just `c` itself.
-So, Dhall obtains an `assert` expression of the form `assert : c === c`.
+So, Dhall obtains an `assert` expression of the form `assert : c ≡ c`.
 Because the normal forms are equal, the `assert` expression is accepted as valid.
 In this way, the function `const_law` is type-checked as valid.
 This verifies the law.
@@ -2355,7 +2349,7 @@ The Dhall code for verifying the law is:
 ```dhall
 let verify_flip_flip_law = λ(a : Type) → λ(b : Type) → λ(c : Type) →
   λ(k : a → b → c) →
-    assert : flip b a c (flip a b c k) === k
+    assert : flip b a c (flip a b c k) ≡ k
 ```
 
 Let us see what happens when this code is type-checked.
@@ -2371,9 +2365,9 @@ Then Dhall computes the normal form of the left-hand side of the assertion:
 
 ```dhall
 flip b a c (flip a b c k)  -- Symbolic derivation. This is what Dhall does internally.
-  === flip b a c (λ(x : b) → λ(y : a) → k y x)
-  === λ(xx : a) → λ(yy : b) → (λ(x : b) → λ(y : a) → k y x) yy xx
-  === λ(xx : a) → λ(yy : b) → k xx yy
+  ≡ flip b a c (λ(x : b) → λ(y : a) → k y x)
+  ≡ λ(xx : a) → λ(yy : b) → (λ(x : b) → λ(y : a) → k y x) yy xx
+  ≡ λ(xx : a) → λ(yy : b) → k xx yy
 ```
 
 The right-hand side of the assertion is the function `k`.
@@ -2395,19 +2389,19 @@ let compose_backward
 
   -- The identity laws.
 let left_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) → 
-  assert : compose_backward a a b f (identity a) === f
+  assert : compose_backward a a b f (identity a) ≡ f
 let right_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) → 
-  assert : compose_backward a b b (identity b) f === f
+  assert : compose_backward a b b (identity b) f ≡ f
 
   -- The constant function composition law.
 let const_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(x : c) → λ(f : a → b) → 
-  compose_backward a b c (const b c x) f === const a c x
+  compose_backward a b c (const b c x) f ≡ const a c x
 
   -- The associativity law. 
 let assoc_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → b) → λ(g : b → c) → λ(h : c → d) →
   assert : 
     compose_backward a b d (compose_backward b c d h g) f
-    === compose_backward a c d h (compose_backward a b c g f)
+    ≡ compose_backward a c d h (compose_backward a b c g f)
 ```
 
 In the Haskell syntax, these laws look like this:
@@ -2423,7 +2417,7 @@ id . f == f                  -- Right identity law.
 Using `assert` and functions with type parameters, one can verify a wide range of algebraic laws.
 We will show some more examples later in this book.
 
-### Function pair products and pair co-products
+### Pair products and pair co-products of functions
 
 The **pair product** operation takes two functions `f : a → b` and `g : c → d` and returns a new function of type `Pair a c → Pair b d`.
 
@@ -2501,7 +2495,7 @@ The associativity law can be expressed using Dhall's equality types like this:
 ```dhall
 let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
   λ(x : t) → λ(y : t) → λ(z : t) → 
-    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+    ev.append x (ev.append y z) ≡ ev.append (ev.append x y) z
 ```
 
 Dhall's typechecker is able to validate the associativity law for `semigroupBoolToBool` (but not for `semigroupNatural`):
@@ -2589,7 +2583,7 @@ Then we can  use `printWithPrefix` to print a list of values of that type:
 ```dhall
 let users : List UserWithId = [ { user = "a", id = 1 }, { user = "b", id = 2 } ]
 let printed = printWithPrefix UserWithId showUserWithId "users: " users
-let _ = assert : printed === "users: user a with id 1, user b with id 2" 
+let _ = assert : printed ≡ "users: user a with id 1, user b with id 2" 
 ```
 
 Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could define `Show` typeclass evidence values for the built-in types.
@@ -2601,10 +2595,10 @@ The `Eq` typeclass provides a method for checking if two values of a type `t` ar
 
 We say that a type `t` belongs to the `Eq` typeclass if there is a function `equal : t → t → Bool` that returns `True` if and only if the two arguments of type `t` are equal.
 The function `equal` must satisfy the usual laws of a equality relation: reflexivity, symmetry, transitivity, and extensional identity.
-- Reflexivity: for all `x : t` we must have `equal x x === True`. It says that any value should be equal to itself.
-- Symmetry: for all `x : t` and `y : t` we must have `equal x y === equal y x`. It says that equality is symmetric.
-- Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y === True` and `equal y z === True` then we must have `equal x z === True`.
-- Extensional identity: for all `t : Type` and `u : Type`, and for all `x : t`, `y : t`, `f : t → u`, if both `t` and `u` are instances of `Eq`, and if `equal x y === True`, then we must have `equal (f x) (f y) === True`. It says that for any `x` and `y` that are equal, any function `f` will also compute equal results `f x` and `f y`.
+- Reflexivity: for all `x : t` we must have `equal x x ≡ True`. It says that any value should be equal to itself.
+- Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`. It says that equality is symmetric.
+- Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y ≡ True` and `equal y z ≡ True` then we must have `equal x z ≡ True`.
+- Extensional identity: for all `t : Type` and `u : Type`, and for all `x : t`, `y : t`, `f : t → u`, if both `t` and `u` are instances of `Eq`, and if `equal x y ≡ True`, then we must have `equal (f x) (f y) ≡ True`. It says that for any `x` and `y` that are equal, any function `f` will also compute equal results `f x` and `f y`.
 
 The type constructor for the `Eq` typeclass can be defined like this:
 ```dhall
@@ -2791,9 +2785,9 @@ let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y
   let plus = monoid_m.append
   let e = monoid_m.empty
   in {
-        monoid_left_id_law = plus e x === x,
-        monoid_right_id_law = plus x e === x,
-        monoid_assoc_law = plus x (plus y z) === plus (plus x y) z,
+        monoid_left_id_law = plus e x ≡ x,
+        monoid_right_id_law = plus x e ≡ x,
+        monoid_assoc_law = plus x (plus y z) ≡ plus (plus x y) z,
        }
 ```
 Note that we did not add `assert` expressions here.
@@ -2856,7 +2850,7 @@ To test:
 ```dhall
 let example : F Natural = { x = 1, y = 2, t = True }
 let after_fmap : F Text = fmap_F Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
-let test = assert : after_fmap === { x = "odd", y = "even", t = True }
+let test = assert : after_fmap ≡ { x = "odd", y = "even", t = True }
 ```
 
 For convenience, let us define the standard type signature of `fmap` as a type constructor:
@@ -2965,13 +2959,13 @@ Given a specific type constructor `F` and its `Functor` typeclass evidence, the 
 let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
   λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
     let fmap = functor_F.fmap
-    in { functor_id_law = fmap a a (identity a) === identity (F a)
+    in { functor_id_law = fmap a a (identity a) ≡ identity (F a)
        , functor_comp_law =
            let fg = compose_forward a b c f g
            let fmap_f = fmap a b f
            let fmap_g = fmap b c g
            let fmapf_fmapg = compose_forward (F a) (F b) (F c) fmap_f fmap_g
-           in fmap a c fg === fmapf_fmapg
+           in fmap a c fg ≡ fmapf_fmapg
        }
 ```
 
@@ -3015,7 +3009,7 @@ To get around this limitation, write the identity law separately like this:
 ```dhall
 let identity_law_of_F = λ(a : Type) →
     let id_F = λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
-    in assert : functorF.fmap a a (identity a) === id_F
+    in assert : functorF.fmap a a (identity a) ≡ id_F
 ```
 
 Let us also try verifying the functor laws for the type constructor `G` from the previous section:
@@ -3134,13 +3128,13 @@ The laws of contrafunctors are similar to those of functors:
 let contrafunctorLaws = λ(F : Type → Type) → λ(contrafunctor_F : Contrafunctor F) →
   λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
     let cmap = contrafunctor_F.cmap
-    in { contrafunctor_id_law = cmap a a (identity a) === identity (F a)
+    in { contrafunctor_id_law = cmap a a (identity a) ≡ identity (F a)
        , contrafunctor_comp_law =
           let gf = compose_backward a b c g f
           let cmap_f = cmap a b f
           let cmap_g = cmap b c g
           let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
-          in cmap a c gf === cmapf_cmapg
+          in cmap a c gf ≡ cmapf_cmapg
        }
 ```
 
@@ -3400,10 +3394,10 @@ The corresponding code in Dhall makes all types explicit:
 ```dhall
 let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) →
   λ(a : Type) → λ(x : a) → λ(p : F a) → λ(b : Type) → λ(f : a → F b) → λ(c : Type) → λ(g : b → F c) →
-  let left_id_law = monadF.bind a (monadF.pure a x) b f === f x
-  let right_id_law = monadF.bind a p a (monadF.pure a) === p
+  let left_id_law = monadF.bind a (monadF.pure a x) b f ≡ f x
+  let right_id_law = monadF.bind a p a (monadF.pure a) ≡ p
   let assoc_law = monadF.bind b (monadF.bind a p b f) c g
-      === monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
+      ≡ monadF.bind a p c (λ(x : a) → monadF.bind b (f x) c g)
   in { left_id_law, right_id_law, assoc_law }
 ```
 
@@ -3430,7 +3424,7 @@ let testsForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : 
 ```
 
 For the State monad, the Dhall interpreter can verify the left identity law and the associativity law, but not the right identity law.
-The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } === x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
+The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } ≡ x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
 
 #### A monad's `join` method implemented with typeclasses
 
@@ -3747,7 +3741,7 @@ In later chapters of this book, we will show more systematically the typeclass d
 ## Leibniz equality types
 
 Dhall's `assert` feature is a static check that some expressions are equal.
-The syntax is `assert : a === b`, where the expression `a === b` denotes a _type_ that has a value only if `a` equals `b`.
+The syntax is `assert : a ≡ b`, where the expression `a ≡ b` denotes a _type_ that has a value only if `a` equals `b`.
 That feature can be viewed as syntax sugar for a general facility known as "Leibniz equality types".
 
 A **Leibniz equality type** is a type that depends on two values, say `a` and `b`, of the same type.
@@ -3757,7 +3751,7 @@ This chapter will show how to implement Leibniz equality types in Dhall and how 
 
 ### Definition and first examples
 
-In Dhall, a Leibniz equality type constructor corresponding to `a === b` is implemented like this:
+In Dhall, a Leibniz equality type constructor corresponding to `a ≡ b` is implemented like this:
 
 ```dhall
 let LeibnizEqual
@@ -3780,8 +3774,8 @@ To see that, let us write out the types `LeibnizEqNat 0 0` and `LeibnizEqNat 0 1
 
 ```dhall
 -- Symbolic derivation.
-LeibnizEqNat 0 0 === ∀(f : Natural → Type) → f 0 → f 0
-LeibnizEqNat 0 1 === ∀(f : Natural → Type) → f 0 → f 1
+LeibnizEqNat 0 0 ≡ ∀(f : Natural → Type) → f 0 → f 0
+LeibnizEqNat 0 1 ≡ ∀(f : Natural → Type) → f 0 → f 1
 ```
 Note that `f 0` and `f 1` are unknown _types_ because `f` is an arbitrary, unknown function of type `Natural → Type`.
 However, we can always write an identity function of type `f 0 → f 0` even though we do not know anything about the type `f 0`.
@@ -3822,7 +3816,7 @@ More precisely, this will happen for any `x` and `y` such that the Dhall type-ch
 
 Keep in mind that the Dhall type-checker will not always detect semantic equality in situations where the expressions are syntactically different but actually equal after evaluation.
 For example, `y * 2` will always evaluate to the same natural number as `y + y`.
-But the Dhall type-checker will not recognize that `y * 2 === y + y` when `y` is a parameter whose value is not yet known.
+But the Dhall type-checker will not recognize that `y * 2 ≡ y + y` when `y` is a parameter whose value is not yet known.
 As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
 This is one of the limitations of the Dhall interpreter with respect to dependent types.
 
@@ -3834,7 +3828,7 @@ To summarize, Leibniz equality types have the following properties:
 ### Leibniz equality and "assert" expressions
 
 The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at type-checking time.
-The expression `assert : x === y` will be accepted only if `x` and `y` have the same type and the same normal forms.
+The expression `assert : x ≡ y` will be accepted only if `x` and `y` have the same type and the same normal forms.
 
 It turns out that Dhall's `assert` feature is equivalent to a certain expression involving the Leibniz equality.
 To explain that, let us show how a Leibniz equality type may be used to write code that type-checks only if given values `x` and `y` are equal.
@@ -3848,38 +3842,38 @@ As an example, here is how to assert that `123` equals `100 + 20 + 3`:
 ```dhall
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
-This code is fully analogous to `let _ = assert : 123 === 100 + 20 + 3`.
+This code is fully analogous to `let _ = assert : 123 ≡ 100 + 20 + 3`.
 However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and it is impossible to avoid that repetition).
-Writing `let _ = assert : 123 === 100 + 20 + 3` is shorter and more convenient.
+Writing `let _ = assert : 123 ≡ 100 + 20 + 3` is shorter and more convenient.
 
 The similarity between Leibniz equality types and Dhall's built-in equality types goes further:
-Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x === y`.
+Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x ≡ y`.
 Indeed, `LeibnizEqual T x y` is a function that takes an `f : T → Type` and a value of type `f x`, returning a value of type `f y`.
-If we need to get a value of type `x === y`, we need to define `f` such that the type `f y` is `x === y`.
+If we need to get a value of type `x ≡ y`, we need to define `f` such that the type `f y` is `x ≡ y`.
 Here is an example of defining such a function when `T = Natural`:
 
 ```dhall
 let x = 1
-let f : Natural → Type = λ(a : Natural) → (x === a)
+let f : Natural → Type = λ(a : Natural) → (x ≡ a)
 ```
-When `f` is defined like that, the type `f y` is `x === y` as required, while the type `f x` is `x === x`.
-A value of the latter type is written as `assert : x === x`.
+When `f` is defined like that, the type `f y` is `x ≡ y` as required, while the type `f x` is `x ≡ x`.
+A value of the latter type is written as `assert : x ≡ x`.
 
 Now we have all necessary data to implement a general function `toAssertType` that converts a Leibniz equality into an `assert` value:
 
 ```dhall
 let toAssertType
-  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x === y)
+  : ∀(T : Type) → ∀(x : T) → ∀(y : T) → LeibnizEqual T x y → (x ≡ y)
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(leq : LeibnizEqual T x y) →
-    let f : T → Type = λ(a : T) → x === a
-    in leq f (assert : x === x)
+    let f : T → Type = λ(a : T) → x ≡ a
+    in leq f (assert : x ≡ x)
 ```
-With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 === 1`.
+With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 ≡ 1`.
 
 In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
 
 Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
-We can write `assert : "abc" === "abc"` for string values, even though Dhall does not allow us to implement a function for comparing two strings at run time.
+We can write `assert : "abc" ≡ "abc"` for string values, even though Dhall does not allow us to implement a function for comparing two strings at run time.
 
 Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
 
@@ -3890,7 +3884,7 @@ let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 
 We have seen that the Leibniz equality type can be converted to `assert` values.
 However, `assert` values currently cannot be converted back to Leibniz equality values.
-Dhall currently implements `a === b` and `assert` as special expression types that cannot be manipulated in any way, other than type-checked.
+Dhall currently implements `a ≡ b` and `assert` as special expression types that cannot be manipulated in any way, other than type-checked.
 
 Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall features are insufficient. 
 
@@ -3898,8 +3892,8 @@ Because Leibniz equality types are more general and more powerful than Dhall's `
 
 An "inequality type" is a type that is void when `a` and `b` are equal, and non-void when they are not equal.
 How could we encode such a type?
-We would need to create a type that is void when `a === b` is not void, and vice versa.
-This property (a "logical negation" of `a === b`) can be encoded as the type `(a === b) → <>`.
+We would need to create a type that is void when `a ≡ b` is not void, and vice versa.
+This property (a "logical negation" of `a ≡ b`) can be encoded as the type `(a ≡ b) → <>`.
 
 To see why, consider the function type `T → <>` for any type `T`.
 
@@ -3920,7 +3914,7 @@ let LeibnizUnequal
 ```
 
 Suppose some values `a` and `b` are unequal and such that we can distinguish them at run time.
-(For instance, we should be able to write a function `is_a` such that `is_a a === True` but `is_a b === False`.)
+(For instance, we should be able to write a function `is_a` such that `is_a a ≡ True` but `is_a b ≡ False`.)
 Then we will be able to construct a value of type `LeibnizUnequal T a b`.
 For that, we choose a function `f : T → Type` such that `f a` is the unit type and `f b` is the void type.
 
@@ -3995,7 +3989,7 @@ We write:
 let f = λ(x : Natural) → λ(y : Natural) →
   λ(constraint : LeibnizEqual Bool True (Natural/greaterThan (x + y) 100)) →
     x + y  -- Whatever the function is supposed to do with x and y.
-let _ = assert : f 100 10 (refl Bool True) === 110
+let _ = assert : f 100 10 (refl Bool True) ≡ 110
 ```
 
 To call `f`, we supply an argument of type `LeibnizEqual Bool True True`.
@@ -4021,16 +4015,16 @@ let zeroNatural : Natural → Natural = λ(x : Natural) → Natural/subtract 1 (
 ```
 The function `zeroNatural` is a constant function that always returns `0`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a literal `Natural` argument.
 ```dhall
-let _ = assert : zeroNatural 0 === 0
-let _ = assert : zeroNatural 1 === 0
-let _ = assert : zeroNatural 2 === 0
+let _ = assert : zeroNatural 0 ≡ 0
+let _ = assert : zeroNatural 1 ≡ 0
+let _ = assert : zeroNatural 2 ≡ 0
 -- This fails with a type error:
--- λ(x : Natural) → assert : zeroNatural x === 0
+-- λ(x : Natural) → assert : zeroNatural x ≡ 0
 ```
 
 With this function, we can create an equality type dependent type that is always equivalent to the unit type (`{=}`) except that Dhall will only recognize that property for literal values.
 ```dhall
-let literalNatural : Natural → Type = λ(x : Natural) → zeroNatural x === 0
+let literalNatural : Natural → Type = λ(x : Natural) → zeroNatural x ≡ 0
 let _ = assert : literalNatural 123      -- OK.
 -- But this fails with a type error because `x` is not a literal value:
 -- λ(x : Natural) → assert : literalNatural x
@@ -4046,7 +4040,7 @@ We can call this function at the top level of a Dhall program, where all `Natura
 let x = 123
 let xIsLiteral = assert : literalNatural x
 let y = functionTopLevelOnly x xIsLiteral
-let _ = assert : y === 124
+let _ = assert : y ≡ 124
 ```
 But it will be impossible to call `functionTopLevelOnly` within another function, without having an evidence value of type `literalNatural x`:
 ```dhall
@@ -4059,14 +4053,14 @@ let _ = λ(x : Natural) →
 A suitable equality type for `Integer` numbers is defined by:
 ```dhall
 let zeroInteger : Integer → Integer = λ(x : Integer) → Natural/toInteger (zeroNatural (Integer/clamp x))
-let literalInteger : Integer → Type = λ(x : Integer) → zeroInteger x === +0
+let literalInteger : Integer → Type = λ(x : Integer) → zeroInteger x ≡ +0
 ```
 
 For `Bool` arguments, the code could look like this:
 
 ```dhall
 let trueBool : Bool → Bool = λ(x : Bool) → if x then x else (x == False)
-let literalBool : Bool → Type = λ(x : Bool) → trueBool x === True
+let literalBool : Bool → Type = λ(x : Bool) → trueBool x ≡ True
 ```
 
 For `Text` arguments, we create a sequence of operations that will always return an empty string, and we assert on that property.
@@ -4074,7 +4068,7 @@ But the Dhall interpreter will not recognize that property statically.
 
 ```dhall
 let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
-let literalText : Text → Type = λ(x : Text) → emptyText x === ""
+let literalText : Text → Type = λ(x : Text) → emptyText x ≡ ""
 -- This fails with a type error because `x` is not a literal Text value:
 -- λ(x : Text) → assert : literalText x
 ```
@@ -4082,7 +4076,7 @@ let literalText : Text → Type = λ(x : Text) → emptyText x === ""
 ### Leibniz equality at type level
 
 Dhall's `assert` feature is limited to values; it does not work for types or kinds.
-The expression `assert : Natural === Natural` (and even just the type `Natural === Natural`) is rejected by Dhall.
+The expression `assert : Natural ≡ Natural` (and even just the type `Natural ≡ Natural`) is rejected by Dhall.
 
 One can define a form of a Leibniz equality type for comparing types instead of values:
 
@@ -4116,7 +4110,7 @@ An evidence value of type `LeibnizEqualT Type P Q` is a generator of type-castin
 Another use for `LeibnizEqualT` is when implementing an `assert`-like functionality for types:
 
 ```dhall
--- This is analogous to `assert : Bool === Bool`, which is not valid in Dhall.
+-- This is analogous to `assert : Bool ≡ Bool`, which is not valid in Dhall.
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
@@ -4128,7 +4122,7 @@ let t1 = LeibnizEqNat 0 1
 let t2 = ∀(f : Natural → Type) → f 0 → f 1
 let _ = reflT Type t1 : LeibnizEqualT Type t1 t2
 ```
-The last line would be equivalent to `assert : t1 === t2` if Dhall supported assertions on types.
+The last line would be equivalent to `assert : t1 ≡ t2` if Dhall supported assertions on types.
 This line validates statically (at type-checking time) that the types are equal.
 
 Because of Dhall's limitations on polymorphism, we cannot implement a single function `LeibnizEqual` that would work both for values and for types.
@@ -4154,13 +4148,13 @@ Now we can provide evidence for kind equality like this:
 ```dhall
 let k1 = Type
 let k2 = Type
-let _ = reflK k1 : LeibnizEqualK k1 k2 -- Implements `assert : k1 === k2`.
+let _ = reflK k1 : LeibnizEqualK k1 k2 -- Implements `assert : k1 ≡ k2`.
 ```
 
 What about _inequalities_ at type level?
 Recall that an inequality type requires us to have a function that compares values at run time.
 However, Dhall cannot compare type symbols at run time.
-(It is not possible to write a function `equalT : Type → Type → Bool` such that `equalT Text Text === True` but `equalT Text Double === False`.)
+(It is not possible to write a function `equalT : Type → Type → Bool` such that `equalT Text Text ≡ True` but `equalT Text Double ≡ False`.)
 So, we cannot define a type-level inequality type analogous to `LeibnizUnequal`.
 
 ### Symbolic reasoning with Leibniz equality
@@ -4285,9 +4279,9 @@ let identityLeibnizEqualT
 #### Function extensionality
 
 The property of **function extensionality** means that two functions are equal when they always give equal results for equal arguments.
-In other words, `f === g` if and only if we have `f x === g x` for all `x`.
+In other words, `f ≡ g` if and only if we have `f x ≡ g x` for all `x`.
 
-In terms of equality types, we can implement one direction of this equivalence as a combinator of type `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`. This combinator transforms evidence that `f === g` into evidence that `f x === g x` for all `x`.
+In terms of equality types, we can implement one direction of this equivalence as a combinator of type `LeibnizEqual (T → U) f g → LeibnizEqual U (f x) (g x)`, for all `T : Type`, `U : Type`, `x : T`, `f : T → U`, and `g : T → U`. This combinator transforms evidence that `f ≡ g` into evidence that `f x ≡ g x` for all `x`.
 
 ```dhall
 let extensionalityLeibnizEqual
@@ -4310,18 +4304,18 @@ let extensionalityLeibnizEqual
 
 #### Examples of symbolic reasoning
 
-To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x === y` where `x : T`, `y : T`, and an evidence value of type `f === g` where `f : T → U`, `g : T → U`.
-It is clear that `f x === g y` in that case.
+To illustrate what we mean by "symbolic reasoning", consider a situation where we have an evidence value of type `x ≡ y` where `x : T`, `y : T`, and an evidence value of type `f ≡ g` where `f : T → U`, `g : T → U`.
+It is clear that `f x ≡ g y` in that case.
 Can we produce an evidence value for that?
 
-Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x === y`).
+Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x ≡ y`).
 There are currently no functions in Dhall that can derive any information out of such values.
 
 But Leibniz equality types and their standard combinators do allow us to perform some computations involving equality.
-In this example, we can obtain a value of type `f x === g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x === g y` via the "value identity" combinator.
-It remains to use the "transitivity" combinator to establish that `f x === g y`.
+In this example, we can obtain a value of type `f x ≡ g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x ≡ g y` via the "value identity" combinator.
+It remains to use the "transitivity" combinator to establish that `f x ≡ g y`.
 
-The code that computes evidence of type `f x === g y` is:
+The code that computes evidence of type `f x ≡ g y` is:
 ```dhall
 let extensional_equality
   = λ(T : Type) → λ(x : T) → λ(y : T) → λ(U : Type) → λ(f : T → U) → λ(g : T → U) → λ(x_eq_y : LeibnizEqual T x y) → λ(f_eq_g : LeibnizEqual (T → U) f g) →
@@ -4334,12 +4328,12 @@ let extensional_equality
 We conclude this section with a few more illustrations of symbolic reasoning with Leibniz equality types.
 
 ###### Example
-Given a function `f : T → U → V` and evidence values of types `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c === f b d`.
+Given a function `f : T → U → V` and evidence values of types `a ≡ b` and `c ≡ d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c ≡ f b d`.
 
 ####### Solution
 
 The derivation uses the combinator we denoted by `identityLeibnizEqual`.
-First, we apply that combinator to `f`, `a`, and `b`; the result is evidence that `f a === f b` as functions of type `U → V`.
+First, we apply that combinator to `f`, `a`, and `b`; the result is evidence that `f a ≡ f b` as functions of type `U → V`.
 It remains to apply `extensional_equality` to those functions and to the values `c`, `d`.
 The complete code is:
 
@@ -4353,7 +4347,7 @@ The value `identityLeibnizEqual2` is evidence that `f a c` equals `f b d`.
 
 ###### Exercise
 
-Given functions `f : T → U → V` and `g : T → U → V` and evidence for `f === g`, `a === b` and `c === d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c === g b d`.
+Given functions `f : T → U → V` and `g : T → U → V` and evidence for `f ≡ g`, `a ≡ b` and `c ≡ d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c ≡ g b d`.
 
 ## Church encodings for simple types
 
@@ -4942,7 +4936,7 @@ An example test could be:
 ```dhall
 let sumListInt : ListInt → Natural = ???
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
-let _ = assert : sumListInt example1 === 1368
+let _ = assert : sumListInt example1 ≡ 1368
 ```
 
 The function `sumListInt` is a "fold-like" aggregation operation.
@@ -4998,7 +4992,7 @@ let sumListInt : ListInt → Natural
 
 ```dhall
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
-let _ = assert : sumListInt example1 === 1368
+let _ = assert : sumListInt example1 ≡ 1368
 ```
 
 ### Pretty-printing a binary tree
@@ -5053,7 +5047,7 @@ let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → 
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")    
 
-let test = assert : printTree example2 === "((a b) c)"
+let test = assert : printTree example2 ≡ "((a b) c)"
 ```
 
 In a similar way, many recursive functions can be reduced to fold-like operations and then implemented for Church-encoded data non-recursively.
@@ -5198,12 +5192,12 @@ let tree123 : TreeNat = branchTreeNat (leafTreeNat 10) (branchTreeNat (leafTreeN
 Now we can compute the various numerical metrics for the example trees:
 
 ```dhall
-let _ = assert : treeSum tree1 === 10
-let _ = assert : treeSum tree123 === 60
-let _ = assert : treeCount tree1 === 1
-let _ = assert : treeCount tree123 === 3
-let _ = assert : treeDepth tree1 === 0
-let _ = assert : treeDepth tree123 === 2
+let _ = assert : treeSum tree1 ≡ 10
+let _ = assert : treeSum tree123 ≡ 60
+let _ = assert : treeCount tree1 ≡ 1
+let _ = assert : treeCount tree123 ≡ 3
+let _ = assert : treeDepth tree1 ≡ 0
+let _ = assert : treeDepth tree123 ≡ 2
 ```
 
 
@@ -5326,8 +5320,8 @@ let tailOptional : ListInt → Optional ListInt = λ(c : ListInt) →
     } (unfix F functorF c)
 
 -- Run some tests:
-let _ = assert : headOptional (cons -456 (cons +123 nil)) === Some -456
-let _ = assert : tailOptional (cons -456 (cons +123 nil)) === Some (cons +123 nil)
+let _ = assert : headOptional (cons -456 (cons +123 nil)) ≡ Some -456
+let _ = assert : tailOptional (cons -456 (cons +123 nil)) ≡ Some (cons +123 nil)
 ```
 
 ### Performance of "unfix"
@@ -5535,7 +5529,7 @@ let CList/show : ∀(a : Type) → Show a → CList a → Text
 As an example of using these tools, let us write a `CList` value corresponding to the list `[ 1, 3, 4, 5 ]` and print it:
 ```dhall
 let exampleCList1345 : CList Natural = consCList Natural 1 (consCList Natural 3 (consCList Natural 4 (consCList Natural 5 (nilCList Natural))))
-let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 === "[ 1, 3, 4, 5, ]"
+let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 ≡ "[ 1, 3, 4, 5, ]"
 ```
 
 
@@ -5618,7 +5612,7 @@ will be `next 1 (next 2 (last 3))`; the first function evaluation is at the righ
 Folding with `one` and `consn` gives again the initial list:
 
 ```dhall
-let test = assert : example1 === foldNEL Natural example1 (NEL Natural) (one Natural) (consn Natural)
+let test = assert : example1 ≡ foldNEL Natural example1 (NEL Natural) (one Natural) (consn Natural)
 ```
 
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
@@ -5627,7 +5621,7 @@ To concatenate two lists, we right-fold the first list and substitute the second
 let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
         foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
-let test = assert : concatNEL Natural example1 example2 === consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 3 (consn Natural 2 (one Natural 1)))))
+let test = assert : concatNEL Natural example1 example2 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 3 (consn Natural 2 (one Natural 1)))))
 ```
 
 To reverse a list, we right-fold over it and accumulate a new list by appending elements to it.
@@ -5638,7 +5632,7 @@ So, we will need a new constructor (`nsnoc`) that appends a given value of type 
 let nsnoc : ∀(a : Type) → a → NEL a → NEL a
   = λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
     foldNEL a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
-let test = assert : example1 === nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
+let test = assert : example1 ≡ nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
 ```
 
 Now we can write the reversing function:
@@ -5646,8 +5640,8 @@ Now we can write the reversing function:
 ```dhall
 let reverseNEL : ∀(a : Type) → NEL a → NEL a =
     λ(a : Type) → λ(nel : NEL a) → foldNEL a nel (NEL a) (one a) (nsnoc a)
-let test = assert : reverseNEL Natural example1 === example2
-let test = assert : reverseNEL Natural example2 === example1
+let test = assert : reverseNEL Natural example1 ≡ example2
+let test = assert : reverseNEL Natural example2 ≡ example1
 ```
 
 
@@ -5745,7 +5739,7 @@ To test this code, let us compute the size of a non-empty list with three values
 let exampleNEL3 : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
 let test =
   let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail: r } >
-  in assert : 3 === size F Natural sizeF_NEL exampleNEL3 
+  in assert : 3 ≡ size F Natural sizeF_NEL exampleNEL3 
 ```
 
 Here is the size calculation for some example binary tree values:
@@ -5754,9 +5748,9 @@ let Tree2 = λ(a : Type) → LFix (FTree a)
 let leaf = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Leaf x)
 let branch = λ(a : Type) → λ(x : Tree2 a) → λ(y : Tree2 a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Branch { left = x r frr, right = y r frr } )
 let exampleTree2 : Tree2 Natural = branch Natural (leaf Natural 1) (leaf Natural 2)
-let _ = assert : 2 === size FTree Natural sizeF_Tree exampleTree2
+let _ = assert : 2 ≡ size FTree Natural sizeF_Tree exampleTree2
 let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 1) (leaf Natural 2)) (leaf Natural 3)
-let _ = assert : 3 === size FTree Natural sizeF_Tree exampleTree3
+let _ = assert : 3 ≡ size FTree Natural sizeF_Tree exampleTree3
 ```
 
 Turning now to the depth calculation, we proceed similarly and find that the only difference is in the `sizeF` function.
@@ -5788,8 +5782,8 @@ let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, righ
 To test:
 
 ```dhall
-let _ = assert : 1 === depth FTree Natural depthF_Tree exampleTree2
-let _ = assert : 2 === depth FTree Natural depthF_Tree exampleTree3
+let _ = assert : 1 ≡ depth FTree Natural depthF_Tree exampleTree2
+let _ = assert : 2 ≡ depth FTree Natural depthF_Tree exampleTree3
 ```
 
 One may notice that the implementations of `size` and `depth` are actually the same code.
@@ -6143,8 +6137,8 @@ Since we need to produce a `List a` out of `PBTree a`, we supply `List` as that 
 ```dhall
 let pbTreeToList : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) → tree List ???
-let _ = assert : pbTreeToList Natural examplePB1 === [ 10 ]
-let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
+let _ = assert : pbTreeToList Natural examplePB1 ≡ [ 10 ]
+let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
 ```
 The next argument is a function of type `∀(s : Type) → F r s → r s`, where `F` is the pattern functor for the perfect binary tree, and `r` is already set to `List`.
 So, it remains to implement a function of type `∀(s : Type) → < Leaf : s | Branch : List (Pair s s) > → List s`.
@@ -6159,8 +6153,8 @@ let pbTreeToList : ∀(a : Type) → PBTree a → List a
               , Branch = λ(branch : List (Pair s s)) → List/concatMap (Pair s s) s (λ(pair : Pair s s) → [ pair._1, pair._2 ] ) branch 
               } p 
     in tree List toList
-let _ = assert : pbTreeToList Natural examplePB1 === [ 10 ]
-let _ = assert : pbTreeToList Natural examplePB2 === [ 20, 30, 40, 50 ]
+let _ = assert : pbTreeToList Natural examplePB1 ≡ [ 10 ]
+let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
 ```
 
 The ability to implement `pbTreeToList` means that `PBTree` is a `Foldable` functor.
@@ -6194,8 +6188,8 @@ let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
             , Branch = λ(depth : Natural) → depth + 1
             } p
     in tree P q
-let _ = assert : pbTreeDepth Natural examplePB1 === 0
-let _ = assert : pbTreeDepth Natural examplePB2 === 2
+let _ = assert : pbTreeDepth Natural examplePB1 ≡ 0
+let _ = assert : pbTreeDepth Natural examplePB2 ≡ 2
 ```
 
 In this section, we studied only one example of a nested type (the "perfect binary tree").
@@ -6215,9 +6209,9 @@ data LExp t where
   LNot :: LExp Bool -> LExp Bool
   LIsZero :: Lexp Int -> LExp Bool
 ```
-This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
+This example represents the abstract syntax tree for a toy language whose expressions can have Boolean or integer type.
 The language guarantees statically that operations are applied to arguments of the correct type.
-For instance, `LNot x` will type-check only when `x` is a boolean expression such as `LBool True`.
+For instance, `LNot x` will type-check only when `x` is a Boolean expression such as `LBool True`.
 The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
 
 
@@ -6756,13 +6750,13 @@ One direction of the isomorphism can be verified using Dhall's `assert` feature,
 
 ```dhall
 let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →
-  assert : short ===  simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
+  assert : short ≡  simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
 ```
 
 To prove the other direction of the isomorphism:
 ```dhall
 let ??? = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(long : DependentPair X P → Q) →
-  assert : long ===  unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
+  assert : long ≡  unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
 ```
 does not work in Dhall.
 The proof requires a symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
@@ -6791,7 +6785,7 @@ let dependentPairFirstValueSimple = λ(X : Type) → λ(P : X → Type) →
 ```
 We can verify that the simplified code is equivalent to the original code:
 ```dhall
-let _ = dependentPairFirstValueSimple === dependentPairFirstValue
+let _ = assert : dependentPairFirstValueSimple ≡ dependentPairFirstValue
 ```
 
 However, we cannot extract the second value (of type `P x`) via a simple function of type `DependentPair X P → something`.
@@ -6814,13 +6808,13 @@ That function should return a void type if `x` is above `10`.
 
 How could we implement such a function? One possibility is to use Dhall's  built-in method `Natural/subtract`.
 In Dhall, the expression `Natural/subtract 10 x` will evaluate to zero when `x` is less or equal `10`.
-Then we can use Dhall's equality type `Natural/subtract 10 x === 0` as the type of evidence values.
-The type `Natural/subtract 10 x === 0` is not void precisely when `x` is not greater than `10`. 
+Then we can use Dhall's equality type `Natural/subtract 10 x ≡ 0` as the type of evidence values.
+The type `Natural/subtract 10 x ≡ 0` is not void precisely when `x` is not greater than `10`. 
 
 This leads us to the definitions:
 ```dhall
 let NaturalLessEqual10Predicate : Natural → Type
-  = λ(x : Natural) → Natural/subtract 10 x === 0
+  = λ(x : Natural) → Natural/subtract 10 x ≡ 0
 let NaturalLessEqual10 = DependentPair Natural NaturalLessEqual10Predicate
 ```
 
@@ -6843,12 +6837,12 @@ Could we avoid this repetition?
 
 It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at type-checking time, before the function `makeNaturalLessEqual10` is applied to any arguments.
 
-One way of reducing the code duplication is to notice that `NaturalLessEqual10Predicate 8` actually returns the equality type `0 === 0`.
-The same type (`0 === 0`) is returned by `NaturalLessEqual10Predicate x` whenever $x \le 10$.
-So, we could define the value `assert : 0 === 0` in advance and use it like this:
+One way of reducing the code duplication is to notice that `NaturalLessEqual10Predicate 8` actually returns the equality type `0 ≡ 0`.
+The same type (`0 ≡ 0`) is returned by `NaturalLessEqual10Predicate x` whenever $x \le 10$.
+So, we could define the value `assert : 0 ≡ 0` in advance and use it like this:
 
 ```dhall
-let NaturalLessEqualAssert = assert : 0 === 0
+let NaturalLessEqualAssert = assert : 0 ≡ 0
 let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
@@ -6875,7 +6869,7 @@ Creating and using a value of the type `N <= 10` looks like this:
 
 ```dhall
 let x : `N <= 10` = `make N <= 10` 8 {=}
-let _ = assert : `get N <= 10` x === 8
+let _ = assert : `get N <= 10` x ≡ 8
 ```
 
 We can generalize this code to a refinement type that imposes an arbitrary condition on a given type `T`, as long as that condition can be expressed as a function of type `T → Bool`:
@@ -6902,12 +6896,12 @@ The main technique in that library is to create functions returning special `Tex
 Then one can use `assert` expressions to verify that a `Text` value satisfies various conditions.
 
 As an example, suppose we need to assert that a string is non-empty.
-This is not straightforward (unlike asserting that a string is empty, which is just `assert : s === ""`).
+This is not straightforward (unlike asserting that a string is empty, which is just `assert : s ≡ ""`).
 To implement a non-empty assertion, we use the built-in Dhall function `Text/replace` in a special way:
 
 ```dhall
 let StringIsNotEmpty : Text → Type
-  = λ(string : Text) → "x" === Text/replace string "x" string
+  = λ(string : Text) → "x" ≡ Text/replace string "x" string
 let _ = assert : StringIsNotEmpty "abc"  -- OK
 -- let _ = assert : StringIsNotEmpty "" -- This will not compile. 
 ```
@@ -6925,9 +6919,9 @@ let getNonEmptyString : NonEmptyString → Text
 To create values of the type `NonEmptyString`, it is convenient to define a standard evidence value:
 
 ```dhall
-let ThisStringIsNotEmpty = assert : "x" === "x"
+let ThisStringIsNotEmpty = assert : "x" ≡ "x"
 let x : NonEmptyString = makeNonEmptyString "abc" ThisStringIsNotEmpty
-let _ = assert : "abc" === getNonEmptyString x -- Test that we still have that string.
+let _ = assert : "abc" ≡ getNonEmptyString x -- Test that we still have that string.
 ```
 
 Here is an example of using the `dhall-text-utils` library to define a refinement type on `Text` that accepts only strings beginning with either "a" or "z" and consisting of alphanumeric characters.
@@ -6962,7 +6956,7 @@ To test this code:
 
 ```dhall
 let x = makeValidString example TextUtils.Logic.QED
-let _ = assert : "abcd1234" === getValidString x
+let _ = assert : "abcd1234" ≡ getValidString x
 ```
 
 #### Singleton types
@@ -6971,23 +6965,23 @@ As another example, we show how to encode a **singleton type**: a type that has 
 For instance, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
 This code defines a type `Text_abc` and a value `x` of that type:
 ```dhall
-let Text_equals_abc = λ(text : Text) → (text === "abc")
+let Text_equals_abc = λ(text : Text) → (text ≡ "abc")
 let Text_abc : Type = DependentPair Text Text_equals_abc
-let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" === "abc")
+let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" ≡ "abc")
 ```
 We can then extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
 
 ```dhall
-let _ = assert : dependentPairFirstValue Text Text_equals_abc x === "abc"
+let _ = assert : dependentPairFirstValue Text Text_equals_abc x ≡ "abc"
 ```
 
 We can generalize this code to define a (dependent) type constructor for singleton types that are limited to a given `Text` value:
 ```dhall
-let TextSingletonPredicate = λ(fixed : Text) → λ(text : Text) → (text === fixed)
+let TextSingletonPredicate = λ(fixed : Text) → λ(text : Text) → (text ≡ fixed)
 let TextSingleton : Text → Type
   = λ(fixed : Text) → DependentPair Text (TextSingletonPredicate fixed)
 let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
-  = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed === fixed)
+  = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed ≡ fixed)
 let x : TextSingleton "abc" = makeTextSingleton "abc"
 -- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
 ```
@@ -7008,7 +7002,7 @@ Recall the definitions shown in the chapter "Typeclasses":
 let Semigroup = λ(t : Type) → { append : t → t → t }
 let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
   λ(x : t) → λ(y : t) → λ(z : t) → 
-    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+    ev.append x (ev.append y z) ≡ ev.append (ev.append x y) z
 ```
 
 It will be convenient to define the _type constructor_ for `semigroup_law` separately:
@@ -7674,7 +7668,7 @@ let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → 
       in sa r pack_a
 let functorStream : Functor Stream = { fmap = Stream/map }
 
-let _ = assert : streamToList Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 === [ 10, 20, 30 ]
+let _ = assert : streamToList Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 ≡ [ 10, 20, 30 ]
 ```
 
 Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat similar.
@@ -7749,8 +7743,8 @@ Function types of that kind are equivalent to simpler function types (see the se
 
 ```dhall
 GFix F → Q      -- Symbolic derivation.
-  ===  Exists (GF_T F) → Q
-  ===  ∀(t : Type) → GF_T F t → Q
+  ≡  Exists (GF_T F) → Q
+  ≡  ∀(t : Type) → GF_T F t → Q
 ```
 
 We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T F t = { seed : t, step : t → F t }` as appropriate for streams.
@@ -8030,7 +8024,7 @@ let _ =
   let check : FT t → Bool = contains_t FT functorFT foldableFT t
   let test1 : FT t = (FT t).Leaf 123   -- Does not contain values of type t.
   let test2 : FT t = (FT t).Branch { left = "a", right = "b" } -- Contains values of type t.
-in { _1 = assert : check test1 === False, _2 = assert : check test2 === True }
+in { _1 = assert : check test1 ≡ False, _2 = assert : check test2 ≡ True }
 ```
 
 The next step is to implement a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
@@ -8106,16 +8100,16 @@ let tests =
   let FFFNat = FT (FT (FT Natural))
   let fmapCoalg : FNat → FFNat = functorFT.fmap Natural FNat coalg
   let fmapFmapCoalg : FFNat → FFFNat = functorFT.fmap FNat FFNat fmapCoalg
-  let _ = assert : coalg 0 === FNat.Leaf 0
-  let _ = assert : coalg 1 === FNat.Branch { left = 0, right = 0 }
-  let _ = assert : fmapCoalg (coalg 1) === FFNat.Branch { left = FNat.Leaf 0, right = FNat.Leaf 0 }
-  let _ = assert : fmapFmapCoalg (fmapCoalg (coalg 1)) === FFFNat.Branch { left = FFNat.Leaf 0, right = FFNat.Leaf 0 }
+  let _ = assert : coalg 0 ≡ FNat.Leaf 0
+  let _ = assert : coalg 1 ≡ FNat.Branch { left = 0, right = 0 }
+  let _ = assert : fmapCoalg (coalg 1) ≡ FFNat.Branch { left = FNat.Leaf 0, right = FNat.Leaf 0 }
+  let _ = assert : fmapFmapCoalg (fmapCoalg (coalg 1)) ≡ FFFNat.Branch { left = FFNat.Leaf 0, right = FFNat.Leaf 0 }
   in "tests pass"
 ```
 The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the second `fmap`.
 So, we expect `hylo_max_depth` to return `2` when applied to that `coalg`:
 ```dhall
-let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 === 2
+let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
 ```
 
 Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
@@ -8327,7 +8321,7 @@ let egyptian_div_mod : Natural → Natural → Result
     let limit = a    -- A very imprecise upper bound on the number of iterations.
     in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
 -- Test:
-let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
+let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
 ```
 
 We may also use `hylo_N` instead of `hylo_Nat`, with an automatic detection of recursion depth and early termination:
@@ -8340,7 +8334,7 @@ let egyptian_div_mod : Natural → Natural → Result
     let limit = a
     in hylo_N P functorP foldableP limit Natural b (coalg a) Result (alg a) stopgap
 -- Test:
-let _ = assert : egyptian_div_mod 11 2 === { div = 5, rem = 1 }
+let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
 ```
 
 This function is fast enough to divide even very large numbers.
@@ -8556,7 +8550,7 @@ The Dhall code for the `fibonacci` function becomes:
 ```dhall
 let fibonacci : Natural → Natural
   = λ(n : Natural) → hylo_Nat P functorP n Natural n coalgFib Natural algFib (const Natural Natural 0)
-let _ = assert : fibonacci 8 === 21
+let _ = assert : fibonacci 8 ≡ 21
 ```
 
 What is the time complexity of the hylomorphism-based `fibonacci` function?
@@ -9205,7 +9199,7 @@ let contrafunctorGFix
 Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
 ```dhall
 let List/filter = https://prelude.dhall-lang.org/List/filter
-let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] === [ 5, 6, 7, 8 ]
+let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] ≡ [ 5, 6, 7, 8 ]
 ```
 
 The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
@@ -9605,7 +9599,7 @@ let filterableCList: Filterable CList = filterableLFix FList filterableFList1
 Then we apply the generic `filter` function with the predicate `Natural/odd` to the list `exampleCList1345` and obtain the result corresponding to the list `[ 1, 3 ]`.
 ```dhall
 let result : CList Natural = filter CList filterableCList Natural Natural/odd exampleCList1345
-let _ = assert : CList/show Natural { show = Natural/show } result === "[ 1, 3, ]"
+let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, ]"
 ```
 So, this filtering operation indeed truncates the data after the first item that fails the predicate.
 
@@ -9669,7 +9663,7 @@ We now define a new `Filterable` instance for `CList` and test that it does not 
 let filterableCListEither : Filterable CList
   = filterableLFixEither FList bifunctorFList deflateFListEither
 let result : CList Natural = filter CList filterableCListEither Natural Natural/odd exampleCList1345
-let _ = assert : CList/show Natural { show = Natural/show } result === "[ 1, 3, 5, ]"
+let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 5, ]"
 ```
 
 There are often many ways of implementing a `Filterable` typeclass for a given functor.
@@ -10192,7 +10186,7 @@ let fmap_G : ∀(A : Type) → ∀(B : Type) → (A → B) → G A → G B = ???
 let t : ∀(A : Type) → F A → G A = ???
 let naturality_law =
   λ(A : Type) → λ(B : Type) → λ(f : A → B) → λ(p : F A) → 
-    assert : fmap_G A B f (t A p) === t B (fmap_F A B f p)
+    assert : fmap_G A B f (t A p) ≡ t B (fmap_F A B f p)
 ```
 
 A naturality law of `t` describes what happens when we apply the transformation `t` to a data container.
@@ -10219,7 +10213,7 @@ Then, for any value `p : List X` we must have:
 ```dhall
 let fThenG : X → B = compose_forward X A B f g
  in      -- Symbolic derivation.
-   assert : List/map X B fThenG p === List/map A B g (List/map X A f p)
+   assert : List/map X B fThenG p ≡ List/map A B g (List/map X A f p)
 ```
 
 
@@ -10285,18 +10279,18 @@ For functions `t : ∀(A : Type) → (F A → G A) → H A`, the parametricity t
 For any types `A` and `B`, and for any functions `f : A → B`, `p : F A → G A`, and `q : F B → G B`, first define the property we call "`f`-relatedness". We say that `p` and `q` are "`f`-related" if for all `x : F A` we have:
 
 ```dhall
-fmap_G A B f (p x) === q (fmap_F A B f x)  -- Symbolic derivation.
+fmap_G A B f (p x) ≡ q (fmap_F A B f x)  -- Symbolic derivation.
 ```
 This equation is similar to a naturality law except for using two different functions, `p` and `q`.
 (If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
 
 Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related values `p` and `q`, the following equation must hold:
 
-`fmap_H A B f (t A p) === t B q`
+`fmap_H A B f (t A p) ≡ t B q`
 
 It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
 Because of this complication, the law of `t` does not have the form of a single equation.
-The law says that the equation `fmap_H A B f (t A p) === t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
+The law says that the equation `fmap_H A B f (t A p) ≡ t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
 That law of `t` is known as a **strong dinaturality law**.
 The form of that law is a generalization of a naturality law, adapted for the type signature of `t`.
@@ -10306,9 +10300,9 @@ That law can be written in Dhall syntax as:
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `p`:
 ∀(t : ∀(R : Type) → (F R → G R) → H R) → ∀(A : Type) → ∀(B : Type) → ∀(f : A → B) → ∀(p : F A → G A) → ∀(q : F B → G B) →
--- If p and q are f-related then fmap f (t p) === t q
-   ∀(_ : ∀(x : F A) → functorG.fmap A B f (p x) === q (functorF.fmap A B f x)) →
-     functorH.fmap A B f (t A p) === t B q
+-- If p and q are f-related then fmap f (t p) ≡ t q
+   ∀(_ : ∀(x : F A) → functorG.fmap A B f (p x) ≡ q (functorF.fmap A B f x)) →
+     functorH.fmap A B f (t A p) ≡ t B q
 ```
 
 
@@ -10396,7 +10390,7 @@ The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) �
 
 ```dhall
 -- Symbolic derivation.
-y C (compose_forward A B C f g) === fmap_F B C g (y B f)
+y C (compose_forward A B C f g) ≡ fmap_F B C g (y B f)
 ```
 
 We substitute `y = inY fa` into the left-hand side of this naturality law:
@@ -10404,9 +10398,9 @@ We substitute `y = inY fa` into the left-hand side of this naturality law:
 ```dhall
 -- Symbolic derivation.
 y C (compose_forward A B C f g)   -- Expand the definition of y:
-  === inY fa C (compose_forward A B C f g)  -- Expand the definition of inY:
-  === fmap_F A C (compose_forward A B C f g) fa  -- Use fmap_F's composition law:
-  === fmap_F B C g (fmap_F A B f fa)
+  ≡ inY fa C (compose_forward A B C f g)  -- Expand the definition of inY:
+  ≡ fmap_F A C (compose_forward A B C f g) fa  -- Use fmap_F's composition law:
+  ≡ fmap_F B C g (fmap_F A B f fa)
 ```
 
 Now we write the right-hand side of the naturality law:
@@ -10414,8 +10408,8 @@ Now we write the right-hand side of the naturality law:
 ```dhall
 -- Symbolic derivation.
 fmap_F B C g (y B f)  -- Expand the definition of y:
-  === fmap_F B C g (inY fa B f)  -- Expand the definition of inY:
-  === fmap_F B C g (fmap_F A B f fa)
+  ≡ fmap_F B C g (inY fa B f)  -- Expand the definition of inY:
+  ≡ fmap_F B C g (fmap_F A B f fa)
 ```
 We obtain the same expression as from the left-hand side.
 So, the naturality law will hold automatically for values `y` obtained via `inY`.
@@ -10423,34 +10417,34 @@ So, the naturality law will hold automatically for values `y` obtained via `inY`
 Now we will prove that the compositions of `inY` with `outY` in both directions are identity functions.
 
 The first direction: for any given `fa : F A`, we compute `y : Y = inY fa` and `faNew : F A = outY y`.
-Then we need to prove that `faNew === fa`:
+Then we need to prove that `faNew ≡ fa`:
 
 ```dhall
 -- Symbolic derivation.
-faNew === outY y  -- Expand the definition of outY:
-  === y A (identity A)   -- Expand the definition of y:
-  === inY fa A (identity A)  -- Expand the definition of inY:
-  === fmap_F A A (identity A) fa  -- Use the identity law of fmap_F:
-  === identity (F A) fa    -- Apply the identity function:
-  === fa
+faNew ≡ outY y  -- Expand the definition of outY:
+  ≡ y A (identity A)   -- Expand the definition of y:
+  ≡ inY fa A (identity A)  -- Expand the definition of inY:
+  ≡ fmap_F A A (identity A) fa  -- Use the identity law of fmap_F:
+  ≡ identity (F A) fa    -- Apply the identity function:
+  ≡ fa
 ```
 This depends on the identity law of `fmap_F`, which holds by assumption.
 
 The second direction: for any given `y : Y` that satisfies the naturality law, we compute `fa : F A = outY y` and `yNew : Y = inY fa`.
-Then we need to prove that `yNew === y`.
+Then we need to prove that `yNew ≡ y`.
 Both `y` and `yNew` are functions, so we need to show that those functions give the same results when applied to arbitrary arguments.
 Take any type `B` and any `f : A → B`.
-Then we need to show that `yNew B f === y B f`.
+Then we need to show that `yNew B f ≡ y B f`.
 This will require using the naturality law of `y`:
 
 ```dhall
 -- Symbolic derivation.
-yNew B f === inY fa B f  -- Expand the definition of inY:
-  === fmap_F A B f fa  -- Expand the definition of fa:
-  === fmap_F A B f (outY y)  -- Expand the definition of outY:
-  === fmap_F A B f (y A (identity A))  -- Use the naturality law of y:
-  === y B (compose_forward A A B (identity A) f)  -- Compute composition:
-  === y B f
+yNew B f ≡ inY fa B f  -- Expand the definition of inY:
+  ≡ fmap_F A B f fa  -- Expand the definition of fa:
+  ≡ fmap_F A B f (outY y)  -- Expand the definition of outY:
+  ≡ fmap_F A B f (y A (identity A))  -- Use the naturality law of y:
+  ≡ y B (compose_forward A A B (identity A) f)  -- Compute composition:
+  ≡ y B f
 ```
 
 This completes the proof of the isomorphism between `F A` and `Y`. $\square$
@@ -10517,7 +10511,7 @@ So, we may write the type equivalence:
 Using that equivalence, the type `Exists P` is rewritten as:
 
 ```dhall
-Exists P === ∀(R : Type) → (∀(B : Type) → P B → R) → R
+Exists P ≡ ∀(R : Type) → (∀(B : Type) → P B → R) → R
   ≅ ∀(R : Type) → (F A → R) → R
 ```
 
@@ -10556,7 +10550,7 @@ For any type `R` and any function `frr : F R → R`, define the function `c2r : 
 
 Then the function `c2r` satisfies the law: for any value `fc : F C`,
 
-`c2r (fix F functorF fc) === frr (functorF.fmap C R c2r fc)`
+`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
 
 In category theory, that law is known as the "$F$-algebra morphism law".
 Functions that satisfy that law are called **$F$-algebra morphisms**.
@@ -10571,10 +10565,10 @@ Expand `c2r (fix F functorF fc)` using the definitions of `c2r` and `fix`:
 ```dhall
 -- Symbolic derivation.
 c2r (fix F functorF fc)
-  === (λ(c : C) → c R frr) (fix F functorF fc)
-  === fix F functorF fc R frr
-  === frr (functorF.fmap C R (λ(c : C) → c R frr) fc)
-  === frr (functorF.fmap C R c2r fc)
+  ≡ (λ(c : C) → c R frr) (fix F functorF fc)
+  ≡ fix F functorF fc R frr
+  ≡ frr (functorF.fmap C R (λ(c : C) → c R frr) fc)
+  ≡ frr (functorF.fmap C R c2r fc)
 ```
 This is now equal to the right-hand side of the equation we needed to prove.
 
@@ -10588,18 +10582,18 @@ We need to prove the two directions of the isomorphism:
 
 (1) For an arbitrary value `c : C`, show that:
 
-`fix F functorF (unfix F functorF c) === c`
+`fix F functorF (unfix F functorF c) ≡ c`
 
 (2) For an arbitrary value `p : F C`, show that:
 
-`unfix F functorF (fix F functorF p) === p`
+`unfix F functorF (fix F functorF p) ≡ p`
 
 To prove item (1), we note that both sides are functions of type `C`.
 Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and substitute the definitions of `fix` and `unfix`:
 
 ```dhall
 -- Expect the following expression to equal just `c R frr`:
-fix F functorF (unfix F functorF c) R frr === ???
+fix F functorF (unfix F functorF c) R frr ≡ ???
 ```
 
 We define temporary symbols `fmap_fix` and `c2r` for brevity, and rewrite the definitions of `fix` and `unfix` as:
@@ -10615,7 +10609,7 @@ unfix F functorF c = c (F C) fmap_fix
 
 The equation we are trying to prove then becomes:
 
-`frr (functorF.fmap C R c2r (c (F C) fmap_fix)) === c R frr`
+`frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr`
 
 By assumption, the value `c : C` satisfies the strong dinaturality law:
 
@@ -10623,17 +10617,17 @@ By assumption, the value `c : C` satisfies the strong dinaturality law:
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `c`:
 ∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
--- If p and q are f-related then f (c a p) === c b q
-   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
-     f (c a p) === c b q
+-- If p and q are f-related then f (c a p) ≡ c b q
+   ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
+     f (c a p) ≡ c b q
 ```
 The last equation needs to match the equation we need to prove:
 
 ```dhall
 -- Symbolic derivation. We need to match this equation:
-  frr (functorF.fmap C R c2r (c (F C) fmap_fix)) === c R frr
+  frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr
 -- with this one:
-  f (c a p) === c b q
+  f (c a p) ≡ c b q
 -- These equations will be the same if we define:
   a = F C
   b = R
@@ -10644,7 +10638,7 @@ The last equation needs to match the equation we need to prove:
 This will finish the proof of item (1) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
 
-`f (p x) === q (functorF.fmap a b f x)`
+`f (p x) ≡ q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above:
 
@@ -10652,9 +10646,9 @@ Substitute the parameters as shown above:
 -- Symbolic derivation. We need to show that this holds:
 ∀(x : F (F C)) →
   frr (functorF.fmap C R c2r (fmap_fix x))
-    === frr (functorF.fmap (F C) R f x)
+    ≡ frr (functorF.fmap (F C) R f x)
 -- Omit the call to `frr` in both sides:
-functorF.fmap C R c2r (fmap_fix x) === functorF.fmap (F C) R f x
+functorF.fmap C R c2r (fmap_fix x) ≡ functorF.fmap (F C) R f x
 ```
 In the last equation, the left-hand side contains a composition of two functions under `fmap`.
 We use `fmap`'s composition law to transform that:
@@ -10662,9 +10656,9 @@ We use `fmap`'s composition law to transform that:
 ```dhall
 -- Symbolic derivation.
 functorF.fmap C R c2r (fmap_fix x)
-  === functorF.fmap C R c2r (functorF.fmap (F C) C (fix F functorF) x)
+  ≡ functorF.fmap C R c2r (functorF.fmap (F C) C (fix F functorF) x)
 -- Use functorF's composition law:
-  === functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
+  ≡ functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
 ```
 
 Now the remaining equation is rewritten to:
@@ -10672,19 +10666,19 @@ Now the remaining equation is rewritten to:
 ```dhall
 -- Symbolic derivation. We need to show that this holds:
 functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
-  === functorF.fmap (F C) R f x
+  ≡ functorF.fmap (F C) R f x
 ```
 Both sides are now of the form `functorF.fmap (F C) R (...) x`. It remains to prove:
 
-`λ(fc : F C) → c2r (fix F functorF fc) === f`
+`λ(fc : F C) → c2r (fix F functorF fc) ≡ f`
 
 Substitute the definition of `f`:
 
-`f === λ(fc : F C) → frr (functorF.fmap C R c2r fc)`
+`f ≡ λ(fc : F C) → frr (functorF.fmap C R c2r fc)`
 
 Omit the common code `λ(fc : F C) → ...`, and it remains to prove that:
 
-`c2r (fix F functorF fc) === frr (functorF.fmap C R c2r fc)`
+`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
 
 This holds by Statement 1. This concludes the proof of item (1).
 
@@ -10693,16 +10687,16 @@ To prove item (2), we substitute the definitions of `fix` and `unfix`:
 ```dhall
 -- Symbolic derivation. For any p : F C, expect this to equal just p:
 unfix F functorF (fix F functorF p)  -- Substitute the definition of unfix:
-  === fix F functorF p (F C) fmap_fix  -- Substitute the definition of fix:
-  === fmap_fix (functorF.fmap C (F C) (λ(c : C) → c (F C) fmap_fix) p)
+  ≡ fix F functorF p (F C) fmap_fix  -- Substitute the definition of fix:
+  ≡ fmap_fix (functorF.fmap C (F C) (λ(c : C) → c (F C) fmap_fix) p)
 -- Substitute the definition of `unfix` again:
-  === fmap_fix (functorF.fmap C (F C) (unfix F functorF) p)
+  ≡ fmap_fix (functorF.fmap C (F C) (unfix F functorF) p)
 -- Use the composition law of fmap:
-  === functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
+  ≡ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 ```
 Now we use item (1) that we already proved, and find:
 
-`fix F functorF (unfix F functorF c) === c`
+`fix F functorF (unfix F functorF c) ≡ c`
 
 So, the argument of `functorF.fmap C C ` is actually an identity function of type `C → C`.
 This allows us to complete the final step of the proof:
@@ -10710,9 +10704,9 @@ This allows us to complete the final step of the proof:
 ```dhall
 -- Symbolic derivation.
 functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
-  === functorF.fmap C C (λ(c : C) → c) p
+  ≡ functorF.fmap C C (λ(c : C) → c) p
 -- Use the identity law of fmap:
-  === p
+  ≡ p
 ```
 
 ###### Statement 3
@@ -10720,7 +10714,7 @@ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
 More precisely:
 
-`c C (fix F functorF) === c`
+`c C (fix F functorF) ≡ c`
 
 ####### Proof
 
@@ -10728,7 +10722,7 @@ We need to prove an equation between functions of type `C`.
 Apply both sides of that equation to arbitrary arguments `R : Type` and `frr : F R → R`.
 So, we need to prove that:
 
-`c C (fix F functorF) R frr === c R frr`
+`c C (fix F functorF) R frr ≡ c R frr`
 
 Values `c : C` satisfy the strong dinaturality law:
 
@@ -10736,17 +10730,17 @@ Values `c : C` satisfy the strong dinaturality law:
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `c`:
 ∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
--- If p and q are f-related then f (c a p) === c b q
-   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
-     f (c a p) === c b q
+-- If p and q are f-related then f (c a p) ≡ c b q
+   ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
+     f (c a p) ≡ c b q
 ```
 The last equation needs to match the equation we need to prove:
 
 ```dhall
 -- Symbolic derivation. We need to match this equation:
-  c C (fix F functorF) R frr === c R frr
+  c C (fix F functorF) R frr ≡ c R frr
 -- with this one:
-  f (c a p) === c b q
+  f (c a p) ≡ c b q
 -- These equations will be the same if we define:
   a = C
   b = R
@@ -10757,13 +10751,13 @@ The last equation needs to match the equation we need to prove:
 This will finish the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
 
-`f (p x) === q (functorF.fmap a b f x)`
+`f (p x) ≡ q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above:
 
 ```dhall
 -- Symbolic derivation. We need to show that, for any `x : F C`:
-f (fix F functorF x) === frr (functorF.fmap C R f x)
+f (fix F functorF x) ≡ frr (functorF.fmap C R f x)
 ```
 
 This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
@@ -10773,7 +10767,7 @@ This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
 Given a type `R` and a function `frr : F R → R`, suppose there exists a function `f : C → R` that
 satisfies the $F$-algebra morphism law:
 
-`∀(fc : F C) → f (fix F functorF fc) === frr (functorF.fmap C R f fc)`
+`∀(fc : F C) → f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)`
 
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
 (By Statement 1, that function satisfies the $F$-algebra morphism law.)
@@ -10783,7 +10777,7 @@ Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C)
 Suppose a function `f : C → R` is given and satisfies the $F$-algebra morphism law.
 We need to prove that, for any `c : C`, the following holds:
 
-`f c === c2r c === c R frr`.
+`f c ≡ c2r c ≡ c R frr`.
 
 Values `c : C` satisfy the strong dinaturality law:
 
@@ -10791,17 +10785,17 @@ Values `c : C` satisfy the strong dinaturality law:
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `c`:
 ∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
--- If p and q are f-related then f (c a p) === c b q
-   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
-     f (c a p) === c b q
+-- If p and q are f-related then f (c a p) ≡ c b q
+   ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
+     f (c a p) ≡ c b q
 ```
 The last equation needs to match the equation we need to prove:
 
 ```dhall
 -- Symbolic derivation. We need to match this equation:
-  f c === c R frr
+  f c ≡ c R frr
 -- with this one:
-  f (c a p) === c b q
+  f (c a p) ≡ c b q
 -- These equations will be the same if we define:
   a = C
   b = R
@@ -10809,20 +10803,20 @@ The last equation needs to match the equation we need to prove:
   q = frr
 ```
 
-Note that the strong dinaturality law gives `f (c C p) === c R frr` and not `f c = c R frr`.
-However, Statement 3 says that `c C p === c` with our definition of `p`.
+Note that the strong dinaturality law gives `f (c C p) ≡ c R frr` and not `f c = c R frr`.
+However, Statement 3 says that `c C p ≡ c` with our definition of `p`.
 That is why we are justified in replacing `f c` by `f (c C p)`.
 
 So, the proof will be finished as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
 
-`f (p x) === q (functorF.fmap a b f x)`
+`f (p x) ≡ q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above, and rename `x` to `fc`:
 
 ```dhall
 -- Symbolic derivation. We need to show that, for any `fc : F C`:
-f (fix F functorF fc) === frr (functorF.fmap C R f fc)
+f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)
 ```
 
 This is exactly the same as the $F$-algebra morphism law for `f`, which holds by assumption.
@@ -10837,13 +10831,13 @@ To explain the property of "preserving the fixpoint isomorphisms" in detail, con
 - The type isomorphism `R ≅ F R` is given by two functions: `fix_R : F R → R` and `unfix_R : R → F R`. Each value `r : R` corresponds to a value `fr : F R` computed as `fr = unfix_R r`, and each value `fr` corresponds to a value `r` computed as `r = fix_R fr`.
 - Any `c : C` is mapped by the function `c2r` into some `r : R`.
 - Any `fc : F C` is mapped by the function `fmap_F c2r` into some `fr : F R`.
-- The property of "preserving the fixpoint isomorphisms" means that `c2r` should map `c` into `r` and the corresponding `fc` into the corresponding `fr`. In other words, `fr === unfix_R r` if and only if `fc === unfix_C c`.
+- The property of "preserving the fixpoint isomorphisms" means that `c2r` should map `c` into `r` and the corresponding `fc` into the corresponding `fr`. In other words, `fr ≡ unfix_R r` if and only if `fc ≡ unfix_C c`.
 
 It means that the following equations must hold:
 
-(1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) === c2r (fix_C fc)`.
+(1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)`.
 
-(2) For any `c : C`: `unfix_R (c2r c) === fmap_F c2r (unfix_C c)`.
+(2) For any `c : C`: `unfix_R (c2r c) ≡ fmap_F c2r (unfix_C c)`.
 
 We claim that these equations will hold for the function `c2r` defined by `c2r = λ(c : C) → c R fix_R`, and that there is only one such function.
 
@@ -10856,15 +10850,15 @@ Then we substitute that `fc` into equation (1):
 
 ```dhall
 -- Symbolic derivation.
-fix_R (fmap_F c2r fc) === c2r (fix_C fc)
+fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)
   -- Substitute fc = unfix_C c:
-fix_R (fmap_F c2r (unfix_C c)) === c2r (fix_C (unfix_C c))
-  -- Use the isomorphism law: fix_C (unfix_C  c) === c
-fix_R (fmap_F c2r (unfix_C c)) === c2r c
+fix_R (fmap_F c2r (unfix_C c)) ≡ c2r (fix_C (unfix_C c))
+  -- Use the isomorphism law: fix_C (unfix_C  c) ≡ c
+fix_R (fmap_F c2r (unfix_C c)) ≡ c2r c
   -- Apply unfix_R to both sides of the equation:
-unfix_R (fix_R (fmap_F c2r (unfix_C c))) === unfix_R (c2r c)
-  -- Use the isomorphism law: unfix_R (fix_R fr) === fr
-fmap_F c2r (unfix_C c) === unfix_R (c2r c)
+unfix_R (fix_R (fmap_F c2r (unfix_C c))) ≡ unfix_R (c2r c)
+  -- Use the isomorphism law: unfix_R (fix_R fr) ≡ fr
+fmap_F c2r (unfix_C c) ≡ unfix_R (c2r c)
 ```
 We obtain equation (2). $\square$
 
@@ -10890,7 +10884,7 @@ In other words, one may implement a function with the type signature `F <> → L
 ```dhall
 let fVoidToLFix : ∀(F : Type → Type) → Functor F → F <> → LFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(fv : F <>) → λ(r : Type) → λ(frr : F r → r) →
-    frr (functorF.fmap <> r (absurd r) fv)
+    frr (functorF.fmap <> r (λ(void : <>) → absurd void r) fv)
 ```
 
 To prove part (2), we need to assume that the type `F <>` is void.
@@ -10925,7 +10919,6 @@ As an example, let us implement the `List` functor using the Mendler encoding.
 let ListF = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
 let ListM = λ(a : Type) → MFix (ListF a)
 let nilM = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (None (Pair a r))
-let nilM0 = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f <> (absurd r) (None (Pair a <>))
 let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (Some { _1 = head, _2 = tail r f } )  
 ```
 
@@ -11006,20 +10999,20 @@ It remains to show the two directions of the isomorphism roundtrip (applying `fr
 
 (1) For any `gc : G C`, we need to show that:
 
-`fromCY F functorF G (toCY F G functorG gc) === gc`
+`fromCY F functorF G (toCY F G functorG gc) ≡ gc`
 
 (2) For any `cy : CY F G`, we need to show that:
 
-`toCY F G functorG (fromCY F functorF G cy) === cy`
+`toCY F G functorG (fromCY F functorF G cy) ≡ cy`
 
 To prove item (1), we begin by substituting the definitions of `fromCY` and `toCY` into the left-hand side:
 
 ```dhall
 -- Symbolic derivation. We expect this to equal `gc`.
 fromCY F functorF G (toCY F G functorG gc)
-  === fromCY F functorF G (λ(R : Type) → λ(frr: F R → R) →
+  ≡ fromCY F functorF G (λ(R : Type) → λ(frr: F R → R) →
     functorG.fmap C R (λ(c : C) → c R frr) gc
-) === functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
+) ≡ functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
 ```
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
@@ -11032,9 +11025,9 @@ Then we get:
 ```dhall
 -- Symbolic derivation.
 functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
-  === functorG.fmap C C (identity C) gc
-  === identity (G C) gc
-  === gc
+  ≡ functorG.fmap C C (identity C) gc
+  ≡ identity (G C) gc
+  ≡ gc
 ```
 This is exactly what we needed to show.
 
@@ -11045,30 +11038,30 @@ Then we substitute the definitions of `fromCY` and `toCY` into the left-hand sid
 ```dhall
 -- Symbolic derivation. We expect this to equal `cy R frr`.
 toCY F G functorG (fromCY F functorF G cy) R frr
-  === toCY F G functorG (cy C (fix F functorF)) R frr
-  === functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF))
+  ≡ toCY F G functorG (cy C (fix F functorF)) R frr
+  ≡ functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF))
 ```
 
 We need to show that the last expression is equal to `cy R frr`.
-So, we need to prove an equation that looks like `fmap f (cy p) === cy q`.
+So, we need to prove an equation that looks like `fmap f (cy p) ≡ cy q`.
 This is similar to the form of the strong dinaturality law of `cy`.
 Let us write the general form of that law and then find specific parameters that will move the proof forward:
 
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `cy`:
 ∀(cy : CY F G) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
--- If p and q are f-related then fmap f (cy p) === cy q
-   ∀(_ : ∀(x : F a) → f (p x) === q (functorF.fmap a b f x)) →
-     functorG.fmap a b f (cy a p) === cy b q
+-- If p and q are f-related then fmap f (cy p) ≡ cy q
+   ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
+     functorG.fmap a b f (cy a p) ≡ cy b q
 ```
 
 Compare the last expression in our derivation with this law and read off the required parameters:
 
 ```dhall
 -- Symbolic derivation. We need to match this equation:
-  functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF)) === cy R frr
+  functorG.fmap C R (λ(c : C) → c R frr) (cy C (fix F functorF)) ≡ cy R frr
 -- with this one:
-  functorG.fmap a b f (cy a p) === cy b q
+  functorG.fmap a b f (cy a p) ≡ cy b q
 -- These equations will be the same if we define:
   a = C
   b = R
@@ -11079,14 +11072,14 @@ Compare the last expression in our derivation with this law and read off the req
 This will finish the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
 
-`f (p x) === q (functorF.fmap a b f x)`
+`f (p x) ≡ q (functorF.fmap a b f x)`
 
 Substitute the parameters as shown above:
 
 ```dhall
 -- Symbolic derivation. We need to show that:
 ∀(x : F C) →
-  f (fix F functorF x) === frr (functorF.fmap C R f x)
+  f (fix F functorF x) ≡ frr (functorF.fmap C R f x)
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
@@ -11125,10 +11118,10 @@ We can write this expectation in Dhall as an equation for `ep`:
 ```dhall
 let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 
-unpackP ExistsP ep packP === ep
+unpackP ExistsP ep packP ≡ ep
 ```
 
-Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP === ep`.
+Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP ≡ ep`.
 We would like to prove that the above equation holds for arbitrary `ep : ExistsP`.
 
 For that, we need to use the naturality law of `ep`.
@@ -11140,17 +11133,17 @@ The law says that, for any types `R` and `S` and for any functions `f : R → S`
 
 ```dhall
 -- Symbolic derivation. The naturality law of `ep`:
-f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
-Both sides of the naturality law apply `ep` to some arguments, while we would like to prove an equation of the form `ep ExistsP packP === ep`.
+Both sides of the naturality law apply `ep` to some arguments, while we would like to prove an equation of the form `ep ExistsP packP ≡ ep`.
 To make progress, we apply both sides of that equation to arbitrary arguments `U : Type` and `u : ∀(T : Type) → P T → U`.
 If `ep packP` is the same function as `ep` then `ep packP U u` will be always the same value as `ep U u`.
 Write the corresponding equation:
 
 ```dhall
 -- Symbolic derivation.
-ep ExistsP packP U u === ep U u
+ep ExistsP packP U u ≡ ep U u
 ```
 
 Our goal is to derive this equation as a consequence of the naturality law of `ep`.
@@ -11160,7 +11153,7 @@ Then the left-hand side of the naturality law becomes:
 
 ```dhall
 -- Symbolic derivation.
-f (ep R g) === ep R g U u === ep ExistsP packP U u
+f (ep R g) ≡ ep R g U u ≡ ep ExistsP packP U u
 ```
 This is the left-hand side of the equation we need to prove.
 
@@ -11169,15 +11162,15 @@ The right-hand side of the naturality law becomes:
 ```dhall
 -- Symbolic derivation.
 ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
-  === ep U (λ(T : Type) → λ(pt : P T) → (g T pt) U u)
-  === ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
+  ≡ ep U (λ(T : Type) → λ(pt : P T) → (g T pt) U u)
+  ≡ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 ```
 
 This will be equal to `ep U u` (the right-hand side of the equation we need to prove) if we could show that:
 
 ```dhall
 -- Symbolic derivation.
-λ(T : Type) → λ(pt : P T) → packP T pt U u  ===  u
+λ(T : Type) → λ(pt : P T) → packP T pt U u  ≡  u
 ```
 
 Substitute the definition of `packP` and get:
@@ -11185,7 +11178,7 @@ Substitute the definition of `packP` and get:
 ```dhall
 -- Symbolic derivation.
 λ(T : Type) → λ(pt : P T) → packP T pt U u
-  === λ(T : Type) → λ(pt : P T) → u T pt
+  ≡ λ(T : Type) → λ(pt : P T) → u T pt
 ```
 
 Because `u` is a function of type `∀(T : Type) → P T → U`, the code of `u` has the form `λ(T : Type) → λ(pt : P T) → ...`.
@@ -11199,11 +11192,11 @@ Finally, we found what we needed:
 ```dhall
 -- Symbolic derivation.
 ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
-  === ep U (λ(T : Type) → λ(pt : P T) → u T pt)
-  === ep U u
+  ≡ ep U (λ(T : Type) → λ(pt : P T) → u T pt)
+  ≡ ep U u
 ```
 
-This completes the proof that `ep ExistsP packP U u === ep U u`.
+This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
 ### Function extension rule for existential types
 
@@ -11234,8 +11227,8 @@ Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE R` to i
 ```dhall
 -- Symbolic derivation.
 outE R (inE R k)  -- Use the definition of inE:
-  === outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE:
-  === λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
+  ≡ outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE:
+  ≡ λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
 The result is a function of type `λ(T : Type) → λ(pt : P T) → R`.
@@ -11246,10 +11239,10 @@ The result should be equal to `k T pt`:
 ```dhall
 -- Symbolic derivation.
 outE R (inE R k) t pt
-  === (λ(ep : ExistsP) → ep R k) (packP T)
-  === (packP T) R k  -- Use the definition of packP:
-  === (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
-  === k t pt
+  ≡ (λ(ep : ExistsP) → ep R k) (packP T)
+  ≡ (packP T) R k  -- Use the definition of packP:
+  ≡ (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
+  ≡ k t pt
 ```
 
 This proves the first direction of the isomorphism.
@@ -11260,8 +11253,8 @@ Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it
 ```dhall
 -- Symbolic derivation.
 inE S (outE S consume)
-  === inE S (λ(T : Type) → λ(pt : P T) → consume (packP T))
-  === λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡ inE S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡ λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
 The result is a function of type `ExistsP → S`.
@@ -11272,7 +11265,7 @@ Apply that function to an arbitrary value `ep : ExistsP`:
 ```dhall
 -- Symbolic derivation.
 inE S (outE S consume) ep
-  === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
 We need to show that the last line is equal to just `consume ep`.
@@ -11282,7 +11275,7 @@ The first step is apply the naturality law of `ep` shown in the previous subsect
 
 ```dhall
 -- Symbolic derivation.
-f (ep R g) === ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 We assign `f = consume`, `R = ExistsP`, and `g = packP`.
 The naturality law becomes:
@@ -11290,7 +11283,7 @@ The naturality law becomes:
 ```dhall
 -- Symbolic derivation.
 consume (ep ExistsP packP)
-  === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
+  ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
 ```
 
 We wanted to show that the last line equals the expression `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
@@ -11300,14 +11293,14 @@ That property was proved in the form:
 
 ```dhall
 -- Symbolic derivation.
-ep ExistsP packP === ep
+ep ExistsP packP ≡ ep
 ```
 
-It follows that `consume (ep ExistsP packP) === consume ep`.
+It follows that `consume (ep ExistsP packP) ≡ consume ep`.
 
 Then we get:
 
-`consume ep === ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
+`consume ep ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
 
 This concludes the proof.
 
@@ -11346,7 +11339,7 @@ Then Wadler's "surjective pairing rule", which he writes as:
 
 is translated into Dhall as:
 
-`h t === t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
+`h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
 
 After renaming `t = ep`, this is the same equation we proved above.
 
@@ -11390,7 +11383,7 @@ Below we will need to use the relational naturality law of `unfold`.
 That law will be applied in the following form:
 
 For any types `R`, `S`, for any functions `f : R → S`, `cR : R → F R`, `cS : S → F S`:
-if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
+if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y ≡ unfold S cS (f y)` for all `y : R`.
 
 ###### Statement 1 (extensional surjectivity of `unfold`)
 
@@ -11409,7 +11402,7 @@ Instead, this statement claims a weaker property: for any function `h : G → S`
 
 Apply Wadler's "surjectivity pairing rule" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
 
-`h t === t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
+`h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
 
 Now we can pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
 Then we obtain directly the equation we need for the extensional surjectivity of `unfold`.
@@ -11426,11 +11419,11 @@ or more concisely:
 
 Then the function `r2g` satisfies the following law: for any `r : R`,
 
-`unfixf (r2g r) === functorF.fmap R G r2g (rfr r)`
+`unfixf (r2g r) ≡ functorF.fmap R G r2g (rfr r)`
 
 or equivalently:
 
-`unfixf (unfold R rfr r) === functorF.fmap R G (unfold R rfr) (rfr r)`
+`unfixf (unfold R rfr r) ≡ functorF.fmap R G (unfold R rfr) (rfr r)`
 
 
 In category theory, that law is known as the "$F$-coalgebra morphism law".
@@ -11445,15 +11438,15 @@ Begin with the expression `unfixf (unfold R rfr r)`:
 ```dhall
 -- Symbolic derivation.
 unfixf (unfold R rfr r)              -- Use definition of unfixf:
- === unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
- === unfoldF R rfr r                 -- Use definition of unfoldF:
- === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
+ ≡ unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
+ ≡ unfoldF R rfr r                 -- Use definition of unfoldF:
+ ≡ functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
 Rewrite the right-hand side of the equation we needed to prove:
 ```dhall
 -- Symbolic derivation.
 functorF.fmap R G (unfold R rfr) (rfr r)
- === functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
+ ≡ functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
 ```
 
 The two sides are now equal.
@@ -11465,50 +11458,50 @@ Then the corresponding function `r2g` will be an identity function of type `G �
 as long as `unfold` satisfies its relational naturality law.
 We can write that property as:
 
-`unfold G unfixf === identity G`
+`unfold G unfixf ≡ identity G`
 
 In other words, for any value `g : G` we will have:
 
-`g === unfold G unfixf g`
+`g ≡ unfold G unfixf g`
 
 
 ####### Proof
 
-For brevity, denote `v = unfold G unfixf`. Then our goal is to prove that `v g === g`.
+For brevity, denote `v = unfold G unfixf`. Then our goal is to prove that `v g ≡ g`.
 
 First, we use the relational naturality law of `g` with `S = G`, `f = unfold R cR`, `cS = unfixf` and get:
 
-If `unfixf (unfold R cR x) === functorF.fmap R G (unfold R cR) (cR x)` for all `x : R` then `unfold R cR y === unfold G unfixf (unfold R cR y)` for all `y : R`.
+If `unfixf (unfold R cR x) ≡ functorF.fmap R G (unfold R cR) (cR x)` for all `x : R` then `unfold R cR y ≡ unfold G unfixf (unfold R cR y)` for all `y : R`.
 
 The precondition holds by Statement 2.
 So, we have for all `y : R`:
 
-`unfold R cR y === unfold G unfixf (unfold R cR y) === v (unfold R cR y)`
+`unfold R cR y ≡ unfold G unfixf (unfold R cR y) ≡ v (unfold R cR y)`
 
 This is close to what we need: this equation says `k == v k` for `k = unfold R cR y`.
-But we need to show `g === v g` for arbitrary `g : G`.
+But we need to show `g ≡ v g` for arbitrary `g : G`.
 
 To get around this difficulty, we use Statement 1 with `h = identity G` and get:
 
-`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
+`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
 
 Now substitute what we already derived:
 
-`unfold R cR y === v (unfold R cR y)`
+`unfold R cR y ≡ v (unfold R cR y)`
 
 and get:
 
-`g === g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
+`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
 
  Again use Statement 1, this time with `h = v` and `g = unfold R cR y`, to get:
 
 ```dhall
 -- Symbolic derivation.
 g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
-  === v g
+  ≡ v g
 ```
 
-So, we obtain `g === v g` as required.
+So, we obtain `g ≡ v g` as required.
 
 
 ###### Statement 4
@@ -11519,29 +11512,29 @@ For a fixed functor `F`, the functions `fixf : F G → G` and `unfixf : G → F 
 
 We need to prove two directions of the isomorphism round-trip:
 
-(1) For any `g : G` we will have `fixf (unfixf g) === g`
+(1) For any `g : G` we will have `fixf (unfixf g) ≡ g`
 
-(2) For any `fg : F G` we will have `unfixf (fixf fg) === fg`
+(2) For any `fg : F G` we will have `unfixf (fixf fg) ≡ fg`
 
 To prove item (1), we write out the left-hand side of its equation:
 
 ```dhall
 -- Symbolic derivation. Expect this to equal just `g`.
 fixf (unfixf g)
-  === unfold (F G) fmap_unfixf (unfixf g)
+  ≡ unfold (F G) fmap_unfixf (unfixf g)
 ```
 
 Then we use the relational naturality law of `unfold` with `R = G`, `S = F G`, `f = unfixf`, `cR = unfixf`, and `cS = fmap_unfixf`.
 The precondition of the relational naturality law becomes:
 
-if `cS (f x) === functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y === unfold S cS (f y)` for all `y : R`.
+if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y ≡ unfold S cS (f y)` for all `y : R`.
 
-`fmap_unfixf (unfixf x) === functorF.fmap G (F G) unfixf (unfixf x) === fmap_unfixf (unfixf x)`
+`fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x) ≡ fmap_unfixf (unfixf x)`
 
 This holds trivially.
 So, the conclusion of the law also holds: for all `g : G`,
 
-`unfold G unfixf g === unfold (F G) fmap_unfixf (unfixf g)`
+`unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)`
 
 The right-hand side is the same as the expression we got after expanding `fixf` in `fixf (unfixf g)`.
 So, we continue our derivation:
@@ -11549,9 +11542,9 @@ So, we continue our derivation:
 ```dhall
 -- Symbolic derivation. Expect this to equal just `g`.
 fixf (unfixf g)  -- Use the definition of fixf:
-  === unfold (F G) fmap_unfixf (unfixf g)  -- Use the relational naturality law of `unfold`:
-  === unfold G unfixf g  -- Use Statement 3:
-  === g
+  ≡ unfold (F G) fmap_unfixf (unfixf g)  -- Use the relational naturality law of `unfold`:
+  ≡ unfold G unfixf g  -- Use Statement 3:
+  ≡ g
 ```
 
 Item (1) is proved.
@@ -11561,10 +11554,10 @@ To prove item (2), write out the left-hand side of its equation:
 ```dhall
 -- Symbolic derivation. Expect this to equal just `fg`.
 unfixf (fixf fg)   -- Use the definition of unfixf:
-  === fixf fg (F G) unfoldF  -- Use the definition of fixf:
-  === unfold (F G) fmap_unfixf fg (F G) unfoldF  -- Use the definition of unfold:
-  === unfoldF (F G) fmap_unfixf fg  -- Use the definition of unfoldF: 
-  === functorF.fmap (F G) G (unfold (F G) fmap_unfixf) (fmap_unfixf fg)
+  ≡ fixf fg (F G) unfoldF  -- Use the definition of fixf:
+  ≡ unfold (F G) fmap_unfixf fg (F G) unfoldF  -- Use the definition of unfold:
+  ≡ unfoldF (F G) fmap_unfixf fg  -- Use the definition of unfoldF: 
+  ≡ functorF.fmap (F G) G (unfold (F G) fmap_unfixf) (fmap_unfixf fg)
 ```
 
 At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simplify the last line to:
@@ -11572,12 +11565,12 @@ At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simp
 `functorF.fmap (F G) G fixf (fmap_unfixf fg)`
 
 The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
-By `fmap`'s composition law, we have `fmap fixf . fmap unfixf === fmap (fixf . unfixf)`.
+By `fmap`'s composition law, we have `fmap fixf . fmap unfixf ≡ fmap (fixf . unfixf)`.
 We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
 Applying `functorF.fmap` to an identity function of type `G → G` gives an identity function of type `F G → F G`.
 So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
 
-`functorF.fmap (F G) G fixf (fmap_unfixf fg) === fg`
+`functorF.fmap (F G) G fixf (fmap_unfixf fg) ≡ fg`
 
 This is what remained to be proved for item (2). $\square$
 
@@ -11593,20 +11586,20 @@ We need to show that `f` is then equal to `r2g` (which is defined as `unfold R r
 
 The $F$-coalgebra morphism law of `f` says that, for any `x : R`,
 
-`unfixf (f x) === functorF.fmap R G f (rfr x)`
+`unfixf (f x) ≡ functorF.fmap R G f (rfr x)`
 
 This equation is the same as the precondition of the relational naturality law of `unfold` with `S = G`, `cR = rfr`, and `cS = unfixf`.
 So, the conclusion of that law holds: for any `x : R`,
 
-`unfold R rfr x === unfold G unfixf (f x)`
+`unfold R rfr x ≡ unfold G unfixf (f x)`
 
-By Statement 3, we have `g === unfold G unfixf g` for any `g : G`.
+By Statement 3, we have `g ≡ unfold G unfixf g` for any `g : G`.
 Use that property for `g = f x` and obtain:
 
-`unfold R rfr x === unfold G unfixf g === g === f x`
+`unfold R rfr x ≡ unfold G unfixf g ≡ g ≡ f x`
 
 The left-hand side is exactly the function `r2g` from Statement 2.
-So, we have proved that `r2g x === f x`. The function `f` is the same as `r2g`.
+So, we have proved that `r2g x ≡ f x`. The function `f` is the same as `r2g`.
 
 
 ### The Church-co-Yoneda identity
@@ -11685,22 +11678,22 @@ let toCCoY : K G → ∀(R : Type) → (PackKTo R) → R
 It remains to show that `fromCCoY` and `toCCoY` are inverses to each other.
 We need to prove the two directions of the isomorphism round-trip:
 
-(1) For any `kg : K G` we have `kg === fromCCoY (toCCoY kg)`
+(1) For any `kg : K G` we have `kg ≡ fromCCoY (toCCoY kg)`
 
-(2) For any `c : CCoY` we have `c === toCCoY (fromCCoY c)`
+(2) For any `c : CCoY` we have `c ≡ toCCoY (fromCCoY c)`
 
 To prove item (1):
 
 ```dhall
 -- Symbolic derivation. Expect this to equal `kg`:
 fromCCoY (toCCoY kg)   -- Expand the definition of fromCCoY:
-  === toCCoY kg (K G) (λ(T : Type) → λ(cT : T → F T) → 
+  ≡ toCCoY kg (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     )                  -- Expand the definition of toCCoY:
-  === (λ(T : Type) → λ(cT : T → F T) →
+  ≡ (λ(T : Type) → λ(cT : T → F T) →
       fmap_K T G (unfold T cT)
     ) G unfixf kg      -- Apply function to arguments:
-  === fmap_K G G (unfold G unfixf) kg
+  ≡ fmap_K G G (unfold G unfixf) kg
 ```
 
 Statement 3 in section "Properties of co-inductive type encodings" shows that `unfold G unfixf` is an identity function of type `G → G` (denoted by `identity G`).
@@ -11709,10 +11702,10 @@ So, we have:
 ```dhall
 -- Symbolic derivation. Expect this to equal `kg`:
 fromCCoY (toCCoY kg)
-  === fmap_K G G (unfold G unfixf) kg   -- Use Statement 3:
-  === fmap_K G G (identity G) kg     -- Use functor K's identity law:
-  === identity (K G) kg              -- Apply identity function:
-  === kg
+  ≡ fmap_K G G (unfold G unfixf) kg   -- Use Statement 3:
+  ≡ fmap_K G G (identity G) kg     -- Use functor K's identity law:
+  ≡ identity (K G) kg              -- Apply identity function:
+  ≡ kg
 ```
 
 This proves item (1).
@@ -11722,10 +11715,10 @@ To prove item (2), write:
 ```dhall
 -- Symbolic derivation. Expect this to equal `c`:
 toCCoY (fromCCoY c)   -- Expand the definition of fromCCoY:
-  === toCCoY (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
+  ≡ toCCoY (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))                -- Expand the definition of toCCoY:
-  === λ(R : Type) → λ(p : PackKTo R) →
+  ≡ λ(R : Type) → λ(p : PackKTo R) →
     p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))
@@ -11745,20 +11738,20 @@ Then we get:
 ```dhall
 -- Symbolic derivation.
 p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)
-  === f (c Q q)
-  === c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
-  === c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
+  ≡ f (c Q q)
+  ≡ c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
+  ≡ c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
 ```
 
 The next step is to simplify the sub-expression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
 For that, we use the strong dinaturality law for values `p : PackKTo R`.
 That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
 
-`fmap_F T U h (cT x) === cU (h x)` for all `x : T`,
+`fmap_F T U h (cT x) ≡ cU (h x)` for all `x : T`,
 
 then the conclusion holds:
 
-`p T cT kt === p U cU (fmap_K T U h kt)`
+`p T cT kt ≡ p U cU (fmap_K T U h kt)`
 
 We need to set the parameters in the law to match the right-hand side of the last equation:
 
@@ -11775,12 +11768,12 @@ With these parameters, we get:
 ```dhall
 -- Symbolic derivation.
 p G unfixf (fmap_K T G (unfold T cT) kt)
-  === p U cU (fmap_K T U h kt)
-  === p T cT kt
+  ≡ p U cU (fmap_K T U h kt)
+  ≡ p T cT kt
 ```
 as long as the precondition of the law holds:
 
-`fmap_F T G (unfold T cT) (cT x) === unfixf (unfold T cT x)`
+`fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)`
 
 This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Properties of co-inductive types".
 
@@ -11789,20 +11782,20 @@ This allows us to complete the proof of item 2:
 ```dhall
 -- Symbolic derivation. Expect this to equal `c`.
 toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
-  === λ(R : Type) → λ(p : PackKTo R) →
+  ≡ λ(R : Type) → λ(p : PackKTo R) →
     p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → 
       fmap_K T G (unfold T cT)
     ))    -- Use the naturality law of `c`:
-  === λ(R : Type) → λ(p : PackKTo R) →
+  ≡ λ(R : Type) → λ(p : PackKTo R) →
     c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) →
       p G unfixf (fmap_K T G (unfold T cT) kt))
         -- Use the relational naturality law of `p`:
-  === λ(R : Type) → λ(p : PackKTo R) →
+  ≡ λ(R : Type) → λ(p : PackKTo R) →
     c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p T cT kt)
-       -- Unexpand function: λ T → λ cT → λ kt → p T cT kt === p
-  === λ(R : Type) → λ(p : PackKTo R) → c R p
-       -- Unexpand function: λ R → λ p → c R p === c
-  === c
+       -- Unexpand function: λ T → λ cT → λ kt → p T cT kt ≡ p
+  ≡ λ(R : Type) → λ(p : PackKTo R) → c R p
+       -- Unexpand function: λ R → λ p → c R p ≡ c
+  ≡ c
 ```
 
 ### Proofs for mutually recursive fixpoints
@@ -11915,8 +11908,8 @@ As `U = H T`, we can derive a fixpoint equation that contains just `T` and no `U
 
 ```dhall
 -- Symbolic derivation.
-T === GFix (λ(x : Type) → F x U)
-  === GFix (λ(x : Type) → F x (H T))
+T ≡ GFix (λ(x : Type) → F x U)
+  ≡ GFix (λ(x : Type) → F x (H T))
 ```
 This is a fixpoint equation for `T` alone. The solution can be written as:
 
@@ -12000,10 +11993,10 @@ Then we may use the Church-co-Yoneda identity to obtain:
 ```dhall
 -- Symbolic derivation.
 T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
-  === Exists (λ(x : Type) → P (GFix Q))
-  === Exists (λ(x : Type) → Exists (λ(A : Type) → { seed : P A, step : A → Q A }))
+  ≡ Exists (λ(x : Type) → P (GFix Q))
+  ≡ Exists (λ(x : Type) → Exists (λ(A : Type) → { seed : P A, step : A → Q A }))
 -- Rename A to y and expand the definitions of P and Q:
-  === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed: x, step: x → F x y }, step : y → G x y }))
+  ≡ Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed: x, step: x → F x y }, step : y → G x y }))
 ```
 
 It remains to replace the record type `{ seed : { seed: x, step: x → F x y }, step : y → G x y }` by an equivalent record type `{ seed : x, stepA : x → F x y, stepB : y → G x y }`.
@@ -12011,7 +12004,7 @@ Then we get the required type formula for `T`:
 
 ```dhall
 -- Symbolic derivation.
-T === Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x → F x y, stepB : y → G x y }))
+T ≡ Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x → F x y, stepB : y → G x y }))
 ```
 
 This concludes the proof for the greatest fixpoints.
@@ -12033,9 +12026,9 @@ Then we may apply the Church-Yoneda identity to obtain:
 ```dhall
 -- Symbolic derivation.
 let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
-  === ∀(x : Type) → P (Lfix Q)
-  === ∀(x : Type) → ∀(y : Type) → (Q y → y) → P y
-  === ∀(x : Type) → ∀(y : Type) → (G x y → y) → (F x y → x) → x
+  ≡ ∀(x : Type) → P (Lfix Q)
+  ≡ ∀(x : Type) → ∀(y : Type) → (Q y → y) → P y
+  ≡ ∀(x : Type) → ∀(y : Type) → (G x y → y) → (F x y → x) → x
 ```
 
 This is equivalent to the type expression we wanted to derive:
