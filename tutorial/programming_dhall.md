@@ -5920,12 +5920,10 @@ One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` v
 But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
 
-Recursive "type-level" data structures can be implemented via the Church encoding technique.
-We use the same pattern as before, except that stored data items will now have type `Type`.
-
-The definition of the type-level `Optional` is straightforward because Dhall's union types support arbitrary kinds.
-We will first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
-Then we will define a more limited `OptionalT` that can be used with types such as `Bool` or `Natural`.
+Let us begin by implementing a type-level analog of the `Optional` type.
+For that, we will use a union type that stores data of an arbitrary kind.
+We first define a general type `OptionalK` that accepts an arbitrary kind as a parameter.
+Then we define a more limited `OptionalT` that works with types such as `Bool` or `Natural`, which is perhaps the most useful case.
 ```dhall
 let OptionalK : Kind → Kind = λ(k : Kind) → < None | Some : k >
 let OptionalT = OptionalK Type
@@ -5952,35 +5950,87 @@ let _ = True : someType1 -- This type-checks because someType1 is Bool.
 let _ = 123 : someType2 -- This type-checks because someType1 is Natural.
 ```
 
-TODO implement type-level list and show that it cannot be kind-polymorphic
+We now turn to the type-level `List` analogs.
+
+Recursive "type-level" data structures can be implemented via the Church encoding technique.
+We use the same pattern as before, except that stored data items will now have type `Type`.
+
+Begin by looking at the curried Church encoding of the list of integers:
+
 
 ```dhall
-let TList = ∀(r : Kind) → ∀(cons : Type → r → r) → ∀(nil : r) → r
-
-
-let example
-    : TList
-    = λ(list : Kind) →
-      λ(cons : Type → list → list) →
-      λ(nil : list) →
-        cons Text (cons Bool (cons Natural nil))
-
-let TOpt = < None | Some : Type >
-
-let THeadOpt
-    : TList → TOpt
-    = λ(tl : TList) →
-        let cons = λ(t : Type) → λ(_ : TOpt) → TOpt.`Some` t
-        let nil = TOpt.None
-
-        in  tl TOpt cons nil
-
-let someText = THeadOpt example  -- This is equal to TOpt.`Some` Text but we cannot assert on values of that type.
-
-let shouldBeTextType = merge { None = {}, Some = λ(t : Type) → t } someText
-
-let _ = "abc" : shouldBeTextType
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let exampleListInt = λ(r : Type) → λ(nil : r) → λ(cons : Integer → r → r) → cons +1 (cons +2 (cons +3 nil))
 ```
+
+To generalize this data structure to the level of types, we replace `Type` by `Kind` and `Integer` by `Type`.
+The resulting code is:
+
+```dhall
+let ListT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : Type → r → r) → r
+let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) → cons Bool (cons Natural (cons Text nil))  -- Similar to [Bool, Natural, Text].
+```
+The value `exampleListT` is a type-level list: it defines a list of three _type symbols_.
+Note that Dhall's built-in `List` constructor does not support type symbols as list elements; the syntax `[Bool, Natural, Text]` is an error.
+
+To illustrate how to work with a type-level list, let us write a function that extracts the head from a list.
+The result will be an `OptionalT` value.
+
+```dhall
+let headOptionalT : ListT → OptionalT
+  = λ(list : ListT) →
+    let cons = λ(t : Type) → λ(_ : OptionalT) → OptionalT.`Some` t
+    let nil = OptionalT.None
+    in list OptionalT nil cons
+```
+To extract the type out of an `OptionalT`, we need to provide a default type and use `OptionalT/default`.
+The head of the list `exampleListT` is the type `Bool`.
+To verify that, we write a type annotation for a `Bool` value:
+```dhall
+let someBool = headOptionalT exampleListT  -- This is equal to OptionalT.`Some` Bool.
+let shouldBeBoolType = OptionalT/default {} someBool
+let _ = False : shouldBeBoolType
+```
+
+The type-level list `ListT` is hard-coded to store symbols of kind `Type`.
+We cannot use it to store type constructors.
+For that, we need to define another type-level list type; let's call it `ListTT`.
+
+```dhall
+let ListTT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : (Type → Type) → r → r) → r
+let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) → r → r) → cons Optional (cons List nil)  -- Similar to [Optional, List].
+```
+
+The constructors `ListT` and `ListTT` define lists whose elements have a hard-coded _kind_.
+To see how we could generalize to arbitrary kinds, compare the Church encoding of `ListInt` with that of a generic list.
+The difference is that the hard-coded `Integer` type is replaced by a type parameter:
+
+```dhall
+let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let ListGeneric = λ(a : Type) → ∀(r : Type) → r → (a → r → r) → r
+```
+
+If we try to use the same technique with `ListT`, we would have to replace `Type` by `Kind`:
+```dhall
+let ListT = ∀(r : Kind) → r → (Type → r → r) → r
+let ListTGeneric = λ(k : Kind) → ∀(r : Kind) → r → (k → r → r) → r  -- Type error: `Sort` does not have a type
+```
+
+The error says that `ListTGeneric` cannot be typed.
+To understand why, let us look at the type of `ListT`.
+We can verify that the type constructor `ListT` has itself the type `Sort`:
+```dhall
+let _ = ListT : Sort
+```
+
+The appearance of `Sort` is usually a warning sign in Dhall.
+It means that we are writing code that is so abstract that it approaches the limits of Dhall's type system.
+
+
+
+Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
+To define such a list, we 
+TODO implement type-level list and show that it cannot be kind-polymorphic
 
 ### Perfect trees and other nested recursive types
 
