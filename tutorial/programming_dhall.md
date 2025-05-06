@@ -2492,7 +2492,7 @@ A `Semigroup` typeclass evidence value for the type `Natural` is a value of type
 Here are some examples of `Semigroup` evidence values:
 ```dhall
 let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
-let semigroupBool2Bool : Semigroup (Bool → Bool) = { append = compose_forward Bool Bool Bool } 
+let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = compose_forward Bool Bool Bool } 
 ```
 
 The type `Natural` together with the value `semigroupNatural` is an instance of `Semigroup` because the associativity law holds for that evidence value.
@@ -2504,19 +2504,19 @@ let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
     ev.append x (ev.append y z) === ev.append (ev.append x y) z
 ```
 
-Dhall's typechecker is able to validate the associativity law for `semigroupBool2Bool` (but not for `semigroupNatural`):
+Dhall's typechecker is able to validate the associativity law for `semigroupBoolToBool` (but not for `semigroupNatural`):
 
 ```dhall
 let _ = λ(x : Bool → Bool) → λ(y : Bool → Bool) → λ(z : Bool → Bool) →
-  assert : semigroup_law (Bool → Bool) semigroupBool2Bool x y z
+  assert : semigroup_law (Bool → Bool) semigroupBoolToBool x y z
 ```
-A value of type `semigroup_law (Bool → Bool) semigroupBool2Bool` can be seen as a symbolic proof that the `Semigroup` typeclass instance for `Bool → Bool` satisfies the associativity law.
+A value of type `semigroup_law (Bool → Bool) semigroupBoolToBool` can be seen as a symbolic proof that the `Semigroup` typeclass instance for `Bool → Bool` satisfies the associativity law.
 
 The typeclass laws are an essential part of the definition of a typeclass, because program correctness often implicitly depends on those laws.
 So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type `semigroup_law t ev`.
 
 This is not a simple pair of values, because the _type_ of the second value depends on the first _value_.
-This sort of type is called a **dependent pair**.
+This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings for more complicated types".
 
 Most programming languages do not support dependent pairs.
 Dhall can encode their type (see the chapter "Church encodings for more complicated types" below) but provides only quite limited ways of working with dependent pairs.
@@ -6026,11 +6026,13 @@ let _ = ListT : Sort
 The appearance of `Sort` is usually a warning sign in Dhall.
 It means that we are writing code that is so abstract that it approaches the limits of Dhall's type system.
 
+We defined `ListTGeneric` by lifting all types one level higher: we replaced `Type` with `Kind`.
+So, we should expect that the type of `ListTGeneric` is one level higher than `Sort`.
+But Dhall does not have any type levels higher than `Sort`.
+So, type-checking of `ListTGeneric` fails when Dhall tries to find the type of `Sort`.
 
+The conclusion is that Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
 
-Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
-To define such a list, we 
-TODO implement type-level list and show that it cannot be kind-polymorphic
 
 ### Perfect trees and other nested recursive types
 
@@ -6564,10 +6566,11 @@ We will reuse these mapping functions below to make some code shorter.
 
 ### Dependent pairs
 
-A **dependent pair**  is a type that describes pairs of values of a special form: the first value has a given type `X` (say, it is `x : X`), and the second value has type `P x`, where `P : X → Type` is a given dependently-typed function.
-So, the _type_ of the second value in the pair depends on the first value.
+A **dependent pair**  is a type that describes pairs of values of a special form: the first value has a given type `X` (say, it is `x : X`), and the second value has type `P x`, where `P : X → Type` is a given function.
+So, the _type_ of the second value in the pair depends on the first _value_.
+A dependency of a type on a value is the hallmark of a **dependent type**.
 
-Dependent pairs cannot be expressed directly by Dhall records, because each field of a record must have a fixed type that cannot depend on values of other fields of the same record. 
+Dependent pairs cannot be expressed directly by Dhall records, because each field of a record must have a fixed type that cannot depend on other fields of the same record. 
 Instead, we will use the Church encoding technique.
 That technique is based on the fact that Dhall can already express a function _from_ a dependent pair to some other result type (say, `R`).
 That function's type is written as `∀(x : X) → P x → R`.
@@ -6598,6 +6601,12 @@ let makeDependentPair
   = λ(X : Type) → λ(x : X) → λ(P : X → Type) → λ(px : P x) → 
     λ(R : Type) → λ(k : ∀(x : X) → P x → R) → k x px
 ```
+
+
+Dependent pairs can be used to encode values that satisfy some equations.
+Examples are shown in the next section ("Refinement types and singleton types").
+
+As preparation, we will now study some general properties of dependent pairs.
 
 #### Functions from dependent pairs
 
@@ -6674,12 +6683,14 @@ Without knowing `x`, we cannot correctly assign a type to a function that extrac
 
 Extracting the second value from a dependent pair requires advanced support of dependent types that Dhall does not provide. 
 
-### Refinement types, singleton types, subset types
+### Refinement types and singleton types
+
+#### Refinement types
 
 The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that all values of that type satisfy a given condition.
-Dependent pairs provide an encoding of refinement types in Dhall.
+Dependent pairs provide a general encoding of refinement types in Dhall.
 
-An example  is a type describing `Natural` numbers that may not be greater than `10`.
+An simple example  is a type describing `Natural` numbers that may not be greater than `10`.
 To encode that type via dependent pairs, we need to create a function of type `Natural → Type`.
 When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`, or a void type if `x` is above `10`.
 How could we implement such a function? One possibility is to use Dhall's  built-in method `Natural/subtract`.
@@ -6722,8 +6733,10 @@ let NaturalLessEqualAssert = assert : 0 === 0
 let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
+#### Singleton types
+
 As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
-For example, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
+For instance, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
 This code defines a type `Text_abc` and a value `x` of that type:
 ```dhall
 let Text_equals_abc = λ(text : Text) → (text === "abc")
@@ -6745,15 +6758,11 @@ let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
   = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed === fixed)
 let x : TextSingleton "abc" = makeTextSingleton "abc"
 -- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
-let x : TextSingleton "abc" = makeDependentPair Text "abc" (TextSingletonPredicate "abc") (assert : "abc" === "abc")
-let _ = assert : dependentPairFirstValue Text (TextSingletonPredicate "abc") x === "abc"
 ```
 
-The repetition in this code can be reduced by using Dhall's built-in function `Text/replace`. -- Is this necessary?
+TODO reorganize this section to restore a logical sequence of steps
 
-TODO
-
-Another way of reducing duplication is to change the definition of `NaturalLessEqual10Predicate` by simplifying the returned type.
+To make this code shorter, we could change the definition of `NaturalLessEqual10Predicate` by simplifying the returned type.
 We notice that instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
 We can use an `if/then/else` expression that returns the unit or the void types according to the value of `x`.
 Then the definition and the usage become simpler while the functionality remains the same.
@@ -6797,14 +6806,48 @@ let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
 This method works whenever the refinement condition can be expressed via `Bool` values.
 This is not always the case in Dhall; for instance, the condition for a string to be non-empty is not expressible as a function of type `Text → Bool`.
 
-When this technique works, it can be used to implement **subset types** whose values must satisfy a given predicate.
-The result is a subset of values of a given type `T`.
+
+For `Text` types, certain tricks (see the textutils library) allow us to implement refinement types on `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
 
 TODO
 
-For `Text` types, certain tricks (see the textutils library) allow us to implement subset types of `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
+#### Typeclass instances with laws
 
-TODO 
+
+Dependent pairs can encode typeclass instances that are guaranteed to satisfy the typeclass laws.
+
+A simple example is the `Semigroup` typeclass with the associativity law.
+Recall the definitions shown in the chapter "Typeclasses":
+
+```dhall
+let Semigroup = λ(t : Type) → { append : t → t → t }
+let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
+  λ(x : t) → λ(y : t) → λ(z : t) → 
+    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+```
+
+It will be convenient to define the _type constructor_ for `semigroup_law` separately:
+```dhall
+let semigroup_law_t = λ(t : Type) → λ(ev : Semigroup t) →
+  ∀(x : t) → ∀(y : t) → ∀(z : t) → 
+    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+```
+This definition allows us to write an evidence for the semigroup law as a value of type `semigroup_law_t t ev`. 
+
+Now we can implement the type `SemigroupLawful` via a dependent pair that contains both a `Semigroup` typeclass evidence and an equality type for the law:
+
+```dhall
+let SemigroupLawful = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
+```
+A value of type `SemigroupLawful` can be produced like this:
+```dhall
+let T = Bool → Bool
+let associativityLaw = λ(x : T) → λ(y : T) → λ(z : T) → assert : semigroup_law T semigroupBoolToBool x y z
+let instanceBoolToBool : SemigroupLawful T = makeDependentPair (Semigroup T) semigroupBoolToBool (semigroup_law_t T) associativityLaw
+```
+This value stores at once an implementation of the semigroup function (`append`) and an evidence that `append` satisfies the associativity law.
+
+This technique works only when Dhall's typechecker is powerful enough to validate laws symbolically.
 
 ## Co-inductive types
 
