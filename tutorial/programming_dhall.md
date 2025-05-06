@@ -5936,7 +5936,21 @@ let example3 = (OptionalK (Type → Type)).`Some` List
 Note that we have to backquote the constructor name `Some` in `OptionalK`.
 Using `Some` without backquotes would lead to a parse error in Dhall, because `Some` is a built-in keyword.
 
-TODO show examples of code with typechecking using OptionalK
+We can implement a method similar to `Optional/default` and perform type-checking against types stored in an `OptionalT` structure:
+
+```dhall
+let OptionalK/default
+  : ∀(k : Kind) → k → OptionalK k → k
+  = λ(k : Kind) → λ(default : k) → λ(opt: OptionalK k) →
+    merge { None = default
+          , Some = λ(t : k) → t
+          } opt
+let OptionalT/default = OptionalK/default Type
+let someType1 = OptionalT/default Bool example1 -- someType1 is Bool
+let someType2 = OptionalT/default Bool example2 -- someType2 is Natural
+let _ = True : someType1 -- This type-checks because someType1 is Bool.
+let _ = 123 : someType2 -- This type-checks because someType1 is Natural.
+```
 
 TODO implement type-level list and show that it cannot be kind-polymorphic
 
