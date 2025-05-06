@@ -4103,20 +4103,20 @@ This allows us to type-cast values of type `P` into values of type `Q`:
 let LeibnizTypeCast : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → P → Q
   = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev (λ(A : Type) → A)
 ```
-This function is a **type-cast** because it reassigns the types without actually changing the values.
+This function is a **type cast** because it reassigns the types without actually changing the values.
 
 
-A more general form of such type-cast is to transform, for any type constructor `F`, values of type `F P` into type `P Q`:
+A more general form of such type-cast is to transform values of type `F P` into type `F Q` (for any type constructor `F`):
 ```dhall
 let LeibnizTypeCastF : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → ∀(F : Type → Type) → F P → F Q
   = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev
 ```
-So, we can view an evidence value of type `LeibnizEqualT Type P Q` as a generator of type-cast functions of type `F P → F Q` that works for arbitrary type constructors `F`.
+An evidence value of type `LeibnizEqualT Type P Q` is a generator of type-casting functions of type `F P → F Q` that work for arbitrary type constructors `F`.
 
 Another use for `LeibnizEqualT` is when implementing an `assert`-like functionality for types:
 
 ```dhall
--- This is analogous to assert : Bool === Bool.
+-- This is analogous to `assert : Bool === Bool`, which is not valid in Dhall.
 let _ = reflT Type Bool : LeibnizEqualT Type Bool Bool
 ```
 
@@ -4161,7 +4161,7 @@ What about _inequalities_ at type level?
 Recall that an inequality type requires us to have a function that compares values at run time.
 However, Dhall cannot compare type symbols at run time.
 (It is not possible to write a function `equalT : Type → Type → Bool` such that `equalT Text Text === True` but `equalT Text Double === False`.)
-So, we cannot define a type-level inequality type such as `LeibnizUnequalT`.
+So, we cannot define a type-level inequality type analogous to `LeibnizUnequal`.
 
 ### Symbolic reasoning with Leibniz equality
 
@@ -6204,11 +6204,36 @@ are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx
 
 ### Church encodings for GADTs
 
-GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
+Types known as "GADT" (generalized algebraic data types) are type constructors whose definitions are not parametric in the type parameter.
+
+Here is an example of a GADT in Haskell:
+```haskell
+data LExp t where
+  LInt :: Int -> LExp Int
+  LBool :: Bool -> LExp Bool
+  LAdd :: LExp Int -> LExp Int -> LExp Int
+  LNot :: LExp Bool -> LExp Bool
+  LIsZero :: Lexp Int -> LExp Bool
+```
+This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
+The language guarantees statically that operations are applied to arguments of the correct type.
+For instance, `LNot x` will type-check only when `x` is a boolean expression such as `LBool True`.
+The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
+
+
+The definition of `LExp t` is not parametric in `t` because values of type `LExp t` can be created only when `t = Int` or `t = Bool`, not with arbitrary types `t`.
+Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
+
+The definition of a GADT can use the type parameters in a precise way required by the task at hand.
+Because of this flexibility, GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
+
+Most often, GADTs are recursively defined because the constructor arguments need to use the GADT itself.
+So, we will encode GADTs can be encoded with the technique similar to the Church encoding of nested types.
+
 
 Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
 
-We begin by reviewing how a usual **algebraic data type** (ADT) is defined.
+We begin by reviewing the Haskell syntax for definitions of usual **algebraic data type** (ADT).
 Haskell and Scala have a "short syntax" and a "long syntax" for defining ADTs.
 
 The short syntax resembles a union type:
@@ -6248,16 +6273,10 @@ In this example, all three constructors have the same output type `Tree a`.
 
 However, note that the output type parameter `a` in `Tree a` is written out explicitly in the long syntax.
 So, Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
-For example, the output type could be `Tree (a, a)` instead of `Tree a`.
-The result is a data type known as the **perfect binary tree**:
+For example, the output type could be `Tree Int` instead of `Tree a`, or even a more complicated type with other type parameters.
+The resulting type is a GADT.
 
-```haskell
-data PTree a where   -- Haskell.
-  Leaf :: a -> PTree a
-  Branch :: PTree a -> PTree a -> PTree (a, a)
-```
-
-Here is an artificial example where we arbitrarily set the output type parameters:
+Here is an artificial example of a GADT where we arbitrarily set the output type parameters:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -6275,29 +6294,13 @@ enum WeirdBox[A]:                                      // Scala 3.
 
 Note that Scala requires us to write more type parameters explicitly, compared with Haskell.
 
-The type constructor `WeirdBox` is an example of a GADT (**generalized algebraic data type**).
-GADTs are type constructors whose definition substitutes specific types or nontrivial type expressions as output type parameters.
-In the `WeirdBox` example, the definition substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the simple type parameter `a` everywhere.
+The type constructor `WeirdBox` substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the simple type parameter `a` everywhere.
 This makes `WeirdBox` a GADT.
 
-Definitions of GADTs are typically not type-parametric, so GADTs are neither covariant nor contravariant in their type parameters.
+As definitions of GADTs are typically not type-parametric, GADTs are neither covariant nor contravariant in their type parameters.
 
-A example of using a GADT
-
-TODO haskell, scala - show the short and the long form of definition of ADTs and show how to pass to nested types and to GADTs
-
-
-### GADTs
-
-Types known as "GADT" (generalized algebraic data types) are type constructors whose definitions are not parametric.
-
-
-GADTs can be encoded with the technique similar to the Church encoding of nested types.
-
-In Haskell or Scala, a GADT is a type constructor (with one or more type parameters) defined by a set of value constructors.
-Each value constructor is specified by its type signature.
-Typically, GADTs are recursively defined because the constructor arguments will use the GADT itself.
-So, we use the Church
+TODO Church encoding of GADTs
+ 
 
 ### Existentially quantified types
 
@@ -6687,12 +6690,14 @@ Extracting the second value from a dependent pair requires advanced support of d
 
 #### Refinement types
 
-The intent of a **refinement type** is to ensure at type level (i.e., at type-checking time) that all values of that type satisfy a given condition.
+The intent of a **refinement type** is to create a new type that ensures at type-checking time that all values satisfy a given condition.
 Dependent pairs provide a general encoding of refinement types in Dhall.
 
-An simple example  is a type describing `Natural` numbers that may not be greater than `10`.
+An simple example is a type describing a subset of `Natural` numbers that may not be greater than `10`.
 To encode that type via dependent pairs, we need to create a function of type `Natural → Type`.
-When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`, or a void type if `x` is above `10`.
+When that function is applied to a value `x : Natural`, the result must be a type whose values give evidence that `x` is not greater than `10`.
+That function should return a void type if `x` is above `10`.
+
 How could we implement such a function? One possibility is to use Dhall's  built-in method `Natural/subtract`.
 In Dhall, the expression `Natural/subtract 10 x` will evaluate to zero when `x` is less or equal `10`.
 Then we can use Dhall's equality type `Natural/subtract 10 x === 0` as the type of evidence values.
@@ -6733,37 +6738,9 @@ let NaturalLessEqualAssert = assert : 0 === 0
 let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
-#### Singleton types
 
-As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
-For instance, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
-This code defines a type `Text_abc` and a value `x` of that type:
-```dhall
-let Text_equals_abc = λ(text : Text) → (text === "abc")
-let Text_abc : Type = DependentPair Text Text_equals_abc
-let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" === "abc")
-```
-We can then extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
-
-```dhall
-let _ = assert : dependentPairFirstValue Text Text_equals_abc x === "abc"
-```
-
-We can generalize this code to define a (dependent) type constructor for singleton types that are limited to a given `Text` value:
-```dhall
-let TextSingletonPredicate = λ(fixed : Text) → λ(text : Text) → (text === fixed)
-let TextSingleton : Text → Type
-  = λ(fixed : Text) → DependentPair Text (TextSingletonPredicate fixed)
-let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
-  = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed === fixed)
-let x : TextSingleton "abc" = makeTextSingleton "abc"
--- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
-```
-
-TODO reorganize this section to restore a logical sequence of steps
-
-To make this code shorter, we could change the definition of `NaturalLessEqual10Predicate` by simplifying the returned type.
-We notice that instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
+To make this code shorter still, we could change the definition of `NaturalLessEqual10Predicate` by simplifying the returned type.
+Instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
 We can use an `if/then/else` expression that returns the unit or the void types according to the value of `x`.
 Then the definition and the usage become simpler while the functionality remains the same.
 Let us use more descriptive names for the new code:
@@ -6807,14 +6784,44 @@ This method works whenever the refinement condition can be expressed via `Bool` 
 This is not always the case in Dhall; for instance, the condition for a string to be non-empty is not expressible as a function of type `Text → Bool`.
 
 
-For `Text` types, certain tricks (see the textutils library) allow us to implement refinement types on `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
+For `Text` types, certain tricks implemented the library [dhall-text-utils](https://github.com/kukimik/dhall-text-utils) allow us to implement refinement types on `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
 
 TODO
+#### Singleton types
+
+As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
+For instance, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
+This code defines a type `Text_abc` and a value `x` of that type:
+```dhall
+let Text_equals_abc = λ(text : Text) → (text === "abc")
+let Text_abc : Type = DependentPair Text Text_equals_abc
+let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" === "abc")
+```
+We can then extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+
+```dhall
+let _ = assert : dependentPairFirstValue Text Text_equals_abc x === "abc"
+```
+
+We can generalize this code to define a (dependent) type constructor for singleton types that are limited to a given `Text` value:
+```dhall
+let TextSingletonPredicate = λ(fixed : Text) → λ(text : Text) → (text === fixed)
+let TextSingleton : Text → Type
+  = λ(fixed : Text) → DependentPair Text (TextSingletonPredicate fixed)
+let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
+  = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed === fixed)
+let x : TextSingleton "abc" = makeTextSingleton "abc"
+-- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
+```
+
+This technique works with any Dhall type (even with fully opaque types such as `Double` or `Bytes`).
+
 
 #### Typeclass instances with laws
 
 
-Dependent pairs can encode typeclass instances that are guaranteed to satisfy the typeclass laws.
+Dependent pairs can be used to encode typeclass instances that are guaranteed to satisfy the typeclass laws.
+In this sense, a typeclass instance with evidence of laws is a refinement type.
 
 A simple example is the `Semigroup` typeclass with the associativity law.
 Recall the definitions shown in the chapter "Typeclasses":
