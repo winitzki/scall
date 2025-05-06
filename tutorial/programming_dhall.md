@@ -6828,9 +6828,9 @@ let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
 
 It will be convenient to define the _type constructor_ for `semigroup_law` separately:
 ```dhall
-let semigroup_law_t = λ(t : Type) → λ(ev : Semigroup t) →
-  ∀(x : t) → ∀(y : t) → ∀(z : t) → 
-    ev.append x (ev.append y z) === ev.append (ev.append x y) z
+let semigroup_law_t : ∀(t : Type) → Semigroup t → Type
+  = λ(t : Type) → λ(ev : Semigroup t) →
+    ∀(x : t) → ∀(y : t) → ∀(z : t) → semigroup_law t ev x y z
 ```
 This definition allows us to write an evidence for the semigroup law as a value of type `semigroup_law_t t ev`. 
 
