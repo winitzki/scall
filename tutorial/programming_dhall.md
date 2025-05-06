@@ -6116,8 +6116,8 @@ let leafPB : ∀(a : Type) → a → PBTree a
   = λ(a : Type) → λ(x : a) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
     f a ((F r a).Leaf x)
 let branchPB : ∀(a : Type) → PBTree (Pair a a) → PBTree a
-  = λ(a : Type) → λ(sub : PBTree (Pair a a)) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
-    let raa : r (Pair a a) = sub r f
+  = λ(a : Type) → λ(subtree : PBTree (Pair a a)) → λ(r : Type → Type) → λ(f : ∀(s : Type) → F r s → r s) →
+    let raa : r (Pair a a) = subtree r f
     in f a ((F r a).Branch raa)
 let examplePB1 : PBTree Natural = leafPB Natural 10
 let examplePB2 : PBTree Natural = branchPB Natural (branchPB (Pair Natural Natural) (leafPB (Pair (Pair Natural Natural) (Pair Natural Natural)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } )) 
@@ -6224,12 +6224,14 @@ The compiler will report a type error if the programmer writes by mistake someth
 The definition of `LExp t` is not parametric in `t` because values of type `LExp t` can be created only when `t = Int` or `t = Bool`, not with arbitrary types `t`.
 Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
 
+As definitions of GADTs are typically not type-parametric, GADTs are neither covariant nor contravariant in their type parameters.
+This is not a problem, because in practice it is not necessary to have a `fmap` function for GADTs.
+
 The definition of a GADT can use the type parameters in a precise way required by the task at hand.
 Because of this flexibility, GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
 
 Most often, GADTs are recursively defined because the constructor arguments need to use the GADT itself.
 So, we will encode GADTs can be encoded with the technique similar to the Church encoding of nested types.
-
 
 Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
 
@@ -6250,7 +6252,8 @@ enum Tree[A]:                                            // Scala 3.
 ```
 
 The type `Tree` has two constructors, which may be viewed as functions whose output type is `Tree a`.
-For instance, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
+In Haskell, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
+In Scala, `Leaf` and `Branch` behave as functions of types `A => Tree[A]` and `(Tree[A], Tree[A]) => Tree[A]`.
 
 The long syntax makes this explicit and writes out each constructor separately as a function.
 In Haskell, the long syntax for defining `Tree` looks like this:
@@ -6268,39 +6271,150 @@ enum Tree[A]:                                       // Scala 3.
   case Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 ```
 
+Denote temporarily `Tree a` by just `T` and consider `a` as a fixed type.
+If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that we can write in Haskell as `(a → T, T → T → T)`.
+That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
+Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
+The Church encoding for that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
+The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations:
+
+```dhall
+let Tree_ = λ(a : Type) → ∀(r : Type) → ∀(leaf : a → r) → ∀(branch : r → r → r) → r
+```
+In this form, the two constructors (`Leaf` and `Branch`) correspond to the two curried arguments `leaf` and `branch`, and the recursive usages of `Tree` in the constructors correspond to the occurrences of the type `r`.
+
 The "long syntax" has no advantage in simple situations where all constructors create values of the same type.
 In this example, all three constructors have the same output type `Tree a`.
 
 However, note that the output type parameter `a` in `Tree a` is written out explicitly in the long syntax.
 So, Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
 For example, the output type could be `Tree Int` instead of `Tree a`, or even a more complicated type with other type parameters.
-The resulting type is a GADT.
+The resulting type would then be a GADT.
 
-Here is an artificial example of a GADT where we arbitrarily set the output type parameters:
+
+Defining a GADT in Haskell or Scala always requires the "long syntax".
+Now we will show how to translate such "long syntax" definitions into Dhall.
+
+We use the technique of curried Church encoding at the level of type constructors, similarly to what we did for nested recursive types.
+
+Suppose we have a Haskell definition of a GADT in this (artificial) example:
+```haskell
+data P a where  -- Haskell.
+  TInt :: Text -> P Int
+  BText :: Bool -> P Int -> P Text
+```
+
+The first step is to consider the product type of all constructors:
+
+`(Text -> P Int, Bool -> P Int -> P Text)`
+
+It will be useful to uncurry all constructor arguments:
+
+`(Text -> P Int, (Bool, P Int) -> P Text)`
+
+
+Then we will rewrite this type in the form of a mapping `F P -> P`.
+In this way, we will derive the pattern functor `F` for this recursive type, which will allow us to build the Church encoding.
+
+Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must be of kind `(Type → Type) → Type → Type`.
+Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t`.
+Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
+The Church encoding must be used at the level of type constructors, just as we did for nested recursive types.
+The resulting type formula is:
+
+```dhall
+let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
+   ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+```
+So, we expect the type constructor `P` to be defined via `LFixK F` with suitable `F`.
+
+As the the definition of `P` is non-parametric, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all `t`.
+By definition, `P t` can have values only when `t = Int` or `t = Text`.
+So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Int → P Int` and `F P Text → P Text`.
+
+The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all type constructors.
+Let us write them side by side:
+
+- Product of type constructors is: `(Text -> P Int, (Bool, P Int) -> P Text)`
+- Mapping type `F P -> P` is: `(F P Int → P Int, F P Text → P Text)`. 
+
+The types will be equal if `F P Int = Text` and `F P Text = (Bool, P Int)`.
+So, we define `F` exactly in that way.
+The type constructor `F P` will be non-void only when applied to `Int` and `Text` type parameters.
+
+It remains to write the Church encoding for the type constructor `P` as `LFixK F`, which we can write out after currying like this:
+
+```dhall
+let C = λ(a : Type) →
+  ∀(r : Type → Type) → (F r Integer → r Integer) → (F r Text → r Text) → r a
+```
+Substituting the definition of `F` (namely, the two cases `F r Integer = Text` and `F r Text = (Bool, r Integer)`) and currying some more, we obtain:
+```dhall
+let C = λ(a : Type) →
+  ∀(r : Type → Type) → (Text → r Integer) → (Bool → r Integer → r Text) → r a
+```
+Now we add names to the type signature, and the correspondence with the long-syntax Haskell definition becomes more apparent:
+
+```dhall
+let C = λ(a : Type) → ∀(r : Type → Type) →
+  ∀(tInt : Text → r Integer) →
+  ∀(bText : Bool → r Integer → r Text)
+    → r a
+```
+
+```haskell
+data P a where  -- Haskell.
+  TInt :: Text -> P Int
+  BText :: Bool -> P Int -> P Text
+```
+We see that the type parameter `r` must replace all usages of `P` in the long-syntax definition.
+This is the recipe of writing GADTs in the Church encoding.
+
+
+
+For the toy language `LExp` shown above, the Church encoding is:
+
+```dhall
+let LExp = λ(t : Type) → ∀(r : Type → Type) →
+   ∀(lBool : Bool → r Bool) →
+   ∀(lInt : Integer → r Integer) →
+   ∀(lAdd : r Integer → r Integer → r Integer) →
+   ∀(lNot : r Bool → r Bool) →
+   ∀(lIsZero : r Integer → r Bool) →
+     r t
+```
+
+
+Here is another artificial example of a GADT where we arbitrarily introduce and fix various type parameters:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
   Box1 :: a -> WeirdBox Int
   Box2 :: Bool -> WeirdBox String
-  RGBBox :: Int -> a -> b -> WeirdBox (a, b)
+  Box3 :: Int -> a -> WeirdBox b -> WeirdBox (a, b)
 ```
 
 ```scala
-enum WeirdBox[A]:                                      // Scala 3.
+enum WeirdBox[A]:                                               // Scala 3.
   case Box1[A](a: A) extends WeirdBox[Int]
-  case WhiteBox(b: Bool) extends WeirdBox[String]
-  case RGBBox[A, B](rgb: Int, a: A, b: B) extends WeirdBox[(A, B)]
+  case Box2(b: Bool) extends WeirdBox[String]
+  case Box3[A, B](x: Int, a: A, b: WeirdBox[B]) extends WeirdBox[(A, B)]
 ```
-
-Note that Scala requires us to write more type parameters explicitly, compared with Haskell.
 
 The type constructor `WeirdBox` substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the simple type parameter `a` everywhere.
 This makes `WeirdBox` a GADT.
 
-As definitions of GADTs are typically not type-parametric, GADTs are neither covariant nor contravariant in their type parameters.
+The Church encoding of `WeirdBox` looks like this:
 
-TODO Church encoding of GADTs
- 
+```dhall
+let WeirdBox = λ(t : Type) → ∀(r : Type → Type) →
+   ∀(box1 : ∀(a : Type) → a → r Integer) →
+   ∀(box2 : Bool → r Text) →
+   ∀(box3 : ∀(a : Type) → ∀(b : Type) → Integer → a → r b → r (Pair a b)) →
+     r t
+```
+Note that the extra type parameters in the constructors `Box1` and `Box3` need to be written explicitly, similarly to the syntax in Scala.
+Haskell's extremely concise syntax declares those type parameters implicitly.
 
 ### Existentially quantified types
 
@@ -6783,10 +6897,74 @@ let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
 This method works whenever the refinement condition can be expressed via `Bool` values.
 This is not always the case in Dhall; for instance, the condition for a string to be non-empty is not expressible as a function of type `Text → Bool`.
 
+Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library [dhall-text-utils](https://github.com/kukimik/dhall-text-utils).
+The main technique in that library is to create functions returning special `Text` values (such as the empty string, or the string `"x"`) instead of functions returning `Bool`.
+Then one can use `assert` expressions to verify that a `Text` value satisfies various conditions.
 
-For `Text` types, certain tricks implemented the library [dhall-text-utils](https://github.com/kukimik/dhall-text-utils) allow us to implement refinement types on `Text` even though Dhall cannot implement `Bool`-valued predicates for the `Text` type.
+As an example, suppose we need to assert that a string is non-empty.
+This is not straightforward (unlike asserting that a string is empty, which is just `assert : s === ""`).
+To implement a non-empty assertion, we use the built-in Dhall function `Text/replace` in a special way:
 
-TODO
+```dhall
+let StringIsNotEmpty : Text → Type
+  = λ(string : Text) → "x" === Text/replace string "x" string
+let _ = assert : StringIsNotEmpty "abc"  -- OK
+-- let _ = assert : StringIsNotEmpty "" -- This will not compile. 
+```
+
+Using this function, we can define a refinement type of non-empty strings:
+
+```dhall
+let NonEmptyString = DependentPair Text StringIsNotEmpty
+let makeNonEmptyString = λ(string : Text) → λ(ev : StringIsNotEmpty string) →
+  makeDependentPair Text string StringIsNotEmpty ev
+let getNonEmptyString : NonEmptyString → Text
+  = dependentPairFirstValue Text StringIsNotEmpty
+```
+
+To create values of the type `NonEmptyString`, it is convenient to define a standard evidence value:
+
+```dhall
+let ThisStringIsNotEmpty = assert : "x" === "x"
+let x : NonEmptyString = makeNonEmptyString "abc" ThisStringIsNotEmpty
+let _ = assert : "abc" === getNonEmptyString x -- Test that we still have that string.
+```
+
+Here is an example of using the `dhall-text-utils` library to define a refinement type on `Text` that accepts only strings beginning with either "a" or "z" and consisting of alphanumeric characters.
+
+We begin by implementing a `StringIsValid` predicate:
+```dhall
+let TextUtils = https://raw.githubusercontent.com/kukimik/dhall-text-utils/refs/heads/master/src/package.dhall sha256:60495097a77d11c500d872a59c2bf96ee7edcd3f0a498261f62ba4cdc11bef15
+let alphanum = TextUtils.CharacterClasses.ASCIIalnum
+let prefix = TextUtils.Predicates.hasPrefix
+let StringIsValid : Text → Type = λ(string : Text) →
+  let startsWithAOrZ = TextUtils.Logic.or [ prefix "a" string, prefix "z" string ] 
+  let isAlphanum = TextUtils.Predicates.consistsOf alphanum string
+  in TextUtils.Logic.isTrue (TextUtils.Logic.and [ startsWithAOrZ, isAlphanum ])
+```
+
+An example of a "valid string" is `"abcd1234"`.
+```dhall
+let example = "abcd1234"
+let _ = assert : StringIsValid example 
+```
+
+It is now straightforward to define a refinement type using `StringIsValid`:
+```dhall
+let ValidString = DependentPair Text StringIsValid
+let makeValidString = λ(string : Text) → λ(ev : StringIsValid string) →
+  makeDependentPair Text string StringIsValid ev
+let getValidString : ValidString → Text
+  = dependentPairFirstValue Text StringIsValid
+```
+
+To test this code:
+
+```dhall
+let x = makeValidString example TextUtils.Logic.QED
+let _ = assert : "abcd1234" === getValidString x
+```
+
 #### Singleton types
 
 As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
