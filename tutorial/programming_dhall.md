@@ -6504,7 +6504,7 @@ let evalLExp : ∀(t : Type) → LExp t → t
 To test this code, let us evaluate the example expression:
 
 ```dhall
-let _ = evalLExp Integer exampleLExp === +30
+let _ = assert : evalLExp Integer exampleLExp ≡ +30
 ```
 
 
@@ -6880,13 +6880,13 @@ One direction of the isomorphism can be verified using Dhall's `assert` feature,
 
 ```dhall
 let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →
-  assert : short ≡  simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
+  assert : short ≡ simplifyDependentPair X P Q (unsimplifyDependentPair X P Q short)
 ```
 
 To prove the other direction of the isomorphism:
 ```dhall
 let ??? = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(long : DependentPair X P → Q) →
-  assert : long ≡  unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
+  assert : long ≡ unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
 ```
 does not work in Dhall.
 The proof requires a symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
