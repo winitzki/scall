@@ -159,7 +159,7 @@ A function's type must have the form `∀(x : input_type) → output_type`, wher
 
 The function `inc` shown above has type `∀(x : Natural) → Natural`.
 
-The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with the equivalent ASCII representations: `forall`, `\`, and `->`.
+The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with their equivalent ASCII representations: `forall`, `\`, and `->`.
 In this book, we will use the Unicode symbols for brevity.
 
 Usually, the function body is an expression that uses the bound variable `x`.
@@ -2570,7 +2570,7 @@ let Show = λ(t : Type) → { show : t → Text }
 As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
 For that, we would write the following Haskell code:
 ```haskell
-import Data.List (intercalate)
+import Data.List (intercalate)           -- Haskell.
 printWithPrefix :: Show a => String -> [a] -> String
 printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
 ```
@@ -3589,13 +3589,13 @@ let Foldable
 ```
 The extracted values are stored in a list in a chosen order (different orders can be used to create different `Foldable` evidence values).
 
-Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a -> m) -> F a -> m` that assumes `m` to have a `Monoid` typeclass evidence.
+Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a → m) → F a → m` that assumes `m` to have a `Monoid` typeclass evidence.
 The function `foldMap` can be implemented for any `Foldable` functor:
 
 ```dhall
 let foldMap
-  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a -> m) -> ∀(F : Type → Type) → Foldable F → F a -> m
-  = λ(m : Type) → λ(monoidM : Monoid m) → λ(a : Type) → λ(f : a -> m) -> λ(F : Type → Type) → λ(foldableF : Foldable F) → λ(fa : F a) ->
+  : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → ∀(F : Type → Type) → Foldable F → F a → m
+  = λ(m : Type) → λ(monoidM : Monoid m) → λ(a : Type) → λ(f : a → m) → λ(F : Type → Type) → λ(foldableF : Foldable F) → λ(fa : F a) →
     let listA : List a = foldableF.toList a fa 
     in List/fold a listA m (λ(x : a) → λ(y : m) → monoidM.append (f x) y) monoidM.empty
 ```
@@ -6307,7 +6307,7 @@ So, we will encode GADTs can be encoded with the technique similar to the Church
 
 Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
 
-We begin by reviewing the Haskell syntax for definitions of usual **algebraic data type** (ADT).
+We begin by reviewing the Haskell syntax for definitions of a usual **algebraic data type** (ADT).
 Haskell and Scala have a "short syntax" and a "long syntax" for defining ADTs.
 
 The short syntax resembles a union type:
@@ -8024,7 +8024,7 @@ The required number of recursive calls is equal to the "recursion depth" of the 
 
 We can now generalize this example to an arbitrary application of a hylomorphism.
 For brevity, we denote `h = hylo coalg alg`.
-The function `h : t -> r` is then defined by `h = alg . fmap h . coalg`.
+The function `h : t → r` is then defined by `h = alg . fmap h . coalg`.
 When we apply `h` to some value `t0 : t`, we get: `h t0 = alg (fmap h (coalg t0))`.
 
 The recursion will terminate if, at some recursion depth, the expression `fmap (fmap (... (fmap f)...)) c` does not actually need to use the function `f`.
@@ -8322,9 +8322,9 @@ egyptian_div_mod a b =
 
 The function `e_div_mod` can be rewritten as a hylomorphism if we find a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
 
-- A function `coalg` of type `Int -> P Int`.
-- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int -> P (Int, Int)`.
-- A function `alg` of type `P (Int, Int) -> (Int, Int)`.
+- A function `coalg` of type `Int → P Int`.
+- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int → P (Int, Int)`.
+- A function `alg` of type `P (Int, Int) → (Int, Int)`.
 
 Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
 
@@ -8333,7 +8333,7 @@ To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_
 This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
 For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
 ```haskell
-type P x = P1 Int | P2 x
+type P x = P1 Int | P2 x         -- Haskell.
 fmap_P :: (a -> b) -> P a -> P b
 fmap_P f (P1 i) = P1 i
 fmap_P f (P2 a) = P2 (f a)
@@ -8384,7 +8384,7 @@ let toList_P : ∀(a : Type) → P a → List a
 let foldableP : Foldable P = { toList = toList_P }
 ```
 
-The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) -> (Int, Int)` implemented in Haskell as:
+The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) → (Int, Int)` implemented in Haskell as:
 ```haskell
 alg :: P (Int, Int) -> (Int, Int)  -- Haskell.
 alg (P1 b) = postprocess1 b
@@ -8415,7 +8415,7 @@ let alg : Natural → P Result → Result
   } pp
 ```
 
-It remains to implement the function `coalg` whose Haskell type signature is `Int -> P Int`.
+It remains to implement the function `coalg` whose Haskell type signature is `Int → P Int`.
 That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
 Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
 
@@ -8560,7 +8560,7 @@ let P = λ(T : Type) →
 We will also need to define `Functor` and `Foldable` typeclass instances for the chosen functor `P`.
 (Later chapters in this book show general procedures for defining such typeclass instances for all functors `P` of the required form.)
 
-The next step is to define suitable functions `coalg : X -> P X` and `alg : P Y -> Y` such that the code of `f` is equivalent to `hylo coalg alg`.
+The next step is to define suitable functions `coalg : X → P X` and `alg : P Y → Y` such that the code of `f` is equivalent to `hylo coalg alg`.
 The function `coalg` prepares the arguments for the recursive calls, and the function `alg` performs the post-processing after the recursive calls are done:
 ```dhall
 let coalg : X → P X = λ(x : X) →
@@ -11460,12 +11460,12 @@ That notation can be encoded in Dhall as follows:
 -- Symbolic derivation.
 ExistsP      -- Wadler's existential type ∃X. P X
 packP X y    -- Wadler's constructor: (X, y)
-t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) -> w}) : W
+t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) → w}) : W
 ```
 
 Then Wadler's "surjective pairing rule", which he writes as:
 
-`h t == case t of {(X, y) -> h(X, y)}`
+`h t == case t of {(X, y) → h(X, y)}`
 
 is translated into Dhall as:
 
