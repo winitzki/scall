@@ -1,2 +1,3 @@
-cd tutorial && make -s -j4
+cd tutorial 
+make -s -j4
 

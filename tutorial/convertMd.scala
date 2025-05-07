@@ -165,7 +165,8 @@ def bulletListItem[$: P]: P[Paragraph] = P("-" ~ space ~ paragraph ~ blankLine)
 def bulletList[$: P]: P[BulletList] = P(bulletListItem.rep(1)).map(BulletList.apply)
 
 def paragraph[$: P]: P[Paragraph] =
-  P((latexSpan | codeSpan | emphasis | emphasis_underscore | strongEmphasis | hyperlink | regularText_no_markup.!.map(Span(Regular, _))).rep)
+  P((latexSpan | codeSpan | emphasis | emphasis_underscore | strongEmphasis | hyperlink |
+    regularText_no_markup.!.map(Span(Regular, _))).rep)
     .map(Paragraph.apply)
 
 def block[$: P]: P[Markdown] =
