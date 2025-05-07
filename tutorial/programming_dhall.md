@@ -793,12 +793,12 @@ For instance, functions working with the `Natural` type are in the `Natural/` su
 This convention helps make the code for imports more visual:
 
 ```dhall
+let Integer/add = https://prelude.dhall-lang.org/Integer/add
 let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
 let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 let Optional/default = https://prelude.dhall-lang.org/Optional/default
-let Optional/map = https://prelude.dhall-lang.org/Optional/map
--- And so on.
+let Optional/map = https://prelude.dhall-lang.org/Optional/map     -- And so on.
 ```
 
 The import mechanism can be used as a module system that allows us to create libraries of reusable code.
@@ -1889,8 +1889,6 @@ The error message will be computed as a function of the given arguments:
 
 ```dhall
 let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
-  let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-  in
   if Natural/lessThan x limit
   then {}
   else "error" ≡ "the argument x = ${Natural/show x} must be less than ${Natural/show limit}"
@@ -2627,11 +2625,11 @@ Let us write the corresponding evidence values:
 ```dhall
 let Bool/equal = https://prelude.dhall-lang.org/Bool/equal
 let eqBool: Eq Bool = { equal = Bool/equal }
+let Integer/equal = https://prelude.dhall-lang.org/Integer/equal
+let eqInteger: Eq Integer = { equal = Integer/equal }
 let Natural/equal = https://prelude.dhall-lang.org/Natural/equal
-let eqInteger: Eq Integer = { equal = https://prelude.dhall-lang.org/Integer/equal }
 let eqNatural: Eq Natural = { equal = Natural/equal }
 ```
-
 These evidence values satisfy all the required laws.
 
 We can then implement `Eq` instances for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, and other types for which `Eq` instances are given.
@@ -4025,7 +4023,7 @@ This is because Dhall's typechecker is not powerful enough to determine symbolic
 A Dhall program typically looks like this:
 
 ```dhall
-let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
+let Integer/add = https://prelude.dhall-lang.org/Integer/add
 let Natural/equal = ...         -- More library imports.
 
 let k : Natural = ./size.dhall  -- Some value is imported.
@@ -6270,7 +6268,7 @@ Types known as "GADT" (generalized algebraic data types) are type constructors w
 
 Here is an example of a GADT in Haskell:
 ```haskell
-data LExp t where
+data LExp t where                      -- Haskell.
   LInt :: Int -> LExp Int
   LBool :: Bool -> LExp Bool
   LAdd :: LExp Int -> LExp Int -> LExp Int
@@ -6283,14 +6281,26 @@ For instance, `LNot x` will typecheck only when `x` is a Boolean expression such
 The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
 
 
-The definition of `LExp t` is not parametric in `t` because values of type `LExp t` can be created only when `t = Int` or `t = Bool`, not with arbitrary types `t`.
+The definition of `LExp t` is not type-parametric in `t` because values of type `LExp t` can be created only when `t = Int` or `t = Bool`, and not with arbitrary types `t`.
 Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
 
-As definitions of GADTs are typically not type-parametric, GADTs are neither covariant nor contravariant in their type parameters.
+As definitions of GADTs are typically not type-parametric, GADTs are usually neither covariant nor contravariant in their type parameters.
 This is not a problem, because in practice it is not necessary to have a `fmap` function for GADTs.
 
 The definition of a GADT can use the type parameters in a precise way required by the task at hand.
 Because of this flexibility, GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
+
+For illustration, let us show the Haskell code for an interpreter for the toy language.
+The interpreter will be a function of type `LExp t -> t`, which will guarantee at type level that expressions are evaluated to correct types.
+
+```haskell
+eval :: LExp t -> t             -- Haskell.
+eval (LInt i) = i
+eval (LBool b) = b
+eval (LAdd x y) = eval x + eval y
+eval (LNot b) = not b
+eval (LIsZero x) = x == 0 
+```
 
 Most often, GADTs are recursively defined because the constructor arguments need to use the GADT itself.
 So, we will encode GADTs can be encoded with the technique similar to the Church encoding of nested types.
@@ -6446,8 +6456,60 @@ let LExp = λ(t : Type) → ∀(r : Type → Type) →
      r t
 ```
 
+To create values of type `LExp`, we define type-safe constructor functions corresponding to each of the constructors in the Haskell code.
+The code for those constructors is quite repetitive, so let us only show the two integer constructors here:
 
-Here is another artificial example of a GADT where we arbitrarily introduce and fix various type parameters:
+```dhall
+let LInt : Integer → LExp Integer
+  = λ(i : Integer) → λ(r : Type → Type) →
+    λ(lBool : Bool → r Bool) →
+    λ(lInt : Integer → r Integer) →
+    λ(lAdd : r Integer → r Integer → r Integer) →
+    λ(lNot : r Bool → r Bool) →
+    λ(lIsZero : r Integer → r Bool) →
+      lInt i
+let LAdd : LExp Integer → LExp Integer → LExp Integer
+  = λ(x : LExp Integer) → λ(y : LExp Integer) → λ(r: Type → Type) →
+    λ(lBool : Bool → r Bool) →
+    λ(lInt : Integer → r Integer) →
+    λ(lAdd : r Integer → r Integer → r Integer) →
+    λ(lNot : r Bool → r Bool) →
+    λ(lIsZero : r Integer → r Bool) →
+      lAdd (x r lBool lInt lAdd lNot lIsZero) (y r lBool lInt lAdd lNot lIsZero)
+```
+
+An example of an expression in the toy language is:
+
+```dhall
+let exampleLExp : LExp Integer = LAdd (LInt +10) (LInt +20)
+```
+
+Let us now implement the interpreter for this toy language.
+Note that the Haskell code for the interpreter is recursive.
+In the Church encoding, recursion is replaced by applications of the higher-order functions.
+So, the Dhall code for the interpreter is non-recursive and consists of applying the value of type `LExp t` to suitable arguments:
+
+```dhall
+let evalLExp : ∀(t : Type) → LExp t → t
+  = λ(t : Type) → λ(expr : LExp t) →
+    let r : Type → Type = identityK Type
+    let lBool : Bool → r Bool = identity Bool
+    let lInt : Integer → r Integer = identity Integer
+    let lAdd : r Integer → r Integer → r Integer = Integer/add
+    let lNot : r Bool → r Bool = identity Bool
+    let lIsZero : r Integer → r Bool = Integer/equal +0
+    in expr r lBool lInt lAdd lNot lIsZero
+```
+
+To test this code, let us evaluate the example expression:
+
+```dhall
+let _ = evalLExp Integer exampleLExp === +30
+```
+
+
+The toy language `LExp` did not need to use all the possible features of GADTs.
+To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we arbitrarily introduced and set various type parameters:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -6457,7 +6519,7 @@ data WeirdBox a where   -- Haskell.
 ```
 
 ```scala
-enum WeirdBox[A]:                                               // Scala 3.
+enum WeirdBox[A]:                                            // Scala 3.
   case Box1[A](a: A) extends WeirdBox[Int]
   case Box2(b: Bool) extends WeirdBox[String]
   case Box3[A, B](x: Int, a: A, b: WeirdBox[B]) extends WeirdBox[(A, B)]
