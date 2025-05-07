@@ -1919,11 +1919,11 @@ This error message clearly describes the problem.
 
 #### Limitations
 
-The main limitation of this technique is that it can work only with literal values.
+The main limitation of this technique is that it can work only with statically known values.
 
 For instance, any usage of `safeDiv x y` will require us somehow to obtain an evidence value of type `Nonzero y` that passes typechecking before evaluation begins.
 That value serves as evidence that the number `y` is not zero.
-Values of type `Nonzero y` can be typechecked only if `y` is a **statically known value** of type `Natural`.
+Values of type `Nonzero y` can be typechecked only if `y` is a statically known value of type `Natural`.
 This is so because the check `Natural/isZero y` is done at typechecking time, before `saveDiv` is evaluated.
 
 What if we need to use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`?
@@ -1948,7 +1948,7 @@ To recognize that, the interpreter would need to deduce that the condition under
 But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
 So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
-That argument can be easily provided as `{=}` when calling that function, as long as `y` can be computed statically as a literal `Natural` value.
+That argument can be easily provided as `{=}` when calling that function, as long as `y` is a statically  known value.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
@@ -2222,7 +2222,7 @@ Indeed, we can use each of those types to annotate some values, for instance:
 
 So, it is valid to write `λ(x : List Bool) → ...` or `λ(x : Type) → ...`.
 
-Examples of a type that _cannot_ be used to annotate values is `List`.
+An example of a type that _cannot_ be used to annotate values is `List`.
 It is a type _constructor_, that is, a function from `Type` to `Type`. (The type of `List` is `Type → Type`.)
 There are no Dhall expressions `x` such that `x : List` is a valid type annotation.
 So, the function code `λ(x : List) → ...` is invalid.
@@ -2507,7 +2507,7 @@ let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y :
 let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = compose_forward Bool Bool Bool } 
 ```
 
-The type `Natural` together with the value `semigroupNatural` is an instance of `Semigroup` because the associativity law holds for that evidence value.
+The type `Natural`  is an instance of `Semigroup` because the associativity law holds for the evidence value `semigroupNatural`.
 
 The associativity law can be expressed using Dhall's equality types like this:
 ```dhall
@@ -2516,7 +2516,7 @@ let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
     ev.append x (ev.append y z) ≡ ev.append (ev.append x y) z
 ```
 
-Dhall's typechecker is able to validate the associativity law for `semigroupBoolToBool` (but not for `semigroupNatural`):
+Dhall's typechecker is able to validate the associativity law for the evidence value `semigroupBoolToBool` (but not for `semigroupNatural`):
 
 ```dhall
 let _ = λ(x : Bool → Bool) → λ(y : Bool → Bool) → λ(z : Bool → Bool) →
@@ -2842,15 +2842,13 @@ The `fmap` method transforms the data items of type `A` into data items of anoth
 
 In Haskell, that type constructor and its `fmap` method are defined by:
 ```haskell
--- Haskell.
-data F a = F a a Bool
+data F a = F a a Bool                -- Haskell.
 fmap :: (a → b) → F a → F b
 fmap f (F x y t) = F (f x) (F y) t 
 ```
 In Scala, the equivalent code is:
 ```scala
-// Scala
-case class F[A](x: A, y: A, t: Boolean)
+case class F[A](x: A, y: A, t: Boolean)         // Scala.
 
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] = F(f(fa.x), f(fa.y), fa.t)
 ```
@@ -3493,7 +3491,8 @@ It is defined as a pair `(s, s → a)`, where `s` is a fixed type.
 let Store = λ(s : Type) → λ(a : Type) → Pair s (s → a)
 let comonadStore : ∀(s : Type) → Comonad (Store s)
   = λ(s : Type) → 
-    let duplicate = λ(a : Type) → λ(store : Store s a) → store // { _2 = λ(x : s) → store // { _1 = x } } 
+    let duplicate = λ(a : Type) → λ(store : Store s a) →
+      store // { _2 = λ(x : s) → store // { _1 = x } } 
     let extract = λ(a : Type) → λ(store : Store s a) → store._2 store._1
     in { duplicate, extract }
 ```
@@ -4017,23 +4016,72 @@ There is only one value of that type, and that value is produced by `refl Bool T
 The Dhall typechecker will accept the function call `f 100 10 (refl Bool True)`.
 But trying to call `f 1 1 (refl Bool True)` will be a type error.
 
-This technique works only when function arguments are literal constants.
+This technique works only when evaluating conditions on  values that are   statically known.
 For instance, the expression `λ(n : Natural) → f 200 n (refl Bool True)` will not be accepted by Dhall, even though `200 + n` is always greater than `100`.
-This is because Dhall's typechecker is not powerful enough to determine symbolically that `200 + n > 100` for any natural `n`.
+This is because Dhall's typechecker is not powerful enough to determine symbolically that `200 + n > 100` for an arbitrary natural `n`.
 
-### Asserting that a value is literal
+### Asserting that a value is statically known
 
-A curious consequence of the limitations of Dhall's evaluator and typechecker is that a function can assert that one of its parameters is a literal value.
-This will prevent that function from being called by other functions; only top-level code (where all values are literals) may call such a function.
+A Dhall program typically looks like this:
 
-The method is based on asserting some property that always holds, but such that Dhall cannot recognize that the property holds unless all values are literal values.
+```dhall
+let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
+let Natural/equal = ...         -- More library imports.
 
-A suitable property for `Natural` numbers is the following:
+let k : Natural = ./size.dhall  -- Some value is imported.
+let n : Natural = k + 123       -- Compute some more values.
+let f = λ(x : Natural) →        -- Some custom function.
+    let y = x * k
+    in ???
+let g = λ(a : Type) → ???       -- More custom functions.
+let _ = assert : f n ≡ True     -- Perform some validations.
+in ???                          -- Now compute the final result.  
+```
+We say that the values `f`, `g`, `k`, and `n` are "statically known" in this code.
+(A **statically known value** is either a literal constant, or an imported value, or a value computed from other statically known values that are visible in the same scope.)
+
+Usually, values at the top level of a standalone Dhall program are statically known.
+Examples of  values that are _not_ statically known are the parameter `x` and the local variable `y` inside the body of the function `f` above.
+
+Another example is a Dhall program that defines a function.
+Parameters of that function will not be statically known.
+
+The concept of "statically known values"  is useful in connection with the usage of  `assert` expressions.
+Consider an assertion of the form `assert : x ≡ y`.
+If `x` and `y` are statically known then the Dhall typechecker will validate that assertion by reducing both `x` and `y` to literal values.
+Typically, that's what the programmer expects when writing an `assert` expression.
+For this reason, `assert` expressions are most often used with statically known values.
+
+Reducing an expression  to a literal value  at typechecking time is possible only if that expression is a statically known value.
+
+When `x` or `y` is not statically known, the typechecker will only be able to reduce `x ≡ y` to a normal form containing symbolic variables.
+In most cases, this is not useful and cannot be validated.
+For example, here is an attempt to create a function `f` enforcing the condition that `f x` may be called only with `x = 1`:
+```dhall
+let f : Natural → Bool = λ(x : Natural) →
+  let _ = assert : x + 1 ≡ 2
+  in True -- Type error: assertion failed.
+```
+Within the body of this function, `x` is not a statically known value.
+Dhall cannot validate the assertion of `x + 1 ≡ 2` in a meaningful way because the normal form of `x + 1` is just the symbolic expression `x + 1` itself.
+
+A curious consequence of the limitations of Dhall's evaluator and typechecker is that a function can require evidence that one of its parameters is a statically known value.
+
+
+The implementation  is based on the fact that Dhall cannot perform symbolic reasoning with `Natural` values other than in simplest cases.
+We implement a constant function of type `Natural → Natural` that appears to perform nontrivial computations but actually always returns `0`.
+The function body must be such that Dhall will be unable to prove symbolically that the function always returns `0`.
+
+Then  we apply that function to a `Natural`-valued parameter and assert that the result is indeed  `0`.
+Dhall will validate the assertion  only if the parameter can be reduced to a literal value.
+And that will be possible only when the parameter is statically known.
+
+A suitable function is the following:
 
 ```dhall
 let zeroNatural : Natural → Natural = λ(x : Natural) → Natural/subtract 1 (Natural/subtract x 1)
 ```
-The function `zeroNatural` is a constant function that always returns `0`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a literal `Natural` argument.
+The function `zeroNatural` is a constant function that always returns `0`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a statically known `Natural` argument:
 ```dhall
 let _ = assert : zeroNatural 0 ≡ 0
 let _ = assert : zeroNatural 1 ≡ 0
@@ -4042,55 +4090,55 @@ let _ = assert : zeroNatural 2 ≡ 0
 -- λ(x : Natural) → assert : zeroNatural x ≡ 0
 ```
 
-With this function, we can create an equality type dependent type that is always equivalent to the unit type (`{=}`) except that Dhall will only recognize that property for literal values.
+With this function, we can create an equality type dependent type that is always equivalent to the unit type (`{=}`) except that Dhall will only recognize that property for statically known values.
 ```dhall
-let literalNatural : Natural → Type = λ(x : Natural) → zeroNatural x ≡ 0
-let _ = assert : literalNatural 123      -- OK.
--- But this fails with a type error because `x` is not a literal value:
--- λ(x : Natural) → assert : literalNatural x
+let staticNatural : Natural → Type = λ(x : Natural) → zeroNatural x ≡ 0
+let _ = assert : staticNatural 123      -- OK.
+-- This fails with a type error because `x` is not statically known:
+-- λ(x : Natural) → assert : staticNatural x
 ```
 
-Now write a function taking a `Natural` argument `n` together with an argument of type `literalNatural n`:
+Now write a function taking a `Natural` argument `n` together with an evidence argument of type `staticNatural n`:
 ```dhall
-let functionTopLevelOnly = λ(n : Natural) → λ(ev : literalNatural n) → n + 1 
+let functionStaticOnly = λ(n : Natural) → λ(_ : staticNatural n) → n + 1 
 ```
-We can call this function at the top level of a Dhall program, where all `Natural` values are evaluated to literals and an `assert : literalNatural n` will always succeed.
+We can call this function at the top level of a Dhall program, where all `Natural` values are statically known and an `assert : staticNatural n` will always succeed.
 ```dhall
--- Write is at top level.
 let x = 123
-let xIsLiteral = assert : literalNatural x
-let y = functionTopLevelOnly x xIsLiteral
+let xIsStatic = assert : staticNatural x
+let y = functionStaticOnly x xIsStatic
 let _ = assert : y ≡ 124
 ```
-But it will be impossible to call `functionTopLevelOnly` within another function, without having an evidence value of type `literalNatural x`:
+But it will be impossible to call `functionStaticOnly` within another function, without having an evidence value of type `staticNatural x`:
 ```dhall
 -- Type error: assertion will fail.
 let _ = λ(x : Natural) →
-  let xIsLiteral = assert : literalNatural x  -- This fails.
-  in functionTopLevelOnly x xIsLiteral
+  let xIsStatic = assert : staticNatural x  -- This fails.
+  in functionStaticOnly x xIsStatic
 ```
 
 A suitable equality type for `Integer` numbers is defined by:
 ```dhall
 let zeroInteger : Integer → Integer = λ(x : Integer) → Natural/toInteger (zeroNatural (Integer/clamp x))
-let literalInteger : Integer → Type = λ(x : Integer) → zeroInteger x ≡ +0
+let staticInteger : Integer → Type = λ(x : Integer) → zeroInteger x ≡ +0
 ```
 
 For `Bool` arguments, the code could look like this:
 
 ```dhall
-let trueBool : Bool → Bool = λ(x : Bool) → if x then x else (x == False)
-let literalBool : Bool → Type = λ(x : Bool) → trueBool x ≡ True
+let zeroBool : Bool → Natural = λ(x : Bool) → zeroNatural (if x then 1 else 0)
+let staticBool : Bool → Type = λ(x : Bool) → zeroBool x ≡ 0
+let _ = assert : staticBool False  -- OK.
 ```
 
 For `Text` arguments, we create a sequence of operations that will always return an empty string, and we assert on that property.
-But the Dhall interpreter will not recognize that property statically.
-
+But the Dhall interpreter is unable to validate that property symbolically.
+So, the assertion on `staticText x` will fail unless `x` is a statically known value: 
 ```dhall
 let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
-let literalText : Text → Type = λ(x : Text) → emptyText x ≡ ""
--- This fails with a type error because `x` is not a literal Text value:
--- λ(x : Text) → assert : literalText x
+let staticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
+-- This fails with a type error because `x` is not statically known:
+-- λ(x : Text) → assert : staticText x
 ```
 
 ### Leibniz equality at type level
