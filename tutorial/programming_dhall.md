@@ -10093,7 +10093,7 @@ let bizip_F1
 
 The function `bizip_FC` is implemented similarly to a lawful `zip` method. Arguments are never discarded.
 When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
-A `Functor` typeclass evidence for `C` is produced automatically from a `Bifunctor` evidence for `F`:
+A `Functor` typeclass evidence for `C` is derived via `bifunctorLFix` from a `Bifunctor` evidence for `F`.
 ```dhall
 let C = λ(a : Type) → LFix (F a)
 let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac: a → c) → λ(b : Type) → λ(d : Type) → λ(bd: b → d) → λ(fab: F a b) →
