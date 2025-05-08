@@ -6514,7 +6514,7 @@ let _ = assert : evalLExp Integer exampleLExp ≡ +30
 
 
 The toy language `LExp` did not need to use all the possible features of GADTs.
-To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we arbitrarily introduced and set various type parameters:
+To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we introduced and set various type parameters for illustration:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -6525,12 +6525,12 @@ data WeirdBox a where   -- Haskell.
 
 ```scala
 enum WeirdBox[A]:                                            // Scala 3.
-  case Box1[A](a: A) extends WeirdBox[Int]
+  case Box1[A](x: A) extends WeirdBox[Int]
   case Box2(b: Bool) extends WeirdBox[String]
-  case Box3[A, B](x: Int, a: A, b: WeirdBox[B]) extends WeirdBox[(A, B)]
+  case Box3[A, B](i: Int, x: A, b: WeirdBox[B]) extends WeirdBox[(A, B)]
 ```
 
-The type constructor `WeirdBox` substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the simple type parameter `a` everywhere.
+The type constructor `WeirdBox` substitutes specific types (`Int` and `String`) and the type expression `(a, b)` as output type parameters, instead of just keeping the output type parameter `a` everywhere.
 This makes `WeirdBox` a GADT.
 
 The Church encoding of `WeirdBox` looks like this:
@@ -6543,7 +6543,7 @@ let WeirdBox = λ(t : Type) → ∀(r : Type → Type) →
      r t
 ```
 Note that the extra type parameters in the constructors `Box1` and `Box3` need to be written explicitly, similarly to the syntax in Scala.
-Haskell's extremely concise syntax declares those type parameters implicitly.
+Haskell's more concise syntax declares those type parameters implicitly.
 
 ### Existentially quantified types
 
