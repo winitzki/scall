@@ -6307,16 +6307,14 @@ So, we will encode GADTs can be encoded with the technique similar to the Church
 
 Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
 
-We begin by reviewing the Haskell syntax for definitions of a usual **algebraic data type** (ADT).
-Haskell and Scala have a "short syntax" and a "long syntax" for defining ADTs.
+We begin by reviewing the syntax for defining a usual **algebraic data type** (ADT).
+For that, both Haskell and Scala have a "short syntax" and a "long syntax".
 
-The short syntax resembles a union type:
+The short syntax looks like this:
 
 ```haskell
 data Tree a = Leaf a | Branch (Tree a) (Tree a)   -- Haskell.  
 ```
-
-The analogous type in Scala 3 looks like this:
 
 ```scala
 enum Tree[A]:                                            // Scala 3.
@@ -6327,7 +6325,9 @@ The type `Tree` has two constructors, which may be viewed as functions whose out
 In Haskell, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
 In Scala, `Leaf` and `Branch` behave as functions of types `A => Tree[A]` and `(Tree[A], Tree[A]) => Tree[A]`.
 
-The long syntax makes this explicit and writes out each constructor separately as a function.
+However, the short syntax does not show those functions explicitly.
+The long syntax writes out each constructor separately, specifying the output type as well as inputs.
+
 In Haskell, the long syntax for defining `Tree` looks like this:
 ```haskell
 data Tree a where   -- Haskell.
@@ -6335,7 +6335,7 @@ data Tree a where   -- Haskell.
   Branch :: Tree a -> Tree a -> Tree a
 ```
 
-The Scala 3 uses the keyword `extends` in its long syntax:
+Scala 3 uses the keyword `extends` in its long syntax:
 
 ```scala
 enum Tree[A]:                                       // Scala 3.
@@ -6346,6 +6346,7 @@ enum Tree[A]:                                       // Scala 3.
 Denote temporarily `Tree a` by just `T` and consider `a` as a fixed type.
 If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that we can write in Haskell as `(a → T, T → T → T)`.
 That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
+
 Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
 The Church encoding for that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
 The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations:
@@ -6353,7 +6354,8 @@ The curried Church encoding is closer to the long syntax if we write it using Dh
 ```dhall
 let Tree_ = λ(a : Type) → ∀(r : Type) → ∀(leaf : a → r) → ∀(branch : r → r → r) → r
 ```
-In this form, the two constructors (`Leaf` and `Branch`) correspond to the two curried arguments `leaf` and `branch`, and the recursive usages of `Tree` in the constructors correspond to the occurrences of the type `r`.
+In this form, the curried arguments `leaf` and `branch` correspond to the two  constructors (`Leaf` and `Branch`).
+The occurrences of the type `r` correspond to the recursive usages of `Tree` in the constructors.
 
 The "long syntax" has no advantage in simple situations where all constructors create values of the same type.
 In this example, all three constructors have the same output type `Tree a`.
@@ -6369,7 +6371,7 @@ Now we will show how to translate such "long syntax" definitions into Dhall.
 
 We use the technique of curried Church encoding at the level of type constructors, similarly to what we did for nested recursive types.
 
-Suppose we have a Haskell definition of a GADT in this (artificial) example:
+Suppose we have the following Haskell definition of a GADT:
 ```haskell
 data P a where  -- Haskell.
   TInt :: Text -> P Int
@@ -6385,23 +6387,22 @@ It will be useful to uncurry all constructor arguments:
 `(Text -> P Int, (Bool, P Int) -> P Text)`
 
 
-Then we will rewrite this type in the form of a mapping `F P -> P`.
-In this way, we will derive the pattern functor `F` for this recursive type, which will allow us to build the Church encoding.
+The next step is to rewrite this type in the form of a mapping `F P -> P`.
+In this way, we will derive the pattern functor `F` for this recursive type, showing us how to define the Church encoding.
 
-Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must be of kind `(Type → Type) → Type → Type`.
+Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
 Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t`.
 Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
-The Church encoding must be used at the level of type constructors, just as we did for nested recursive types.
-The resulting type formula is:
+The Church encoding must be applied at the level of type constructors according to this type formula:
 
 ```dhall
 let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
    ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
-So, we expect the type constructor `P` to be defined via `LFixK F` with suitable `F`.
+Then we expect the type constructor `P` to be defined via `LFixK F` with suitable `F`.
 
 As the the definition of `P` is non-parametric, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all `t`.
-By definition, `P t` can have values only when `t = Int` or `t = Text`.
+In the example at hand, `P t` can have values only when `t = Int` or `t = Text`.
 So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Int → P Int` and `F P Text → P Text`.
 
 The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all type constructors.
@@ -6410,9 +6411,8 @@ Let us write them side by side:
 - Product of type constructors is: `(Text -> P Int, (Bool, P Int) -> P Text)`
 - Mapping type `F P -> P` is: `(F P Int → P Int, F P Text → P Text)`. 
 
-The types will be equal if `F P Int = Text` and `F P Text = (Bool, P Int)`.
-So, we define `F` exactly in that way.
-The type constructor `F P` will be non-void only when applied to `Int` and `Text` type parameters.
+These types will be equal if we define `F P Int = Text` and `F P Text = (Bool, P Int)`.
+The type constructor `F P` will be void unless applied to `Int` and `Text` type parameters.
 
 It remains to write the Church encoding for the type constructor `P` as `LFixK F`, which we can write out after currying like this:
 
@@ -6425,7 +6425,7 @@ Substituting the definition of `F` (namely, the two cases `F r Integer = Text` a
 let C = λ(a : Type) →
   ∀(r : Type → Type) → (Text → r Integer) → (Bool → r Integer → r Text) → r a
 ```
-Now we add names to the type signature, and the correspondence with the long-syntax Haskell definition becomes more apparent:
+Let us add names to the type signature, making the correspondence with the long-syntax Haskell definition more apparent:
 
 ```dhall
 let C = λ(a : Type) → ∀(r : Type → Type) →
@@ -6433,9 +6433,9 @@ let C = λ(a : Type) → ∀(r : Type → Type) →
   ∀(bText : Bool → r Integer → r Text)
     → r a
 ```
-
+Compare with the Haskell definition:
 ```haskell
-data P a where  -- Haskell.
+data P a where                    -- Haskell.
   TInt :: Text -> P Int
   BText :: Bool -> P Int -> P Text
 ```
@@ -6457,7 +6457,7 @@ let LExp = λ(t : Type) → ∀(r : Type → Type) →
 ```
 
 To create values of type `LExp`, we define type-safe constructor functions corresponding to each of the constructors in the Haskell code.
-The code for those constructors is quite repetitive, so let us only show the two integer constructors here:
+The code for those constructors is quite repetitive, so let us only show two of them:
 
 ```dhall
 let LInt : Integer → LExp Integer
@@ -6478,26 +6478,31 @@ let LAdd : LExp Integer → LExp Integer → LExp Integer
       lAdd (x r lBool lInt lAdd lNot lIsZero) (y r lBool lInt lAdd lNot lIsZero)
 ```
 
-An example of an expression in the toy language is:
+We can now use those constructors to create an  example  expression in the toy language:
 
 ```dhall
 let exampleLExp : LExp Integer = LAdd (LInt +10) (LInt +20)
 ```
 
-Let us now implement the interpreter for this toy language.
+Let us now implement the interpreter for this  language.
 Note that the Haskell code for the interpreter is recursive.
 In the Church encoding, recursion is replaced by applications of the higher-order functions.
-So, the Dhall code for the interpreter is non-recursive and consists of applying the value of type `LExp t` to suitable arguments:
-
+The Dhall code for the interpreter is non-recursive and consists of applying the value of type `LExp t` to suitable arguments.
+The first of those arguments is the type constructor parameter `r : Type → Type`.
+To choose this parameter, we consider the final output type `r t` of the function `LExp t`.
+We need to obtain a value of type `t`.
+So, we must choose `r` as the identity functor.
+We use the function `identityK` to create it.
+After that, all other arguments are easy to compute:
 ```dhall
 let evalLExp : ∀(t : Type) → LExp t → t
   = λ(t : Type) → λ(expr : LExp t) →
-    let r : Type → Type = identityK Type
-    let lBool : Bool → r Bool = identity Bool
-    let lInt : Integer → r Integer = identity Integer
-    let lAdd : r Integer → r Integer → r Integer = Integer/add
-    let lNot : r Bool → r Bool = identity Bool
-    let lIsZero : r Integer → r Bool = Integer/equal +0
+    let r : Type → Type                           = λ(a : Type) → a
+    let lBool : Bool → r Bool                     = identity Bool
+    let lInt : Integer → r Integer                = identity Integer
+    let lAdd : r Integer → r Integer → r Integer  = Integer/add
+    let lNot : r Bool → r Bool                    = identity Bool
+    let lIsZero : r Integer → r Bool              = Integer/equal +0
     in expr r lBool lInt lAdd lNot lIsZero
 ```
 
