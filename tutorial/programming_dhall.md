@@ -1030,7 +1030,7 @@ Under the lazy evaluation strategy, the rogue expression will not be evaluated (
 But the strict evaluation strategy will try to compute all expressions (whether or not they are used for obtaining the final result).
 In that case, the program will fail due to failure evaluating the rogue expression.
 
-Dhall goes quite far towards guaranteeing that no rogue expressions can ever be created.
+Dhall goes quite far towards making rogue expressions impossible.
 This is due to Dhall's specific choice of features and strict typechecking:
 
 - A function call will typecheck only if all arguments have correct types.
@@ -1038,10 +1038,11 @@ This is due to Dhall's specific choice of features and strict typechecking:
 - All `if / then` constructions must have an `else` clause; both clauses must be values of the same type.
 - There are no "undefined" values: Dhall has no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
 - A program cannot create exceptions or other run-time errors.
-- Infinite loops are not possible, as every loop must have an upper bound on the number of iterations.
+- Infinite loops are not possible; every loop must have an upper bound on the number of iterations.
+- All lists must have an upper bound on length.
 
 These features eliminate large classes of programmer errors that could create rogue expressions inadvertently.
-Nevertheless, two possibilities for creating "rogue" expressions still remain:
+Nevertheless, two possibilities for creating rogue expressions still remain:
 - Create such a large data structure that no realistic computer could fit it in memory.
 - Start a computation that takes such a long time that no realistic user could wait for its completion.
 
@@ -1053,6 +1054,7 @@ let doubleText = λ(x : Text) → x ++ x
 -- It is important that Dhall uses lazy evaluation here.
 -- A strict evaluation of `petabyte` would require over a petabyte of memory!
 let petabyte : Text = Natural/fold 50 Text doubleText "x"
+
 -- A strict evaluation of `slow` would require over a thousand years!
 let slow : Natural = Natural/fold 1000000000000000000 Natural (λ(x : Natural) → Natural/subtract x 1) 1
 ```
@@ -1066,9 +1068,11 @@ Evaluating `crash False` returns an empty string.
 But `crash True` tries to return a **petabyte** of text, which will almost certainly crash any computer:
 ```dhall
 let crash = λ(b : Bool) → if b then petabyte else ""
+let _ = assert : crash False ≡ ""   -- OK.
+-- let _ = assert : crash True ≡ ""  -- This will crash!
 ```
 
-Barring such artificial situations, rogue expressions and partial functions will be impossible to implement in Dhall.
+Barring such artificial situations, rogue expressions and partial functions are impossible to implement in Dhall.
 
 So, a Dhall programmer typically does not need to distinguish strict and lazy evaluation.
 One can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
