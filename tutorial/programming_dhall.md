@@ -751,15 +751,17 @@ Dhall denotes imports via special syntax:
 - If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
 - A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
 
-It is important to keep in mind that the import paths, environment variable names, and SHA256 hash values are _not_ strings and cannot be manipulated at run time.
+It is important that the import paths, environment variable names, and SHA256 hash values are _not strings_.
+They are hard-coded and cannot be manipulated at run time.
 
-For instance, one cannot write anything like `let a = ./Dir/${filename}`, with the intention of substituting the value `filename` as part of the path to the imported file.
-It is not supported to import a file whose name is computed by concatenating some strings.
-Also, one cannot read a URL string from an external resource and then import data from that URL.
+It is not possible to import a file whose name is computed by concatenating some strings.
+For instance, one cannot write anything like `let x = ./Dir/${filename}`, with the intention of substituting the value `filename` as part of the path to the imported file.
 
-It is possible to read the contents of the imported resource as plain text or as binary data, instead of treating it as Dhall code.
+The contents of the imported resource my be treated as plain text or as binary data, instead of treating it as Dhall code.
 This is achieved with the syntax `as Text` or `as Bytes`.
-For example, environment variables typically contain plain text rather than Dhall code, and they should be imported `as Text`:
+
+For example, environment variables typically contain plain text rather than Dhall code.
+So, they should be imported `as Text`:
 
 ```dhall
 ⊢ env:SHELL as Text
@@ -767,8 +769,11 @@ For example, environment variables typically contain plain text rather than Dhal
 "/bin/bash"
 ```
 
-It is possible to read the _path_ to the imported resource as a value, using the syntax `as Location`.
-For example:
+But one cannot read an external resource as a string and then use that string as a URL or file path for another import.
+
+
+Instead, it is possible to read the _path_ to an imported resource as a value of a special type.
+The syntax `as Location` enables that option:
 
 ```dhall
 ⊢ env:SHELL as Location
@@ -776,17 +781,17 @@ For example:
 < Environment : Text | Local : Text | Missing | Remote : Text >.Environment
   "SHELL"
 ```
-The result is a value of a special union type that describes all possible external resources.
+The result is a value of a union type that describes all supported external resources.
 
-However, the `Location` values cannot be reused to perform further imports.
+However, `Location` values cannot be reused to perform further imports.
 
-The Dhall import system implements other limitations on what can be imported to ensure that users can prevent wrong or malicious code from being injected into a Dhall program:
+Dhall implements other limitations on what can be imported to help users prevent wrong or malicious code from being injected into a Dhall program:
 
-- All imported modules are required to be well-typed.
-- All imported resources are loaded and validated at typechecking time, before any evaluation may start. (So, import paths must be hard-coded and cannot be computed at run time.)
-- Circular imports are not allowed: a module may not import itself either directly or via other imports.
+- All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching).
+- All imported resources are loaded and validated at typechecking time, before any evaluation may start.
+- Circular imports are not allowed: no resource may import itself, either directly or via other imports.
 - Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
-- Web URL imports that require authentication headers will not leak those headers to other Web URLs.
+- Web URL imports that require server authentication headers will not leak those headers to other Web servers.
 
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
@@ -1088,7 +1093,7 @@ Those types are intended for creating strongly-typed configuration data schemas 
 The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
 
-- Use `Bool` values as conditions in `if` expressions or with the standard Boolean operations.
+- Use `Bool` values as conditions in `if` expressions or with the Boolean operations (`&&`, `||`, `==`).
 - Add, multiply, and compare `Natural` numbers.
 - Concatenate lists and compute certain other functions on lists (`List/indexed`, `List/length`).
 - Concatenate, interpolate, and replace substrings in `Text` strings.
@@ -1097,42 +1102,53 @@ Dhall cannot compare `Text` strings for equality or compute the length of a `Tex
 Neither can Dhall compare `Double` values or date/time values with each other.
 Comparison functions are only possible for `Bool`, `Integer`, and `Natural` values.
 
-#### No recursion
+#### No general recursion
 
 Unlike most other programming languages, Dhall does not support recursive definitions, neither for types nor for values.
-The only recursive type directly supported by Dhall is the built-in type `List` (representing finite sequences).
-The only way to write a loop is to use the built-in functions `List/fold` and `Natural/fold` and functions derived from them (such as `List/map` and so on).
-Loops written in that way are guaranteed to terminate because the total number of iterations is always fixed in advance.
-Unlike other programming languages, Dhall supports no "while" loops, because one cannot statically guarantee termination for loops that repeat for an unknown number of times until some condition holds.
+The only recursive data structure directly supported by Dhall is the built-in type `List` representing finite sequences.
+The only way to write a loop in Dhall is to use the built-in functions `List/fold`, `Natural/fold`, and "fold-like" functions derived from them, such as `List/map` and others.
+Loops written in that way are statically guaranteed to terminate because the total number of iterations is always fixed in advance.
 
-Also, `List` values may be created only if the length of the list is limited in advance.
-It is not possible to create a `List` by adding more and more elements until some condition holds, without setting an upper limit in advance.
+Unlike other programming languages, Dhall does not support "while" or "until" loops.
+Those loops perform as many iterations as needed to reach a given stopping condition.
+In certain cases, it is not possible to find out in advance whether the stopping condition will ever be reached.
+So, programs that contain "while" or "until" loops are not statically guaranteed to terminate.
 
-Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that implement recursive types, recursive functions, and "lazy infinite" data structures.
+A list may be created only if the required length of the list is known in advance.
+It is not possible to write a program that creates a list by adding more and more elements until some condition is reached, without setting an upper limit in advance.
+
+Similarly, all text strings are statically limited in length.
+
+Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that simulate recursive types, recursive functions, and "lazy infinite" data structures.
 Later chapters in this book will show how that can be achieved.
 
 In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
-Within this limitation, Dhall supports a wide variety of iterative and recursive computations.
+Recursive code can be translated into Dhall only if there is a static termination guarantee.
+Within these limitations, Dhall supports a wide variety of iterative and recursive computations.
 
 #### No side effects
 
 Dhall is a purely functional language with no side effects.
-There are no mutable values, no exceptions, no multithreading, no writing to files,
-and generally no interaction with any external devices.
+All values are referentially transparent.
+There are no mutable values, no exceptions, no multithreading,
+no writing to files, no printing, etc.
 
-A valid Dhall program is a single expression that passes typechecking and is evaluated to a normal form by the Dhall interpreter.
+A valid Dhall program is a single expression that will be evaluated to a normal form by the Dhall interpreter.
 The user may then print the result to the terminal, or convert it to JSON, YAML, and other formats.
 But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
 a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
-The import feature does one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
-For instance, it is not possible to write a Dhall program that repeatedly reads a value from an external file and reacts in some way to changes in the file's contents.
+The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
+Even though the actual external resource may of course change during evaluation, the Dhall interpreter will ignore those changes.
+A repeated import of the same resource will always give the same Dhall value.
+So, it is not possible to write a Dhall program that repeatedly reads a value from an external file and reacts in some way to changes in the file's contents.
+
 A Dhall program also cannot have a custom behavior reacting to a failure while importing the external resources.
 There is only a simple mechanism providing fall-back alternative imports in case a resource is missing.
 If a resource fails to read despite fall-backs, or fails to typecheck, or fails the integrity check, the Dhall interpreter will not evaluate the program.
 
-The paths to external resources must be hard-coded; they cannot be computed at run time.
+The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
 Most often, the import feature is used to read library modules with known contents that is not expected to change.
 
 #### Guaranteed termination
