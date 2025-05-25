@@ -821,6 +821,7 @@ in ???
 ```
 Code in `file1.dhall` can also import `file2.dhall` using a relative path, for example like this: `let x = ./file2.dhall`.
 
+However, the names such as `Integer/add` or `Dir1/file1` are just a visually helpful convention.
 The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory (`Dir1`) has no special significance.
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
@@ -844,7 +845,7 @@ let x = p.Bool.not (p.Natural.greaterThan 1 2)    -- We can use all modules now.
 
 The standard prelude is not treated specially by Dhall.
 It is just an ordinary import from a Web URL.
-A user's own libraries and modules may have a similar structure and may be imported as external resources in the same wy.
+A user's own libraries and modules may have a similar structure of nested records and may be imported as external resources in the same way.
 So, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
 
 #### Frozen imports and semantic hashing
@@ -853,9 +854,6 @@ Importing from external resources (files, Web URLs, or environment variables) is
 Dhall has a feature called **frozen imports** for ensuring
 that the contents of an external resource does not change unexpectedly.
 Frozen imports are annotated by the SHA256 hash value of the imported content's normal form after a full evaluation.
-A frozen import is guaranteed to produce the same value every time,
-because the imported value's hash is always validated.
-If the contents of the external resource changes such that its SHA256 hash no longer matches the annotation, Dhall will raise an error at typechecking time.
 
 As an example, create a file called `simple.dhall` containing just the number `3`:
 
@@ -872,6 +870,10 @@ That file may be imported via the following frozen import:
 This import expression is annotated by the SHA256 hash value corresponding to the Dhall expression `3`.
 If the user modifies the file `simple.dhall` so that it evaluates to anything other than `3`, the hash value will become different and the frozen import will fail.
 
+A frozen import is guaranteed to produce the same value every time,
+because the imported value's hash is always validated.
+If the contents of the external resource changes and its SHA256 hash no longer matches the annotation, Dhall will raise an error.
+
 Hash values are computed from the _normal form_ of Dhall expressions, and the normal forms are computed only after successful typechecking.
 For this reason, the semantic hash of a Dhall program remains unchanged under any valid refactoring.
 For instance, we may add or remove comments; reformat the file with fewer or with more spaces or empty lines; change the order of fields in records or the order of constructors in union types; rename, add, or remove local variables; and even change import URLs (as long as the imported content remains equivalent).
@@ -879,7 +881,7 @@ The hash value will remain the same as long as the normal form of the final eval
 This form of hashing is known as **semantic hashing**.
 
 The Dhall interpreter will cache all frozen imports in the local filesystem, using the SHA256 semantic hash value as part of the file name.
-This makes importing libraries faster.
+This makes importing libraries faster after the first time.
 
 Keep in mind that Dhall programs with non-frozen imports may produce different results when evaluated at different times.
 An example of that behavior is found in Dhall's test suite.
@@ -920,7 +922,7 @@ let Natural/lessThan = ./MyLessThanImplementation.dhall
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
 This mechanism resolves only "non-fatal" import failures: that is, failures to read an external resource.
-A "fatal" import failure means that the external resource was read but gave a Dhall expression that failed to parse, to typecheck, or to validate the given semantic hash.
+A "fatal" import failure means that the external resource was available but gave a Dhall expression that failed to parse, to typecheck, or to validate the given semantic hash.
 
 The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be unavailable.
 If all alternatives fail to read, the import fails.
