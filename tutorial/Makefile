@@ -11,10 +11,10 @@ programming_dhall.pdf: generated.tex programming_dhall.tex
 	fgrep "Output written on programming_dhall.pdf" programming_dhall.log
 
 generated.tex: programming_dhall.md convertMd.sh convertMd.scala
-	bash convertMd.sh tex
+	bash convertMd.sh tex ../dhall-lang/Prelude
 
 generated.dhall: programming_dhall.md convertMd.sh convertMd.scala
-	bash convertMd.sh dhall
+	bash convertMd.sh dhall ../dhall-lang/Prelude
 
 clean:
 	rm -f programming_dhall.{pdf,log,out,aux,idx,ind,ilg,toc} generated.{log,dhall,tex} check_dhall_code

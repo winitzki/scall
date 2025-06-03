@@ -1,3 +1,5 @@
+-- This converts a number with 20,000 digits to hexadecimal in about 30 seconds on a fast Mac M1.
+
 let lessThanEqual =
       https://prelude.dhall-lang.org/Natural/lessThanEqual
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
@@ -22,11 +24,13 @@ let Text/concatMap =
       https://prelude.dhall-lang.org/Text/concatMap
         sha256:7a0b0b99643de69d6f94ba49441cd0fa0507cbdfa8ace0295f16097af37e226f
 
-let DivMod = { div : Natural, rem : Natural }
-
 let Optional/default =
       https://prelude.dhall-lang.org/Optional/default
         sha256:5bd665b0d6605c374b3c4a7e2e2bd3b9c1e39323d41441149ed5e30d86e889ad
+
+let stop = ./Float/reduce_growth.dhall
+
+let DivMod = { div : Natural, rem : Natural }
 
 let unsafeDivMod
     : Natural → Natural → DivMod
@@ -50,6 +54,47 @@ let unsafeDivMod
                               }
 
             in  Natural/fold x Accum update init
+
+let unsafeDivModStop
+    : Natural → Natural → DivMod
+    = stop.reduce_growth_Natural_Natural
+        DivMod
+        { rem = 0, div = 0 }
+        unsafeDivMod
+
+let concatMapStop
+    : (Natural → Text) → List Natural → Text
+    = λ(f : Natural → Text) →
+        stop.reduce_growth_List Text "" Natural (Text/concatMap Natural f)
+
+let indexTextStop
+    : Natural → List Text → Optional Text
+    = stop.reduce_growth_Natural
+        (List Text → Optional Text)
+        (λ(_ : List Text) → None Text)
+        ( λ(i : Natural) →
+            stop.reduce_growth_List
+              (Optional Text)
+              (None Text)
+              Text
+              (λ(digits : List Text) → List/index i Text digits)
+        )
+
+let indexTextStop1
+    : Natural → List Text → Optional Text
+    = stop.reduce_growth_Natural
+        (List Text → Optional Text)
+        (λ(_ : List Text) → None Text)
+        (λ(i : Natural) → λ(digits : List Text) → List/index i Text digits)
+
+let indexTextStop2
+    : Natural → List Text → Optional Text
+    = λ(i : Natural) →
+        stop.reduce_growth_List
+          (Optional Text)
+          (None Text)
+          Text
+          (λ(digits : List Text) → List/index i Text digits)
 
 let log
     : Natural → Natural → Natural
@@ -134,7 +179,7 @@ let Natural/toHex
               ++  Text/concatMap
                     Natural
                     ( λ(d : Natural) →
-                        Optional/default Text "" (List/index d Text hex_digits)
+                        Optional/default Text "?" (indexTextStop1 d hex_digits)
                     )
                     (tohex x).digits_so_far
 
@@ -154,4 +199,4 @@ let _ = assert : Natural/toHex 1025 ≡ "0x401"
 
 let _ = assert : Natural/toHex 12345 ≡ "0x3039"
 
-in  { Natural/toHex, Natural/unsafeDivMod = unsafeDivMod, DivMod }
+in  { Natural/toHex }
