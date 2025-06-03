@@ -1173,7 +1173,22 @@ Dhall can still perform iterative or recursive processing of numerical data, lis
 
 Dhall's [standard library](https://prelude.dhall-lang.org) has a number of modules containing utility functions.
 
-TODO
+The library functions are mostly organized in subdirectories whose names indicate the main type with which the functions work.
+So, functions in the `Bool` subdirectory are for working with the `Bool` type,
+functions in the `List` subdirectory work with lists, and so on.
+
+All built-in Dhall functions have the corresponding standard library functions (just for the purpose of clean re-export).
+For example, the built-in function `Date/show` has the corresponding standard library code exported at `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
+
+In addition, there are subdirectories such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
+
+Library functions for working with `Natural` and `Integer` numbers include functions such as `Natural/lessThan`, `Integer/lessThan`, and so on.
+Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
+
+All those functions are implemented through Dhall built-ins.
+As Dhall intentionally includes only a small number of built-in functions, implementing functionality such as `List/take` and `List/drop` results in slower and/or larger code than one might expect.
+
+TODO describe DirectoryFile, JSON, Function, Operator
 
 ## Other features of Dhall's type system
 
@@ -1834,7 +1849,7 @@ Dhall denotes `Type 1` by the symbol `Kind` and `Type 2` by the symbol `Sort`.
 
 Dhall's type system has enough abstraction to support powerful types and to treat types and values in a uniform manner, while avoiding the complications with infinitely many type universes.
 
-Because of this design, Dhall has very liited support for working with the symbol `Kind` itself.
+Because of this design, Dhall has very limited support for working with the symbol `Kind` itself.
 Little can be done with Dhall expressions such as `Kind` or `Kind → Kind`.
 One can assign such expressions to variables, one can use them for type annotations, and that's about it.
 
@@ -1862,11 +1877,16 @@ For the same reason, Dhall will not accept the following function parameterized 
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
-This prevents Dhall from defining recursive kind-polymorphic type constructors (e.g., an analog of `List` that works with types of arbitrary kinds).
+This prevents Dhall from defining recursive kind-polymorphic type constructors. For example, Dhall cannot implement an analog of `List` that works with types of arbitrary kinds.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
 
+Nevertheless, it is perfectly possible to define a list of types of a specific kind.
+For instance, one can define a list of types of kind `Type`, such as `Natural`, `Bool`, and `Text`.
+Separately, one can define a list of types of kind `Type → Type`, such as `Optional` and `List`.
+Those definitions will use similar code, but it will not be possible to refactor them into special cases of a more general kind-polymorphic code.
+(This limitation does not appear to be particularly important for the practical use cases of Dhall.)
 
 ## Numerical algorithms
 
