@@ -785,13 +785,15 @@ The result is a value of a union type that describes all supported external reso
 
 However, `Location` values cannot be reused to perform further imports.
 
-Dhall implements other limitations on what can be imported to help users prevent wrong or malicious code from being injected into a Dhall program:
+
+Apart from requiring hard-coded import paths, Dhall imposes other limitations on what can be imported to help users maintain a number of security guarantees:
 
 - All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching).
 - All imported resources are loaded and validated at typechecking time, before any evaluation may start.
 - Circular imports are not allowed: no resource may import itself, either directly or via other imports.
 - Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
-- Web URL imports that require server authentication headers will not leak those headers to other Web servers.
+- The authentication headers must be either hard-coded or imported; they cannot be computed at evaluation time. 
+- CORS restrictions are implemented, so Web URL imports that require authentication headers will not leak those headers to other Web servers.
 
 See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/discussions/Safety-guarantees.html) for more details.
 
@@ -811,7 +813,7 @@ let Optional/default = https://prelude.dhall-lang.org/Optional/default
 let Optional/map = https://prelude.dhall-lang.org/Optional/map     -- And so on.
 ```
 
-The import mechanism can be used as a module system that allows us to create libraries of reusable code.
+The import mechanism can be used as a module system that supports creating libraries of reusable code.
 For example, suppose we put some Dhall code into files named `./Dir1/file1.dhall` and `./Dir1/file2.dhall`.
 We can then import those files like this:
 ```
@@ -819,9 +821,9 @@ let Dir1/file1 = ./Dir1/file1.dhall
 let Dir1/file2 = ./Dir1/file2.dhall
 in ???
 ```
-Code in `file1.dhall` can also import `file2.dhall` using a relative path, for example like this: `let x = ./file2.dhall`.
+Code in `file1.dhall` could also import `file2.dhall` using a relative path, for example like this: `let x = ./file2.dhall`.
 
-However, the names such as `Integer/add` or `Dir1/file1` are just a visually helpful convention.
+Keep in mind that the names such as `Integer/add` or `Dir1/file1` are just a visually helpful convention.
 The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory (`Dir1`) has no special significance.
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
@@ -835,18 +837,18 @@ Dhall will neither require nor verify that `let Dir1/file1 = ...` imports a file
 To create a hierarchical library structure of modules and submodules, the Dhall standard library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's standard prelude has a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the prelude.
+The top level of Dhall's standard prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the prelude.
 A Dhall file may import the entire prelude and access its submodules like this:
 ```dhall
 let p = https://prelude.dhall-lang.org/package.dhall -- Takes a while to import!
-let x = p.Bool.not (p.Natural.greaterThan 1 2)    -- We can use all modules now.
+let x = p.Bool.not (p.Natural.greaterThan 1 2)     -- We can use any module now.
   in ???
 ```
 
 The standard prelude is not treated specially by Dhall.
 It is just an ordinary import from a Web URL.
 A user's own libraries and modules may have a similar structure of nested records and may be imported as external resources in the same way.
-So, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
+In this way, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
 
 #### Frozen imports and semantic hashing
 
@@ -913,8 +915,8 @@ For this reason, a Dhall program cannot query a Web URL several times and make d
 
 #### Import alternatives
 
-Dhall has features for providing alternative external resources when an import fails.
-Any number of alternative imports may be specified, separated by the question mark (`?`):
+Dhall has features for providing alternative external resources to be used when an import fails.
+Any number of alternative imports may be specified, separated by the question mark operator (`?`):
 
 ```dhall
 let Natural/lessThan = ./MyLessThanImplementation.dhall
@@ -922,22 +924,28 @@ let Natural/lessThan = ./MyLessThanImplementation.dhall
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
 This mechanism resolves only "non-fatal" import failures: that is, failures to read an external resource.
-A "fatal" import failure means that the external resource was available but gave a Dhall expression that failed to parse, to typecheck, or to validate the given semantic hash.
+A "fatal" import failure means that the external resource was available but gave a Dhall expression that failed to parse, to typecheck, to validate the given semantic hash, or violated some import restrictions (e.g., a circular import).
 
-The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be unavailable.
-If all alternatives fail to read, the import fails.
+The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be temporarily unavailable.
+If all alternatives fail to read, the import fails (and the entire Dhall program fails to type-check).
+
 Other than providing import alternatives, Dhall does not support any possibility of reacting to an import failure in a custom way.
+The intention is to prevent Dhall programs from depending on side effects due to timing issues or network availability.
+Dhall programs are intended to be pure and referentially transparent values even in the presence of imports.
 
-The special keyword `missing` denotes an external resource that can never be found.
-This keyword can be used together with an SHA256 hash value:
+The special keyword `missing` denotes an external resource that will _never_ be available.
+It works as a neutral element of the `?` operation: `x ? missing` is the same as `x`.
+
+The `missing` keyword is sometimes used as a trick to speed up import loading for frozen imports.
+To achieve that, annotate a `missing` import with an SHA256 hash value and provide an alternative:
 ```dhall
 let Natural/lessThan
   = missing sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
   ? https://prelude.dhall-lang.org/Natural/lessThan
 ```
 If the function `Natural/lessThan` has been already cached, it will be retrieved from the cache without resolving any URLs.
-Otherwise, there will be a lookup and the function will be loaded and cached.
-This trick speeds up import loading.
+Otherwise, there will be a URL lookup and the function will be loaded and cached on the local machine's filesystem.
+The next time this Dhall program is run, there will be no URL lookups.
 
 ### Miscellaneous features
 
