@@ -11319,7 +11319,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
-### Existential types: identity law of "pack" and "unpack"
+### Existential types: the identity law of "pack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
@@ -11343,19 +11343,19 @@ let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → ExistsP → R
 
 With these definitions, we may build values of type `ExistsP` via `packP` and consume those values via `unpackP`.
 
-In this section, we prove an important property of `packP` and `unpackP` (the "identity law").
-That law is found when we assign the type `T = ExistsP` and the type `R = ExistsP` as the first type parameters of `packP` and `unpackP`.
+In this section, we prove an important property of `packP` (the "identity law").
+That law is found when we assign the type `R = ExistsP` as the first type parameter of `unpackP`.
 With that assignment, we obtain the function `unpackP ExistsP` of the following type:
 
 ```dhall
 let _ = (unpackP ExistsP) : (∀(T : Type) → P T → ExistsP) → ExistsP → ExistsP
 ```
 
-The type of the first argument, `∀(T : Type) → P T → R`, is the same as the type of `packP ExistsP`.
+The type of the first argument, `∀(T : Type) → P T → ExistsP`, is exactly the same as the type of `packP`.
 This suggests considering the following function:
 
 ```dhall
-let _ = (unpackP ExistsP (packP ExistsP)) : ExistsP → ExistsP
+let _ = (unpackP ExistsP packP) : ExistsP → ExistsP
 ```
 
 The identity law says that this function must be the _identity function_ of type `ExistsP → ExistsP`.
@@ -11365,25 +11365,19 @@ We can also write this law as an equation for a value `ep`:
 ```dhall
 let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 
-unpackP ExistsP (packP ExistsP) ep ≡ ep
+unpackP ExistsP packP ep ≡ ep
 ```
 
-Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to:
+Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can inline the code of `unpackP` and simplify the last equation to:
 
-`ep ExistsP (packP ExistsP) ≡ ep`
+`ep ExistsP packP ≡ ep`
 
-Both sides of this equation are functions of type `ExistsP`:
-
-```dhall
-let _ = λ(ep : ExistsP) → (ep ExistsP (packP ExistsP)) : ExistsP
-```
-
-We would like to prove that the above equation holds for arbitrary `ep : ExistsP`.
-
-For that, we need to use the naturality law of `ep`.
+Both sides of this equation have type `ExistsP`.
+We will now prove that equation for arbitrary `ep`.
+For that, we will use the naturality law of `ep`.
 ([The author is grateful to Dan Doel for assistance with the proof](https://cstheory.stackexchange.com/questions/54124).)
 
-We note that `ExistsP` is the function type of a covariant natural transformation with respect to the type parameter `R`.
+Note that `ExistsP` is the function type of a covariant natural transformation with respect to the type parameter `R`.
 So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
 The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
@@ -11392,11 +11386,11 @@ The law says that, for any types `R` and `S` and for any functions `f : R → S`
 f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
-We need to prove the equation `ep ExistsP packP ≡ ep`, but both sides of the naturality law apply `ep` to some arguments.
-The equation `ep ExistsP packP ≡ ep` needs to be adapted somehow.
+Both sides of the naturality law apply `ep` to some arguments.
+In order to be able to use the naturality law, we need to adapt the equation `ep ExistsP packP ≡ ep` somehow.
 To make progress, we apply both sides of that equation to arbitrary arguments `U : Type` and `u : ∀(T : Type) → P T → U`.
 If `ep ExistsP packP` is the same function as `ep` then `ep packP U u` will be the same value as `ep U u`.
-Write the corresponding equation:***did we forget to apply packP to ExistsP?
+Write the corresponding equation:
 
 ```dhall
 -- Symbolic derivation.
@@ -11457,7 +11451,7 @@ This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
 ### Function extension rule for existential types
 
-To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
+To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP`, `packP`, and `unpackP` shown before.
 
 We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
 This will prove the **function extension rule** for existential types.
@@ -11466,7 +11460,7 @@ That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) →
 Begin the proof by recalling the definitions of `unpackP` and `outE`:
 
 ```dhall
-let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
+let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → Exists P → R
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
     ep R unpack_
 
@@ -11476,7 +11470,7 @@ let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
     in consume ep
 ```
 
-To check that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
+To check that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
 
 The first direction is when we apply `unpackP R` and then `outE R`.
 Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outE R`:
@@ -11495,11 +11489,11 @@ The result should be equal to `k T pt`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k) t pt
+outE R (unpackP R k) T pt
   ≡ (λ(ep : ExistsP) → ep R k) (packP T)
   ≡ (packP T) R k  -- Use the definition of packP:
   ≡ (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
-  ≡ k t pt
+  ≡ k T pt
 ```
 
 This proves the first direction of the isomorphism.
@@ -11543,10 +11537,10 @@ consume (ep ExistsP packP)
   ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
 ```
 
-We wanted to show that the last line equals the expression `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
+We wanted to show that the last line equals just `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
 
-The second step is to use the property proved in the previous section (`packP` is a right inverse to `unpackP`).
-That property was proved in the form:
+The second step is to use the property proved in the previous section (the identity law of `pack`).
+That identity law was proved in the form:
 
 ```dhall
 -- Symbolic derivation.
