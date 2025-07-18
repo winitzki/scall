@@ -10772,7 +10772,7 @@ The corresponding code consists of two functions:
 
 TODO
 
-### Some properties of the Church encoding
+### Church encoding of least fixpoints: Proofs
 
 Here we show proofs of some technical properties of Church-encoded types.
 (Those properties are shown in the paper "Recursive types for free". Here we give more detailed proofs.)
@@ -11323,7 +11323,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
-### Existential types: the identity law of "pack"
+### Existential types: Identity law of "pack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
@@ -11455,7 +11455,7 @@ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 
 This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
-### Function extension rule for existential types
+### Existential types: Function extension rule
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP`, `packP`, and `unpackP` shown before.
 
@@ -11561,7 +11561,7 @@ Then we get:
 
 This concludes the proof.
 
-### Wadler's "surjective pairing rule" for existential types
+### Existential types: Wadler's "surjective pairing rule"
 
 The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
 
@@ -11600,7 +11600,7 @@ is translated into Dhall as:
 
 After renaming `t = ep`, this is the same equation we proved above.
 
-### Properties of co-inductive type encodings
+### Church encodings of greatest fixpoints: Proofs
 
 In this section, we will prove some general properties of co-inductive types, such as `GFix F` defined in the chapter "Co-inductive types".
 In particular, we will prove that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
@@ -11870,8 +11870,8 @@ The following identity holds for all covariant functors `F` and `K`:
 K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
-This is analogous to the Church-Yoneda identity, except for using existentially quantified types and the encoding of greatest fixpoints instead of universally quantified types and the encoding of least fixpoints.
-In this section, we will show a proof of the Church-co-Yoneda identity.
+This identity (without a widely accepted name) is analogous to the Church-Yoneda identity, except for using existentially quantified types and the greatest fixpoints instead of universally quantified types and the least fixpoints.
+We call this identity the Church-co-Yoneda identity.
 
 For that identity to hold, we need the following requirements:
 
@@ -11895,8 +11895,11 @@ let CCoY = ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
 ```
 
 To prove the Church-co-Yoneda identity, we begin by implementing the two directions of the isomorphism:
+
 `fromCCoY : CCoY → K G`
+
 and
+
 `toCCoy : K G → CCoY`
 
 The function type `CCoY → K G` can be simplified using the function extension rule:
@@ -12057,7 +12060,7 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
   ≡ c
 ```
 
-### Proofs for mutually recursive fixpoints
+### Church encodings for mutually recursive fixpoints: Proofs
 
 Suppose two types `T`, `U` are defined as fixpoints of a system of type equations:
 
