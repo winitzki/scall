@@ -64,10 +64,10 @@ such as `Natural/lessThan` or `List/map`.
 ### Identifiers and variables
 
 Dhall variables are immutable constant values with names, introduced via the "`let`" syntax.
-We will call them "variables" even though they cannot vary.
+We will call them "variables", even though they stand for constants that cannot vary.
 
 For example, `let x = 1 in ...` defines the variable `x` that can be used in the code that follows.
-Names of variables are represented by identifiers, like in most programming languages.
+Names of variables are arbitrary identifiers, like in most programming languages.
 
 Identifiers in Dhall may contain dash and slash characters.
 Examples of valid identifiers are `List/map` and `start-here`.
@@ -98,7 +98,7 @@ Identifiers may contain arbitrary characters (even keywords or whitespace) if es
 ```
 
 The standalone underscore character (`_`) is used in Haskell, Scala, other languages as syntax for a special "unused" variable.
-But in Dhall, the variable named "`_`" is a variable like any other:
+But in Dhall, the symbol `_` is a variable like any other:
 
 ```dhall
 ⊢ let _ = 123 in _ + _
@@ -106,7 +106,7 @@ But in Dhall, the variable named "`_`" is a variable like any other:
 246
 ```
 
-Of course, one may still use the symbol `_` in Dhall code as a convention for unused variables.
+Of course, one might still use the symbol `_` in Dhall code as a convention for unused variables.
 However, the Dhall interpreter will not treat the variable `_` in any special way and will not verify that the variable `_` actually remains unused.
 
 ### Primitive types
@@ -192,6 +192,10 @@ So, the following code is just as valid (although may be confusing):
 let inc : ∀(a : Natural) → Natural = λ(b : Natural) → b + 1
 ```
 
+#### Shadowing and the syntax for de Bruijn indices
+
+TODO
+
 #### Curried functions
 
 All Dhall functions have just one argument.
@@ -211,7 +215,7 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 Most functions in the Dhall standard library are curried.
 Currying allows function argument types to depend on some of the previous curried arguments.
 
-#### Functions of types
+#### Functions at type level
 
 Types in Dhall are treated somewhat similar to values of type `Type`.
 For example, the symbol `Natural` is considered to have type `Type`:
@@ -11343,7 +11347,7 @@ let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → ExistsP → R
 
 With these definitions, we may build values of type `ExistsP` via `packP` and consume those values via `unpackP`.
 
-In this section, we prove an important property of `packP` (the "identity law").
+In this section, we prove an important property of `packP`, which we call the "identity law".
 That law is found when we assign the type `R = ExistsP` as the first type parameter of `unpackP`.
 With that assignment, we obtain the function `unpackP ExistsP` of the following type:
 
@@ -11358,9 +11362,11 @@ This suggests considering the following function:
 let _ = (unpackP ExistsP packP) : ExistsP → ExistsP
 ```
 
-The identity law says that this function must be the _identity function_ of type `ExistsP → ExistsP`.
+The identity law says that this function is the _identity function_ of type `ExistsP → ExistsP`.
 
-We can also write this law as an equation for a value `ep`:
+Heuristically, for any `ep : ExistsP`, the expression `unpackP ExistsP packP ep` first unpacks the value `ep` and then immediately "packs" it back.
+We might reasonably expect that `ep` remains unchanged under those operations.
+The identity law of `pack` makes that intuition precise:
 
 ```dhall
 let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
@@ -11368,14 +11374,14 @@ let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 unpackP ExistsP packP ep ≡ ep
 ```
 
-Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can inline the code of `unpackP` and simplify the last equation to:
+Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, it turns out to be helpful if we inline the code of `unpackP` and simplify the last equation to:
 
 `ep ExistsP packP ≡ ep`
 
 Both sides of this equation have type `ExistsP`.
 We will now prove that equation for arbitrary `ep`.
 For that, we will use the naturality law of `ep`.
-([The author is grateful to Dan Doel for assistance with the proof](https://cstheory.stackexchange.com/questions/54124).)
+([The author is grateful to Dan Doel for assistance with this proof](https://cstheory.stackexchange.com/questions/54124).)
 
 Note that `ExistsP` is the function type of a covariant natural transformation with respect to the type parameter `R`.
 So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
@@ -11539,8 +11545,8 @@ consume (ep ExistsP packP)
 
 We wanted to show that the last line equals just `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
 
-The second step is to use the property proved in the previous section (the identity law of `pack`).
-That identity law was proved in the form:
+The second step is to use the identity law of `pack`.
+In the previous section, we derived the following form of that identity law:
 
 ```dhall
 -- Symbolic derivation.
