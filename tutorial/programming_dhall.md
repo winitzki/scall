@@ -12320,7 +12320,7 @@ Exists P → R  ≅  ∀(T : Type) → P T → R
 ```
 $$ (\exists A.~P~A) \to R \cong \forall T.~P~T\to R $$
 
-joint recursion lemma (for any covariant bifunctor `J`):
+Joint recursion lemma (for any covariant bifunctor `J`):
 
 ```dhall
 LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
