@@ -10398,13 +10398,13 @@ So, `List/map` is a (covariant) natural transformation with respect to the type 
 Suppose both `F` and `G` are covariant functors, and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
 
 Often, a covariant functor represents a generic data structure such that `F A` is a type that can store data of an arbitrary type `A`.
-One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for that data to be stored in `G A`.
+One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for (some of) the same data to be stored in `G A`.
 
 The function `t` must implement an algorithm that works in the same way for all types `A` and for all values of those types.
 The code of `t` cannot make any algorithmic decisions either based on specific values `x : A` stored in `F A`, or based on the type `A` itself.
 The function `t` may omit, duplicate, or reorder some data items, but no data may be changed, and no new data may be added.
-This is because the function `t` does not know anything about the type `A` and so cannot compute new values of type `A`.
-All values of type `A` to be stored in the data structure `G A` are those that were already stored in `F A`.
+This is because the function `t` does not know anything about the type `A` and so cannot compute any new values of type `A`.
+All values of type `A` to be stored in the new data structure `G A` must be some of those values that were already stored in `F A`.
 
 The mathematical formulation of that property is called the **naturality law** of `t`.
 It is an equation written like this: For any types `A` and `B`, and for any function `f : A → B`:
@@ -10559,7 +10559,7 @@ In this book's derivations, we will prove various properties of Dhall programs b
 The parametricity theorem shows how such laws are formulated for arbitrarily complicated type signatures.
 For the purposes of this book, it will be sufficient to use the strong dinaturality law shown above for type signatures of the form `∀(A : Type) → (F A → G A) → H A`.
 
-### The four Yoneda identities
+### The four Yoneda identities for types
 
 One of the important applications of the parametricity theorem is the type equivalences known as the **Yoneda identities**.
 
@@ -11870,8 +11870,8 @@ The following identity holds for all covariant functors `F` and `K`:
 K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
-This identity (without a widely accepted name) is analogous to the Church-Yoneda identity, except for using existentially quantified types and the greatest fixpoints instead of universally quantified types and the least fixpoints.
-We call this identity the Church-co-Yoneda identity.
+This type identity (without a widely accepted name) is analogous to the Church-Yoneda identity, except for using existentially quantified types and the greatest fixpoints instead of universally quantified types and the least fixpoints.
+We call this identity the **Church-co-Yoneda identity**.
 
 For that identity to hold, we need the following requirements:
 
@@ -11902,7 +11902,7 @@ and
 
 `toCCoy : K G → CCoY`
 
-The function type `CCoY → K G` can be simplified using the function extension rule:
+The function type `CCoY → K G` can be simplified using the function extension rule for existential types:
 
 `CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
 
@@ -11912,7 +11912,7 @@ Then we notice the similarity between the last type and the type of `unfold`:
 
 The difference is only in a replacement of `T → G` by `K T → K G`.
 We can implement that replacement via `fmap_K`.
-Then we can write the code for the function `fromCCoY` as:
+Now we can write the code for the function `fromCCoY` as:
 
 ```dhall
 let fromCCoY : CCoY → K G
@@ -11922,12 +11922,12 @@ let fromCCoY : CCoY → K G
     )
 ```
 
-Let us define a type alias (`PackKTo`) for a type expression that we seem to be using often:
+Let us define a type alias (`PackKTo`) for a type expression that we will be using often:
 
 ```dhall
 let PackKTo = λ(A : Type) → ∀(T : Type) → (T → F T) → K T → A
 ```
-Then the type of `fromCCoY` is equivalent to `PackKTo (K G)`.
+Then the type of `fromCCoY` is equivalent to just `PackKTo (K G)`.
 
 To implement `toCCoY`, we write:
 
