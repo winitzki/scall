@@ -10533,9 +10533,9 @@ Because of this complication, the law of `t` does not have the form of a single 
 The law says that the equation `fmap_H A B f (t A p) ≡ t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
 That law of `t` is known as a **strong dinaturality law**.
-The form of that law is a generalization of a naturality law, adapted for the type signature of `t`.
-The strong dinaturality law is a consequence of the parametricity theorem for type signatures `∀(A : Type) → (F A → G A) → H A`.
-That law can be written in Dhall syntax as:
+That law makes it easier to use the relational naturality law adapted to the type signature of `t`.
+
+The strong dinaturality law can be written in Dhall syntax as:
 
 ```dhall
 -- Symbolic derivation. The strong dinaturality law of `p`:
@@ -10544,6 +10544,8 @@ That law can be written in Dhall syntax as:
    ∀(_ : ∀(x : F A) → functorG.fmap A B f (p x) ≡ q (functorF.fmap A B f x)) →
      functorH.fmap A B f (t A p) ≡ t B q
 ```
+By the parametricity theorem, any Dhall function with type signature `∀(A : Type) → (F A → G A) → H A` will obey the strong dinaturality law.
+
 
 
 To summarize: the parametricity theorem applies to any Dhall value implemented via fully parametric code.
@@ -11194,16 +11196,18 @@ let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
 ### The Church-Yoneda identity
 
 The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
-The Yoneda identities do not apply to types of that form.
+The standard Yoneda identities do not apply to types of that form.
 
-There is a generalized identity (without a widely accepted name) that combines both forms of types.
-This book calls it the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities:
+There is a generalized identity (without a widely accepted name) that combines both forms of types:
 
 ```dhall
 ∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
 ```
-Here `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`, and `F` and `G` are assumed to be arbitrary covariant functors.
-It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law** that follows from the parametricity theorem.
+Here `F` and `G` are arbitrary covariant functors, and `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`.
+
+It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law**.
+
+This book calls this the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities.
 
 The Church-Yoneda identity is mentioned as "proposition 1" in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 of the paper by T. Uustalu.
 
