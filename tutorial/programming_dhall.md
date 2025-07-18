@@ -1205,14 +1205,14 @@ TODO describe DirectoryFile, JSON, Function, Operator
 "Polymorphic records" is a feature of some programming languages where, say, a record of type `{ x : Natural, y : Bool }` is considered to be a subtype of the record type `{ y : Bool }`.
 A function that requires its argument to have type `{ y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool }`.
 (The value `x` will be simply ignored.)
-So, the record type `{ y : Bool }` is actually treated as the type of any record having a Boolean field `y` and possibly other unknown fields.
+In effect, languages with polymorphic records will interpret the record type `{ y : Bool }` as the type of any record having a Boolean field `y` and possibly other fields that the code (in this scope) does not need to know about.
 
-Dhall supports neither subtyping nor polymorphic records, but does include some facilities to make working with records easier.
+Dhall does not supports subtyping or polymorphic records, but it does include some facilities to work with records polymorphically.
 
 A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
 The function only needs the fields `a` and `b` and should ignore any other fields the record may have.
 
-To implement this behavior in Dhall, we may use a field selection operation: any unexpected fields will be automatically removed from the record.
+To implement this behavior in Dhall, use a field selection operation: any unexpected fields will be automatically removed from the record.
 
 ```dhall
 let MyTuple = { _1 : Bool, _2 : Natural}
@@ -6761,30 +6761,31 @@ To achieve that, one of the arguments of `unpack` will be a function of type `�
 The other arguments of `unpack` are the type constructor `P`, a value of type `Exists P`, and the result type `r`.
 
 ```dhall
-let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r
-  = λ(P : Type → Type) → λ(ep : Exists P) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) →
+let unpack : ∀(P : Type → Type) → ∀(r : Type) → (∀(t : Type) → P t → r) → Exists P → r
+  = λ(P : Type → Type) → λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
       ep r unpack_
 ```
 
 We notice that `unpack` does nothing more than rearrange the curried arguments and substitute them into the function `ep`.
-We can simplify the code of `unpack` by omitting the function arguments that are immediately substituted:
+To illustrate that, let us simplify the code of `unpack` by rearranging some arguments and omitting the function arguments that are immediately substituted:
 
 ```dhall
-let unpack : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r
+let unpack1 : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t : Type) → P t → r) → r
   = λ(P : Type → Type) → λ(ep : Exists P) → ep
 ```
-We find that `unpack P` is the same as the identity function of type `Exists P → Exists P`.
-So, we can just use values of type `Exists P` as functions, instead of using `unpack`.
+We find that `unpack1 P` is just the identity function of type `Exists P → Exists P`.
+So, we could apply values of type `Exists P` directly as functions, instead of using `unpack`.
+Sometimes, it will be more illuminating to use `unpack`.
 
 #### Functions of existential types: the function extension rule
 
-The fact that `unpack` is an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type expression.
+The fact that `unpack` is equivalent to an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type expression.
 
-To see how, let us consider `P` as fixed and rewrite the type of `unpack P` by swapping some curried arguments.
-We will denote the resulting function by `inE`:
+To see how, let us consider `P` as fixed and specialize the type of `unpack` to `P`.
+We will denote the resulting function by `unpackP`:
 
 ```dhall
-let inE : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
+let unpackP : ∀(r : Type) → (∀(t : Type) → P t → r) → (Exists P → r)
   = λ(r : Type) → λ(unpack_ : ∀(t : Type) → P t → r) → λ(ep : Exists P) →
     ep r unpack_
 ```
@@ -6794,8 +6795,8 @@ This type signature suggests that the function type `Exists P → r` (written in
 One can prove rigorously that there is an isomorphism between the types `Exists P → r` and `∀(t : Type) → P t → r` (where it is assumed that `r` does _not_ depend on `t`).
 We call this isomorphism the **function extension rule** for existential types.
 
-The function `inE` shown above gives one direction of the isomorphism.
-The other direction is the function `outE`:
+The function `unpackP` shown above gives one direction of the isomorphism.
+The other direction is the function we call `outE`:
 
 ```dhall
 let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
@@ -6803,7 +6804,7 @@ let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
     let ep : Exists P = pack P t pt
     in consume ep
 ```
-We will prove in the appendix "Naturality and parametricity" that the functions `inE r` and `outE r` are indeed inverses of each other.
+We will prove in the appendix "Naturality and parametricity" that the functions `unpackP r` and `outE r` are indeed inverses of each other.
 
 Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
@@ -11318,51 +11319,71 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
-### Existential types: "pack" is a left inverse of "unpack"
+### Existential types: identity law of "pack" and "unpack"
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
 ```dhall
 let ExistsP = ∀(R : Type) → (∀(T : Type) → P T → R) → R
 ```
-By assuming that `P` is always fixed, we may simplify the definitions of `pack` and `unpack`:
+When `P` is fixed, it is convenient to specialize the definitions of `pack` and `unpack` to `P`.
+Call the resulting functions `packP` and `unpackP`:
 
-```dhall
-let unpackP : ExistsP → ∀(R : Type) → (∀(T : Type) → P T → R) → R
-  = λ(ep : ExistsP) → λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) →
-      ep R unpack_
-```
-and
 ```dhall
 let packP : ∀(T : Type) → P T → ExistsP
   = λ(T : Type) → λ(pt : P T) →
       λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt
 ```
+and
+```dhall
+let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → ExistsP → R
+  = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : ExistsP) →
+      ep R unpack_
+```
 
-Values of type `ExistsP` are built using `packP` and consumed using `unpackP`.
+With these definitions, we may build values of type `ExistsP` via `packP` and consume those values via `unpackP`.
 
-We will now prove the following property:
+In this section, we prove an important property of `packP` and `unpackP` (the "identity law").
+That law is found when we assign the type `T = ExistsP` and the type `R = ExistsP` as the first type parameters of `packP` and `unpackP`.
+With that assignment, we obtain the function `unpackP ExistsP` of the following type:
 
-- When used with the type `ExistsP` itself, `packP` is a left inverse to `unpackP`.
+```dhall
+let _ = (unpackP ExistsP) : (∀(T : Type) → P T → ExistsP) → ExistsP → ExistsP
+```
 
-In mathematics, a function `f : A → B` is a **left inverse** to a function `g : B → A` if the composition `f(g(x))` is always equal to `x` for any `x : A`.
+The type of the first argument, `∀(T : Type) → P T → R`, is the same as the type of `packP ExistsP`.
+This suggests considering the following function:
 
-We expect that "unpacking" a value `ep : ExistsP` and then "packing" it back will recover the original value `ep`.
-We can write this expectation in Dhall as an equation for `ep`:
+```dhall
+let _ = (unpackP ExistsP (packP ExistsP)) : ExistsP → ExistsP
+```
+
+The identity law says that this function must be the _identity function_ of type `ExistsP → ExistsP`.
+
+We can also write this law as an equation for a value `ep`:
 
 ```dhall
 let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 
-unpackP ExistsP ep packP ≡ ep
+unpackP ExistsP (packP ExistsP) ep ≡ ep
 ```
 
-Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to just `ep ExistsP packP ≡ ep`.
+Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, we can simplify the last equation to:
+
+`ep ExistsP (packP ExistsP) ≡ ep`
+
+Both sides of this equation are functions of type `ExistsP`:
+
+```dhall
+let _ = λ(ep : ExistsP) → (ep ExistsP (packP ExistsP)) : ExistsP
+```
+
 We would like to prove that the above equation holds for arbitrary `ep : ExistsP`.
 
 For that, we need to use the naturality law of `ep`.
 ([The author is grateful to Dan Doel for assistance with the proof](https://cstheory.stackexchange.com/questions/54124).)
 
-We note that `ExistsP` is the type of a covariant natural transformation with respect to the type parameter `R`.
+We note that `ExistsP` is the function type of a covariant natural transformation with respect to the type parameter `R`.
 So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
 The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
@@ -11371,10 +11392,11 @@ The law says that, for any types `R` and `S` and for any functions `f : R → S`
 f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
-Both sides of the naturality law apply `ep` to some arguments, while we would like to prove an equation of the form `ep ExistsP packP ≡ ep`.
+We need to prove the equation `ep ExistsP packP ≡ ep`, but both sides of the naturality law apply `ep` to some arguments.
+The equation `ep ExistsP packP ≡ ep` needs to be adapted somehow.
 To make progress, we apply both sides of that equation to arbitrary arguments `U : Type` and `u : ∀(T : Type) → P T → U`.
-If `ep packP` is the same function as `ep` then `ep packP U u` will be always the same value as `ep U u`.
-Write the corresponding equation:
+If `ep ExistsP packP` is the same function as `ep` then `ep packP U u` will be the same value as `ep U u`.
+Write the corresponding equation:***did we forget to apply packP to ExistsP?
 
 ```dhall
 -- Symbolic derivation.
@@ -11437,14 +11459,14 @@ This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP` and `packP` shown before.
 
-We will now show that the functions `inE R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
+We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
 This will prove the **function extension rule** for existential types.
 That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) → P T → R`.
 
-Begin the proof by recalling the definitions of `inE` and `outE`:
+Begin the proof by recalling the definitions of `unpackP` and `outE`:
 
 ```dhall
-let inE : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
+let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → (Exists P → R)
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
     ep R unpack_
 
@@ -11454,14 +11476,14 @@ let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
     in consume ep
 ```
 
-To check that the functions `inE R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
+To check that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the composition of these functions in both directions are identity functions.
 
-The first direction is when we apply `inE R` and then `outE R`.
-Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `inE R` to it, then `outE R`:
+The first direction is when we apply `unpackP R` and then `outE R`.
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outE R`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (inE R k)  -- Use the definition of inE:
+outE R (unpackP R k)  -- Use the definition of unpackP:
   ≡ outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE:
   ≡ λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
@@ -11473,7 +11495,7 @@ The result should be equal to `k T pt`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (inE R k) t pt
+outE R (unpackP R k) t pt
   ≡ (λ(ep : ExistsP) → ep R k) (packP T)
   ≡ (packP T) R k  -- Use the definition of packP:
   ≡ (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
@@ -11482,13 +11504,13 @@ outE R (inE R k) t pt
 
 This proves the first direction of the isomorphism.
 
-The other direction is when we apply `outE` and then `inE`.
-Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `inE S`:
+The other direction is when we apply `outE` and then `unpackP`.
+Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `unpackP S`:
 
 ```dhall
 -- Symbolic derivation.
-inE S (outE S consume)
-  ≡ inE S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+unpackP S (outE S consume)
+  ≡ unpackP S (λ(T : Type) → λ(pt : P T) → consume (packP T))
   ≡ λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
@@ -11499,7 +11521,7 @@ Apply that function to an arbitrary value `ep : ExistsP`:
 
 ```dhall
 -- Symbolic derivation.
-inE S (outE S consume) ep
+unpackP S (outE S consume) ep
   ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
@@ -11539,7 +11561,7 @@ Then we get:
 
 This concludes the proof.
 
-### Wadler's "surjectivity pairing rule" for existential types
+### Wadler's "surjective pairing rule" for existential types
 
 The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
 
@@ -11554,7 +11576,7 @@ This property allows us to express a function application `h ep` through an appl
 This does _not_ mean that `packP` constructs all possible values of type `ExistsP` (i.e., that `packP` is surjective as a function from `T : Type` and `pt : P T` to `ExistsP`).
 We cannot prove _that_ property.
 
-The meaning of the "surjectivity rule" is a weaker statement: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
+The meaning of the "surjective pairing rule" is a weaker statement: if a function `h : ExistsP → S` describes some property (call it an "h-property") then the h-property of arbitrary `ep : ExistsP` can be expressed through the h-property of values constructed via `packP`.
 
 #### Encoding Wadler's notation in Dhall
 
@@ -11635,12 +11657,14 @@ Instead, this statement claims a weaker property: for any function `h : G → S`
 
 ####### Proof
 
-Apply Wadler's "surjectivity pairing rule" to the type `GFix F`: for any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
+Apply Wadler's "surjective pairing rule" to the type `GFix F` and obtain the following property:
+
+For any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
 
 `h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
 
-Now we can pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
-Then we obtain directly the equation we need for the extensional surjectivity of `unfold`.
+Now we pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
+Then we will obtain directly the equation we need for the extensional surjectivity of `unfold`.
 
 ###### Statement 2
 
