@@ -37,9 +37,9 @@ _The text of this book was written and edited without using any LLMs._
 
 ## Overview of Dhall
 
-This book is written using the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0) and Dhall version `1.42.2`.
+This book corresponds to the [Dhall standard 23.0.0](https://github.com/dhall-lang/dhall-lang/releases/tag/v23.0.0) and Dhall version `1.42.2`.
 
-Dhall is a purely functional language with very few features.
+Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
 The syntax of Dhall is similar to that of Haskell.
