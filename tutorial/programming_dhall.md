@@ -11465,7 +11465,8 @@ To simplify the code, we still keep `P` fixed in this section and use the defini
 
 We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
 This will prove the **function extension rule** for existential types.
-That rule states the equivalence of types `ExistsP → R` and `∀(T : Type) → P T → R`.
+That rule states the isomorphism of types `ExistsP → R` and `∀(T : Type) → P T → R`.
+The functions `unpackP R` and `outE R` are the two directions of the isomorphism.
 
 Begin the proof by recalling the definitions of `unpackP` and `outE`:
 
