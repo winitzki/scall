@@ -11464,8 +11464,8 @@ This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP`, `packP`, and `unpackP` shown before.
 
 We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
-This will prove the **function extension rule** for existential types.
-That rule states the isomorphism of types `ExistsP → R` and `∀(T : Type) → P T → R`.
+This will prove the **function extension rule** for existential types,
+which claims an isomorphism between types `ExistsP → R` and `∀(T : Type) → P T → R`.
 The functions `unpackP R` and `outE R` are the two directions of the isomorphism.
 
 Begin the proof by recalling the definitions of `unpackP` and `outE`:
@@ -11481,15 +11481,15 @@ let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
     in consume ep
 ```
 
-To check that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
+To verify that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
 
 The first direction is when we apply `unpackP R` and then `outE R`.
 Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outE R`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k)  -- Use the definition of unpackP:
-  ≡ outE R (λ(ep : ExistsP) → ep R k) -- Use the definition of outE:
+outE R (unpackP R k)                 -- Use the definition of unpackP:
+  ≡ outE R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outE:
   ≡ λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
@@ -11509,7 +11509,9 @@ outE R (unpackP R k) T pt
 
 This proves the first direction of the isomorphism.
 
-The other direction is when we apply `outE` and then `unpackP`.
+The other direction is when we first apply `outE` and then `unpackP`.
+It will be more convenient to denote the fixed type by `S` in this derivation (because we will need to apply the naturality law of `ep`, and the type parameter denoted by `R` is already used in that law).
+
 Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `unpackP S`:
 
 ```dhall
@@ -11539,8 +11541,7 @@ The first step is apply the naturality law of `ep` shown in the previous subsect
 -- Symbolic derivation.
 f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
-We assign `f = consume`, `R = ExistsP`, and `g = packP`.
-The naturality law becomes:
+We assign `f = consume`, `R = ExistsP`, and `g = packP` in that law and get:
 
 ```dhall
 -- Symbolic derivation.
