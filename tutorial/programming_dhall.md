@@ -157,7 +157,7 @@ Generally, functions in Dhall look like `λ(x : input_type) → body`, where:
 - `input_type` is the type of the function's input argument, and
 - `body` is an expression that may use `x`; this expression computes the output value of the function.
 
-A function's type must have the form `∀(x : input_type) → output_type`, where:
+A function's type has the form `∀(x : input_type) → output_type`, where:
 
 - `input_type` is the type of the function's input value, and
 - `output_type` is the type of the function's output value.
@@ -8855,7 +8855,7 @@ The proofs that the laws hold are given in ["The Science of Functional Programmi
 
 For any type `T`, the type `Optional T` is a monoid.
 The `empty` value is `None T`.
-Appending `Some x` to `Some y` must keep one of the values and discard the other.
+Appending `Some x` to `Some y` will just keep one of the values and discard the other.
 This gives two ways of implementing the `append x y` operation.
 
 We first implement a helper method that selects between two `Optional` values:
@@ -9916,7 +9916,7 @@ TODO implement additional recursive filterable constructions from the book.
 
 The familiar `zip` method for lists works by transforming a pair of lists into a list of pairs.
 It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
-In the functional programming community, pointed functors with a suitable `zip` method are called **applicative functors**.
+In the functional programming community, pointed functors with a suitable `zip` method are known as **applicative functors**.
 
 We defined the `Applicative` typeclass in the "Typeclasses" chapter:
 
@@ -10122,15 +10122,15 @@ let applicativeFunctorCompose
 
 In other cases (such as the composition of two applicative contrafunctors), the result is not necessarily applicative.
 A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types that are assumed to be different and unrelated.
-Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative.
+Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative (as far as the author knows).
 
 When `p` and `q` were the same type, `p = q`, the functor `R a = (a → p) → p` _is_ applicative.
 (It is known as the "continuation monad", and every monad in Dhall is also an applicative functor.)
 
 ### Reverse applicative functors and contrafunctors
 
-For any applicative (contra)functor `P` with a given `zip` operation, one can define the `zip` operation in the reverse order.
-The result is another lawful implementation of the applicative property of the functor.
+For any applicative (contra)functor `P` with a given `zip` operation, one can redefine the `zip` operation to combine the effects in the reverse order (while keeping the order of values).
+The result is another lawful implementation of the applicative property of the (contra)functor.
 
 We can define the "reversing" operation via general combinators that transform a given `Applicative` evidence into the reversed one:
 ```dhall
@@ -10151,7 +10151,7 @@ let reverseApplicativeContrafunctor
 
 For some applicative (contra)functors `P`, reversing does not change their `zip` operation.
 Such `P` are called _commutative_ applicative.
-Examples are `P a = a → m` where `m` is a commutative monoid.
+Examples are the functor `R a = p → a`, where `p` is any fixed type, and the contrafunctor `P a = a → m`, where `m` is a commutative monoid type.
 
 ### Function types
 
@@ -11368,32 +11368,35 @@ let _ = (unpackP ExistsP packP) : ExistsP → ExistsP
 
 The identity law says that this function is the _identity function_ of type `ExistsP → ExistsP`.
 
-Heuristically, for any `ep : ExistsP`, the expression `unpackP ExistsP packP ep` first unpacks the value `ep` and then immediately "packs" it back.
-We might reasonably expect that `ep` remains unchanged under those operations.
+Heuristically, for any `ep : ExistsP`, the expression `unpackP ExistsP packP ep` first "unpacks" the value `ep` and then immediately "packs" it back.
+We might expect that `ep` remains unchanged under those operations.
 The identity law of `pack` makes that intuition precise:
 
 ```dhall
 let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 
-unpackP ExistsP packP ep ≡ ep
+unpackP ExistsP packP ep  ≡  ep
 ```
 
 Because `unpackP` is little more than an identity function of type `ExistsP → ExistsP`, it turns out to be helpful if we inline the code of `unpackP` and simplify the last equation to:
 
-`ep ExistsP packP ≡ ep`
+```dhall
+let ep : ExistsP = ???  -- Create any value of type ExistsP. Then:
 
-Both sides of this equation have type `ExistsP`.
-We will now prove that equation for arbitrary `ep`.
-For that, we will use the naturality law of `ep`.
-([The author is grateful to Dan Doel for assistance with this proof](https://cstheory.stackexchange.com/questions/54124).)
+ep ExistsP packP  ≡  ep
+```
+The last equation is a concise formulation of the identity law of `pack`.
+Both sides of the law have type `ExistsP`.
+We will now prove that law for arbitrary `ep`, assuming that the naturality law of `ep` holds.
+([The author is grateful to Dan Doel for assistance with this proof.](https://cstheory.stackexchange.com/questions/54124))
 
-Note that `ExistsP` is the function type of a covariant natural transformation with respect to the type parameter `R`.
-So, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
-The law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
+Note that `ExistsP` is the function type of a natural transformation with respect to the type parameter `R`.
+By parametricity, all Dhall values `ep : ExistsP` will satisfy the corresponding naturality law.
+That law says that, for any types `R` and `S` and for any functions `f : R → S` and `g : ∀(T : Type) → P T → R`, we will have:
 
 ```dhall
 -- Symbolic derivation. The naturality law of `ep`:
-f (ep R g) ≡ ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
+f (ep R g)  ≡  ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
 ```
 
 Both sides of the naturality law apply `ep` to some arguments.
@@ -11404,27 +11407,27 @@ Write the corresponding equation:
 
 ```dhall
 -- Symbolic derivation.
-ep ExistsP packP U u ≡ ep U u
+ep ExistsP packP U u  ≡  ep U u
 ```
 
 Our goal is to derive this equation as a consequence of the naturality law of `ep`.
-For that, we just need to choose suitable parameters `R`, `S`, `f`, and `g` in that law.
-We choose `R = ExistsP`, `S = U`, `f ep = ep U u`, and `g = packP`.
+For that, we just need to assign suitable parameters `R`, `S`, `f`, and `g` in that law.
+We set `R = ExistsP`, `S = U`, `f ep = ep U u`, and `g = packP`.
 Then the left-hand side of the naturality law becomes:
 
 ```dhall
 -- Symbolic derivation.
-f (ep R g) ≡ ep R g U u ≡ ep ExistsP packP U u
+f (ep R g)  ≡  ep R g U u  ≡  ep ExistsP packP U u
 ```
-This is the left-hand side of the equation we need to prove.
+This is exactly the left-hand side of the law we need to prove.
 
 The right-hand side of the naturality law becomes:
 
 ```dhall
 -- Symbolic derivation.
 ep S (λ(T : Type) → λ(pt : P T) → f (g T pt))
-  ≡ ep U (λ(T : Type) → λ(pt : P T) → (g T pt) U u)
-  ≡ ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
+  ≡  ep U (λ(T : Type) → λ(pt : P T) → (g T pt) U u)
+  ≡  ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
 ```
 
 This will be equal to `ep U u` (the right-hand side of the equation we need to prove) if we could show that:
@@ -11439,7 +11442,7 @@ Substitute the definition of `packP` and get:
 ```dhall
 -- Symbolic derivation.
 λ(T : Type) → λ(pt : P T) → packP T pt U u
-  ≡ λ(T : Type) → λ(pt : P T) → u T pt
+  ≡  λ(T : Type) → λ(pt : P T) → u T pt
 ```
 
 Because `u` is a function of type `∀(T : Type) → P T → U`, the code of `u` has the form `λ(T : Type) → λ(pt : P T) → ...`.
@@ -11453,8 +11456,8 @@ Finally, we found what we needed:
 ```dhall
 -- Symbolic derivation.
 ep U (λ(T : Type) → λ(pt : P T) → packP T pt U u)
-  ≡ ep U (λ(T : Type) → λ(pt : P T) → u T pt)
-  ≡ ep U u
+  ≡  ep U (λ(T : Type) → λ(pt : P T) → u T pt)
+  ≡  ep U u
 ```
 
 This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
@@ -11489,8 +11492,8 @@ Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` 
 ```dhall
 -- Symbolic derivation.
 outE R (unpackP R k)                 -- Use the definition of unpackP:
-  ≡ outE R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outE:
-  ≡ λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
+  ≡  outE R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outE:
+  ≡  λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
 The result is a function of type `λ(T : Type) → λ(pt : P T) → R`.
@@ -11501,10 +11504,10 @@ The result should be equal to `k T pt`:
 ```dhall
 -- Symbolic derivation.
 outE R (unpackP R k) T pt
-  ≡ (λ(ep : ExistsP) → ep R k) (packP T)
-  ≡ (packP T) R k  -- Use the definition of packP:
-  ≡ (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
-  ≡ k T pt
+  ≡  (λ(ep : ExistsP) → ep R k) (packP T)
+  ≡  (packP T) R k  -- Use the definition of packP:
+  ≡  (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
+  ≡  k T pt
 ```
 
 This proves the first direction of the isomorphism.
@@ -11517,8 +11520,8 @@ Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it
 ```dhall
 -- Symbolic derivation.
 unpackP S (outE S consume)
-  ≡ unpackP S (λ(T : Type) → λ(pt : P T) → consume (packP T))
-  ≡ λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡  unpackP S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡  λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
 The result is a function of type `ExistsP → S`.
@@ -11529,7 +11532,7 @@ Apply that function to an arbitrary value `ep : ExistsP`:
 ```dhall
 -- Symbolic derivation.
 unpackP S (outE S consume) ep
-  ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
+  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
 We need to show that the last line is equal to just `consume ep`.
@@ -11546,7 +11549,7 @@ We assign `f = consume`, `R = ExistsP`, and `g = packP` in that law and get:
 ```dhall
 -- Symbolic derivation.
 consume (ep ExistsP packP)
-  ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
+  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
 ```
 
 We wanted to show that the last line equals just `consume ep`, but instead we got the expression `consume (ep ExistsP packP)`.
@@ -11556,14 +11559,14 @@ In the previous section, we derived the following form of that identity law:
 
 ```dhall
 -- Symbolic derivation.
-ep ExistsP packP ≡ ep
+ep ExistsP packP  ≡  ep
 ```
 
 It follows that `consume (ep ExistsP packP) ≡ consume ep`.
 
 Then we get:
 
-`consume ep ≡ ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
+`consume ep  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
 
 This concludes the proof.
 
@@ -11596,11 +11599,11 @@ packP X y    -- Wadler's constructor: (X, y)
 t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) → w}) : W
 ```
 
-Then Wadler's "surjective pairing rule", which he writes as:
+With this notation, consider Wadler's "surjective pairing rule", which he writes as:
 
 `h t == case t of {(X, y) → h(X, y)}`
 
-is translated into Dhall as:
+This is translated into Dhall as:
 
 `h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
 
