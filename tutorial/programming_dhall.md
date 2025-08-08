@@ -9460,7 +9460,7 @@ let Filterable = λ(F : Type → Type) → Functor F //\\ { deflate : ∀(a : Ty
 let ContraFilterable = λ(F : Type → Type) → Contrafunctor F //\\ { inflate : ∀(a : Type) → F a → F (Optional a) }
 ```
 
-Using the `Filterable` instance, we may implement a `filter` function like this:
+Using the `deflate` method from a `Filterable` instance, we may implement a `filter` function like this:
 ```dhall
 let filter
   : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
@@ -10122,10 +10122,10 @@ let applicativeFunctorCompose
 
 In other cases (such as the composition of two applicative contrafunctors), the result is not necessarily applicative.
 A counterexample is `P a = a → p` and `Q a = a → q`, where `p` and `q` are fixed monoidal types that are assumed to be different and unrelated.
-Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative (as far as the author knows).
+Both `P` and `Q` are applicative contrafunctors, but their composition `R = Compose P Q`, which can be written out as `R a = (a → q) → p`, is a functor that is not applicative [as far as the author knows](https://stackoverflow.com/questions/79148048/).
 
 When `p` and `q` were the same type, `p = q`, the functor `R a = (a → p) → p` _is_ applicative.
-(It is known as the "continuation monad", and every monad in Dhall is also an applicative functor.)
+It is known as the "continuation monad", and every monad in Dhall is also an applicative functor.
 
 ### Reverse applicative functors and contrafunctors
 
