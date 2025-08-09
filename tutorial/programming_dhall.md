@@ -1079,7 +1079,7 @@ let slow : Natural = Natural/fold 1000000000000000000 Natural (λ(x : Natural) �
 ```
 
 Triggering one of these situations will implement (an artificial example of) a **partial function** in Dhall.
-A function is partial if it works only for a certain subset of possible argument values; when applied to other values, the partial function crashes or never completes evaluation.
+A function is partial if it works only for a certain subset of possible argument values; when applied to other values, the partial function will crash or will never complete evaluation.
 Typically, a partial function applied to wrong values will create a rogue expression.
 
 As an example, consider the following code that implements a partial function called `crash`.
@@ -1137,7 +1137,7 @@ Although Dhall does not support recursion directly, one can use certain tricks (
 Later chapters in this book will show how that can be achieved.
 
 In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
-Recursive code can be translated into Dhall only if there is a static termination guarantee.
+Recursive code can be translated into Dhall only if there is a termination guarantee: the total number of nested recursive calls must be bounded in advance.
 Within these limitations, Dhall supports a wide variety of iterative and recursive computations.
 
 #### No side effects
@@ -1153,17 +1153,23 @@ But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
 a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
-The import feature is limited to one-time, read-only imports, similarly to the way a mathematical function reads its arguments.
-Even though the actual external resource may of course change during evaluation, the Dhall interpreter will ignore those changes.
+The result of evaluating a Dhall program will then depend on the contents of the external resources.
+
+However, this dependency is invisible inside Dhall code, where each import looks like a constant value.
+This is because Dhall implements one-time, cached, and read-only imports.
+Dhall reads import values similarly to the way a mathematical function reads its arguments.
+The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
+Even though the actual external resource may change during evaluation, the Dhall interpreter will ignore those changes and use only the first value obtained by reading the resource.
 A repeated import of the same resource will always give the same Dhall value.
 So, it is not possible to write a Dhall program that repeatedly reads a value from an external file and reacts in some way to changes in the file's contents.
 
-A Dhall program also cannot have a custom behavior reacting to a failure while importing the external resources.
+A Dhall program also cannot have a custom behavior reacting to a failure _while importing_ the external resources.
 There is only a simple mechanism providing fall-back alternative imports in case a resource is missing.
-If a resource fails to read despite fall-backs, or fails to typecheck, or fails the integrity check, the Dhall interpreter will not evaluate the program.
+If a resource fails to read despite fall-backs, or fails to typecheck, or fails the integrity check, the Dhall interpreter will fail the entire program.
 
-The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
-Most often, the import feature is used to read library modules with known contents that is not expected to change.
+Most often, imports are used to read library modules with known contents that is not expected to change.
+Dhall supports that use case with its "frozen imports" feature.
+If all imports are frozen, a Dhall program is guaranteed to give the same results each time it is evaluated.
 
 #### Guaranteed termination
 
@@ -1177,9 +1183,21 @@ Invalid Dhall programs will be rejected at the typechecking phase.
 The typechecking itself is also guaranteed to complete within finite time.
 
 The price for those termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
-(A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.)
-However, the lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage, as this book will show.
-Dhall can still perform iterative or recursive processing of numerical data, lists, trees, and other data structures.
+A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.
+Dhall supports neither general recursion nor `while`-loops nor any other iterative constructions whose termination is not assured.
+Iterative computations are possible in Dhall only if the program specifies the maximum number of iterations in advance.
+
+The lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage, as this book will show.
+Dhall can still perform iterative or recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
+
+The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
+As Dhall supports arbitrary-precision integers, it is possible to write a Dhall program that runs a loop with an extremely large number of iterations.
+It is also possible to come up with short Dhall expressions creating data structures that consume terabytes or petabytes of memory.
+We will see some examples of such "rogue expressions" later in this book.
+
+However, it is improbable that a programmer creates a rogue expression by mistake while implementing ordinary tasks in Dhall.
+A malicious adversary could try to inject such expressions into Dhall programs.
+To mitigate that possibility, Dhall implements strict guardrails on external imports.
 
 ### Overview of the standard library ("prelude")
 
@@ -4852,9 +4870,9 @@ let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
 
-The paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) proves via parametricity that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor.
+It turns out that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
 
-A proof is also shown in "Statement 2" in the section "Some properties of the Church encoding" of Appendix A in this book.
+For a proof, see the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) and also "Statement 2" in the section "Church encoding of least fixpoints: Proofs" of Appendix A in this book.
 
 ### Data constructors
 
@@ -10153,6 +10171,12 @@ For some applicative (contra)functors `P`, reversing does not change their `zip`
 Such `P` are called _commutative_ applicative.
 Examples are the functor `R a = p → a`, where `p` is any fixed type, and the contrafunctor `P a = a → m`, where `m` is a commutative monoid type.
 
+### Monads are automatically applicative
+
+If it is known that a functor `F` is a monad, 
+
+TODO 
+
 ### Function types
 
 Here, we consider creating a new type constructor `R` via the `Arrow` combinator, `R = Arrow P Q`
@@ -10777,7 +10801,8 @@ TODO
 ### Church encoding of least fixpoints: Proofs
 
 Here we show proofs of some technical properties of Church-encoded types.
-(Those properties are shown in the paper "Recursive types for free". Here we give more detailed proofs.)
+(Those properties are explained in the paper "Recursive types for free" by P. Wadler.
+This section gives fully detailed proofs.)
 
 Throughout this section, we assume that `F` is a lawful covariant functor for which an evidence value `functorF : Functor F` is available.
 We define the type `C` by `C = LFix F`, or in explicit form: `C = ∀(R : Type) → (F R → R) → R`.
@@ -11261,7 +11286,7 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the previous section.)
+(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the section "Church encodings of least fixpoints: Proofs".)
 
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
