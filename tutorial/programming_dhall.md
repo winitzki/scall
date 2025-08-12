@@ -6188,12 +6188,12 @@ let _ = ListT : Sort
 ```
 
 The appearance of `Sort` is usually a warning sign in Dhall.
-It means that we are writing code that is so abstract that it approaches the limits of Dhall's type system.
+It means that we are writing code so abstract that it approaches the limits of Dhall's type system.
 
-We defined `ListTGeneric` by lifting all types one level higher: we replaced `Type` with `Kind`.
-So, we should expect that the type of `ListTGeneric` is one level higher than `Sort`.
-But Dhall does not have any type levels higher than `Sort`.
-So, typechecking of `ListTGeneric` fails when Dhall tries to find the type of `Sort`.
+We defined `ListTGeneric` by lifting the element types in `ListT` one level higher (replacing `Type` with `Kind`).
+Since the type of `ListT` is `Sort`, we should expect that the type of `ListTGeneric` is one level higher than `Sort`.
+But Dhall does not have any type universes higher than `Sort`.
+So, typechecking of `ListTGeneric` fails.
 
 The conclusion is that Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
 
@@ -8089,7 +8089,7 @@ unfix Branch x y -> FBranch x y
 We may substitute `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
 Because `fix` and `unfix` are isomorphisms, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
-In this example of applying `hylo`, the input tree will remain unchanged because the function just unpacks the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then packs it back (applying `F TreeText → TreeText`) with no changes.
+In this example of applying `hylo`, we expect that the input tree should remain unchanged because the function just unpacks the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then packs it back (applying `F TreeText → TreeText`) with no changes.
 We are using this artificial example only for understanding how the recursion can terminate in the Haskell code of `hylo`.
 
 Choose some input value `t0` of type `TreeText`:
@@ -11264,7 +11264,7 @@ let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G
 ```
 For brevity, we will write `C` instead of `LFix F` to denote that Church-encoded recursive type.
 
-It remains to show the two directions of the isomorphism roundtrip (applying `fromCY` after `toCY`, or applying `toCY` after `fromCY`):
+It remains to prove the two directions of the isomorphism roundtrip (applying `fromCY` after `toCY`, or applying `toCY` after `fromCY`):
 
 (1) For any `gc : G C`, we need to show that:
 
