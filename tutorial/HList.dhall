@@ -60,4 +60,8 @@ let item
     : HList listNatString
     = consH Natural 12 listString (consH Text "hi" nilT nilH)
 
-in  { ListH = HList, nilH, consH }
+let singletonH
+    : ∀(t : Type) → t → HList (consT t nilT)
+    = λ(t : Type) → λ(x : t) → consH t x nilT nilH
+
+in  { ListH = HList, nilH, consH, singletonH }
