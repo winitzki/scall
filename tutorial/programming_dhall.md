@@ -6366,9 +6366,15 @@ In this section, we studied only one example of a nested type (the "perfect bina
 This and other advanced examples of designing and using nested recursive types
 are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001).
 
-### Church encodings for GADTs
+### Generalized algebraic data types (GADTs)
 
-Types known as "GADT" (generalized algebraic data types) are type constructors whose definitions are not parametric in the type parameter.
+To motivate GADTs, consider that ordinary type constructors (such as `List`, `Optional`, or user-defined types like `PBTree` in the previous section) work in the same way for all type arguments.
+Indeed, `List Natural`, `List Bool`, etc., are always of the same shape -- they are lists of values of a given type.
+A data structure of type `PBTree a` is a perfect binary tree whose data shape and available operations work the same way regardless of the choice of the type `a`.
+This property is known as **parametric polymorphism**.
+
+Types known as "GADTs" are type constructors whose definitions are _not_ parametrically polymorphic in the type parameter.
+Those types do not work in the same way for all choices of type parameters.
 
 Here is an example of a GADT in Haskell:
 ```haskell
@@ -6385,17 +6391,20 @@ For instance, `LNot x` will typecheck only when `x` is a Boolean expression such
 The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
 
 
-The definition of `LExp t` is not type-parametric in `t` because values of type `LExp t` can be created only when `t = Int` or `t = Bool`, and not with arbitrary types `t`.
+The definition of `LExp t` is not parametrically polymorphic in `t`.
+To see that it is _not_ a data structure that works in the same way for all `t`,
+notice that values of type `LExp t` can be created only when `t = Int` or `t = Bool`, and not with arbitrary other types `t`.
 Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
 
-As definitions of GADTs are typically not type-parametric, GADTs are usually neither covariant nor contravariant in their type parameters.
+GADTs are usually defined to work in special ways when their parameters are set to specific types.
+For that reason, GADTs are normally neither covariant nor contravariant in their type parameters.
 This is not a problem, because in practice it is not necessary to have a `fmap` function for GADTs.
 
-The definition of a GADT can use the type parameters in a precise way required by the task at hand.
+The definition of a GADT can use its type parameters in a precise way required by the task at hand.
 Because of this flexibility, GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
 
-For illustration, let us show the Haskell code for an interpreter for the toy language.
-The interpreter will be a function of type `LExp t -> t`, which will guarantee at type level that expressions are evaluated to correct types.
+For illustration, let us implement an interpreter for the toy language in Haskell.
+The interpreter will be a function of type `LExp t -> t`, which will guarantee _at type-checking time_ that expressions are evaluated to correct types.
 
 ```haskell
 eval :: LExp t -> t             -- Haskell.
@@ -6406,13 +6415,13 @@ eval (LNot b) = not b
 eval (LIsZero x) = x == 0
 ```
 
-Most often, GADTs are recursively defined because the constructor arguments need to use the GADT itself.
-So, we will encode GADTs can be encoded with the technique similar to the Church encoding of nested types.
+GADTs are usually recursively defined because the constructor arguments need to use the GADT itself.
+So, we will encode GADTs with the technique similar to the Church encoding of nested types.
 
 Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
 
-We begin by reviewing the syntax for defining a usual **algebraic data type** (ADT).
-For that, both Haskell and Scala have a "short syntax" and a "long syntax".
+We begin by reviewing the syntax for defining an ordinary **algebraic data type** (ADT) that is not a GADT.
+For ADTs, both Haskell and Scala have a "short syntax" and a "long syntax".
 
 The short syntax looks like this:
 
@@ -6429,7 +6438,7 @@ The type `Tree` has two constructors, which may be viewed as functions whose out
 In Haskell, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
 In Scala, `Leaf` and `Branch` behave as functions of types `A => Tree[A]` and `(Tree[A], Tree[A]) => Tree[A]`.
 
-However, the short syntax does not show those functions explicitly.
+The short syntax does not show those functions explicitly.
 The long syntax writes out each constructor separately, specifying the output type as well as inputs.
 
 In Haskell, the long syntax for defining `Tree` looks like this:
@@ -6439,7 +6448,7 @@ data Tree a where   -- Haskell.
   Branch :: Tree a -> Tree a -> Tree a
 ```
 
-Scala 3 uses the keyword `extends` in its long syntax:
+Scala 3's long syntax uses the keyword `extends`:
 
 ```scala
 enum Tree[A]:                                       // Scala 3.
@@ -6495,15 +6504,17 @@ The next step is to rewrite this type in the form of a mapping `F P -> P`.
 In this way, we will derive the pattern functor `F` for this recursive type, showing us how to define the Church encoding.
 
 Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
-Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t`.
+Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
-The Church encoding must be applied at the level of type constructors according to this type formula:
+The Church encoding must be applied at the level of type constructors via the same type formula as we used in the previous section:
 
 ```dhall
 let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
    ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
-Then we expect the type constructor `P` to be defined via `LFixK F` with suitable `F`.
+This is the general Church encoding at the level of type constructors.
+The type constructor `P` will be defined via `LFixK F` with some `F`.
+It remains to figure out how to write a suitable `F`.
 
 As the the definition of `P` is non-parametric, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all `t`.
 In the example at hand, `P t` can have values only when `t = Int` or `t = Text`.
@@ -6518,7 +6529,7 @@ Let us write them side by side:
 These types will be equal if we define `F P Int = Text` and `F P Text = (Bool, P Int)`.
 The type constructor `F P` will be void unless applied to `Int` and `Text` type parameters.
 
-It remains to write the Church encoding for the type constructor `P` as `LFixK F`, which we can write out after currying like this:
+Write the Church encoding for the type constructor `P` as `LFixK F`, which after currying looks like this:
 
 ```dhall
 let C = λ(a : Type) →
@@ -6543,12 +6554,10 @@ data P a where                    -- Haskell.
   TInt :: Text -> P Int
   BText :: Bool -> P Int -> P Text
 ```
-We see that the type parameter `r` must replace all usages of `P` in the long-syntax definition.
+We see that the type parameter `r` replaces all recursive usages of `P` in the long-syntax definition.
 This is the recipe of writing GADTs in the Church encoding.
 
-
-
-For the toy language `LExp` shown above, the Church encoding is:
+Here is the Church encoding for the toy language `LExp` shown above:
 
 ```dhall
 let LExp = λ(t : Type) → ∀(r : Type → Type) →
@@ -6560,8 +6569,8 @@ let LExp = λ(t : Type) → ∀(r : Type → Type) →
      r t
 ```
 
-To create values of type `LExp`, we define type-safe constructor functions corresponding to each of the constructors in the Haskell code.
-The code for those constructors is quite repetitive, so let us only show two of them:
+To create values of type `LExp`, we use constructor functions corresponding to each of the constructors in the Haskell code.
+The code for those constructor functions is quite repetitive, so let us only show two of them:
 
 ```dhall
 let LInt : Integer → LExp Integer
@@ -6582,13 +6591,14 @@ let LAdd : LExp Integer → LExp Integer → LExp Integer
       lAdd (x r lBool lInt lAdd lNot lIsZero) (y r lBool lInt lAdd lNot lIsZero)
 ```
 
-We can now use those constructors to create an  example  expression in the toy language:
+We can now  create an  example  expression in the toy language:
 
 ```dhall
 let exampleLExp : LExp Integer = LAdd (LInt +10) (LInt +20)
 ```
 
 Let us now implement the interpreter for this  language.
+
 Note that the Haskell code for the interpreter is recursive.
 In the Church encoding, recursion is replaced by applications of the higher-order functions.
 The Dhall code for the interpreter is non-recursive and consists of applying the value of type `LExp t` to suitable arguments.
@@ -6651,42 +6661,48 @@ Haskell's more concise syntax declares those type parameters implicitly.
 
 ### Existentially quantified types
 
-By definition, a value `x` has an **existentially quantified** type, denoted mathematically by $\exists t.~P~t$, where `P` is a type constructor, if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u`.
+By definition, a value `x` has an **existentially quantified** type if `x` is a pair `(u, y)` where `u` is some specific type and `y` is a value of type `P u` but the type `u` is not known outside of the scope of `x`.
+Here `P` is a type constructor that describes how the type of `y` depends on the type parameter `u`.
+The existential type is denoted mathematically by $\exists t.~P~t$.
 
 An example is the following type definition in Haskell:
 
 ```haskell
 -- Haskell.
-data F a = forall t. Hidden (t -> Bool, t -> a)
+data F a = forall t. Example (t -> Bool, t -> a)
 ```
+The type parameter `t` is visible within the scope of the constructor `Example` but is not visible outside:
+The data type is defined as `data F a`, which shows only the type parameter `a`. 
+
 
 The corresponding code in Scala is:
 
 ```scala
 // Scala
 sealed trait F[_]
-case class Hidden[A, T](init: T => Boolean, transform: T => A) extends F[A]
+case class Example[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
+The type parameter `T` is visible only within the scope of the case class `Example` but is not visible outside:
+The class is defined via `extends F[A]`, which shows only the type parameter `A`.
 
-From the point of view of the program code, an existentially quantified type parameter is one that is present in a specific data constructor but absent from the overall data type.
+From the point of view of the program code, an existentially quantified type parameter is one that is present within the scope of a specific data constructor but absent from the overall data type.
 In the Haskell code, it is the type parameter `t`, and in the Scala code, it is `T`.
 
 The mathematical notation for `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
 
-As we will discuss later in this book, the type `F` is an example of the "free functor" construction.
-For now, we focus on the way the type parameter `t` is used in the Haskell code just shown.
-(In the Scala code, the corresponding type parameter is `T`.)
+To understand how the existential types work, let us look at the way the type parameter `t` is used in the Haskell code just shown.
 
 The type parameter `t` is bound by the quantifier and is visible only inside the type expression `∃ t. (t → Bool) × (t → a)`.
 To create a value `x` of type `F a`, we will need to supply two functions, of types `t → Bool` and `t → a`, with a specific (somehow chosen) type `t`.
+At that point, we are free to choose `t` arbitrarily.
 But when working with a value `x : F a`, we will not directly see the type `t` anymore.
 The type of `x` is `F a`; that type does not show what `t` is.
 (The type `t` is not a free type parameter in the expression `F a`.)
-However, the type parameter `t` still "exists" inside the value `x`.
+However, we may imagine that the type parameter `t` still somehow "exists" inside the value `x`.
 This motivation helps us remember the meaning of the name "existential".
 
-Existential type quantifiers is not directly supported by Dhall.
-Types using `∃` have to be Church-encoded in a special way, as we will now show.
+Existential type quantifiers are not directly supported by Dhall.
+Nevertheless, they can be encoded in a special way, as we will now show.
 
 We begin with the type expression `∀(r : Type) → (F a → r) → r`.
 Because `F a` does not depend on `r`, this type is simply equivalent to `F a` due to the covariant Yoneda identity.
@@ -6701,10 +6717,10 @@ A function `f : F a → r` must produce a result value of type `r` from any valu
 In fact, `f` may not inspect the type `t` or make choices based on `t` because the type `t` is existentially quantified and is hidden inside `x`.
 So, the function `f` must work for all types `t` in the same way.
 
-It means that the function `f` must have `t` as a _type parameter_.
-The type of that function must be written as `f : ∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r`.
+It means that the function `f` must have `t` as a _universally quantified_ type parameter.
+So, we write the type signature of `f` as `f : ∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r`.
 
-So, the final code for the Church encoding of `F` becomes:
+The final code for the Church encoding of `F` becomes:
 
 ```dhall
 let F = λ(a : Type) → ∀(r : Type) → (∀(t : Type) → { _1 : t → Bool, _2 : t → a } → r) → r
@@ -8054,8 +8070,11 @@ hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
 The code of `hylo` calls `hylo` recursively under `fmap`, and there seems to be no explicit termination for the recursion.
-To see how this code could ever terminate, consider a specific example
-where both `t` and `r` are the type of binary trees with string-valued leaves.
+Nevertheless, this code will terminate for some input values `t`.
+Specifically, hylomorphisms will terminate when `t` produces a finite data structure when `coalg` is being repeatedly applied to it.
+
+Let us consider an example
+where both `t` and `r` are the type of (finite) binary trees with string-valued leaves.
 We have denoted that type by `TreeText` before.
 The type constructor `f` will be the pattern functor for `TreeText`.
 
@@ -8089,7 +8108,7 @@ unfix Branch x y -> FBranch x y
 We may substitute `fix` and `unfix` as the `alg` and `coalg` arguments of `hylo` as shown above, because their types match.
 The result (`hylo unfix fix`) will be a function of type `TreeText → TreeText`.
 Because `fix` and `unfix` are isomorphisms, the function `hylo unfix fix` will be just an identity function of type `TreeText → TreeText`.
-In this example of applying `hylo`, we expect that the input tree should remain unchanged because the function just unpacks the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then packs it back (applying `F TreeText → TreeText`) with no changes.
+In this example of applying `hylo`, we expect that the input tree should remain unchanged because we just unpack the tree's recursive type (`TreeText → F TreeText`, `F TreeText → F (F TreeText)`, and so on) and then pack it back (applying `F TreeText → TreeText`) with no changes.
 We are using this artificial example only for understanding how the recursion can terminate in the Haskell code of `hylo`.
 
 Choose some input value `t0` of type `TreeText`:
@@ -8114,7 +8133,7 @@ h t0
 ```
 
 The argument of `fmap (fmap h)` in the last line is `fmap unfix (unfix t0)`.
-This is a value of type `F (F TreeText)` that we may temporarily denote by `c0`.
+This is a value of type `F (F TreeText)` that we temporarily denote by `c0`.
 Then `h t0` is given by:
 
 ```haskell
@@ -8130,21 +8149,21 @@ c0 == fmap unfix (unfix t0) == FBranch (FLeaf "a") (FLeaf "b")
 ```
 
 We note that each application of `unfix` replaces one layer of `TreeText`'s constructors by one layer of `F`'s constructors.
-All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0` requires.
+All constructors of `TreeText` will be eliminated after applying `unfix`, `fmap unfix`, etc., as many times as the recursion depth of `t0` requires (in this example, just two times).
 
-After that, the value `c0` will no longer contain any constructors of `TreeText`; it is built only with `F`'s constructors.
-For that reason, `c0` will _remain unchanged_ under application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
+After that, the value `c0` no longer contains any constructors of `TreeText`; it is built only with `F`'s constructors.
+For that reason, `c0` will _remain unchanged_ under any further application of `fmap (fmap f)` with _any_ function `f : TreeText → TreeText`.
 In other words:
 
 ```haskell
-fmap (fmap f) c0 == c0
+fmap (fmap f) c0 == c0  -- For any f.
 ```
 
 It follows that the computation `fmap (fmap f) c0` _does not use_ the value `f`.
 
 Our code for `h t0` needs to compute `fmap (fmap h) c0`.
-Because that computation does not use the value `h`, and because Haskell's evaluation is lazy, Haskell will not perform any recursive calls to `h`.
-This is why the recursion terminates in the computation `h t0`.
+Because that computation does not use the value `h`, and because Haskell's evaluation is lazy, Haskell will not perform any more recursive calls to `h`.
+This is why the recursion terminates at the step when we reach the computation `h t0`.
 
 If the value `t0` had been a more deeply nested tree, we would need to expand the recursive definition of `h` more times.
 The required number of recursive calls is equal to the "recursion depth" of the value `t0`.
@@ -8157,7 +8176,7 @@ When we apply `h` to some value `t0 : t`, we get: `h t0 = alg (fmap h (coalg t0)
 
 The recursion will terminate if, at some recursion depth, the expression `fmap (fmap (... (fmap f)...)) c` does not actually need to use the function `f`.
 We will then have `fmap (fmap (... (fmap f)...)) c == c`.
-This will terminate the recursion.
+At this point, the result `c` will be returned and no more recursive calls to `h` will be made.
 
 The type of `c` will be `f (f (... (f t)))`.
 It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
@@ -8171,25 +8190,28 @@ only if the data structure of type `f (f (... (f t)))`
 generated out of the initial "seed" value (`t0`) will no longer contain values of type `t`
 after a finite number of recursion steps.
 
+The hylomorphism's argument has type `GFix F`.
 However, it is impossible to assure up front that a given data structure of type `GFix F`
 in fact has only a finite recursion depth.
-So, in general the hylomorphism code does not guarantee termination and is not acceptable in Dhall.
-A function with the type signature of `hylo` cannot be implemented in Dhall.
+So, the termination of the hylomorphism is in general not guaranteed.
+As a result, no function with the type signature of `hylo` can be implemented in Dhall.
 
 ### Depth-bounded hylomorphisms
 
-Implementing hylomorphism-like functions in Dhall is possible if we modify the type signature shown above, explicitly ensuring termination.
+What we _can_ do is to implelment functions with type signatures similar to those of a hylomorphism,
+but with extra arguments that explicitly ensure termination.
+
 One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value.
 The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
 If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 
-To show how that works, we begin with the Haskell code for the depth-bounded hylomorphism.
+To show how that works, we begin with Haskell code for the depth-bounded hylomorphism.
 Then we will translate that code to Dhall.
 
-The idea of depth-bounded hylomorphism is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
-To be able to do that, we begin by setting `h = stopgap`, where a value `stopgap : t → r` must be supplied.
+The idea of depth-bounded hylomorphisms is to expand the recursive definition (`h = alg . fmap h . coalg`, where we denoted `h = hylo coalg alg`) only a given number of times.
+To be able to do that, we begin by choosing some initial value for `h`.
 Then we expand the recursive definition repeatedly, up to the given depth bound.
-For convenience, let us denote the intermediate results by `h_1`, `h_2`, `h_3`, ...:
+We denote the initial value of `h` by `stopgap` and the intermediate results by `h_1`, `h_2`, `h_3`, ...:
 
 ```haskell
 h_0 = stopgap
@@ -8223,16 +8245,18 @@ For now, let us see some examples of using `hylo_Nat` with an explicit bound on 
 
 ### Determining the recursion depth
 
-The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify the maximum recursion depth (the total number of iterations for `Natural/fold`) in advance.
+The function `hylo_Nat` expresses a hylomorphism via `Natural/fold`, which requires the user to specify up front the maximum recursion depth (the total number of iterations for `Natural/fold`).
 
-If the given number of iterations in `Natural/fold` is too high, the Dhall interpreter may stop the iterations earlier if the current intermediate result stops changing.
+The Dhall interpreter has an optimization for `Natural/fold`:
+the iterations will stop before reaching the maximum number if the current intermediate result stops changing.
 This mechanism works well for calculations with numbers but does not work for `hylo_Nat` because the intermediate result is a function (of type `t → r`).
 Each iteration changes that function, adding a layer of `fmap` and a composition with other functions (`coalg` and `alg`).
-So, this function itself is different at each iteration, and `Natural/fold` will not detect an early termination of the loop, --- even though the result of applying that function to a particular argument may no longer change after a certain number of iterations.
+It is true that the result of applying that function to a particular argument may no longer change after a certain number of iterations.
+But the function itself is different at each iteration, and so `Natural/fold` will not be able to terminate the loop early.
 
-We will proceed in two phases:
+Keeping this in mind, we will proceed in two steps:
 
-- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. One can call that function before running the main computation via `hylo_Nat`.
+- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. We will call that function before running `hylo_Nat`.
 - Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
 
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
@@ -8250,13 +8274,15 @@ This functionality will be available if the functor `F` is _foldable_.
 We will require `Functor` and `Foldable` typeclass evidence for `F`
 (such evidence can be created for any polynomial functor `F`).
 
+TODO: replace this logic by simply checking that the result of toList is a non-empty list. In that case, the data structure is non-empty and contains some values of type t.
+
 Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
 (The Haskell code would be `fmap (\_ -> True) p`.)
 The result is a value of type `F Bool`.
 Then we use `F`'s `toList` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
 For that, we will use the Dhall library function `Bool/or` that performs the "or" operation over all Boolean values in a list.
-The resulting value will be `True` if the data structure contains any `True` values.
+The resulting value will be `True` if and only if the data structure contains a `True` value.
 The Dhall code is:
 ```dhall
 let Bool/or = https://prelude.dhall-lang.org/Bool/or
@@ -8372,9 +8398,8 @@ let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
 
 Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
 
-To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is applied automatically.
-We will not compute the recursion depth separately.
-Instead, we will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
+To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is calculated and applied automatically.
+We will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
 We will keep the accumulated value unchanged once the maximum recursion depth is reached.
 The shortcut detection mechanism in `Natural/fold` will then automatically stop the iterations.
 
@@ -8398,6 +8423,8 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
 ```
 
 Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately.
+
+TODO try revising this logic, accumulating both the h function and the result of applying h to seed? No. We can't just stop when the result of applying to seed stops changing. We need to accumulate a second hylomorphism that detects the max depth.
 
 ### Example: the Egyptian division algorithm
 
