@@ -28,20 +28,36 @@ let HList
     = λ(listT : ListT) →
         ∀(r : ListT → Type) →
         ∀(hnil : r nilT) →
-        ∀(hcons : ∀(t : Type) → ∀(ts : ListT) → t → r ts → r (consT t ts)) →
+        ∀(hcons : ∀(t : Type) → t → ∀(ts : ListT) → r ts → r (consT t ts)) →
           r listT
 
 let nilH
     : HList nilT
     = λ(r : ListT → Type) →
       λ(hnil : r nilT) →
-      λ(hcons : ∀(t : Type) → ∀(ts : ListT) → t → r ts → r (consT t ts)) →
+      λ(hcons : ∀(t : Type) → t → ∀(ts : ListT) → r ts → r (consT t ts)) →
         hnil
 
-let consH = True
+let consH =
+      λ(headT : Type) →
+      λ(head : headT) →
+      λ(tailT : ListT) →
+      λ(tail : HList tailT) →
+      λ(r : ListT → Type) →
+      λ(hnil : r nilT) →
+      λ(hcons : ∀(t : Type) → t → ∀(ts : ListT) → r ts → r (consT t ts)) →
+        hcons headT head tailT (tail r hnil hcons)
 
-let listNatString : ListT = consT Natural (consT Text nilT)
+let listNatString
+    : ListT
+    = consT Natural (consT Text nilT)
 
-let item : HList listNatString = consH 12 (consH "hi" nilH)
+let listString
+    : ListT
+    = consT Text nilT
+
+let item
+    : HList listNatString
+    = consH Natural 12 listString (consH Text "hi" nilT nilH)
 
 in  { ListH = HList, nilH, consH }
