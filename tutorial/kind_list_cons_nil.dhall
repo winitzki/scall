@@ -19,4 +19,10 @@ let listNatString
     : ListT
     = consT Natural (consT Text nilT)
 
+let mapListT : forall(A: Type) -> List A -> (A -> Type) -> ListT
+= \(A: Type) -> \(as: List A) -> \(transform: A -> Type) ->
+λ(list : Kind) →
+      λ(cons : Type → list → list) →
+      λ(nil : list) →
+
 in  { consT, nilT }

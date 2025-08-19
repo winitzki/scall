@@ -6079,9 +6079,9 @@ Each time, if possible, we will implement typeclass evidence values for Church-e
 
 ### Data structures at type level
 
-Dhall's built-in type constructors  `List` and `Optional` only work with values of **ground types** (that is, types of type `Type`).
+Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, of type `Type`).
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
-But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols.
+But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols `Bool` and `Natural`.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
 
 Let us begin by implementing a type-level analog of the `Optional` type.
@@ -6115,6 +6115,7 @@ let _ = 123 : someType2 -- This typechecks because someType1 is Natural.
 ```
 
 We now turn to the type-level `List` analogs.
+This is more difficult because `List` requires a recursive definition.
 
 Recursive "type-level" data structures can be implemented via the Church encoding technique.
 We use the same pattern as before, except that stored data items will now have type `Type`.
@@ -12156,17 +12157,19 @@ let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a 
 let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
 ```
 
+From the shape of those types, it is clear how to generalize the Church encodings to any number of mutually recursive types.
+
 The proofs in both cases have many similar steps.
 The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
 We already know how to encode fixpoints defining a single recursive type, and we will use those encodings to express `T`.
 Then we will use the Church-Yoneda identity (for least fixpoints) and the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
-The derivation for `U` will be omitted because it is exactly similar.
+The derivation for `U` will be exactly similar.
 
-We will need the property we call the "joint recursion lemma":
+We will need the property we call the "nested fixpoint lemma":
 
-###### Statement 1 (joint recursion lemma).
-Suppose `J` is any bifunctor. Then the joint fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
-That property holds for all fixpoints (least or greatest or any other fixpoints).
+###### Statement 1 (nested fixpoint lemma).
+Suppose `J` is any bifunctor. Then the nested fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
+That property holds both for the least fixpoints and for the greatest fixpoints.
 
 ####### Proof
 
@@ -12185,9 +12188,9 @@ The last equation is a type equation for `W`, whose solution is written as:
 
 `W = Fix (λ(w : Type) → Fix (λ(y : Type) → J w y))`
 
-So, we have shown that `W` is a joint fixpoint of `J x y` with respect to both `x` and `y`.
+So, we have shown that `W` is a nested fixpoint of `J x y` with respect to both `x` and `y`.
 
-Conversely, consider any `W` which is a joint fixpoint of `J x y` with respect to both `x` and `y`:
+Conversely, consider any `W` which is a nested fixpoint of `J x y` with respect to both `x` and `y`:
 
 `W = Fix (λ(x : Type) → Fix (λ(y : Type) → J x y))`
 
@@ -12251,7 +12254,7 @@ let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
 ```
 
 The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
-So, we may use the joint recursion lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
+So, we may use the nested fixpoint lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
 
 ```dhall
 let T = GFix (λ(x : Type) → J x x)
@@ -12377,7 +12380,7 @@ Exists P → R  ≅  ∀(T : Type) → P T → R
 ```
 $$ (\exists A.~P~A) \to R \cong \forall T.~P~T\to R $$
 
-Joint recursion lemma (for any covariant bifunctor `J`):
+The "nested fixpoint lemma" (for any covariant bifunctor `J`):
 
 ```dhall
 LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
