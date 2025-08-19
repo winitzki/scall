@@ -11679,7 +11679,7 @@ To make the derivations shorter, we will consider `F` as a fixed functor and den
 (The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Co-inductive types".)
 We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
 We will also denote the type `GFix F` simply by `G`.
-We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : step : t → F t }`.
+We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : t → F t }`.
 
 Here is a summary of the resulting definitions:
 
@@ -12169,41 +12169,128 @@ We will need the property we call the "nested fixpoint lemma":
 
 ###### Statement 1 (nested fixpoint lemma).
 Suppose `J` is any bifunctor. Then the nested fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
-That property holds both for the least fixpoints and for the greatest fixpoints.
+That property holds both for the least fixpoints and for the greatest fixpoints:
+
+```dhall
+LFix (λ(x : Type) → LFix (λ(y : Type) → J x y))
+  ≅  LFix (λ(x : Type) → J x x)
+GFix (λ(x : Type) → GFix (λ(y : Type) → J x y))
+  ≅  GFix (λ(x : Type) → J x x)
+```
+
 
 ####### Proof
 
-Let us temporarily denote by `Fix` the operation of taking any fixpoint, and consider a fixpoint `W` of `J x x` with respect to `x`.
-This is expressed by `W = Fix (λ(x : Type) → J x x)`.
-For that  type `W`, the type isomorphism `W ≅ J W W` holds.
+We will use the Church-Yoneda identity for the least fixpoints and the Church-co-Yoneda identity for the greatest fixpoints.
 
-Keeping that `W` set, consider the type equation `Y = J W Y`.
-Clearly, `W` is also a solution of that type equation.
-So, `W` is the fixpoint of `J W y` with respect to `y`.
-We write this as:
+Begin by considering the left-hand side of the identity for the least fixpoints.
+Denote for brevity by `N x` the least fixpoint of `J x y` with respect to `y`:
 
-`W = Fix (λ(y : Type) → J W y)`
+`N x = LFix (λ(y : Type) → J x y)`
 
-The last equation is a type equation for `W`, whose solution is written as:
+Then the nested fixpoint can be written as:
 
-`W = Fix (λ(w : Type) → Fix (λ(y : Type) → J w y))`
+```dhall
+LFix (λ(x : Type) → LFix (λ(y : Type) → J x y))
+  ≅  LFix (λ(x : Type) → N x)  =  LFix N
+```
 
-So, we have shown that `W` is a nested fixpoint of `J x y` with respect to both `x` and `y`.
+Use the Church encoding for the last expression:
 
-Conversely, consider any `W` which is a nested fixpoint of `J x y` with respect to both `x` and `y`:
+```dhall
+LFix N  ≅  ∀(x : Type) → (N x → x) → x
+```
 
-`W = Fix (λ(x : Type) → Fix (λ(y : Type) → J x y))`
+If we view `x` as a fixed type, we can say that the type expression `(N x → x) → x` is of the form `P (N x)` where `P` is a covariant functor defined by `P a = (a → x) → x`.
+Then we may apply the Church-Yoneda identity, which gives:
 
-This `W` satisfies the type equation `W = Fix (λ(y : Type) → J W y)`.
-Consider the right-hand side of that type equation separately: if `Fix (λ(y : Type) → J W y)` is some type `V` then `V` must be such that the type isomorphism `V ≅ J W V` holds.
-But we know that `W` _equals_ `Fix (λ(y : Type) → J W y)`.
-So, `W = V` and the type isomorphism `W ≅ J W W` holds.
-It means that `W` is a fixpoint of `J x x` with respect to `x`.
+```dhall
+(N x → x) → x  =  P (N x)  =  P (LFix (λ(y : Type) → J x y))
+  ≅  ∀(y : Type) → (J x y → y) → P y    -- Used Church-Yoneda identity.
+  ≅  ∀(y : Type) → (J x y → y) → (y → x) → x
+```
 
-We have shown that every fixpoint of `J x x` with respect to `x` is at the same time a fixpoint of `J x y` with respect to `x` and `y`, and vice versa.
-All fixpoints of `J x x` and all fixpoints of `J x y` are in a one-to-one correspondence.
+It remains to apply the universal quantifier (`∀x`) to the last type expression.
+After some rewriting, the last type expression will fit the form of the Yoneda identity:
 
-It follows that the greatest fixpoint of `J x x` is the same as the greatest fixpoint of `J x y`, and similarly for the least fixpoints.
+```dhall
+∀(x : Type) → ∀(y : Type) → (J x y → y) → (y → x) → x    -- Swap arguments:
+  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → (J x y → y) → x     -- Define R:
+  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → R x           -- Swap ∀x and ∀y:
+  ≅  ∀(y : Type) → ∀(x : Type) → (y → x) → R x
+```
+Here we defined `R a = (J a y → y) → a`.
+Since `R` is a covariant functor, we may use the covariant Yoneda identity:
+
+
+```dhall
+∀(x : Type) → (y → x) → R x  ≅  R y
+  = (J y y → y) → y
+```
+We can now complete the derivation for the least fixpoints:
+
+```dhall
+LFix (λ(x : Type) → N x)
+  ≅  ∀(y : Type) → (J y y → y) → y    -- This is a Church encoding.
+  ≅  LFix (λ(y : Type) → J y y)
+```
+
+For the greatest fixpoints, the proof is similar.
+We denote for brevity by `N x` the greatest fixpoint of `J x y` with respect to `y`:
+
+`N x = GFix (λ(y : Type) → J x y) = GFix (J x)`
+
+Then the nested fixpoint can be written as:
+
+```dhall
+GFix (λ(x : Type) → GFix (λ(y : Type) → J x y))
+  ≅  GFix (λ(x : Type) → N x)  =  GFix N
+```
+
+Use the Church encoding for the last expression:
+
+```dhall
+GFix N  ≅  Exists (λ(x : Type) → { seed : x, step : x → N x })
+```
+
+If we view `x` as a fixed type within the scope of the record, we can say that the type expression `{ seed : x, step : x → N x }` is of the form `P (N x)` where `P` is a covariant functor defined by `P a = { seed : x, step : x → a }`.
+The type `P (N x)` contains a fixpoint inside the functor `P`:
+
+```dhall
+P (N x)  ≅  P (GFix (J x))
+```
+Here we may apply the Church-Yoneda identity, which gives:
+
+```dhall
+P (GFix J x)  ≅  Exists (λ(y : Type) → { seed : P y, step : y → J x y })
+   ≅  Exists (λ(y : Type) → { seed : { seed : x, step : x → y }, step : y → J x y })
+```
+
+It remains to apply the existential quantifier in `x` to the last type expression.
+After some rewriting, the last type expression will fit the form of the co-Yoneda identity:
+
+```dhall
+Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed : x, step : x → y }, step : y → J x y }))    -- Rearrange record:
+  ≅  Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed : x, step : y → J x y }, step : x → y }))
+  ≅  Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : R x, step : x → y }))     -- Define R.
+  ≅  Exists (λ(y : Type) → Exists (λ(x : Type) → { seed : R x, step : x → y }))     -- Swap quantifiers.
+```
+Here we defined `R a = { seed : a, step : y → J a y }`.
+Since `R` is a covariant functor, we may use the covariant co-Yoneda identity:
+
+
+```dhall
+Exists (λ(x : Type) → { seed : R x, step : x → y }))  ≅  R y
+  = { seed : y, step : y → J y y }
+```
+We can now complete the derivation for the greatest fixpoints:
+
+```dhall
+GFix (λ(x : Type) → N x)
+  ≅  Exists (λ(y : Type) →  { seed : y, step : y → J y y })   -- This is a Church encoding.
+  ≅  GFix (λ(y : Type) → J y y)
+```  
+
 $\square$
 
 Now we begin the proof of the encodings for mutually recursive types.
