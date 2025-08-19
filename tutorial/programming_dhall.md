@@ -12504,6 +12504,17 @@ LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
 ```
 $$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
 
+Church encoding for mutually recursive fixpoints:
+
+
+```dhall
+-- Two fixpoint equations: U = F U V, V = G U V
+U  ≅  ∀(x : Type) → ∀(y : Type) → (F x y → x) → (G x y → y) → x
+V  ≅  ∀(x : Type) → ∀(y : Type) → (F x y → x) → (G x y → y) → y
+```
+$$ U \cong \forall x.~\forall y.~(F~x~y \to x)\to (G~x~y \to y)\to x  $$
+
+$$ V \cong \forall x.~\forall y.~(F~x~y \to x)\to (G~x~y \to y)\to y  $$
 
 Church-Yoneda identity (for covariant functors `P` and `Q`):
 
@@ -12518,6 +12529,17 @@ Church encoding of greatest fixpoints (for a covariant functor `P`):
 Exists (λ(a : Type) → { seed : a, step : a → P a })  ≅  GFix P
 ```
 $$ \exists a.~a \times (a\to P~a) \cong \nu x.~P~x $$
+
+Church encoding of mutually recursive greatest fixpoints:
+
+```dhall
+-- Two fixpoint equations: U = F U V, V = G U V
+U  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB: b → G a b }))
+V  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB: b → G a b }))
+```
+$$ U \cong \exists a.~\exists b.~a \times (a\to F~a~b)\times (b\to G~a~b)  $$
+
+$$ V \cong \exists a.~\exists b.~b \times (a\to F~a~b)\times (b\to G~a~b)  $$
 
 Co-Yoneda identity (for a covariant functor `Q`):
 
