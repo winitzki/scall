@@ -12124,14 +12124,14 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
 
 ### Church encodings for mutually recursive fixpoints: Proofs
 
-Suppose two types `T`, `U` are defined as fixpoints of a system of type equations:
+Suppose two types `T`, `U` are defined via **mutually recursive** definitions: each type's definition uses that type itself and also the other type.
 
 ```dhall
 -- Type error: Dhall does not support recursive definitions.
 let T = F T U
 let U = G T U
 ```
-where `F` and `G` are some (covariant) bifunctors.
+Here `F` and `G` are some (covariant) bifunctors.
 
 An example definition of `F` and `G` is:
 
@@ -12140,7 +12140,9 @@ let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two :
 let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
 ```
 
-Then we may consider two possibilities: either we need the least fixpoints, or we need the greatest fixpoints.
+
+Types `T` and `U` are defined as solutions of two simultaneous equations.
+Solutions may be defined as least fixpoints or as greatest fixpoints of those equations, depending on what is necessary for the application code.
 
 In this section, we will prove the Church encoding formulas for the least and the greatest fixpoints.
 The least fixpoints are given by the following encodings:
@@ -12157,15 +12159,9 @@ let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a 
 let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
 ```
 
-From the shape of those types, it is clear how to generalize the Church encodings to any number of mutually recursive types.
+From the shape of those types, it is clear how to generalize these Church encodings to any number of mutually recursive types.
 
-The proofs in both cases have many similar steps.
-The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
-We already know how to encode fixpoints defining a single recursive type, and we will use those encodings to express `T`.
-Then we will use the Church-Yoneda identity (for least fixpoints) and the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the formulas given above.
-The derivation for `U` will be exactly similar.
-
-We will need the property we call the "nested fixpoint lemma":
+To prove these type formulas, we will need the property we call the "nested fixpoint lemma":
 
 ###### Statement 1 (nested fixpoint lemma).
 Suppose `J` is any bifunctor. Then the nested fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
@@ -12292,9 +12288,17 @@ GFix (λ(x : Type) → N x)
 ```
 $\square$
 
-Now we begin the proof for the Church encodings for mutually recursive types.
+Now we begin the proof of the Church encodings for mutually recursive types.
 
-Let us first consider the greatest fixpoints and rewrite the equations `T = F T U` and `U = G T U` as:
+The proofs in both cases (least and greatest fixpoints) have many similar steps.
+The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
+We already know how to encode fixpoints defining a single recursive type, and we will use those encodings to express `T`.
+Then we will use the Church-Yoneda identity (for least fixpoints) and the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the type formulas given above.
+The derivation for `U` will be exactly similar and will be omitted.
+
+
+Let us first consider the greatest fixpoints.
+Rewrite the equations `T = F T U` and `U = G T U` as:
 
 ```dhall
 -- Type error: Dhall does not support recursive definitions.
@@ -12304,7 +12308,7 @@ U = GFix (λ(y : Type) → G T y)
 
 We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equations.
 We notice that the last equation expresses `U` via `T`.
-It will be more convenient to write that expression as `U = H T` where the functor `H` is defined by:
+It will be convenient to write that expression as `U = H T` where the functor `H` is defined by:
 
 ```dhall
 let H = λ(x : Type) → GFix (λ(y : Type) → G x y)
@@ -12340,7 +12344,7 @@ let T = GFix (λ(t : Type) → GFix (λ(x : Type) → J x t))
 ```
 
 The bifunctor `J x y = F x (H y)` is covariant in both `x` and `y`.
-So, we may use the nested fixpoint lemma and conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
+So, we may use the nested fixpoint lemma to conclude that `T` is the greatest fixpoint of `J x x` with respect to `x` alone:
 
 ```dhall
 let T = GFix (λ(x : Type) → J x x)
@@ -12356,7 +12360,8 @@ let H = λ(x : Type) → LFix (G x)
 in let T = LFix (λ(x : Type) → F x (H x))
 ```
 
-Now that we have eliminated `U` and obtained a fixpoint equation for `T` alone, we may use the known Church encodings:
+We have eliminated `U` and obtained a fixpoint equation for `T` alone.
+Now we use the known Church encodings:
 
 ```dhall
 -- For the greatest fixpoints:
@@ -12381,11 +12386,11 @@ let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a 
 -- For the least fixpoints:
 let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 ```
-These formulas are simpler because all type quantifiers are outside any functors.
+These formulas are simpler because all type quantifiers are outside.
 To achieve that simplification, we will need to use the Church-Yoneda and the Church-co-Yoneda identities.
 Those identities say that a type with a fixpoint inside a functor is equivalent to a type whose quantifier is outside.
 For the greatest fixpoints, we will apply the Church-co-Yoneda identity, and for the least fixpoints, we will apply the Church-Yoneda identity.
-It remains to bring the type expressions `T` into the form suitable for applying those identities.
+It remains to bring the type expressions for `T` into the form suitable for applying those identities.
 
 First consider the case of the greatest fixpoints.
 Write the type expression for `T` that we last obtained:
@@ -12503,7 +12508,7 @@ LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
 ```
 $$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
 
-Church encoding for mutually recursive fixpoints:
+Church encoding for mutually recursive least fixpoints (for covariant bifunctors `F`, `G`):
 
 
 ```dhall
@@ -12528,7 +12533,7 @@ Exists (λ(a : Type) → { seed : a, step : a → P a })  ≅  GFix P
 ```
 $$ \exists a.~a \times (a\to P~a) \cong \nu x.~P~x $$
 
-Church encoding of mutually recursive greatest fixpoints:
+Church encoding of mutually recursive greatest fixpoints (for covariant bifunctors `F`, `G`):
 
 ```dhall
 -- Two fixpoint equations: U = F U V, V = G U V
