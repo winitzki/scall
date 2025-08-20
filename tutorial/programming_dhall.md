@@ -12210,13 +12210,13 @@ Then we may apply the Church-Yoneda identity, which gives:
   ≅  ∀(y : Type) → (J x y → y) → (y → x) → x
 ```
 
-It remains to apply the universal quantifier (`∀x`) to the last type expression.
+It remains to add the universal quantifier (`∀x`) to the last type expression.
 After some rewriting, the last type expression will fit the form of the Yoneda identity:
 
 ```dhall
-∀(x : Type) → ∀(y : Type) → (J x y → y) → (y → x) → x    -- Swap arguments:
-  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → (J x y → y) → x     -- Define R:
-  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → R x           -- Swap ∀x and ∀y:
+∀(x : Type) → ∀(y : Type) → (J x y → y) → (y → x) → x -- Swap arguments:
+  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → (J x y → y) → x  -- Define R:
+  ≅  ∀(x : Type) → ∀(y : Type) → (y → x) → R x        -- Swap ∀x and ∀y:
   ≅  ∀(y : Type) → ∀(x : Type) → (y → x) → R x
 ```
 Here we defined `R a = (J a y → y) → a`.
@@ -12266,7 +12266,7 @@ P (GFix J x)  ≅  Exists (λ(y : Type) → { seed : P y, step : y → J x y })
    ≅  Exists (λ(y : Type) → { seed : { seed : x, step : x → y }, step : y → J x y })
 ```
 
-It remains to apply the existential quantifier in `x` to the last type expression.
+It remains to add the existential quantifier in `x` to the last type expression.
 After some rewriting, the last type expression will fit the form of the co-Yoneda identity:
 
 ```dhall
@@ -12289,11 +12289,10 @@ We can now complete the derivation for the greatest fixpoints:
 GFix (λ(x : Type) → N x)
   ≅  Exists (λ(y : Type) →  { seed : y, step : y → J y y })   -- This is a Church encoding.
   ≅  GFix (λ(y : Type) → J y y)
-```  
-
+```
 $\square$
 
-Now we begin the proof of the encodings for mutually recursive types.
+Now we begin the proof for the Church encodings for mutually recursive types.
 
 Let us first consider the greatest fixpoints and rewrite the equations `T = F T U` and `U = G T U` as:
 
@@ -12513,7 +12512,6 @@ U  ≅  ∀(x : Type) → ∀(y : Type) → (F x y → x) → (G x y → y) → 
 V  ≅  ∀(x : Type) → ∀(y : Type) → (F x y → x) → (G x y → y) → y
 ```
 $$ U \cong \forall x.~\forall y.~(F~x~y \to x)\to (G~x~y \to y)\to x  $$
-
 $$ V \cong \forall x.~\forall y.~(F~x~y \to x)\to (G~x~y \to y)\to y  $$
 
 Church-Yoneda identity (for covariant functors `P` and `Q`):
@@ -12538,7 +12536,6 @@ U  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a 
 V  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB: b → G a b }))
 ```
 $$ U \cong \exists a.~\exists b.~a \times (a\to F~a~b)\times (b\to G~a~b)  $$
-
 $$ V \cong \exists a.~\exists b.~b \times (a\to F~a~b)\times (b\to G~a~b)  $$
 
 Co-Yoneda identity (for a covariant functor `Q`):
