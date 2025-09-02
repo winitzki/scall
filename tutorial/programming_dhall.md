@@ -425,12 +425,12 @@ It is a syntax error to write `merge { X = 0 }` without specifying a value (`x`)
 The **void type** is a type that cannot have any values.
 
 Dhall's empty union type (denoted by `<>`) is an example of a void type.
-Values of union types may be created only via constructors, but the type `<>` has no constructors.
+Values of union types may be created only via constructors, but the union type `<>` has no constructors.
 So, no Dhall code will ever be able to create a value of type `<>`.
 
 If a value of the void type existed, one would be able to compute from it a value of _any other type_.
-This may appear absurd, but this is indeed an important property of the void type.
-This property can be expressed formally via the function that we may denote `absurd`.
+Although this may appear absurd, it is indeed an important property of the void type.
+This property can be expressed formally via the function that is often denoted by `absurd`.
 That function computes a value of an arbitrary type `A` given a value of the void type `<>`:
 
 ```dhall
@@ -438,9 +438,12 @@ let absurd : <> → ∀(A : Type) → A
   = λ(x : <>) → λ(A : Type) → merge {=} x : A
 ```
 
-Of course, the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
-Nevertheless, the existence of the void type and a function of type `<> → ∀(A : Type) → A` is useful in some situations, as we will see below.
+This implementation depends on a special feature of Dhall: a `merge` expression with a type annotation.
+(The annotation `: A` in `merge {=} x : A` is for the entire `merge` expression, not for `x`.)
+This annotation makes the type checker accept an _empty_ `merge` expression as a value of type `A`.
 
+We need to keep in mind that the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
+Nevertheless, the existence of the void type and a function of type `<> → ∀(A : Type) → A` is useful in some situations, as we will see below.
 
 The type signature of `absurd` suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
@@ -11790,7 +11793,7 @@ In other words, for any value `g : G` we will have:
 
 For brevity, denote `v = unfold G unfixf`. Then our goal is to prove that `v g ≡ g`.
 
-First, we use the relational naturality law of `g` with `S = G`, `f = unfold R cR`, `cS = unfixf` and get:
+First, we use the relational naturality law of `unfold` with `S = G`, `f = unfold R cR`, `cS = unfixf` and get:
 
 If `unfixf (unfold R cR x) ≡ functorF.fmap R G (unfold R cR) (cR x)` for all `x : R` then `unfold R cR y ≡ unfold G unfixf (unfold R cR y)` for all `y : R`.
 
@@ -11850,9 +11853,11 @@ The precondition of the relational naturality law becomes:
 
 if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y ≡ unfold S cS (f y)` for all `y : R`.
 
-`fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x) ≡ fmap_unfixf (unfixf x)`
+Substituting the definitions of `cR` and `cS`, we get:
 
-This holds trivially.
+`fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x)`
+
+This condition holds by definition of `fmap_unfixf`.
 So, the conclusion of the law also holds: for all `g : G`,
 
 `unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)`
@@ -12255,7 +12260,7 @@ The type `P (N x)` contains a fixpoint inside the functor `P`:
 ```dhall
 P (N x)  ≅  P (GFix (J x))
 ```
-Here we may apply the Church-Yoneda identity, which gives:
+Here we may apply the Church-co-Yoneda identity, which gives:
 
 ```dhall
 P (GFix J x)  ≅  Exists (λ(y : Type) → { seed : P y, step : y → J x y })

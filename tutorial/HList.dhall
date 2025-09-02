@@ -68,4 +68,12 @@ let _ = singletonH Natural 12
 
 let _ = singletonH Text "hi"
 
+let Schema = < B | N | T >
+
+let schemaToType
+    : Schema → Type
+    = λ(s : Schema) → merge { B = Bool, N = Natural, T = Text } s
+
+-- let schemaList : TList = List/map Schema Type schemaToType [ Schema.B, Schema.N, Schema.T ]
+
 in  { ListH = HList, nilH, consH, singletonH }
