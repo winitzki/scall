@@ -552,7 +552,7 @@ The types of `Either` and `Pair` is `Type → Type → Type`.
 As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are just type aliases.
 Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves (**structural typing**).
 
-### The `Optional` type constructor
+### The "Optional" type constructor
 
 An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
 
@@ -9846,9 +9846,9 @@ This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b)
 We can certainly implement `Filterable` for `FList` using that `deflate` method and the general combinator `filterableLFix` as shown above.
 But, as it turns out, this combinator produces a filtering operation that truncates a list after the first value that does not pass the given predicate.
 For example, filtering the list `[ 1, 3, 4, 5 ]` with the predicate `Natural/odd` will result in the list `[ 1, 3 ]` rather than `[ 1, 3, 5 ]` as one might expect.
-This operation (analogous to `takeWhile` in Haskell and Scala) is also a law-abiding filtering operation.
+Nevertheless, this operation (analogous to `takeWhile` in Haskell and Scala) is a law-abiding filtering operation.
 
-We will now verify that this is indeed what `filterableLFix` produces.
+We will now verify that this logic is indeed what `filterableLFix` produces.
 Then we will find a different combinator that does not truncate data structures unnecessarily.
 
 We begin by implementing the function `deflateFList`.
@@ -9957,9 +9957,6 @@ let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 
 
 There are often many ways of implementing a `Filterable` typeclass for a given functor.
 The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
-
-
-TODO implement additional recursive filterable constructions from the book.
 
 ## Applicative type constructors and their combinators
 
