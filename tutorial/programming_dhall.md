@@ -9311,7 +9311,7 @@ To implement a functor evidence for `G`, we use the `mapForall` function defined
 ```dhall
 let functorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G c → G d. Use mapForall P Q for that,
 -- where P and Q are defined such that Forall P = G c and Forall Q = G d.
@@ -9330,7 +9330,7 @@ In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evid
 ```dhall
 let contrafunctorForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G d → G c. Use mapForall for that.
       let P = F c
@@ -9348,7 +9348,7 @@ The following code defines the functor or the contrafunctor instances (as approp
 ```dhall
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G c → G d. Use mapExists for that.
       let P = F c
@@ -9361,7 +9361,7 @@ let functorExists1
 ```dhall
 let contrafunctorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type G d → G c. Use mapExists for that.
       let P = F c
@@ -9422,7 +9422,7 @@ We can now implement the `Functor` evidence for `LFix (F a)` and `GFix (F a)`:
 ```dhall
 let functorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → LFix (F a))
-  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let C : Type → Type = λ(a : Type) → LFix (F a)
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type C c → C d. Use mapLFix for that.
@@ -9437,7 +9437,7 @@ let functorLFix
 ```dhall
 let functorGFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → GFix (F a))
-  = λ(F : Type → Type  → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(functorF1 : ∀(b : Type) → Functor (λ(a : Type) → F a b)) →
     let D : Type → Type = λ(a : Type) → GFix (F a)
     in { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type D c → D d. Use mapGFix for that.
@@ -9456,7 +9456,7 @@ If `F a b` is contravariant in `a` and covariant in `b` then both `LFix (F a)` a
 ```dhall
 let contrafunctorLFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → LFix (F a))
-  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let C : Type → Type = λ(a : Type) → LFix (F a)
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type C d → C c. Use mapLFix for that.
@@ -9471,7 +9471,7 @@ let contrafunctorLFix
 ```dhall
 let contrafunctorGFix
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) → Contrafunctor (λ(a : Type) → GFix (F a))
-  = λ(F : Type → Type  → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafunctorF1 : ∀(b : Type) → Contrafunctor (λ(a : Type) → F a b)) →
     let D : Type → Type = λ(a : Type) → GFix (F a)
     in { cmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) →
 -- Need a function of type D d → D c. Use mapGFix for that.
@@ -9482,6 +9482,22 @@ let contrafunctorGFix
           in mapGFix Q P mapQP
        }
 ```
+
+### Monads are automatically functors
+
+The `Monad` typeclass was defined in chapter "Typeclasses".
+A combinator can convert a `Monad` evidence value into a `Functor` evidence:
+
+```dhall
+let monadFunctor
+  : ∀(F : Type → Type) → Monad F → Functor F
+  = λ(F : Type → Type) → λ(monadF : Monad F) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
+        monadF.bind a fa b (λ(x : a) → monadF.pure b (f x))
+    }
+```
+
+This combinator works because of the assumed monad laws.
 
 ## Filterable (contra)functors and their combinators
 
@@ -9711,7 +9727,7 @@ So, we have four cases:
 ```dhall
 let filterableForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → Forall (F a)
     in (functorForall1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) →
 -- Need a function of type G (Optional a) → G a. Use mapForall for that.
@@ -9727,7 +9743,7 @@ let filterableForall1
 ```dhall
 let contrafilterableForall1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → ∀(b : Type) → F a b)
-  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
     let G : Type → Type = λ(a : Type) → Forall (F a)
     in (contrafunctorForall1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
 -- Need a function of type G a → G (Optional a). Use mapForall for that.
@@ -9742,7 +9758,7 @@ let contrafilterableForall1
 ```dhall
 let filterableExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     let H : Type → Type = λ(a : Type) → Exists (F a)
     in (functorExists1 F (λ(b : Type) → (filterableF1 b).{fmap})) /\ { deflate = λ(a : Type) →
 -- Need a function of type H (Optional a) → H a. Use mapExists for that.
@@ -9758,7 +9774,7 @@ let filterableExists1
 ```dhall
 let contrafilterableExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
-  = λ(F : Type  → Type  → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
     let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     in (contrafunctorExists1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
 -- Need a function of type H a → H (Optional a). Use mapExists for that.
@@ -9964,7 +9980,7 @@ The familiar `zip` method for lists works by transforming a pair of lists into a
 It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
 In the functional programming community, pointed functors with a suitable `zip` method are known as **applicative functors**.
 
-We defined the `Applicative` typeclass in the "Typeclasses" chapter:
+We defined the `Applicative` typeclass in chapter "Typeclasses":
 
 ```dhall
 let Applicative = λ(F : Type → Type) →
@@ -10201,9 +10217,24 @@ Examples are the functor `R a = p → a`, where `p` is any fixed type, and the c
 
 ### Monads are automatically applicative
 
-If it is known that a functor `F` is a monad, 
+If it is known that a functor `F` is a monad, we can define an `Applicative` evidence for that functor.
 
-TODO 
+```dhall
+let monadApplicative
+  : ∀(P : Type → Type) → Monad P → Applicative P
+  = λ(P : Type → Type) → λ(monadP : Monad P) →
+    let functorP : Functor P = monadFunctor P monadP
+    in { unit = monadP.pure {} {=}
+       , zip = λ(a : Type) → λ(pa : P a) → λ(b : Type) → λ(pb : P b) →
+          let aPab : a → P (Pair a b) = λ(x : a) → functorP.fmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) pb 
+          in monadP.bind a pa (Pair a b) aPab
+       }
+```
+
+In this code, we begin with the value `pa : P a` and use `bind` to transform `pa` into a value of type `P (Pair a b)`.
+We could instead begin with `pb : P b` and proceed similarly.
+So, there are two ways of creating an `Applicative` instance out of a `Monad` instance, and they are reversals of each other (in the sense of the previous subsection).
+These two `Applicative` instances will be the same only if the monad instance is commutative.
 
 ### Function types
 
@@ -11187,7 +11218,7 @@ A type `X` is void if and only if we can implement a function of type `X → <>`
 So, we will prove part (2) if we implement a function with type signature `(F <> → <>) → LFix F → <>`.
 The code is straightforward; we simply apply a value of type `LFix F` to the void type.
 ```dhall
-let fVoidVoidToLFixVoid : ∀(F : Type → Type)  → (F <> → <>) → LFix F → <>
+let fVoidVoidToLFixVoid : ∀(F : Type → Type) → (F <> → <>) → LFix F → <>
   = λ(F : Type → Type) → λ(p : F <> → <>) → λ(c : LFix F) →
     c <> p
 ```
