@@ -9296,7 +9296,7 @@ let G : Type → Type = λ(a : Type) → ∀(b : Type) → F a b
 If `F a b` is covariant with respect to `a` then so is `G a`; if `F a b` is contravariant with respect to `a` then so is `G a`.
 
 Note that `F a b` could be covariant, contravariant, or neither with respect to the second type parameter (`b`).
-To derive the (co/contra)variant functor property of `G`, we need properties of `F` with respect to the first type parameter only.
+To derive the (co/contra)variant functor property of `G`, we only need properties of `F` with respect to the first type parameter.
 
 To express the requirement that `F a b` is covariant with respect to `a` (while `F` could be anything with respect to `b`), we write a `Functor` evidence value for the type constructor `λ(a : Type) → F a b` while keeping `b` fixed:
 
@@ -9718,7 +9718,7 @@ let filterableContrafunctorSwap
 If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
 This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
 
-Imposing a quantifier on `y` will preserve the filterable properties of the type `F x y` with respect to `x`.
+Imposing a quantifier on `y` will preserve the filterable properties of `F x y` with respect to `x`.
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
 
 So, we have four cases:
@@ -10217,7 +10217,7 @@ Examples are the functor `R a = p → a`, where `p` is any fixed type, and the c
 
 ### Monads are automatically applicative
 
-If it is known that a functor `F` is a monad, we can define an `Applicative` evidence for that functor.
+If it is known that a functor `P` is a monad, we can define an `Applicative` evidence for that functor.
 
 ```dhall
 let monadApplicative
@@ -10277,14 +10277,22 @@ let arrowContrafunctorIdApplicative
        }
 ```
 
-### Universal and existential type quantifiers
+### Universal type quantifiers
+
+
+If `F` is a type constructor with two type parameters, we may impose a universal quantifier on one of the type parameters and obtain a new type constructor with just one type parameter: $$G ~ x = \forall y. ~ F ~ x ~ y$$
+
+It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
+Imposing a quantifier on `y` will preserve the applicative property of `F x y` with respect to `x`.
+That property means that, if the type `y` is fixed, there is an `Applicative` typeclass instance for `F x y` with respect to `x`: 
+
 
 TODO
 
 ### Least fixpoint types
 
 Implementing a `zip` method for recursive type constructors turns out to require quite a bit of work.
-In this section, we will show how a `zip` method can be written for all type constructors defined via `LFix`, such as lists and trees.
+In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
 
 Given a pattern bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
 ```dhall
@@ -10296,15 +10304,16 @@ The type signature of `zip` for `C` must be:
 let zip_C : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 ```
 
-It turns out that we can implement an `Applicative` evidence for the functor `C` if the bifunctor `F` supports two functions that we will call `bizip_F1` and  `bizip_FC`.
-Those functions express a certain kind of applicative-like property for `F`.
+It turns out that we can implement `zip_C` for the functor `C` if the bifunctor `F` supports two functions that we will call `bizip_F1` and  `bizip_FC`.
+Those functions express a certain applicative-like property for `F`.
 
 The function `bizip_F1` must have the type signature:
 ```dhall
 let bizip_F1 : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r = ???
 ```
 This type is similar to the `zip` function except it works only with the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
-The function `bizip_F1` is not required to satisfy any laws and can be implemented for any polynomial bifunctor `F`.
+The function `bizip_F1` can be implemented for any polynomial bifunctor `F`.
+For the purposes of defining `zip_C`, we do not need to require any laws for `bizip_F1`.
 
 The function `bizip_FC` must have the type signature:
 ```dhall
@@ -10330,7 +10339,7 @@ TODO write the general code for `zip`
 For illustration, let us implement `zip` for `F a r = Either a (Pair r r)`.
 This `F` describes binary trees with data held in leaves.
 
-The function `bizip_F1` can be implemented in any way whatsoever, as it does not need to satisfy any laws.
+We are allowed to imlpement the function `bizip_F1` in any way whatsoever, as it does not need to satisfy any laws.
 For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
@@ -10346,7 +10355,7 @@ let bizip_F1
      } far
 ```
 
-The function `bizip_FC` is implemented similarly to a lawful `zip` method. Arguments are never discarded.
+The function `bizip_FC` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded.
 When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
 A `Functor` typeclass evidence for `C` is derived via `bifunctorLFix` from a `Bifunctor` evidence for `F`.
 ```dhall
