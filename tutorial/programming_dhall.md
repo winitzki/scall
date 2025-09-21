@@ -6866,7 +6866,7 @@ let Forall : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → P r
 ```
 
-These definitions allow us to write types such as `Exists P` and `Forall P` more quickly.
+These definitions allow us to write types more concisely, e.g., `Exists P` and `Forall P`.
 
 Despite this superficial similarity, existentially quantified types have a significantly different behavior from universally quantified ones.
 
@@ -10282,12 +10282,24 @@ let arrowContrafunctorIdApplicative
 
 If `F` is a type constructor with two type parameters, we may impose a universal quantifier on one of the type parameters and obtain a new type constructor with just one type parameter: $$G ~ x = \forall y. ~ F ~ x ~ y$$
 
-It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
+In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` using the `Forall` combinator that we have defined earlier.
+
+It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `x` or `y`.
 Imposing a quantifier on `y` will preserve the applicative property of `F x y` with respect to `x`.
-That property means that, if the type `y` is fixed, there is an `Applicative` typeclass instance for `F x y` with respect to `x`: 
+That property means that, if the type `y` is fixed, there is an `Applicative` typeclass evidence for `F x y` with respect to `x`.
+This evidence contains values of types `F {} y` and `F a y → F b y → F (Pair a b) y`. 
+From those values, we need to compute values of types `G y` and `G a → G b → G (Pair a b)`.
 
-
-TODO
+```dhall
+let applicativeForall1
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Applicative (λ(a : Type) → F a b)) → Applicative (λ(a : Type) → Forall (F a))
+  = λ(F : Type → Type → Type) → λ(applicativeF1 : ∀(b : Type) → Applicative (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Forall (F a)
+    in { unit = λ(c : Type) → (applicativeF1 c).unit
+       , zip = λ(a : Type) → λ(ra : G a) → λ(b : Type) → λ(rb : G b) →
+           λ(c : Type) → (applicativeF1 c).zip a (ra c) b (rb c)
+       }
+```
 
 ### Least fixpoint types
 
