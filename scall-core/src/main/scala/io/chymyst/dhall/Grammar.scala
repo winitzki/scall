@@ -178,7 +178,7 @@ object Grammar {
   ).memoize
 
   def simple_label_next_char[$: P] = P(
-    ALPHANUM | "-" | "/" | "_"
+    ALPHANUM | "-" | "/" | "_"   // Note: CharIn() does not work with the dash character '-', cannot write CharIn("-", "/", "_")!
   ).memoize
 
   /*

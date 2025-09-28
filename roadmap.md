@@ -14,12 +14,13 @@
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
 - Implement widening on union values. `(x : U).(V)` is valid if `V` has the type constructor of the same type as used for `x : U`.
 - Document the import system in the standard documentation (I had a branch in `winitzki/dhall-lang` about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
-- Fully document the JSON, the YAML, and the TOML export.
+- Fully document the JSON, the YAML, and the TOML export as it is actually implemented (in Haskell).
 - Implement "lightweight bindings" for Python, Rust, Java as an exercise?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Implement more features in the VSCode plugin for Dhall and dhall-language-server.
 - Enhance the Dhall grammar for better error reporting.
 - Implement the Dhall grammar via tree-sitter or via an Earley parser.
+- Try normalization-by-evaluation for speedup.
 - Implement native code overrides for Dhall expressions, dynamic loading from JAR by SHA256.
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe. Alternatively, use `TailCalls` in the output type of the parsers. (Will that work? Probably not.)
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
@@ -33,17 +34,18 @@ The following enhancements could be implemented by changing only the parser:
 | Will parse this new syntax:             | Into this standard Dhall expression:                                                                |
 |-----------------------------------------|-----------------------------------------------------------------------------------------------------|
 | `123_456`                               | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
-| `match x y`                             | `merge y x`  (or some other syntax: x match y, x as in y? avoid new keywords?)                      |
+| `match x y`                             | `merge y x`  (or some other syntax: `x match y`, `x as in y`? avoid new keywords?)                      |
 | `∀(x : X)(y : Y)(z : Z) → expr`         | `∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr`                                                             |
 | `λ(x : X)(y : Y)(z : Z) → expr`         | `λ(x : X) → λ(y : Y) → λ(z : Z) → expr`                                                             |
-| `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where Z is optional                                      |
+| `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where the type annotation (`Z`) is optional              |
 | `λ { x : X, y : Y } → expr`             | `λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in expr`                                      |
 | `let f { x : X, y : Y } : Z = expr`     | `let f = λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in (expr : Z)` where Z is optional    |
-| `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where A, B are optional                                   |
+| `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where the type annotations (`A`, `B`) are optional        |
 | `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may need to be single-back-quoted                                         |
 | `f a $ g b`  at low precedence          | `f a (g b)`                                                                                         |
-| `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version of the triangle)                                       |
+| `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version `pipe` or `pipe >` of the triangle)                    |
 | `x.[a]`                                 | `List.index A a x`    (with inferred type)                                                          |
+| `{ f (x : X) (y : Y) = expr }`          | `{ f = λ(x : X) → λ(y : Y) → expr }`    (record field with a function type)                         |
 
 The precedence of the operator `|>`
 is higher than that of `$` but lower than that of all double back-quoted infix operators (which have all the same precedence).
@@ -79,12 +81,12 @@ Proposed features of µDhall:
 - No `Sort`, only `Type` and `Kind`, while `Kind` is not typeable.
 - Syntax: `(λ(x : X) → expr) : (∀(x : X) → expr)`.
 - Syntax: `f a b c` and `x : X` expressions.
-- Built-in symbols: `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`, `Type`, `Kind`.
+- Built-in symbols: `Natural`, `Natural/fold`, `+`, `*`, `Natural/subtract`, `Type`, `Kind`.
 - Built-in `Natural` number constants (0, 1, 2, ...) with unlimited precision.
 - No `Bool`. (Can be Church-encoded.)
 - No `Integer` or any other built-in Dhall data types.
 - `let a = b in e` but no `let a : A = b in c` like in Dhall; perhaps with shortcut `let x = a let y = b in ...`.
-- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
+- Imports of files only (no http, no env vars)? No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
 - No text strings. This just complicates the implementation with escapes, multiline strings, interpolation, etc.
 - No products or co-products, records or unions. (Can be Church-encoded.)
 - No built-in `Option` or `List` type constructors. (Can be Church-encoded.)
@@ -98,6 +100,7 @@ Implement µDhall and verify that:
 - Avoid normal-form explosion.
 
 Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time), reuse memory, share data (given that the source text is already in memory).
+Ideally the interpreter will reject a program early if it is suspicious in terms of its space or time leaks.
 
 Try various implementation ideas: HOAS, PHOAS, CBOR-based processing (?), or various abstract machines.
 
