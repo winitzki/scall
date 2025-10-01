@@ -400,7 +400,96 @@ object Grammar {
   def forall_symbol[$: P] = P(
     "\u2200" // Unicode FOR ALL
   )
+  final case class TypeError(gamma: List[(String, Expr)], focus: Expr, target: Expr, message: String) {
+    override def toString: String = {
+      val printGamma = gamma.map { case (v, t) => v + " : " + t.print }.mkString("[", ", ", "]")
+      s"In typing context Γ=$printGamma, while type-checking ${focus.print}, type error with ${target.print}: $message"
+    }
+  }
 
+  def VFI(e: Expr): Boolean = e match {
+    case Builtin(Type) | Builtin(Kind) => true
+    case _ => false
+  }
+
+  def typeCheck(gamma: List[(String, Expr)], e: Expr): Either[TypeError, Expr] = {
+    import Expr._
+
+    def requireEqual(a: Expr, b: Expr): Either[TypeError, Unit] =
+      if (equiv(a, b)) Right ()
+      else Left(TypeError(gamma, e, a, s"Expression ${a.print} must equal ${b.print}"))
+
+    e match {
+      case Variable(name, index) => gamma match {
+        case Nil => Left(TypeError(gamma, e, e, s"Variable $name not in typing context"))
+        case ((v, t)) :: tail =>
+          if (name != v) typeCheck(tail, e)
+          else if (index == 0) Right(t)
+          else typeCheck(tail, Variable(name, index - 1))
+      }
+
+      case Builtin(Type) => Right(Kind.!)
+      case Builtin(Natural) => Right(Type.!)
+      case NaturalLiteral(_) => Right(Natural.!)
+
+      case Builtin(NaturalFold) => Right(Natural.! :~> Forall("N", Type.!, ("N".! :~> "N".!) :~> ("N".! :~> "N".!))
+      case Builtin(NaturalSubtract) => Right(Natural.! :~> (Natural.! :~> Natural.!))
+
+      case BinaryOp(l, op, r) if op == Operator.Plus || op == Operator.Times    => for {
+        t1 <- typeCheck(gamma, l)
+        _  <- requireEqual(t1, Natural.!)
+        t2 <- typeCheck(gamma, r)
+        _  <- requireEqual(t2, Natural.!)
+      } yield Natural.!
+
+      case Annotated(body, tipe) =>
+        if (tipe == Kind.!) for {
+          t1 <- typeCheck(gamma, body)
+          _ <- requireEqual(t1, Kind.!)
+        } yield Kind.!
+        else for {
+          _ <- typeCheck(gamma, tipe)
+          t1 <- typeCheck(gamma, body)
+          _ <- requireEqual(t1, tipe)
+        } yield t1
+
+      case Forall(name, tipe, body) => for {
+        inputType <- typeCheck(gamma, tipe)
+        gamma1 = ((name, tipe) :: gamma).map { case (v, t) => (v, shift(1, name, 0, t)) }
+        outputType <- typeCheck(gamma1, body)
+        _ <- VFI(inputType)
+      } yield outputType
+
+      case Lambda(name, tipe, body) => for {
+        _ <- typeCheck(gamma, tipe)
+        a1 = betaNormalize(tipe)
+        gamma1 = ((name, a1) :: gamma).map { case (v, t) => (v, shift(1, name, 0, t)) }
+        bodyType <- typeCheck(gamma1, body)
+        result = Forall(name, a1, bodyType)
+        _ <- typeCheck(gamma0, result)
+      } yield result
+
+      case Let(name, subst, body) => for {
+        _ <- typeCheck(gamma, subst)
+        a1 = betaNormalize(subst)
+        b1 = shiftSubShift(name, a1, body, normalize = false)
+        result <- typeCheck(gamma, b1)
+      } yield result
+
+      case Applied(func, arg) => for {
+        funcType <- typeCheck(gamma, func)
+        argType <- typeCheck(gamma, arg)
+        (xType, bodyType) <- funcType match {
+          case Forall(x, xType, bodyType) => Right((xType, bodyType))
+          case _ => Left(TypeError(gamma, e, func, s"Only functions can be applied to arguments, but got a value of type ${funcType.print}"))
+        }
+        _ <- requireEqual(argType, xType)
+        result = shiftSubShift(name, arg, bodyType, normalize = true)
+      } yield result
+
+      case _ =>  Left(TypeError(gamma, e, e, "No rule matches"))
+    }
+  }
   def forall[$: P] = P(
     forall_symbol | requireKeyword("forall")
   )
@@ -429,7 +518,7 @@ object Grammar {
 
   def builtin[$: P]: P[Expression] = {
     // TODO report issue: possible confusion between Builtin and Constant symbols.
-    // Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant.
+    // Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant. Should we just merge them into one entity?
     // TODO figure out whether True and False should be moved to Builtin out of Constants. (Syntax.hs says it's "typechecking constants".)
     // Are there any situations where True and False are parsed as Builtin (e.g. prohibiting other usage) and not as a Constant? In that case there is a confusion in the standard.
     (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)

@@ -114,6 +114,7 @@ lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
       //      scalahashing,
       //    cbor3,
       httpRequest,
+      izumi_reflect,
       os_lib % Test,
     ),
   ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)

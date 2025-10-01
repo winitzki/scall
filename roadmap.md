@@ -9,6 +9,7 @@
 - Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x`, distribute functions such as `List/head` over `if/then/else` when there is opportunity to simplify, or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code.
 - Automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
 - Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
+- Revisit the standard library's `List` module and implement a better choice of a `List` index built-in. Maybe slicing or direct indexing?
 - Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
