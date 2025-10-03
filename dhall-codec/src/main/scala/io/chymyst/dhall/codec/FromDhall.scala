@@ -100,7 +100,9 @@ object FromDhall {
               }
 
             case ExpressionScheme.Forall(name, tipe, body)     => ???
-            case ExpressionScheme.Let(name, tipe, subst, body) => ???
+            case ExpressionScheme.Let(name, tipe, subst, body) =>
+              val e = ExpressionScheme.Application(Expression(ExpressionScheme.Lambda(name, subst.inferType.unsafeGet, body)), subst)
+              valueAndType(e, variables, dhallVars)
             case ExpressionScheme.If(cond, ifTrue, ifFalse)    =>
               for {
                 condition <- valueAndType(cond, variables, dhallVars) // This has been type-checked, so `condition` is of Dhall type `Bool`.

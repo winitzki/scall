@@ -169,6 +169,12 @@ class FromDhallTest extends FunSuite {
     expect(f(BigInt(10)) == BigInt(22))
   }
 
+  test("convert built-in functions to Scala and evaluate 1") {
+    val x = "Natural/subtract 1 1000".dhall.asScala[Natural]
+    expect(x == BigInt(999))
+
+  }
+
   // TODO: implement this test
   test("todo: convert generic functions to Scala generic functions") {
     val d = "\\(A: Type) -> \\(x: A) -> x".dhall // TODO: enable .asScala[{ def apply[A]: A => A }] or something like that.
