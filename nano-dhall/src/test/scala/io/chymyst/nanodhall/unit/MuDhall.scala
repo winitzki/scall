@@ -812,16 +812,20 @@ object MuDhall extends App {
   } yield scalaValue) match {
     case Left(error)       =>
       throw new Exception(s"Cannot convert from Dhall expression ${e.print} to Scala type $tag: $error")
-    case Right(scalaValue) => scalaValue.asInstanceOf[A]
+    case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
   }
 
   implicit class ExprToScala(e: Expr) {
     def toScala[A: Tag]: A = MuDhall.toScala[A](e)
   }
 
-  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, Any] = Map()): Either[String, Any] = {
+  class AsScalaV(v: => Any) { // Required to be lazy, or else lambdas do not work.
+    def value: Any = v // Cannot make this a lazy val!
+  }
+
+  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, AsScalaV] = Map()): Either[String, AsScalaV] = {
     e match {
-      case Expr.NaturalLiteral(value) => Right(value)
+      case Expr.NaturalLiteral(value) => Right(new AsScalaV(value))
 
       case v @ Expr.Variable(_, _) =>
         scalaVars.get(v) match {
@@ -837,15 +841,14 @@ object MuDhall extends App {
         // "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2" should evaluate to "λ(n : Natural) → n + 2 + n"
         // It is replaced by { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
         var varXExternal: Any = null
+        val varX              = new AsScalaV(varXExternal)
         val variables1        = shiftVars(up = true, name, scalaVars)
-        val variables2        = variables1 ++ Map(Expr.Variable(name, 0) -> varXExternal)
+        val variables2        = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
         convertValueToScala(body, variables2).map { bodyAsScala =>
-          new Function1[Any, Any] {
-            var varX: Any = varXExternal
-
-            override def apply(x: Any): Any = {
-              varX = x
-              bodyAsScala
+          new AsScalaV { (x: Any) =>
+            {
+              varXExternal = x
+              bodyAsScala.value
             }
           }
         }
@@ -861,24 +864,24 @@ object MuDhall extends App {
         for {
           functionHead <- convertValueToScala(func, scalaVars)
           argument     <- convertValueToScala(arg, scalaVars)
-        } yield functionHead.asInstanceOf[Function1[Any, Any]](argument)
+        } yield new AsScalaV(functionHead.value.asInstanceOf[Function1[Any, Any]].apply(argument.value))
 
       case Expr.Builtin(constant) =>
         constant match {
-          case Constant.NaturalFold     => Right(Natural_fold)
-          case Constant.NaturalSubtract => Right(Natural_subtract)
+          case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold))
+          case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract))
           case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
         }
 
       case Expr.BinaryOp(left, op, right) =>
         // Helper function: apply a binary operation.
         // No checking needed here, because all expressions were already type-checked.
-        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[String, R] = {
+        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[String, AsScalaV] = {
           // The final value must be of the given type.
           for {
             evalLop <- convertValueToScala(left, scalaVars)
             evalRop <- convertValueToScala(right, scalaVars)
-          } yield operator(evalLop.asInstanceOf[P], evalRop.asInstanceOf[Q])
+          } yield new AsScalaV(operator(evalLop.value.asInstanceOf[P], evalRop.value.asInstanceOf[Q]))
         }
 
         op match {
