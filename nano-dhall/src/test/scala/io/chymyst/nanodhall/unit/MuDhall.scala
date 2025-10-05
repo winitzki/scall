@@ -9,6 +9,7 @@ import scala.util.Try
 object MuDhall extends App {
 
   /* Expressions */
+
   import enumeratum.{Enum, EnumEntry}
 
   import scala.language.implicitConversions
@@ -19,12 +20,17 @@ object MuDhall extends App {
   object Constant extends Enum[Constant] {
     override def values = findValues
 
-    case object Natural         extends Constant("Natural")
-    case object NaturalFold     extends Constant("Natural/fold")
+    case object Natural extends Constant("Natural")
+
+    case object NaturalFold extends Constant("Natural/fold")
+
     case object NaturalSubtract extends Constant("Natural/subtract")
-    case object Kind            extends Constant("Kind")
-    case object Type            extends Constant("Type")
+
+    case object Kind extends Constant("Kind")
+
+    case object Type extends Constant("Type")
   }
+
   import Constant._
 
   // Define the set of built-in binary operators supported in µDhall.
@@ -33,8 +39,10 @@ object MuDhall extends App {
 
   object Operator extends Enum[Operator] {
     val values = findValues
+
     // These operators work only with values of type Natural.
-    case object Plus  extends Operator("+")
+    case object Plus extends Operator("+")
+
     case object Times extends Operator("*")
   }
 
@@ -42,13 +50,15 @@ object MuDhall extends App {
 
   object Expr {
     // Natural literals, for example 123
-    final case class NaturalLiteral(value: Int)                   extends Expr {
+    final case class NaturalLiteral(value: Int) extends Expr {
       require(value >= 0)
     }
+
     // Variables with their de Bruijn indices.
-    final case class Variable(name: String, index: Int = 0)       extends Expr {
+    final case class Variable(name: String, index: Int = 0) extends Expr {
       require(index >= 0)
     }
+
     // λ(name : tipe) → body  -- Function literal value.
     final case class Lambda(name: String, tipe: Expr, body: Expr) extends Expr
 
@@ -84,35 +94,46 @@ object MuDhall extends App {
   }
 
   object DSL { // Helper methods for creating µDhall values more easily in Scala.
+
     import Expr._
     import Operator._
 
-    implicit class IntroduceVar(name: String)   {
-      def ! : Variable             = Variable(name)
+    implicit class IntroduceVar(name: String) {
+      def ! : Variable = Variable(name)
+
       def !!(index: Int): Variable = Variable(name, index)
     }
-    implicit class IntroduceNatural(n: Int)     {
+
+    implicit class IntroduceNatural(n: Int) {
       def ! : NaturalLiteral = NaturalLiteral(n)
     }
+
     implicit class IntroduceSymbol(c: Constant) {
       def ! : Expr = Builtin(c)
     }
-    implicit class NaturalOps(e: Expr)          {
+
+    implicit class NaturalOps(e: Expr) {
       def +(other: Expr): Expr = BinaryOp(e, Plus, other)
+
       def *(other: Expr): Expr = BinaryOp(e, Times, other)
     }
-    implicit class ExprAnnotate(e: Expr)        {
-      def :~(tipe: Expr): Expr                = Annotated(e, tipe)
-      def apply(arg: Expr): Expr              = Applied(e, arg)
+
+    implicit class ExprAnnotate(e: Expr) {
+      def :~(tipe: Expr): Expr = Annotated(e, tipe)
+
+      def apply(arg: Expr): Expr = Applied(e, arg)
+
       // Instead of "let x = e in body" we write body.let(x, e)
       def let(arg: String, subst: Expr): Expr = Let(arg, subst, e)
     }
-    implicit class ExprFunc(x: Expr)            {
+
+    implicit class ExprFunc(x: Expr) {
       // Instead of "λ(name : tipe) → body" we write name.! :~ tipe ~> body
-      def ~>(body: Expr): Expr  = x match {
+      def ~>(body: Expr): Expr = x match {
         case Annotated(Variable(v, 0), tipe) => Lambda(v, tipe, body)
         case _                               => throw new Exception(s"Invalid Lambda: argument must be an Annotated name but instead got $x")
       }
+
       // Instead of "∀(name : tipe) → body" we write name.! :~ tipe :~> body
       def :~>(body: Expr): Expr = x match {
         case Annotated(Variable(v, 0), tipe) => Forall(v, tipe, body)
@@ -120,6 +141,7 @@ object MuDhall extends App {
       }
     }
   }
+
   import DSL._
 
   object Test1 {
@@ -379,11 +401,15 @@ object MuDhall extends App {
     def keyword[_: P] = P(let | in | forall_keyword)
 
     // Builtin constants.
-    def Natural[_: P]          = P("Natural")
-    def Natural_fold[_: P]     = P("Natural/fold")
+    def Natural[_: P] = P("Natural")
+
+    def Natural_fold[_: P] = P("Natural/fold")
+
     def Natural_subtract[_: P] = P("Natural/subtract")
-    def Type[_: P]             = P("Type")
-    def Kind[_: P]             = P("Kind")
+
+    def Type[_: P] = P("Type")
+
+    def Kind[_: P] = P("Kind")
 
     // builtin = Natural / Natural-fold / Natural-subtract / Type / Kind
     // Need to reverse the order to disambiguate parsing of symbols that are substrings of each other.
@@ -506,11 +532,15 @@ object MuDhall extends App {
 
   prettyprint(Grammar.debugParse(testString).get)
 
-  implicit class ParseDhall(input: String) { def dhall: Expr = Grammar.parse(input) }
+  implicit class ParseDhall(input: String) {
+    def dhall: Expr = Grammar.parse(input)
+  }
 
   "1 + 1".dhall
 
-  implicit class PrintDhall(e: Expr) { def print: String = prettyprint(e) }
+  implicit class PrintDhall(e: Expr) {
+    def print: String = prettyprint(e)
+  }
 
   Seq("(1 + 1) + 1" -> "1 + 1 + 1", "1 + (1 + (1))" -> "1 + 1 + 1").validate(_.dhall.print)
 
@@ -525,6 +555,7 @@ object MuDhall extends App {
       val b3 = shift(-1, name, 0, b2)
       alphaNormalize(b3)
     }
+
     e match {
       case Expr.Variable(_, _)                          => e
       case Expr.Lambda(name, tipe, body) if name != "_" => Expr.Lambda("_", alphaNormalize(tipe), getBody(name, body))
@@ -737,7 +768,134 @@ object MuDhall extends App {
 
   println("Tests passed for inferType().")
 
-  /* Convert to native Scala values. */
+  /* Convert µDhall type expressions to Scala izumi-reflect's type tags (Tag typeclass) when possible. */
+  // The type expression must be in the beta-normalized form: no "let"-expressions or type annotations may be left.
+  // µDhall's `Type` is represented by Any.
+  // Lambda expressions are not types and will not be supported for now.
+  def asTag(e: Expr): Either[String, Tag[_]] = {
+    e match {
+      case Expr.Forall(name, tipe, body) =>
+        for { // For now we do not support type variables or dependent types.
+          tipeTag <- asTag(tipe)
+          bodyTag <- asTag(body)
+        } yield Tag.appliedTag(TagKK[Function1], List(tipeTag.tag, bodyTag.tag))
+
+      case Expr.Builtin(Constant.Natural) => Right(Tag[Natural])
+      case Expr.Builtin(Constant.Type)    => Right(Tag[Any])
+      // case Expr.Applied(func, arg) => ???
+      // case Expr.Lambda(name, tipe, body) => ???
+      case _                              => Left(s"Cannot convert µDhall expression ${e.print} to a Scala type")
+    }
+  }
+
+  Seq[(String, Tag[_])](
+    "Natural"                         -> Tag[Natural],
+    "Type"                            -> Tag[Any],
+    "Natural -> Natural"              -> Tag[Natural => Natural],
+    "Natural -> Natural -> Natural"   -> Tag[Natural => Natural => Natural],
+    "(Natural -> Natural) -> Natural" -> Tag[(Natural => Natural) => Natural],
+  ).validate(s => asTag(s.dhall).right.get)
+
+  println("Tests passed for asTag().")
+
+  /* Convert µDhall values to native Scala values when possible. */
+
+  def toScala[A](e: Expr)(implicit tag: Tag[A]): A = (for {
+    inferredType <- typeCheck(Nil, e)
+    inferredTag  <- asTag(inferredType)
+    _            <- if (inferredTag == tag) Right(())
+                    else
+                      Left(
+                        s"Cannot convert from Dhall expression ${e.print} having incompatible type ${inferredType.print}, tag ${inferredTag}, to expected Scala type $tag"
+                      )
+    scalaValue   <- convertValueToScala(e)
+  } yield scalaValue) match {
+    case Left(error)       =>
+      throw new Exception(s"Cannot convert from Dhall expression ${e.print} to Scala type $tag: $error")
+    case Right(scalaValue) => scalaValue.asInstanceOf[A]
+  }
+
+  implicit class ExprToScala(e: Expr) {
+    def toScala[A: Tag]: A = MuDhall.toScala[A](e)
+  }
+
+  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, Any] = Map()): Either[String, Any] = {
+    e match {
+      case Expr.NaturalLiteral(value) => Right(value)
+
+      case v @ Expr.Variable(_, _) =>
+        scalaVars.get(v) match {
+          case Some(knownVariableAssignment) =>
+            Right(knownVariableAssignment)
+          case None                          =>
+            Left(s"Error: undefined variable $v while known variables are $scalaVars")
+        }
+
+      case Expr.Lambda(name, _, body) =>
+        // Create a Scala function with variable named "x". Substitute name = x in body but first shift name upwards in body.
+        // Example:
+        // "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2" should evaluate to "λ(n : Natural) → n + 2 + n"
+        // It is replaced by { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
+        var varXExternal: Any = null
+        val variables1        = shiftVars(up = true, name, scalaVars)
+        val variables2        = variables1 ++ Map(Expr.Variable(name, 0) -> varXExternal)
+        convertValueToScala(body, variables2).map { bodyAsScala =>
+          new Function1[Any, Any] {
+            var varX: Any = varXExternal
+
+            override def apply(x: Any): Any = {
+              varX = x
+              bodyAsScala
+            }
+          }
+        }
+
+      case Expr.Forall(_, _, _) => Left(s"Function type ${e.print} cannot be converted to a Scala value")
+
+      case Expr.Let(name, subst, body) => // Evaluated as (λ(name) => body) subst.
+        convertValueToScala(letExprAsApplied(name, subst, body), scalaVars)
+
+      case Expr.Annotated(body, _) => convertValueToScala(body, scalaVars)
+
+      case Expr.Applied(func, arg) =>
+        for {
+          functionHead <- convertValueToScala(func, scalaVars)
+          argument     <- convertValueToScala(arg, scalaVars)
+        } yield functionHead.asInstanceOf[Function1[Any, Any]](argument)
+
+      case Expr.Builtin(constant) =>
+        constant match {
+          case Constant.NaturalFold     => Right(Natural_fold)
+          case Constant.NaturalSubtract => Right(Natural_subtract)
+          case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
+        }
+
+      case Expr.BinaryOp(left, op, right) =>
+        // Helper function: apply a binary operation.
+        // No checking needed here, because all expressions were already type-checked.
+        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[String, R] = {
+          // The final value must be of the given type.
+          for {
+            evalLop <- convertValueToScala(left, scalaVars)
+            evalRop <- convertValueToScala(right, scalaVars)
+          } yield operator(evalLop.asInstanceOf[P], evalRop.asInstanceOf[Q])
+        }
+
+        op match {
+          case Operator.Plus  => useOp[Natural, Natural, Natural](_ + _)
+          case Operator.Times => useOp[Natural, Natural, Natural](_ * _)
+        }
+    }
+  }
+
+  // Helper function: apply shift() to all variables in a given dictionary.
+  def shiftVars[T](up: Boolean, varName: String, vars: Map[Expr.Variable, T]): Map[Expr.Variable, T] = vars.map { case (variable, value) =>
+    shift(if (up) 1 else -1, varName, 0, variable).asInstanceOf[Expr.Variable] -> value // shift() transforms Variable into Variable.
+  }
+
+  // Helper function: replace "let name = subst in body" by "(λ(name) => body) subst". This is equivalent for evaluation (but not for type-checking!).
+  def letExprAsApplied(name: String, subst: Expr, body: Expr): Expr =
+    Expr.Applied(Expr.Lambda(name, subst.inferType, body), subst)
 
   final case class AsScalaValue(value: Any, tpe: Expr, tag: Tag[_])
 
@@ -750,10 +908,11 @@ object MuDhall extends App {
   }
 
   implicit class ExprAsScala(e: Expr) {
-    def asScala[A: Tag]: A = MuDhall.asScala[A](e)
+    def asScala[A: Tag]: A = MuDhall.toScala[A](e)
   }
 
   type Natural = Int
+
   val Natural_subtract: Natural => Natural => Natural = x => y => y - x
 
   val Natural_fold: Natural => Tag[_] => (Any => Any) => Any => Any = { m => _ => update => init =>
@@ -775,17 +934,9 @@ object MuDhall extends App {
 
   private def convertValue(e: Expr, scalaVars: Map[Expr.Variable, AsScalaValue] = Map(), gamma: List[(String, Expr)] = Nil): Either[String, AsScalaValue] = {
 
-    // Helper function: apply shift() to all variables in a given dictionary.
-    def shiftVars(up: Boolean, varName: String, vars: Map[Expr.Variable, AsScalaValue]): Map[Expr.Variable, AsScalaValue] = vars.map { case (variable, value) =>
-      shift(if (up) 1 else -1, varName, 0, variable).asInstanceOf[Expr.Variable] -> value // shift() transforms Variable into Variable.
-    }
     // Helper function: prepend to a typing context and shift the types.
-    def prependAndShift(varName: String, varType: Expr, gamma: List[(String, Expr)]): List[(String, Expr)]                =
+    def prependAndShift(varName: String, varType: Expr, gamma: List[(String, Expr)]): List[(String, Expr)] =
       ((varName, varType) :: gamma).map { case (v, t) => (v, shift(1, varName, 0, t)) }
-
-    // Helper function: replace "let name = subst in body" by "(λ(name) => body) subst". This is equivalent for evaluation (but not for type-checking!).
-    def letExprAsApplied(name: String, subst: Expr, body: Expr): Expr =
-      Expr.Applied(Expr.Lambda(name, subst.inferType, body), subst)
 
     // Expression must be type-checked before converting to Scala.
     typeCheck(gamma, e) match {
@@ -794,7 +945,7 @@ object MuDhall extends App {
         // We convert to Scala only if validType itself has a valid type.
         typeCheck(gamma, validType) match {
           case Left(typeError)   => Left(s"Cannot convert ${e.print} to Scala because its type ${validType.print} is ill-typed: $typeError")
-          case Right(typeOfType) =>
+          case Right(typeOfType) => // We do not actually use this inferred type. But we could validate that it is Constant.Type and print an error otherwise.
             // Helper function for returning validated results.
             def validResult[E](value: => E, expectedTag: Tag[E]): Either[String, AsScalaValue] =
               Right(AsScalaValue(value, validType, expectedTag))
@@ -882,22 +1033,21 @@ object MuDhall extends App {
     }
   }
 
-  expect("Natural".dhall.asScala[Tag[Natural]] == Tag[Natural])
+  Seq[(String, Int)](
+    "12345"                                                    -> 12345,
+    "1 + 2 + 3 + 4"                                            -> 10,
+    "1 * 2 * 3 * 4"                                            -> 24,
+    "Natural/subtract 1 1000"                                  -> 999,
+    "(λ(n : Natural) → n + 1) 1000"                            -> 1001,
+    "(λ(n : Natural) → n + 1) ((λ(n : Natural) → n + 1) 1000)" -> 1002,
+    "Natural/fold 10 Natural (λ(n : Natural) → n + 1) 100"     -> 110,
+  ).validate(s => s.dhall.asScala[Natural])
 
   expect(
     Try(
       "λ(n : Natural) → n".dhall.asScala[Natural => Boolean]
-    ).failed.get.getMessage == "Cannot convert from Dhall expression λ(n : Natural) → n having type Tag[Function1[-Int,+Int]] to Scala type Tag[Function1[-Int,+Boolean]]"
+    ).failed.get.getMessage == "Cannot convert from Dhall expression λ(n : Natural) → n to Scala type Tag[Function1[-Int,+Boolean]]: Cannot convert from Dhall expression λ(n : Natural) → n having incompatible type ∀(n : Natural) → Natural, tag Tag[Function1[-Int,+Int]], to expected Scala type Tag[Function1[-Int,+Boolean]]"
   )
-
-  Seq[(String, Int)](
-    "12345" -> 12345,
-    "1 + 2 + 3 + 4" -> 10,
-    "1 * 2 * 3 * 4" -> 24,
-    "Natural/subtract 1 1000" -> 999,
-    "(λ(n : Natural) → n + 1) 1000" -> 1001,
-    "(λ(n : Natural) → n + 1) ((λ(n : Natural) → n + 1) 1000)" -> 1002,
-  ).validate(s => s.dhall.asScala[Natural])
 
   {
     val f = "λ(n : Natural) → n".dhall.asScala[Natural => Natural]
