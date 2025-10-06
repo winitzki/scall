@@ -800,7 +800,7 @@ object MuDhall extends App {
 
   /* Convert µDhall values to native Scala values when possible. */
 
-  def toScala[A](e: Expr)(implicit tag: Tag[A]): A = (for {
+  def asScala[A](e: Expr)(implicit tag: Tag[A]): A = (for {
     inferredType <- typeCheck(Nil, e)
     inferredTag  <- asTag(inferredType)
     _            <- if (inferredTag == tag) Right(())
@@ -813,10 +813,6 @@ object MuDhall extends App {
     case Left(error)       =>
       throw new Exception(s"Cannot convert from Dhall expression ${e.print} to Scala type $tag: $error")
     case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
-  }
-
-  implicit class ExprToScala(e: Expr) {
-    def toScala[A: Tag]: A = MuDhall.toScala[A](e)
   }
 
   class AsScalaV(v: => Any) { // Required to be lazy, or else lambdas do not work.
@@ -899,18 +895,8 @@ object MuDhall extends App {
   def letExprAsApplied(name: String, subst: Expr, body: Expr): Expr =
     Expr.Applied(Expr.Lambda(name, subst.inferType, body), subst)
 
-  final case class AsScalaValue(value: Any, tpe: Expr, tag: Tag[_])
-
-  def asScala[A](e: Expr)(implicit tag: Tag[A]): A = convertValue(e) match {
-    case Left(error)         =>
-      throw new Exception(s"Cannot convert from Dhall expression ${e.print} to Scala type $tag: $error")
-    case Right(asScalaValue) =>
-      if (asScalaValue.tag == tag) asScalaValue.value.asInstanceOf[A]
-      else throw new Exception(s"Cannot convert from Dhall expression ${e.print} having type ${asScalaValue.tag} to Scala type $tag")
-  }
-
   implicit class ExprAsScala(e: Expr) {
-    def asScala[A: Tag]: A = MuDhall.toScala[A](e)
+    def asScala[A: Tag]: A = MuDhall.asScala[A](e)
   }
 
   type Natural = Int
@@ -924,7 +910,7 @@ object MuDhall extends App {
       else {
         val newResult = update(currentResult)
         if (newResult == currentResult) {
-          // Shortcut: the result did not change after applying `g` and normalizing, so no need to continue looping.
+          // Shortcut: the result did not change after applying `update`, so no need to continue the loop.
           currentResult
         } else {
           loop(newResult, counter + 1)
@@ -932,107 +918,6 @@ object MuDhall extends App {
       }
 
     loop(currentResult = init, counter = 0)
-  }
-
-  private def convertValue(e: Expr, scalaVars: Map[Expr.Variable, AsScalaValue] = Map(), gamma: List[(String, Expr)] = Nil): Either[String, AsScalaValue] = {
-
-    // Helper function: prepend to a typing context and shift the types.
-    def prependAndShift(varName: String, varType: Expr, gamma: List[(String, Expr)]): List[(String, Expr)] =
-      ((varName, varType) :: gamma).map { case (v, t) => (v, shift(1, varName, 0, t)) }
-
-    // Expression must be type-checked before converting to Scala.
-    typeCheck(gamma, e) match {
-      case Left(typeError)  => Left(typeError.toString)
-      case Right(validType) =>
-        // We convert to Scala only if validType itself has a valid type.
-        typeCheck(gamma, validType) match {
-          case Left(typeError)   => Left(s"Cannot convert ${e.print} to Scala because its type ${validType.print} is ill-typed: $typeError")
-          case Right(typeOfType) => // We do not actually use this inferred type. But we could validate that it is Constant.Type and print an error otherwise.
-            // Helper function for returning validated results.
-            def validResult[E](value: => E, expectedTag: Tag[E]): Either[String, AsScalaValue] =
-              Right(AsScalaValue(value, validType, expectedTag))
-
-            e match {
-              case Expr.NaturalLiteral(value) => validResult(value, Tag[Int])
-
-              case v @ Expr.Variable(_, _) =>
-                scalaVars.get(v) match {
-                  case Some(knownVariableAssignment) =>
-                    Right(knownVariableAssignment)
-                  case None                          =>
-                    Left(s"Error: undefined variable $v while known variables are $scalaVars")
-                }
-
-              case Expr.Lambda(name, tipe, body) =>
-                // Create a Scala function with variable named "x". Substitute name = x in body but first shift name upwards in body.
-                // Example:
-                // "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2" should evaluate to "λ(n : Natural) → n + 2 + n"
-                // It is replaced by { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
-                var varXValue: Any = null
-                val variables1     = shiftVars(up = true, name, scalaVars)
-                val dhallVars2     = prependAndShift(name, tipe, gamma)
-                for {
-                  varType     <- convertValue(tipe, scalaVars, gamma)
-                  varTag       = varType.value match {
-                                   case x: Tag[_] => x
-                                 }
-                  varX         = AsScalaValue(varXValue, tipe, varTag)
-                  variables2   = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
-                  bodyAsScala <- convertValue(body, variables2, dhallVars2)
-                } yield {
-                  val lambda = { (x: Any) =>
-                    varXValue = x
-                    bodyAsScala.value
-                  }
-                  AsScalaValue(lambda, validType, Tag.appliedTag(TagKK[Function1], List(varTag.tag, bodyAsScala.tag.tag)))
-                }
-
-              case Expr.Forall(_, _, _) => Left(s"Function type ${e.print} cannot be converted to a Scala value")
-
-              case Expr.Let(name, subst, body) => // Evaluated as (λ(name) => body) subst.
-                convertValue(letExprAsApplied(name, subst, body), scalaVars, gamma)
-
-              case Expr.Annotated(body, tipe) => convertValue(body, scalaVars, gamma)
-
-              case Expr.Applied(func, arg) =>
-                for {
-                  functionHead                    <- convertValue(func, scalaVars, gamma)
-                  functionResultWithTypeVar       <- functionHead.tpe match {
-                                                       case Expr.Forall(tvar, tvarType, resultType: Expr) => Right((resultType, tvar, tvarType))
-                                                     }
-                  (functionResult, tvar, tvarType) = functionResultWithTypeVar
-                  variables1                       = shiftVars(up = true, tvar, scalaVars)
-                  gamma2                           = prependAndShift(tvar, tvarType, gamma)
-                  functionResultTag               <- convertValue(functionResult, variables1, gamma2)
-                  argument                        <- convertValue(arg, scalaVars, gamma)
-                } yield AsScalaValue(functionHead.value.asInstanceOf[Function1[Any, Any]](argument.value), validType, functionResultTag.tag)
-
-              case Expr.Builtin(constant) =>
-                constant match {
-                  case Constant.NaturalFold     => validResult(Natural_fold, Tag[Natural => Tag[_] => (Any => Any) => Any => Any])
-                  case Constant.NaturalSubtract => validResult(Natural_subtract, Tag[Natural => Natural => Natural])
-                  case Constant.Natural         => validResult(Tag[Natural], Tag[Tag[Natural]])
-                  case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
-                }
-
-              case Expr.BinaryOp(left, op, right) =>
-                // Helper function: apply a binary operation.
-                // No checking needed here, because all expressions were already type-checked.
-                def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[String, AsScalaValue] = {
-                  // The final value must be of the given type.
-                  for {
-                    evalLop <- convertValue(left, scalaVars, gamma)
-                    evalRop <- convertValue(right, scalaVars, gamma)
-                  } yield AsScalaValue(operator(evalLop.value.asInstanceOf[P], evalRop.value.asInstanceOf[Q]), validType, implicitly[Tag[R]])
-                }
-
-                op match {
-                  case Operator.Plus  => useOp[Natural, Natural, Natural](_ + _)
-                  case Operator.Times => useOp[Natural, Natural, Natural](_ * _)
-                }
-            }
-        }
-    }
   }
 
   Seq[(String, Int)](
