@@ -845,12 +845,10 @@ object MuDhall extends App {
         val variables1        = shiftVars(up = true, name, scalaVars)
         val variables2        = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
         convertValueToScala(body, variables2).map { bodyAsScala =>
-          new AsScalaV { (x: Any) =>
-            {
-              varXExternal = x
-              bodyAsScala.value
-            }
-          }
+          new AsScalaV((x: Any) => {
+            varXExternal = x
+            bodyAsScala.value
+          })
         }
 
       case Expr.Forall(_, _, _) => Left(s"Function type ${e.print} cannot be converted to a Scala value")
@@ -870,6 +868,7 @@ object MuDhall extends App {
         constant match {
           case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold))
           case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract))
+          case Constant.Natural         => Right(new AsScalaV(Tag[Any]))
           case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
         }
 
