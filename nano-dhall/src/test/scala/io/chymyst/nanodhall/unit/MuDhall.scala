@@ -862,8 +862,8 @@ object MuDhall extends App {
 
       case Expr.Builtin(constant) =>
         constant match {
-          case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold))
-          case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract))
+          case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold_native))
+          case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract_native))
           case Constant.Natural         => Right(new AsScalaV(Tag[Any]))
           case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
         }
@@ -901,9 +901,9 @@ object MuDhall extends App {
 
   type Natural = Int
 
-  val Natural_subtract: Natural => Natural => Natural = x => y => y - x
+  val Natural_subtract_native: Natural => Natural => Natural = x => y => math.max(0, y - x)
 
-  val Natural_fold: Natural => Tag[_] => (Any => Any) => Any => Any = { m => _ => update => init =>
+  val Natural_fold_native: Natural => Tag[_] => (Any => Any) => Any => Any = { m =>_ =>update =>init =>
     @tailrec
     def loop(currentResult: Any, counter: Natural): Any =
       if (counter >= m) currentResult
@@ -920,7 +920,7 @@ object MuDhall extends App {
     loop(currentResult = init, counter = 0)
   }
 
-  Seq[(String, Int)](
+  Seq[(String, Natural)](
     "12345"                                                    -> 12345,
     "1 + 2 + 3 + 4"                                            -> 10,
     "1 * 2 * 3 * 4"                                            -> 24,
@@ -936,20 +936,24 @@ object MuDhall extends App {
     ).failed.get.getMessage == "Cannot convert from Dhall expression λ(n : Natural) → n to Scala type Tag[Function1[-Int,+Boolean]]: Cannot convert from Dhall expression λ(n : Natural) → n having incompatible type ∀(n : Natural) → Natural, tag Tag[Function1[-Int,+Int]], to expected Scala type Tag[Function1[-Int,+Boolean]]"
   )
 
-  {
-    val f = "λ(n : Natural) → n".dhall.asScala[Natural => Natural]
-    expect(f(10) == 10)
+  // Convert a function of type Natural → Natural from µDhall to a Scala function of type Int => Int.
+  // Then apply that Scala function to a Scala argument of type Int. Verify the expected result.
+  Seq[(String, Natural, Natural)](
+    ("λ(n : Natural) → n", 10, 10),
+    ("λ(n : Natural) → n + 20", 10, 30),
+    ("λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2", 10, 22),
+    ("(λ(n : Natural) → λ(a : Natural) → a + n) 100", 20, 120),
+    ("Natural/subtract 2", 10, 8),
+    ("Natural/subtract 20", 10, 0),
+  ).zipWithIndex.foreach { case ((funcMuDhall, x, expected), i) =>
+    val f: Natural => Natural = funcMuDhall.dhall.asScala[Natural => Natural]
+    expect(i >= 0 && f(x) == expected)
   }
 
-  {
-    val f = "λ(n : Natural) → n + 2".dhall.asScala[Natural => Natural]
-    expect(f(10) == 12)
-  }
-
-  {
-    val f = "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2".dhall.asScala[Natural => Natural]
-    expect(f(10) == 22)
-  }
+  // A loop involving a function type.
+  val fDhall ="Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n ) (λ(n : Natural) → n + 2)"
+  val fScala = fDhall.dhall.asScala[Natural => Natural]
+  expect(fScala(10) == 20)
 
   println("Tests passed for asScala().")
 }
