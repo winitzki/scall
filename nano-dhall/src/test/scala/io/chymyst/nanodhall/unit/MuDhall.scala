@@ -781,7 +781,7 @@ object MuDhall extends App {
         } yield Tag.appliedTag(TagKK[Function1], List(tipeTag.tag, bodyTag.tag))
 
       case Expr.Builtin(Constant.Natural) => Right(Tag[Natural])
-      case Expr.Builtin(Constant.Type)    => Right(Tag[Any])
+      case Expr.Builtin(Constant.Type)    => Right(Tag[Nothing])
       // case Expr.Applied(func, arg) => ???
       // case Expr.Lambda(name, tipe, body) => ???
       case _                              => Left(s"Cannot convert µDhall expression ${e.print} to a Scala type")
@@ -790,7 +790,7 @@ object MuDhall extends App {
 
   Seq[(String, Tag[_])](
     "Natural"                         -> Tag[Natural],
-    "Type"                            -> Tag[Any],
+    "Type"                            -> Tag[Nothing],
     "Natural -> Natural"              -> Tag[Natural => Natural],
     "Natural -> Natural -> Natural"   -> Tag[Natural => Natural => Natural],
     "(Natural -> Natural) -> Natural" -> Tag[(Natural => Natural) => Natural],
@@ -815,7 +815,7 @@ object MuDhall extends App {
     case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
   }
 
-  class AsScalaV(v: => Any) { // Required to be lazy, or else lambdas do not work.
+  final class AsScalaV(v: => Any) { // Required to be lazy, or else lambdas do not work.
     def value: Any = v // Cannot make this a lazy val!
   }
 
@@ -841,13 +841,22 @@ object MuDhall extends App {
         val variables1        = shiftVars(up = true, name, scalaVars)
         val variables2        = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
         convertValueToScala(body, variables2).map { bodyAsScala =>
-          new AsScalaV((x: Any) => {
-            varXExternal = x
-            bodyAsScala.value
+          new AsScalaV(new Function1[Any, Any] {
+            override def apply(x: Any): Any = {
+              println(s"DEBUG: inside a closure translated from '${e.print}', have x = $x")
+              varXExternal = x
+              bodyAsScala.value
+            }
+
+            override def toString(): String = e.print
           })
         }
 
-      case Expr.Forall(_, _, _) => Left(s"Function type ${e.print} cannot be converted to a Scala value")
+      case Expr.Forall(_, tipe, body) =>
+        for { // Only support non-dependent type signatures without type parameters.
+          tag <- asTag(e) // Forall is always a function type, so we just convert it to a tag.
+        } yield new AsScalaV(tag)
+      // Left(s"Function type ${e.print} cannot be converted to a Scala value")
 
       case Expr.Let(name, subst, body) => // Evaluated as (λ(name) => body) subst.
         convertValueToScala(letExprAsApplied(name, subst, body), scalaVars)
@@ -864,7 +873,7 @@ object MuDhall extends App {
         constant match {
           case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold_native))
           case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract_native))
-          case Constant.Natural         => Right(new AsScalaV(Tag[Any]))
+          case Constant.Natural         => Right(new AsScalaV(Tag[Natural]))
           case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
         }
 
@@ -903,7 +912,7 @@ object MuDhall extends App {
 
   val Natural_subtract_native: Natural => Natural => Natural = x => y => math.max(0, y - x)
 
-  val Natural_fold_native: Natural => Tag[_] => (Any => Any) => Any => Any = { m =>_ =>update =>init =>
+  val Natural_fold_native: Natural => Tag[Nothing] => (Any => Any) => Any => Any = { m => _ => update => init =>
     @tailrec
     def loop(currentResult: Any, counter: Natural): Any =
       if (counter >= m) currentResult
@@ -941,7 +950,7 @@ object MuDhall extends App {
   Seq[(String, Natural, Natural)](
     ("λ(n : Natural) → n", 10, 10),
     ("λ(n : Natural) → n + 20", 10, 30),
-    ("λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2", 10, 22),
+    ("λ(n : Natural) → 3 * n + (λ(n : Natural) → n + n@1) 2", 10, 42),
     ("(λ(n : Natural) → λ(a : Natural) → a + n) 100", 20, 120),
     ("Natural/subtract 2", 10, 8),
     ("Natural/subtract 20", 10, 0),
@@ -950,10 +959,20 @@ object MuDhall extends App {
     expect(i >= 0 && f(x) == expected)
   }
 
+  val x: Tag[Natural => Natural] = Tag[Natural => Natural]
+  expect("Natural → Natural".dhall.asScala == Tag[Natural => Natural])
+
+  val g1 = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
+  val g2 = "λ(n : Natural) → n + 2".dhall
+  expect(g1.asScala[(Natural => Natural) => Natural => Natural].toString == "λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n")
+  expect(g2.asScala[Natural => Natural].toString == "λ(n : Natural) → n + 2")
+  val g3 = g1(g2)
+  expect(g3.asScala[Natural => Natural].toString == "λ(n : Natural) → 1 + f n")
+
   // A loop involving a function type.
-  val fDhall ="Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n ) (λ(n : Natural) → n + 2)"
+  val fDhall = "Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n) (λ(n : Natural) → n + 2)"
   val fScala = fDhall.dhall.asScala[Natural => Natural]
-  expect(fScala(10) == 20)
+  expect(fScala(10) == 15)
 
   println("Tests passed for asScala().")
 }
