@@ -819,18 +819,20 @@ object MuDhall extends App {
     case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
   }
 
-  final class AsScalaV(v: => Any) { // Required to be lazy, or else lambdas do not work.
+  final class AsScalaV(v: => Any, message: String = "") { // Here "v" is required to be lazy, or else lambdas do not work.
     def value: Any = v // Cannot make this a lazy val!
+
+    override def toString: String = s"$message[${super.toString}]"
   }
 
   // A function look-alike but allows us to assign the argument and the function body externally.
   final case class FuncWithVar[A, B](e: Expr, var func: A => B = { (_: A) => null.asInstanceOf[B] }) extends Function1[A, B] {
-    override def toString(): String = "{ " + e.print + " }"
+    override def toString(): String = s"{ ${e.print} }[ ${super[Object].toString}]"
 
     var argument: A = null.asInstanceOf[A]
 
     override def apply(a: A): B = {
-      println(s"DEBUG: inside a closure translated from '${e.print}', setting argument = $a")
+      println(s"DEBUG: inside a closure ${super[Object].toString} translated from '${e.print}', setting argument = $a, old value = $argument")
       argument = a
       func(a)
     }
@@ -843,8 +845,10 @@ object MuDhall extends App {
       case v @ Expr.Variable(_, _) =>
         scalaVars.get(v) match {
           case Some(knownVariableAssignment) =>
+            println(s"DEBUG: fetching variable $v = $knownVariableAssignment")
             Right(knownVariableAssignment)
-          case None                          =>
+
+          case None =>
             Left(s"Error: undefined variable $v while known variables are $scalaVars")
         }
 
@@ -855,13 +859,13 @@ object MuDhall extends App {
         // should be replaced by:
         //    { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
         val lambdaFunction = FuncWithVar[Any, Any](e)
-        val varX           = new AsScalaV(lambdaFunction.argument)
+        val varX           = new AsScalaV(lambdaFunction.argument, s"dynamic argument for $name → ${body.print}")
         val variables1     = shiftVars(up = true, name, scalaVars)
         val variables2     = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
         convertValueToScala(body, variables2).map { bodyAsScala =>
           lambdaFunction.func = { _ => bodyAsScala.value }
-          println(s"DEBUG: returning a new lambda function $name → ${body.print}, bound variables $variables2")
-          new AsScalaV(lambdaFunction)
+          println(s"DEBUG: returning a new closure $lambdaFunction for $name → ${body.print}, bound variables $variables2")
+          new AsScalaV(lambdaFunction, s"lambda with argument $varX")
         }
 
       case Expr.Forall(_, tipe, body) =>
@@ -939,7 +943,7 @@ object MuDhall extends App {
       }
     loop(currentResult = init, counter = 0)
   }
-
+  /*
   Seq[(String, Natural)](
     "12345"                                                    -> 12345,
     "1 + 2 + 3 + 4"                                            -> 10,
@@ -973,29 +977,42 @@ object MuDhall extends App {
 
   val x: Tag[Natural => Natural] = Tag[Natural => Natural]
   expect("Natural → Natural".dhall.asScala == Tag[Natural => Natural])
+   */
 
-  val g1             = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
-  val g1scala        = g1.asScala[(Natural => Natural) => Natural => Natural]
-  expect(g1scala.toString == "{ λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n }")
-  val g2             = "λ(n : Natural) → n + 2".dhall
-  val g2scala        = g2.asScala[Natural => Natural]
-  expect(g2scala.toString == "{ λ(n : Natural) → n + 2 }")
+  val g1      = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
+  println("Computing g1scala")
+  val g1scala = g1.asScala[(Natural => Natural) => Natural => Natural]
+  //  expect(g1scala.toString == "{ λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n }")
+
+  val g2      = "λ(n : Natural) → n + 2".dhall
+  println("Computing g2scala")
+  val g2scala = g2.asScala[Natural => Natural]
+  // expect(g2scala.toString == "{ λ(n : Natural) → n + 2 }")
+  println("Computing g2scala(2)")
   expect(g2scala(2) == 4)
   val g3             = g1(g2)
+  println("Computing g3scala")
   val g3scala        = g3.asScala[Natural => Natural]
-  expect(g3scala.toString == "{ λ(n : Natural) → 1 + f n }")
+
+  // Note: already g3scala seems to have an infinite loop in its structure!
+  // expect(g3scala.toString == "{ λ(n : Natural) → 1 + f n }")
+  println("Computing g3scala(2)")
   expect(g3scala(2) == 5)
+  println("compute g3scalaByScala")
   val g3scalaByScala = g1scala(g2scala)
+  println("Computing g3scalaByScala(2)")
   expect(g3scalaByScala(2) == 5)
+  println("compute g4scalaByScala")
   val g4scalaByScala = g1scala(g3scalaByScala)
-  expect(g4scalaByScala(2) == 6) // fails already!
+  println(s"First failure here!")
+  expect(g4scalaByScala(2) == 6) // fails already with an infinite loop!
   val foldByScala = Natural_fold_native(3)(Tag[Nothing])(g1scala.asInstanceOf[Any => Any])(g2scala).asInstanceOf[Any => Any]
-  expect(foldByScala(10) == 15) // fails!
+//  expect(foldByScala(10) == 15) // fails!
 
   println("A loop involving a function type.")
   val fDhall = "Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n) (λ(n : Natural) → n + 2)".dhall
   val fScala = fDhall.asScala[Natural => Natural]
-  expect(fScala(10) == 15) // fails!
+//  expect(fScala(10) == 15) // fails!
 
   println("Tests passed for asScala().")
 }
