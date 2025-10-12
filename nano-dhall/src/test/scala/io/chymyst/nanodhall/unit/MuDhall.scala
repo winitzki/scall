@@ -974,28 +974,28 @@ object MuDhall extends App {
   val x: Tag[Natural => Natural] = Tag[Natural => Natural]
   expect("Natural → Natural".dhall.asScala == Tag[Natural => Natural])
 
-  val g1      = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
-  val g1scala = g1.asScala[(Natural => Natural) => Natural => Natural]
+  val g1             = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
+  val g1scala        = g1.asScala[(Natural => Natural) => Natural => Natural]
   expect(g1scala.toString == "{ λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n }")
-  val g2      = "λ(n : Natural) → n + 2".dhall
-  val g2scala = g2.asScala[Natural => Natural]
+  val g2             = "λ(n : Natural) → n + 2".dhall
+  val g2scala        = g2.asScala[Natural => Natural]
   expect(g2scala.toString == "{ λ(n : Natural) → n + 2 }")
   expect(g2scala(2) == 4)
-  val g3      = g1(g2)
-  val g3scala = g3.asScala[Natural => Natural]
+  val g3             = g1(g2)
+  val g3scala        = g3.asScala[Natural => Natural]
   expect(g3scala.toString == "{ λ(n : Natural) → 1 + f n }")
   expect(g3scala(2) == 5)
   val g3scalaByScala = g1scala(g2scala)
   expect(g3scalaByScala(2) == 5)
   val g4scalaByScala = g1scala(g3scalaByScala)
-//  expect(g4scalaByScala(2) == 6) // fails already!
-  val foldByScala = Natural_fold_native(3)(Tag[Nothing])(g1scala.asInstanceOf[Any => Any])(g2scala)
-//  foldByScala.asInstanceOf[Any => Any](10) // fails!
+  expect(g4scalaByScala(2) == 6) // fails already!
+  val foldByScala = Natural_fold_native(3)(Tag[Nothing])(g1scala.asInstanceOf[Any => Any])(g2scala).asInstanceOf[Any => Any]
+  expect(foldByScala(10) == 15) // fails!
 
   println("A loop involving a function type.")
   val fDhall = "Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n) (λ(n : Natural) → n + 2)".dhall
   val fScala = fDhall.asScala[Natural => Natural]
-//  expect(fScala(10) == 15) // fails!
+  expect(fScala(10) == 15) // fails!
 
   println("Tests passed for asScala().")
 }
