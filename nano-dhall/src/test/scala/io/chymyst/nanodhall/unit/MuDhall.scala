@@ -819,26 +819,28 @@ object MuDhall extends App {
     case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
   }
 
-  final class AsScalaV(v: => Any, message: String = "") { // Here "v" is required to be lazy, or else lambdas do not work.
+  final class AsScalaV(v: => Any, message: String = "") { // Here "v" is required to be on-call, or else lambdas do not work.
     def value: Any = v // Cannot make this a lazy val!
 
     override def toString: String = s"$message[${super.toString}]"
   }
 
+  final case class WrapV(var v: AsScalaV)
+
   // A function look-alike but allows us to assign the argument and the function body externally.
-  final case class FuncWithVar[A, B](e: Expr, var func: A => B = { (_: A) => null.asInstanceOf[B] }) extends Function1[A, B] {
+  final case class FuncWithVar(e: Expr, var func: Any => Any = { (_: Any) => null }) extends Function1[Any, Any] {
     override def toString(): String = s"{ ${e.print} }[ ${super[Object].toString}]"
 
-    var argument: A = null.asInstanceOf[A]
+    var argument: WrapV = WrapV(null)
 
-    override def apply(a: A): B = {
+    override def apply(a: Any): Any = {
       println(s"DEBUG: inside a closure ${super[Object].toString} translated from '${e.print}', setting argument = $a, old value = $argument")
-      argument = a
+      argument.v = new AsScalaV(a, s"dynamic argument for ${e.print} set to $a")
       func(a)
     }
   }
 
-  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, AsScalaV] = Map()): Either[String, AsScalaV] = {
+  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, WrapV] = Map()): Either[String, AsScalaV] = {
     e match {
       case Expr.NaturalLiteral(value) => Right(new AsScalaV(value))
 
@@ -846,7 +848,7 @@ object MuDhall extends App {
         scalaVars.get(v) match {
           case Some(knownVariableAssignment) =>
             println(s"DEBUG: fetching variable $v = $knownVariableAssignment")
-            Right(knownVariableAssignment)
+            Right(knownVariableAssignment.v)
 
           case None =>
             Left(s"Error: undefined variable $v while known variables are $scalaVars")
@@ -858,14 +860,20 @@ object MuDhall extends App {
         //    "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2" should evaluate to "λ(n : Natural) → n + 2 + n"
         // should be replaced by:
         //    { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
-        val lambdaFunction = FuncWithVar[Any, Any](e)
-        val varX           = new AsScalaV(lambdaFunction.argument, s"dynamic argument for $name → ${body.print}")
+        val lambdaFunction = FuncWithVar(e)
+        val varX           = lambdaFunction.argument //, s"dynamic argument for $name → ${body.print}")
         val variables1     = shiftVars(up = true, name, scalaVars)
         val variables2     = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
         convertValueToScala(body, variables2).map { bodyAsScala =>
           lambdaFunction.func = { _ => bodyAsScala.value }
           println(s"DEBUG: returning a new closure $lambdaFunction for $name → ${body.print}, bound variables $variables2")
-          new AsScalaV(lambdaFunction, s"lambda with argument $varX")
+//          new AsScalaV(lambdaFunction, s"lambda with argument $varX")
+          new AsScalaV({
+            val newLambda = FuncWithVar(e)
+            newLambda.func  = { _ => bodyAsScala.value }
+            newLambda.argument = varX
+            newLambda
+          }, s"lambda with argument $varX")
         }
 
       case Expr.Forall(_, tipe, body) =>
@@ -943,7 +951,7 @@ object MuDhall extends App {
       }
     loop(currentResult = init, counter = 0)
   }
-  /*
+
   Seq[(String, Natural)](
     "12345"                                                    -> 12345,
     "1 + 2 + 3 + 4"                                            -> 10,
@@ -977,7 +985,6 @@ object MuDhall extends App {
 
   val x: Tag[Natural => Natural] = Tag[Natural => Natural]
   expect("Natural → Natural".dhall.asScala == Tag[Natural => Natural])
-   */
 
   val g1      = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
   println("Computing g1scala")
