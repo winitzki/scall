@@ -812,103 +812,96 @@ object MuDhall extends App {
                       Left(
                         s"Cannot convert from Dhall expression ${e.print} having incompatible type ${inferredType.print}, tag ${inferredTag}, to expected Scala type $tag"
                       )
-    scalaValue   <- convertValueToScala(e)
-  } yield scalaValue) match {
-    case Left(error)       =>
+
+  } yield convertValueToScala(e).closedValue.asInstanceOf[A]) match {
+    case Left(error) =>
       throw new Exception(s"Cannot convert from Dhall expression ${e.print} to Scala type $tag: $error")
-    case Right(scalaValue) => scalaValue.value.asInstanceOf[A]
+    case Right(x)    => x
   }
 
-  final class AsScalaV(v: => Any, message: String = "") { // Here "v" is required to be on-call, or else lambdas do not work.
-    def value: Any = v // Cannot make this a lazy val!
+  // The function scalaV will throw an exception if conversion is not possible.
+  final case class ClosureV(scalaV: Map[Expr.Variable, ClosureV] => Any, source: Expr) {
+    override def toString: String = s"${super.toString}[${Option(source).map(_.print).getOrElse("???")}]"
 
-    override def toString: String = s"$message[${super.toString}]"
+    def closedValue: Any = scalaV(Map())
   }
 
-  final case class WrapV(var v: AsScalaV)
+  def pureClosureV(x: Any): ClosureV = ClosureV(_ => x, null)
 
-  // A function look-alike but allows us to assign the argument and the function body externally.
-  final case class FuncWithVar(e: Expr, var func: Any => Any = { (_: Any) => null }) extends Function1[Any, Any] {
-    override def toString(): String = s"{ ${e.print} }[ ${super[Object].toString}]"
+  // Cosmetic convenience: functions converted from µDhall can still print their Dhall source code.
+  final case class FunctionV(f: Any => Any, source: Expr) extends (Any => Any) {
+    override def toString: String = s"{ ${Option(source).map(_.print).getOrElse("???")} }"
 
-    var argument: WrapV = WrapV(null)
-
-    override def apply(a: Any): Any = {
-      println(s"DEBUG: inside a closure ${super[Object].toString} translated from '${e.print}', setting argument = $a, old value = $argument")
-      argument.v = new AsScalaV(a, s"dynamic argument for ${e.print} set to $a")
-      func(a)
-    }
+    override def apply(v1: Any): Any = f(v1)
   }
 
-  private def convertValueToScala(e: Expr, scalaVars: Map[Expr.Variable, WrapV] = Map()): Either[String, AsScalaV] = {
-    e match {
-      case Expr.NaturalLiteral(value) => Right(new AsScalaV(value))
+  private def convertValueToScala(e: Expr): ClosureV = {
+    // newFunc must be computed as a closure.
+    // Keep recursive calls to convertValueToScala() outside of the returned closure.
+    val newFunc: Map[Expr.Variable, ClosureV] => Any = e match {
+      case Expr.NaturalLiteral(value) => _ => value
 
-      case v @ Expr.Variable(_, _) =>
-        scalaVars.get(v) match {
-          case Some(knownVariableAssignment) =>
-            println(s"DEBUG: fetching variable $v = $knownVariableAssignment")
-            Right(knownVariableAssignment.v)
+      case v @ Expr.Variable(_, _)    =>
+        scalaVars =>
+          scalaVars.get(v) match {
+            case Some(knownVariableAssignment) => knownVariableAssignment.scalaV(scalaVars)
+            case None                          => throw new Exception(s"Undefined variable $v while known variables are $scalaVars")
+          }
 
-          case None =>
-            Left(s"Error: undefined variable $v while known variables are $scalaVars")
-        }
-
-      case Expr.Lambda(name, _, body) =>
-        // Create a Scala function with variable named "x". Substitute name = x in body but first shift name upwards in body.
         // Example:
         //    "λ(n : Natural) → n + (λ(n : Natural) → n + n@1) 2" should evaluate to "λ(n : Natural) → n + 2 + n"
-        // should be replaced by:
-        //    { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
-        val lambdaFunction = FuncWithVar(e)
-        val varX           = lambdaFunction.argument //, s"dynamic argument for $name → ${body.print}")
-        val variables1     = shiftVars(up = true, name, scalaVars)
-        val variables2     = variables1 ++ Map(Expr.Variable(name, 0) -> varX)
-        convertValueToScala(body, variables2).map { bodyAsScala =>
-          lambdaFunction.func = { _ => bodyAsScala.value }
-          println(s"DEBUG: returning a new closure $lambdaFunction for $name → ${body.print}, bound variables $variables2")
-//          new AsScalaV(lambdaFunction, s"lambda with argument $varX")
-          new AsScalaV({
-            val newLambda = FuncWithVar(e)
-            newLambda.func  = { _ => bodyAsScala.value }
-            newLambda.argument = varX
-            newLambda
-          }, s"lambda with argument $varX")
+        // should be replaced by the Scala function:
+      //    { x: Any => x.asInstanceOf[BigInt] + {x2 : Any => x2 + x}(2) }
+      case Expr.Lambda(name, _, body) =>
+        val bodyScala = convertValueToScala(body)
+
+        { (scalaVars: Map[Expr.Variable, ClosureV]) =>
+          val variables1 = shiftVars(up = true, name, scalaVars)
+
+          FunctionV(
+            { (varX: Any) =>
+              val variables2 = variables1 ++ Map(Expr.Variable(name, 0) -> pureClosureV(varX))
+              bodyScala.scalaV(variables2)
+            },
+            e,
+          )
         }
 
-      case Expr.Forall(_, tipe, body) =>
-        for { // Only support non-dependent type signatures without type parameters.
-          tag <- asTag(e) // Forall is always a function type, so we just convert it to a tag.
-        } yield new AsScalaV(tag)
+      // Forall is always a function type, so we just convert it to a tag.
+      // Only support non-dependent type signatures without type parameters.
+      case Expr.Forall(_, _, _)       =>
+        asTag(e) match {
+          case Left(error) => throw new Exception("Cannot convert to Scala value: " + error)
+          case Right(x)    => { _ => x }
+        }
 
       case Expr.Let(name, subst, body) => // Evaluated as (λ(name) => body) subst.
-        convertValueToScala(letExprAsApplied(name, subst, body), scalaVars)
+        convertValueToScala(letExprAsApplied(name, subst, body)).scalaV
 
-      case Expr.Annotated(body, _) => convertValueToScala(body, scalaVars)
+      case Expr.Annotated(body, _) => convertValueToScala(body).scalaV
 
       case Expr.Applied(func, arg) =>
-        for {
-          functionHead <- convertValueToScala(func, scalaVars)
-          argument     <- convertValueToScala(arg, scalaVars)
-        } yield new AsScalaV(functionHead.value.asInstanceOf[Function1[Any, Any]].apply(argument.value))
+        val functionHead = convertValueToScala(func)
+        val argument     = convertValueToScala(arg)
+
+        scalaVars => functionHead.scalaV(scalaVars).asInstanceOf[Function1[Any, Any]].apply(argument.scalaV(scalaVars))
 
       case Expr.Builtin(constant) =>
-        constant match {
-          case Constant.NaturalFold     => Right(new AsScalaV(Natural_fold_native))
-          case Constant.NaturalSubtract => Right(new AsScalaV(Natural_subtract_native))
-          case Constant.Natural         => Right(new AsScalaV(Tag[Natural]))
-          case _                        => Left(s"Type symbol $constant cannot be converted to a Scala value")
+        val symbol: Any = constant match {
+          case Constant.NaturalFold     => Natural_fold_native
+          case Constant.NaturalSubtract => Natural_subtract_native
+          case Constant.Natural         => Tag[Natural]
+          case _                        => throw new Exception(s"Type symbol $constant cannot be converted to a Scala value")
         }
+        _ => symbol
 
       case Expr.BinaryOp(left, op, right) =>
         // Helper function: apply a binary operation.
-        // No checking needed here, because all expressions were already type-checked.
-        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R): Either[String, AsScalaV] = {
-          // The final value must be of the given type.
-          for {
-            evalLop <- convertValueToScala(left, scalaVars)
-            evalRop <- convertValueToScala(right, scalaVars)
-          } yield new AsScalaV(operator(evalLop.value.asInstanceOf[P], evalRop.value.asInstanceOf[Q]))
+        // No type checking needed here, because all expressions were already type-checked.
+        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R)(scalaVars: Map[Expr.Variable, ClosureV]) = {
+          val evalLop = convertValueToScala(left)
+          val evalRop = convertValueToScala(right)
+          operator(evalLop.scalaV(scalaVars).asInstanceOf[P], evalRop.scalaV(scalaVars).asInstanceOf[Q])
         }
 
         op match {
@@ -916,6 +909,7 @@ object MuDhall extends App {
           case Operator.Times => useOp[Natural, Natural, Natural](_ * _)
         }
     }
+    ClosureV(newFunc, e)
   }
 
   // Helper function: apply shift() to all variables in a given dictionary.
@@ -927,6 +921,7 @@ object MuDhall extends App {
   def letExprAsApplied(name: String, subst: Expr, body: Expr): Expr =
     Expr.Applied(Expr.Lambda(name, subst.inferType, body), subst)
 
+  // Public API.
   implicit class ExprAsScala(e: Expr) {
     def asScala[A: Tag]: A = MuDhall.asScala[A](e)
   }
@@ -941,7 +936,6 @@ object MuDhall extends App {
       if (counter >= m) currentResult
       else {
         val newResult = update(currentResult)
-        println(s"DEBUG: Natural/fold computes newResult = $newResult")
         if (newResult == currentResult) {
           // Shortcut: the result did not change after applying `update`, so no need to continue the loop.
           currentResult
@@ -987,39 +981,29 @@ object MuDhall extends App {
   expect("Natural → Natural".dhall.asScala == Tag[Natural => Natural])
 
   val g1      = "λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n".dhall
-  println("Computing g1scala")
   val g1scala = g1.asScala[(Natural => Natural) => Natural => Natural]
-  //  expect(g1scala.toString == "{ λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n }")
+  expect(g1scala.toString == "{ λ(f : ∀(_ : Natural) → Natural) → λ(n : Natural) → 1 + f n }")
 
   val g2      = "λ(n : Natural) → n + 2".dhall
-  println("Computing g2scala")
   val g2scala = g2.asScala[Natural => Natural]
-  // expect(g2scala.toString == "{ λ(n : Natural) → n + 2 }")
-  println("Computing g2scala(2)")
+  expect(g2scala.toString == "{ λ(n : Natural) → n + 2 }")
   expect(g2scala(2) == 4)
-  val g3             = g1(g2)
-  println("Computing g3scala")
-  val g3scala        = g3.asScala[Natural => Natural]
+  val g3      = g1(g2)
+  val g3scala = g3.asScala[Natural => Natural]
 
-  // Note: already g3scala seems to have an infinite loop in its structure!
-  // expect(g3scala.toString == "{ λ(n : Natural) → 1 + f n }")
-  println("Computing g3scala(2)")
+  expect(g3scala.toString == "{ λ(n : Natural) → 1 + f n }")
   expect(g3scala(2) == 5)
-  println("compute g3scalaByScala")
   val g3scalaByScala = g1scala(g2scala)
-  println("Computing g3scalaByScala(2)")
   expect(g3scalaByScala(2) == 5)
-  println("compute g4scalaByScala")
   val g4scalaByScala = g1scala(g3scalaByScala)
-  println(s"First failure here!")
-  expect(g4scalaByScala(2) == 6) // fails already with an infinite loop!
-  val foldByScala = Natural_fold_native(3)(Tag[Nothing])(g1scala.asInstanceOf[Any => Any])(g2scala).asInstanceOf[Any => Any]
-//  expect(foldByScala(10) == 15) // fails!
+  expect(g4scalaByScala(2) == 6)
+  val foldByScala    = Natural_fold_native(3)(Tag[Nothing])(g1scala.asInstanceOf[Any => Any])(g2scala).asInstanceOf[Any => Any]
+  expect(foldByScala(10) == 15)
 
   println("A loop involving a function type.")
   val fDhall = "Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n) (λ(n : Natural) → n + 2)".dhall
   val fScala = fDhall.asScala[Natural => Natural]
-//  expect(fScala(10) == 15) // fails!
+  expect(fScala(10) == 15)
 
   println("Tests passed for asScala().")
 }
