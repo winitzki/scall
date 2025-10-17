@@ -800,10 +800,7 @@ object MuDhall extends App {
 
   /* Convert µDhall values to native Scala values when possible. */
 
-  // This value models an expression translated into Scala but still depending on some variables in an environment.
-  // final case class ValE(scalaExpr: Map[Expr.Variable, Either[ValE, Any]] => Any)
 
-  // This is still broken when using Natural/fold with a function type.
   def asScala[A](e: Expr)(implicit tag: Tag[A]): A = (for {
     inferredType <- typeCheck(Nil, e)
     inferredTag  <- asTag(inferredType)
@@ -819,6 +816,9 @@ object MuDhall extends App {
     case Right(x)    => x
   }
 
+  // This value models an expression translated from µDhall into Scala.
+  // The expression still depends on some variables in an environment.
+  // (Values of those variables are again expressions translated into Scala.)
   // The function scalaV will throw an exception if conversion is not possible.
   final case class ClosureV(scalaV: Map[Expr.Variable, ClosureV] => Any, source: Expr) {
     override def toString: String = s"${super.toString}[${Option(source).map(_.print).getOrElse("???")}]"
