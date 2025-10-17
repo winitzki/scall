@@ -1004,6 +1004,7 @@ object MuDhall extends App {
   val fDhall = "Natural/fold 3 (Natural → Natural) (λ(f : Natural → Natural) → λ(n : Natural) → 1 + f n) (λ(n : Natural) → n + 2)".dhall
   val fScala = fDhall.asScala[Natural => Natural]
   expect(fScala(10) == 15)
+  expect(fScala.toString == "{ λ(n : Natural) → 1 + f n }")
 
   println("Tests passed for asScala().")
 }
