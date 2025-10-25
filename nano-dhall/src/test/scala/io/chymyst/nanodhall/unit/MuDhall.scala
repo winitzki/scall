@@ -196,21 +196,21 @@ object MuDhall extends App {
 
   // Return (outer, List(inner1, inner2, ...)) for each constructor that may have Expr arguments.
   def precedence(e: Expr): (Int, List[Int]) = e match {
-    case Expr.NaturalLiteral(_) | Expr.Variable(_, _) | Expr.Builtin(_) => (0, List())      // Never need parentheses.
+    case Expr.NaturalLiteral(_) | Expr.Variable(_, _) | Expr.Builtin(_) => (0, List())     // Never need parentheses.
     case Expr.Lambda(name, tipe, body)                                  => (50, List(50, 50))
     case Expr.Forall(name, tipe, body)                                  => (50, List(50, 50))
     case Expr.Let(name, subst, body)                                    => (50, List(50, 50))
-    case Expr.Annotated(body, tipe)                                     => (8, List(7, 60)) //   ( 1 : Natural ) : Natural : Type
-    case Expr.Applied(func, arg)                                        => (5, List(4, 4))  //   f (g x)
+    case Expr.Annotated(body, tipe)                                     => (8, List(7, 8)) //   ( 1 : Natural ) : Natural : Type
+    case Expr.Applied(func, arg)                                        => (5, List(4, 4)) //   f (g x)
     case Expr.BinaryOp(_, op, _)                                        =>
       val prec = precedence(op)
       (prec, List(prec, prec)) // For binary operators, all 3 precedence priorities are equal.
   }
 
-  def inPrecedence(expr: String, innerPrec: Int, outerPrec: Int): String =
-    if (innerPrec > outerPrec) s"($expr)" else expr
+  def inPrecedence(expr: String, outerPrec: Int, innerPrec: Int): String =
+    if (outerPrec > innerPrec) s"($expr)" else expr
 
-  def prettyprint(e: Expr, outside: Int = 100): String = {
+  def prettyprint(e: Expr, innerInEnclosingExpr: Int = 100): String = {
     val (outer, inner) = precedence(e)
 
     def printpair(prefix: String, left: Expr, middle: String, right: Expr): String =
@@ -228,7 +228,7 @@ object MuDhall extends App {
       case Expr.BinaryOp(left, op, right) => printpair("", left, " " + op.name + " ", right)
     }
 
-    inPrecedence(exprPrinted, outer, outside)
+    inPrecedence(exprPrinted, outer, innerInEnclosingExpr)
   }
 
   // Helper function for tests.
@@ -242,7 +242,7 @@ object MuDhall extends App {
     (Test1.test1 -> "(n + 123) : Natural"),
     (Test1.test2 -> "λ(n : Natural) → n + 1"),
     (Test1.test3 -> "∀(n : Natural) → Natural"),
-    (Test1.test4 -> "(λ(n : Natural) → n + 1) : ∀(n : Natural) → Natural"),
+    (Test1.test4 -> "(λ(n : Natural) → n + 1) : (∀(n : Natural) → Natural)"),
     (Test1.test5 -> "(λ(n : Natural) → n + 1) ((n + 123) : Natural)"),
     (Test1.test6 -> "f (g x)"),
   ).validate(prettyprint(_))
@@ -520,7 +520,6 @@ object MuDhall extends App {
           None
       }
     }
-
   }
 
   val testString =
@@ -546,6 +545,53 @@ object MuDhall extends App {
 
   println("Tests passed for prettyprint() associativity.")
 
+  /*  Pretty-printer based on following the grammar productions that introduce parentheses.  */
+
+  object GGPrettyPrint {
+    def printPrimitiveExpression(e: Expr): String = e match {
+      case Expr.NaturalLiteral(x)     => x.toString
+      case Expr.Builtin(constant)     => constant.toString
+      case Expr.Variable(name, index) => if (index > 0) s"$name@$index" else name
+      case other                      => "(" + printFullExpression(other) + ")"
+    }
+    def printFullExpression(e: Expr): String      = e match {
+      case Expr.Lambda(name, tipe, body) => s"λ($name : ${printFullExpression(tipe)}) → ${printFullExpression(body)}"
+      case Expr.Forall(name, tipe, body) => s"∀($name : ${printFullExpression(tipe)}) → ${printFullExpression(body)}"
+      case Expr.Let(name, subst, body)   => s"let $name = ${printFullExpression(subst)} in ${printFullExpression(body)}"
+      case _                             => printAnnotated(e)
+    }
+    def printAnnotated(e: Expr): String           = e match {
+      case Expr.Annotated(body, tipe) => printOperatorPlus(body) + " : " + printFullExpression(tipe)
+      case _                          => printOperatorPlus(e)
+    }
+    def printOperatorPlus(e: Expr): String        = e match {
+      case Expr.BinaryOp(left, Operator.Plus, right) => printOperatorTimes(left) + " + " + printOperatorTimes(right)
+      case _                                         => printOperatorTimes(e)
+    }
+    def printOperatorTimes(e: Expr): String       = e match {
+      case Expr.BinaryOp(left, Operator.Plus, right) => printApplication(left) + " + " + printApplication(right)
+      case _                                         => printApplication(e)
+    }
+    def printApplication(e: Expr): String         = e match {
+      case Expr.Applied(func, arg) => printPrimitiveExpression(func) + " " + printPrimitiveExpression(arg)
+      case _                       => printPrimitiveExpression(e)
+    }
+  }
+
+  def prettyprintGG(expr: Expr): String = GGPrettyPrint.printFullExpression(expr)
+
+  // Test the alternative pretty-printer.
+  Seq(
+    (Test1.test0 -> "1 + 2 + 3"),
+    (Test1.test1 -> "n + 123 : Natural"),
+    (Test1.test2 -> "λ(n : Natural) → n + 1"),
+    (Test1.test3 -> "∀(n : Natural) → Natural"),
+    (Test1.test4 -> "(λ(n : Natural) → n + 1) : ∀(n : Natural) → Natural"),
+    (Test1.test5 -> "(λ(n : Natural) → n + 1) (n + 123 : Natural)"),
+    (Test1.test6 -> "f (g x)"),
+  ).validate(prettyprintGG)
+
+  println("Tests passed for prettyprintGG().")
   /* Evaluation. */
 
   def alphaNormalize(e: Expr): Expr = {
@@ -774,12 +820,12 @@ object MuDhall extends App {
   // Lambda expressions are not types and will not be supported for now.
   def asTag(e: Expr): Either[String, Tag[_]] = {
     e match {
-      case Expr.Forall(name, tipe, body) =>
+      case Expr.Forall(name, tipe, body)  =>
         for { // For now we do not support type variables or dependent types.
           tipeTag <- asTag(tipe)
           bodyTag <- asTag(body)
         } yield Tag.appliedTag(TagKK[Function1], List(tipeTag.tag, bodyTag.tag))
-
+      case Expr.Annotated(body, tipe)     => asTag(body)
       case Expr.Builtin(Constant.Natural) => Right(Tag[Natural])
       case Expr.Builtin(Constant.Type)    => Right(Tag[Nothing])
       // case Expr.Applied(func, arg) => ???
@@ -799,7 +845,6 @@ object MuDhall extends App {
   println("Tests passed for asTag().")
 
   /* Convert µDhall values to native Scala values when possible. */
-
 
   def asScala[A](e: Expr)(implicit tag: Tag[A]): A = (for {
     inferredType <- typeCheck(Nil, e)

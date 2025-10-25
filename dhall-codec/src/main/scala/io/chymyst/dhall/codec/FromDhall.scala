@@ -15,28 +15,70 @@ import scala.language.{dynamics, implicitConversions, reflectiveCalls}
 
 object FromDhall {
 
+  def asTag(e: Expression): Either[String, Tag[_]] = e.scheme match {
+    case Variable(name, index) => ???
+    case ExpressionScheme.Lambda(name, tipe, body) => ???
+    case ExpressionScheme.Forall(name, tipe, body) => ???
+    case ExpressionScheme.Let(name, tipe, subst, body) => ???
+    case ExpressionScheme.If(cond, ifTrue, ifFalse) => ???
+    case ExpressionScheme.Merge(record, update, tipe) => ???
+    case ExpressionScheme.ToMap(data, tipe) => ???
+    case ExpressionScheme.EmptyList(tipe) => ???
+    case ExpressionScheme.NonEmptyList(exprs) => ???
+    case ExpressionScheme.Annotation(data, tipe) => ???
+    case ExpressionScheme.ExprOperator(lop, op, rop) => ???
+    case ExpressionScheme.Application(func, arg) => ???
+    case ExpressionScheme.Field(base, name) => ???
+    case ExpressionScheme.ProjectByLabels(base, labels) => ???
+    case ExpressionScheme.ProjectByType(base, by) => ???
+    case ExpressionScheme.Completion(base, target) => ???
+    case ExpressionScheme.Assert(assertion) => ???
+    case ExpressionScheme.With(data, pathComponents, body) => ???
+    case ExpressionScheme.DoubleLiteral(value, hash) => ???
+    case ExpressionScheme.NaturalLiteral(value) => ???
+    case ExpressionScheme.IntegerLiteral(value) => ???
+    case ExpressionScheme.TextLiteral(interpolations, trailing) => ???
+    case ExpressionScheme.BytesLiteral(hex) => ???
+    case ExpressionScheme.DateLiteral(year, month, day) => ???
+    case ExpressionScheme.TimeLiteral(hours, minutes, seconds, nanosPrinted) => ???
+    case ExpressionScheme.TimeZoneLiteral(totalMinutes) => ???
+    case RecordType(defs) => ???
+    case ExpressionScheme.RecordLiteral(defs) => ???
+    case ExpressionScheme.UnionType(defs) => ???
+    case ExpressionScheme.ShowConstructor(data) => ???
+    case ExpressionScheme.Import(importType, importMode, digest) => ???
+    case ExpressionScheme.KeywordSome(data) => ???
+    case ExpressionScheme.ExprBuiltin(builtin) => ???
+    case ExprConstant(constant) => ???
+    case _ => Left(s"Cannot convert Dhall expression ${e.print} to a Scala type")
+  }
+
   /** Convert a Dhall expression into a Scala value. The type parameter `A` must be specified.
     *
     * @param expr
-    *   A Dhall expression. This must be a closed term, having no free variables.
-    * @param tpe
-    *   An izumi type tag corresponding to the given type parameter `A`.
+    *   A Dhall expression. This must be a closed term, having no free variables. Otherwise an exception will be thrown.
+    * @param typeTag
+    *   An izumi type tag corresponding to the given type parameter `A`. The Dhall expression must have type `A`, or else an exception will be thrown.
     * @tparam A
     *   The expected Scala type of the Dhall expression after it is converted to Scala.
     * @return
-    *   A Scala value of type `A`, or an exception thrown on errors.
+    *   A Scala value of type `A`, or an exception thrown on errors. If a Dhall expression is a type then `A` must be `Tag[B]` andn the result is a `Tag[B]`
+    *   value.
     */
-  def asScala[A](expr: Expression)(implicit tpe: Tag[A]): A = FromDhall.valueAndType(expr, Map(), KnownVars.empty) match {
-    case Left(errors) =>
-      val errorMessage = errors.mkString("", "; ", "")
-      throw new Exception("Error importing from Dhall: " + errorMessage)
+  def asScala[A](expr: Expression)(implicit typeTag: Tag[A]): A = {
+// fully rewrite this code, make closures correct
+    FromDhall.valueAndType(expr, Map(), KnownVars.empty) match {
+      case Left(errors) =>
+        val errorMessage = errors.mkString("", "; ", "")
+        throw new Exception("Error importing from Dhall: " + errorMessage)
 
-    case Right(asScalaVal) =>
-      if (tpe == asScalaVal.typeTag) asScalaVal.value.asInstanceOf[A]
-      else
-        throw new Exception(
-          s"Error importing from Dhall: type mismatch: expected type $tpe but the Dhall value actually has type ${asScalaVal.inferredType} and type tag ${asScalaVal.typeTag}"
-        )
+      case Right(asScalaVal) =>
+        if (typeTag == asScalaVal.typeTag) asScalaVal.value.asInstanceOf[A]
+        else
+          throw new Exception(
+            s"Error importing from Dhall: type mismatch: expected type $typeTag but the Dhall value actually has type ${asScalaVal.inferredType} and type tag ${asScalaVal.typeTag}"
+          )
+    }
   }
 
   private def valueAndType(expr: Expression, variables: Map[Variable, AsScalaVal], dhallVars: KnownVars): Either[Seq[AsScalaError], AsScalaVal] = {
