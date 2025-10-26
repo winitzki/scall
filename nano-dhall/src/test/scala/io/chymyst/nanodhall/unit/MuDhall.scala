@@ -943,10 +943,13 @@ object MuDhall extends App {
       case Expr.BinaryOp(left, op, right) =>
         // Helper function: apply a binary operation.
         // No type checking needed here, because all expressions were already type-checked.
-        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R)(scalaVars: Map[Expr.Variable, ClosureV]) = {
+        def useOp[P: Tag, Q: Tag, R: Tag](operator: (P, Q) => R) = {
           val evalLop = convertValueToScala(left)
           val evalRop = convertValueToScala(right)
-          operator(evalLop.scalaV(scalaVars).asInstanceOf[P], evalRop.scalaV(scalaVars).asInstanceOf[Q])
+
+          { (scalaVars: Map[Expr.Variable, ClosureV]) =>
+            operator(evalLop.scalaV(scalaVars).asInstanceOf[P], evalRop.scalaV(scalaVars).asInstanceOf[Q])
+          }
         }
 
         op match {
@@ -1052,4 +1055,36 @@ object MuDhall extends App {
   expect(fScala.toString == "{ λ(n : Natural) → 1 + f n }")
 
   println("Tests passed for asScala().")
+
+  // Some more tests.
+
+  val dhallSource1 = """
+                       | let f = λ(x : Natural) → λ(x : Natural) → (123 + x) * x@1
+                       | let id = λ(a : Type) → λ(x : a) → x
+                       | let type_of_id = ∀(a : Type) → a → a
+                       | let _ = id : type_of_id
+                       | let _ = type_of_id : Type
+                       | let _ = Type : Kind
+                       | let Void = ∀(r : Type) → r
+                       | let Unit = ∀(r : Type) → r → r
+                       | let Pair = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (a → b → r) → r
+                       | in f (Natural/subtract 2 10) (id Natural 20)
+                       | """.stripMargin
+  val dhall1       = dhallSource1.dhall
+  expect(dhall1.inferType.print == "Natural")
+  expect(betaNormalize(dhall1).print == "1144")
+
+  val dhallSource2 =
+    """
+      | let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
+      | let id = λ(a : Type) → λ(x : a) → x
+      | in f 10 (id Natural 20)
+      |   -- This is a complete Dhall program; it evaluates to 32 of type Natural.
+      |""".stripMargin
+
+  val dhall2 = dhallSource2.dhall
+  expect(dhall2.inferType.print == "Natural")
+  expect(betaNormalize(dhall2).print == "32")
+
+  println("Additional tests passed.")
 }
