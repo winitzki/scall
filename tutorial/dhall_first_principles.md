@@ -2,13 +2,14 @@
 
 We will derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
 
-## The principles 
+## The principles of functional programming
 
-- A program is a (large) formula. Large formulas are built up by combining smaller formulas.
-- Every changeable part of anything is a value.
-- Values may be assigned to names, and then we should be able to use those names instead.
-- Whenever a value is used, we should be able to write a function that substitutes that value.
-- Each value has a certain type, and all types must match. Formulas with mismatched types are rejected.
+- A program is a (large) expression built up by combining smaller expressions. Any changeable part of a program is an expression.
+- Any expression can be replaced by another expression.
+- In particular, any expression can be replaced by a named constant assigned separately to the same expression.
+- That named constant can be also made into a parameter of a function. 
+- Every expression has a certain type. Expressions with mismatched types are rejected.
+- Every expression may be replaced by another expression that evaluates to the same result. The program's result will not change.
 
 Let us see where these principles lead.
 
@@ -25,9 +26,9 @@ We expect this to get evaluated to `610`:
 10 + 20 * 30
 ```
 
-- We expect this to be a complete Dhall program, because programs are formulas.
+- We expect this to be a complete Dhall program, because programs are expressions.
 
-- We expect this to be a value. We expect `10` and `20 * 30` also to be values.
+- We expect `10` and `20 * 30` also to be expressions.
 
 ### Literal lists
 
@@ -41,18 +42,18 @@ The operation `#` concatenates lists. For example, `[1, 2, 3] # [10, 20]` evalua
 
 ### Variable assignments
 
-- Because all values should be able to get assigned to names, we need syntax for that.
+- Any part of a program should replaceable by a named constant. We need some syntax for that.
 
 The syntax must be able to specify that, say, "in whatever program that follows, the name `x` will stand for the expression `10 + 20 * 30`".
 
-Dhall has the following syntax for that:
+Dhall has the following syntax:
 
 ```dhall
 let x = 10 + 20 * 30  in  <rest_of_program>
 ```
 
 - This is a Dhall program (as long as `rest_of_program` is also a Dhall program).
-- This is a value (as long as `rest_of_program` is also a valid value).
+- This is an expression (as long as `rest_of_program` is also a valid expression).
 
 A simple example:
 
@@ -83,7 +84,7 @@ That sort of syntax is similar to what is used in Scala. However, Scala requires
 }
 ```
 
-It is not very important what syntax we use. It is important that the entire code is a single formula that is evaluated to a single value. The syntax "`let a = b in c`" emphasizes this better than the syntax "`a = b; c`".
+It is not very important what syntax we use. It is important that the entire code is a single expression that is evaluated to a result value (or a result expression). The syntax "`let a = b in c`" emphasizes this better than the syntax "`a = b; c`".
 
 ### Multiple variables
 
@@ -94,7 +95,7 @@ let x = 10 + 20 * 30
 in x * x * x
 ```
 
-- Because the above is a valid program, we should be able to add more variable definitions to it:
+- Because the above is a valid program, we should be able to add more "let" definitions to it:
 
 ```dhall
 let y = 2
@@ -106,13 +107,15 @@ In Dhall, the syntax `let a = b let c = d in e` is the same as the longer `let a
 
 It follows that Dhall programs must have this form: `let` ... `let` ... `in` ...
 
-There is nothing else we can write, because the entire program must be a single formula.
+There is nothing else we can write, because the entire program must be a single expression.
 
 ### Nested variable definitions
 
-- Because we should be able to use values anywhere, we need to be able to *define and use* a new variable, say, at the place of `20` in the expression `10 + 20 * 30`.
+- Any part of an expression can be replaced by another expression.
 
-For example, we want to write `let p = 10 in p + p` instead of `20`. We should get the same results. But how to write that kind of programs? We need a syntax for that.
+For example, we should be able to replace `20` in the expression `10 + 20 * 30` by an expression that defines and uses a new variable.
+
+Suppose we want to write `let p = 10 in p + p` instead of `20`. We should get the same results. But how to write that kind of programs? We need a syntax for that.
 We cannot just write `10 + let p = 10 in p + p * 30`: we need to separate the end of the sub-expression from `* 30`.
 
 In Dhall, we use parentheses to separate sub-expressions, like in mathematics. We can write `10 + (20) * 30`, and it's the same as `10 + 20 * 30`.
@@ -180,7 +183,15 @@ Because the separator symbol `:` is not used in any other way, we may write type
 
 Some programming languages do not use a special separator for type annotations: for example, C++ and Java write `int x` to denote that `x` has integer type. Because of this syntax, C++ and Java programs cannot support adding a type annotation at any place within an expression.
 
-Type annotations are not mandated by the principles of functional programming; in many cases, programs can be written without any type annotations. The compiler of OCaml has a powerful algorithm that can figure out all types even without a single type annotation. However, when programming entirely without type annotations, one finds that error messages often become harder to understand: the compiler assumes that the code is correct and infers the corresponding types, then prints an error that types do not match. But in practice, most often the error is in the code, not in the types.
+Type annotations are not mandated by the principles of functional programming; in many cases, programs can be written without any type annotations.
+For example, the compiler of OCaml has a powerful algorithm that can figure out all types even without a single type annotation.
+
+However, when programming entirely without type annotations, one finds that error messages often become harder to understand.
+When code is subtly wrong, the compiler assumes that the code is correct and infers the corresponding types, which are actually incorrect.
+Then the compiler reports an error that types do not match somewhere else in the code.
+
+Such errors would be reported at the right place if the code had type annotations.
+In practice, the error is more often in the code, not in the type annotations.
 
 ## Step 2: Functions
 
@@ -210,11 +221,11 @@ In Dhall, the function `Natural/subtract x y` takes one argument `x` and returns
 
 ### User-defined functions
 
-- Whenever we use a value, we should be able to write a function that substitutes that value.
+- For any sub-expression, we should be able to write a function that substitutes that sub-expression.
 
 Applying this principle to the example expression `10 + 20 * 30`, we may say that we should be able to write a function that substitutes the value `20` in this function by some other value.
 
-The language should allow us to specify that we have a function that takes an argument, say, `n` (which must be a natural value) and puts that `x` instead of  `20` in the expression `10 + 20 * 30`.
+The language should allow us to specify that we have a function that takes an argument, say, `n` (which must be a natural value) and puts that `n` instead of  `20` in the expression `10 + 20 * 30`.
 
 The Dhall syntax for that function looks like this:
 
@@ -246,30 +257,207 @@ in f 2
 
 This program defines `f` as a function and then applies the function `f` to the value `2`. The resulting program is evaluated to `70`.
 
-- We should be able to write a function that substitutes any part of anything.
+- We should be able to write a function that substitutes any part of any expression.
 
 For example, in the program shown above, we should be able to substitute some other number instead of `10`. How can we do that?
 
-We should be able to do that in the same way as in every case: We write a function, introduce a new symbolic parameter, and put that parameter into the expression at the right place. The language must be able to figure out correctly what to do.
+We should be able to do that in the same way: We just begin a new function having a new symbolic parameter. Then we put that parameter into the expression at the right place:
 
 ```dhall
 λ(p : Natural) →
   let f = λ(n : Natural) → p + n * 30
+  in f 2   -- Line indentations are _not_ significant in Dhall.
+```
+This is a function that can be applied to `10` and then evaluates to`70`.
+
+How can we write code that applies such a function to an argument `10`? There are two ways now:
+
+- Define a named constant for this function.
+- Put that function into parentheses and apply directly.
+
+First program:
+
+```dhall
+let q = λ(p : Natural) →
+  let f = λ(n : Natural) → p + n * 30
   in f 2
+in q 10
 ```
 
-Line indentations are _not_ significant in Dhall.
+Second program:
+
+```dhall
+(
+λ(p : Natural) →
+  let f = λ(n : Natural) → p + n * 30
+  in f 2
+) 10
+```
+
+Both programs evaluate to `70`.
+
+### Equivalence of functions and "let" expressions
+
+We can see that the language has two ways of doing the same thing.
+Indeed, "let" expressions can be rewritten via functions:
+
+`let x : Natural = a in y`
+
+is the same as:
+
+`(λ(x : Natural) → y) a`
+
+If a language has functions but does not have "let" expressions, one could just write programs using functions.
+It looks more visual to write with "let" expressions but it's equivalent.
+
+(Below we will see one exception where it is _not_ equivalent in Dhall to replace a "let" expression with a function, but it is a rare corner case involving type aliases.)
 
 ### Curried functions
 
-### Variable capture in functions
+- A function should be able to substitute values in any expression.
+
+So, a function could substitute values in another function.
+This means we have a function that _returns another function_.
+
+Begin by writing just a simple function:
+
+```dhall
+λ(p : Natural) → p * 2 + 123
+```
+We would like to replace `123` in this function by an arbitrary value `n`.
+So, we write a function whose parameter is `n` and whose return value is the above function with `n` instead of `123`.
+
+```dhall
+λ(n : Natural) → 
+    λ(p : Natural) → p * 2 + n
+```
+
+How can we use this function? We need to apply it to an argument. Let us denote this function by `f`, and apply to an argument as `f 123`:
+
+```dhall
+⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123
+
+λ(p : Natural) → p * 2 + 123
+```
+The result of evaluating `f 123` is a function. So, we can apply that function to another argument.
+We can write that as `(f 123) 456`, or equivalently as `f 123 456` without parentheses:
+```dhall
+⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123 456
+
+1035
+```
+The syntax `f 123 456` requires some time to get used to. Functions `f` that can be used in this way are known as **curried functions**.
+
+We see that the existence of curried functions is not a special feature of the language, but a necessary consequence of the principle that we should be able to refactor any expression into a function that will substitute a given part of that expression.
+
+### Value capture in functions
+
+A curried function may return a function whose body includes a "captured" parameter. We have seen this in the code above:
+
+```dhall
+⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123
+
+λ(p : Natural) → p * 2 + 123
+```
+The parameter `n` was set to `123`, which is "captured" in the new function body.
+
+If we are working inside a function where some more parameters are defined and then `f` is called on a parameter then the resulting function will "capture" that parameter:
+
+```dhall
+-- Previous code defines some parameters:
+λ(a : Natural) → λ(b : Natural) → λ(c : Natural) →
+  let w = f b   -- So, w = λ(p : Natural) → p * 2 + b
+  -- Further code that uses w...
+  let y = λ(b : Natural) → b + w c  -- This `b` is not the same as the `b` above.
+  -- Further code...
+```
+The function `w` "captures" the parameter `b` that was visible in the scope of the definition of `w`.
+In the further code that uses `w`, there might be other variables called `b` but `w` will not use them.
+The expression `λ(b : Natural) → b + w c` shown above will _not_ be translated into `λ(b : Natural) → b + p * 2 + b` because the `b` captured inside `w` stays the same and cannot be changed.
+
+This behavior follows from our expectation that `w` must be a fixed, immutable value.
+Even if `w` is a function whose body refers to the name `b`, the value under that name is fixed and will not change even if some other variable named `b` is defined in a local scope. 
+
+### Higher-order functions
+
+The language should allow us to write a function that replaces a given sub-expression by an argument value.
+That sub-expression could be itself a function expression.
+In that case, we need to be able to write a function whose argument is itself a function.
+
+Consider the function `f` defined above. It contains `λ(p : Natural) → p * 2 + n` as a sub-expression.
+Suppose we need to replace the computation `p * 2` by another function of `p`.
+
+To express our intention more clearly, let us rewrite `f 123`, making this computation explicit:
+
+```dhall
+let f = λ(n : Natural) →
+  let g = λ(p : Natural) → p * 2
+  in λ(p : Natural) → g p + n
+in f 123
+```
+
+Now we replace `g` by a new parameter; this gives us a new function:
+
+```dhall
+let r = λ(g : Natural → Natural) → 
+          let f = λ(n : Natural) →
+            λ(p : Natural) → g p + n
+          in f 123
+```
+
+The function we assigned to `r` has a function `g` as its argument and returns another function: `λ(p : Natural) → g p + 123`.
+Such functions `r` are called "higher-order" functions.
+
+Generally, functions that return other functions as their result values, and/or take other functions as arguments, are called **higher-order functions**.
+
+So, all curried functions are higher-order functions.
 
 ## Function types
 
-### Types of built-in and user-defined functions
+- Every expression must have a type.
+
+So, functions must have types, and the language must allow us to write those types.
+
+The simplest syntax for function types looks like this: `Natural → Natural`.
+It means a function that takes an argument of type `Natural` and returns a result also of type `Natural`.
+
+We can check that a function has the type we expect:
+
+```dhall
+( λ(p : Natural) → p * 2 + 123 ) : Natural → Natural
+```
+It is convenient when the type annotation can be written next to a defined variable:
+
+```dhall
+let g : Natural → Natural = λ(p : Natural) → p * 2 + 123
+```
 
 ### Types of higher-order functions
 
+A curried function returns a function, so its type has the form `something → (something → something)`.
+An example is the function `f` defined above: its type is written as `Natural → (Natural → Natural)`.
+
+```dhall
+let f : Natural → Natural → Natural
+  = λ(n : Natural) → λ(p : Natural) → p * 2 + n
+```
+
+Because curried functions are used often, most functional languages adopt the convention that the syntax for `→` associates to the right.
+Then parentheses can be omitted and one writes `Natural → Natural → Natural`.
+This syntax requires some getting used to.
+
+If a function of type `Natural → Natural` is an argument of another function, parentheses are _required_ for the type of that argument.
+An example is the function type `(Natural → Natural) → Natural`.
+
+Here are some higher-order functions annotated with their types:
+```dhall
+let q : (Natural → Natural) → Natural = λ(f : Natural → Natural) → f 123
+let r : (Natural → Natural) → Natural → Natural = λ(g : Natural → Natural) → λ(p : Natural) → g p + 123
+```
+
+All built-in functions have fixed, known types.
+For example, the function `Natural/subtract` has type `Natural → Natural → Natural`.
+
 ## Type parameters
 
-### Types and kinds
+### Values, types, and kinds
