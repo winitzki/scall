@@ -1,15 +1,13 @@
 # Functional programming from first principles
 
-We will derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
+We will logically derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
 
-## The principles of functional programming
+## Some principles of functional programming
 
-- A program is a (large) expression built up by combining smaller expressions. Any changeable part of a program is an expression.
-- Any expression can be replaced by another expression.
-- In particular, any expression can be replaced by a named constant assigned separately to the same expression.
-- That named constant can be also made into a parameter of a function. 
+- A program is a (large) expression built up by combining smaller expressions.
+- Any changeable part of a program can be replaced by another expression, giving us another valid program. 
+- In particular, any expression can be replaced by a named constant or by a parameter of a function.
 - Every expression has a certain type. Expressions with mismatched types are rejected.
-- Every expression may be replaced by another expression that evaluates to the same result. The program's result will not change.
 
 Let us see where these principles lead.
 
@@ -346,7 +344,12 @@ We can write that as `(f 123) 456`, or equivalently as `f 123 456` without paren
 
 1035
 ```
-The syntax `f 123 456` requires some time to get used to. Functions `f` that can be used in this way are known as **curried functions**.
+The syntax `f 123 456` requires some time to get used to.
+
+Functions `f` that can be used in this way are known as **curried functions**.
+
+Curried functions are often used by applying to all possible arguments at once, as `f 123 456` in this example.
+Typically one views `f` as a function of _two_ curried arguments `234` and `456`, although technically `f` has only one argument and returns a function with one argument.
 
 We see that the existence of curried functions is not a special feature of the language, but a necessary consequence of the principle that we should be able to refactor any expression into a function that will substitute a given part of that expression.
 
@@ -387,7 +390,7 @@ In that case, we need to be able to write a function whose argument is itself a 
 Consider the function `f` defined above. It contains `λ(p : Natural) → p * 2 + n` as a sub-expression.
 Suppose we need to replace the computation `p * 2` by another function of `p`.
 
-To express our intention more clearly, let us rewrite `f 123`, making this computation explicit:
+To express our intent more clearly, let us rewrite `f 123`, making this computation explicit:
 
 ```dhall
 let f = λ(n : Natural) →
@@ -443,7 +446,7 @@ let f : Natural → Natural → Natural
 ```
 
 Because curried functions are used often, most functional languages adopt the convention that the syntax for `→` associates to the right.
-Then parentheses can be omitted and one writes `Natural → Natural → Natural`.
+Then parentheses can be omitted, and one writes just `Natural → Natural → Natural`.
 This syntax requires some getting used to.
 
 If a function of type `Natural → Natural` is an argument of another function, parentheses are _required_ for the type of that argument.
@@ -460,4 +463,209 @@ For example, the function `Natural/subtract` has type `Natural → Natural → N
 
 ## Type parameters
 
-### Values, types, and kinds
+- Any changeable part of a program may be replaced by a parameter of a function.
+
+Let us apply this principle to _type annotations_.
+For example, we may want to replace the type `Natural` in the expression `λ(p : Natural) → p` by a parameter.
+Such parameters are called **type parameters**.
+
+Type parameters stand for unknown types. So, they are  different from parameters such as `p` `λ(p : Natural) → p` that stand for an unknown natural number value.
+We may call `p` a "value parameter" if we want to be more pedantic.
+
+A programming language must choose a syntax for type parameters. In some languages, type parameters must be capitalized, or they must be put in special brackets, and so on.
+
+In Dhall, the syntax for type parameters is quite similar to the syntax for value parameters: one writes `λ(t : Type) → ...`.
+Here, `Type` is a special built-in symbol, similar to the type symbol `Natural`.
+The syntax `t : Type` means that `t` is a type parameter that stands for some (as yet) unknown type.
+
+As an example of replacing types by type parameters in expressions, let us replace `Natural` in `λ(p : Natural) → p` by the type parameter `t`.
+The result is a function whose argument is `t`:
+
+```dhall
+λ(t : Type) → λ(p : t) → p
+```
+
+This function is similar to a curried function. It can be used with two curried arguments:
+
+```dhall
+⊢ let id = λ(t : Type) → λ(p : t) → p   in   id Natural 123
+
+123
+```
+
+Functions with type parameters are known in some programming languages as **generic functions** or **polymorphic functions**.
+
+For instance, the function `id` shown above may be called  the "polymorphic identity function".
+
+Polymorphic functions can work with values of any type, as long as that type is given as the type argument.
+
+Dhall has no features for determining what specific type `t` is; all we know is that `t` is a type (the annotation `t : Type`).
+When we are writing the code for the function body of a polymorphic function, we have to treat `t` as a completely unknown, arbitrary type.
+The function body cannot implement one special logic for `t = Natural`, another logic for `t = Natural → Natural`, and yet another logic for other `t`.
+A polymorphic function must work in the same way for all types.
+
+This property of functions is known as **parametric polymorphism** or "parametricity".
+
+For example, the function `id` shown above can work with type `Natural → Natural` just as well:
+
+```dhall
+⊢ let id = λ(t : Type) → λ(p : t) → p   in   id (Natural → Natural) (λ(p : Natural) → p * 2)
+
+λ(p : Natural) → p * 2
+```
+
+Another example of a polymorphic function is:
+
+```dhall
+λ(t : Type) → λ(p : t) → λ(q : t) → p
+```
+
+### Types of functions with type parameters
+
+- Any expression must have a certain type.
+
+So, we need a syntax for writing the types of polymorphic functions.
+
+Types of ordinary functions are written simply as `Natural → Natural` and so on.
+But this syntax is not sufficient for polymorphic functions because the type parameter must be used when describing the types of their arguments and return values.
+
+For example, the function `id` shown above:
+```dhall
+λ(t : Type) → λ(p : t) → p
+```
+has the first curried argument `t : Type`, the second curried argument `p : t`, and the final returned result is `p` (which has type `t`).
+We cannot write the type of this function as `Type → t → t` because the symbol `t` in that expression is undefined.
+
+Dhall uses special syntax to describe such types:
+
+```dhall
+∀(t : Type) → t → t
+```
+This reads as: "For all types `t` return a function of type `t → t`".
+
+Dhall also supports a more verbose syntax:
+```dhall
+∀(t : Type) → ∀(p : t) → t
+```
+In this syntax, the name `p` is written out, even though it is not used later in the type expression.
+
+We can see this syntax in a Dhall interactive session if we define the `id` function separately (using Dhall's `:let` directive in the REPL):
+
+```dhall
+⊢ :let id = λ(t : Type) → λ(p : t) → p
+
+id : ∀(t : Type) → ∀(p : t) → t
+
+⊢ id (Natural → Natural) (λ(p : Natural) → p * 2)
+
+λ(p : Natural) → p * 2
+```
+
+This form of the function type syntax shows how Dhall treats types and values in a largely similar way.
+
+### Functions from types to types
+
+Functions with type parameters follow from the principle that we should be able to a function argument by a type.
+The result is that we obtain a function whose first argument is a type parameter.
+
+We may apply the same principle also to the returned value of a function.
+So, now we would like to replace the returned value of a function by a type. 
+
+The result is a function that _returns a type_.
+
+The argument of such a function could be either a value parameter or a type parameter.
+If it is a type parameter, we obtain a function from types to types.
+
+An example of such a function is the Dhall built-in symbol `List`.
+This symbol can be used as `List Natural`, `List Bool`, or `List (Natural → Natural)` to denote lists whose elements have a given type.
+For example, we may write:
+```dhall
+[ True, False, True ] : List Bool
+```
+and:
+```dhall
+[ 1, 2, 3, 4, 5 ] : List Natural
+```
+and:
+```dhall
+[ λ(p : Natural) → p * 2, λ(p : Natural) → p * p, λ(p : Natural) → 123 ] : List (Natural → Natural)
+```
+
+Note that `List` itself is not a type that has values. It is not valid to write `[ 1, 2, 3 ] : List`.
+We must apply `List` to a type parameter in order to get a type that has values.
+
+It is inconvenient to say "the type of a type". So, types of types are called **kinds**.
+The symbol `Type` itself is a "kind".
+
+Types that has values, such as `Natural` or `List Bool`, have kind `Type`.
+
+The symbol `List` itself has kind `Type → Type`, indicating that `List` is a function that maps types to types.
+
+Dhall has another built-in symbol of the same kind: `Optional`.
+
+Note that `List` and `Optional` are not just any functions that map types to types.
+These functions always create a new type as a result.
+For instance, `List Bool` is not the same type as `Bool`, and not the same type as any other type that's not computed as `List Bool`.
+
+Type-to-type functions that always create a new type are usually called **type constructors**.
+
+## Values, types, and kinds
+
+- Any expression must have a certain type.
+
+If types are expressions then each type must itself have a type.
+
+In most programming languages, types are not expressions.
+Even in languages that support type parameters, types themselves often cannot have type annotations.
+
+But if we persist in applying this principle further, we arrive at a language where each type _needs_ to have a type.
+
+In Dhall, each value indeed has a type, and each type also has a type (it is called "kind").
+For example, the value `123` has type `Natural`, and the function `λ(p : Natural) → p * 2` has type `Natural → Natural`.
+These types themselves have kind `Type`.
+
+This is consistent with the syntax for type parameters: the type parameter is annotated as `λ(t : Type) → ...`.
+When we apply a polymorphic function in Dhall, we need to write the type parameter.
+
+In other languages, type parameters may be omitted when the compiler is able to figure out what they must be; but Dhall requires explicit type parameters.
+
+The type parameter `t` could be assigned to `Natural` and `Natural → Natural` when a polymorphic function is applied.
+So, we see that `Natural → Natural` has kind `Type`.
+
+The syntax for type annotations is the same for values (`123 : Natural`) and for types (`Natural : Type`).
+
+What is the type of `Type` itself? In Dhall, that type is denoted by the built-in symbol `Kind`, and it is called a **sort**.
+
+Other types of sort `Kind` are `Type → Type` or `Type → Type → Type` and other type-level functions.
+
+What is the type of `Kind`? In Dhall, it is called `Sort`.
+Another example of a type of sort `Sort` is `Kind → Kind`.
+
+### Type universes
+
+The principle that everything should have a type means that we have an infinite sequence of type symbols.
+This is an inconvenient feature of programming languages that take the typing principle to its limit.
+Such languages (Agda, Idris, Lean, etc.) need to support an infinite sequence of type symbols, each denoting the type of the previous one: `Type0` has type `Type1`; `Type1` has type `Type2`; `Type2` has type `Type3` and so on.
+Those type symbols are called **type universes**.
+
+The Dhall language makes a decision to cut the infinite sequence of type universes after `Sort`.
+So, in Dhall the symbol `Sort` does _not_ itself has a type.
+If `Sort` used in situations where its type were needed (for example, as the type of a function argument or a function return value) then Dhall indicates a type error and does not accept the program. 
+
+As a result, Dhall has only three type universes: `Type`, `Kind`, `Sort` (corresponding to `Type0`, `Type1`, `Type2` in other languages).
+
+In practice, the restriction to three type universes is not a significant limitation.
+One consequence of that limitation is Dhall's inability to implement a kind-parametric list as a user-defined data type.
+Dhall programs can implement user-defined data structures of the following shapes:
+
+- Lists of values such as `[ 1, 2, 3]`; that is, lists of values of a specific type.
+- lists of simple types such as `[ Natural, Natural → Natural, Bool ]` (a "type-level" list). Each type in that list has kind `Type`.
+- Lists of types that all belong to a given specific kind. For example, the list `[ Option, List, Option ]` where each type has kind `Type → Type`.
+
+But Dhall cannot implement a kind-polymorphic list parameterized by an arbitrary kind.
+
+In practice, the need for such data structures appears to be rare.
+
+In a language that supports infinitely many type universes, one can implement a fully "universe-polymorphic" list; that is, a list of types belonging to an arbitrary type universe.
+
+The problem with type universes is that there isn't a reasonable practical need for infinitely many different type universes; and yet the language forces the programmer to consider them and to write code supporting them.
