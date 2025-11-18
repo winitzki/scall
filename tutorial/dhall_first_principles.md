@@ -40,9 +40,10 @@ The operation `#` concatenates lists. For example, `[1, 2, 3] # [10, 20]` evalua
 
 ### Variable assignments
 
-- Any part of a program should replaceable by a named constant. We need some syntax for that.
+- Any part of a program should replaceable by a named constant.
 
-The syntax must be able to specify that, say, "in whatever program that follows, the name `x` will stand for the expression `10 + 20 * 30`".
+We need some syntax for that.
+The syntax must be able to specify that, for example, "in the program that follows, the name `x` will stand for the expression `10 + 20 * 30`".
 
 Dhall has the following syntax:
 
@@ -80,6 +81,12 @@ That sort of syntax is similar to what is used in Scala. However, Scala requires
   val x = 10 + 20 * 30
   x * x * x
 }
+```
+
+Haskell supports another syntax where variables are defined after the expressions:
+
+```haskell
+x * x * x  where x = 10 + 20 * 30
 ```
 
 It is not very important what syntax we use. It is important that the entire code is a single expression that is evaluated to a result value (or a result expression). The syntax "`let a = b in c`" emphasizes this better than the syntax "`a = b; c`".
@@ -203,7 +210,8 @@ For example, Dhall has a built-in function `Natural/subtract`:
 Natural/subtract 5 10
 ```
 
-In the Dhall syntax, functions are applied to arguments without parentheses. If `f` is a function, we can just write `f 123` instead of `f(123)`.
+In the Dhall syntax, functions are applied to arguments without parentheses.
+If `f` is a function, we can just write `f 123` instead of `f(123)`.
 
 - Because expressions can be used anywhere, `(123)` and `123` is always the same.
 
@@ -415,7 +423,7 @@ Generally, functions that return other functions as their result values, and/or 
 
 So, all curried functions are higher-order functions.
 
-## Function types
+## Step 3: Function types
 
 - Every expression must have a type.
 
@@ -429,7 +437,7 @@ We can check that a function has the type we expect:
 ```dhall
 ( λ(p : Natural) → p * 2 + 123 ) : Natural → Natural
 ```
-It is convenient when the type annotation can be written next to a defined variable:
+A type annotation can be also written when defining a variable:
 
 ```dhall
 let g : Natural → Natural = λ(p : Natural) → p * 2 + 123
@@ -461,7 +469,7 @@ let r : (Natural → Natural) → Natural → Natural = λ(g : Natural → Natur
 All built-in functions have fixed, known types.
 For example, the function `Natural/subtract` has type `Natural → Natural → Natural`.
 
-## Type parameters
+## Step 4: Type parameters
 
 - Any changeable part of a program may be replaced by a parameter of a function.
 
