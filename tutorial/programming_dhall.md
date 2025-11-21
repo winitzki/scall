@@ -192,10 +192,6 @@ So, the following code is just as valid (although may be confusing):
 let inc : ∀(a : Natural) → Natural = λ(b : Natural) → b + 1
 ```
 
-#### Shadowing and the syntax for de Bruijn indices
-
-TODO
-
 #### Curried functions
 
 All Dhall functions have just one argument.
@@ -237,6 +233,110 @@ This allows Dhall to implement a rich set of type-level features:
 - Type constructors, via functions of type `Type → Type` (both the input and the output is a type).
 - Type constructor parameters: for example, `λ(F : Type → Type) → λ(A : Type) → λ(x : F A) → ...`
 - Dependent types: functions whose inputs are values and outputs are types.
+
+
+#### Shadowing and the syntax for de Bruijn indices
+
+De Bruijn indices are numbers that disambiguate shadowed variables in function bodies.
+
+Consider a curried function that shadows a variable:
+
+```dhall
+let _ = λ(x : Natural) → λ(x : Natural) → 123 + x
+```
+The inner function shadows the outer `x`; inside the inner function body, `123 + x` refers to the inner `x`.
+The outer `x` is a **shadowed variable**.
+
+In most programming languages, one cannot directly refer to shadowed variables.
+Instead, one needs to rename the inner `x` to `t`:
+
+```dhall
+let _ = λ(x : Natural) → λ(t : Natural) → 123 + t
+```
+Now the function body could (if necessary) refer to the outer `x`.
+
+What if we do not want (or cannot) rename `x` to `t`
+but still want to refer to the outer `x`? In Dhall, we write `x@1` for that:
+
+```dhall
+let _ = λ(x : Natural) → λ(x : Natural) → 123 + x@1
+```
+The `1` in `x@1` is called the **de Bruijn index** of the outer variable `x`.
+
+De Bruijn indices are non-negative integers.
+We usually do not write `x@0`, we write just `x` instead.
+
+Each de Bruijn index points to a specific nested lambda in some outer scope for a variable with a given name.
+For example, look at this code:
+
+```dhall
+let _ = λ(x : Natural) → λ(t : Natural) → λ(x : Natural) → 123 + x@1
+```
+The variable `x@1` still points to the outer `x`. The presence of another lambda with the argument `t` does not matter for counting the nesting depth for `x`.
+
+It is invalid to use a de Bruijn index that is greater than the total number of nested lambdas.
+For example, these expressions are invalid at the top level (as there cannot be any outer scope):
+```dhall
+λ(x : Natural) → 123 + x@1  -- Where is x@1 ???
+
+λ(x : Natural) → λ(x : Natural) → 123 + x@2  -- Where is x@2 ???
+```
+At the top level, these expressions are just as invalid as the expression `123 + x` because `x` remains undefined.
+
+The variable `x` in the expression `123 + x` is considered a "free variable", meaning that it should have been defined in the outer scope.
+
+Similarly, `x@1` in `λ(x : Natural) → 123 + x@1` is a free variable.
+
+At the top level, all variables must be bound. One cannot evaluate expressions with free variables at the top level.
+Expressions with free variables must be within bodies of some functions that bind their free variables.
+
+In principle, nonzero de Bruijn indices could be always eliminated by renaming some bound variables.
+The advantage of using de Bruijn indices is that we can refer to every variable in every scope without need to rename any variables.
+
+To illustrate the usage of de Bruijn indices, consider how we would proceed with a symbolic evaluation of a function applied to an argument.
+
+When a function of the form `λ(x...) → ...` is applied to an argument, we will need to substitute that `x`.
+It turns out that we may need to change some de Bruijn indices in the function body.
+
+As an example, suppose we would like to evaluate a function applied to an argument in this code:
+
+```dhall
+( λ(x : Natural) → λ(y : Natural) → λ(x : Natural) → x + x@1 + x@2 ) y  -- Symbolic derivation.
+```
+This expression has free variables `y` and `x@2`, so it can occur only under some functions that bind `x` and `y`.
+For the purposes of this example, let us define `function1` that contains the above code as its function body:
+
+```dhall
+let function1 = λ(x : Natural) → λ(y : Natural) →
+  ( λ(x : Natural) → λ(y : Natural) → λ(x : Natural) → x + x@1 + x@2 ) y
+```
+
+Suppose we need to evaluate this expression (that is, evaluate "under a lambda").
+In other words, we need to simplify the body of `function1` before applying that function.
+
+To evaluate this expression correctly, we cannot simply substitute `y` instead of `x` in the body of the function. Note that:
+
+- The outer `x` corresponds to `x@1` within the expression, so we need to substitute `y` instead of `x@1` while keeping `x` and `x@2` unchanged.
+- Another `y` is already bound in an inner scope; so, we need to write `y@1` instead of `y`, in order to refer to the free variable `y` in the outside scope.
+- When we remove the outer `x`, the free variable `x@2` will need to become `x@1`.
+
+So, the result of evaluating the above expression must be:
+
+```dhall
+λ(y : Natural) → λ(x : Natural) → x + y@1 + x@1  -- Symbolic derivation.
+```
+
+We can verify that Dhall actually performs this evaluation:
+
+```dhall
+⊢ λ(x : Natural) → λ(y : Natural) → ( λ(x : Natural) → λ(y : Natural) → λ(x : Natural) → x + x@1 + x@2 ) y
+
+λ(x : Natural) →
+λ(y : Natural) →
+λ(y : Natural) →
+λ(x : Natural) →
+  x + y@1 + x@1
+```
 
 ### Product types (records)
 

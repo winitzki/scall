@@ -34,3 +34,5 @@ Features that are good to have in IDE support for Dhall:
 - Work with typed holes
 - Simplify arithmetic with Bool, Natural, Integer inline
 - Import from JSON / YAML, optionally with schemas
+- Convert from JSON schema to Dhall type
+
