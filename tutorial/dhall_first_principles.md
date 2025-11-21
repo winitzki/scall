@@ -1,8 +1,8 @@
-# Functional programming from first principles
+## Functional programming from first principles
 
-We will logically derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
+One can logically derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
 
-## Some principles of functional programming
+#### Some principles of functional programming
 
 - A program is a (large) expression built up by combining smaller expressions.
 - Any changeable part of a program can be replaced by another expression, giving us another valid program. 
@@ -11,16 +11,16 @@ We will logically derive a functional programming language similar to Dhall by f
 
 Let us see where these principles lead.
 
-## Step 1: Literal values, operations, variables 
+### Step 1: Literal values, operations, variables 
 
-### Literal numbers
+#### Literal numbers
 We expect the language to handle natural numbers (`0`, `1`, ...) and operations with them (`+` and `*`).
 
-### Operations on numbers
+#### Operations on numbers
 
 We expect this to get evaluated to `610`:
 
-```dhall
+```haskell
 10 + 20 * 30
 ```
 
@@ -28,17 +28,17 @@ We expect this to get evaluated to `610`:
 
 - We expect `10` and `20 * 30` also to be expressions.
 
-### Literal lists
+#### Literal lists
 
 Dhall writes lists like this:
 
-```dhall
+```haskell
 [1, 2, 3]
 ```
 
 The operation `#` concatenates lists. For example, `[1, 2, 3] # [10, 20]` evaluates to the list `[1, 2, 3, 10, 20]`. 
 
-### Variable assignments
+#### Variable assignments
 
 - Any part of a program should replaceable by a named constant.
 
@@ -47,7 +47,7 @@ The syntax must be able to specify that, for example, "in the program that follo
 
 Dhall has the following syntax:
 
-```dhall
+```haskell
 let x = 10 + 20 * 30  in  <rest_of_program>
 ```
 
@@ -56,13 +56,13 @@ let x = 10 + 20 * 30  in  <rest_of_program>
 
 A simple example:
 
-```dhall
+```haskell
 let x = 10 + 20 * 30   in   x * x * x
 ```
 
 This program evaluates to `226981000`:
 
-```dhall
+```haskell
 ⊢ let x = 10 + 20 * 30   in   x * x * x
 
 226981000
@@ -70,7 +70,7 @@ This program evaluates to `226981000`:
 
 We usually say that we have defined a "variable" `x`, although `x` is actually a constant and can never change within the program that follows.
 
-### Alternative syntax
+#### Alternative syntax
 
 The syntax `let a = b in c` is certainly not the only one possible. Another syntax could be just `a = b; c` say.
 
@@ -91,18 +91,18 @@ x * x * x  where x = 10 + 20 * 30
 
 It is not very important what syntax we use. It is important that the entire code is a single expression that is evaluated to a result value (or a result expression). The syntax "`let a = b in c`" emphasizes this better than the syntax "`a = b; c`".
 
-### Multiple variables
+#### Multiple variables
 
 We will usually separate variable assignments vertically in Dhall:
 
-```dhall
+```haskell
 let x = 10 + 20 * 30
 in x * x * x
 ```
 
 - Because the above is a valid program, we should be able to add more "let" definitions to it:
 
-```dhall
+```haskell
 let y = 2
 let x = 10 + 20 * 30
 in x + y
@@ -114,7 +114,7 @@ It follows that Dhall programs must have this form: `let` ... `let` ... `in` ...
 
 There is nothing else we can write, because the entire program must be a single expression.
 
-### Nested variable definitions
+#### Nested variable definitions
 
 - Any part of an expression can be replaced by another expression.
 
@@ -127,17 +127,17 @@ In Dhall, we use parentheses to separate sub-expressions, like in mathematics. W
 
 So, we write:
 
-```dhall
+```haskell
 10 + (let p = 10 in p + p) * 30
 ```
 
 In this way, we can write `let` inside expressions at any place.
 
-### Types
+#### Types
 
 It is invalid to add a number to a list with a `+`. Let us write an artificial example where we use types incorrectly:
 
-```dhall
+```haskell
 let x = 10
 let y = [20, 30]
 in x + y 
@@ -151,7 +151,7 @@ This is a **type error**: the type of both arguments of `+` must be `Natural`, b
 
 We can use the Dhall command `:type` to figure out the type of any value. Then we find that `[20, 30]` has type `List Natural`: 
 
-```dhall
+```haskell
 ⊢ :type 10
 
 Natural
@@ -165,7 +165,7 @@ All types must match when we apply functions to arguments. The expression `10 + 
 
 To make sure our values have correct types and to detect errors earlier, we may add type annotations to Dhall programs. A natural place to add a type annotation is with the syntax `let x : A = b`:
 
-```dhall
+```haskell
 let x : Natural = 10
 let y : Natural = [20, 30]
 in x + y 
@@ -182,7 +182,7 @@ The Dhall syntax for type annotations is `x : <type>`. This is also the syntax c
 
 Because the separator symbol `:` is not used in any other way, we may write type annotations at any place:
 
-```dhall
+```haskell
 (10 + (20 : Natural) * 30) : Natural
 ```
 
@@ -198,15 +198,15 @@ Then the compiler reports an error that types do not match somewhere else in the
 Such errors would be reported at the right place if the code had type annotations.
 In practice, the error is more often in the code, not in the type annotations.
 
-## Step 2: Functions
+### Step 2: Functions
 
-### Built-in functions
+#### Built-in functions
 
 At this point we are able to compute simple arithmetic expressions.
 It is certainly useful to add more built-in functions to the language.
 For example, Dhall has a built-in function `Natural/subtract`:
 
-```dhall
+```haskell
 Natural/subtract 5 10
 ```
 
@@ -225,7 +225,7 @@ In Dhall, parentheses are written only when needed to separate sub-expressions. 
 
 In Dhall, the function `Natural/subtract x y` takes one argument `x` and returns another function, which takes another argument `y` and then returns `y - x` if both `x` and `y` are natural numbers.
 
-### User-defined functions
+#### User-defined functions
 
 - For any sub-expression, we should be able to write a function that substitutes that sub-expression.
 
@@ -235,7 +235,7 @@ The language should allow us to specify that we have a function that takes an ar
 
 The Dhall syntax for that function looks like this:
 
-```dhall
+```haskell
 λ(n : Natural) → 10 + n * 30
 ```
 
@@ -243,7 +243,7 @@ We may read that as "here's a function that takes a value of type Natural substi
 
 This function is a value; this text is a Dhall program that evaluates to that function. There is nothing more to simplify in that expression:
 
-```dhall
+```haskell
 ⊢ λ(n : Natural) → 10 + n * 30
 
 λ(n : Natural) → 10 + n * 30
@@ -256,7 +256,7 @@ The syntax just needs to put separators between the name of the function's symbo
 
 So, functions are also values and may be assigned to variables.
 
-```dhall
+```haskell
 let f = λ(n : Natural) → 10 + n * 30
 in f 2
 ```
@@ -269,7 +269,7 @@ For example, in the program shown above, we should be able to substitute some ot
 
 We should be able to do that in the same way: We just begin a new function having a new symbolic parameter. Then we put that parameter into the expression at the right place:
 
-```dhall
+```haskell
 λ(p : Natural) →
   let f = λ(n : Natural) → p + n * 30
   in f 2   -- Line indentations are _not_ significant in Dhall.
@@ -283,7 +283,7 @@ How can we write code that applies such a function to an argument `10`? There ar
 
 First program:
 
-```dhall
+```haskell
 let q = λ(p : Natural) →
   let f = λ(n : Natural) → p + n * 30
   in f 2
@@ -292,7 +292,7 @@ in q 10
 
 Second program:
 
-```dhall
+```haskell
 (
 λ(p : Natural) →
   let f = λ(n : Natural) → p + n * 30
@@ -302,7 +302,7 @@ Second program:
 
 Both programs evaluate to `70`.
 
-### Equivalence of functions and "let" expressions
+#### Equivalence of functions and "let" expressions
 
 We can see that the language has two ways of doing the same thing.
 Indeed, "let" expressions can be rewritten via functions:
@@ -318,7 +318,7 @@ It looks more visual to write with "let" expressions but it's equivalent.
 
 (Below we will see one exception where it is _not_ equivalent in Dhall to replace a "let" expression with a function, but it is a rare corner case involving type aliases.)
 
-### Curried functions
+#### Curried functions
 
 - A function should be able to substitute values in any expression.
 
@@ -327,27 +327,27 @@ This means we have a function that _returns another function_.
 
 Begin by writing just a simple function:
 
-```dhall
+```haskell
 λ(p : Natural) → p * 2 + 123
 ```
 We would like to replace `123` in this function by an arbitrary value `n`.
 So, we write a function whose parameter is `n` and whose return value is the above function with `n` instead of `123`.
 
-```dhall
+```haskell
 λ(n : Natural) → 
     λ(p : Natural) → p * 2 + n
 ```
 
 How can we use this function? We need to apply it to an argument. Let us denote this function by `f`, and apply to an argument as `f 123`:
 
-```dhall
+```haskell
 ⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123
 
 λ(p : Natural) → p * 2 + 123
 ```
 The result of evaluating `f 123` is a function. So, we can apply that function to another argument.
 We can write that as `(f 123) 456`, or equivalently as `f 123 456` without parentheses:
-```dhall
+```haskell
 ⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123 456
 
 1035
@@ -361,11 +361,11 @@ Typically one views `f` as a function of _two_ curried arguments `234` and `456`
 
 We see that the existence of curried functions is not a special feature of the language, but a necessary consequence of the principle that we should be able to refactor any expression into a function that will substitute a given part of that expression.
 
-### Value capture in functions
+#### Value capture in functions
 
 A curried function may return a function whose body includes a "captured" parameter. We have seen this in the code above:
 
-```dhall
+```haskell
 ⊢ let f = λ(n : Natural) → λ(p : Natural) → p * 2 + n  in  f 123
 
 λ(p : Natural) → p * 2 + 123
@@ -374,7 +374,7 @@ The parameter `n` was set to `123`, which is "captured" in the new function body
 
 If we are working inside a function where some more parameters are defined and then `f` is called on a parameter then the resulting function will "capture" that parameter:
 
-```dhall
+```haskell
 -- Previous code defines some parameters:
 λ(a : Natural) → λ(b : Natural) → λ(c : Natural) →
   let w = f b   -- So, w = λ(p : Natural) → p * 2 + b
@@ -389,7 +389,7 @@ The expression `λ(b : Natural) → b + w c` shown above will _not_ be translate
 This behavior follows from our expectation that `w` must be a fixed, immutable value.
 Even if `w` is a function whose body refers to the name `b`, the value under that name is fixed and will not change even if some other variable named `b` is defined in a local scope. 
 
-### Higher-order functions
+#### Higher-order functions
 
 The language should allow us to write a function that replaces a given sub-expression by an argument value.
 That sub-expression could be itself a function expression.
@@ -400,7 +400,7 @@ Suppose we need to replace the computation `p * 2` by another function of `p`.
 
 To express our intent more clearly, let us rewrite `f 123`, making this computation explicit:
 
-```dhall
+```haskell
 let f = λ(n : Natural) →
   let g = λ(p : Natural) → p * 2
   in λ(p : Natural) → g p + n
@@ -409,7 +409,7 @@ in f 123
 
 Now we replace `g` by a new parameter; this gives us a new function:
 
-```dhall
+```haskell
 let r = λ(g : Natural → Natural) → 
           let f = λ(n : Natural) →
             λ(p : Natural) → g p + n
@@ -423,7 +423,7 @@ Generally, functions that return other functions as their result values, and/or 
 
 So, all curried functions are higher-order functions.
 
-## Step 3: Function types
+### Step 3: Function types
 
 - Every expression must have a type.
 
@@ -434,21 +434,21 @@ It means a function that takes an argument of type `Natural` and returns a resul
 
 We can check that a function has the type we expect:
 
-```dhall
+```haskell
 ( λ(p : Natural) → p * 2 + 123 ) : Natural → Natural
 ```
 A type annotation can be also written when defining a variable:
 
-```dhall
+```haskell
 let g : Natural → Natural = λ(p : Natural) → p * 2 + 123
 ```
 
-### Types of higher-order functions
+#### Types of higher-order functions
 
 A curried function returns a function, so its type has the form `something → (something → something)`.
 An example is the function `f` defined above: its type is written as `Natural → (Natural → Natural)`.
 
-```dhall
+```haskell
 let f : Natural → Natural → Natural
   = λ(n : Natural) → λ(p : Natural) → p * 2 + n
 ```
@@ -461,7 +461,7 @@ If a function of type `Natural → Natural` is an argument of another function, 
 An example is the function type `(Natural → Natural) → Natural`.
 
 Here are some higher-order functions annotated with their types:
-```dhall
+```haskell
 let q : (Natural → Natural) → Natural = λ(f : Natural → Natural) → f 123
 let r : (Natural → Natural) → Natural → Natural = λ(g : Natural → Natural) → λ(p : Natural) → g p + 123
 ```
@@ -469,7 +469,7 @@ let r : (Natural → Natural) → Natural → Natural = λ(g : Natural → Natur
 All built-in functions have fixed, known types.
 For example, the function `Natural/subtract` has type `Natural → Natural → Natural`.
 
-## Step 4: Type parameters
+### Step 4: Type parameters
 
 - Any changeable part of a program may be replaced by a parameter of a function.
 
@@ -489,13 +489,13 @@ The syntax `t : Type` means that `t` is a type parameter that stands for some (a
 As an example of replacing types by type parameters in expressions, let us replace `Natural` in `λ(p : Natural) → p` by the type parameter `t`.
 The result is a function whose argument is `t`:
 
-```dhall
+```haskell
 λ(t : Type) → λ(p : t) → p
 ```
 
 This function is similar to a curried function. It can be used with two curried arguments:
 
-```dhall
+```haskell
 ⊢ let id = λ(t : Type) → λ(p : t) → p   in   id Natural 123
 
 123
@@ -516,7 +516,7 @@ This property of functions is known as **parametric polymorphism** or "parametri
 
 For example, the function `id` shown above can work with type `Natural → Natural` just as well:
 
-```dhall
+```haskell
 ⊢ let id = λ(t : Type) → λ(p : t) → p   in   id (Natural → Natural) (λ(p : Natural) → p * 2)
 
 λ(p : Natural) → p * 2
@@ -524,11 +524,11 @@ For example, the function `id` shown above can work with type `Natural → Natur
 
 Another example of a polymorphic function is:
 
-```dhall
+```haskell
 λ(t : Type) → λ(p : t) → λ(q : t) → p
 ```
 
-### Types of functions with type parameters
+#### Types of functions with type parameters
 
 - Any expression must have a certain type.
 
@@ -538,7 +538,7 @@ Types of ordinary functions are written simply as `Natural → Natural` and so o
 But this syntax is not sufficient for polymorphic functions because the type parameter must be used when describing the types of their arguments and return values.
 
 For example, the function `id` shown above:
-```dhall
+```haskell
 λ(t : Type) → λ(p : t) → p
 ```
 has the first curried argument `t : Type`, the second curried argument `p : t`, and the final returned result is `p` (which has type `t`).
@@ -546,20 +546,20 @@ We cannot write the type of this function as `Type → t → t` because the symb
 
 Dhall uses special syntax to describe such types:
 
-```dhall
+```haskell
 ∀(t : Type) → t → t
 ```
 This reads as: "For all types `t` return a function of type `t → t`".
 
 Dhall also supports a more verbose syntax:
-```dhall
+```haskell
 ∀(t : Type) → ∀(p : t) → t
 ```
 In this syntax, the name `p` is written out, even though it is not used later in the type expression.
 
 We can see this syntax in a Dhall interactive session if we define the `id` function separately (using Dhall's `:let` directive in the REPL):
 
-```dhall
+```haskell
 ⊢ :let id = λ(t : Type) → λ(p : t) → p
 
 id : ∀(t : Type) → ∀(p : t) → t
@@ -571,7 +571,7 @@ id : ∀(t : Type) → ∀(p : t) → t
 
 This form of the function type syntax shows how Dhall treats types and values in a largely similar way.
 
-### Functions from types to types
+#### Functions from types to types
 
 Functions with type parameters follow from the principle that we should be able to a function argument by a type.
 The result is that we obtain a function whose first argument is a type parameter.
@@ -587,15 +587,15 @@ If it is a type parameter, we obtain a function from types to types.
 An example of such a function is the Dhall built-in symbol `List`.
 This symbol can be used as `List Natural`, `List Bool`, or `List (Natural → Natural)` to denote lists whose elements have a given type.
 For example, we may write:
-```dhall
+```haskell
 [ True, False, True ] : List Bool
 ```
 and:
-```dhall
+```haskell
 [ 1, 2, 3, 4, 5 ] : List Natural
 ```
 and:
-```dhall
+```haskell
 [ λ(p : Natural) → p * 2, λ(p : Natural) → p * p, λ(p : Natural) → 123 ] : List (Natural → Natural)
 ```
 
@@ -617,7 +617,7 @@ For instance, `List Bool` is not the same type as `Bool`, and not the same type 
 
 Type-to-type functions that always create a new type are usually called **type constructors**.
 
-## Values, types, and kinds
+### Step 5: Values, types, and kinds
 
 - Any expression must have a certain type.
 
@@ -649,7 +649,7 @@ Other types of sort `Kind` are `Type → Type` or `Type → Type → Type` and o
 What is the type of `Kind`? In Dhall, it is called `Sort`.
 Another example of a type of sort `Sort` is `Kind → Kind`.
 
-### Type universes
+#### Type universes
 
 The principle that everything should have a type means that we have an infinite sequence of type symbols.
 This is an inconvenient feature of programming languages that take the typing principle to its limit.
