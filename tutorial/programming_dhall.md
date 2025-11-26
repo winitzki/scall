@@ -3951,13 +3951,19 @@ Here, we use the built-in function `List/fold` that has the following type:
 let _ = List/fold : ∀(a : Type) → List a → ∀(r : Type) → ∀(cons : a → r → r) → ∀(nil : r) → r
 ```
 
-A functor is called a **traversable functor** if it supports a method called `traverse` with the type signature written in Haskell like this:
+The `foldMap` function works with an arbitrary monoid type `m` and converts a data structure of type `F a` into a value of type `m` using a function of type `a → m`.
+One can generalize `foldMap` by replacing an arbitrary monoid by an arbitrary _applicative functor_, as the properties of applicative functors are somewhat similar to the properties of monoids.
+The result of this generalization is a method known as `traverse` that converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
+
+
+The type signature of  `traverse` is written in Haskell like this:
 
 ```haskell
 -- Haskell.
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
 ```
-It is important that this method is parameterized by an _arbitrary_ applicative functor `L`.
+It is important that this function is _parameterized_ by `L`.
+Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method must work in the same way for all types `a`, `b` and for all applicative functors `L`.
 
 Rewriting this type signature in Dhall as a type `TraverseT` and making `F` an explicit type parameter, we get:
 
@@ -3967,21 +3973,29 @@ let TraverseT = λ(F : Type → Type) → ∀(L : Type → Type) → Applicative
 ```
 Note how the Haskell typeclass constraint (`Applicative L => ...`) is translated into an evidence argument in Dhall.
 
-The requirement of having a `traverse` method can be formulated via a `Traversable` typeclass:
+A functor is called a **traversable functor** if it supports the `traverse` method.
+This property  can be formulated via the `Traversable` typeclass:
 
 ```dhall
 let Traversable = λ(F : Type → Type) → { traverse : TraverseT F }
 ```
 
-Defined via the `Applicative` typeclass, the `traverse` method should work in the same way for any applicative functor `L`.
+Given a `Traversable` typeclass evidence, one can derive the `Foldable` evidence by using a constant applicative functor:
+
+TODO: show this code
+
+TODO: show examples of implementing Foldable and Traversable for some non-recursive data types
 
 We remark without proof that:
 
 - Any traversable functor is also foldable.
-- The formulations of the "foldable" property via `foldMap` and via `toList` are equivalent.
+- The formulations of the "foldable" property via `foldMap`, via `fold`, and via `toList` are equivalent.
 - All polynomial functors are both foldable and traversable.
-- All traversable functors are polynomial.
+- All traversable or foldable functors are polynomial.
 
+Usually, there is more than one way of defining a `Foldable F` and a `Traversable F` evidence for a given functor `F`.
+Different definitions correspond to different ways of iterating over values of type `t` that are stored in a data structure of type `F t`.
+For example, if `F` is `List` then we could iterate over the data in the list in the direct order (`1, 2, 3, 4, 5, 6`), in the inverse order (`6, 5, 4, 3, 2, 1`), or in some other arbitrarily chosen order: say, `2, 1, 4, 3, 6, 5` and so on.
 
 ### Inheritance of typeclasses
 
@@ -5249,7 +5263,8 @@ let Nat/fold : Nat → ∀(r : Type) → (r → r) → r → r
 ```
 
 In principle, natural numbers and all their standard arithmetical operations (addition, multiplication and so on) can be implemented purely in terms of the Church-encoded type `Nat`.
-For efficiency, Dhall implements natural numbers as a built-in type `Natural` with the built-in function `Natural/fold` instead of using the Church encoding.
+For efficiency, Dhall implements natural numbers as a built-in type `Natural` instead of using the Church encoding.
+Dhall substitutes native code for the built-in functions such as `Natural/fold`, `Natural/subtract`, and others.
 
 ### Adding values in a list
 
@@ -10601,16 +10616,20 @@ It turns out to be equivalent (but simpler) if we require a method called `toLis
 This method should extract all data stored in a functor and put that data into a list (in some fixed order).
 Once the data is extracted, we can apply the standard `List/fold` method to that list.
 
-So, let us define the typeclass `Foldable` through the `toList` method:
+With this in mind, chapter "Typeclasses" defines the typeclass `Foldable` through the `toList` method:
 
 ```dhall
 let Foldable = ∀(F : Type → Type) → ∀(a : Type) → F a → List a
 ```
 
-Only functors are foldable in a non-trivial way.
-To be more precise, we might add a `Functor F` typeclass constraint to the definition of `Foldable`.
+A related method is `foldMap`
 
-TODO: formulate Foldable via toList, and explain the generalization to Traversable 
+Only functors can be foldable or traversable.
+So, we will assume that a `Functor F` typeclass evidence is always available for foldable and traversable functors.
+ 
+
+
+TODO:  explain the generalization to Traversable 
 
 ## Monads and their combinators
 
