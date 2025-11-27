@@ -3926,10 +3926,42 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
 
 ### Foldable and traversable functors
 
-A functor `F` is called a **foldable functor** if one can extract all data of type `t` stored in a data structure of type `F t`.
-This extraction operation can be implemented as a method `toList` with the type signature `F t → List t`.
+The standard library function `List/fold` corresponds to the "right fold" known in other functional languages.
+This folding operation implements a general **fold-like aggregation** on lists.
+It turns out that this operation can be generalized to many other data types.
+Type constructors that support a `fold` operation are called "foldable" functors.
 
-We will use this operation to define the `Foldable` typeclass in Dhall:
+The type signature of `List/fold` is:
+
+```dhall
+⊢ :type List/fold
+
+∀(a : Type) → List a → ∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list
+```
+
+Compare this with the standard type signature of `foldr` in Haskell:
+
+```haskell
+foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b
+```
+The type parameters `a`, `b` do not need to be introduced explicitly in Haskell.
+In Dhall, we need to write `∀(a : Type) → ...` and `∀(b : Type) → ...` at the appropriate places.
+The Dhall and Haskell type signatures are equivalent if we set `t = List`, `b = list`, and move the curried argument `t a` to the front of the type signature.
+
+This comparison shows us how to generalize the type signature of `List/fold` to other functors `F`:
+
+```dhall
+let FoldT = ∀(F : Type → Type) → ∀(a : Type) → F a → ∀(b : Type) → (a → b → b) → b → b
+```
+So, we could have defined the `Foldable` typeclass by the requirement that a function of type `FoldT F` exists.
+
+It turns out to be equivalent (but simpler) if we require a method called `toList`, with type signature `F a → List a`.
+This method should extract all data stored in a data structure of type `F a` and put that data into a list (in some fixed order).
+Once the data is extracted, we can apply the standard `List/fold` method to that list.
+
+A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `F t → List t`.
+
+With this motivation, we define the `Foldable` typeclass in Dhall:
 ```dhall
 let Foldable
   = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
@@ -10583,53 +10615,17 @@ TODO:Show that `bizip_FC` can be implemented in 2 different ways for `FList`, co
 
 ## Foldable and traversable functors
 
-The standard library function `List/fold` corresponds to the "right fold" known in other functional languages.
-This folding operation implements a general **fold-like aggregation** on lists.
-It turns out that this operation can be generalized to many other data types.
-Type constructors that support a `fold` operation are called "foldable" functors.
-
-The type signature of `List/fold` is:
+Chapter "Typeclasses" motivates and defines the typeclasses `Foldable` and `Traversable`:
 
 ```dhall
-⊢ :type List/fold
-
-∀(a : Type) → List a → ∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list
+let Foldable = λ(F : Type → Type) → ∀(a : Type) → F a → List a
+let Traversable = λ(F : Type → Type) → { traverse : ∀(L : Type → Type) → Applicative L → ∀(a : Type) → ∀(b : Type) → (a → L b) → F a → F (L b) }
 ```
-
-Compare this with the standard type signature of `foldr` in Haskell:
-
-```haskell
-foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b
-```
-The type parameters `a`, `b` do not need to be introduced explicitly in Haskell.
-In Dhall, we need to write `∀(a : Type) → ...` and `∀(b : Type) → ...` at the appropriate places.
-The Dhall and Haskell type signatures are equivalent if we set `t = List`, `b = list`, and move the curried argument `t a` to the front of the type signature.
-
-This comparison shows us how to generalize the type signature of `List/fold` to other functors `F`:
-
-```dhall
-let FoldT = ∀(F : Type → Type) → ∀(a : Type) → F a → ∀(b : Type) → (a → b → b) → b → b
-```
-So, we could have defined the `Foldable` typeclass by the requirement that a function of type `FoldT F` exists.
-
-It turns out to be equivalent (but simpler) if we require a method called `toList`, with type signature `F a → List a`.
-This method should extract all data stored in a functor and put that data into a list (in some fixed order).
-Once the data is extracted, we can apply the standard `List/fold` method to that list.
-
-With this in mind, chapter "Typeclasses" defines the typeclass `Foldable` through the `toList` method:
-
-```dhall
-let Foldable = ∀(F : Type → Type) → ∀(a : Type) → F a → List a
-```
-
-A related method is `foldMap`
 
 Only functors can be foldable or traversable.
 So, we will assume that a `Functor F` typeclass evidence is always available for foldable and traversable functors.
  
-
-
-TODO:  explain the generalization to Traversable 
+TODO: combinators for these functors: constant functors, identity, product, co-product, and the two kinds of fixpoints
 
 ## Monads and their combinators
 
