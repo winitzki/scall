@@ -3959,7 +3959,7 @@ It turns out to be equivalent (but simpler) if we require a method called `toLis
 This method should extract all data stored in a data structure of type `F a` and put that data into a list (in some fixed order).
 Once the data is extracted, we can apply the standard `List/fold` method to that list.
 
-A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `F t → List t`.
+A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `∀(a : Type) → F a → List a`.
 
 With this motivation, we define the `Foldable` typeclass in Dhall:
 ```dhall
@@ -3968,8 +3968,37 @@ let Foldable
 ```
 The extracted values are stored in a list in a chosen, fixed order. (Different orders can be used to create different `Foldable` evidence values.)
 
-Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a → m) → F a → m` that assumes `m` to have a `Monoid` typeclass evidence.
-The function `foldMap` can be implemented for any `Foldable` functor:
+An easy example is the `List` functor itself; the `toList` method is an identity function:
+
+```dhall
+let foldableList: Foldable List = { toList = λ(a : Type) → identity (List a) }
+```
+
+Let us look at examples of implementing a `Foldable` typeclass evidence for some simple functors.
+In each case, we pick some order for putting the data items stored in a functor value into a list.
+We just need to take care to extract all available data items:
+```dhall
+let F1 = λ(a : Type) → { data : a, count : Natural }
+-- F1 stores just one data item of type `a`.
+let foldableF1 : Foldable F1 = { toList = λ(a : Type) → λ(c : F1 a) → [ c.data ] }
+
+let F2 = λ(a : Type) → { p : a, q : a, r : Optional a }
+-- F2 can store either two or three data items.
+let foldableF2 : Foldable F2 = { toList = λ(a : Type) → λ(c : F2 a) →
+   [ c.p, c.q ] # merge { None = [] : List a,  Some = λ(x : a) → [ x ] } c.r
+}
+
+let F3 = λ(a : Type) → < Left : Pair a a | Right : { x : Bool, y : a, z: List a } >
+-- F3 stores either exactly two data items, or a data item and a list.
+let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
+  merge { Left = λ(p : Pair a a) → [ p._1, p._2 ]
+        , Right =  λ(q : { x : Bool, y : a, z: List a }) → [ q.y ] # q.z
+  } c
+}
+```
+
+Another formulation of the "foldable" property is via the function often called `foldMap` with type signature `(a → m) → F a → m`.
+This function assumes `m` to have a `Monoid` typeclass evidence and can be implemented for any `Foldable` functor:
 
 ```dhall
 let foldMap
@@ -3987,7 +4016,6 @@ The `foldMap` function works with an arbitrary monoid type `m` and converts a da
 One can generalize `foldMap` by replacing an arbitrary monoid by an arbitrary _applicative functor_, as the properties of applicative functors are somewhat similar to the properties of monoids.
 The result of this generalization is a method known as `traverse` that converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
 
-
 The type signature of  `traverse` is written in Haskell like this:
 
 ```haskell
@@ -4000,27 +4028,132 @@ Just as `foldMap` works in the same way for all monoids `m` and all types `a`, t
 Rewriting this type signature in Dhall as a type `TraverseT` and making `F` an explicit type parameter, we get:
 
 ```dhall
-let TraverseT = λ(F : Type → Type) → ∀(L : Type → Type) → Applicative L → ∀(a : Type) → ∀(b : Type) →
-  (a → L b) → F a → F (L b)
+let TraverseT = λ(F : Type → Type) → ∀(L : Type → Type) → ApplicativeFunctor L → ∀(a : Type) → ∀(b : Type) → (a → L b) → F a → L (F b)
 ```
 Note how the Haskell typeclass constraint (`Applicative L => ...`) is translated into an evidence argument in Dhall.
 
 A functor is called a **traversable functor** if it supports the `traverse` method.
-This property  can be formulated via the `Traversable` typeclass:
+
+One could define the `Traversable` typeclass using the `traverse` method.
+But we prefer to use an equivalent but simpler method known as `sequence`.
+The type signature of `sequence` is:
 
 ```dhall
-let Traversable = λ(F : Type → Type) → { traverse : TraverseT F }
+let SequenceT = λ(F : Type → Type) → ∀(L : Type → Type) → ApplicativeFunctor L →
+  ∀(a : Type) → F (L a) → L (F a)
 ```
+So, we define the `Traversable` typeclass as:
+```dhall
+let Traversable = λ(F : Type → Type) → { sequence : SequenceT F }
+```
+
+To see how a `Traversable` evidence is implemented, let us look at some examples.
+The implementation of `sequence` for a functor `F` must transform a value of type `F (L a)` into a value of type `L (F a)`, for an _arbitrary_ applicative functor `L`.
+Heuristically, the computed data of type `F a` stored inside `L (F a)` must repeat the shape of the initially given value `F (L a)`.
+The code must preserve information as much as possible, keeping the shape of any union types or records.
+
+Typically, an implementation willw enumerate all values of type `L a` stored inside `F (L a)` in a chosen order.
+Then `L`'s `zip` method is applied to combine all those values into a single value of type `L (T a)`, where `T a` is a nested tuple containing some values of type `a`.
+The number of data items of type `a` inside `T a` is the same as the number of data items of type `L a` in the input value of type `F (L a)`.
+So, we can write a function that maps `T a → F a`, preserving the shape of the input value. 
+Finally, we use `L`'s `fmap` method to transform `L (T a) → L (F a)`.
+
+The first example is the functor `F1` such that `F1 a` stores a single value of type `a`:
+```dhall
+let F1 = λ(a : Type) → { data : a, count : Natural }
+-- F1 stores just one data item of type `a`.
+let traversableF1 : Traversable F1 = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(fla : F1 (L a)) → applicativeFunctorL.fmap a (F1 a) (λ(x : a) → { data = x, count = fla.count }) fla.data
+}
+```
+
+The second example is the functor `F2` that can contain two or three items of type `a`.
+Note how we transform `Option (L a)` into `L (Option a)` using the `Traversable` evidence for the `Optional` type.
+
+```dhall
+let traversableOptional : Traversable Optional = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(ola : Optional (L a)) →
+  merge { None = applicativeFunctorL.pure (Optional a) (None a)
+        , Some = λ(la : L a) → applicativeFunctorL.fmap a (Optional a) (λ(x : a) → Some x) la 
+  } ola
+}
+```
+Using this code, we apply `L`'s `zip` twice and obtain a value of type `L Taaoa`, where `Taaoa` is a nested tuple containing two values of type `a` and one value of type `Optional a`.
+This tuple is sufficient to reconstruct the shape of `F2 a` under `L`:
+```dhall
+let F2 = λ(a : Type) → { p : a, q : a, r : Optional a }
+-- F2 can store either two or three data items.
+let traversableF2 : Traversable F2 = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(fla : F2 (L a)) →
+    let laa : L (Pair a a) = applicativeFunctorL.zip a fla.p a fla.q
+    let loa : L (Optional a) = traversableOptional.sequence L applicativeFunctorL a fla.r
+    let Taaoa = Pair (Pair a a) (Optional a)
+    let laaoa : L Taaoa = applicativeFunctorL.zip (Pair a a) laa (Optional a) loa
+    in applicativeFunctorL.fmap Taaoa (F2 a) (λ(s : Taaoa) → { p = s._1._1, q = s._1._2, r = s._2 }) laaoa
+}
+```
+
+The final example is a more complicated functor `F3` that involves a union type and a nested `List`.
+
+```dhall
+let F3 = λ(a : Type) → Either (Pair a a) { x : Bool, y : a, z: List a }
+-- F3 stores either exactly two data items, or a data item and a list.
+```
+To implement `Traversable F3`, we need a `Traversable` instance for `List`:
+
+```dhall
+let traversableList : Traversable List = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(lla : List (L a)) →
+  let update : L a → L (List a) → L (List a) = λ(p : L a) → λ(q : L (List a)) →
+    let lpala : L (Pair a (List a)) = applicativeFunctorL.zip a p (List a) q
+    in applicativeFunctorL.fmap (Pair a (List a)) (List a) (λ(pair : Pair a (List a)) → [ pair._1 ] # pair._2) lpala
+  let init : L (List a) = applicativeFunctorL.pure (List a) ([] : List a)
+  in List/fold (L a) lla (L (List a)) update init
+}
+```
+
+Now we pattern-match on the shape of the input value (of type `F3 (L a)`) so that we can restore the shape of that input value in the final result wrapped under `L`:
+```dhall
+let traversableF3 : Traversable F3 = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(fla : F3 (L a)) →  
+  merge { Left = λ(p : Pair (L a) (L a)) →
+            let lpaa : L (Pair a a) = applicativeFunctorL.zip a p._1 a p._2
+            in applicativeFunctorL.fmap (Pair a a) (F3 a) (F3 a).Left lpaa
+        , Right = λ(q : { x : Bool, y : L a, z: List (L a) }) →
+            let lla : L (List a) = traversableList.sequence L applicativeFunctorL a q.z
+            let lpala : L (Pair a (List a)) = applicativeFunctorL.zip a q.y (List a) lla
+            in applicativeFunctorL.fmap (Pair a (List a)) (F3 a) (λ(pair : Pair a (List a)) → (F3 a).Right { x = q.x, y = pair._1, z = pair._2 }) lpala
+  } fla
+}
+```
+
+The `traverse` method can be recovered from `sequence` if we have the `Functor` evidence for `F`:
+
+```dhall
+let traverse : ∀(F : Type → Type) → Functor F → Traversable F → TraverseT F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(traversableF : Traversable F) → λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(b : Type) →
+  λ(f : a → L b) → λ(fa : F a) →
+    let flb : F (L b) = functorF.fmap a (L b) f fa
+    in traversableF.sequence L applicativeFunctorL b flb
+```
+It is proved in "The Science of Functional Programming" that `traverse` and `sequence` are isomorphic as types, assuming that suitable naturality laws hold.
 
 Given a `Traversable` typeclass evidence, one can derive the `Foldable` evidence by using a constant applicative functor:
 
-TODO: show this code
+```dhall
+let foldableFromTraversable : ∀(F : Type → Type) → Functor F → Traversable F → Foldable F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(traversableF : Traversable F) →
+    { toList = λ(a : Type) → λ(fa : F a) →
+        let L = λ(_ : Type) → List a -- This is a constant functor. 
+        let applicativeFunctorL = {
+          fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → λ(lx : L x) → lx
+          , pure = λ(t : Type) → λ(x : t) → [] : List a
+          , zip = λ(x : Type) → λ(lx : L x) → λ(y : Type) → λ(ly : L y) → lx # ly 
+        }
+        let fla : F (L a) = functorF.fmap a (List a) (λ(x : a) → [ x ]) fa
+        in traversableF.sequence L applicativeFunctorL a fla
+    }
+```
 
-TODO: show examples of implementing Foldable and Traversable for some non-recursive data types
+It follows that any traversable functor is also foldable.
 
-We remark without proof that:
+We also remark without proof that:
 
-- Any traversable functor is also foldable.
 - The formulations of the "foldable" property via `foldMap`, via `fold`, and via `toList` are equivalent.
 - All polynomial functors are both foldable and traversable.
 - All traversable or foldable functors are polynomial.
@@ -5085,9 +5218,9 @@ To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
 
 Begin with the uncurried Church encodings of those types:
 ```dhall
-let ListInt = ∀(r : Type) → (< Nil | Cons { head : Integer, tail : r } > → r) → r
+let ListInt = ∀(r : Type) → (< Nil | Cons : { head : Integer, tail : r } > → r) → r
 
-let TreeText = ∀(r : Type) → (< Leaf Text | Branch { left : r, right : r } > → r) → r
+let TreeText = ∀(r : Type) → (< Leaf : Text | Branch : { left : r, right : r } > → r) → r
 ```
 
 Now pass to the curried Church encodings:
@@ -10200,9 +10333,10 @@ let Applicative = λ(F : Type → Type) →
   , zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
   }
 ```
-This typeclass does not assume that `F` is a covariant or contravariant functor, and may be used together with `Functor` or `Contrafunctor` typeclass as required.
+This typeclass does not assume that `F` is a covariant or contravariant functor.
+So, `Applicative` may be used together with `Functor` or `Contrafunctor` typeclass as needed.
 
-If `F` is a functor, we may define other often used methods of applicative functors, such as `pure`, `ap`, and `map2`.
+If `F` is an applicative _functor_, we may derive other often used methods of applicative functors, such as `pure`, `ap`, and `map2`.
 Those methods can be implemented generically through `unit` and `zip`:
 
 ```dhall
@@ -10613,7 +10747,7 @@ TODO:run this on some examples
 
 TODO:Show that `bizip_FC` can be implemented in 2 different ways for `FList`, corresponding to the ordinary zip and to the padding zip.
 
-## Foldable and traversable functors
+## Combinators for foldable and traversable functors
 
 Chapter "Typeclasses" motivates and defines the typeclasses `Foldable` and `Traversable`:
 
@@ -10628,6 +10762,8 @@ So, we will assume that a `Functor F` typeclass evidence is always available for
 TODO: combinators for these functors: constant functors, identity, product, co-product, and the two kinds of fixpoints
 
 ## Monads and their combinators
+
+### M-filterable functors and contrafunctors
 
 ## Monad transformers
 
