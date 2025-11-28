@@ -4131,7 +4131,6 @@ let traverse : ∀(F : Type → Type) → Functor F → Traversable F → Traver
     let flb : F (L b) = functorF.fmap a (L b) f fa
     in traversableF.sequence L applicativeFunctorL b flb
 ```
-It is proved in "The Science of Functional Programming" that `traverse` and `sequence` are isomorphic as types, assuming that suitable naturality laws hold.
 
 Given a `Traversable` typeclass evidence, one can derive the `Foldable` evidence by using a constant applicative functor:
 
@@ -4154,9 +4153,11 @@ It follows that any traversable functor is also foldable.
 
 We also remark without proof that:
 
-- The formulations of the "foldable" property via `foldMap`, via `fold`, and via `toList` are equivalent.
+- The functions `foldMap`, `fold`, and `toList` are equivalent (isomorphic as types), assuming that suitable naturality laws hold.
+- The functions `traverse` and `sequence` are isomorphic as types, assuming that suitable naturality laws hold.
 - All polynomial functors are both foldable and traversable.
-- All traversable or foldable functors are polynomial.
+
+These properties are proved in "The Science of Functional Programming".
 
 Usually, there is more than one way of defining a `Foldable F` and a `Traversable F` evidence for a given functor `F`.
 Different definitions correspond to different ways of iterating over values of type `t` that are stored in a data structure of type `F t`.
@@ -10752,13 +10753,69 @@ TODO:Show that `bizip_FC` can be implemented in 2 different ways for `FList`, co
 Chapter "Typeclasses" motivates and defines the typeclasses `Foldable` and `Traversable`:
 
 ```dhall
-let Foldable = λ(F : Type → Type) → ∀(a : Type) → F a → List a
-let Traversable = λ(F : Type → Type) → { traverse : ∀(L : Type → Type) → Applicative L → ∀(a : Type) → ∀(b : Type) → (a → L b) → F a → F (L b) }
+let Foldable = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
+
+let Traversable = λ(F : Type → Type) → { sequence : ∀(L : Type → Type) → ApplicativeFunctor L →
+  ∀(a : Type) → F (L a) → L (F a) }
 ```
 
 Only functors can be foldable or traversable.
 So, we will assume that a `Functor F` typeclass evidence is always available for foldable and traversable functors.
- 
+
+Because `Foldable` typeclass evidence can be derived from `Traversable`, it is sufficient to focus on traversable functors.
+The next sections will show some constructions for traversable functors. 
+
+### Constant functors and the identity functor
+
+Constant functors are traversable in a trivial way: they carry no data (of a parameterized type), and so the return value of type `L (F a)` is just an empty effect of `L`.
+
+```dhall
+let traversableConst
+  : ∀(T : Type) → Traversable (Const T)
+  = λ(T : Type) →
+    { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(fla : Const T (L a)) →
+      let F = Const T
+      -- The type Const T (L a) is equivalen to Const T a, so fla has also type F a.
+      let fa : Const T a = fla  -- Make sure the typechecker accepts this.
+      in applicativeFunctorL.pure (F a) fa
+    }
+```
+
+### Identity functor
+
+The identity functor `F = Id` is traversable because `F (L a)` is the same type as `L (F a)`. 
+
+```dhall
+let traversableId : Traversable Id  = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(fla : Id (L a)) → fla }
+```
+
+### Functor composition
+
+If `F` and `G` are two traversable functors then the composition `H a = F (G a)` is also traversable.
+We compute the type via the combinator called `Compose` defined earlier.
+
+The `Traversable` evidence for `Compose F G` can be constructed automatically from `Traversable` and `Functor` evidence values for `F` and `G`:
+
+```dhall
+let traversableCompose
+  : ∀(F : Type → Type) → Functor F → Traversable F → ∀(G : Type → Type) → Traversable G → Traversable (Compose F G)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(traversableF : Traversable F) → λ(G : Type → Type) → λ(traversableG : Traversable G) →
+    let H = Compose F G
+    in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(hla : H (L a)) →
+       let flga : F (L (G a)) = functorF.fmap (G (L a)) (L (G a)) (traversableG.sequence L applicativeFunctorL a) hla
+       in traversableF.sequence L applicativeFunctorL (G a) flga
+    }
+```
+
+### Products and co-products
+
+
+### Universal type quantifiers
+
+### Least fixpoints
+
+### Greatest fixpoints
+
 TODO: combinators for these functors: constant functors, identity, product, co-product, and the two kinds of fixpoints
 
 ## Monads and their combinators
