@@ -10809,14 +10809,38 @@ let traversableCompose
 
 ### Products and co-products
 
+The functor product and the functor co-product of two traversable functors is again a traversable functor.
+We implement the corresponding combinators using the `Product` and `CoProduct` type constructors defined earlier:
 
-### Universal type quantifiers
+```dhall
+let traversableProduct
+  : ∀(F : Type → Type) → Traversable F → ∀(G : Type → Type) → Traversable G → Traversable (Product F G)
+  = λ(F : Type → Type) → λ(traversableF : Traversable F) → λ(G : Type → Type) → λ(traversableG : Traversable G) →
+    let H = Product F G
+    in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(hla : H (L a)) →
+        let lfa : L (F a) = traversableF.sequence L applicativeFunctorL a hla._1
+        let lga : L (G a) = traversableG.sequence L applicativeFunctorL a hla._2
+        in applicativeFunctorL.zip (F a) lfa (G a) lga 
+    }
+```
+
+```dhall
+let traversableCoProduct
+  : ∀(F : Type → Type) → Traversable F → ∀(G : Type → Type) → Traversable G → Traversable (CoProduct F G)
+  = λ(F : Type → Type) → λ(traversableF : Traversable F) → λ(G : Type → Type) → λ(traversableG : Traversable G) →
+    let H = CoProduct F G
+    in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(hla : H (L a)) →
+        merge { Left = λ(fla : F (L a)) → applicativeFunctorL.fmap (F a) (H a) (H a).Left (traversableF.sequence L applicativeFunctorL a fla)
+              , Right = λ(gla : G (L a)) → applicativeFunctorL.fmap (G a) (H a) (H a).Right (traversableG.sequence L applicativeFunctorL a gla)
+              } hla
+    }
+```
 
 ### Least fixpoints
 
 ### Greatest fixpoints
 
-TODO: combinators for these functors: constant functors, identity, product, co-product, and the two kinds of fixpoints
+TODO:  the two kinds of fixpoints
 
 ## Monads and their combinators
 
