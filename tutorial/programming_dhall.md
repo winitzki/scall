@@ -9721,13 +9721,12 @@ let contrafunctorExists1
 ### Recursive functors and contrafunctors
 
 Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
-Those encodings are built using the record types, the function types, the universal quantifier, and the existential quantifier.
-The constructions in the previous subsections show how to build functor and contrafunctor instances for those types.
+Those encodings are built using the function types and the universal quantifier.
+The constructions in the previous subsections show how to build functor and contrafunctor instances for types involving those features.
 So, in principle we already know enough to build functor or contrafunctor instances (as appropriate) for arbitrary recursive type constructors.
+Here we will show the Dhall code for those instances.
 
-However, for illustration we will show the Dhall code for those instances.
-
-A least-fixpoint type constructor is defined via a pattern functor that must be a type constructor with two type parameters.
+A least-fixpoint type constructor is defined via a pattern functor that must be a type constructor with _two_ type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
 (See the section "Recursive type constructors" in the chapter "Church encoding for recursive.)
 
@@ -10836,11 +10835,41 @@ let traversableCoProduct
     }
 ```
 
-### Least fixpoints
+### Least fixpoints. Bitraversable bifunctors
 
-### Greatest fixpoints
+If `F` is a bifunctor that has a special "bitraversable" property then `λ(a : Type) → LFix (F a)` is a traversable functor.
 
-TODO:  the two kinds of fixpoints
+The "bitraversable" property is similar to "traversable", except it needs to work at once with the bifunctor's two type parameters.
+The required method `bisequence` has the type `F (L a) (L b) → L (F a b)`, where `F` is a bitraversable bifunctor and `L` is an arbitrary applicative functor.
+We formalize this requirement via the `Bitraversable` typeclass:
+
+```dhall
+let Bitraversable = λ(F : Type → Type → Type) → { bisequence : ∀(L : Type → Type) → ApplicativeFunctor L → ∀(a : Type) → ∀(b : Type) → F (L a) (L b) → L (F a b) }
+```
+
+Denote by `C` the least fixpoint of `F` with respect to the second type parameter and try to derive the code of a `Traversable` evidence for `C`:  
+
+```dhall
+let traversableLFix
+: ∀(F : Type → Type → Type) → Bitraversable F → Traversable (λ(a : Type) → LFix (F a))
+= λ(F : Type → Type → Type) → λ(bitraversableF : Bitraversable F) →
+  let C : Type → Type = λ(a : Type) → LFix (F a)
+  in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(cla : C (L a)) →
+    ??? : L (C a)
+  }
+```
+
+
+
+#### Greatest fixpoints are not traversable
+
+The greatest fixpoints will _not_ have the traversable property in general.
+
+To understand why, consider the required type `F (L a) → L (F a)` of the `sequence` method.
+If `F` is a greatest fixpoint then the type `F (L a)` will usually represent a potentially infinite data structure that is evaluated on demand, yielding new values of type `L a` when requested.
+The intent of the `sequence` method is to merge all `L`-effects from those values (using `L`'s `zip` method) and to return the overall `L`-effect in the output value of type `L (F a)`.
+But it is not possible to merge all values of type `L a` when there are potentially infinitely many of those values.
+So, it is not possible to compute the final value of type `L (F a)`. 
 
 ## Monads and their combinators
 
