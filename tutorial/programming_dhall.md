@@ -10969,7 +10969,7 @@ Another example of a free typeclass is the "free monad on a functor `F`", which 
 This chapter will show how to implement free instances for many of the frequently used typeclasses.
 
 Keep in mind that not all typeclasses can have free instances.
-Examples of typeclasses that cannot have free instances are `Show`, `Comonad`, and `Traversable`.
+Examples of typeclasses that cannot have free instances are `Eq`, `Show`, `Comonad`, `Foldable`, and `Traversable`.
 
 ### Free semigroup and free monoid
 
