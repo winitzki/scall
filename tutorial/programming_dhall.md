@@ -10962,7 +10962,7 @@ See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter
 As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
 This construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
 So, `Optional T` can be also described as a "wrapping" that is guaranteed to produce a monoid out of any type `T`.
-But `Optional T` is not the free monoid on `T` because it does not satisfy some of the required laws.
+But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required laws.
 
 Another example of a free typeclass is the "free monad on a functor `F`", which wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
 
