@@ -3712,6 +3712,21 @@ let monadReader : ∀(E : Type) → Monad (Reader E)
     in { pure, bind }
 ```
 
+The `Writer` monad has an additional type parameter `W` describing the type of an extra output value.
+The type `W` must be monoidal for the `Writer` monad to work.
+The logic is that extra output values of type `W` are combined using the monoiad `W`'s `append`:
+
+```dhall
+let Writer = λ(W : Type) → λ(A : Type) → { result : A, output : W }
+let monadWriter : ∀(W : Type) → Monoid W → Monad (Writer W)
+  = λ(W : Type) → λ(monoidW : Monoid W) →
+    let pure = λ(A : Type) → λ(x : A) → { result = x, output = monoidW.empty }
+    let bind = λ(A : Type) → λ(oldWriter : Writer W A) → λ(B : Type) → λ(f : A → Writer W B) →
+         let newWriter : Writer W B = f oldWriter.result
+         in { result = newWriter.result, output = monoidW.append oldWriter.output newWriter.output }
+    in { pure, bind }
+```
+
 Another well-known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
 
 ```dhall
@@ -3818,13 +3833,27 @@ let Comonad = λ(F : Type → Type) →
   }
 ```
 
-As an example, let us define a `Comonad` evidence value for the type constructor `Reader E` in case `E` is a monoidal type:
+Let us show some example comonads.
+
+The `Reader` functor (`Reader E a = E → a`) is a monad, as we have seen before.
+It turns out that `Reader` also has a `Comonad` evidence value when `E` is a monoidal type:
 
 ```dhall
 let comonadReader : ∀(E : Type) → Monoid E → Comonad (Reader E) =
   λ(E : Type) → λ(monoidE : Monoid E) →
     let duplicate = λ(a : Type) → λ(fa : Reader E a) → λ(e1 : E) → λ(e2 : E) → fa (monoidE.append e1 e2)
     let extract = λ(a : Type) → λ(fa : Reader E a) → fa monoidE.empty
+    in { duplicate, extract }
+```
+
+The `Writer` functor (`Writer W a = { result : a, output : W }`) is a monad when `W` is a monoidal type.
+It turns out that `Writer` is also a comonad, and the monoid restriction on `W` is no longer needed:
+
+```dhall
+let comonadWriter : ∀(W : Type) → Comonad (Writer W) =
+  λ(W : Type) →
+    let duplicate = λ(a : Type) → λ(fa : Writer W a) → { result = fa, output = fa.output }
+    let extract = λ(a : Type) → λ(fa : Writer W a) → fa.result
     in { duplicate, extract }
 ```
 
