@@ -4049,10 +4049,14 @@ let Traversable = λ(F : Type → Type) → { sequence : SequenceT F }
 
 To see how a `Traversable` evidence is implemented, let us look at some examples.
 The implementation of `sequence` for a functor `F` must transform a value of type `F (L a)` into a value of type `L (F a)`, for an _arbitrary_ applicative functor `L`.
-Heuristically, the computed data of type `F a` stored inside `L (F a)` must repeat the shape of the initially given value `F (L a)`.
+
+Let us give some intuition behind implementing `sequence`.
+The functor `F` is a "container-like" type, so a value of type `F (L a)` is a data structure that stores finitely many (zero or more) values of type `L a`.
+Our goal is to merge all the `L`-effects from those values into a single `L`-effect wrapping zero or more values of type `a`.
+Then we restore the shape of the initially given value of type `F (L a)` inside the output value of type `L (F a)`.
 The code must preserve information as much as possible, keeping the shape of any union types or records.
 
-Typically, an implementation willw enumerate all values of type `L a` stored inside `F (L a)` in a chosen order.
+Typically, an implementation will enumerate all values of type `L a` stored inside `F (L a)` in a chosen order.
 Then `L`'s `zip` method is applied to combine all those values into a single value of type `L (T a)`, where `T a` is a nested tuple containing some values of type `a`.
 The number of data items of type `a` inside `T a` is the same as the number of data items of type `L a` in the input value of type `F (L a)`.
 So, we can write a function that maps `T a → F a`, preserving the shape of the input value. 
@@ -4138,7 +4142,7 @@ Given a `Traversable` typeclass evidence, one can derive the `Foldable` evidence
 let foldableFromTraversable : ∀(F : Type → Type) → Functor F → Traversable F → Foldable F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(traversableF : Traversable F) →
     { toList = λ(a : Type) → λ(fa : F a) →
-        let L = λ(_ : Type) → List a -- This is a constant functor. 
+        let L = λ(_ : Type) → List a -- This is a constant functor. It is applicative:
         let applicativeFunctorL = {
           fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → λ(lx : L x) → lx
           , pure = λ(t : Type) → λ(x : t) → [] : List a
@@ -5848,7 +5852,7 @@ The data traversal is necessary to enable pattern matching for Church-encoded ty
 As a result, the performance of programs will be often slow when working with large Church-encoded data structures.
 For example, concatenating or reversing lists of type `ListInt` takes time quadratic in the list length.
 
-TODO:validate these statements!
+TODO:validate these statements by running some examples and show timings!
 
 ## Church encodings for more complicated types
 
@@ -5953,15 +5957,35 @@ let LFixT : (Type → Type → Type) → Type → Type
   = λ(F : Type → Type → Type) → λ(a : Type) → LFix (F a)
 ```
 
+In the chapter "Working with Church-encoded data", we defined the general `fix` and `unfix` functions for the ordinary fixpoints:
+```dhall
+let _ = fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
+let _ = unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
+```
+Similarly, there exist general isomorphisms `fixT` and `unfixT` for type constructor fixpoints.
+These methods require a `Functor` evidence with respect to the second type parameter of `F` (while the first type parameter is held fixed):
+
+```dhall
+let fixT : ∀(F : Type → Type → Type) → (∀(a : Type) → Functor (F a)) → ∀(a : Type) → F a (LFixT F a) → LFixT F a
+  = λ(F : Type → Type → Type) → λ(functorF2 : ∀(a : Type) → Functor (F a)) → λ(a : Type) → λ(fal : F a (LFixT F a)) →
+    fix (F a) (functorF2 a) fal
+
+let unfixT : ∀(F : Type → Type → Type) → (∀(a : Type) → Functor (F a)) → ∀(a : Type) → LFixT F a → F a (LFixT F a)
+  = λ(F : Type → Type → Type) → λ(functorF2 : ∀(a : Type) → Functor (F a)) → λ(a : Type) → λ(lfa : LFixT F a) →
+    unfix (F a) (functorF2 a) lfa
+```
+
+
 The Church encoding works similarly for type constructors with two or more type parameters.
-Consider a Haskell definition of a binary tree with two type parameters and two different kinds of leaf:
+
+As an example, we look at a Haskell definition of a binary tree with two type parameters and two different kinds of leaves:
 
 ```haskell
 -- Haskell.
 data TreeAB a b = LeafA a | LeafB b | Branch (TreeAB a b) (TreeAB a b)
 ```
 
-The corresponding pattern functor is:
+The corresponding pattern functor has three type parameters:
 
 ```haskell
 -- Haskell.
@@ -5979,7 +6003,7 @@ let TreeAB = λ(a : Type) → λ(b : Type) → ∀(r : Type) → (F a b r → r)
 ### Example: Church-encoded list
 
 The `List` functor is a built-in type in Dhall.
-As a pedagogical example, let us now implement an equivalent type constructor using Church encoding.
+As a pedagogical example, let us now implement an equivalent type constructor via the Church encoding.
 
 The recursive type equation for `List` has the form (in Haskell-like syntax):
 
@@ -6735,9 +6759,9 @@ data LExp t where                      -- Haskell.
   LNot :: LExp Bool -> LExp Bool
   LIsZero :: Lexp Int -> LExp Bool
 ```
-This example represents the abstract syntax tree for a toy language whose expressions can have Boolean or integer type.
+This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
 The language guarantees statically that operations are applied to arguments of the correct type.
-For instance, `LNot x` will typecheck only when `x` is a Boolean expression such as `LBool True`.
+For instance, `LNot x` will typecheck only when `x` is a boolean expression such as `LBool True`.
 The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
 
 
@@ -6820,11 +6844,11 @@ let Tree_ = λ(a : Type) → ∀(r : Type) → ∀(leaf : a → r) → ∀(branc
 In this form, the curried arguments `leaf` and `branch` correspond to the two  constructors (`Leaf` and `Branch`).
 The occurrences of the type `r` correspond to the recursive usages of `Tree` in the constructors.
 
-The "long syntax" has no advantage in simple situations where all constructors create values of the same type.
+The "long syntax" has no advantages in simple situations where all constructors create values of the same type.
 In this example, all three constructors have the same output type `Tree a`.
 
 However, note that the output type parameter `a` in `Tree a` is written out explicitly in the long syntax.
-So, Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
+Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
 For example, the output type could be `Tree Int` instead of `Tree a`, or even a more complicated type with other type parameters.
 The resulting type would then be a GADT.
 
@@ -6947,11 +6971,12 @@ We can now  create an  example  expression in the toy language:
 let exampleLExp : LExp Integer = LAdd (LInt +10) (LInt +20)
 ```
 
-Let us now implement the interpreter for this  language.
+Let us now implement in Dhall an interpreter for this  language.
 
-Note that the Haskell code for the interpreter is recursive.
+Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by Church-encoded data.
 In the Church encoding, recursion is replaced by applications of the higher-order functions.
-The Dhall code for the interpreter is non-recursive and consists of applying the value of type `LExp t` to suitable arguments.
+The Dhall code for the interpreter will be non-recursive and will consist of applying a value of type `LExp t` to suitable arguments.
+
 The first of those arguments is the type constructor parameter `r : Type → Type`.
 To choose this parameter, we consider the final output type `r t` of the function `LExp t`.
 We need to obtain a value of type `t`.
@@ -6978,7 +7003,7 @@ let _ = assert : evalLExp Integer exampleLExp ≡ +30
 
 
 The toy language `LExp` did not need to use all the possible features of GADTs.
-To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we introduced and set various type parameters for illustration:
+To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we assign various type parameters in different ways:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -7007,7 +7032,9 @@ let WeirdBox = λ(t : Type) → ∀(r : Type → Type) →
      r t
 ```
 Note that the extra type parameters in the constructors `Box1` and `Box3` need to be written explicitly, similarly to the syntax in Scala.
-Haskell's more concise syntax declares those type parameters implicitly.
+Haskell's more concise syntax hides the declaration of those type parameters.
+
+Dhall's verbose syntax exposes the full complexity behind GADTs.
 
 ### Existentially quantified types
 
@@ -10561,16 +10588,16 @@ For some applicative (contra)functors `P`, reversing does not change their `zip`
 Such `P` are called _commutative_ applicative.
 Examples are the functor `R a = p → a`, where `p` is any fixed type, and the contrafunctor `P a = a → m`, where `m` is a commutative monoid type.
 
-### Monads are automatically applicative
+### Monads are automatically applicative functors
 
-If it is known that a functor `P` is a monad, we can define an `Applicative` evidence for that functor.
+If it is known that a functor `P` is a monad, we can define an `ApplicativeFunctor` evidence for that functor.
 
 ```dhall
-let monadApplicative
-  : ∀(P : Type → Type) → Monad P → Applicative P
+let monadApplicativeFunctor
+  : ∀(P : Type → Type) → Monad P → ApplicativeFunctor P
   = λ(P : Type → Type) → λ(monadP : Monad P) →
     let functorP : Functor P = monadFunctor P monadP
-    in { unit = monadP.pure {} {=}
+    in functorP /\ { pure = monadP.pure
        , zip = λ(a : Type) → λ(pa : P a) → λ(b : Type) → λ(pb : P b) →
           let aPab : a → P (Pair a b) = λ(x : a) → functorP.fmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) pb 
           in monadP.bind a pa (Pair a b) aPab
@@ -10579,8 +10606,8 @@ let monadApplicative
 
 In this code, we begin with the value `pa : P a` and use `bind` to transform `pa` into a value of type `P (Pair a b)`.
 We could instead begin with `pb : P b` and proceed similarly.
-So, there are two ways of creating an `Applicative` instance out of a `Monad` instance, and they are reversals of each other (in the sense of the previous subsection).
-These two `Applicative` instances will be the same only if the monad instance is commutative.
+So, there are two ways of creating an `ApplicativeFunctor` evidence out of a `Monad` evidence, and they are reversals of each other (in the sense of the previous subsection).
+These two `ApplicativeFunctor` implementations will be the same only if the monad is commutative.
 
 ### Function types
 
@@ -10847,6 +10874,13 @@ We formalize this requirement via the `Bitraversable` typeclass:
 let Bitraversable = λ(F : Type → Type → Type) → { bisequence : ∀(L : Type → Type) → ApplicativeFunctor L → ∀(a : Type) → ∀(b : Type) → F (L a) (L b) → L (F a b) }
 ```
 
+All polynomial bifunctors `F` are bitraversable.
+The intuition behind implementing `bisequence` is that the input value of type `F (L a) (L b)` is a container storing finitely many values of types `L a` and `L b`.
+We can extract all those values and merge their `L`-effects by using `L`'s `zip` method.
+The result will be a value of type `L (T a b)` where `T a b` is some nested tuple containing finitely many values of type `a` and `b`.
+We can map `T a b → F a b`, repeating the shape of the input value `F (L a) (L b)`.
+Using `L`'s `fmap` method, we can then map `L (T a b) → L (F a b)`, completing the `bisequence` transformation.
+
 Denote by `C` the least fixpoint of `F` with respect to the second type parameter and try to derive the code of a `Traversable` evidence for `C`:  
 
 ```dhall
@@ -10858,8 +10892,43 @@ let traversableLFix
     ??? : L (C a)
   }
 ```
+We need to compute a value of type `L (C a)`, given a value `cla` of type `C (L a)`.
+The type `C (L a)` can be written out as `∀(r : Type) → (F (L a) r) → r) → r`.
+The value `cla` is a function that can produce a value of any type `r`, as long as we provide a suitable argument.
+So, we will get a value of type `L (C a)` if we apply `cla` with the type parameter `r = L (C a)`, and if we manage to provide an argument of type `F (L a) r) → r`.
+So far, our code is:
+```dhall
+let traversableLFix
+: ∀(F : Type → Type → Type) → Bitraversable F → Traversable (λ(a : Type) → LFix (F a))
+= λ(F : Type → Type → Type) → λ(bitraversableF : Bitraversable F) →
+  let C : Type → Type = λ(a : Type) → LFix (F a)
+  in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(cla : C (L a)) →
+    let r : Type = L (C a)
+    let f : F (L a) r → r = ???
+    in cla r f
+  }
+```
+To produce `f`, we notice that the argument of `f` has type `F (L a) (L (C a))`, and that we may apply `F`'s `bisequence` method to values of that type.
+The result is `bitraversableF.bisequence L applicativeFunctorL a (C a)` of type `F (L a) (L (C a)) → L (F a (C a))`.
+It remains to convert `L (F a (C a)) → L (C a)`.
+This conversion is a result of `L`'s `fmap` applied to a function of type `F a (C a) → C a`.
+That last function is the standard `fixT` method of the recursive type `C a`.
+So, we can complete the code:
 
-
+```dhall
+let traversableLFix
+: ∀(F : Type → Type → Type) → Bifunctor F → Bitraversable F → Traversable (λ(a : Type) → LFix (F a))
+= λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bitraversableF : Bitraversable F) →
+  let C : Type → Type = λ(a : Type) → LFix (F a)
+  in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(cla : C (L a)) →
+    let r : Type = L (C a)
+    let f : F (L a) r → r = λ(flalca : F (L a) (L (C a))) →
+      let lfaca : L (F a (C a)) = bitraversableF.bisequence L applicativeFunctorL a (C a) flalca
+      let fixC : F a (C a) → C a = fixT F (λ(a : Type) → { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }) a
+      in applicativeFunctorL.fmap (F a (C a)) (C a) fixC lfaca
+    in cla r f
+  }
+```
 
 #### Greatest fixpoints are not traversable
 
