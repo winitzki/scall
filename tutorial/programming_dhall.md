@@ -5966,13 +5966,13 @@ Similarly, there exist general isomorphisms `fixT` and `unfixT` for type constru
 These methods require a `Functor` evidence with respect to the second type parameter of `F` (while the first type parameter is held fixed):
 
 ```dhall
-let fixT : ∀(F : Type → Type → Type) → (∀(a : Type) → Functor (F a)) → ∀(a : Type) → F a (LFixT F a) → LFixT F a
-  = λ(F : Type → Type → Type) → λ(functorF2 : ∀(a : Type) → Functor (F a)) → λ(a : Type) → λ(fal : F a (LFixT F a)) →
-    fix (F a) (functorF2 a) fal
+let fixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → F a (LFixT F a) → LFixT F a
+  = λ(F : Type → Type → Type) → λ(a : Type) → λ(functorFa : Functor (F a)) → λ(fal : F a (LFixT F a)) →
+    fix (F a) functorFa fal
 
-let unfixT : ∀(F : Type → Type → Type) → (∀(a : Type) → Functor (F a)) → ∀(a : Type) → LFixT F a → F a (LFixT F a)
-  = λ(F : Type → Type → Type) → λ(functorF2 : ∀(a : Type) → Functor (F a)) → λ(a : Type) → λ(lfa : LFixT F a) →
-    unfix (F a) (functorF2 a) lfa
+let unfixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → LFixT F a → F a (LFixT F a)
+  = λ(F : Type → Type → Type) → λ(a : Type) → λ(functorFa : Functor (F a)) → λ(lfa : LFixT F a) →
+    unfix (F a) functorFa lfa
 ```
 
 
@@ -10924,7 +10924,7 @@ let traversableLFix
     let r : Type = L (C a)
     let f : F (L a) r → r = λ(flalca : F (L a) (L (C a))) →
       let lfaca : L (F a (C a)) = bitraversableF.bisequence L applicativeFunctorL a (C a) flalca
-      let fixC : F a (C a) → C a = fixT F (λ(a : Type) → { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }) a
+      let fixC : F a (C a) → C a = fixT F a { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
       in applicativeFunctorL.fmap (F a (C a)) (C a) fixC lfaca
     in cla r f
   }
