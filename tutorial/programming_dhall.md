@@ -11,10 +11,9 @@ The ["Design choices" document](https://docs.dhall-lang.org/discussions/Design-c
 
 This book views Dhall as:
 - a powerful templating system for flexible and strictly validated configuration files in JSON, YAML, and other text-based formats;
-- a formally specified and tested interpreter for a small purely functional programming language, useful for studying various language-independent aspects of advanced functional programming;
-- a high-level scripting DSL for interfacing with a custom runtime that may implement side effects and other low-level details.
+- a formally specified and tested interpreter for a small purely functional programming language, useful for studying various language-independent aspects of advanced functional programming.
 
-The book focuses on the last two use cases.
+The book focuses on the last use case.
 
 Although most of the code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
@@ -10985,8 +10984,6 @@ Examples of typeclasses that cannot have free instances are `Show`, `Comonad`, a
 ### Free filterable
 
 ### Free applicative
-
-## Dhall as a scripting DSL
 
 # Appendixes
 
