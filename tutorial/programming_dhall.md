@@ -586,7 +586,7 @@ let our_program = λ(TODO : ∀(A : Type) → A) →
 ```
 We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code.
 
-### The unit type
+### Unit types
 
 A **unit type** is a type that has only one distinct value.
 
@@ -598,7 +598,7 @@ Another way of defining a unit type is via a union type with a single constructo
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
 In this way, one can define unit types with different names, when convenient.
 
-Another equivalent definition of a unit type is via the following function type:
+Another definition of a unit type is via the following function type:
 ```dhall
 let UnitId = ∀(A : Type) → A → A
 ```
@@ -610,7 +610,10 @@ There is no other, inequivalent Dhall code that could implement a different func
 (This is a consequence of parametricity.)
 So, the type `UnitId` is a unit type because it has only one distinct value.
 
-The unit type is denoted by `()` in Haskell, by `Unit` in Scala, by `unit` in OCaml, and [similarly in other languages](https://en.wikipedia.org/wiki/Unit_type).
+There are many unit types, each with only one distinct value.
+Many languages define a special, designated unit type for convenience.
+It is denoted by `()` in Haskell, by `Unit` in Scala, by `unit` in OCaml, and [similarly in other languages](https://en.wikipedia.org/wiki/Unit_type).
+In Dhall, it is `{}`.
 
 ### Type constructors
 
@@ -3744,7 +3747,7 @@ let monadState : ∀(S : Type) → Monad (State S)
 
 To verify a monad's laws, we first write a function that takes an arbitrary monad and asserts that its laws hold.
 
-There are three laws of a monad: two identity laws and an associativity law.
+There are three monad laws: two identity laws and an associativity law.
 In the syntax of Haskell, these laws may be written like this:
 
 ```haskell
@@ -3765,7 +3768,7 @@ let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) 
   in { left_id_law, right_id_law, assoc_law }
 ```
 
-The Dhall interpreter can   verify the laws of the `Reader` monad:
+The Dhall interpreter can verify the laws of the `Reader` monad:
 
 ```dhall
 let testsForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(p : Reader E a) → λ(b : Type) → λ(f : a → Reader E b) → λ(c : Type) → λ(g : b → Reader E c) →
@@ -3789,8 +3792,9 @@ let testsForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : 
 
 For the State monad, the Dhall interpreter can verify the left identity law and the associativity law, but not the right identity law.
 The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } ≡ x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
+The Dhall interpreter does not have access to the type of `x` at the time of evaluating `{ _1 = x._1, _2 = x._2 }`, and so it cannot verify that `x` is a record with no other fields than `_1` and `_2`.
 
-#### A monad's `join` method implemented with typeclasses
+#### A monad's `join` method implemented via typeclass constraint
 
 We have defined the `Monad` typeclass via the `pure` and `bind` methods.
 Let us implement a function that provides the `join` method for any member of the `Monad` typeclass.
