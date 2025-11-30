@@ -1559,23 +1559,36 @@ An expression of the form `λ(x : sometype1) → something2` is a function that 
 The _type_ of the expression `λ(x : sometype1) → something2` is `∀(x : sometype1) → sometype2` where `sometype2` is the type of `something2`.
 
 Another way to see that `∀` always denotes types is to write `∀(x : Text) → 123`.
-Dhall will reject that expression with the error message "Invalid function output".
+Dhall will reject that expression with the error message "`Invalid function output`".
 The expression `∀(x : Text) → something` is a _type_ of a function, and `something` must be the output type of that function.
 So, `something` must be a type and cannot be a value.
 But in the example `∀(x : Text) → 123`, the output type of the function is specified as the number `123`, which is not a type.
 
 In Dhall, this requirement is expressed by saying that `something` should have type `Type`, `Kind`, or `Sort`.
 
-As another example of the error "Invalid function output", consider code like `∀(x : Type) → λ(y : Type) → x`.
-This code has the form `∀(x : Type) → something` where `something` is a function expression `λ(y : Type) → x`, which is not a type.
+As another example of the error "Invalid function output", consider code like `∀(x : Type) → λ(y : Type) → y`.
+This code has the form `∀(x : Type) → something` where `something` is a function expression `λ(y : Type) → y`, which is not a type that can have values.
 So, a `λ` cannot be used in a curried argument after a `∀`.
+
+To verify that `λ(y : Type) → y` is not a type that can have values, we can ask the Dhall interpreter about its type:
+
+```dhall
+⊢ :type λ(y : Type) → y
+
+∀(y : Type) → Type
+```
+The expression `λ(y : Type) → y` has type `Type → Type` (or, more verbosely, `∀(y : Type) → Type`).
+It is a type constructor and cannot itself have values.
+
+In the type expression `∀(y : Type) → something`, the "`something`" must be a type that can have values.
+So, the type of `something` must be `Type`, `Kind`, or `Sort`; it cannot be `Type → Type`.
 
 Here are some valid examples using both `λ` and `∀` in curried arguments:
 
 ```dhall
-let _ = ∀(x : Type) → ∀(y : Type) → x
-let _ = λ(x : Type) → ∀(y : Type) → x
-let _ = λ(x : Type) → λ(y : Type) → x
+let example1 : Type = ∀(x : Type) → ∀(y : Type) → x
+let example2 : Type → Type = λ(x : Type) → ∀(y : Type) → x
+let example3 : Type → Type → Type = λ(x : Type) → λ(y : Type) → x
 ```
 
 
