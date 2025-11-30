@@ -3713,6 +3713,18 @@ let monadList : Monad List =
   in { pure, bind }
 ```
 
+The `Either` monad structure is defined via the convention that the "left" type parameter represents an error and the "right" type parameter represents the result value.
+```dhall
+let monadEither : ∀(E : Type) → Monad (Either E)
+  = λ(E : Type) →
+    let pure = λ(a : Type) → λ(x : a) → (Either E a).Right x
+    let bind = λ(a : Type) → λ(fa : Either E a) → λ(b : Type) → λ(f : a → Either E b) →
+      merge { Left = λ(e : E) → (Either E b).Left e
+            , Right = λ(x : a) → f x
+            } fa
+    in { pure, bind }
+```
+
 The `Reader` monad has an additional type parameter `E` describing the type of the fixed environment value:
 
 ```dhall
@@ -10852,8 +10864,6 @@ let traversableConst
     }
 ```
 
-### Identity functor
-
 The identity functor `F = Id` is traversable because `F (L a)` is the same type as `L (F a)`. 
 
 ```dhall
@@ -10986,6 +10996,44 @@ But it is not possible to merge all values of type `L a` when there are potentia
 So, it is not possible to compute the final value of type `L (F a)`. 
 
 ## Monads and their combinators
+
+In the chapter "Typeclasses" we have seen some examples of specific monads such as `Reader`, `Writer`, and `State`.
+We will now look at general combinators that create new monads.
+
+### Constant functors and the identity functor
+
+A constant functor can be a monad only if it returns a unit type.
+In that case, all methods simply return the unit value.
+```dhall
+let monadConstUnit : Monad (Const {}) =
+    let pure = λ(a : Type) → λ(x : a) → {=}
+    let bind = λ(a : Type) → λ(fa : Const {} a) → λ(b : Type) → λ(f : a → Const {} b) →
+      {=}
+    in { pure, bind }
+```
+
+
+The identity functor (`Id`) is a monad:
+
+```dhall
+let monadIdentity : Monad Id =
+    let pure = λ(a : Type) → λ(x : a) → x
+    let bind = λ(a : Type) → λ(fa : Id a) → λ(b : Type) → λ(f : a → Id b) →
+      f fa
+    in { pure, bind }
+```
+
+### Product types
+
+A product of two monads is again a monad:
+
+```dhall
+let monadIdentity : Monad Id =
+    let pure = λ(a : Type) → λ(x : a) → x
+    let bind = λ(a : Type) → λ(fa : Id a) → λ(b : Type) → λ(f : a → Id b) →
+      f fa
+    in { pure, bind }
+```
 
 ### M-filterable functors and contrafunctors
 
