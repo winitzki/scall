@@ -11028,12 +11028,41 @@ let monadIdentity : Monad Id =
 A product of two monads is again a monad:
 
 ```dhall
-let monadIdentity : Monad Id =
-    let pure = λ(a : Type) → λ(x : a) → x
-    let bind = λ(a : Type) → λ(fa : Id a) → λ(b : Type) → λ(f : a → Id b) →
-      f fa
+let monadProduct : ∀(F : Type → Type) → Monad F → ∀(G : Type → Type) → Monad G → Monad (Product F G) 
+  = λ(F : Type → Type) → λ(monadF : Monad F) → λ(G : Type → Type) → λ(monadG : Monad G) →
+    let pure = λ(a : Type) → λ(x : a) → { _1 = monadF.pure a x, _2 = monadG.pure a x }
+    let bind = λ(a : Type) → λ(faga : Product F G a) → λ(b : Type) → λ(f : a → Product F G b) →
+      let fb = monadF.bind a faga._1 b (λ(x : a) → (f x)._1)
+      let gb = monadG.bind a faga._2 b (λ(x : a) → (f x)._2)
+      in { _1 = fb, _2 = gb }
     in { pure, bind }
 ```
+
+### Co-product types
+
+In general, a co-product of two monads is not a monad.
+But there is one exception: when one of the monads is the identity monad.
+
+The co-product of an identity monad and a given monad is called a "free pointed monad".
+
+```dhall
+let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
+  = λ(F : Type → Type) → λ(monadF : Monad F) →
+    let G = CoProduct Id F  -- So that G a = Either a (F a).
+    let pure = λ(a : Type) → λ(x : a) → (G a).Left x
+    let bind = λ(a : Type) → λ(ga : G a) → λ(b : Type) → λ(f : a → G b) →
+      merge { Left = λ(x : a) → f x
+            , Right = λ(fa : F a) →
+                let afb : a → F b = λ(x : a) →
+                  merge { Left = λ(y : b) → monadF.pure b y
+                        , Right = λ(fb : F b) → fb
+                  } (f x)
+                let fb : F b  = monadF.bind a fa b afb  
+                in (G b).Right fb 
+            } ga
+    in { pure, bind }
+```
+
 
 ### M-filterable functors and contrafunctors
 
