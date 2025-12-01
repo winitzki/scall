@@ -11063,8 +11063,11 @@ let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct I
     in { pure, bind }
 ```
 
+### Function types
 
 ### M-filterable functors and contrafunctors
+
+### Free monads
 
 ## Monad transformers
 
