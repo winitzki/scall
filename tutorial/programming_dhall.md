@@ -11076,6 +11076,11 @@ Those contrafunctors are called "M-filterable" in "The Science of Functional Pro
 Before introducing M-filterable contrafunctors, we show a simpler combinator for a function-type monad.
 That combinator produces a monad of type `Arrow F Id`, where `F` is an arbitrary contrafunctor.
 The resulting monad type expression looks like `H a = F a → a`.
+
+A simple example of this kind of monad is `S a = (a → Bool) → a`.
+The monad `S` is known as the "selector monad" and has some applications in dynamic programming and search problems.
+
+The following combinator produces a function type monad `F a → a` from any contrafunctor `F`:
 ```dhall
 let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Arrow F Id) 
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
