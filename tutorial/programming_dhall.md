@@ -43,8 +43,8 @@ It will be easy to learn Dhall for readers already familiar with functional prog
 
 The syntax of Dhall is similar to that of Haskell.
 One major difference is Dhall's syntax for functions, which resembles the notation of System F and System Fω.
-Namely, System F's notation: $$ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $$ and System Fω's notation:
-$$ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $$ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+Namely, System F's notation: $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
+$ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 Here is an example of a complete Dhall program:
 
