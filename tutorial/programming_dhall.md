@@ -11048,7 +11048,7 @@ The co-product of an identity monad and a given monad is called a "free pointed 
 ```dhall
 let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
   = λ(F : Type → Type) → λ(monadF : Monad F) →
-    let G = CoProduct Id F  -- So that G a = Either a (F a).
+    let G = CoProduct Id F   -- So that G a = Either a (F a).
     let pure = λ(a : Type) → λ(x : a) → (G a).Left x
     let bind = λ(a : Type) → λ(ga : G a) → λ(b : Type) → λ(f : a → G b) →
       merge { Left = λ(x : a) → f x
@@ -11064,6 +11064,30 @@ let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct I
 ```
 
 ### Function types
+
+With several other typeclasses we have seen in previous chapters, the `Arrow` constructor (`Arrow F G a = F a → G a`) gives another typeclass instance.
+However, it is not true that `Arrow F G` is a monad whenever `F` and `G` are monads.
+The main reason is that monads must be covariant functors, while `F a → G a` can be covariant only if `F` is contravariant.
+
+Nevertheless, there exists a construction that produces lawful monads of type `F a → G a`.
+The conditions for this construction to work are that `G` should be a monad and `F` should be a contrafunctor adapted to the monad `G` in a special way.
+Those contrafunctors are called "M-filterable" in "The Science of Functional Programming".
+
+Before introducing M-filterable contrafunctors, we show a simpler combinator for a function-type monad.
+That combinator produces a monad of type `Arrow F Id`, where `F` is an arbitrary contrafunctor.
+The resulting monad type expression looks like `H a = F a → a`.
+```dhall
+let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Arrow F Id) 
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
+    let H = Arrow F Id   -- So that H a = F a → a.
+    let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → x 
+    let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) →
+    in { pure, bind }
+```
+
+This construction is a special case of the M-filterable contrafunctor construction with `M = Id`; as it turns out, any contrafunctor is `Id`-filterable.
+
+Let us now turn to the general definition of M-filterable contrafunctors and the related function-type monads.
 
 ### M-filterable functors and contrafunctors
 
