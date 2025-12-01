@@ -11081,7 +11081,10 @@ let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
     let H = Arrow F Id   -- So that H a = F a → a.
     let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → x 
-    let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) →
+    let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) → λ(fb : F b) →
+      let ab : a → b = λ(x : a) → f x fb
+      let fa : F a = contrafunctorF.cmap a b ab fb
+      in ab (ha fa)
     in { pure, bind }
 ```
 
