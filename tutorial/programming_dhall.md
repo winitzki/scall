@@ -11095,7 +11095,38 @@ let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
 
 This construction is a special case of the M-filterable contrafunctor construction with `M = Id`; as it turns out, any contrafunctor is `Id`-filterable.
 
-Let us now turn to the general definition of M-filterable contrafunctors and the related function-type monads.
+To implement the general construction of function-type monads, we first need a definition of M-filterable contrafunctor.
+
+A contrafunctor `F` is M-filterable (where `M` is a monad) if there is a method `contraliftM` with type signature `(a → M b) → F b → F a`.
+We define the `MContraFilterable` typeclass that specifies the type signature of `contraliftM`:
+
+```dhall
+let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { contraliftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a }
+```
+
+If `M` is a monad then it follows that `F` is a contrafunctor: we can use `M`'s `pure` method to implement `cmap` via `contraliftM`.
+```dhall
+let MContraFilterableContraFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MContraFilterable M F → Contrafunctor F
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → mContraFilterableMF.contraliftM a b (λ(x : a) → monadM.pure b (f x)) fb }
+```
+
+
+Now we can write the code for the M-filterable monad combinator:
+
+```dhall
+let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
+  = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(mContraFilterableGF : MContraFilterable G F) →
+    let H = Arrow F G   -- So that H a = F a → G a.
+    let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → monadG.pure a x 
+    let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) → λ(fb : F b) →
+      let agb : a → G b = λ(x : a) → f x fb
+      let fa : F a = mContraFilterableGF.contraliftM a b agb fb
+      in monadG.bind a (ha fa) b agb
+    in { pure, bind }
+```
+
+Let us now explore some combinators for M-filterable contrafunctors.
 
 ### M-filterable functors and contrafunctors
 
