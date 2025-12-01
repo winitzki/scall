@@ -3703,9 +3703,17 @@ let Monad = λ(F : Type → Type) →
   }
 ```
 
-As an example, let us define a `Monad` evidence value for `List`:
+As an example, let us define a `Monad` evidence values for `Optional` and `List`:
 
 ```dhall
+let monadOptional : Monad Optional =
+  let pure = λ(a : Type) → λ(x : a) → Some x
+  let bind = λ(a : Type) → λ(fa : Optional a) → λ(b : Type) → λ(f : a → Optional b) →
+    merge { None = None b
+          , Some = λ(x : a) → f x
+          } fa
+  in { pure, bind }
+
 let monadList : Monad List =
   let pure = λ(a : Type) → λ(x : a) → [ x ]
   let bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) →
@@ -3819,7 +3827,7 @@ For the State monad, the Dhall interpreter can verify the left identity law and 
 The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } ≡ x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
 The Dhall interpreter does not have access to the type of `x` at the time of evaluating `{ _1 = x._1, _2 = x._2 }`, and so it cannot verify that `x` is a record with no other fields than `_1` and `_2`.
 
-#### A monad's `join` method implemented via typeclass constraint
+#### Implementing `join` via `pure` and `bind`
 
 We have defined the `Monad` typeclass via the `pure` and `bind` methods.
 Let us implement a function that provides the `join` method for any member of the `Monad` typeclass.
@@ -9964,9 +9972,9 @@ let filter
     in filterableF.deflate a foa
 ```
 
-Similarly, we may implement a `cfilter` function for a filterable contrafunctor like this:
+Similarly, we may implement a `contrafilter` function for a filterable contrafunctor like this:
 ```dhall
-let cfilter
+let contrafilter
   : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
     let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
@@ -11065,22 +11073,24 @@ let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct I
 
 ### Function types
 
-With several other typeclasses we have seen in previous chapters, the `Arrow` constructor (`Arrow F G a = F a → G a`) gives another typeclass instance.
-However, it is not true that `Arrow F G` is a monad whenever `F` and `G` are monads.
-The main reason is that monads must be covariant functors, while `F a → G a` can be covariant only if `F` is contravariant.
+With several other typeclasses we have seen in previous chapters, the `Arrow` constructor (`Arrow F M a = F a → M a`) gives another typeclass instance.
+However, it is not true that `Arrow F M` is a monad whenever `F` and `M` are monads.
+The main reason is that monads must be covariant functors, while `F a → M a` can be covariant only if `F` is contravariant.
 
-Nevertheless, there exists a construction that produces lawful monads of type `F a → G a`.
-The conditions for this construction to work are that `G` should be a monad and `F` should be a contrafunctor adapted to the monad `G` in a special way.
-Those contrafunctors are called "M-filterable" in "The Science of Functional Programming".
+Nevertheless, there exists a construction that produces lawful monads of type `F a → M a`.
+The conditions for this construction to work are that `M` should be a monad and `F` should be a contrafunctor "compatible" with the monad `M` in a certain way.
 
-Before introducing M-filterable contrafunctors, we show a simpler combinator for a function-type monad.
-That combinator produces a monad of type `Arrow F Id`, where `F` is an arbitrary contrafunctor.
-The resulting monad type expression looks like `H a = F a → a`.
+Before looking at this general construction, let us consider  a special case  where `M = Id`.
+It turns out that `Arrow F Id` is a lawful monad for _any_ contrafunctor `F`. 
+(This is proved in "The Science of Functional Programming".)
+
+Let us write the code for the combinator that produces a monad of type `Arrow F Id`.
+The resulting monad's type expression looks like `H a = F a → a`.
 
 A simple example of this kind of monad is `S a = (a → Bool) → a`.
 The monad `S` is known as the "selector monad" and has some applications in dynamic programming and search problems.
 
-The following combinator produces a function type monad `F a → a` from any contrafunctor `F`:
+The combinator that produces a function type monad `F a → a` from any contrafunctor `F` is implemented like this:
 ```dhall
 let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Arrow F Id) 
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
@@ -11093,26 +11103,22 @@ let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
     in { pure, bind }
 ```
 
-This construction is a special case of the M-filterable contrafunctor construction with `M = Id`; as it turns out, any contrafunctor is `Id`-filterable.
+### Function-type monads with $M$-filterable contrafunctors
 
-To implement the general construction of function-type monads, we first need a definition of M-filterable contrafunctor.
+The combinator `monadIdFilterable` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
+If `M` is not the identity monad, the contrafunctor `F` is no longer arbitrary.
+In fact, the  function-type construction works only for contrafunctors that have a special property of being **$M$-filterable contrafunctors**.
 
-A contrafunctor `F` is M-filterable (where `M` is a monad) if there is a method `contraliftM` with type signature `(a → M b) → F b → F a`.
-We define the `MContraFilterable` typeclass that specifies the type signature of `contraliftM`:
+
+A contrafunctor `F` is an $M$-filterable contrafunctor (where `M` is a monad) if there is a method `contraliftM` with type signature `(a → M b) → F b → F a`.
+We define the `MContraFilterable` typeclass that provides the method `contraliftM`:
 
 ```dhall
 let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { contraliftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a }
 ```
 
-If `M` is a monad then it follows that `F` is a contrafunctor: we can use `M`'s `pure` method to implement `cmap` via `contraliftM`.
-```dhall
-let MContraFilterableContraFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MContraFilterable M F → Contrafunctor F
-  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
-    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → mContraFilterableMF.contraliftM a b (λ(x : a) → monadM.pure b (f x)) fb }
-```
 
-
-Now we can write the code for the M-filterable monad combinator:
+To understand why the specific type signature of `contraliftM` is needed, look at the code for the general $M$-filterable monad combinator:
 
 ```dhall
 let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
@@ -11125,28 +11131,109 @@ let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → T
       in monadG.bind a (ha fa) b agb
     in { pure, bind }
 ```
+It is similar to the code of `monadIdFilterable`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
+At the crucial point, we need to obtain a value of type `F a` from a value of type `F b`.
+In `monadIdFilterable`, we just used `F`'s `cmap` method with a function of type `a → b`.
+But in `monadMFilterable` we have a function of type `a → M b` instead of `a → b`.
+So, we need to transform `F b → F a` given a function of type `a → M b`.
+This transformation is provided by `contraliftM`.
 
+#### Relationships with other typeclasses
 
-### Combinators for M-filterable functors and contrafunctors
+The concept of $M$-filterable contrafunctors is not widely known or used.
+To build up intuition, we look at some relationships between  $M$-filterable contrafunctors and other, better-known typeclasses.
 
-To build intuition for the concept of M-filterable contrafunctors, let us  explore some combinators that create new M-filterable contrafunctors.
-Similarly to combinators for functors that also involve contrafunctors, we will need M-filterable functors:
+The first observation is that an evidence of `MContraFilterable` for `F` automatically means that `F` is contravariant.
+This is because  we can implement a `cmap` method for `F` (needed for the `Contrafunctor` typeclass) by using `contraliftM` with `M`'s `pure` method:
+```dhall
+let mContraFilterableContraFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MContraFilterable M F → Contrafunctor F
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
+    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → mContraFilterableMF.contraliftM a b (λ(x : a) → monadM.pure b (f x)) fb }
+```
+
+The second observation is that when `M = Optional` we recover ordinary filterable contrafunctors.
+This is because a function of type `(a → Optional b) → F b → F a` is equivalent to the `inflate` method required for `ContraFilterable`.
+We may write a conversion from `MContraFilterable` to `ContraFilterable`:
+
+```dhall
+let toContraFilterable : ∀(F : Type → Type) → MContraFilterable Optional F → ContraFilterable F
+  = λ(F : Type → Type) → λ(optionalContraFilterableF : MContraFilterable Optional F) →
+    mContraFilterableContraFunctor Optional monadOptional F optionalContraFilterableF /\
+    { inflate = λ(a : Type) → λ(fa : F a) → optionalContraFilterableF.contraliftM (Optional a) a (identity (Optional a)) fa }
+```
+
+The third observation is that we can define a `MFilterable` typeclass and similarly relate it to `Filterable`:
 
 ```dhall
 let MFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { liftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F a → F b }
+
+let mFilterableFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MFilterable M F → Functor F
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) →
+    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → mFilterableMF.liftM a b (λ(x : a) → monadM.pure b (f x)) fa }
+
+let toFilterable : ∀(F : Type → Type) → MFilterable Optional F → Filterable F
+  = λ(F : Type → Type) → λ(optionalFilterableF : MFilterable Optional F) →
+    mFilterableFunctor Optional monadOptional F optionalFilterableF /\
+    { deflate = λ(a : Type) → λ(foa : F (Optional a)) → optionalFilterableF.liftM (Optional a) a (identity (Optional a)) foa }
 ```
+It shows that the ordinary notion of "filtering" is related to the properties of the `Optional` monad.
+The effect of `Optional` is to allow some computation to pass or to fail.
+A failure is modeled by omitting the result.
+This is related to the behavior of filtering operations where conditions could hold or fail to hold.
+If a given condition does not hold, we omit the corresponding data item from the resulting collection.
+
+The fourth observation is that the property of being $M$-filterable always holds when `M = Id`.
+In other words, all functors and all contrafunctors are `Id`-filterable.
+When `M = Id`, the methods `liftM` and `fmap` have the same type signature; and so do `contraliftM` and `cmap`.
+We can express this by the following combinators:
+
+```dhall
+let toIdFilterable : ∀(F : Type → Type) → Functor F → MFilterable Id F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → { liftM = functorF.fmap }
+let toIdContraFilterable : ∀(F : Type → Type) → Contrafunctor F → MContraFilterable Id F
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → { contraliftM = contrafunctorF.cmap }
+```
+Because of this property, we were able to formulate the simpler monadic combinator `monadIdFilterable` for arbitrary contrafunctors `F`, without invoking the notion of $M$-filterable contrafunctors.
+
+#### Combinators for $M$-filterable functors and contrafunctors
+
+
+In this section, we will assume that a monad `M` is given and fixed.
+Because the concepts of $M$-filterable functors and contrafunctors become trivial when `M = Id`, we will assume that `M` is not the identity monad.
+
+Let us  explore some combinators that create new $M$-filterable functors and contrafunctors.
+
 
 #### Constant (contra)functors
 
-A constant functor (which is at the same time a contrafunctor) `F = Const t` (where `t` is a fixed type) is $M$-filterable with any `M`.
+A constant functor (which is at the same time a contrafunctor) is of the form `F = Const t`, where `t` is a fixed type.
 
+Constant functors are $M$-filterable with any `M`.
+The methods `liftM` and `contraliftM` are just identity functions.
+```dhall
+let mFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MFilterable M (Const t)
+  = λ(M : Type → Type) → λ(t : Type) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → identity (Const t a) }
+let mContraFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MContraFilterable M (Const t)
+  = λ(M : Type → Type) → λ(t : Type) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → identity (Const t a) }
+```
 
+#### Functors and contrafunctors built using $M$ 
 
-We will assume that a monad `M` is given and fixed.
+There are three examples where we can use the monad $M$ to define $M$-filterable functors or contrafunctors:
 
+1) `F = M`; the monad `M` itself is an `M`-filterable functor.
 
+```dhall
+let mMonadMFilterable : ∀(M : Type → Type) → Monad M → MFilterable M M
+  = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(ma : M a) → monadM.bind a ma b f }
+```
 
+2) `F a = a → M t` is a filterable contrafunctor when `t` is a fixed type.
 
+3) `F a = M a → t` is a filterable contrafunctor when `t` is a fixed type.
 ### Free monads
 
 ## Monad transformers
