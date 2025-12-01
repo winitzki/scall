@@ -11126,9 +11126,26 @@ let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → T
     in { pure, bind }
 ```
 
-Let us now explore some combinators for M-filterable contrafunctors.
 
-### M-filterable functors and contrafunctors
+### Combinators for M-filterable functors and contrafunctors
+
+To build intuition for the concept of M-filterable contrafunctors, let us  explore some combinators that create new M-filterable contrafunctors.
+Similarly to combinators for functors that also involve contrafunctors, we will need M-filterable functors:
+
+```dhall
+let MFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { liftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F a → F b }
+```
+
+#### Constant (contra)functors
+
+A constant functor (which is at the same time a contrafunctor) `F = Const t` (where `t` is a fixed type) is $M$-filterable with any `M`.
+
+
+
+We will assume that a monad `M` is given and fixed.
+
+
+
 
 ### Free monads
 
