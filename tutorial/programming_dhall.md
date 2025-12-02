@@ -11248,6 +11248,54 @@ let matMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) 
     let F = λ(a : Type) → M a → t
     in { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) → λ(ma : M a) → fb (monadM.bind a ma b f) }
 ```
+
+In the following subsections we will show that all type constructions (products, co-products, function types, recursive types, type quantifiers) preserve the $M$-(contra)filterable properties.
+It follows that _any_ covariant or contravariant type expression `F a` is $M$-filterable as long as the type expression depends on `a` via `M a` and/or via `a → M t` (for some fixed type `t`).
+
+#### Functor composition
+
+If `F` is any (contra)functor and `G` is $M$-filterable then `Compose F G` is also $M$-filterable.
+
+This works in the same way whether `F` and `G` are covariant or contravariant.
+Of course, the covariance of the resulting type constructor (`Compose F G`) depends on the covariance of `F` and `G`.
+We have seen a similar set of four constructions for ordinary (contra)functors and for filterable (contra)functors.
+
+For covariant `F` and covariant `G`:
+```dhall
+let compositionMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Compose F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : F (G a)) →
+      functorF.fmap (G a) (G b) (mFilterableMG.liftM a b f) fga 
+    }
+```
+
+For covariant `F` and contravariant `G`:
+```dhall
+let compositionMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Compose F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : F (G b)) →
+      functorF.fmap (G b) (G a) (mContraFilterableMG.contraliftM a b f) fgb 
+    }
+```
+
+For contravariant `F` and covariant `G`:
+```dhall
+let compositionContraMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → MFilterable M G → MContraFilterable M (Compose F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : F (G b)) →
+      contrafunctorF.cmap (G a) (G b) (mFilterableMG.liftM a b f) fgb 
+    }
+```
+
+For contravariant `F` and contravariant `G`:
+```dhall
+let compositionContraMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → MContraFilterable M G → MFilterable M (Compose F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : F (G a)) →
+      contrafunctorF.cmap (G b) (G a) (mContraFilterableMG.contraliftM a b f) fga 
+    }
+```
+
 #### Product and co-product types
 
 Products and co-products of $M$-(contra)filterable functors are again $M$-(contra)filterable.
@@ -11299,11 +11347,21 @@ let coProductMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Typ
       } fgb
     }
 ```
-TODO:
 
 #### Function types
 
+The function type construction gives new $M$-filterable (contra)functors as long as the covariance is combined correctly.
+
+
+
+
+#### Universal type quantifiers
+
+#### Existential type quantifiers
+
 #### Recursive types
+
+
 
 ### Free monads
 
