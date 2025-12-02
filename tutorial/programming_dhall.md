@@ -10222,7 +10222,7 @@ let contrafilterableExists1
      }
 ```
 
-### Recursive filterable type constructors
+### Recursive filterable (contra)functors
 
 Recursive type constructors are defined via `LFix` or `GFix` from pattern functors, which are type constructors `F` with two type parameters (so that `F a b` is a type).
 
@@ -10296,6 +10296,7 @@ To see what kind of filtering logic comes out of those definitions, consider the
 
 A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
 This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
+
 We can certainly implement `Filterable` for `FList` using that `deflate` method and the general combinator `filterableLFix` as shown above.
 But, as it turns out, this combinator produces a filtering operation that truncates a list after the first value that does not pass the given predicate.
 For example, filtering the list `[ 1, 3, 4, 5 ]` with the predicate `Natural/odd` will result in the list `[ 1, 3 ]` rather than `[ 1, 3, 5 ]` as one might expect.
@@ -10351,7 +10352,7 @@ We see that the requirement of having a function with the type signature `FList 
 
 The filtering shown above truncates lists after the first failing item because `deflateFList` must return an empty `Optional` value (that is, `None (Pair a b)`) in case the argument of type `Optional a` equals `None a`.
 An empty `Optional` value corresponds to an empty list in this recursive type.
-Instead, we need to continue filtering with the tail of the list.
+Instead, we need to continue filtering the tail of the list.
 The tail of the list is described by the value of type `b` in `FList a b` (and we will be setting `b = CList a`).
 So, we would like the function `deflateFList` to return the tail of the list (a value of type `CList a`) when an item fails the predicate.
 
@@ -10408,7 +10409,7 @@ let result : CList Natural = filter CList filterableCListEither Natural Natural/
 let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 5, ]"
 ```
 
-There are often many ways of implementing a `Filterable` typeclass for a given functor.
+There are often several ways of implementing a `Filterable` typeclass for a given functor.
 The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
 
 ## Applicative type constructors and their combinators
@@ -11106,39 +11107,56 @@ let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
 ### Function-type monads with $M$-filterable contrafunctors
 
 The combinator `monadIdFilterable` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
-If `M` is not the identity monad, the contrafunctor `F` is no longer arbitrary.
-In fact, the  function-type construction works only for contrafunctors that have a special property of being **$M$-filterable contrafunctors**.
+The price for supporting all monads `M` is a new special restriction on the contrafunctors `F`.
+Namely, the  function-type construction works only for   **$M$-filterable contrafunctors**.
 
+By definition, a contrafunctor `F` is $M$-filterable (where `M` is a monad) if there is a method `inflateM` with the type signature `∀(a : Type) → F a → F (M a)`.
+This method is a generalization of `inflate` (from filterable contrafunctors) where we replace the `Optional` monad by an arbitrary monad $M$.
 
-A contrafunctor `F` is an $M$-filterable contrafunctor (where `M` is a monad) if there is a method `contraliftM` with type signature `(a → M b) → F b → F a`.
-We define the `MContraFilterable` typeclass that provides the method `contraliftM`:
+We define the `MContraFilterable` typeclass that provides the method `inflateM`:
 
 ```dhall
-let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { contraliftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a }
+let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { inflateM : ∀(a : Type) → F a → F (M a) }
 ```
 
-
-To understand why the specific type signature of `contraliftM` is needed, look at the code for the general $M$-filterable monad combinator:
+If the method `inflateM` is available, we can also implement another method called `contraliftM` with type signature `(a → M b) → F b → F a`.
+The code requires a `Contrafunctor` evidence for `F`:
 
 ```dhall
-let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
-  = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(mContraFilterableGF : MContraFilterable G F) →
+let contraLiftM : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → MContraFilterable M F → ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(mContraFilterableMF : MContraFilterable M F) →
+    λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) →
+      let fmb: F (M b) = mContraFilterableMF.inflateM b fb
+      in contrafunctorF.cmap a (M b) f fmb
+```
+
+In practical coding, it is easier to work with   `contraliftM`   because it is more powerful: as we see, it includes at once the functionality of `Contrafunctor` and `MContraFilterable`.
+But when deriving general properties of $M$-filterable type constructors, it is simpler to work with `inflateM` as its type signature is shorter.
+For this reason, we  defined the `MContraFilterable` typeclass via the method `inflateM`, and we will perform all typeclass derivations using that method.
+
+To understand why the specific type signature of `contraliftM` is useful, let us look at the code for the general $M$-filterable monad combinator:
+
+```dhall
+let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → Contrafunctor F → MContraFilterable G F → Monad (Arrow F G) 
+  = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(mContraFilterableGF : MContraFilterable G F) →
     let H = Arrow F G   -- So that H a = F a → G a.
     let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → monadG.pure a x 
     let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) → λ(fb : F b) →
       let agb : a → G b = λ(x : a) → f x fb
-      let fa : F a = mContraFilterableGF.contraliftM a b agb fb
+      let fa : F a = contraliftM G F contrafunctorF mContraFilterableGF a b agb fb
       in monadG.bind a (ha fa) b agb
     in { pure, bind }
 ```
-It is similar to the code of `monadIdFilterable`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
-At the crucial point, we need to obtain a value of type `F a` from a value of type `F b`.
-In `monadIdFilterable`, we just used `F`'s `cmap` method with a function of type `a → b`.
+This code is similar to that of `monadIdFilterable`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
+At the crucial point in this code, we need to obtain a value of type `F a` from a value of type `F b`.
+In `monadIdFilterable`, we used `F`'s `cmap` method with a function of type `a → b`.
 But in `monadMFilterable` we have a function of type `a → M b` instead of `a → b`.
 So, we need to transform `F b → F a` given a function of type `a → M b`.
 This transformation is provided by `contraliftM`.
 
 #### Relationships with other typeclasses
+
+TODO: rewrite all constructions via the new typeclass definition
 
 The concept of $M$-filterable contrafunctors is not widely known or used.
 To build up intuition, we look at some relationships between  $M$-filterable contrafunctors and other, better-known typeclasses.
@@ -11352,8 +11370,29 @@ let coProductMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Typ
 
 The function type construction gives new $M$-filterable (contra)functors as long as the covariance is combined correctly.
 
+If `F` is an $M$-filterable contrafunctor and `G` is an $M$-filterable functor then `Arrow F G` is an $M$-filterable functor:
+
+```dhall
+let arrowMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Arrow F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(faga : F a → G a) →
+      λ(fb : F b) → let fa : F a = mContraFilterableMF.contraliftM a b f fb
+                    in mFilterableMG.liftM a b f (faga fa) 
+    }
+```
+
+If `F` is an $M$-filterable functor and `G` is an $M$-filterable contrafunctor then `Arrow F G` is an $M$-filterable contrafunctor:
 
 
+
+```dhall
+let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Arrow F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fbgb : F b → G b) →
+      λ(fa : F a) → let fb : F b = mFilterableMF.liftM a b f fa
+                    in mContraFilterableMG.contraliftM a b f (fbgb fb) 
+    }
+```
 
 #### Universal type quantifiers
 
