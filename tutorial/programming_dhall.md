@@ -11202,7 +11202,7 @@ In this section, we will assume that a monad `M` is given and fixed.
 Because the concepts of $M$-filterable functors and contrafunctors become trivial when `M = Id`, we will assume that `M` is not the identity monad.
 
 Let us  explore some combinators that create new $M$-filterable functors and contrafunctors.
-
+We will not be concerned with formulating and checking the required laws. It is proved in "The Science of Functional Programming" that the combinators respect the required laws of $M$-filterable functors and contrafunctors. 
 
 #### Constant (contra)functors
 
@@ -11221,7 +11221,7 @@ let mContraFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MContr
 
 #### Functors and contrafunctors built using $M$ 
 
-There are three examples where we can use the monad $M$ to define $M$-filterable functors or contrafunctors:
+There are three examples where we   use the monad $M$ to obtain $M$-filterable functors or contrafunctors:
 
 1) `F = M`; the monad `M` itself is an `M`-filterable functor.
 
@@ -11233,8 +11233,109 @@ let mMonadMFilterable : ∀(M : Type → Type) → Monad M → MFilterable M M
 
 2) `F a = a → M t` is a filterable contrafunctor when `t` is a fixed type.
 
+```dhall
+let amtMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) → MContraFilterable M (λ(a : Type) → a → M t)
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(t : Type) →
+    let F = λ(a : Type) → a → M t
+    in { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) → λ(x : a) → monadM.bind b (f x) t fb }
+```
+
 3) `F a = M a → t` is a filterable contrafunctor when `t` is a fixed type.
+
+```dhall
+let matMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) → MContraFilterable M (λ(a : Type) → M a → t)
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(t : Type) →
+    let F = λ(a : Type) → M a → t
+    in { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) → λ(ma : M a) → fb (monadM.bind a ma b f) }
+```
+#### Product and co-product types
+
+Products and co-products of $M$-(contra)filterable functors are again $M$-(contra)filterable.
+
+Product of two $M$-filterable functors:
+
+```dhall
+let productMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Product F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : (Product F G) a) →
+      { _1 = mFilterableMF.liftM a b f fga._1
+      , _2 = mFilterableMG.liftM a b f fga._2
+      }
+    }
+```
+
+Co-product of two $M$-filterable functors:
+
+```dhall
+let coProductMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (CoProduct F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
+    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : (CoProduct F G) a) →
+      merge { Left = λ(fa : F a) → ((CoProduct F G) b).Left (mFilterableMF.liftM a b f fa)
+            , Right = λ(ga : G a) → ((CoProduct F G) b).Right (mFilterableMG.liftM a b f ga)
+      } fga
+    }
+```
+
+Product of two $M$-filterable contrafunctors:
+
+```dhall
+let productMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Product F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : (Product F G) b) →
+      { _1 = mContraFilterableMF.contraliftM a b f fgb._1
+      , _2 = mContraFilterableMG.contraliftM a b f fgb._2
+      }
+    }
+```
+
+Co-product of two $M$-filterable contrafunctors:
+
+```dhall
+let coProductMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (CoProduct F G)
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
+    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : (CoProduct F G) b) →
+      merge { Left = λ(fb : F b) → ((CoProduct F G) a).Left (mContraFilterableMF.contraliftM a b f fb)
+            , Right = λ(gb : G b) → ((CoProduct F G) a).Right (mContraFilterableMG.contraliftM a b f gb)
+      } fgb
+    }
+```
+TODO:
+
+#### Function types
+
+#### Recursive types
+
 ### Free monads
+
+A **free monad** on a functor `F` is the functor `Free F` recursively defined by:
+
+```haskell
+data Free F a = Pure a | Join (F (Free T a)) -- Haskell.
+```
+
+To translate this Haskell definition into Dhall, we need to use the Church encoding.
+Let us curry the function type to make the implementation easier:
+```dhall
+let FreeMonad : ∀(F : Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(a : Type) →
+    ∀(r : Type) → (a → r) → (F r → r) → r
+```
+
+To implement a monad's methods for `FreeMonad F`, we will need the `Functor` evidence for `F`:
+
+```dhall
+let monadFreeMonad : ∀(F : Type → Type) → Functor F → Monad (FreeMonad F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    let pure = λ(a : Type) → λ(x : a) →
+      λ(r : Type) → λ(ar : a → r) → λ(_ : F r → r) → ar x
+    let bind = λ(a : Type) → λ(fma : FreeMonad F a) → λ(b : Type) → λ(f : a → FreeMonad F b) →
+      λ(r : Type) → λ(br : b → r) → λ(alg : F r → r) →
+        let ar : a → r = λ(x : a) → f x r br alg 
+        in (fma r ar alg) : r 
+    in { pure, bind } 
+```
+
+TODO: figure out why the Functor evidence for F is not being used! This looks suspicious.
 
 ## Monad transformers
 
