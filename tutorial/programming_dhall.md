@@ -11113,37 +11113,36 @@ Namely, the  function-type construction works only for   **$M$-filterable contra
 By definition, a contrafunctor `F` is $M$-filterable (where `M` is a monad) if there is a method `inflateM` with the type signature `∀(a : Type) → F a → F (M a)`.
 This method is a generalization of `inflate` (from filterable contrafunctors) where we replace the `Optional` monad by an arbitrary monad $M$.
 
-We define the `MContraFilterable` typeclass that provides the method `inflateM`:
+We define the `MContraFilterable` typeclass that provides the method `inflateM` together with the standard `Contrafunctor` evidence:
 
 ```dhall
-let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { inflateM : ∀(a : Type) → F a → F (M a) }
+let MContraFilterable = λ(M : Type → Type) → λ(F : Type → Type) → Contrafunctor F //\\ { inflateM : ∀(a : Type) → F a → F (M a) }
 ```
 
 If the method `inflateM` is available, we can also implement another method called `contraliftM` with type signature `(a → M b) → F b → F a`.
-The code requires a `Contrafunctor` evidence for `F`:
 
 ```dhall
-let contraLiftM : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → MContraFilterable M F → ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a
-  = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(mContraFilterableMF : MContraFilterable M F) →
+let contraliftM : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a
+  = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
     λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) →
       let fmb: F (M b) = mContraFilterableMF.inflateM b fb
-      in contrafunctorF.cmap a (M b) f fmb
+      in mContraFilterableMF.cmap a (M b) f fmb
 ```
 
-In practical coding, it is easier to work with   `contraliftM`   because it is more powerful: as we see, it includes at once the functionality of `Contrafunctor` and `MContraFilterable`.
-But when deriving general properties of $M$-filterable type constructors, it is simpler to work with `inflateM` as its type signature is shorter.
-For this reason, we  defined the `MContraFilterable` typeclass via the method `inflateM`, and we will perform all typeclass derivations using that method.
+In practical coding, it is easier to work with `contraliftM` because it is more powerful: it includes at once the functionality of `cmap` and `inflateM`.
+But when deriving general properties of $M$-filterable contrafunctors, it is simpler to work with `inflateM` as its type signature is shorter.
+For this reason, we defined the `MContraFilterable` typeclass via the method `inflateM`, and we will perform all typeclass derivations using that method.
 
 To understand why the specific type signature of `contraliftM` is useful, let us look at the code for the general $M$-filterable monad combinator:
 
 ```dhall
-let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → Contrafunctor F → MContraFilterable G F → Monad (Arrow F G) 
-  = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(mContraFilterableGF : MContraFilterable G F) →
+let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
+  = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(mContraFilterableGF : MContraFilterable G F) →
     let H = Arrow F G   -- So that H a = F a → G a.
     let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → monadG.pure a x 
     let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) → λ(fb : F b) →
       let agb : a → G b = λ(x : a) → f x fb
-      let fa : F a = contraliftM G F contrafunctorF mContraFilterableGF a b agb fb
+      let fa : F a = contraliftM G F mContraFilterableGF a b agb fb
       in monadG.bind a (ha fa) b agb
     in { pure, bind }
 ```
@@ -11156,43 +11155,28 @@ This transformation is provided by `contraliftM`.
 
 #### Relationships with other typeclasses
 
-TODO: rewrite all constructions via the new typeclass definition
-
 The concept of $M$-filterable contrafunctors is not widely known or used.
 To build up intuition, we look at some relationships between  $M$-filterable contrafunctors and other, better-known typeclasses.
 
-The first observation is that an evidence of `MContraFilterable` for `F` automatically means that `F` is contravariant.
-This is because  we can implement a `cmap` method for `F` (needed for the `Contrafunctor` typeclass) by using `contraliftM` with `M`'s `pure` method:
-```dhall
-let mContraFilterableContraFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MContraFilterable M F → Contrafunctor F
-  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
-    { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fb : F b) → mContraFilterableMF.contraliftM a b (λ(x : a) → monadM.pure b (f x)) fb }
-```
-
-The second observation is that when `M = Optional` we recover ordinary filterable contrafunctors.
-This is because a function of type `(a → Optional b) → F b → F a` is equivalent to the `inflate` method required for `ContraFilterable`.
+The first observation is that when `M = Optional` we recover ordinary filterable contrafunctors.
+This is because a function of type `F a → F (Optional a)` is equivalent to the `inflate` method required for `ContraFilterable`.
 We may write a conversion from `MContraFilterable` to `ContraFilterable`:
 
 ```dhall
 let toContraFilterable : ∀(F : Type → Type) → MContraFilterable Optional F → ContraFilterable F
   = λ(F : Type → Type) → λ(optionalContraFilterableF : MContraFilterable Optional F) →
-    mContraFilterableContraFunctor Optional monadOptional F optionalContraFilterableF /\
-    { inflate = λ(a : Type) → λ(fa : F a) → optionalContraFilterableF.contraliftM (Optional a) a (identity (Optional a)) fa }
+    { cmap = optionalContraFilterableF.cmap, inflate = optionalContraFilterableF.inflateM }
 ```
 
-The third observation is that we can define a `MFilterable` typeclass and similarly relate it to `Filterable`:
+The second observation is that we can define a `MFilterable` typeclass and similarly relate it to `Filterable`:
 
 ```dhall
-let MFilterable = λ(M : Type → Type) → λ(F : Type → Type) → { liftM : ∀(a : Type) → ∀(b : Type) → (a → M b) → F a → F b }
-
-let mFilterableFunctor : ∀(M : Type → Type) → Monad M → ∀(F : Type → Type) → MFilterable M F → Functor F
-  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) →
-    { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) → mFilterableMF.liftM a b (λ(x : a) → monadM.pure b (f x)) fa }
+let MFilterable = λ(M : Type → Type) → λ(F : Type → Type) →
+  Functor F //\\ { deflateM : ∀(a : Type) → F (M a) → F a }
 
 let toFilterable : ∀(F : Type → Type) → MFilterable Optional F → Filterable F
-  = λ(F : Type → Type) → λ(optionalFilterableF : MFilterable Optional F) →
-    mFilterableFunctor Optional monadOptional F optionalFilterableF /\
-    { deflate = λ(a : Type) → λ(foa : F (Optional a)) → optionalFilterableF.liftM (Optional a) a (identity (Optional a)) foa }
+  = λ(F : Type → Type) → λ(optionalFilterableF : MFilterable Optional F) → optionalFilterableF.{fmap} /\
+    { deflate = λ(a : Type) → λ(foa : F (Optional a)) → optionalFilterableF.deflateM a foa }
 ```
 It shows that the ordinary notion of "filtering" is related to the properties of the `Optional` monad.
 The effect of `Optional` is to allow some computation to pass or to fail.
@@ -11200,26 +11184,27 @@ A failure is modeled by omitting the result.
 This is related to the behavior of filtering operations where conditions could hold or fail to hold.
 If a given condition does not hold, we omit the corresponding data item from the resulting collection.
 
-The fourth observation is that the property of being $M$-filterable always holds when `M = Id`.
+The third observation is that the property of being $M$-filterable always holds when `M = Id`.
 In other words, all functors and all contrafunctors are `Id`-filterable.
-When `M = Id`, the methods `liftM` and `fmap` have the same type signature; and so do `contraliftM` and `cmap`.
+When `M = Id`, the methods `deflateM` and `inflateM` are just identity functions.
 We can express this by the following combinators:
 
 ```dhall
 let toIdFilterable : ∀(F : Type → Type) → Functor F → MFilterable Id F
-  = λ(F : Type → Type) → λ(functorF : Functor F) → { liftM = functorF.fmap }
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    functorF /\ { deflateM = λ(a : Type) → identity (F a) }
 let toIdContraFilterable : ∀(F : Type → Type) → Contrafunctor F → MContraFilterable Id F
-  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → { contraliftM = contrafunctorF.cmap }
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
+    contrafunctorF /\ { inflateM = λ(a : Type) → identity (F a) }
 ```
-Because of this property, we were able to formulate the simpler monadic combinator `monadIdFilterable` for arbitrary contrafunctors `F`, without invoking the notion of $M$-filterable contrafunctors.
+Because of this property, we were able to formulate the simpler monadic combinator `monadIdFilterable` for arbitrary contrafunctors `F` without invoking the notion of $M$-filterable contrafunctors.
 
 #### Combinators for $M$-filterable functors and contrafunctors
-
 
 In this section, we will assume that a monad `M` is given and fixed.
 Because the concepts of $M$-filterable functors and contrafunctors become trivial when `M = Id`, we will assume that `M` is not the identity monad.
 
-Let us  explore some combinators that create new $M$-filterable functors and contrafunctors.
+Let us explore some combinators that create new $M$-filterable functors and contrafunctors.
 We will not be concerned with formulating and checking the required laws. It is proved in "The Science of Functional Programming" that the combinators respect the required laws of $M$-filterable functors and contrafunctors. 
 
 #### Constant (contra)functors
@@ -11227,26 +11212,26 @@ We will not be concerned with formulating and checking the required laws. It is 
 A constant functor (which is at the same time a contrafunctor) is of the form `F = Const t`, where `t` is a fixed type.
 
 Constant functors are $M$-filterable with any `M`.
-The methods `liftM` and `contraliftM` are just identity functions.
+The methods `deflateM` and `inflateM` are identity functions.
 ```dhall
 let mFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MFilterable M (Const t)
   = λ(M : Type → Type) → λ(t : Type) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → identity (Const t a) }
+    functorConst t /\ { deflateM = λ(a : Type) → identity (Const t a) }
 let mContraFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MContraFilterable M (Const t)
   = λ(M : Type → Type) → λ(t : Type) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → identity (Const t a) }
+    contrafunctorConst t /\ { inflateM = λ(a : Type) → identity (Const t a) }
 ```
 
 #### Functors and contrafunctors built using $M$ 
 
-There are three examples where we   use the monad $M$ to obtain $M$-filterable functors or contrafunctors:
+There are three examples where we can use the monad $M$ to build $M$-filterable functors or contrafunctors:
 
-1) `F = M`; the monad `M` itself is an `M`-filterable functor.
+1) `F = M`: the monad `M` itself is an `M`-filterable functor.
 
 ```dhall
 let mMonadMFilterable : ∀(M : Type → Type) → Monad M → MFilterable M M
   = λ(M : Type → Type) → λ(monadM : Monad M) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(ma : M a) → monadM.bind a ma b f }
+    monadFunctor M monadM /\ { deflateM = λ(a : Type) → λ(ma : M (M a)) → monadM.bind (M a) ma a (identity (M a)) }
 ```
 
 2) `F a = a → M t` is a filterable contrafunctor when `t` is a fixed type.
@@ -11255,7 +11240,8 @@ let mMonadMFilterable : ∀(M : Type → Type) → Monad M → MFilterable M M
 let amtMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) → MContraFilterable M (λ(a : Type) → a → M t)
   = λ(M : Type → Type) → λ(monadM : Monad M) → λ(t : Type) →
     let F = λ(a : Type) → a → M t
-    in { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) → λ(x : a) → monadM.bind b (f x) t fb }
+    let contrafunctorAMT : Contrafunctor F = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(bmt : b → M t) → λ(x : a) → bmt (f x) } 
+    in contrafunctorAMT /\ { inflateM = λ(a : Type) → λ(amt : F a) → λ(ma : M a) → monadM.bind a ma t amt }
 ```
 
 3) `F a = M a → t` is a filterable contrafunctor when `t` is a fixed type.
@@ -11264,11 +11250,13 @@ let amtMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) 
 let matMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) → MContraFilterable M (λ(a : Type) → M a → t)
   = λ(M : Type → Type) → λ(monadM : Monad M) → λ(t : Type) →
     let F = λ(a : Type) → M a → t
-    in { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) → λ(ma : M a) → fb (monadM.bind a ma b f) }
+    let functorM : Functor M = monadFunctor M monadM
+    let contrafunctorMAT : Contrafunctor F = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(mbt : M b → t) → λ(ma : M a) → mbt (functorM.fmap a b f ma) }
+    in contrafunctorMAT /\ { inflateM = λ(a : Type) → λ(mat : M a → t) → λ(mma : M (M a)) → mat (monadM.bind (M a) mma a (identity (M a))) }
 ```
 
 In the following subsections we will show that all type constructions (products, co-products, function types, recursive types, type quantifiers) preserve the $M$-(contra)filterable properties.
-It follows that _any_ covariant or contravariant type expression `F a` is $M$-filterable as long as the type expression depends on `a` via `M a` and/or via `a → M t` (for some fixed type `t`).
+It follows that _any_ covariant or contravariant type expression `F a` is $M$-filterable as long as the type expression depends on `a` only via `M a` and/or via `a → M t` (for some fixed types `t`).
 
 #### Functor composition
 
@@ -11277,41 +11265,38 @@ If `F` is any (contra)functor and `G` is $M$-filterable then `Compose F G` is al
 This works in the same way whether `F` and `G` are covariant or contravariant.
 Of course, the covariance of the resulting type constructor (`Compose F G`) depends on the covariance of `F` and `G`.
 We have seen a similar set of four constructions for ordinary (contra)functors and for filterable (contra)functors.
+The code for $M$-filterable (contra)functors is similar to what we had before.
 
 For covariant `F` and covariant `G`:
 ```dhall
 let compositionMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Compose F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : F (G a)) →
-      functorF.fmap (G a) (G b) (mFilterableMG.liftM a b f) fga 
-    }
+    functorFunctorCompose F functorF G mFilterableMG.{fmap} /\
+      { deflateM = λ(a : Type) → functorF.fmap (G (M a)) (G a) (mFilterableMG.deflateM a) }
 ```
 
 For covariant `F` and contravariant `G`:
 ```dhall
 let compositionMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Functor F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Compose F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(functorF : Functor F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : F (G b)) →
-      functorF.fmap (G b) (G a) (mContraFilterableMG.contraliftM a b f) fgb 
-    }
+     functorContrafunctorCompose F functorF G mContraFilterableMG.{cmap} /\
+      { inflateM = λ(a : Type) → functorF.fmap (G a) (G (M a)) (mContraFilterableMG.inflateM a) }
 ```
 
 For contravariant `F` and covariant `G`:
 ```dhall
 let compositionContraMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → MFilterable M G → MContraFilterable M (Compose F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : F (G b)) →
-      contrafunctorF.cmap (G a) (G b) (mFilterableMG.liftM a b f) fgb 
-    }
+    contrafunctorFunctorCompose F contrafunctorF G mFilterableMG.{fmap} /\
+      { inflateM = λ(a : Type) → contrafunctorF.cmap (G (M a)) (G a) (mFilterableMG.deflateM a) }
 ```
 
 For contravariant `F` and contravariant `G`:
 ```dhall
 let compositionContraMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → Contrafunctor F → ∀(G : Type → Type) → MContraFilterable M G → MFilterable M (Compose F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : F (G a)) →
-      contrafunctorF.cmap (G b) (G a) (mContraFilterableMG.contraliftM a b f) fga 
-    }
+     contrafunctorContrafunctorCompose F contrafunctorF G mContraFilterableMG.{cmap} /\
+       { deflateM = λ(a : Type) → contrafunctorF.cmap (G a) (G (M a)) (mContraFilterableMG.inflateM a) }
 ```
 
 #### Product and co-product types
@@ -11323,9 +11308,10 @@ Product of two $M$-filterable functors:
 ```dhall
 let productMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Product F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : (Product F G) a) →
-      { _1 = mFilterableMF.liftM a b f fga._1
-      , _2 = mFilterableMG.liftM a b f fga._2
+    functorProduct F mFilterableMF.{fmap} G mFilterableMG.{fmap} /\
+    { deflateM = λ(a : Type) → λ(fgma : (Product F G) (M a)) →
+      { _1 = mFilterableMF.deflateM a fgma._1
+      , _2 = mFilterableMG.deflateM a fgma._2
       }
     }
 ```
@@ -11335,10 +11321,11 @@ Co-product of two $M$-filterable functors:
 ```dhall
 let coProductMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (CoProduct F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fga : (CoProduct F G) a) →
-      merge { Left = λ(fa : F a) → ((CoProduct F G) b).Left (mFilterableMF.liftM a b f fa)
-            , Right = λ(ga : G a) → ((CoProduct F G) b).Right (mFilterableMG.liftM a b f ga)
-      } fga
+    functorCoProduct F mFilterableMF.{fmap} G mFilterableMG.{fmap} /\
+    { deflateM = λ(a : Type) → λ(fgma : (CoProduct F G) (M a)) →
+      merge { Left = λ(fma : F (M a)) → ((CoProduct F G) a).Left (mFilterableMF.deflateM a fma)
+            , Right = λ(gma : G (M a)) → ((CoProduct F G) a).Right (mFilterableMG.deflateM a gma)
+      } fgma
     }
 ```
 
@@ -11347,9 +11334,10 @@ Product of two $M$-filterable contrafunctors:
 ```dhall
 let productMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Product F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : (Product F G) b) →
-      { _1 = mContraFilterableMF.contraliftM a b f fgb._1
-      , _2 = mContraFilterableMG.contraliftM a b f fgb._2
+    contrafunctorProduct F mContraFilterableMF.{cmap} G mContraFilterableMG.{cmap} /\
+    { inflateM = λ(a : Type) → λ(fga : (Product F G) a) →
+      { _1 = mContraFilterableMF.inflateM a fga._1
+      , _2 = mContraFilterableMG.inflateM a fga._2
       }
     }
 ```
@@ -11359,10 +11347,11 @@ Co-product of two $M$-filterable contrafunctors:
 ```dhall
 let coProductMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (CoProduct F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fgb : (CoProduct F G) b) →
-      merge { Left = λ(fb : F b) → ((CoProduct F G) a).Left (mContraFilterableMF.contraliftM a b f fb)
-            , Right = λ(gb : G b) → ((CoProduct F G) a).Right (mContraFilterableMG.contraliftM a b f gb)
-      } fgb
+    contrafunctorCoProduct F mContraFilterableMF.{cmap} G mContraFilterableMG.{cmap} /\
+    { inflateM = λ(a : Type) → λ(fga : (CoProduct F G) a) →
+      merge { Left = λ(fa : F a) → ((CoProduct F G) (M a)).Left (mContraFilterableMF.inflateM a fa)
+            , Right = λ(ga : G a) → ((CoProduct F G) (M a)).Right (mContraFilterableMG.inflateM a ga)
+      } fga
     }
 ```
 
@@ -11402,7 +11391,7 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
 
 
 
-### Free monads
+### Recursive monads
 
 A **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
