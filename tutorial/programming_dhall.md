@@ -11364,22 +11364,22 @@ If `F` is an $M$-filterable contrafunctor and `G` is an $M$-filterable functor t
 ```dhall
 let arrowMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(G : Type → Type) → MFilterable M G → MFilterable M (Arrow F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
-    { liftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(faga : F a → G a) →
-      λ(fb : F b) → let fa : F a = mContraFilterableMF.contraliftM a b f fb
-                    in mFilterableMG.liftM a b f (faga fa) 
+    contrafunctorFunctorArrow F mContraFilterableMF.{cmap} G mFilterableMG.{fmap} /\
+    { deflateM = λ(a : Type) → λ(fmagma : F (M a) → G (M a)) →
+      λ(fa : F a) → let fma : F (M a) = mContraFilterableMF.inflateM a fa
+                    in mFilterableMG.deflateM a (fmagma fma) 
     }
 ```
 
 If `F` is an $M$-filterable functor and `G` is an $M$-filterable contrafunctor then `Arrow F G` is an $M$-filterable contrafunctor:
 
-
-
 ```dhall
 let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MFilterable M F → ∀(G : Type → Type) → MContraFilterable M G → MContraFilterable M (Arrow F G)
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
-    { contraliftM = λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fbgb : F b → G b) →
-      λ(fa : F a) → let fb : F b = mFilterableMF.liftM a b f fa
-                    in mContraFilterableMG.contraliftM a b f (fbgb fb) 
+    functorContrafunctorArrow F mFilterableMF.{fmap} G mContraFilterableMG.{cmap} /\
+    { inflateM = λ(a : Type) → λ(faga : F a → G a) →
+      λ(fma : F (M a)) → let fa : F a = mFilterableMF.deflateM a fma
+                    in mContraFilterableMG.inflateM a (faga fa) 
     }
 ```
 
@@ -11391,7 +11391,12 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
 
 
 
-### Recursive monads
+### Monads with recursive types
+
+We have already seen that `List` is a monad.
+Another example of a monad whose type is defined recursively is a binary tree with leaves of type `a` (where `a` is a type parameter). 
+
+TODO: implement bind and see why my code does not use functorF
 
 A **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
