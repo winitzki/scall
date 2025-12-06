@@ -6513,7 +6513,7 @@ let bifunctorLFix
 ```
 
 In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on.
-Each time, if possible, we will implement typeclass evidence values for Church-encoded type constructors.
+Whenever possible, we will implement typeclass evidence values for Church-encoded type constructors.
 
 ### Data structures at type level
 
@@ -7744,7 +7744,7 @@ This value stores at once an implementation of the semigroup function (`append`)
 This technique works only when Dhall's typechecker is powerful enough to validate laws symbolically.
 We have chosen the semigroup type `Bool → Bool` in this example because Dhall is able to validate the associativity law for that type.
 
-## Co-inductive types
+## Encoding of greatest fixpoints (co-inductive types)
 
 ### Greatest fixpoints: Motivation
 
@@ -7752,18 +7752,21 @@ Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
 But Church encodings always give the **least fixpoints** of type equations.
 The least fixpoints give types that are also known as "inductive types".
-Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive" types.
+Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive types".
 
 In this book, we will denote by `LFix F` the least fixpoint and by `GFix F` the greatest fixpoint of the type equation `T = F T`.
+Type theory denotes $\mu F$  for the least fixpoint   and   $\nu F$  for the greatest fixpoint.
 
-Intuitively, the least fixpoint is the smallest data type `T` that satisfies `T = F T`.
-The greatest fixpoint is the largest possible data type that satisfies the same equation.
+Intuitively, the least fixpoint is the "smallest possible" data type `T` that satisfies `T = F T`.
+The greatest fixpoint is the "largest possible" data type that satisfies the same equation.
 
-Least fixpoints are always _finite_ structures.
-One can always traverse all data stored in such a structure within a finite number of operations.
+Least fixpoints of polynomial functors are   _finite_ structures.
+One can always traverse all data stored in such a structure by using a finite number of operations.
+One can also extract all stored data into a list, say.
 
-Greatest fixpoints are, as a rule, lazily evaluated data structures that correspond to infinite iteration.
+Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration.
 A traversal of all data items stored in those data structures is not expected to terminate.
+So, it is not possible to traverse all data or extract all data from such data structures.
 Those data structures are used only in ways that do not involve a full traversal of all data.
 It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
 
@@ -7781,15 +7784,16 @@ A data structure of type `List Text` always stores a finite number of `Text` str
 The greatest fixpoint `GFix F` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
-Of course, we cannot specify infinite streams by literally storing an infinite number of strings in memory.
-One way of implementing such streams is by giving an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
+Of course, we cannot implement infinite streams by literally storing an infinite number of strings in memory.
+Instead, we give an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
 In the present example, that function will have type `r → < Nil | Cons { head : Text, tail : r } >`.
-When that function is applied to a value of type `r`, the function will decide either to return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new value of type `r`.
+When that function is applied to a value of type `r`, the function will either return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new "seed" value of type `r`.
 
 The type `r` represents the internal state of the stream's decision process and may be different for different streams.
 However, the type `r` is not visible to the code outside the stream.
 That code can only extract values of type `r` and pass those values around without being able to do anything else with them.
-This is enforced by the type quantifiers:
+
+This restriction is enforced by the type quantifier:
 To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
 That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
 
@@ -7797,13 +7801,13 @@ That code will have to work in the same way for all types `r` and will not be ab
 
 This motivates the following implementation of the greatest fixpoint of `T = F T` in the general case:
 
-We take some unknown type `r` and implement `T` as a pair of types `r` and `r → F r`.
-To hide the type `r` from outside code, we need to impose an existential quantifier on `r`.
+We take some unknown type `r` and implement `T` as a pair of values of types `r` and `r → F r`.
+To hide the type `r` from outside code, we impose an existential quantifier on `r`.
 
 So, the mathematical notation for the greatest fixpoint of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
 
 The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
-To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)`.
+To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)` from the type parameter `r`.
 We will call that type constructor `GF_T` and use it to define `GFix`:
 
 ```dhall
@@ -7811,12 +7815,12 @@ let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F
 let GFix = λ(F : Type → Type) → Exists (GF_T F)
 ```
 
-Note that the "step" function is non-recursive.
+Note that the "step" function is _non-recursive_.
 It advances the stream by only one step.
 So, the entire definition `GFix` is non-recursive and will be accepted by Dhall.
-Nevertheless, `GFix F` is equivalent to a recursive type.
+Nevertheless, `GFix F` is equivalent to a recursive type (the greatest fixpoint of `F`).
 
-To see that `GFix` is a higher-order function, we let Dhall's REPL expand the definition of `GFix`:
+In this implementation, `GFix` is a higher-order function that we can inspect by letting Dhall's REPL expand the definition of `GFix`:
 
 ```dhall
 ⊢ GFix
@@ -7825,12 +7829,13 @@ To see that `GFix` is a higher-order function, we let Dhall's REPL expand the de
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the appendix "Naturality and parametricity".
-Here we will focus on the practical use of the greatest fixpoints.
+A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the Appendix "Naturality and parametricity" of this book.
+A proof is also outlined in the paper "Recursive types for free".
+This chapter focuses on the practical use of the greatest fixpoints.
 
 ### Greatest fixpoints for mutually recursive types
 
-Consider two mutually recursive types (this example was shown in the section "Mutually recursive types" of chapter "Church encodings for more complicated types"):
+Consider two mutually recursive types that we have already seen in the section "Mutually recursive types" of chapter "Church encodings for more complicated types":
 
 ```haskell
 -- Haskell.
@@ -7857,6 +7862,28 @@ We will prove in the Appendix "Naturality and parametricity" that these type for
 
 For the rest of this chapter, we will focus on the simpler case of a single recursively defined type.
 
+### Greatest fixpoints for type constructors
+
+Similarly to the least fixpoints for type constructors, we start with a pattern bifunctor `F` and define a type constructor `G` by applying an existential quantifier to the second type parameter of `F`.
+So, `G a` is equal to `GFix (F a)`.
+
+The resulting type constructor `G` will have a single type parameter, and will be a functor.
+Here is a function that computes a `Functor` evidence for `G`:
+```dhall
+let bifunctorGFix
+  : ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → {
+    fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : GFix (F a)) →
+    -- Have ga: GFix (F a), need to get gb: GFix (F b).
+    -- Define P and Q such that GFix (F a) = Exists P and GFix (G b) = Exists Q, then use mapExists P Q.
+    let P = λ(t : Type) → { seed : t, step : t → F a t }
+    let Q = λ(t : Type) → { seed : t, step : t → F b t }
+    let paqa : ∀(t : Type) → P t → Q t = λ(t : Type) → λ(pt : P t) → { seed = pt.seed, step = λ(x : t) → bifunctorF.bimap a b f t t (identity t) (pt.step x) }
+    in mapExists P Q paqa ga
+  }
+```
+
+
 ### The fixpoint isomorphism
 
 Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
@@ -7864,7 +7891,7 @@ It means there exist two functions, here called `fixG : F T → T` and `unfixG :
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
-We begin by implementing `unfixG : GFix F → F (GFix F)` (that function is called `out` in the paper "Recursive types for free").
+We begin by implementing `unfixG : GFix F → F (GFix F)`. (That function is called `out` in the paper "Recursive types for free".)
 
 To see how `unfixG g` could work, let us write the type of `g : GFix F` in detail:
 
@@ -8414,6 +8441,12 @@ let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
 
 Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
 
+
+The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
+In Dhall, it is generally not possible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
+To guarantee termination, one must supply an explicit upper bound on the size of the data.
+The required technique will be studied in the next chapter. 
+We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor evidence for least fixpoint types.
 
 ## Translating recursive code into Dhall
 
@@ -10377,7 +10410,7 @@ let deflateFListEither
   } flist
 ```
 
-We now generalize the type signature of `deflateFListEither` from `FList` an arbitrary bifunctor `F`.
+We now generalize the type signature of `deflateFListEither` from `FList` to an arbitrary bifunctor `F`.
 For convenience, let us define that type signature separately:
 ```dhall
 let DeflateEitherT = λ(F : Type → Type → Type) → ∀(a : Type) → ∀(b : Type) → F (Optional a) b → Either (F a b) b
@@ -10400,7 +10433,7 @@ let filterableLFixEither
        }
 ```
 
-We now define a new `Filterable` instance for `CList` and test that it does not truncate lists too soon:
+We now define a new `Filterable` evidence for `CList` and test that it does not truncate lists too soon:
 
 ```dhall
 let filterableCListEither : Filterable CList
@@ -10409,8 +10442,10 @@ let result : CList Natural = filter CList filterableCListEither Natural Natural/
 let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 5, ]"
 ```
 
+
 There are often several ways of implementing a `Filterable` typeclass for a given functor.
 The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
+
 
 ## Applicative type constructors and their combinators
 
@@ -11460,8 +11495,196 @@ let mContrafilterableExists1
 #### Recursive types
 
 
+Recursive type constructors are defined via `LFix` or `GFix` from pattern functors, which are type constructors `F` with two type parameters (so that `F a b` is a type).
 
-TODO: implement filterableEither as well
+Imposing a fixpoint on one type parameter will preserve the filterable property with respect to the other type parameter.
+Define the type constructors `C` and `D` as `C a = LFix (F a)` and `D a = GFix (F a)`.
+Then we need to consider four cases:
+
+1) If `F a b` is covariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let filterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type C (Optional a) → C a. Use mapLFix for that.
+-- Define P and Q such that LFix P = C (Optional a) and LFix Q = C a.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapLFix P Q mapPQ
+       }
+```
+
+2) If `F a b` is covariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let filterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
+    functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+-- Need a function of type D (Optional a) → D a. Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          in mapGFix P Q mapPQ
+       }
+```
+
+3) If `F a b` is contravariant and filterable with respect to `a` then so is `C a`.
+
+```dhall
+let contrafilterableLFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorLFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type C a → C (Optional a). Use mapLFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapLFix Q P mapQP
+       }
+```
+
+4) If `F a b` is contravariant and filterable with respect to `a` then so is `D a`.
+
+```dhall
+let contrafilterableGFix
+  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → GFix (F a))
+  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
+    contrafunctorGFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
+-- Need a function of type D a → D (Optional a). Use mapGFix for that.
+          let P = F (Optional a)
+          let Q = F a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          in mapGFix Q P mapQP
+       }
+```
+
+While these four constructions do automatically produce some evidence values for the filterable typeclasses, the results might not be what we expect.
+To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `CList` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)` as we defined earlier.
+
+A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
+This is equivalent to a `deflate` method of type `Optional (Pair (Optional a) b) → Optional (Pair a b)`.
+
+We can certainly implement `Filterable` for `FList` using that `deflate` method and the general combinator `filterableLFix` as shown above.
+But, as it turns out, this combinator produces a filtering operation that truncates a list after the first value that does not pass the given predicate.
+For example, filtering the list `[ 1, 3, 4, 5 ]` with the predicate `Natural/odd` will result in the list `[ 1, 3 ]` rather than `[ 1, 3, 5 ]` as one might expect.
+Nevertheless, this operation (analogous to `takeWhile` in Haskell and Scala) is a law-abiding filtering operation.
+
+We will now verify that this logic is indeed what `filterableLFix` produces.
+Then we will find a different combinator that does not truncate data structures unnecessarily.
+
+We begin by implementing the function `deflateFList`.
+```dhall
+let deflateFList
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b
+  = ???
+```
+How would we write code for that?
+The output value must be either `None (Pair a b)` or `Some { _1 = ..., _2 = ... }`.
+If the input is `Some { _1 = None a, _2 = y : b }`, the function must return `None` as it cannot compute a pair of values of types `a` and `b` (only a value of type `b` is given).
+```dhall
+let expandPairOptional : ∀(a : Type) → ∀(b : Type) → Pair (Optional a) b → Optional (Pair a b)
+  = λ(a : Type) → λ(b : Type) → λ(p : Pair (Optional a) b) → merge {
+    None = None (Pair a b)
+  , Some = λ(x : a) → Some { _1 = x, _2 = p._2 }
+  } p._1
+let Optional/concatMap = https://prelude.dhall-lang.org/Optional/concatMap.dhall
+let deflateFList
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b
+  = λ(a : Type) → λ(b : Type) → Optional/concatMap (Pair (Optional a) b) (Pair a b) (expandPairOptional a b)
+```
+Adding a `Functor` evidence, we may write the `Filterable` typeclass evidence for the type constructor `F a b` with `b` fixed:
+```dhall
+let filterableFList1
+  : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
+  = λ(b : Type) → {
+      deflate = λ(a : Type) → deflateFList a b
+    , fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → Optional/map (Pair x b) (Pair y b) (λ(xb : Pair x b) → xb // { _1 = f xb._1 })
+    }
+```
+Now we can implement a `Filterable` evidence for `CList` using `filterableLFix`:
+```dhall
+let filterableCList: Filterable CList = filterableLFix FList filterableFList1
+```
+
+Then we apply the generic `filter` function with the predicate `Natural/odd` to the list `exampleCList1345` and obtain the result corresponding to the list `[ 1, 3 ]`.
+```dhall
+let result : CList Natural = filter CList filterableCList Natural Natural/odd exampleCList1345
+let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, ]"
+```
+So, this filtering operation indeed truncates the data after the first item that fails the predicate.
+
+To figure out how to create a different filtering operation, let us reconsider the type signature of `deflateFList`, which is `∀(a : Type) → ∀(b : Type) → FList (Optional a) b → FList a b`.
+When this function is used to produce the filtering operation for `CList`, the type parameter `b` is set to `CList a`.
+We see that the requirement of having a function with the type signature `FList (Optional a) b → FList a b` (for _all_ `b`) is actually too strong; we only need that function with `b = CList a`.
+
+The filtering shown above truncates lists after the first failing item because `deflateFList` must return an empty `Optional` value (that is, `None (Pair a b)`) in case the argument of type `Optional a` equals `None a`.
+An empty `Optional` value corresponds to an empty list in this recursive type.
+Instead, we need to continue filtering the tail of the list.
+The tail of the list is described by the value of type `b` in `FList a b` (and we will be setting `b = CList a`).
+So, we would like the function `deflateFList` to return the tail of the list (a value of type `CList a`) when an item fails the predicate.
+
+The type `CList a` is equivalent to `FList a (CList a)` by definition of the least fixpoint.
+We conclude that the type signature of `deflateFList` should be modified so that the function could return not only values of type `FList a b` but sometimes also values of type `b`.
+To that end, we rewrite the function's type signature as:
+```dhall
+let deflateFListEither
+  : ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
+  = ???
+```
+The new implementation will return a `Right` part of the `Either` in cases where the old code returned a `None`:
+```dhall
+let deflateFListEither
+: ∀(a : Type) → ∀(b : Type) → FList (Optional a) b → Either (FList a b) b
+= λ(a : Type) → λ(b : Type) → λ(flist : FList (Optional a) b) → merge {
+    None = (Either (FList a b) b).Left (None (Pair a b))
+  , Some = λ(p : Pair (Optional a) b) → merge {
+      None = (Either (FList a b) b).Right p._2
+    , Some = λ(x : a) → (Either (FList a b) b).Left (Some { _1 = x, _2 = p._2 })
+    } p._1
+  } flist
+```
+
+We now generalize the type signature of `deflateFListEither` from `FList` to an arbitrary bifunctor `F`.
+For convenience, let us define that type signature separately:
+```dhall
+let DeflateEitherT = λ(F : Type → Type → Type) → ∀(a : Type) → ∀(b : Type) → F (Optional a) b → Either (F a b) b
+```
+Then we can implement a new combinator, named `filterableLFixEither`:
+```dhall
+let filterableLFixEither
+  : ∀(F : Type → Type → Type) → Bifunctor F → DeflateEitherT F → Filterable (λ(a : Type) → LFix (F a))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(deflateEither : DeflateEitherT F) →
+    bifunctorLFix F bifunctorF /\ { deflate = λ(a : Type) →
+          let C = λ(a : Type) → LFix (F a)
+-- Need a function of type C (Optional a) → C a.
+-- Define P such that LFix P = C (Optional a).
+          let P = F (Optional a)
+          let functorFa : Functor (F a) = { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
+          in λ(c : LFix P) → c (C a) (λ(q : P (C a)) → merge {
+            Left = λ(fa : F a (C a)) → fix (F a) functorFa fa
+          , Right = λ(ca : C a) → ca
+          } (deflateEither a (C a) q))
+       }
+```
+
+We now define a new `Filterable` instance for `CList` and test that it does not truncate lists too soon:
+
+```dhall
+let filterableCListEither : Filterable CList
+  = filterableLFixEither FList bifunctorFList deflateFListEither
+let result : CList Natural = filter CList filterableCListEither Natural Natural/odd exampleCList1345
+let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 5, ]"
+```
+
+There are often several ways of implementing a `Filterable` typeclass for a given functor.
+The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
+
+
+TODO: cleanup this section from too much repetition
 
 ### Monads with type quantifiers
 
