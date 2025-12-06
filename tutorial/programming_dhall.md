@@ -10155,7 +10155,7 @@ let filterableContrafunctorSwap
 If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
 This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
 
-Imposing a quantifier on `y` will preserve the filterable properties of `F x y` with respect to `x`.
+Imposing a quantifier on `y` will preserve the filterable properties of `F x y` with respect to `x` (while the type parameter `y` is held fixed).
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
 
 So, we have four cases:
@@ -10291,7 +10291,7 @@ let contrafilterableGFix
        }
 ```
 
-While these four constructions do automatically produce some evidence values for the filterable typeclass, the results might not be what we expect.
+While these four constructions do automatically produce some evidence values for the filterable typeclasses, the results might not be what we expect.
 To see what kind of filtering logic comes out of those definitions, consider the Church-encoded `CList` functor defined as the least fixpoint `LFix (FList a)`, where `FList a b = Optional (Pair a b)` as we defined earlier.
 
 A `Filterable` evidence for `CList` requires a value of type `∀(b : Type) → Filterable (λ(a : Type) → FList a b)`; that is, a `Filterable` evidence for `FList a b` with respect to `a` with fixed `b`.
@@ -11383,12 +11383,87 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
     }
 ```
 
-#### Universal type quantifiers
+#### Universal and existential type quantifiers
 
-#### Existential type quantifiers
+Just as for the ordinary filterable (contra)functors, we can implement four constructions for $M$-filterable (contra)functors.
+
+Suppose  `F` is a type constructor with two type parameters, and we are imposing a universal or an existential quantifier on the second type parameter.
+Then we will get new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+
+Imposing a quantifier on `y` preserves the $M$-filterable properties of `F x y` with respect to `x` (while `y` is held fixed).
+It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
+
+Here is the code for the four cases:
+
+1) If $F ~ x ~ y$ is an $M$-filterable functor with respect to $x$ then $G$ is an $M$-filterable functor.
+```dhall
+let mFilterableForall1
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) → MFilterable M (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mFilterableMF1 : ∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Forall (F a)
+    in (functorForall1 F (λ(b : Type) → (mFilterableMF1 b).{fmap})) /\ { deflateM = λ(a : Type) →
+-- Need a function of type G (M a) → G a. Use mapForall for that.
+-- Define P and Q such that Forall P = G (M a) and Forall Q = G a.
+      let P = F (M a)
+      let Q = F a
+      let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (mFilterableMF1 x).deflateM a
+      in mapForall P Q mapPQ
+     }
+```
+
+2) If $F ~ x ~ y$ is an $M$-filterable contrafunctor with respect to $x$ then $G$ is an $M$-filterable contrafunctor.
+```dhall
+let mContrafilterableForall1
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) → MContraFilterable M (λ(a : Type) → ∀(b : Type) → F a b)
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mContraFilterableMF1 : ∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) →
+    let G : Type → Type = λ(a : Type) → Forall (F a)
+    in (contrafunctorForall1 F (λ(b : Type) → (mContraFilterableMF1 b).{cmap})) /\ { inflateM = λ(a : Type) →
+-- Need a function of type G a → G (M a). Use mapForall for that.
+      let P = F (M a)
+      let Q = F a
+      let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (mContraFilterableMF1 x).inflateM a
+      in mapForall Q P mapQP
+     }
+```
+
+3) If $F ~ x ~ y$ is an $M$-filterable functor with respect to $x$ then $H$ is an $M$-filterable functor.
+```dhall
+let mFilterableExists1
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) → MFilterable M (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mFilterableMF1 : ∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (F a)
+    in (functorExists1 F (λ(b : Type) → (mFilterableMF1 b).{fmap})) /\ { deflateM = λ(a : Type) →
+-- Need a function of type H (M a) → H a. Use mapExists for that.
+-- Define P and Q such that Exists P = H (M a) and Exists Q = H a.
+      let P = F (M a)
+      let Q = F a
+      let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (mFilterableMF1 x).deflateM a
+      in mapExists P Q mapPQ
+     }
+```
+
+4) If $F ~ x ~ y$ is an $M$-filterable contrafunctor with respect to $x$ then $H$ is an $M$-filterable contrafunctor.
+```dhall
+let mContrafilterableExists1
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) → MContraFilterable M (λ(a : Type) → Exists (λ(b : Type) → F a b))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mContraFilterableMF1 : ∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) →
+    let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
+    in (contrafunctorExists1 F (λ(b : Type) → (mContraFilterableMF1 b).{cmap})) /\ { inflateM = λ(a : Type) →
+-- Need a function of type H a → H (M a). Use mapExists for that.
+      let P = F (M a)
+      let Q = F a
+      let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (mContraFilterableMF1 x).inflateM a
+      in mapExists Q P mapQP
+     }
+```
 
 #### Recursive types
 
+
+
+TODO: implement filterableEither as well
+
+### Monads with type quantifiers
 
 
 ### Monads with recursive types
