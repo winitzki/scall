@@ -11638,10 +11638,25 @@ let monadCodensity : ∀(F : Type → Type) → Monad (Codensity F)
     in { pure, bind } 
 ```
 
+We can generalize this idea to a combinator that imposes a universal quantifier on an extra type parameter in a given monad.
+If `M a b` is a monad with respect to `a` for fixed `b` then `N a = ∀(b : Type) → M a b` is a monad with respect to the free type parameter `a`: 
 
-TODO: implement the monad methods and the general combinator
+```dhall
+let monadForall : ∀(M : Type → Type → Type) → (∀(b : Type) → Monad (λ(a : Type) → M a b)) → Monad (λ(a : Type) → ∀(b : Type) → M a b)
+  = λ(M : Type → Type → Type) → λ(monadM : ∀(b : Type) → Monad (λ(a : Type) → M a b)) →
+      let N = λ(a : Type) → ∀(t : Type) → M a t
+      let pure = λ(a : Type) → λ(x : a) →
+        (λ(b : Type) → (monadM b).pure a x) : N a
+      let bind = λ(a : Type) → λ(ma : N a) → λ(b : Type) → λ(f : a → N b) →
+        λ(t : Type) →    -- Need to compute a value of type M b t.
+          let ambt : a → M b t = λ(x : a) → f x t
+          let mat : M a t = ma t
+          in ((monadM t).bind a mat b ambt) : M b t 
+      in { pure, bind } 
+```
 
-Example: codensity monad and the composed codensity monad (but see the book for details!)
+
+TODO: Example: composed codensity monad (but see the book for details!)
 
 ### Monads with recursive types
 
