@@ -3703,7 +3703,9 @@ let Monad = λ(F : Type → Type) →
   }
 ```
 
-As an example, let us define a `Monad` evidence values for `Optional` and `List`:
+#### Implementing specific monads
+
+Let us define a `Monad` evidence values for `Optional` and `List`:
 
 ```dhall
 let monadOptional : Monad Optional =
@@ -3777,6 +3779,20 @@ let monadState : ∀(S : Type) → Monad (State S)
            in update2
     in { pure, bind }
 ```
+
+The "continuation" monad has a type parameter `R` for the return type of continuation handlers:
+
+```dhall
+let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R
+let monadContinuation : ∀(R : Type) → Monad (Continuation R)
+  = λ(R : Type) →
+    let pure = λ(A : Type) → λ(x : A) → λ(k : A → R) → k x
+    let bind = λ(A : Type) → λ(old : (A → R) → R) → λ(B : Type) → λ(abrr : A → (B → R) → R) →
+      λ(br : B → R) → old (λ(x : A) → abrr x br) 
+    in { pure, bind }
+```
+
+#### Monad laws
 
 To verify a monad's laws, we first write a function that takes an arbitrary monad and asserts that its laws hold.
 
@@ -11502,14 +11518,14 @@ There are four cases:
 
 ```dhall
 let mFilterableLFix
-  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
-  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
-    functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) → MFilterable M (λ(a : Type) → LFix (F a))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mFilterableMF1 : ∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) →
+    functorLFix F (λ(b : Type) → (mFilterableMF1 b).{fmap}) /\ { deflateM = λ(a : Type) →
 -- Need a function of type C (M a) → C a. Use mapLFix for that.
 -- Define P and Q such that LFix P = C (M a) and LFix Q = C a.
           let P = F (M a)
           let Q = F a
-          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (mFilterableMF1 x).deflateM a
           in mapLFix P Q mapPQ
        }
 ```
@@ -11518,13 +11534,13 @@ let mFilterableLFix
 
 ```dhall
 let filterableGFix
-  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
-  = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
-    functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
--- Need a function of type D (Optional a) → D a. Use mapGFix for that.
-          let P = F (Optional a)
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) → MFilterable M (λ(a : Type) → GFix (F a))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mFilterableMF1 : ∀(b : Type) → MFilterable M (λ(a : Type) → F a b)) →
+    functorGFix F (λ(b : Type) → (mFilterableMF1 b).{fmap}) /\ { deflateM = λ(a : Type) →
+-- Need a function of type D (M a) → D a. Use mapGFix for that.
+          let P = F (M a)
           let Q = F a
-          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (filterableF1 x).deflate a
+          let mapPQ : ∀(x : Type) → P x → Q x = λ(x : Type) → (mFilterableMF1 x).deflateM a
           in mapGFix P Q mapPQ
        }
 ```
@@ -11533,13 +11549,13 @@ let filterableGFix
 
 ```dhall
 let contrafilterableLFix
-  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → LFix (F a))
-  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
-    contrafunctorLFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
--- Need a function of type C a → C (Optional a). Use mapLFix for that.
-          let P = F (Optional a)
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) → MContraFilterable M (λ(a : Type) → LFix (F a))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mContraFilterableMF1 : ∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) →
+    contrafunctorLFix F (λ(b : Type) → (mContraFilterableMF1 b).{cmap}) /\ { inflateM = λ(a : Type) →
+-- Need a function of type C a → C (M a). Use mapLFix for that.
+          let P = F (M a)
           let Q = F a
-          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (mContraFilterableMF1 x).inflateM a
           in mapLFix Q P mapQP
        }
 ```
@@ -11548,33 +11564,34 @@ let contrafilterableLFix
 
 ```dhall
 let contrafilterableGFix
-  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → GFix (F a))
-  = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
-    contrafunctorGFix F (λ(b : Type) → (contrafilterableF1 b).{cmap}) /\ { inflate = λ(a : Type) →
--- Need a function of type D a → D (Optional a). Use mapGFix for that.
-          let P = F (Optional a)
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → (∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) → MContraFilterable M (λ(a : Type) → GFix (F a))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(mContraFilterableMF1 : ∀(b : Type) → MContraFilterable M (λ(a : Type) → F a b)) →
+    contrafunctorGFix F (λ(b : Type) → (mContraFilterableMF1 b).{cmap}) /\ { inflateM = λ(a : Type) →
+-- Need a function of type D a → D (M a). Use mapGFix for that.
+          let P = F (M a)
           let Q = F a
-          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (contrafilterableF1 x).inflate a
+          let mapQP : ∀(x : Type) → Q x → P x = λ(x : Type) → (mContraFilterableMF1 x).inflateM a
           in mapGFix Q P mapQP
        }
 ```
 
 As in the chapter about filterable functors, we note that this code produces "greedy" filtering logic: the data is truncated after the first data item that does not pass the test.
-To correct this deficiency, we may implement a combinator named `mFilterableLFixEither`:
+To correct this deficiency, we may implement a combinator named `mFilterableLFixEither` that expects a function `deflateMEither` to be available for `F`:
 ```dhall
+let DeflateMEitherT = λ(M : Type → Type) → λ(F : Type → Type → Type) → ∀(a : Type) → ∀(b : Type) → F (M a) b → Either (F a b) b
 let filterableLFixEither
-  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → Bifunctor F → DeflateEitherT F → Filterable (λ(a : Type) → LFix (F a))
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(deflateEither : DeflateEitherT F) →
-    bifunctorLFix F bifunctorF /\ { deflate = λ(a : Type) →
+  : ∀(M : Type → Type) → ∀(F : Type → Type → Type) → Bifunctor F → DeflateMEitherT M F → MFilterable M (λ(a : Type) → LFix (F a))
+  = λ(M : Type → Type) → λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(deflateMEither : DeflateMEitherT M F) →
+    bifunctorLFix F bifunctorF /\ { deflateM = λ(a : Type) →
           let C = λ(a : Type) → LFix (F a)
--- Need a function of type C (Optional a) → C a.
--- Define P such that LFix P = C (Optional a).
-          let P = F (Optional a)
+-- Need a function of type C (M a) → C a.
+-- Define P such that LFix P = C (M a).
+          let P = F (M a)
           let functorFa : Functor (F a) = { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
           in λ(c : LFix P) → c (C a) (λ(q : P (C a)) → merge {
             Left = λ(fa : F a (C a)) → fix (F a) functorFa fa
           , Right = λ(ca : C a) → ca
-          } (deflateEither a (C a) q))
+          } (deflateMEither a (C a) q))
        }
 ```
 
