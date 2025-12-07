@@ -3817,21 +3817,36 @@ let monadLaws = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) 
   in { left_id_law, right_id_law, assoc_law }
 ```
 
-The Dhall interpreter can verify the laws of the `Reader` monad:
+The following Dhall code verifies the laws of the `Reader` monad:
 
 ```dhall
-let testsForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(p : Reader E a) → λ(b : Type) → λ(f : a → Reader E b) → λ(c : Type) → λ(g : b → Reader E c) →
+let lawsHoldForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(p : Reader E a) → λ(b : Type) → λ(f : a → Reader E b) → λ(c : Type) → λ(g : b → Reader E c) →
   let laws = monadLaws (Reader E) (monadReader E) a x p b f c g
   let test1 = assert : laws.left_id_law
   let test2 = assert : laws.right_id_law
   let test3 = assert : laws.assoc_law
   in True
 ```
+This verification is symbolic and is equivalent to a rigorous proof that the laws hold.
+
+Dhall is able to perform a similar check for the continuation monad:
+
+```dhall
+let lawsHoldForContinuationMonad = λ(R : Type) → λ(a : Type) → λ(x : a) → λ(p : Continuation R a) → λ(b : Type) → λ(f : a → Continuation R b) → λ(c : Type) → λ(g : b → Continuation R c) →
+  let laws = monadLaws (Continuation R) (monadContinuation R) a x p b f c g
+  let test1 = assert : laws.left_id_law
+  let test2 = assert : laws.right_id_law
+  let test3 = assert : laws.assoc_law
+  in True
+```
+Although the Dhall interpreter is quite limited in symbolic reasoning with equations, the code for the `Reader` and `Continuation` monads contains only functions and function applications.
+In those cases, Dhall can perform the argument substitutions that are sufficient to verify the laws. 
+
 
 Let us also try verifying the laws of the `State` monad:
 
 ```dhall
-let testsForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
+let lawsHoldForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p : State S a) → λ(b : Type) → λ(f : a → State S b) → λ(c : Type) → λ(g : b → State S c) →
   let laws = monadLaws (State S) (monadState S) a x p b f c g
   let test1 = assert : laws.left_id_law
   -- let test2 = assert : laws.right_id_law -- This will not work.
@@ -11597,7 +11612,6 @@ let filterableLFixEither
 
 ### Monads with type quantifiers
 
-TODO: add continuation monad to the previous text
 
 Example: codensity monad and the composed codensity monad (but see the book for details!)
 
