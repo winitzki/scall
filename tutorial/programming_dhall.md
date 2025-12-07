@@ -11610,8 +11610,36 @@ let filterableLFixEither
        }
 ```
 
-### Monads with type quantifiers
+### Monads with universal type quantifiers
 
+Suppose a type constructor has a monad's methods with respect to one type parameter while the other type parameter is held fixed.
+It turns out we can then apply a universal quantifier to the fixed type parameter and obtain a new monad.
+
+As an example, take the continuation monad `Continuation R a = (a → R) → R` and replace the type parameter `R` by the type expression `F t`, where `F` is some type constructor and `t` is a new type parameter.
+Then apply the universal quantifier to `t`.
+The result is the type constructor we denote by `Codensity F a`:
+
+```dhall
+let Codensity = λ(F : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F t
+```
+For a fixed `F`, the type constructor `Codensity F` is known as the "codensity monad".
+This monad works equally well even if `F` is neither covariant nor contravariant.
+The code is quite similar to the monad implementation of the `Continuation` monad, except for substituting the universally quantified type:
+
+```dhall
+let monadCodensity : ∀(F : Type → Type) → Monad (Codensity F)
+  = λ(F : Type → Type) →
+    let pure = λ(a : Type) → λ(x : a) →
+      λ(t : Type) → λ(aft : a → F t) → aft x
+    let bind = λ(a : Type) → λ(cfa : Codensity F a) → λ(b : Type) → λ(f : a → Codensity F b) →
+      λ(t : Type) → λ(bft : b → F t) →
+        let aft : a → F t = λ(x : a) → f x t bft 
+        in (cfa t aft) : F t 
+    in { pure, bind } 
+```
+
+
+TODO: implement the monad methods and the general combinator
 
 Example: codensity monad and the composed codensity monad (but see the book for details!)
 
