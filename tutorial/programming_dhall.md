@@ -11655,6 +11655,23 @@ let monadForall : ∀(M : Type → Type → Type) → (∀(b : Type) → Monad (
       in { pure, bind } 
 ```
 
+Another example of a monad involving a universal quantifier is called the "composed codensity monad" in "The Science of Functional Programming".
+The type constructor is defined by `∀(t : Type) → (a → F t) → F (M t)`, where `F` is any functor and `M` is any monad.
+The Dhall code is:
+
+```dhall
+let ComposedCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F (M t)
+let monadComposedCodensity : ∀(F : Type → Type) → Functor F → ∀(M : Type → Type) → Monad M → Monad (ComposedCodensity F M)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(M : Type → Type) → λ(monadM : Monad M) →
+    let pure = λ(a : Type) → λ(x : a) →
+      λ(t : Type) → λ(aft : a → F t) → functorF.fmap t (M t) (monadM.pure t) (aft x)
+    let bind = λ(a : Type) → λ(cfma : ComposedCodensity F M a) → λ(b : Type) → λ(f : a → ComposedCodensity F M b) →
+      λ(t : Type) → λ(bft : b → F t) →
+        let afmt : a → F (M t) = λ(x : a) → f x t bft
+        let fmmt : F (M (M t)) = cfma (M t) afmt
+        in functorF.fmap (M (M t)) (M t) (monadJoin M monadM t) fmmt : F (M t) 
+    in { pure, bind } 
+```
 
 TODO: Example: composed codensity monad (but see the book for details!)
 
