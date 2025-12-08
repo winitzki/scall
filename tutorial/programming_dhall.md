@@ -6001,7 +6001,7 @@ But that difference is crucial.
 
 See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
-### Recursive type constructors
+### Type constructors
 
 Typically, a recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 To describe such type equations, the pattern functor `F` must have more type parameters.
@@ -6138,7 +6138,7 @@ let fixCList
       let fr : FList a r = fmap_c2r fc
       in frr fr
 ```
-Now we write the constructors for `CList`-typed lists:
+Now we derive the specific constructor functionss `nilCList` and `consCList` from the code of `fixCList`:
 
 ```dhall
 let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
@@ -11655,7 +11655,7 @@ let monadForall : ∀(M : Type → Type → Type) → (∀(b : Type) → Monad (
       in { pure, bind } 
 ```
 
-Another example of a monad involving a universal quantifier is called the "composed codensity monad" in "The Science of Functional Programming".
+Another example of a monad involving a universal quantifier is called the "**composed codensity monad**" in "The Science of Functional Programming".
 The type constructor is defined by `∀(t : Type) → (a → F t) → F (M t)`, where `F` is any functor and `M` is any monad.
 The Dhall code is:
 
@@ -11678,11 +11678,74 @@ This monad is _not_ obtained by imposing a universal quantifier on another monad
 ### Monads with recursive types
 
 We have already seen that `List` is a monad.
+However, `List` is a built-in type in Dhall.
+It is instructive to see how one would implement the list monad in Dhall code without using the built-in `List`.
+
+The type constructor equivalent to `List a` was defined before as `CList` via the general Church encoding method.
+Let us instead write an equivalent definition in the curried form (`ListC`), together with data constructors `nilC` and `consC`:
+
+```dhall
+let ListC : Type → Type
+  = λ(a : Type) → ∀(r : Type) → ∀(nil : r) → ∀(cons : a → r → r) → r 
+let nilC : ∀(a : Type) → ListC a
+  = λ(a : Type) → λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) →
+    nil
+let consC : ∀(a : Type) → a → ListC a → ListC a
+  = λ(a : Type) → λ(head : a) → λ(tail : ListC a) →
+    λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) → cons head (tail r nil cons)
+```
+
+For convenience, let us implement a converter from the built-in `List` to `ListC` and a function for printing lists:
+
+```dhall
+let toListC : ∀(a : Type) → List a → ListC a
+  = λ(a : Type) → λ(list : List a) →
+    λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) →
+      List/fold a list r cons nil
+let ListC/show : ∀(a : Type) → Show a → ListC a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(la : ListC a) →
+    let printNext : a → Text → Text = λ(x : a) → λ(prev : Text) → "${showA.show x}, ${prev}"
+    let bareList : Text = la Text "" printNext
+    in "[ ${bareList}]"
+let exampleListC1345 : ListC Natural = toListC Natural [ 1, 3, 4, 5 ]
+let _ = assert : ListC/show Natural { show = Natural/show } exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
+```
+
+Now we may deduce the code of the `Monad` evidence for `ListC`:
+
+```dhall
+let monadListC : Monad ListC =
+    let pure = λ(a : Type) → λ(x : a) → consC a x (nilC a)
+    let bind = λ(a : Type) → λ(la : ListC a) → λ(b : Type) → λ(f : a → ListC b) →
+      λ(r : Type) → λ(nil : r) → λ(cons : b → r → r) →
+        let arr : a → r → r = λ(x : a) → λ(prev : r) → f x r prev cons
+        in la r nil arr
+    in { pure, bind }
+```
+
+Let us test this code by deriving `ListC/join` and applying it to a nested list:
+
+```dhall
+let ListC/join = monadJoin ListC monadListC
+let nestedListC = toListC (ListC Natural)
+  [ toListC Natural [ 1, 2 ]
+  , toListC Natural [ 3, 4 ]
+  , toListC Natural ([ ] : List Natural)
+  , toListC Natural [ 5, 6 ]
+  ]
+let flattenedListC = ListC/join Natural nestedListC
+let _ = assert : ListC/show Natural { show = Natural/show } flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
+```
+
+TODO: implement
+
 Another example of a monad whose type is defined recursively is a binary tree with leaves of type `a` (where `a` is a type parameter). 
 
 TODO: implement bind and see why my code does not use functorF
 
-A **free monad** on a functor `F` is the functor `Free F` recursively defined by:
+All tree-like monads can be implemented by a general combinator known as the "free monad".
+
+The **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
 ```haskell
 data Free F a = Pure a | Join (F (Free T a)) -- Haskell.
