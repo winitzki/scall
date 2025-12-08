@@ -11673,7 +11673,7 @@ let monadComposedCodensity : ∀(F : Type → Type) → Functor F → ∀(M : Ty
     in { pure, bind } 
 ```
 
-TODO: Example: composed codensity monad (but see the book for details!)
+This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not a monad with respect to `a` when `t` is a fixed type.
 
 ### Monads with recursive types
 
