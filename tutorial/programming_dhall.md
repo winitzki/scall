@@ -6494,9 +6494,9 @@ Church-encoded type constructors such as lists and trees are covariant in their 
 As an example, let us implement the `fmap` method for the type constructor `Tree` in the curried Church encoding:
 
 ```dhall
-let Tree = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
-let fmapTree : FmapT Tree
-   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : Tree a) →
+let TreeC = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
+let fmapTreeC : FmapT TreeC
+   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : TreeC a) →
      λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
        let leafA : a → r = λ(x : a) → leafB (f x)
        in treeA r leafA branch
@@ -11702,13 +11702,15 @@ let toListC : ∀(a : Type) → List a → ListC a
   = λ(a : Type) → λ(list : List a) →
     λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) →
       List/fold a list r cons nil
-let ListC/show : ∀(a : Type) → Show a → ListC a → Text
-  = λ(a : Type) → λ(showA : Show a) → λ(la : ListC a) →
+let showListC : ∀(a : Type) → Show a → Show (ListC a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(la : ListC a) →
     let printNext : a → Text → Text = λ(x : a) → λ(prev : Text) → "${showA.show x}, ${prev}"
     let bareList : Text = la Text "" printNext
     in "[ ${bareList}]"
+  }
+let showListNat = (showListC Natural { show = Natural/show }).show 
 let exampleListC1345 : ListC Natural = toListC Natural [ 1, 3, 4, 5 ]
-let _ = assert : ListC/show Natural { show = Natural/show } exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
+let _ = assert : showListNat exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
 ```
 
 Now we may deduce the code of the `Monad` evidence for `ListC`:
@@ -11734,12 +11736,37 @@ let nestedListC = toListC (ListC Natural)
   , toListC Natural [ 5, 6 ]
   ]
 let flattenedListC = ListC/join Natural nestedListC
-let _ = assert : ListC/show Natural { show = Natural/show } flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
+let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
 ```
 
-TODO: implement
+While it appears that we have implemented the list monad correctly, it is not clear how to generalize this code to other recursive monads. 
 
-Another example of a monad whose type is defined recursively is a binary tree with leaves of type `a` (where `a` is a type parameter). 
+Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
+We have defined this data type before as `TreeC` via curried Church encoding.
+Let us recall that code and also write suitable data constructors:
+```dhall
+let TreeC = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
+let leafC : ∀(a : Type) → a → TreeC a
+  = λ(a : Type) → λ(x : a) →
+    λ(r : Type) → λ(leaf: a → r) → λ(branch : r → r → r) →
+      leaf x
+let branchC : ∀(a : Type) → TreeC a → TreeC a → TreeC a
+  = λ(a : Type) → λ(left : TreeC a) → λ(right : TreeC a) →
+    λ(r : Type) → λ(leaf: a → r) → λ(branch : r → r → r) →
+      branch (left r leaf branch) (right r leaf branch)
+```
+
+For convenience, let us implement a function that prints a tree:
+
+```dhall
+let showTreeC : ∀(a : Type) → Show a → Show (TreeC a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(treeA : TreeC a) →
+    treeA Text (λ(x : a) → showA.show x) (λ(left : Text) → λ(right : Text) → "[ ${left}, ${right} ]")
+  }
+let exampleTreeC : TreeC Text = branchC Text (leafC Text "a") (branchC Text (leafC Text "b") (leafC Text "c"))
+let showTreeCText = (showTreeC Text { show = identity Text }).show
+let _ = assert : showTreeCText exampleTreeC ≡ "[ a, [ b, c ] ]"
+```
 
 TODO: implement bind and see why my code does not use functorF
 
