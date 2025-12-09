@@ -5176,17 +5176,6 @@ However, the type `∀(r : Type) → (F r → r) → r` is more suitable for stu
 Historical note: The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
-### Covariance with respect to the pattern functor
-
-TODO: explain and write a mapLFix , which is already written somewhere else later
-
-```dhall
-let mapLFix
-  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
-  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(c : LFix P) →
-    λ(r : Type) → λ(qrr : Q r → r) → c r (λ(pr : P r) → qrr (f r pr))
-```
-
 ## Working with Church-encoded data
 
 A Church-encoded data type is always of the form `∀(r : Type) → ... → r`, that is, a curried higher-order function with a type parameter.
@@ -9918,9 +9907,10 @@ If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant a
 For those properties to hold, it does not matter whether `F a b` is covariant or contravariant in `b` (or neither).
 
 We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
-To simplify the code, we will begin by noting that both `LFix P` and `GFix P` are covariant in the type constructor `P`.
-For any two type constructors `P` and `Q`, we can transform `LFix P → LFix Q` and `GFix P → GFix Q` given a function of type `∀(a : Type) → P a → Q a`.
-Let us implement these transformations for later use:
+
+To simplify the code, we will begin by noting that both `LFix P` and `GFix P` are covariant with respect to the type constructor `P`.
+So, for any two type constructors `P` and `Q`, we can transform `LFix P → LFix Q` and `GFix P → GFix Q` given a function of type `∀(a : Type) → P a → Q a`.
+Let us write these transformations here for later use:
 ```dhall
 let mapLFix
   : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
