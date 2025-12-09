@@ -5176,6 +5176,16 @@ However, the type `∀(r : Type) → (F r → r) → r` is more suitable for stu
 Historical note: The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
+### Covariance with respect to the pattern functor
+
+TODO: explain and write a mapLFix , which is already written somewhere else later
+
+```dhall
+let mapLFix
+  : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
+  = λ(P : Type → Type) → λ(Q : Type → Type) → λ(f : ∀(a : Type) → P a → Q a) → λ(c : LFix P) →
+    λ(r : Type) → λ(qrr : Q r → r) → c r (λ(pr : P r) → qrr (f r pr))
+```
 
 ## Working with Church-encoded data
 
@@ -5324,6 +5334,11 @@ let ListInt = ∀(r : Type) → (< Nil | Cons : { head : Integer, tail : r } > �
 let TreeText = ∀(r : Type) → (< Leaf : Text | Branch : { left : r, right : r } > → r) → r
 ```
 
+Let us first see how we could derive the data constructors (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors).
+We begin by writing the types of the `fix` functions specific to each data type:
+
+TODO: illustrate how we would apply fix to suitable arguments and derive the constructors nil, cons, leaf, branch.
+
 Now pass to the curried Church encodings:
 
 ```dhall
@@ -5348,9 +5363,10 @@ Then, each constructor applies the corresponding part of the curried Church-enco
 How can we obtain the code for those functions?
 We know that the constructor functions are just parts of the function body of `fix` that we implemented in the previous section (for all Church encodings at once).
 In principle, we could derive the code of the constructor functions from the code for `fix`.
-In practice, it is easier to start with the curried forms and try implementing the type signatures.
+Sometimes it is quicker to start with the curried forms and implement the type signatures by guessing.
+The downside is that the type signatures are not always a sufficient constraint to derive correct code.
 
-After some guessing, we arrive at this code:
+After some guessing, we arrive at this code for the constructors `nil`, `cons`, `leaf`, `branch`:
 
 ```dhall
 let nil : ListInt
@@ -6058,8 +6074,12 @@ In the chapter "Working with Church-encoded data", we defined the general `fix` 
 let _ = fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
 let _ = unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 ```
+These functions are each other's inverses, showing that the types `LFix F` and `F (LFix F)` are isomorphic.
+The code of those functions is general and works for every pattern functor `F`.
+
 Similarly, there exist general isomorphisms `fixT` and `unfixT` for type constructor fixpoints.
-These methods require a `Functor` evidence with respect to the second type parameter of `F` (while the first type parameter is held fixed):
+These methods require a `Functor` evidence with respect to the _second_ type parameter of `F` (while the first type parameter is held fixed).
+We will express the code of `fixT` and `unfixT` via the functions `fix` and `unfix` defined before:
 
 ```dhall
 let fixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → F a (LFixT F a) → LFixT F a
@@ -6138,7 +6158,8 @@ let fixCList
       let fr : FList a r = fmap_c2r fc
       in frr fr
 ```
-Now we derive the specific constructor functionss `nilCList` and `consCList` from the code of `fixCList`:
+
+Now we derive the specific constructor functions `nilCList` and `consCList` from the code of `fixCList`:
 
 ```dhall
 let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
@@ -6146,7 +6167,7 @@ let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → �
 ```
 
 Another useful function is `CList/show`.
-We will implement it in a simple way that leaves a trailing comma in the lists.
+We will implement it in a simple way that leaves a trailing comma in the text output.
 ```dhall
 let CList/show : ∀(a : Type) → Show a → CList a → Text
   = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
@@ -6348,7 +6369,7 @@ let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural }
 ```
 
 Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right: r } >`.
-The corresponding `sizeF` function is:
+Let us define that functor and the corresponding function `sizeF`:
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
@@ -6361,8 +6382,8 @@ let sizeF_Tree : ∀(a : Type) → FTree a Natural → Natural
 ```
 
 Having realized that `sizeF` needs to be defined separately for each pattern functor `F`, we now implement `size` as a function of `F` and of `sizeF`.
-The type `C` will be expressed as `LFix F`.
-We can write a generic implementation of `size` as:
+The type `C a` will be expressed as `LFix (F a)`.
+We can now write a generic implementation of `size`:
 
 ```dhall
 let size : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(sizeF : ∀(b : Type) → F b Natural → Natural) → LFix (F a) → Natural
@@ -11729,7 +11750,7 @@ Let us test this code by deriving `ListC/join` and applying it to a nested list:
 
 ```dhall
 let ListC/join = monadJoin ListC monadListC
-let nestedListC = toListC (ListC Natural)
+let nestedListC : ListC (ListC Natural) = toListC (ListC Natural)
   [ toListC Natural [ 1, 2 ]
   , toListC Natural [ 3, 4 ]
   , toListC Natural ([ ] : List Natural)
@@ -11763,14 +11784,42 @@ let showTreeC : ∀(a : Type) → Show a → Show (TreeC a)
   = λ(a : Type) → λ(showA : Show a) → { show = λ(treeA : TreeC a) →
     treeA Text (λ(x : a) → showA.show x) (λ(left : Text) → λ(right : Text) → "[ ${left}, ${right} ]")
   }
-let exampleTreeC : TreeC Text = branchC Text (leafC Text "a") (branchC Text (leafC Text "b") (leafC Text "c"))
-let showTreeCText = (showTreeC Text { show = identity Text }).show
-let _ = assert : showTreeCText exampleTreeC ≡ "[ a, [ b, c ] ]"
+let exampleTreeC : TreeC Bool = branchC Bool (leafC Bool True) (branchC Bool (leafC Bool False) (leafC Bool True))
+let showTreeCBool = (showTreeC Bool { show = Bool/show }).show
+let _ = assert : showTreeCBool exampleTreeC ≡ "[ True, [ False, True ] ]"
 ```
 
-TODO: implement bind and see why my code does not use functorF
+Now we can write the code for a `Monad` evidence:
 
-All tree-like monads can be implemented by a general combinator known as the "free monad".
+```dhall
+let monadTreeC : Monad TreeC =
+  let pure = λ(a : Type) → λ(x : a) → leafC a x
+  let bind = λ(a : Type) → λ(ta : TreeC a) → λ(b : Type) → λ(f : a → TreeC b) →
+    λ(r : Type) → λ(leafB: b → r) → λ(branch : r → r → r) →
+      let leafA : a → r = λ(x : a) → f x r leafB branch
+      in ta r leafA branch
+  in { pure, bind }
+```
+Let us test this code by applying `join` to a nested tree:
+
+```dhall
+let TreeC/join = monadJoin TreeC monadTreeC
+let nestedTreeC : TreeC (TreeC Bool) =
+  let B = branchC Bool
+  let L = leafC Bool
+  let BB = branchC (TreeC Bool)
+  let LL = leafC (TreeC Bool)
+  in BB (LL (B (L True) (L True))) (BB (LL (L False)) (LL (B (L True) (L False))))
+let flattenedTreeC : TreeC Bool = TreeC/join Bool nestedTreeC
+let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
+```
+
+The binary tree is an example of a "tree-like" monad: a data structure with the shape of a tree.
+Other examples of tree-like monads are trees that branch in three instead of in two sub-trees, or trees with more complicated branching shape, with extra data on each branch point, and so on. 
+
+In many cases, the choice of branching can be described by a functor `F`.
+The binary tree corresponds to choosing `F a = Pair a a`.
+Tree-like monads of that kind can be implemented by a general combinator known as the "free monad".
 
 The **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
@@ -11779,18 +11828,20 @@ data Free F a = Pure a | Join (F (Free T a)) -- Haskell.
 ```
 
 To translate this Haskell definition into Dhall, we need to use the Church encoding.
-Let us curry the function type to make the implementation easier:
+Denote temporarily by `r` the recursive type `Free F a` and hold the type parameter `a` fixed; then we obtain the recursive definition `r = Pure a | Join (F r)`.
+Now it is straightforward to Church-encode this definition.
+We curry the function type to make the implementation easier:
 ```dhall
 let FreeMonad : ∀(F : Type → Type) → Type → Type
   = λ(F : Type → Type) → λ(a : Type) →
     ∀(r : Type) → (a → r) → (F r → r) → r
 ```
 
-To implement a monad's methods for `FreeMonad F`, we will need the `Functor` evidence for `F`:
+To implement a monad's methods for `FreeMonad F`, we write:
 
 ```dhall
-let monadFreeMonad : ∀(F : Type → Type) → Functor F → Monad (FreeMonad F)
-  = λ(F : Type → Type) → λ(functorF : Functor F) →
+let monadFreeMonad : ∀(F : Type → Type) → Monad (FreeMonad F)
+  = λ(F : Type → Type) →
     let pure = λ(a : Type) → λ(x : a) →
       λ(r : Type) → λ(ar : a → r) → λ(_ : F r → r) → ar x
     let bind = λ(a : Type) → λ(fma : FreeMonad F a) → λ(b : Type) → λ(f : a → FreeMonad F b) →
@@ -11800,7 +11851,25 @@ let monadFreeMonad : ∀(F : Type → Type) → Functor F → Monad (FreeMonad F
     in { pure, bind } 
 ```
 
-TODO: figure out why the Functor evidence for F is not being used! This looks suspicious.
+This code does not require a `Functor` evidence for `F`.
+However, we need to keep in mind that the Church encoding will work correctly only when `F` is a functor. 
+
+Let us test this code by implementing the binary tree via its pattern functor, which we have denoted earlier by `FTree`, and the general Church encoding for type constructors (`LFixT`):
+
+```dhall
+let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
+let CTree = LFixT FTree
+let functor2FTree : ∀(a : Type) → Functor (FTree a)
+  = True -- TODO: implement this
+```
+
+Let us we derive the specific constructor functions `cLeaf` and `cBranch` from the general function `fixT` applied to `FTree`:
+
+```dhall
+let cLeaf : ∀(a : Type) → a → CTree a = λ(a : Type) → λ(x : a) → fixT FTree functor2FTree a (FTree a (Ctree a)).Leaf x
+let cBranch : ∀(a : Type) → CTree a → CTree a → CTree a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
+```
+TODO: complete this code and test
 
 ## Monad transformers
 
