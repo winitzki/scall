@@ -11789,8 +11789,14 @@ let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]"
 
 Let us implement a `Monad` evidence for `NEL`.
 It appears that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
-So, we use a different approach: assign the type `r = NEL b` in the given input of type `NEL a`.
-
+So, we need to use a different approach.
+Note that `bind` has type `NEL a → (a → NEL b) → NEL b`.
+The given input `na : NEL a` is a function of type `∀(r : Type) → (a → r) → (a → r → r) → r`.
+We can get a result of type `NEL b` out of that function if we assign the type parameter `r = NEL b`.
+It remains to supply arguments of types `a → NEL b` and `a → NEL b → NEL b`.
+The type `a → NEL b` is the same as the second argument of `bind`.
+To obtain a value of type `a → NEL b → NEL b`, we use the function `concatNEL` defined previously.
+The complete code is:
 ```dhall
 let monadNEL : Monad NEL =
     let pure = λ(a : Type) → λ(x : a) → one a x
@@ -11870,6 +11876,16 @@ let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ 
 
 #### The possibly-empty binary tree
 
+One peculiar example of a tree-like monad is the following type constructor:
+
+```dhall
+let BTreeE = λ(a : Type) → Optional (TreeC a)
+```
+This data structure is either empty (`None`) or a binary tree with leaves of type `a`.
+
+It turns out that `BTreeE` is a monad:
+
+TODO: implement
 
 #### The free monad 
 
