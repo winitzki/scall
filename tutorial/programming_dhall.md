@@ -6232,14 +6232,18 @@ Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natur
 
 ```dhall
 let one : ∀(a : Type) → a → NEL a =
-    λ(a : Type) → λ(x : a) → λ(r : Type) → λ(ar : a → r) → λ(_ : a → r → r) → ar x
+    λ(a : Type) → λ(x : a) →
+      λ(r : Type) → λ(ar : a → r) → λ(_ : a → r → r) →
+        ar x
 let consn : ∀(a : Type) → a → NEL a → NEL a =
-    λ(a : Type) → λ(x : a) → λ(prev : NEL a) → λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) → arr x (prev r ar arr)
+    λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
+      λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) →
+        arr x (prev r ar arr)
 let example1 : NEL Natural = consn Natural 1 (consn Natural 2 (one Natural 3))
 let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
 ```
 
-The folding function is just an identity function:
+The folding function is just an identity function (this is always the case when working with Church encodings):
 
 ```dhall
 let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r
@@ -6294,7 +6298,7 @@ So, `reverseNEL` involves two nested iterations over the list (a quadratic numbe
 
 ### Size and depth of generic Church-encoded data
 
-The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like sequences and cannot be straightforwardly generalized to other recursive types, such as trees.
+The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like data structures and cannot be straightforwardly generalized to other recursive types, such as trees.
 
 We will now consider functions that _can_ work with any Church-encoded type constructor.
 Examples are functions that compute the total size and the recursion depth of a data structure.
@@ -11730,8 +11734,8 @@ let exampleListC1345 : ListC Natural = toListC Natural [ 1, 3, 4, 5 ]
 let _ = assert : showListNat exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
 ```
 
-Now we may deduce the code of the `Monad` evidence for `ListC`:
-
+Now we may guess the code of the `Monad` evidence for `ListC`.
+The trick for implementing `bind` is to create a function `arr` of type `a → r → r`, since we have exactly the necessary data within the body of `bind`:
 ```dhall
 let monadListC : Monad ListC =
     let pure = λ(a : Type) → λ(x : a) → consC a x (nilC a)
@@ -11757,6 +11761,58 @@ let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]"
 ```
 
 #### The non-empty list monad
+
+We have already seen the definition of the non-empty list via curried Church encoding:
+
+```dhall
+let NEL = λ(a : Type) → ∀(r : Type) → (a → r) → (a → r → r) → r
+```
+The data constructors for `NEL` were defined before as `one` and `consn`, and we will not repeat their code here.
+
+Let us implement a converter from the built-in `List` to `NEL` and a function for printing non-empty lists.
+To create a non-empty list, we need a last element and an initial segment:
+```dhall
+let toNEL : ∀(a : Type) → List a → a → NEL a
+  = λ(a : Type) → λ(init : List a) → λ(last : a) →
+    λ(r : Type) → λ(one_ : a → r) → λ(consn_ : a → r → r) →
+      List/fold a init r consn_ (one_ last)
+let showNEL : ∀(a : Type) → Show a → Show (NEL a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(na : NEL a) →
+    let printNext : a → Text → Text = λ(x : a) → λ(prev : Text) → "${showA.show x}, ${prev}"
+    let bareNEL : Text = na Text showA.show printNext
+    in "[| ${bareNEL} |]"
+  }
+let showNELNat = (showNEL Natural { show = Natural/show }).show 
+let exampleNEL1345 : NEL Natural = toNEL Natural [ 1, 3, 4 ] 5
+let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]" 
+```
+
+Let us implement a `Monad` evidence for `NEL`.
+It appears that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
+So, we use a different approach: assign the type `r = NEL b` in the given input of type `NEL a`.
+
+```dhall
+let monadNEL : Monad NEL =
+    let pure = λ(a : Type) → λ(x : a) → one a x
+    let bind = λ(a : Type) → λ(na : NEL a) → λ(b : Type) → λ(f : a → NEL b) →
+      let anelbnelb : a → NEL b → NEL b = λ(x : a) → concatNEL b (f x)
+      in na (NEL b) f anelbnelb
+    in { pure, bind }
+```
+
+To test this function, create a nested non-empty list and flatten it using the `join` method:
+
+```dhall
+let NEL/join = monadJoin NEL monadNEL
+let nestedNEL : NEL (NEL Natural) = toNEL (NEL Natural)
+  [ toNEL Natural [ 1 ] 2
+  , toNEL Natural [ 3 ] 4
+  , toNEL Natural ([ ] : List Natural) 5
+  , toNEL Natural [ 6, 7 ] 8
+  ] (toNEL Natural [ 9 ] 10)
+let flattenedNELNatural = NEL/join Natural nestedNEL
+let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
+```
 
 #### The binary tree monad
 
