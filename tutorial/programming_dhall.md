@@ -6741,14 +6741,14 @@ The Church encoding formula `∀(r : Type) → (F r → r) → r` needs some cha
 The resulting type formula is:
 
 ```dhall
-let LFixT = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(s : Type) → F r s → r s) → r a
+let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(s : Type) → F r s → r s) → r a
 ```
 This is the general Church encoding at the level of type constructors.
 
 For instance, with the pattern functor `F` defined above, we obtain the type constructor for perfect binary trees:
 
 ```dhall
-let PBTree : Type → Type = LFixT F
+let PBTree : Type → Type = LFixK F
 ```
 
 Let us look at some examples of working with the nested type `PBTree`.
@@ -7533,12 +7533,10 @@ Without knowing `x`, we cannot correctly assign a type to a function that extrac
 
 Extracting the second value from a dependent pair requires advanced support of dependent types that Dhall does not provide.
 
-### Refinement types and singleton types
+### Refinement types
 
-#### Refinement types
-
-The intent of a **refinement type** is to create a new type that ensures at typechecking time that all values satisfy a given condition.
-Dependent pairs provide a general encoding of refinement types in Dhall.
+The idea of a **refinement type** is to create a new type that ensures at typechecking time that its values satisfy a given condition.
+Dependent pairs provide a general encoding of refinement types in Dhall, whenever this is possible within Dhall's limitations.
 
 An simple example is a type describing a subset of `Natural` numbers that may not be greater than `10`.
 To encode that type via dependent pairs, we need to create a function of type `Natural → Type`.
@@ -7715,23 +7713,25 @@ let x = makeValidString example TU.Logic.QED
 let _ = assert : "abcd1234" ≡ getValidString x
 ```
 
-#### Singleton types
+### Singleton types
 
-As another example, we show how to encode a **singleton type**: a type that has only one value chosen from a given type.
-For instance, a singleton type `Text` with value `"abc"` is a type that contains a single value `"abc"`.
+A **singleton type** is a type that has only one value chosen from some other "parent" type.
+For instance, a singleton type with parent type `Text` and  value `"abc"` is a type that only has a single value `"abc"` (of type `Text`).
+
+Singleton types may be implemented via dependent pairs.
 This code defines a type `Text_abc` and a value `x` of that type:
 ```dhall
 let Text_equals_abc = λ(text : Text) → (text ≡ "abc")
 let Text_abc : Type = DependentPair Text Text_equals_abc
 let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" ≡ "abc")
 ```
-We can then extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+We can   extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
 
 ```dhall
 let _ = assert : dependentPairFirstValue Text Text_equals_abc x ≡ "abc"
 ```
 
-We can generalize this code to define a (dependent) type constructor for singleton types that are limited to a given `Text` value:
+This code can be generalized to a (dependent) type constructor for singleton types that are limited to a given `Text` value:
 ```dhall
 let TextSingletonPredicate = λ(fixed : Text) → λ(text : Text) → (text ≡ fixed)
 let TextSingleton : Text → Type
@@ -7744,8 +7744,9 @@ let x : TextSingleton "abc" = makeTextSingleton "abc"
 
 This technique works with any Dhall type (even with fully opaque types such as `Double` or `Bytes`).
 
+TODO: generalize to arbitrary parent type
 
-#### Typeclass instances with laws
+### Typeclass instances with laws
 
 
 Dependent pairs can be used to encode typeclass instances that are guaranteed to satisfy the typeclass laws.
@@ -10009,7 +10010,7 @@ let monadFunctor
     }
 ```
 
-This combinator works because of the assumed monad laws.
+This combinator works because the functionality of `bind` includes the functionality of `fmap`, and the laws of functors follow from the laws of monads.
 
 ## Filterable (contra)functors and their combinators
 
@@ -11688,9 +11689,14 @@ This monad is _not_ obtained by imposing a universal quantifier on another monad
 
 ### Monads with recursive types
 
-We have already seen that `List` is a monad.
-However, `List` is a built-in type in Dhall.
-It is instructive to see how one would implement the list monad in Dhall code without using the built-in `List`.
+Most often used monads that have recursive types are the list-like and the tree-like monads.
+
+Examples of list-like monads are the standard `List` and the non-empty list.
+
+#### The `List` monad
+
+Although `List` is a built-in type in Dhall,
+it is instructive to see how one would implement the list monad in Dhall code without using the built-in `List`.
 
 The type constructor equivalent to `List a` was defined before as `CList` via the general Church encoding method.
 Let us instead write an equivalent definition in the curried form (`ListC`), together with data constructors `nilC` and `consC`:
@@ -11750,7 +11756,9 @@ let flattenedListC = ListC/join Natural nestedListC
 let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
 ```
 
-While it appears that we have implemented the list monad correctly, it is not clear how to generalize this code to other recursive monads. 
+#### The non-empty list monad
+
+#### The binary tree monad
 
 Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
 We have defined this data type before as `TreeC` via curried Church encoding.
@@ -11804,7 +11812,12 @@ let flattenedTreeC : TreeC Bool = TreeC/join Bool nestedTreeC
 let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
 ```
 
-The binary tree is an example of a "tree-like" monad: a data structure with the shape of a tree.
+#### The possibly-empty binary tree
+
+
+#### The free monad 
+
+The binary tree is an example of a "tree-like" monad, that is, a monad whose data structure has the shape of a tree.
 Other examples of tree-like monads are trees that branch in three instead of in two sub-trees, or trees with more complicated branching shape, with extra data on each branch point, and so on. 
 
 In many cases, the choice of branching can be described by a functor `F`.
@@ -11849,15 +11862,15 @@ Let us test this code by implementing the binary tree via its pattern functor, w
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
 let CTree = LFixT FTree
-let functor2FTree : ∀(a : Type) → Functor (FTree a)
-  = True -- TODO: implement this
+--let functor2FTree : ∀(a : Type) → Functor (FTree a)
+  --= True -- TODO: implement this
 ```
 
 Let us we derive the specific constructor functions `cLeaf` and `cBranch` from the general function `fixT` applied to `FTree`:
 
 ```dhall
-let cLeaf : ∀(a : Type) → a → CTree a = λ(a : Type) → λ(x : a) → fixT FTree functor2FTree a (FTree a (Ctree a)).Leaf x
-let cBranch : ∀(a : Type) → CTree a → CTree a → CTree a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
+--let cLeaf : ∀(a : Type) → a → CTree a = λ(a : Type) → λ(x : a) → fixT FTree functor2FTree a (FTree a (Ctree a)).Leaf x
+--let cBranch : ∀(a : Type) → CTree a → CTree a → CTree a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
 ```
 TODO: complete this code and test
 
