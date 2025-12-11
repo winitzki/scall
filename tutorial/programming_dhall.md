@@ -7748,7 +7748,17 @@ let x : TextSingleton "abc" = makeTextSingleton "abc"
 
 This technique works with any Dhall type (even with fully opaque types such as `Double` or `Bytes`).
 
-TODO: generalize to arbitrary parent type
+So, let us extend this construction to arbitrary parent types `t`:
+
+```dhall
+let SingletonPredicate = λ(t : Type) → λ(fixed : t) → λ(text : t) → (text ≡ fixed)
+let Singleton : ∀(t : Type) → t → Type
+  = λ(t : Type) → λ(fixed : t) → DependentPair t (SingletonPredicate t fixed)
+let makeSingleton : ∀(t : Type) → ∀(fixed : t) → Singleton t fixed
+  = λ(t : Type) → λ(fixed : t) → makeDependentPair t fixed (SingletonPredicate t fixed) (assert : fixed ≡ fixed)
+let x : Singleton Double 0.123 = makeSingleton Double 0.123
+-- let x : Singleton Double 0.123 = makeSingleton Double 0.456  -- This will fail!
+```
 
 ### Typeclass instances with laws
 
@@ -11784,13 +11794,18 @@ let showNEL : ∀(a : Type) → Show a → Show (NEL a)
   }
 let showNELNat = (showNEL Natural { show = Natural/show }).show 
 let exampleNEL1345 : NEL Natural = toNEL Natural [ 1, 3, 4 ] 5
-let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]" 
+let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]"
 ```
 
 Let us implement a `Monad` evidence for `NEL`.
-It appears that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
+
+It is in any case not obvious how to implement the `bind` method for a given type constructor.
+Not all type constructors are monads; for those type constructors, an implementation of `bind` that satisfies the laws is impossible.
+
+With `NEL`, one finds  that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
 So, we need to use a different approach.
-Note that `bind` has type `NEL a → (a → NEL b) → NEL b`.
+
+The type of `bind` is `NEL a → (a → NEL b) → NEL b`.
 The given input `na : NEL a` is a function of type `∀(r : Type) → (a → r) → (a → r → r) → r`.
 We can get a result of type `NEL b` out of that function if we assign the type parameter `r = NEL b`.
 It remains to supply arguments of types `a → NEL b` and `a → NEL b → NEL b`.
@@ -11876,14 +11891,16 @@ let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ 
 
 #### The possibly-empty binary tree
 
-One peculiar example of a tree-like monad is the following type constructor:
+The binary tree data structure `TreeC a` cannot be empty: it contains at least one leaf with a value of type `a`.
+
+A possibly-empty binary tree can be defined via the following type constructor:
 
 ```dhall
 let BTreeE = λ(a : Type) → Optional (TreeC a)
 ```
-This data structure is either empty (`None`) or a binary tree with leaves of type `a`.
+This data structure is either empty (`None`) or a binary tree with at least one leaf of type `a`.
 
-It turns out that `BTreeE` is a monad:
+It turns out that `BTreeE` is a monad.
 
 TODO: implement
 
