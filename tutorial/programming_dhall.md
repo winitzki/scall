@@ -7749,7 +7749,7 @@ let singleX : TextSingleton "abc" = makeTextSingleton "abc"
 let _ = assert : extractTextFromSingleton "abc" singleX ≡ "abc"
 ```
 
-This technique works with any Dhall type (even with fully opaque types such as `Double` or `Bytes`).
+This technique works with any Dhall type, even with fully opaque types such as `Double` or `Bytes`.
 So, let us extend this construction to arbitrary parent types `t`:
 
 ```dhall
@@ -7805,7 +7805,7 @@ let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
     ev.append x (ev.append y z) ≡ ev.append (ev.append x y) z
 ```
 
-It will be convenient to define the _type constructor_ for `semigroup_law` separately:
+For convenience, we define the _type_ for `semigroup_law` separately:
 ```dhall
 let semigroup_law_t : ∀(t : Type) → Semigroup t → Type
   = λ(t : Type) → λ(ev : Semigroup t) →
@@ -7813,7 +7813,7 @@ let semigroup_law_t : ∀(t : Type) → Semigroup t → Type
 ```
 This definition allows us to write an evidence for the semigroup law as a value of type `semigroup_law_t t ev`.
 
-Now we can implement the type `SemigroupLawful` via a dependent pair that contains a `Semigroup` typeclass evidence and an evidence that the law holds:
+Now we can implement the type `SemigroupLawful` via a dependent pair that contains a `Semigroup` typeclass evidence and also an evidence that the semigroup law holds:
 
 ```dhall
 let SemigroupLawful = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
@@ -7826,7 +7826,7 @@ let instanceBoolToBool : SemigroupLawful T = makeDependentPair (Semigroup T) sem
 ```
 This value stores at once an implementation of the semigroup function (`append`) and an evidence value proving that `append` satisfies the associativity law.
 
-This technique works only when Dhall's typechecker is powerful enough to validate laws symbolically.
+This technique works only when Dhall's typechecker is powerful enough to validate the laws symbolically.
 We have chosen the semigroup type `Bool → Bool` in this example because Dhall is able to validate the associativity law for that type.
 
 ## Encoding of greatest fixpoints (co-inductive types)
@@ -7845,15 +7845,15 @@ Type theory denotes $\mu F$  for the least fixpoint   and   $\nu F$  for the gre
 Intuitively, the least fixpoint is the "smallest possible" data type `T` that satisfies `T = F T`.
 The greatest fixpoint is the "largest possible" data type that satisfies the same equation.
 
-Least fixpoints of polynomial functors are   _finite_ structures.
-One can always traverse all data stored in such a structure by using a finite number of operations.
-One can also extract all stored data into a list, say.
+Least fixpoints of polynomial functors are always  _finite_ data structures.
+One can always traverse all data stored in such structures by using a finite number of operations.
+One can also extract all stored data into a list; so, least fixpoints of polynomial functors are always `Foldable`.
 
 Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration.
-A traversal of all data items stored in those data structures is not expected to terminate.
+A traversal of all data items stored in those data structures will not necessarily terminate.
 So, it is not possible to traverse all data or extract all data from such data structures.
 Those data structures are used only in ways that do not involve a full traversal of all data.
-It is useful to imagine that those data structures are "infinite", even though the amount of data stored in memory is of course always finite.
+It is helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
 As an example of the contrast between the least fixpoints and the greatest fixpoints, consider the pattern functor `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
@@ -11972,24 +11972,29 @@ let monadFreeMonad : ∀(F : Type → Type) → Monad (FreeMonad F)
     in { pure, bind } 
 ```
 
-This code does not require a `Functor` evidence for `F`.
+This code does not use a `Functor` evidence for `F`.
 However, we need to keep in mind that the Church encoding will work correctly only when `F` is a functor. 
 
-Let us test this code by implementing the binary tree via its pattern functor, which we have denoted earlier by `FTree`, and the general Church encoding for type constructors (`LFixT`):
+Let us test this code by re-implementing the binary tree as a free monad on a functor `D a = Pair a a`:
 
 ```dhall
-let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
-let CTree = LFixT FTree
---let functor2FTree : ∀(a : Type) → Functor (FTree a)
-  --= True -- TODO: implement this
+let D = λ(a : Type) → Pair a a
+let FrTree : Type → Type = FreeMonad D
 ```
 
-Let us we derive the specific constructor functions `cLeaf` and `cBranch` from the general function `fixT` applied to `FTree`:
+Derive the constructor functions `frLeaf` and `frBranch` and the monadic `join` method:
 
 ```dhall
---let cLeaf : ∀(a : Type) → a → CTree a = λ(a : Type) → λ(x : a) → fixT FTree functor2FTree a (FTree a (Ctree a)).Leaf x
---let cBranch : ∀(a : Type) → CTree a → CTree a → CTree a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
+let frLeaf : ∀(a : Type) → a → FrTree a = λ(a : Type) → λ(x : a) →
+  λ(r : Type) → λ(ar : a → r) → λ(alg : Pair r r → r) →
+    ar x
+let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
+  = λ(a : Type) → λ(left : FrTree a) → λ(right : FrTree a) →
+    λ(r : Type) → λ(ar : a → r) → λ(alg : Pair r r → r) →
+      alg { _1 = left r ar alg, _2 = right r ar alg }
+let CTree/join = monadJoin FrTree (monadFreeMonad D)
 ```
+
 TODO: complete this code and test
 
 ## Monad transformers
