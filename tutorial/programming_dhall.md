@@ -11992,7 +11992,30 @@ let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
   = λ(a : Type) → λ(left : FrTree a) → λ(right : FrTree a) →
     λ(r : Type) → λ(ar : a → r) → λ(alg : Pair r r → r) →
       alg { _1 = left r ar alg, _2 = right r ar alg }
-let CTree/join = monadJoin FrTree (monadFreeMonad D)
+```
+
+We also need a `Show` implementation and the monadic `join` method:
+
+```dhall
+let showFrTree : ∀(a : Type) → Show a → Show (FrTree a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(tree : FrTree a) →
+    tree Text (λ(x : a) → showA.show x) (λ(branch : Pair Text Text) → "[ ${branch._1}, ${branch._2} ]")
+  }
+let FrTree/join = monadJoin FrTree (monadFreeMonad D)
+```
+
+Let us reproduce the test we wrote for `TreeC` by using `FrTree` instead:
+
+```dhall
+let nestedFrTree : FrTree (FrTree Bool) =
+  let B = frBranch Bool
+  let L = frLeaf Bool
+  let BB = frBranch (FrTree Bool)
+  let LL = frLeaf (FrTree Bool)
+  in BB (LL (B (L True) (L True))) (BB (LL (L False)) (LL (B (L True) (L False))))
+let flattenedFrTree : FrTree Bool = FrTree/join Bool nestedFrTree
+let showFrTreeBool = (showFrTree Bool { show = Bool/show }).show
+let _ = assert : showFrTreeBool flattenedFrTree ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
 ```
 
 TODO: complete this code and test
