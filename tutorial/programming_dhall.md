@@ -7729,7 +7729,7 @@ let Text_equals_abc = λ(text : Text) → (text ≡ "abc")
 let Text_abc : Type = DependentPair Text Text_equals_abc
 let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" ≡ "abc")
 ```
-We can   extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+We can extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
 
 ```dhall
 let _ = assert : dependentPairFirstValue Text Text_equals_abc x ≡ "abc"
@@ -7742,12 +7742,14 @@ let TextSingleton : Text → Type
   = λ(fixed : Text) → DependentPair Text (TextSingletonPredicate fixed)
 let makeTextSingleton : ∀(fixed : Text) → TextSingleton fixed
   = λ(fixed : Text) → makeDependentPair Text fixed (TextSingletonPredicate fixed) (assert : fixed ≡ fixed)
-let x : TextSingleton "abc" = makeTextSingleton "abc"
--- let x : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
+let extractTextFromSingleton = λ(fixed : Text) → λ(singleton : TextSingleton fixed) →
+   dependentPairFirstValue Text (TextSingletonPredicate fixed) singleton
+let singleX : TextSingleton "abc" = makeTextSingleton "abc"
+-- let singleX : TextSingleton "abc" = makeTextSingleton "def"  -- This will fail!
+let _ = assert : extractTextFromSingleton "abc" singleX ≡ "abc"
 ```
 
 This technique works with any Dhall type (even with fully opaque types such as `Double` or `Bytes`).
-
 So, let us extend this construction to arbitrary parent types `t`:
 
 ```dhall
@@ -7756,9 +7758,36 @@ let Singleton : ∀(t : Type) → t → Type
   = λ(t : Type) → λ(fixed : t) → DependentPair t (SingletonPredicate t fixed)
 let makeSingleton : ∀(t : Type) → ∀(fixed : t) → Singleton t fixed
   = λ(t : Type) → λ(fixed : t) → makeDependentPair t fixed (SingletonPredicate t fixed) (assert : fixed ≡ fixed)
-let x : Singleton Double 0.123 = makeSingleton Double 0.123
--- let x : Singleton Double 0.123 = makeSingleton Double 0.456  -- This will fail!
+let extractFromSingleton = λ(t : Type) → λ(fixed : t) → λ(singleton : Singleton t fixed) →
+  dependentPairFirstValue t (SingletonPredicate t fixed) singleton
+let singleY : Singleton Double 0.123 = makeSingleton Double 0.123
+-- let singleY : Singleton Double 0.123 = makeSingleton Double 0.456  -- This will fail!
+let _ = assert : extractFromSingleton Double 0.123 singleY ≡ 0.123
 ```
+
+Because of the limitations of Dhall, we need to annotate both the types and the _values_ of singletons.
+This makes singleton types less practically useful.
+
+For instance, extracting the value from a generic singleton `x` cannot look like `extractValue x`; we must write something like `extract Double 0.123 x` or `extract Text "abc" x`.
+We can extract value from a singleton only if we already know what that value will be.
+If we want to implement a function whose argument has a singleton type, the type signature of the function will need to mention the value of that singleton type.
+For example, here is a function that concatenates a given text with a prefix of a `Text`-singleton type:
+```dhall
+let f : ∀(prefix : Text) → Singleton Text prefix → Text → Text
+  = λ(prefix : Text) → λ(singleton : Singleton Text prefix) → λ(s : Text) →
+    "${extractFromSingleton Text prefix singleton}${s}"
+let _ = assert : f "abc" singleX "def" ≡ "abcdef"
+```
+To be able to use a singleton argument (here `singleX`), we already need to write its fixed value ("abc") in the type signature of the function.
+So, the code can be simplified by omitting the singleton argument altogether:
+```dhall
+let f : ∀(prefix : Text) → Text → Text
+  = λ(prefix : Text) → λ(s : Text) →
+    "${prefix}${s}"
+let _ = assert : f "abc" "def" ≡ "abcdef"
+```
+
+Using a singleton type as a function argument gives no practical advantages in Dhall because we need to know the singleton's value in advance at all usage sites.
 
 ### Typeclass instances with laws
 
