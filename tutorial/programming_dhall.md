@@ -12018,9 +12018,153 @@ let showFrTreeBool = (showFrTree Bool { show = Bool/show }).show
 let _ = assert : showFrTreeBool flattenedFrTree ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
 ```
 
-TODO: complete this code and test
-
 ## Monad transformers
+
+The practical aspects of programming with monads are beyond the scope of this book,
+which focuses on the technical aspects of implementation of various FP idioms in System Fω.
+
+It is known that one of the issues arising in monadic programming is the necessity to combine the effects of two or more monads in a single, "larger" monad.
+The new monad must have certain properties and satisfy certain laws.
+"The Science of Functional Programming" lists eighteen laws of monad transformers and demonstrates the main techniques for implementing transformers for all known monads.
+
+In this chapter, we briefly describe what is known about monad transformers, list the required methods and show the corresponding implementations in Dhall.
+
+### Overview of monad transformers
+
+Generally, a monad transformer is a mapping from monads to monads.
+That is, for any monad `M` there exists a transformed monad `T M`.
+In Dhall, a monad is a type constructor (`Type → Type`), so a monad transformer has the type signature `(Type → Type) → Type → Type`.
+
+The definition of monad transformers uses the concept of **monad morhpisms**.
+A monad morphism between monads `M` and `N` is a function with type signature `∀(a : Type) → M a → N a` that satisfies the appropriate identity and composition laws (which we will not write out in this book).
+
+Given any transformer `T`, we may apply `T` to the identity monad.
+The result must be some monad `L`.
+The monad `L` (the `T`-image of the identity monad) is called the "base monad" of the transformer `T`.
+
+We call `T` a "transformer for the monad `L`" when `L` is the base monad of `T`.
+A monad `M` on which `T` acts is called a "foreign" monad.
+The resulting monad `T M` is the "transformed foreign monad".
+
+There are two kinds of monad transformers that we call "complete" and "incomplete".
+
+A **complete monad transformer** `T` satisfies the following properties:
+
+- For any monad `M`, there exists a monad morphism between `M` and `T M`. This monad morphism is called a "foreign lift" and is denoted by `flift`. Its type signature is `flift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M a → T M a`. The foreign lift has the monad `M` as a type parameter; in other words, `flift` works in the same way for all monads `M`.
+- For any monads `M`, `N` and any monad morphism `g : ∀(a : Type) → M a → N a` there is a monad morphism `h : ∀(a : Type) → T M a → T N a` between the monads `T M` and `T N`. The mapping from `g` to `h` is known as the "foreign runner" (`frun`) and must satisfy the functor laws of identity and composition.
+ 
+
+In some Haskell and Scala libraries, the foreign runner function is called `hoist`.
+This book  will call it a "foreign runner"  (`frun`), following "The Science of Functional Programming".
+
+It follows that, for any monad `M` there is a monad morphism from `L` to `T M`.
+This morphism is called the "base lift" and is computed as `blift = frun pure` using the `pure` method of the monad `M`.
+The type signature of the base lift is:
+
+`blift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → L a → T M a` 
+
+An **incomplete monad transformer** has the foreign lift method but no foreign runner or base lift.
+
+There is no general procedure or algorithm for constructing a monad transformer for a given base monad `L`.
+But in practice, every known monad `L` has at least one transformer `T` for which `L` is the base monad.
+
+Moreover, for most monads _one and only one complete transformer_ is known.
+Because of that empirically observed fact, it makes sense to designate a "standard" complete transformer for every monad that has one.
+
+It is far from obvious how to define a transformer for a given base monad `L`.
+In the section "Transformers for standard monads", we show how to do this for a number of well-known monads.
+Further sections in this chapter will show how to build transformers for all known monad combinators.
+
+If every monad we use in practice has a designated transformer, it means we may always combine any two, three, or more monads in a single large monad.
+That large monad is known as a "monad stack".
+
+For "continuation-like" monads, such as the continuation and the codensity monads, _only incomplete_ transformers are known.
+In practice, it means that monadic programs involving those monads cannot be lifted to the transformed monad if the base monad is "continuation-like".
+To avoid this limitation, programmers usually place a single "continuation-like" monad at the deep end of the monad stack.
+In that case, the incomplete transformer of that monad will never be needed.
+
+A first, trivial example of a monad transformer is the no-op transformer: it does not change the monad at all.
+In other words, we define `T M = M` for all monads `M`.
+All properties of monad transformers are satisfied with this definition.
+
+Applying `T` to the identity monad, we obtain again the identity monad.
+It means that `Id` is the base monad of `T`; we say that `T` is "a transformer for the identity monad". 
+
+A somewhat unusual example of a monad transformer is the codensity monad (`Codensity F a`) when used with a type constructor `F` that is itself a monad.
+In that case, we may view the codensity type constructor as a transformer that takes any monad `F` and produces a new monad `Codensity F`.
+
+Recall the definition of `Codensity`:
+```dhall
+let Codensity = λ(F : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F t
+```
+
+If we substitute `F = Id` (the identity monad) then we obtain:
+
+```dhall
+Codensity Id a  ≅  ∀(t : Type) → (a → Id t) → Id t
+  ≅  ∀(t : Type) → (a → t) → t
+```
+The covariant Yoneda identity (see Appendix "Naturality and parametricity") shows that the last type is equivalent to just `a`.
+Since `Codensity Id a` is equivalent to `Id a`,
+it means that the base monad of this transformer is the _identity monad_.
+So, `Codensity` may be also viewed as a monad transformer for the identity monad.
+
+These examples show that the identity monad has (at least) two different, inequivalent transformers.
+However, one of these transformers (`Codensity`) is incomplete as the foreign lift cannot exist.
+The other transformer (the "no-op" one) is complete.
+
+### The `Transformer` typeclass
+
+To define a complete monad transformer as a typeclass, one needs the following data:
+
+- A monad typeclass evidence for `T M` given a monad evidence for `M`.
+- An implementation of the foreign lift.
+- An implementation of the foreign runner.
+
+For an incomplete monad transformer, the foreign runner is missing.
+
+Let us define both kinds of monad transformers as typeclasses:
+
+```dhall
+let IncompleteTransformer = λ(T : (Type → Type) → Type → Type) →
+  { monadTM : ∀(M : Type → Type) → Monad M → Monad (T M),
+  , flift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M a → T M a
+  }
+let CompleteTransformer = λ(T : (Type → Type) → Type → Type) →
+  IncompleteTransformer T //\\
+  { frun : ∀(M : Type → Type) → ∀(N : Type → Type) → ∀(g : ∀(a : Type) → M a → N a) → ∀(a : Type) → T M a → T N a } 
+```
+We omitted the `Monad` evidence for `M` and `N` in the type signature of `frun` because it is never needed in practice for implementing that function.
+
+A definition of `blift` for complete transformers can then be written via typeclass constraints:
+
+```dhall
+let blift
+  : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
+  = λ(T : (Type → Type) → Type → Type) → λ(completeTransformerT : CompleteTransformer T) → λ(M : Type → Type) → λ(monadM : Monad M) → 
+    completeTransformerT.frun Id M monadM.pure
+```
+
+### Transformers for standard monads
+
+By convention, we say that `T` is a "transformer for the base monad `L`" if `T` is a monad transformer such that `T Id = L`.
+
+The transformer for the identity monad is the identity function, as we already discussed.
+
+The transformers for the `Option`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
+For instance, the transformer for `Option` works as `T M a = M (Option a)`. 
+
+### Monads that have only incomplete transformers
+
+### Transformers for products
+
+### Transformers for co-products
+
+### Transformers for function-type monads and for "rigid" monads
+
+### Transformers for monads with universal quantifiers
+
+### Transformers for recursive monads
 
 ## Free typeclass instances
 
