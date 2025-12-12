@@ -4938,8 +4938,8 @@ Dhall's documentation contains a [beginner's tutorial on Church encoding](https:
 Here, we summarize that technique more briefly.
 (What the Dhall documentation calls a "recursion scheme" is more appropriately called a "pattern functor" in this book.)
 
-In languages that directly support recursive types, one defines types such as lists or trees via "type equations".
-That is, one writes definitions of the form `T = F T` where `F` is some type constructor and `T` is the type being defined.
+In languages that do directly support recursive types, one defines types such as lists or trees via "type equations".
+That is, one writes definitions of the form `T = F T` where `F T` is some type expression using the type `T` that is being defined.
 
 For example, suppose `T` is the type of lists with integer values.
 A recursive definition of `T` in Haskell could look like this:
@@ -4958,8 +4958,9 @@ The type constructor `F` is called the **pattern functor** for the definition of
 The type `T` is called a **fixpoint** of `F`.
 
 Each recursive type definition can be rewritten in this form, using a suitable pattern functor.
+The pattern functor `F` describes all the places where the recursive definition of `T` uses the type `T` itself.
 
-Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is non-recursive.
+Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is _non-recursive_.
 The definition of `F` is written in Dhall as:
 
 ```dhall
@@ -5020,14 +5021,17 @@ let TreeText = ∀(r : Type) → (FT r → r) → r
 
 ### Church encoding of non-recursive types
 
-If a pattern functor does _not_ depend on its type parameter, the Church encoding construction will leave the type unchanged.
+The Church encoding is a way of representing recursive types (solutions of fixpoint equations `T = F T`).
+We may formally pretend that any type, even a non-recursive type, is a solution of some fixpoint equation.
+To achieve that, we set `F` to a type constructor that does not depend on its type parameter. 
 
-For example, consider this pattern functor:
+For example, suppose `K` is a type constructor that represents a pair of `Text` and `Bool`:
 
 ```dhall
 let K = λ(t : Type) → { x : Text, y : Bool }
 ```
-The type `K t` does not actually depend on `t`.
+The type expression `K t` does not actually depend on the type parameter `t`.
+The type `K t` is always `{ x : Text, y : Bool }` regardless of `t`.
 Nevertheless, `K` is a valid type constructor that is covariant (has a `Functor` evidence value):
 
 ```dhall
@@ -5048,11 +5052,13 @@ let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 
 The general properties of the Church encoding always enforce that `C` is a solution of the type equation `C = K C`.
 This remains true even when `K` does not depend on its type parameter.
-So, now we have `K C = { x : Text, y : Bool }` independently of `C`.
-The type equation `C = K C` is non-recursive and simply says that `C = { x : Text, y : Bool }`.
+Then we have `K C = { x : Text, y : Bool }` independently of `C`.
+It means that the type equation `C = K C` is the same as the type equation `C = { x : Text, y : Bool }`.
+This is a non-recursive type equation that has only one solution, namely, `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
-Church encodings of that form do not produce new types.
+(Here we assume that `p` is a fixed type that does not depend on `r`.)
+Church encodings of that form do not produce recursive types.
 Still, these encodings are useful for showing how certain types can be represented equivalently via higher-order functions.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
@@ -12165,6 +12171,18 @@ For instance, the transformer for `Option` works as `T M a = M (Option a)`.
 ### Transformers for monads with universal quantifiers
 
 ### Transformers for recursive monads
+
+#### List-like monads
+
+#### Free monads
+
+The free monad on a functor `F` is defined recursively as `L a = a + F (L a)`.
+Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching.
+
+The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (a + F (T M a))`.
+Note that the foreign monad `M` is applied on the outside, but recursion makes it appear also inside the transformed type.
+
+
 
 ## Free typeclass instances
 
