@@ -12163,7 +12163,7 @@ For illustration, let us define that transformer and its evidence for the `Compl
 
 ```dhall
 let TIdentity : (Type → Type) → Type → Type
-  = λ(F : Type → Type) → F
+  = λ(M : Type → Type) → M
 let completeTransformerTIdentity : CompleteTransformer TIdentity =
   { monadTM = λ(M : Type → Type) → identity (Monad M)
   , flift = λ(M : Type → Type) → λ(_ : Monad M) → λ(a : Type) → identity (M a)
@@ -12173,9 +12173,27 @@ let completeTransformerTIdentity : CompleteTransformer TIdentity =
 
 #### Composed-inside transformers
 
-The transformers for the `Option`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
-For instance, the transformer for `Option` works as `T M a = M (Option a)`. 
+The transformers for the `Optional`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
+For instance, the transformer for `Optional` works as `T M a = M (Optional a)`. 
 
+```dhall
+let TOptional : (Type → Type) → Type → Type
+  = λ(M : Type → Type) → λ(a : Type) → M (Optional a)
+let completeTransformerTOptional : CompleteTransformer TOptional =
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) → monadM.pure (Optional a) (Some x)
+    , bind = λ(a : Type) → λ(tma : TOptional M a) → λ(b : Type) → λ(f : a → TOptional M b) →
+        monadM.bind (Optional a) tma (Optional b) (λ(oa : Optional a) → merge
+         { None = monadM.pure (Optional b) (None b)
+         , Some = f
+         } oa)  
+    }
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      (monadFunctor M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : TOptional M a) → g (Optional a) tma
+  }
+```
 ### Monads that have only incomplete transformers
 
 ### Transformers for products of monads
