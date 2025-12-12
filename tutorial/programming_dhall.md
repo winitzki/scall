@@ -12206,10 +12206,10 @@ let completeTransformerTEither : ∀(E : Type) → CompleteTransformer (TEither 
   { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
     { pure = λ(a : Type) → λ(x : a) → monadM.pure (Either E a) ((Either E a).Right x)
     , bind = λ(a : Type) → λ(tma : TEither E M a) → λ(b : Type) → λ(f : a → TEither E M b) →
-        monadM.bind (Either E a) tma (Either E b) (λ(oa : Either E a) → merge
+        monadM.bind (Either E a) tma (Either E b) (λ(ea : Either E a) → merge
          { Left = λ(e : E) → monadM.pure (Either E b) ((Either E b).Left e)
          , Right = λ(x : a) → f x
-         } oa)  
+         } ea)  
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       (monadFunctor M monadM).fmap a (Either E a) (λ(x : a) → (Either E a).Right x) ma
@@ -12220,24 +12220,23 @@ let completeTransformerTEither : ∀(E : Type) → CompleteTransformer (TEither 
 
 For the `Writer` monad:
 ```dhall
-let TOptional : (Type → Type) → Type → Type
-  = λ(M : Type → Type) → λ(a : Type) → M (Optional a)
-let completeTransformerTOptional : CompleteTransformer TOptional =
+let TWriter : Type → (Type → Type) → Type → Type
+  = λ(W : Type) → λ(M : Type → Type) → λ(a : Type) → M (Writer W a)
+let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransformer (TWriter W) = λ(W : Type) → λ(monoidW : Monoid W) → 
   { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
-    { pure = λ(a : Type) → λ(x : a) → monadM.pure (Optional a) (Some x)
-    , bind = λ(a : Type) → λ(tma : TOptional M a) → λ(b : Type) → λ(f : a → TOptional M b) →
-        monadM.bind (Optional a) tma (Optional b) (λ(oa : Optional a) → merge
-         { None = monadM.pure (Optional b) (None b)
-         , Some = f
-         } oa)  
+    { pure = λ(a : Type) → λ(x : a) → monadM.pure (Writer W a) ((monadWriter W monoidW).pure a x)
+    , bind = λ(a : Type) → λ(tma : TWriter W M a) → λ(b : Type) → λ(f : a → TWriter W M b) →
+        let wa2mwb : Writer W a → TWriter W M b = λ(wa : Writer W a) →
+          let wmb : TWriter W M b = f wa.result
+          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) (λ(newW : Writer W b) → monadJoin (Writer W) (monadWriter W monoidW) b { result = newW, output = wa.output }) wmb
+        in monadM.bind (Writer W a) tma (Writer W b) wa2mwb  
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      (monadFunctor M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
+      (monadFunctor M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
   , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
-      λ(a : Type) → λ(tma : TOptional M a) → g (Optional a) tma
+      λ(a : Type) → λ(tma : TWriter W M a) → g (Writer W a) tma
   }
 ```
-
 
 ### Monads that have only incomplete transformers
 
