@@ -11179,8 +11179,9 @@ let monadProduct : ∀(F : Type → Type) → Monad F → ∀(G : Type → Type)
 In general, a co-product of two monads is not a monad.
 But there is one exception: when one of the monads is the identity monad.
 
-The co-product of an identity monad and a given monad is called a "free pointed monad".
+The co-product of an identity monad and another monad is called a "free pointed monad" in "The Science of Functional Programming".
 
+Here is the code for a combinator that produces a `Monad` evidence for a free pointed monad, given a `Monad` evidence for an existing monad `F`:
 ```dhall
 let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
   = λ(F : Type → Type) → λ(monadF : Monad F) →
@@ -12133,7 +12134,7 @@ Let us define both kinds of monad transformers as typeclasses:
 
 ```dhall
 let IncompleteTransformer = λ(T : (Type → Type) → Type → Type) →
-  { monadTM : ∀(M : Type → Type) → Monad M → Monad (T M),
+  { monadTM : ∀(M : Type → Type) → Monad M → Monad (T M)
   , flift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M a → T M a
   }
 let CompleteTransformer = λ(T : (Type → Type) → Type → Type) →
@@ -12155,16 +12156,53 @@ let blift
 
 By convention, we say that `T` is a "transformer for the base monad `L`" if `T` is a monad transformer such that `T Id = L`.
 
+#### Identity monad
+
 The transformer for the identity monad is the identity function, as we already discussed.
+For illustration, let us define that transformer and its evidence for the `CompleteTransformer` typeclass.
+
+```dhall
+let TIdentity : (Type → Type) → Type → Type
+  = λ(F : Type → Type) → F
+let completeTransformerTIdentity : CompleteTransformer TIdentity =
+  { monadTM = λ(M : Type → Type) → identity (Monad M)
+  , flift = λ(M : Type → Type) → λ(_ : Monad M) → λ(a : Type) → identity (M a)
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) → g
+  }
+```
+
+#### Composed-inside transformers
 
 The transformers for the `Option`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
 For instance, the transformer for `Option` works as `T M a = M (Option a)`. 
 
 ### Monads that have only incomplete transformers
 
-### Transformers for products
+### Transformers for products of monads
 
-### Transformers for co-products
+The transformer for a product of given monads is the product of their transformers.
+
+### Transformer for free pointed monads
+
+Given a monad `F` with a known transformer `FT`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
+
+```dhall
+let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
+  = λ(F : Type → Type) → λ(monadF : Monad F) →
+    let G = CoProduct Id F   -- So that G a = Either a (F a).
+    let pure = λ(a : Type) → λ(x : a) → (G a).Left x
+    let bind = λ(a : Type) → λ(ga : G a) → λ(b : Type) → λ(f : a → G b) →
+      merge { Left = λ(x : a) → f x
+            , Right = λ(fa : F a) →
+                let afb : a → F b = λ(x : a) →
+                  merge { Left = λ(y : b) → monadF.pure b y
+                        , Right = λ(fb : F b) → fb
+                  } (f x)
+                let fb : F b  = monadF.bind a fa b afb  
+                in (G b).Right fb 
+            } ga
+    in { pure, bind }
+```
 
 ### Transformers for function-type monads and for "rigid" monads
 
