@@ -28,7 +28,7 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus.](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
-The book contains many code examples, which have been validated automatically by the Dhall interpreter.
+The book shows many complete code examples, which have been validated by the Dhall interpreter.
 
 The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
 
@@ -105,7 +105,7 @@ But in Dhall, the symbol `_` is a variable like any other:
 246
 ```
 
-Of course, one might still use the symbol `_` in Dhall code as a convention for unused variables.
+Of course, one may still use the symbol `_` in Dhall code as a convention for unused variables.
 However, the Dhall interpreter will not treat the variable `_` in any special way and will not verify that the variable `_` actually remains unused.
 
 ### Primitive types
@@ -12174,8 +12174,51 @@ let completeTransformerTIdentity : CompleteTransformer TIdentity =
 #### Composed-inside transformers
 
 The transformers for the `Optional`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
-For instance, the transformer for `Optional` works as `T M a = M (Optional a)`. 
+The transformer for `Optional` works as `T M a = M (Optional a)`, and similarly for the `Either`, and `Writer` monads. 
 
+All those transformers are complete. We can implement evidence values of `CompleteTransformer` typeclass for them.
+
+For the `Optional` monad:
+```dhall
+let TOptional : (Type → Type) → Type → Type
+  = λ(M : Type → Type) → λ(a : Type) → M (Optional a)
+let completeTransformerTOptional : CompleteTransformer TOptional =
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) → monadM.pure (Optional a) (Some x)
+    , bind = λ(a : Type) → λ(tma : TOptional M a) → λ(b : Type) → λ(f : a → TOptional M b) →
+        monadM.bind (Optional a) tma (Optional b) (λ(oa : Optional a) → merge
+         { None = monadM.pure (Optional b) (None b)
+         , Some = λ(x : a) → f x
+         } oa)  
+    }
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      (monadFunctor M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : TOptional M a) → g (Optional a) tma
+  }
+```
+
+For the `Either` monad:
+```dhall
+let TEither : Type → (Type → Type) → Type → Type
+  = λ(E : Type) → λ(M : Type → Type) → λ(a : Type) → M (Either E a)
+let completeTransformerTEither : ∀(E : Type) → CompleteTransformer (TEither E) = λ(E : Type) → 
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) → monadM.pure (Either E a) ((Either E a).Right x)
+    , bind = λ(a : Type) → λ(tma : TEither E M a) → λ(b : Type) → λ(f : a → TEither E M b) →
+        monadM.bind (Either E a) tma (Either E b) (λ(oa : Either E a) → merge
+         { Left = λ(e : E) → monadM.pure (Either E b) ((Either E b).Left e)
+         , Right = λ(x : a) → f x
+         } oa)  
+    }
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      (monadFunctor M monadM).fmap a (Either E a) (λ(x : a) → (Either E a).Right x) ma
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : TEither E M a) → g (Either E a) tma
+  }
+```
+
+For the `Writer` monad:
 ```dhall
 let TOptional : (Type → Type) → Type → Type
   = λ(M : Type → Type) → λ(a : Type) → M (Optional a)
@@ -12194,6 +12237,8 @@ let completeTransformerTOptional : CompleteTransformer TOptional =
       λ(a : Type) → λ(tma : TOptional M a) → g (Optional a) tma
   }
 ```
+
+
 ### Monads that have only incomplete transformers
 
 ### Transformers for products of monads
@@ -12279,6 +12324,8 @@ Examples of typeclasses that cannot have free instances are `Eq`, `Show`, `Comon
 ### Free filterable
 
 ### Free applicative
+
+### Free $P$-typeclass evidence
 
 # Appendixes
 
