@@ -12189,7 +12189,7 @@ let completeTransformerTOptional : CompleteTransformer TOptional =
         monadM.bind (Optional a) tma (Optional b) (λ(oa : Optional a) → merge
          { None = monadM.pure (Optional b) (None b)
          , Some = λ(x : a) → f x
-         } oa)  
+         } oa)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       (monadFunctor M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
@@ -12209,7 +12209,7 @@ let completeTransformerTEither : ∀(E : Type) → CompleteTransformer (TEither 
         monadM.bind (Either E a) tma (Either E b) (λ(ea : Either E a) → merge
          { Left = λ(e : E) → monadM.pure (Either E b) ((Either E b).Left e)
          , Right = λ(x : a) → f x
-         } ea)  
+         } ea)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       (monadFunctor M monadM).fmap a (Either E a) (λ(x : a) → (Either E a).Right x) ma
@@ -12228,8 +12228,11 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
     , bind = λ(a : Type) → λ(tma : TWriter W M a) → λ(b : Type) → λ(f : a → TWriter W M b) →
         let wa2mwb : Writer W a → TWriter W M b = λ(wa : Writer W a) →
           let wmb : TWriter W M b = f wa.result
-          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) (λ(newW : Writer W b) → monadJoin (Writer W) (monadWriter W monoidW) b { result = newW, output = wa.output }) wmb
-        in monadM.bind (Writer W a) tma (Writer W b) wa2mwb  
+          let wb2wb : Writer W b → Writer W b = λ(newW : Writer W b) →
+            let nested : Writer W (Writer W b) = { result = newW, output = wa.output }
+            in monadJoin (Writer W) (monadWriter W monoidW) b nested
+          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) wb2wb wmb
+        in monadM.bind (Writer W a) tma (Writer W b) wa2mwb
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       (monadFunctor M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
