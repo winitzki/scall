@@ -1383,21 +1383,25 @@ So, one cannot write a Dhall function taking an arbitrary record `r` and returni
 Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
 
 
-### Types and values
+### Types and values are syntactically similar
 
-In Dhall, as in every programming language, types are different from values.
-Each value has an assigned type, but it is not true that each type has only one assigned value.
+In Dhall, as in every programming language, types are fundamentally different from values.
+Each value has a single assigned type (for example, `123` has type `Natural`), but it is not true that each type has only one assigned value (the type `Natural` has many values).
+
+Also, values may be annotated with types (for example, `n : Natural`), but we cannot write `n : 123` as `123` is a value and not a type.
 
 Dhall will check that each value in a program has the correct type and that all types match whenever functions are applied to arguments, or when explicit type annotations are given.
 
-Other than that, Dhall treats types and values in a largely similar way.
+Nevertheless, syntactically Dhall treats types and values in a largely similar way.
 Types may be assigned to new named values, stored in records, and passed as function parameters using the same syntax as when working with values.
 
-For instance, we may write `let x : Bool = True` to define a variable of type `Bool`.
+For instance, in most languages we may define a variable of type `Bool` by writing code analogous to Dhall's `let x : Bool = True`.
 Here, we used the type `Bool` as a type annotation for the variable `x`.
 But we may also write `let y = Bool` to define a variable `y` whose value is the type symbol `Bool` itself.
 Then we will be able to use `y` in type annotations, such as `x : y`.
-The type of `y` itself will be `Type`.
+
+Another similarity between types and values in Dhall is that type expressions themselves have a type and are type-checked. 
+For example, if we define `let y = Bool` then the type of `y` will be `Type`.
 
 To find out the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -1424,6 +1428,16 @@ The same syntax works if `t` were a type parameter (having type `Type`):
 ```dhall
 let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
 ```
+
+Dhall allows   `let` expressions inside type signatures, which can be used in order to make the code shorter.
+Here is an (artificial) example. Suppose we have a function `f` with type `(Natural → Natural) → (Natural → Natural)`.
+We may make its type signature shorter by defining a variable `T = Natural → Natural` inside the type signature of `f`:
+```dhall
+let f : let T = Natural → Natural in T → T
+  = λ(k : Natural → Natural) → λ(n : Natural) → k (k n)
+```
+Note how the type expression `let T = Natural → Natural in T → T` is syntactically similar to `let x = 123 in x * x`.
+This example illustrates that Dhall treats type expressions and value expressions similarly at the level of syntax.
 
 Records and unions may use types or values as their data, as in these (artificial) examples:
 
@@ -1922,6 +1936,8 @@ We may write it with a type annotation as `N : Type`.
 
 N : Type
 ```
+We say that "the kind of `N` is `Type`", using the word "kind" instead of the word "type".
+A **kind** is a "type of types".
 
 The symbol `Type` is itself treated as a special constant whose type is `Kind`:
 
@@ -1930,6 +1946,7 @@ The symbol `Type` is itself treated as a special constant whose type is `Kind`:
 
 p : Kind
 ```
+We may read the expression `p : Kind` as  "`p` is a kind".
 
 Other possible values of type `Kind` are "type constructor" kinds, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
@@ -1942,6 +1959,14 @@ Kind
 
 Kind
 ```
+
+An example of a type constructor is `List`, which is a built-in symbol whose type is `Type → Type`.
+It is important to note that no value can have type `List`.
+Values can have types such as `List Bool` or `List Natural`, but not just `List`.
+(We can write `[ True, False ] : List Bool` and `[ 1, 2, 3 ] : List Natural`, but there is no `x` such that `x : List` is a correctly typed expression.)
+
+The reason can be formulated by saying that `List` does not have kind `Type`.
+We can annotate values only by something that has kind `Type`.
 
 As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
 The type of _that_ is `Kind`:
@@ -1964,18 +1989,34 @@ Functions with parameters of type `Kind` can be used for creating complicated hi
 For example, here is a function that creates higher-order types of the form `k → k`, where `k` could be `Type`, `Type → Type`, or any other   expression  of type `Kind`:
 
 ```dhall
-⊢ :let f = λ(k : Kind) → k → k
+⊢ :let Q = λ(k : Kind) → k → k
 
-f : ∀(k : Kind) → Kind
+Q : ∀(k : Kind) → Kind
 
-⊢ f Type
+⊢ Q Type
 
 Type → Type
 
-⊢ f (Type → Type → Type)
+⊢ Q (Type → Type → Type)
 
 (Type → Type → Type) → Type → Type → Type
 ```
+
+Since we annotate `List` as `List : Type → Type`, then we say that `List` has kind `Type → Type`.
+
+The type annotation for `Type → Type` is the symbol `Kind`.
+So, we may write `let x : Kind = Type → Type` or `let x = (Type → Type) : Kind` in Dhall.
+But there are no type expressions that may be annotated by types like `Q = λ(k : Kind) → k → k` shown above.
+The reason is that `Q` is not a simple kind; it has type `Kind → Kind`.
+There are no expressions `T` such that `T : Q` is a well-typed annotation.
+A type `T` may be annotated as `T : P` only if `P` is annotated as `P : Kind`.
+To describe such `P`, we do not say that `P` has type `Kind`.
+Instead, we use the word **sort** and say that  "the sort of `P` is `Kind`" and that `Q` has sort `Kind → Kind`.
+
+This is similar to the case with ordinary values and types of kind `Type`.
+A value `x` may be annotated as `x : t` only when `t` is annotated as `t : Type`.
+There are no expressions `x` such that `x : List` is a well-typed expression; this is because the kind of `List` is `Type → Type`.
+
 
 In turn, the symbol `Kind` is treated as a special value of type `Sort`.
 Other type expressions involving `Kind` are also of type `Sort`:
@@ -1997,8 +2038,9 @@ Sort
 
 Sort
 ```
+We say that `Kind → Kind → Type` is a sort.
 
-The symbol `Sort` is even more special: it _does not_ itself have a type.
+The symbol `Sort` is even more special: it _does not_ itself have a type in Dhall.
 Because of that, nearly any explicit usage of `Sort` will be a type error:
 
 ```dhall
@@ -2034,7 +2076,7 @@ a : Sort
 Error: ❰Sort❱ has no type, kind, or sort
 ```
 
-This error occurs because Dhall requires a function's type _itself_ to have a type.
+Technically, this error occurs because Dhall requires a function's type _itself_ to have a type.
 The symbol `Kind` has type `Sort`,
 so the type of the function `f = λ(_: Bool) → Kind` is `Bool → Sort`.
 But the symbol `Sort` does not have a type, and neither does the expression `Bool → Sort`.
@@ -12141,7 +12183,7 @@ let CompleteTransformer = λ(T : (Type → Type) → Type → Type) →
   IncompleteTransformer T //\\
   { frun : ∀(M : Type → Type) → ∀(N : Type → Type) → ∀(g : ∀(a : Type) → M a → N a) → ∀(a : Type) → T M a → T N a } 
 ```
-We omitted the `Monad` evidence for `M` and `N` in the type signature of `frun` because it is never needed in practice for implementing that function.
+The type signature of `frun` does not require `Monad` evidence for `M` and `N` because it is never needed in practice for implementing that function.
 
 A definition of `blift` for complete transformers can then be written via typeclass constraints:
 
@@ -12155,6 +12197,12 @@ let blift
 ### Transformers for standard monads
 
 By convention, we say that `T` is a "transformer for the base monad `L`" if `T` is a monad transformer such that `T Id = L`.
+
+In practical use, a specific transformer is  treated as something closely related to  a specific base monad,
+But note that the transformer typeclasses do not explicitly mention the base monad.
+So, we will need to formulate transformer combinators as functions that produce transformers, without mentioning the base monad. 
+
+We begin by implementing standard transformers for a number of well-known monads.
 
 #### Identity monad
 
@@ -12241,7 +12289,35 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
   }
 ```
 
-### Monads that have only incomplete transformers
+#### State monad
+
+The "state monad" is the type constructor `State S a = a → Pair S a`, where `S` is a fixed type.
+The corresponding transformer is given by `T S M a = a → M (Pair S a)`.
+
+Let us implement this in Dhall:
+
+```dhall
+let TState : Type → (Type → Type) → Type → Type
+  = λ(S : Type) → λ(M : Type → Type) → λ(a : Type) → a → M (Pair S a)
+```
+TODO: implement transformer
+
+### Continuation-like monads
+
+By "continuation-like" monads we mean type constructors of the form `F a = (a → p) → q`, where `p`, `q` are some type expressions not involving `a`. 
+
+Here are some monads of this form:
+
+```dhall
+let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R   -- R is any fixed type.
+let Codensity = λ(F : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F t   -- F is any type constructor.
+let ComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F (L t)   -- F is any functor, L is any monad.
+let Search = λ(F : Type → Type) → λ(R : Type) → λ(a : Type) → (a → F R) → F a   -- F is any monad, R is any fixed type.
+```
+
+Monads of this form have _only_ incomplete transformers.
+
+TODO: implement the transformers
 
 ### Transformers for products of monads
 
@@ -12249,7 +12325,11 @@ The transformer for a product of given monads is the product of their transforme
 
 ### Transformer for free pointed monads
 
-Given a monad `F` with a known transformer `FT`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
+Given a monad `F` with a known transformer `TF`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
+
+```dhall
+let freePointedTransformer : ∀(TF : (Type → Type) → Type → Type) → CompleteTransformer TF → CompleteTransformer ...??? 
+```
 
 ```dhall
 let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
@@ -12270,6 +12350,8 @@ let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct I
 ```
 
 ### Transformers for function-type monads and for "rigid" monads
+
+Here we consider `Reader`, `Sel`, and other monads involving a function type. 
 
 ### Transformers for monads with universal quantifiers
 
