@@ -706,7 +706,7 @@ object Grammar {
   )
 
   def IPvFuture[$: P] = P(
-    "v" ~ hexdigitAnyCase.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
+    ("v" | "V") ~ hexdigitAnyCase.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
   )
 
   def IPv6address[$: P] = P(
@@ -755,7 +755,7 @@ object Grammar {
   )
 
   def domain[$: P] = P(
-    domainlabel ~ ("." ~ domainlabel).rep ~ ".".?
+    domainlabel ~ (&("." ~ domainLabel) ~ "." ~ domainLabel).rep ~ ".".?
   )
 
   def domainlabel[$: P] = P(

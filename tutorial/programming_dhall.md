@@ -12291,14 +12291,33 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
 
 #### State monad
 
-The "state monad" is the type constructor `State S a = a → Pair S a`, where `S` is a fixed type.
-The corresponding transformer is given by `T S M a = a → M (Pair S a)`.
+The "state monad" is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
+The corresponding transformer is given by `T S M a = S → M (Pair S a)`.
 
 Let us implement this in Dhall:
 
 ```dhall
 let TState : Type → (Type → Type) → Type → Type
-  = λ(S : Type) → λ(M : Type → Type) → λ(a : Type) → a → M (Pair S a)
+  = λ(S : Type) → λ(M : Type → Type) → λ(a : Type) → S → M (Pair S a)
+let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S) = λ(S : Type) →
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) → λ(s : S) → monadM.pure { _1 = s, _2 = x }
+    , bind = λ(a : Type) → λ(tma : TState S M a) → λ(b : Type) → λ(f : a → TState S M b) →
+    
+    
+        let wa2mwb : Writer W a → TState S M b = λ(wa : Writer W a) →
+          let wmb : TState S M b = f wa.result
+          let wb2wb : Writer W b → Writer W b = λ(newW : Writer W b) →
+            let nested : Writer W (Writer W b) = { result = newW, output = wa.output }
+            in monadJoin (Writer W) (monadWriter W monoidW) b nested
+          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) wb2wb wmb
+        in monadM.bind (Writer W a) tma (Writer W b) wa2mwb
+    }
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      (monadFunctor M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : TState S M a) → g (Writer W a) tma
+  }
 ```
 TODO: implement transformer
 
