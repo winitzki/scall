@@ -12314,13 +12314,13 @@ let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S)
         λ(s : S) → g (Pair S a) (tma s)
   }
 ```
-TODO: implement transformer
+
 
 ### Continuation-like monads
 
 By "continuation-like" monads we mean type constructors of the form `F a = (a → p) → q`, where `p`, `q` are some type expressions not involving `a`. 
 
-Here are some monads of this form:
+Here are some known monads of this form:
 
 ```dhall
 let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R   -- R is any fixed type.
@@ -12330,12 +12330,41 @@ let Search = λ(F : Type → Type) → λ(R : Type) → λ(a : Type) → (a → 
 ```
 
 Monads of this form have _only_ incomplete transformers.
+The types of those transformers generally have the form `T M a = (a → M p) → M q`.
+
+```dhall
+let TContinuation = λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M R) → M R
+let TCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
+let TComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
+let TSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
+```
+
+These type expressions are not covariant in the foreign monad `M`, which means that foreign runners are impossible to implement.
+Base lifts are also not implementable.
+We only need to implement `monadMT` and `flift` methods:
+```dhall
+--let incompleteTransformerTContinuation : ∀(R : Type) → IncompleteTransformer (TContinuation R) = λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M R) → M R
+--let incompleteTransformerTCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
+--let incompleteTransformerTComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
+--let incompleteTransformerTSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
+```
 
 TODO: implement the transformers
 
 ### Transformers for products of monads
 
 The transformer for a product of given monads is the product of their transformers.
+We require two arguments of type `CompleteTransformer` and obtain a new `CompleteTransformer` for the product type.
+
+```dhall
+let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) → CompleteTransformer T1 → ∀(T2 : (Type → Type) → Type → Type) → CompleteTransformer T2 → CompleteTransformer (λ(M : Type → Type) → Product (T1 M) (T2 M))
+  = λ(T1 : (Type → Type) → Type → Type) → λ(t1 : CompleteTransformer T1) → λ(T2 : (Type → Type) → Type → Type) → λ(t2 : CompleteTransformer T2) →
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadProduct (T1 M) (t1.monadTM M monadM) (T2 M) (t2.monadTM M monadM)
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) → { _1 = t1.flift M monadM a ma, _2 = t2.flift M monadM a ma }
+  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : Pair (T1 M a) (T2 M a)) → { _1 = t1.frun M N g a tma._1, _2 = t2.frun M N g a tma._2 }
+  }
+```
 
 ### Transformer for free pointed monads
 
