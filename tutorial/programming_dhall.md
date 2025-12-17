@@ -3810,14 +3810,14 @@ let monadWriter : ∀(W : Type) → Monoid W → Monad (Writer W)
 Another well-known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
 
 ```dhall
-let State = λ(S : Type) → λ(A : Type) → S → Pair A S
+let State = λ(S : Type) → λ(A : Type) → S → Pair S A
 let monadState : ∀(S : Type) → Monad (State S)
   = λ(S : Type) →
-    let pure = λ(A : Type) → λ(x : A) → λ(s : S) → { _1 = x, _2 = s }
+    let pure = λ(A : Type) → λ(x : A) → λ(s : S) → { _1 = s, _2 = x }
     let bind = λ(A : Type) → λ(oldState : State S A) → λ(B : Type) → λ(f : A → State S B) →
          λ(s : S) →
-           let update1 : Pair A S = oldState s
-           let update2 : Pair B S = f update1._1 update1._2
+           let update1 : Pair S A = oldState s
+           let update2 : Pair S B = f update1._2 update1._1
            in update2
     in { pure, bind }
 ```
@@ -12301,22 +12301,17 @@ let TState : Type → (Type → Type) → Type → Type
   = λ(S : Type) → λ(M : Type → Type) → λ(a : Type) → S → M (Pair S a)
 let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S) = λ(S : Type) →
   { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
-    { pure = λ(a : Type) → λ(x : a) → λ(s : S) → monadM.pure { _1 = s, _2 = x }
+    { pure = λ(a : Type) → λ(x : a) → λ(s : S) → monadM.pure (Pair S a) { _1 = s, _2 = x }
     , bind = λ(a : Type) → λ(tma : TState S M a) → λ(b : Type) → λ(f : a → TState S M b) →
-    
-    
-        let wa2mwb : Writer W a → TState S M b = λ(wa : Writer W a) →
-          let wmb : TState S M b = f wa.result
-          let wb2wb : Writer W b → Writer W b = λ(newW : Writer W b) →
-            let nested : Writer W (Writer W b) = { result = newW, output = wa.output }
-            in monadJoin (Writer W) (monadWriter W monoidW) b nested
-          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) wb2wb wmb
-        in monadM.bind (Writer W a) tma (Writer W b) wa2mwb
+      λ(s : S) → -- Need to compute a value of type M (Pair S b).
+        monadM.bind (Pair S a) (tma s) (Pair S b) (λ(p : Pair S a) → f p._2 p._1)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      (monadFunctor M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
+    λ(s : S) →
+      (monadFunctor M monadM).fmap a (Pair S a) (λ(x : a) → { _1 = s, _2 = x }) ma
   , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
-      λ(a : Type) → λ(tma : TState S M a) → g (Writer W a) tma
+      λ(a : Type) → λ(tma : TState S M a) →
+        λ(s : S) → g (Pair S a) (tma s)
   }
 ```
 TODO: implement transformer
