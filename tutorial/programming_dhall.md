@@ -12289,6 +12289,16 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
   }
 ```
 
+#### Functor composition of monads
+
+We have seen that transformers for `Optional`, `Either`, and `Writer` monads work by composing the foreign monad inside the base monad.
+But it is generally not true that a functor composition of two monads is again a monad.
+To see why,
+
+TODO: expand on swap and its laws
+
+There are only some specific cases when
+
 #### State monad
 
 The "state monad" is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
@@ -12359,8 +12369,10 @@ We require two arguments of type `CompleteTransformer` and obtain a new `Complet
 ```dhall
 let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) → CompleteTransformer T1 → ∀(T2 : (Type → Type) → Type → Type) → CompleteTransformer T2 → CompleteTransformer (λ(M : Type → Type) → Product (T1 M) (T2 M))
   = λ(T1 : (Type → Type) → Type → Type) → λ(t1 : CompleteTransformer T1) → λ(T2 : (Type → Type) → Type → Type) → λ(t2 : CompleteTransformer T2) →
-  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadProduct (T1 M) (t1.monadTM M monadM) (T2 M) (t2.monadTM M monadM)
-  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) → { _1 = t1.flift M monadM a ma, _2 = t2.flift M monadM a ma }
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+      monadProduct (T1 M) (t1.monadTM M monadM) (T2 M) (t2.monadTM M monadM)
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      { _1 = t1.flift M monadM a ma, _2 = t2.flift M monadM a ma }
   , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
       λ(a : Type) → λ(tma : Pair (T1 M a) (T2 M a)) → { _1 = t1.frun M N g a tma._1, _2 = t2.frun M N g a tma._2 }
   }
@@ -12368,28 +12380,47 @@ let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) →
 
 ### Transformer for free pointed monads
 
-Given a monad `F` with a known transformer `TF`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
+Given a monad `F` with a known transformer `T`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
+We need to formulate this combinator purely in terms of an arbitrary given transformer `T`, without using the monad `F` explicitly.
+The type formula for the free pointed transformer is `FPT M a = M (a + T M a)`.
+We may express this via type constructor combinators `Compose` and `CoProduct` as `FPT M = Compose M (CoProduct Id (T M))`.
+Our goal is to derive a `CompleteTransformer` evidence for `FPT` given one for `T`.
 
-```dhall
-let freePointedTransformer : ∀(TF : (Type → Type) → Type → Type) → CompleteTransformer TF → CompleteTransformer ...??? 
-```
+Note that `CoProduct Id (T M)` is a monad obtained from the `monadFreePointed` combinator.
+We will denote that monad by `L` in the code, for brevity.
+The free pointed transformer is defined as the functor composition of `M` with `L`.
+We use the `unsafeMonadCompose` combinator to obtain the monad instance for that composition.
+In this particular case, the application of `unsafeMonadCompose` is safe because the monad laws of the resulting monad will always hold (this is proved in "The Science of Functional Programming").
 
+The code is:
 ```dhall
-let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct Id F) 
-  = λ(F : Type → Type) → λ(monadF : Monad F) →
-    let G = CoProduct Id F   -- So that G a = Either a (F a).
-    let pure = λ(a : Type) → λ(x : a) → (G a).Left x
-    let bind = λ(a : Type) → λ(ga : G a) → λ(b : Type) → λ(f : a → G b) →
-      merge { Left = λ(x : a) → f x
-            , Right = λ(fa : F a) →
-                let afb : a → F b = λ(x : a) →
-                  merge { Left = λ(y : b) → monadF.pure b y
-                        , Right = λ(fb : F b) → fb
-                  } (f x)
-                let fb : F b  = monadF.bind a fa b afb  
-                in (G b).Right fb 
-            } ga
-    in { pure, bind }
+let freePointedTransformer
+  : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → CompleteTransformer (λ(M : Type → Type) → Compose M (CoProduct Id (T M)))
+  = λ(T : (Type → Type) → Type → Type) → λ(t : CompleteTransformer T) →
+  let L = λ(M : Type → Type) → CoProduct Id (T M)   -- L M a = Either a (T M a)
+  let monadL : ∀(M : Type → Type) → Monad M → Monad (L M)
+    = λ(M : Type → Type) → λ(monadM : Monad M) → monadFreePointed (T M) (t.monadTM M monadM)
+  in { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+         let swap : ∀(a : Type) → L M (M a) → M (L M a)
+                  = λ(a : Type) → λ(lmma : L M (M a)) →  -- Need type M (L M a).
+                    merge { Left = λ(ma : M a) →
+    (functorMonad M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
+                          , Right = λ(tmma : T M (M a)) →
+    let tma : T M a = (t.monadTM M monadM).bind (M a) tmma a (t.flift M monadM a)
+    in monadM.pure (L M a) ((CoProduct Id (T M) a).Right tma)
+                          } lmma
+         in unsafeMonadCompose M monadM (CoProduct Id (T M)) (monadL M monadM) swap
+     , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+         (functorMonad M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
+     , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+         λ(a : Type) → λ(mlma : M (L M a) →
+           let lma2lna : L M a → L N a = λ(lma : L M a) →
+             merge { Left = λ(x : a) → (L N a).Left x
+                   , Right = λ(tma : T M a) → (L N a).Right (t.frun M N g tma)
+                   } lma
+           let mlna : M (L N a) = (functorMonad M monadM).fmap (L M a) (L N a) lma2lna mlma
+           in g (L N a) mlna
+     }
 ```
 
 ### Transformers for function-type monads and for "rigid" monads
