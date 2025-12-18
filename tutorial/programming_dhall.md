@@ -10093,7 +10093,7 @@ The `Monad` typeclass was defined in chapter "Typeclasses".
 A combinator can convert a `Monad` evidence value into a `Functor` evidence:
 
 ```dhall
-let monadFunctor
+let functorM
   : ∀(F : Type → Type) → Monad F → Functor F
   = λ(F : Type → Type) → λ(monadF : Monad F) →
     { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
@@ -10831,7 +10831,7 @@ If it is known that a functor `P` is a monad, we can define an `ApplicativeFunct
 let monadApplicativeFunctor
   : ∀(P : Type → Type) → Monad P → ApplicativeFunctor P
   = λ(P : Type → Type) → λ(monadP : Monad P) →
-    let functorP : Functor P = monadFunctor P monadP
+    let functorP : Functor P = functorM P monadP
     in functorP /\ { pure = monadP.pure
        , zip = λ(a : Type) → λ(pa : P a) → λ(b : Type) → λ(pb : P b) →
           let aPab : a → P (Pair a b) = λ(x : a) → functorP.fmap b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) pb 
@@ -11401,7 +11401,7 @@ There are three examples where we can use the monad $M$ to build $M$-filterable 
 ```dhall
 let mMonadMFilterable : ∀(M : Type → Type) → Monad M → MFilterable M M
   = λ(M : Type → Type) → λ(monadM : Monad M) →
-    monadFunctor M monadM /\ { deflateM = λ(a : Type) → λ(ma : M (M a)) → monadM.bind (M a) ma a (identity (M a)) }
+    functorM M monadM /\ { deflateM = λ(a : Type) → λ(ma : M (M a)) → monadM.bind (M a) ma a (identity (M a)) }
 ```
 
 2) `F a = a → M t` is a filterable contrafunctor when `t` is a fixed type.
@@ -11420,7 +11420,7 @@ let amtMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) 
 let matMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) → MContraFilterable M (λ(a : Type) → M a → t)
   = λ(M : Type → Type) → λ(monadM : Monad M) → λ(t : Type) →
     let F = λ(a : Type) → M a → t
-    let functorM : Functor M = monadFunctor M monadM
+    let functorM : Functor M = functorM M monadM
     let contrafunctorMAT : Contrafunctor F = { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(mbt : M b → t) → λ(ma : M a) → mbt (functorM.fmap a b f ma) }
     in contrafunctorMAT /\ { inflateM = λ(a : Type) → λ(mat : M a → t) → λ(mma : M (M a)) → mat (monadM.bind (M a) mma a (identity (M a))) }
 ```
@@ -12181,9 +12181,9 @@ let IncompleteTransformer = λ(T : (Type → Type) → Type → Type) →
   }
 let CompleteTransformer = λ(T : (Type → Type) → Type → Type) →
   IncompleteTransformer T //\\
-  { frun : ∀(M : Type → Type) → ∀(N : Type → Type) → ∀(g : ∀(a : Type) → M a → N a) → ∀(a : Type) → T M a → T N a } 
+  { frun : ∀(M : Type → Type) → Monad M → ∀(N : Type → Type) → ∀(g : ∀(a : Type) → M a → N a) → ∀(a : Type) → T M a → T N a } 
 ```
-The type signature of `frun` does not require `Monad` evidence for `M` and `N` because it is never needed in practice for implementing that function.
+The type signature of `frun` does not require `Monad` evidence for `N` because it is never needed in practice for implementing `frun`.
 
 A definition of `blift` for complete transformers can then be written via typeclass constraints:
 
@@ -12191,7 +12191,7 @@ A definition of `blift` for complete transformers can then be written via typecl
 let blift
   : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
   = λ(T : (Type → Type) → Type → Type) → λ(completeTransformerT : CompleteTransformer T) → λ(M : Type → Type) → λ(monadM : Monad M) → 
-    completeTransformerT.frun Id M monadM.pure
+    completeTransformerT.frun Id monadIdentity M monadM.pure
 ```
 
 ### Transformers for standard monads
@@ -12215,7 +12215,7 @@ let TIdentity : (Type → Type) → Type → Type
 let completeTransformerTIdentity : CompleteTransformer TIdentity =
   { monadTM = λ(M : Type → Type) → identity (Monad M)
   , flift = λ(M : Type → Type) → λ(_ : Monad M) → λ(a : Type) → identity (M a)
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) → g
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) → g
   }
 ```
 
@@ -12240,8 +12240,8 @@ let completeTransformerTOptional : CompleteTransformer TOptional =
          } oa)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      (monadFunctor M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      (functorM M monadM).fmap a (Optional a) (λ(x : a) → Some x) ma
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
       λ(a : Type) → λ(tma : TOptional M a) → g (Optional a) tma
   }
 ```
@@ -12260,8 +12260,8 @@ let completeTransformerTEither : ∀(E : Type) → CompleteTransformer (TEither 
          } ea)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      (monadFunctor M monadM).fmap a (Either E a) (λ(x : a) → (Either E a).Right x) ma
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      (functorM M monadM).fmap a (Either E a) (λ(x : a) → (Either E a).Right x) ma
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
       λ(a : Type) → λ(tma : TEither E M a) → g (Either E a) tma
   }
 ```
@@ -12279,12 +12279,12 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
           let wb2wb : Writer W b → Writer W b = λ(newW : Writer W b) →
             let nested : Writer W (Writer W b) = { result = newW, output = wa.output }
             in monadJoin (Writer W) (monadWriter W monoidW) b nested
-          in (monadFunctor M monadM).fmap (Writer W b) (Writer W b) wb2wb wmb
+          in (functorM M monadM).fmap (Writer W b) (Writer W b) wb2wb wmb
         in monadM.bind (Writer W a) tma (Writer W b) wa2mwb
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      (monadFunctor M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      (functorM M monadM).fmap a (Writer W a) (λ(x : a) → (monadWriter W monoidW).pure a x) ma
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
       λ(a : Type) → λ(tma : TWriter W M a) → g (Writer W a) tma
   }
 ```
@@ -12292,12 +12292,44 @@ let completeTransformerTWriter : ∀(W : Type) → Monoid W → CompleteTransfor
 #### Functor composition of monads
 
 We have seen that transformers for `Optional`, `Either`, and `Writer` monads work by composing the foreign monad inside the base monad.
-But it is generally not true that a functor composition of two monads is again a monad.
-To see why,
+But it is generally not true that a functor composition of two arbitrary monads is again a monad.
+Functor composition works correctly (producing a new lawful monad) only in certain specific cases with certain monads.
 
-TODO: expand on swap and its laws
+When it does work, the resulting transformer can be described more concisely using a function called `swap`.
+The type of `swap` is `∀(a : Type) → M (L a) → L (M a)`, where `L` and `M` are two monads.
+When `swap` can be implemented and satisfies suitable laws, the composition `T a = L (M a)` becomes a lawful monad.
+Its `bind` method is then implemented in general by using `swap` to transform `L (M (L (M b)))` into `L (L (M (M b)))`, after which we may use `join` to remove duplicate layers of `L` and `M`:
 
-There are only some specific cases when
+```dhall
+let bindViaSwap : ∀(L : Type → Type) → Monad L → ∀(M : Type → Type) → Monad M → (∀(a : Type) → M (L a) → L (M a)) → ∀(a : Type) → L (M a) → ∀(b : Type) → (a → L (M b)) → L (M b)
+  = λ(L : Type → Type) → λ(monadL : Monad L) → λ(M : Type → Type) → λ(monadM : Monad M) → λ(swap : ∀(a : Type) → M (L a) → L (M a)) →
+    λ(a : Type) → λ(lma : L (M a)) → λ(b : Type) → λ(f : a → L (M b)) →
+      let functorL : Functor L = functorM L monadL
+      let functorM : Functor M = functorM M monadM
+      let functorLM : Functor (Compose L M) = functorFunctorCompose L functorL M functorM
+      let lmlmb : L (M (L (M b))) = functorLM.fmap a (L (M b)) f lma
+      let llmmb : L (L (M (M b))) = functorL.fmap (M (L (M b))) (L (M (M b))) (swap (M b)) lmlmb
+      let lmmb : L (M (M b)) = monadJoin L monadL (M (M b)) llmmb
+      let lmb : L (M b) = functorL.fmap (M (M b)) (M b) (monadJoin M monadM b) lmmb
+      in lmb
+```
+
+We will not write out the required laws of `swap`; they are studied at length in "The Science of Functional Programming".
+We focus on the practical application of `swap`, which is to define a `Monad` evidence for a functor product of two monads in case a suitable `swap` function can be found:
+```dhall
+let unsafeMonadCompose
+  : ∀(L : Type → Type) → Monad L → ∀(M : Type → Type) → Monad M → (∀(a : Type) → M (L a) → L (M a)) → Monad (Compose L M)
+  = λ(L : Type → Type) → λ(monadL : Monad L) → λ(M : Type → Type) → λ(monadM : Monad M) → λ(swap : ∀(a : Type) → M (L a) → L (M a)) →
+    { pure = λ(a : Type) → λ(x : a) → monadL.pure (M a) (monadM.pure a x)
+    , bind = bindViaSwap L monadL M monadM swap
+    }
+```
+
+This combinator will produce the methods `pure` and `bind` with correct type signatures suitable for `Compose L M`.
+But it is not guaranteed that the resulting functions will satisfy the monad laws.
+
+We called this combinator `unsafeMonadCompose` to emphasize that it will _not_ necessarily produce a correct composed monad `Compose L M` for arbitrary monads `L` and `M`.
+This combinator may be used only in certain specific cases when it is known that the resulting monad is lawful.
 
 #### State monad
 
@@ -12318,8 +12350,8 @@ let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S)
     }
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
     λ(s : S) →
-      (monadFunctor M monadM).fmap a (Pair S a) (λ(x : a) → { _1 = s, _2 = x }) ma
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      (functorM M monadM).fmap a (Pair S a) (λ(x : a) → { _1 = s, _2 = x }) ma
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
       λ(a : Type) → λ(tma : TState S M a) →
         λ(s : S) → g (Pair S a) (tma s)
   }
@@ -12373,8 +12405,8 @@ let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) →
       monadProduct (T1 M) (t1.monadTM M monadM) (T2 M) (t2.monadTM M monadM)
   , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       { _1 = t1.flift M monadM a ma, _2 = t2.flift M monadM a ma }
-  , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
-      λ(a : Type) → λ(tma : Pair (T1 M a) (T2 M a)) → { _1 = t1.frun M N g a tma._1, _2 = t2.frun M N g a tma._2 }
+  , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+      λ(a : Type) → λ(tma : Pair (T1 M a) (T2 M a)) → { _1 = t1.frun M monadM N g a tma._1, _2 = t2.frun M monadM N g a tma._2 }
   }
 ```
 
@@ -12404,21 +12436,21 @@ let freePointedTransformer
          let swap : ∀(a : Type) → L M (M a) → M (L M a)
                   = λ(a : Type) → λ(lmma : L M (M a)) →  -- Need type M (L M a).
                     merge { Left = λ(ma : M a) →
-    (functorMonad M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
+    (functorM M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
                           , Right = λ(tmma : T M (M a)) →
     let tma : T M a = (t.monadTM M monadM).bind (M a) tmma a (t.flift M monadM a)
     in monadM.pure (L M a) ((CoProduct Id (T M) a).Right tma)
                           } lmma
          in unsafeMonadCompose M monadM (CoProduct Id (T M)) (monadL M monadM) swap
      , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-         (functorMonad M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
-     , frun = λ(M : Type → Type) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
-         λ(a : Type) → λ(mlma : M (L M a) →
+         (functorM M monadM).fmap a (L M a) ((monadL M monadM).pure a) ma
+     , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+         λ(a : Type) → λ(mlma : M (L M a)) →
            let lma2lna : L M a → L N a = λ(lma : L M a) →
              merge { Left = λ(x : a) → (L N a).Left x
-                   , Right = λ(tma : T M a) → (L N a).Right (t.frun M N g tma)
+                   , Right = λ(tma : T M a) → (L N a).Right (t.frun M monadM N g a tma)
                    } lma
-           let mlna : M (L N a) = (functorMonad M monadM).fmap (L M a) (L N a) lma2lna mlma
+           let mlna : M (L N a) = (functorM M monadM).fmap (L M a) (L N a) lma2lna mlma
            in g (L N a) mlna
      }
 ```
