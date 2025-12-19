@@ -12146,8 +12146,8 @@ If every monad we use in practice has a designated transformer, it means we may 
 That large monad is known as a "monad stack".
 
 For "continuation-like" monads, such as the continuation and the codensity monads, _only incomplete_ transformers are known.
-In practice, it means that monadic programs involving those monads cannot be lifted to the transformed monad if the base monad is "continuation-like".
-To avoid this limitation, programmers usually place a single "continuation-like" monad at the deep end of the monad stack.
+In practice, it means that a continuation-like monad transformer cannot be used to lift a continuation-like monad value to the stack.
+To avoid this limitation, programmers usually place a single continuation-like monad at the deep end of the monad stack.
 In that case, the incomplete transformer of that monad will never be needed.
 
 A first, trivial example of a monad transformer is the no-op transformer: it does not change the monad at all.
