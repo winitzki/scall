@@ -12378,14 +12378,24 @@ The types of those transformers generally have the form `T M a = (a → M p) →
 let TContinuation = λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M R) → M R
 let TCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
 let TComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
-let TSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
+let TSearch = λ(T : (Type → Type) → Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → T M R) → T M a
 ```
 
 These type expressions are not covariant in the foreign monad `M`, which means that foreign runners are impossible to implement.
 Base lifts are also not implementable.
-We only need to implement `monadMT` and `flift` methods:
+We only need to implement `monadTM` and `flift` methods:
 ```dhall
---let incompleteTransformerTContinuation : ∀(R : Type) → IncompleteTransformer (TContinuation R) = λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M R) → M R
+let incompleteTransformerTContinuation : ∀(R : Type) → IncompleteTransformer (TContinuation R)
+  = λ(R : Type) →
+  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) → λ(k : a → M R) → k x
+    , bind = λ(a : Type) → λ(tma : (a → M R) → M R) → λ(b : Type) → λ(f : a → (b → M R) → M R) →
+      λ(k : b → M R) →  -- Need to compute a value of type M R.
+        tma (λ(x : a) → f x k)
+    }
+  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+    λ(k : a → M R) → monadM.bind a ma R k
+  }
 --let incompleteTransformerTCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
 --let incompleteTransformerTComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
 --let incompleteTransformerTSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
