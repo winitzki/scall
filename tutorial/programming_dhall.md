@@ -12429,7 +12429,12 @@ let incompleteTransformerTComposedCodensity : ∀(F : Type → Type) → Functor
            let amflt : a → M (F (L t)) = λ(x : a) → (functorMF M monadM).fmap t (L t) (monadL.pure t) (k x)
            in monadM.bind a ma (F (L t)) amflt
        }
---let incompleteTransformerTSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
+let incompleteTransformerTSearch : ∀(T : (Type → Type) → Type → Type) → IncompleteTransformer T → ∀(R : Type) → IncompleteTransformer (TSearch T R)
+  = λ(T : (Type → Type) → Type → Type) → λ(incompleteTransformerT : IncompleteTransformer T) → λ(R : Type) →
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadSearch (T M) (incompleteTransformerT.monadTM M monadM) R
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(_ : a → T M R) → incompleteTransformerT.flift M monadM a ma
+    }
 ```
 
 TODO: implement the transformers
