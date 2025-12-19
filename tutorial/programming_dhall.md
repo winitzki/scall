@@ -11259,14 +11259,14 @@ Let us write the code for the combinator that produces a monad of type `Arrow F 
 The resulting monad's type expression looks like `H a = F a → a`.
 
 A simple example of this kind of monad is `S a = (a → Bool) → a`.
-The monad `S` is known as the "selector monad" and has some applications in dynamic programming and search problems.
+The monad `S` has some applications in dynamic programming and search problems and is a particular case of the "selector monad" `(a → R) → a` (where `R` is any fixed type).
 
 The combinator that produces a function type monad `F a → a` from any contrafunctor `F` is implemented like this:
 ```dhall
-let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Arrow F Id) 
+let monadArrowContraF : ∀(F : Type → Type) → Contrafunctor F → Monad (Arrow F Id)
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
     let H = Arrow F Id   -- So that H a = F a → a.
-    let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → x 
+    let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → x
     let bind = λ(a : Type) → λ(ha : H a) → λ(b : Type) → λ(f : a → H b) → λ(fb : F b) →
       let ab : a → b = λ(x : a) → f x fb
       let fa : F a = contrafunctorF.cmap a b ab fb
@@ -11276,7 +11276,7 @@ let monadIdFilterable : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
 
 ### Function-type monads with $M$-filterable contrafunctors
 
-The combinator `monadIdFilterable` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
+The combinator `monadArrowContraF` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
 The price for supporting all monads `M` is a new special restriction on the contrafunctors `F`.
 Namely, the  function-type construction works only for   **$M$-filterable contrafunctors**.
 
@@ -11316,9 +11316,9 @@ let monadMContraFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type
       in monadG.bind a (ha fa) b agb
     in { pure, bind }
 ```
-This code is similar to that of `monadIdFilterable`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
+This code is similar to that of `monadArrowContraF`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
 At the crucial point in this code, we need to obtain a value of type `F a` from a value of type `F b`.
-In `monadIdFilterable`, we used `F`'s `cmap` method with a function of type `a → b`.
+In `monadArrowContraF`, we used `F`'s `cmap` method with a function of type `a → b`.
 But in `monadMContraFilterable` we have a function of type `a → M b` instead of `a → b`.
 So, we need to transform `F b → F a` given a function of type `a → M b`.
 This transformation is provided by `contraliftM`.
@@ -11367,7 +11367,7 @@ let toIdContraFilterable : ∀(F : Type → Type) → Contrafunctor F → MContr
   = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
     contrafunctorF /\ { inflateM = λ(a : Type) → identity (F a) }
 ```
-Because of this property, we were able to formulate the simpler monadic combinator `monadIdFilterable` for arbitrary contrafunctors `F` without invoking the notion of $M$-filterable contrafunctors.
+Because of this property, we were able to formulate the simpler monadic combinator `monadArrowContraF` for arbitrary contrafunctors `F` without invoking the notion of $M$-filterable contrafunctors.
 
 #### Combinators for $M$-filterable functors and contrafunctors
 
@@ -12497,10 +12497,35 @@ let freePointedTransformer
 
 ### Function-type monads
 
-Here we consider `Reader`, `Sel`, and some other monads involving a function type.
+Here we consider `Reader`, `Sel` ("selector"), and some other monads involving a function type.
 Those monads have simple monad transformers that compose the foreign monad outside the base monad.
 
-TODO: implement
+The `Reader` and "selector" monads are defined by:
+```dhall
+let Reader = λ(R : Type) → λ(a : Type) → R → a
+let Sel = λ(R : Type) → λ(a : Type) → (a → R) → a 
+```
+Both of these monads are particular cases of the function-type monads of the form `F a → a`, where `F` is any contrafunctor.
+We have defined the `Monad` evidence for these monads before as the combinator `monadArrowContraF`.
+
+Let us now implement the corresponding monad transformer, which has the type expression `F (M a) → M a`.
+Note that `T a = F (M a) → M a` is a monad because `F (M a)` is an $M$-filterable contrafunctor.
+We will use the known combinators to shorten the code:
+```dhall
+let completeTransformerArrowContraF : ∀(F : Type → Type) → Contrafunctor F → CompleteTransformer (λ(M : Type → Type) → Arrow (Compose F M) M)
+  = λ(F : Type → Type) → λ(contrafunctorF : Contrafunctor F) →
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
+        let mContraFilterableFM : MContraFilterable M (Compose F M) = compositionContraMFilterable M F contrafunctorF M (mMonadMFilterable M monadM)
+        in monadMContraFilterable M monadM (Compose F M) mContraFilterableFM
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+         λ(_ : F (M a)) → ma
+    , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+        λ(a : Type) → λ(tma : F (M a) → M a) → λ(fna : F (N a)) →
+          let fma : F (M a) = contrafunctorF.cmap (M a) (N a) (g a) fna
+          in g a (tma fma)
+    }
+```
+
 ### Monads with universal quantifiers
 
 If a monad transformer has an extra type parameter, we may apply a universal quantifier to that parameter and obtain another transformer.
