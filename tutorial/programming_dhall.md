@@ -11306,7 +11306,7 @@ For this reason, we defined the `MContraFilterable` typeclass via the method `in
 To understand why the specific type signature of `contraliftM` is useful, let us look at the code for the general $M$-filterable monad combinator:
 
 ```dhall
-let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
+let monadMContraFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → Type) → MContraFilterable G F → Monad (Arrow F G) 
   = λ(G : Type → Type) → λ(monadG : Monad G) → λ(F : Type → Type) → λ(mContraFilterableGF : MContraFilterable G F) →
     let H = Arrow F G   -- So that H a = F a → G a.
     let pure = λ(a : Type) → λ(x : a) → λ(_ : F a) → monadG.pure a x 
@@ -11319,7 +11319,7 @@ let monadMFilterable : ∀(G : Type → Type) → Monad G → ∀(F : Type → T
 This code is similar to that of `monadIdFilterable`, except for using the monad `M`'s methods (`pure` and `bind`), which are both identity functions when `M = Id`.
 At the crucial point in this code, we need to obtain a value of type `F a` from a value of type `F b`.
 In `monadIdFilterable`, we used `F`'s `cmap` method with a function of type `a → b`.
-But in `monadMFilterable` we have a function of type `a → M b` instead of `a → b`.
+But in `monadMContraFilterable` we have a function of type `a → M b` instead of `a → b`.
 So, we need to transform `F b → F a` given a function of type `a → M b`.
 This transformation is provided by `contraliftM`.
 
@@ -11427,6 +11427,24 @@ let matMContraFilterable : ∀(M : Type → Type) → Monad M → ∀(t : Type) 
 
 In the following subsections we will show that all type constructions (products, co-products, function types, recursive types, type quantifiers) preserve the $M$-(contra)filterable properties.
 It follows that _any_ covariant or contravariant type expression `F a` is $M$-filterable as long as the type expression depends on `a` only via `M a` and/or via `a → M t` (for some fixed types `t`).
+
+
+An example of applying these techniques is the `Search` monad:
+
+```dhall
+let Search = λ(M : Type → Type) → λ(R : Type) → λ(a : Type) → (a → M R) → M a   -- M is any monad, R is any fixed type.
+```
+The type constructor `Search M R` is a function between the contrafunctor `a → M R` and the monad `M a`.
+As we have seen, `a → M R` is an $M$-filterable contrafunctor (with respect to `a`).
+So, a `Monad` evidence for `Search` is computed via the known combinators:
+
+```dhall
+let monadSearch : ∀(M : Type → Type) → Monad M → ∀(R : Type) → Monad (Search M R)
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(R : Type) →
+    let C = λ(a : Type) → a → M R  -- The contrafunctor C is M-filterable.
+    let mContraFilterableMC : MContraFilterable M C = amtMContraFilterable M monadM R
+    in monadMContraFilterable M monadM C mContraFilterableMC
+```
 
 #### Functor composition
 
@@ -12357,6 +12375,9 @@ let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S)
   }
 ```
 
+### Monads with universal quantifiers
+
+TODO: implement
 
 ### Continuation-like monads
 
@@ -12365,7 +12386,7 @@ By "continuation-like" monads we mean type constructors of the form `F a = (a �
 Here are some known monads of this form:
 
 ```dhall
-let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R   -- R is any fixed type.
+let Continuation = λ(R : Type) → λ(a : Type) → (a → R) → R   -- R is any fixed type.
 let Codensity = λ(F : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F t   -- F is any type constructor.
 let ComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → F t) → F (L t)   -- F is any functor, L is any monad.
 let Search = λ(F : Type → Type) → λ(R : Type) → λ(a : Type) → (a → F R) → F a   -- F is any monad, R is any fixed type.
@@ -12375,35 +12396,37 @@ Monads of this form have _only_ incomplete transformers.
 The types of those transformers generally have the form `T M a = (a → M p) → M q`.
 
 ```dhall
-let TContinuation = λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M R) → M R
-let TCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
-let TComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
-let TSearch = λ(T : (Type → Type) → Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → T M R) → T M a
+let TContinuation = λ(R : Type) → λ(M : Type → Type) → Continuation (M R)  -- (a → M R) → M R
+let TCodensity = λ(F : Type → Type) → λ(M : Type → Type) → Codensity (Compose M F)  -- ∀(t : Type) → (a → M (F t)) → M (F t)
+let TComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → ComposedCodensity (Compose M F) L  -- ∀(t : Type) → (a → M (F t)) → M (F (L t))
+let TSearch = λ(T : (Type → Type) → Type → Type) → λ(R : Type) → λ(M : Type → Type) → Search (T M) R  -- (a → T M R) → T M a
 ```
 
 These type expressions are not covariant in the foreign monad `M`, which means that foreign runners are impossible to implement.
 Base lifts are also not implementable.
-We only need to implement `monadTM` and `flift` methods:
+We only need to implement `monadTM` and `flift` methods.
+
+In each case, we use the known `Monad` evidence for the base monad.
 ```dhall
 let incompleteTransformerTContinuation : ∀(R : Type) → IncompleteTransformer (TContinuation R)
   = λ(R : Type) →
-  { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →
-    { pure = λ(a : Type) → λ(x : a) → λ(k : a → M R) → k x
-    , bind = λ(a : Type) → λ(tma : (a → M R) → M R) → λ(b : Type) → λ(f : a → (b → M R) → M R) →
-      λ(k : b → M R) →  -- Need to compute a value of type M R.
-        tma (λ(x : a) → f x k)
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadContinuation (M R)
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(k : a → M R) → monadM.bind a ma R k
     }
-  , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-    λ(k : a → M R) → monadM.bind a ma R k
-  }
---let incompleteTransformerTCodensity = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F t)
+let incompleteTransformerTCodensity : ∀(F : Type → Type) → IncompleteTransformer (TCodensity F)
+  = λ(F : Type → Type) →
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadCodensity (Compose M F)
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(t : Type) → λ(k : a → M (F t)) → monadM.bind a ma (F t) k
+    }
 --let incompleteTransformerTComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
 --let incompleteTransformerTSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
 ```
 
 TODO: implement the transformers
 
-### Transformers for products of monads
+### Products of monad transformers
 
 The transformer for a product of given monads is the product of their transformers.
 We require two arguments of type `CompleteTransformer` and obtain a new `CompleteTransformer` for the product type.
@@ -12420,7 +12443,7 @@ let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) →
   }
 ```
 
-### Transformer for free pointed monads
+### Free pointed transformers
 
 Given a monad `F` with a known transformer `T`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
 We need to formulate this combinator purely in terms of an arbitrary given transformer `T`, without using the monad `F` explicitly.
@@ -12465,11 +12488,9 @@ let freePointedTransformer
      }
 ```
 
-### Transformers for function-type monads and for "rigid" monads
+### Function-type monads and "rigid" monads
 
 Here we consider `Reader`, `Sel`, and other monads involving a function type. 
-
-### Transformers for monads with universal quantifiers
 
 ### Transformers for recursive monads
 
