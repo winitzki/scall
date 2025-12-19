@@ -12420,7 +12420,15 @@ let incompleteTransformerTCodensity : ∀(F : Type → Type) → IncompleteTrans
     , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       λ(t : Type) → λ(k : a → M (F t)) → monadM.bind a ma (F t) k
     }
---let incompleteTransformerTComposedCodensity = λ(F : Type → Type) → λ(L : Type → Type) → λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → (a → M (F t)) → M (F (L t))
+let incompleteTransformerTComposedCodensity : ∀(F : Type → Type) → Functor F →  ∀(L : Type → Type) → Monad L → IncompleteTransformer (TComposedCodensity F L)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(L : Type → Type) → λ(monadL : Monad L) →
+    let functorMF = λ(M : Type → Type) → λ(monadM : Monad M) → functorFunctorCompose M (functorM M monadM) F functorF
+    in { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadComposedCodensity (Compose M F) (functorMF M monadM) L monadL
+       , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+         λ(t : Type) → λ(k : a → M (F t)) →
+           let amflt : a → M (F (L t)) = λ(x : a) → (functorMF M monadM).fmap t (L t) (monadL.pure t) (k x)
+           in monadM.bind a ma (F (L t)) amflt
+       }
 --let incompleteTransformerTSearch = λ(F : Type → Type) → λ(R : Type) → λ(M : Type → Type) → λ(a : Type) → (a → M (F R)) → M (F a)
 ```
 
