@@ -2238,7 +2238,7 @@ This definition is straightforward because types and values are treated similarl
 We will use that function to implement safe division (`safeDiv`):
 
 ```dhall
-let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) → unsafeDiv x y
 ```
 
 The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
@@ -2274,7 +2274,7 @@ let Nonzero = λ(y : Natural) →
   then "error" ≡ "attempt to divide by zero"
   else {}
 
-let safeDiv = λ(x: Natural) → λ(y: Natural) → λ(_: Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_: Nonzero y) → unsafeDiv x y
 ```
 
 When we evaluate `safeDiv 4 0 {=}`, we now get a good error message:
@@ -2370,7 +2370,7 @@ The code is:
 
 ```dhall
 let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
-let sqrt = λ(n: Natural) →
+let sqrt = λ(n : Natural) →
   let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r
   in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 1)
 let _ = assert : sqrt 15 ≡ 3
@@ -2892,7 +2892,7 @@ Below we will look at other typeclasses more systematically.
 ###### Example: The `Semigroup` typeclass
 
 A set is called a "semigroup" if there is a binary associative operation for it.
-In the language of types, a type `t` is a semigroup if there is a function `append: t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
+In the language of types, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
 
 `append x (append y z) = append (append x y) z`
 
@@ -3028,11 +3028,11 @@ Let us write the corresponding evidence values:
 
 ```dhall
 let Bool/equal = https://prelude.dhall-lang.org/Bool/equal
-let eqBool: Eq Bool = { equal = Bool/equal }
+let eqBool : Eq Bool = { equal = Bool/equal }
 let Integer/equal = https://prelude.dhall-lang.org/Integer/equal
-let eqInteger: Eq Integer = { equal = Integer/equal }
+let eqInteger : Eq Integer = { equal = Integer/equal }
 let Natural/equal = https://prelude.dhall-lang.org/Natural/equal
-let eqNatural: Eq Natural = { equal = Natural/equal }
+let eqNatural : Eq Natural = { equal = Natural/equal }
 ```
 These evidence values satisfy all the required laws.
 
@@ -3559,7 +3559,7 @@ We can verify those laws symbolically for the contrafunctor `C` shown above:
 ```dhall
 let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) →
   { identity_law = assert : (contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_id_law
-  , composition_law = assert: (contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_comp_law
+  , composition_law = assert : (contrafunctorLaws C contrafunctor_C a b c f g).contrafunctor_comp_law
   }
 ```
 
@@ -4109,7 +4109,7 @@ The extracted values are stored in a list in a chosen, fixed order. (Different o
 An easy example is the `List` functor itself; the `toList` method is an identity function:
 
 ```dhall
-let foldableList: Foldable List = { toList = λ(a : Type) → identity (List a) }
+let foldableList : Foldable List = { toList = λ(a : Type) → identity (List a) }
 ```
 
 Let us look at examples of implementing a `Foldable` typeclass evidence for some simple functors.
@@ -4126,11 +4126,11 @@ let foldableF2 : Foldable F2 = { toList = λ(a : Type) → λ(c : F2 a) →
    [ c.p, c.q ] # merge { None = [] : List a,  Some = λ(x : a) → [ x ] } c.r
 }
 
-let F3 = λ(a : Type) → < Left : Pair a a | Right : { x : Bool, y : a, z: List a } >
+let F3 = λ(a : Type) → < Left : Pair a a | Right : { x : Bool, y : a, z : List a } >
 -- F3 stores either exactly two data items, or a data item and a list.
 let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
   merge { Left = λ(p : Pair a a) → [ p._1, p._2 ]
-        , Right =  λ(q : { x : Bool, y : a, z: List a }) → [ q.y ] # q.z
+        , Right = λ(q : { x : Bool, y : a, z : List a }) → [ q.y ] # q.z
   } c
 }
 ```
@@ -4235,7 +4235,7 @@ let traversableF2 : Traversable F2 = { sequence = λ(L : Type → Type) → λ(a
 The final example is a more complicated functor `F3` that involves a union type and a nested `List`.
 
 ```dhall
-let F3 = λ(a : Type) → Either (Pair a a) { x : Bool, y : a, z: List a }
+let F3 = λ(a : Type) → Either (Pair a a) { x : Bool, y : a, z : List a }
 -- F3 stores either exactly two data items, or a data item and a list.
 ```
 To implement `Traversable F3`, we need a `Traversable` instance for `List`:
@@ -4256,7 +4256,7 @@ let traversableF3 : Traversable F3 = { sequence = λ(L : Type → Type) → λ(a
   merge { Left = λ(p : Pair (L a) (L a)) →
             let lpaa : L (Pair a a) = applicativeFunctorL.zip a p._1 a p._2
             in applicativeFunctorL.fmap (Pair a a) (F3 a) (F3 a).Left lpaa
-        , Right = λ(q : { x : Bool, y : L a, z: List (L a) }) →
+        , Right = λ(q : { x : Bool, y : L a, z : List (L a) }) →
             let lla : L (List a) = traversableList.sequence L applicativeFunctorL a q.z
             let lpala : L (Pair a (List a)) = applicativeFunctorL.zip a q.y (List a) lla
             in applicativeFunctorL.fmap (Pair a (List a)) (F3 a) (λ(pair : Pair a (List a)) → (F3 a).Right { x = q.x, y = pair._1, z = pair._2 }) lpala
@@ -5416,7 +5416,7 @@ let cons : Integer → ListInt → ListInt
 let leaf : Text → TreeText
    = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
      a1 t
-let branch: TreeText → TreeText → TreeText
+let branch : TreeText → TreeText → TreeText
    = λ(left : TreeText) → λ(right : TreeText) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
      a2 (left r a1 a2) (right r a1 a2)
 ```
@@ -5726,7 +5726,7 @@ Specifically, in the code of `sumListInt` and `printTree`, where are the parts t
 Indeed, the functions `sumListInt` and `printTree` are _not_ recursive.
 These functions do perform a kind of iteration over the data stored in the list or in the tree.
 But the iteration is not performed via loops or recursion.
-Instead, iteration is _hard-coded_ in the values `list : ListInt` and `tree: TreeText`.
+Instead, iteration is _hard-coded_ in the values `list : ListInt` and `tree : TreeText`.
 
 To see how, consider the value `example1` shown above:
 
@@ -5873,7 +5873,7 @@ For example, here is a simple Haskell function that detects whether a given tree
 -- Haskell.
 data TreeInt = Leaf Int | Branch TreeInt TreeInt
 
-isSingleLeaf: TreeInt -> Bool
+isSingleLeaf :: TreeInt -> Bool
 isSingleLeaf t = case t of
     Leaf _ -> true
     Branch _ _ -> false
@@ -5925,11 +5925,11 @@ The second step is to use the ordinary pattern-matching (Dhall's `merge`) on tha
 
 This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall.
 
-For `C = TreeInt`, the type `F C` is the union type `< Leaf: Integer | Branch : { left : TreeInt, right : TreeInt } >`. The function `isSingleLeaf` is
+For `C = TreeInt`, the type `F C` is the union type `< Leaf : Integer | Branch : { left : TreeInt, right : TreeInt } >`. The function `isSingleLeaf` is
 implemented via pattern matching on that type:
 
 ```dhall
-let F = λ(r : Type) → < Leaf: Integer | Branch : { left : r, right : r } >
+let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
 
 let TreeInt = LFix F
 
@@ -6224,7 +6224,7 @@ let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 ≡
 ### Example: Concatenating and reversing non-empty lists
 
 Dhall's `List` data structure already has concatenation and reversal operations (`List/concat` and `List/reverse`).
-To practice implementing those operations for a Church-encoded data type, consider _non-empty_ lists (`NEL: Type → Type`) defined recursively as:
+To practice implementing those operations for a Church-encoded data type, consider _non-empty_ lists (`NEL : Type → Type`) defined recursively as:
 
 ```haskell
 -- Haskell.
@@ -6241,7 +6241,7 @@ data F a r = One a | Cons a r
 Convert this definition to Dhall and write the corresponding Church encoding:
 
 ```dhall
-let F = λ(a : Type) → λ(r : Type) → < One : a |  Cons : { head : a, tail: r } >
+let F = λ(a : Type) → λ(r : Type) → < One : a |  Cons : { head : a, tail : r } >
 let NEL_F = λ(a : Type) → LFix (F a)
 ```
 
@@ -6397,28 +6397,28 @@ The sizes of those nested data structures have been already computed at the time
 So, for a given value `fa : f a Natural`, the result of `sizeF fa` needs to be equal to the number of values of type `a` stored in `fa` plus the sum of all natural numbers stored in `fa`.
 It is clear that the function `sizeF` will need to be different for each pattern functor `F`.
 
-For example, non-empty lists (`NEL`) are described by the pattern functor `F` such that `F a r = < One : a | Cons : { head : a, tail: r } >`.
+For example, non-empty lists (`NEL`) are described by the pattern functor `F` such that `F a r = < One : a | Cons : { head : a, tail : r } >`.
 The corresponding function `sizeF_NEL` is:
 
 ```dhall
-let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail: Natural } > → Natural
-  = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail: Natural } >) →
+let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail : Natural } > → Natural
+  = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail : Natural } >) →
     merge {
       One = λ(x : a) → 1,
-      Cons = λ(x : { head : a, tail: Natural }) → 1 + x.tail,
+      Cons = λ(x : { head : a, tail : Natural }) → 1 + x.tail,
     } fa
 ```
 
-Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right: r } >`.
+Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right : r } >`.
 Let us define that functor and the corresponding function `sizeF`:
 
 ```dhall
-let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right: r } >
+let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let sizeF_Tree : ∀(a : Type) → FTree a Natural → Natural
   = λ(a : Type) → λ(fa : FTree a Natural) →
     merge {
       Leaf = λ(x : a) → 1,
-      Branch = λ(x : { left : Natural, right: Natural }) → x.left + x.right,
+      Branch = λ(x : { left : Natural, right : Natural }) → x.left + x.right,
     } fa
 ```
 
@@ -6437,7 +6437,7 @@ To test this code, let us compute the size of a non-empty list with three values
 ```dhall
 let exampleNEL3 : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
 let test =
-  let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail: r } >
+  let F = λ(a : Type) → λ(r : Type) → < One : a | Cons : { head : a, tail : r } >
   in assert : 3 ≡ size F Natural sizeF_NEL exampleNEL3
 ```
 
@@ -6470,11 +6470,11 @@ For non-empty lists (and also for empty lists), the `depthF` function is the sam
 For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
-let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right: Natural } > → Natural
-  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right: Natural } >) →
+let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right : Natural } > → Natural
+  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
     merge {
       Leaf = λ(x : a) → 0,
-      Branch = λ(x : { left : Natural, right: Natural }) → 1 + Natural/max x.left x.right,
+      Branch = λ(x : { left : Natural, right : Natural }) → 1 + Natural/max x.left x.right,
     } fa
 ```
 
@@ -6634,7 +6634,7 @@ We can implement a method similar to `Optional/default` and perform typechecking
 ```dhall
 let OptionalK/default
   : ∀(k : Kind) → k → OptionalK k → k
-  = λ(k : Kind) → λ(default : k) → λ(opt: OptionalK k) →
+  = λ(k : Kind) → λ(default : k) → λ(opt : OptionalK k) →
     merge { None = default
           , Some = λ(t : k) → t
           } opt
@@ -7114,7 +7114,7 @@ let LInt : Integer → LExp Integer
     λ(lIsZero : r Integer → r Bool) →
       lInt i
 let LAdd : LExp Integer → LExp Integer → LExp Integer
-  = λ(x : LExp Integer) → λ(y : LExp Integer) → λ(r: Type → Type) →
+  = λ(x : LExp Integer) → λ(y : LExp Integer) → λ(r : Type → Type) →
     λ(lBool : Bool → r Bool) →
     λ(lInt : Integer → r Integer) →
     λ(lAdd : r Integer → r Integer → r Integer) →
@@ -8007,7 +8007,7 @@ let bifunctorGFix
   : ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → GFix (F a))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → {
     fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ga : GFix (F a)) →
-    -- Have ga: GFix (F a), need to get gb: GFix (F b).
+    -- Have ga : GFix (F a), need to get gb : GFix (F b).
     -- Define P and Q such that GFix (F a) = Exists P and GFix (G b) = Exists Q, then use mapExists P Q.
     let P = λ(t : Type) → { seed : t, step : t → F a t }
     let Q = λ(t : Type) → { seed : t, step : t → F b t }
@@ -9297,7 +9297,7 @@ Once the recursive calls are completed, the post-processing functions (`post_1`,
 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
 
-We begin by defining the union type `C` and the function `do_choice: X → C` by following the Haskell code of `f` as indicated above.
+We begin by defining the union type `C` and the function `do_choice : X → C` by following the Haskell code of `f` as indicated above.
 
 The next step is to determine a suitable functor `P` that will be used for defining the hylomorphism.
 To figure that out, notice that a hylomorphism's Haskell code contains recursion at _only one_ place:
@@ -10503,7 +10503,7 @@ let filterableFList1
 ```
 Now we can implement a `Filterable` evidence for `CList` using `filterableLFix`:
 ```dhall
-let filterableCList: Filterable CList = filterableLFix FList filterableFList1
+let filterableCList : Filterable CList = filterableLFix FList filterableFList1
 ```
 
 Then we apply the generic `filter` function with the predicate `Natural/odd` to the list `exampleCList1345` and obtain the result corresponding to the list `[ 1, 3 ]`.
@@ -10965,7 +10965,7 @@ For instance, we may discard arguments whenever one of the values of type `F a r
 let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
 let bizip_F1
   : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
-  = λ(r : Type) → λ(a : Type) → λ(far: Either a (Pair r r)) → λ(b : Type) → λ(fbr: Either b (Pair r r)) →
+  = λ(r : Type) → λ(a : Type) → λ(far : Either a (Pair r r)) → λ(b : Type) → λ(fbr : Either b (Pair r r)) →
      merge {
        Left = λ(x : a) → merge {
          Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
@@ -10980,7 +10980,7 @@ When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `
 A `Functor` typeclass evidence for `C` is derived via `bifunctorLFix` from a `Bifunctor` evidence for `F`.
 ```dhall
 let C = λ(a : Type) → LFix (F a)
-let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac: a → c) → λ(b : Type) → λ(d : Type) → λ(bd: b → d) → λ(fab: F a b) →
+let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : F a b) →
   merge {
     Left = λ(x : a) → (F c d).Left (ac x)
   , Right = λ(p : Pair b b) → (F c d).Right { _1 = bd p._1, _2 = bd p._2 }
@@ -10989,7 +10989,7 @@ let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac
 let functorC : Functor C = bifunctorLFix F bifunctorF
 let bizip_FC
   : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b))
-  = λ(a : Type) → λ(faca : F a (C a)) → λ(b : Type) → λ(fbcb: F b (C b)) →
+  = λ(a : Type) → λ(faca : F a (C a)) → λ(b : Type) → λ(fbcb : F b (C b)) →
       let ResultT = F (Pair a b) (Pair (C a) (C b))
       let ca2cb : b → C a → C b = λ(y : b) → λ(ca : C a) → functorC.fmap a b (λ(_ : a) → y) ca
       let cb2ca : a → C b → C a = λ(x : a) → λ(cb : C b) → functorC.fmap b a (λ(_ : b) → x) cb
@@ -11295,7 +11295,7 @@ If the method `inflateM` is available, we can also implement another method call
 let contraliftM : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraFilterable M F → ∀(a : Type) → ∀(b : Type) → (a → M b) → F b → F a
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) →
     λ(a : Type) → λ(b : Type) → λ(f : a → M b) → λ(fb : F b) →
-      let fmb: F (M b) = mContraFilterableMF.inflateM b fb
+      let fmb : F (M b) = mContraFilterableMF.inflateM b fb
       in mContraFilterableMF.cmap a (M b) f fmb
 ```
 
@@ -11732,7 +11732,7 @@ let filterableLFixEither
        }
 ```
 
-### Monads with universal type quantifiers
+### Monads with universal quantifiers
 
 Suppose a type constructor has a monad's methods with respect to one type parameter while the other type parameter is held fixed.
 It turns out we can then apply a universal quantifier to the fixed type parameter and obtain a new monad.
@@ -11761,19 +11761,19 @@ let monadCodensity : ∀(F : Type → Type) → Monad (Codensity F)
 ```
 
 We can generalize this idea to a combinator that imposes a universal quantifier on an extra type parameter in a given monad.
-If `M a b` is a monad with respect to `a` for fixed `b` then `N a = ∀(b : Type) → M a b` is a monad with respect to the free type parameter `a`: 
+If `M a b` is a monad with respect to `b` for fixed `a` then `N b = ∀(a : Type) → M a b` is a monad with respect to the free type parameter `b`: 
 
 ```dhall
-let monadForall : ∀(M : Type → Type → Type) → (∀(b : Type) → Monad (λ(a : Type) → M a b)) → Monad (λ(a : Type) → ∀(b : Type) → M a b)
-  = λ(M : Type → Type → Type) → λ(monadM : ∀(b : Type) → Monad (λ(a : Type) → M a b)) →
-      let N = λ(a : Type) → ∀(t : Type) → M a t
+let monadForall : ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
+  = λ(M : Type → Type → Type) → λ(monadM : ∀(a : Type) → Monad (M a)) →
+      let N = λ(b : Type) → ∀(a : Type) → M a b
       let pure = λ(a : Type) → λ(x : a) →
         (λ(b : Type) → (monadM b).pure a x) : N a
       let bind = λ(a : Type) → λ(ma : N a) → λ(b : Type) → λ(f : a → N b) →
-        λ(t : Type) →    -- Need to compute a value of type M b t.
-          let ambt : a → M b t = λ(x : a) → f x t
-          let mat : M a t = ma t
-          in ((monadM t).bind a mat b ambt) : M b t 
+        λ(t : Type) →    -- Need to compute a value of type M t b.
+          let amtb : a → M t b = λ(x : a) → f x t
+          let mta : M t a = ma t
+          in ((monadM t).bind a mta b amtb) : M t b 
       in { pure, bind } 
 ```
 
@@ -11940,11 +11940,11 @@ Let us recall that code and also write suitable data constructors:
 let TreeC = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
 let leafC : ∀(a : Type) → a → TreeC a
   = λ(a : Type) → λ(x : a) →
-    λ(r : Type) → λ(leaf: a → r) → λ(branch : r → r → r) →
+    λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) →
       leaf x
 let branchC : ∀(a : Type) → TreeC a → TreeC a → TreeC a
   = λ(a : Type) → λ(left : TreeC a) → λ(right : TreeC a) →
-    λ(r : Type) → λ(leaf: a → r) → λ(branch : r → r → r) →
+    λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) →
       branch (left r leaf branch) (right r leaf branch)
 ```
 
@@ -11966,7 +11966,7 @@ Now we can write the code for a `Monad` evidence:
 let monadTreeC : Monad TreeC =
   let pure = λ(a : Type) → λ(x : a) → leafC a x
   let bind = λ(a : Type) → λ(ta : TreeC a) → λ(b : Type) → λ(f : a → TreeC b) →
-    λ(r : Type) → λ(leafB: b → r) → λ(branch : r → r → r) →
+    λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
       let leafA : a → r = λ(x : a) → f x r leafB branch
       in ta r leafA branch
   in { pure, bind }
@@ -12375,10 +12375,6 @@ let completeTransformerTState : ∀(S : Type) → CompleteTransformer (TState S)
   }
 ```
 
-### Monads with universal quantifiers
-
-TODO: implement
-
 ### Continuation-like monads
 
 By "continuation-like" monads we mean type constructors of the form `F a = (a → p) → q`, where `p`, `q` are some type expressions not involving `a`. 
@@ -12436,8 +12432,6 @@ let incompleteTransformerTSearch : ∀(T : (Type → Type) → Type → Type) �
       λ(_ : a → T M R) → incompleteTransformerT.flift M monadM a ma
     }
 ```
-
-TODO: implement the transformers
 
 ### Products of monad transformers
 
@@ -12501,9 +12495,28 @@ let freePointedTransformer
      }
 ```
 
-### Function-type monads and "rigid" monads
+### Function-type monads
 
-Here we consider `Reader`, `Sel`, and other monads involving a function type. 
+Here we consider `Reader`, `Sel`, and some other monads involving a function type.
+Those monads have simple monad transformers that compose the foreign monad outside the base monad.
+
+TODO: implement
+### Monads with universal quantifiers
+
+If a monad transformer has an extra type parameter, we may apply a universal quantifier to that parameter and obtain another transformer.
+
+```dhall
+let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Type) → (∀(a : Type) → CompleteTransformer (T a)) → CompleteTransformer (λ(M : Type → Type) → λ(a : Type) → ∀(t : Type) → T t M a)
+  = λ(T : Type → (Type → Type) → Type → Type) → λ(transformerT : ∀(a : Type) → CompleteTransformer (T a)) →
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →  -- need a Monad evidence for λ(b : Type) → ∀a. T a M b
+      monadForall (λ(a : Type) → T a M) (λ(a : Type) → (transformerT a).monadTM M monadM)
+      -- ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(t : Type) → (transformerT t).flift M monadM a ma
+    , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+        λ(a : Type) → λ(tma : ∀(t : Type) → T t M a) → λ(t : Type) → (transformerT t).frun M monadM N g a (tma t)
+    }
+```
 
 ### Transformers for recursive monads
 
@@ -13714,7 +13727,7 @@ This is now equal to the right-hand side of the equation we needed to prove.
 
 ###### Statement 2
 
-The functions `fix F functorF: F C → C` and `unfix F functorF : C → F C` defined in the chapter "Working with Church-encoded data" are inverses of each other.
+The functions `fix F functorF : F C → C` and `unfix F functorF : C → F C` defined in the chapter "Working with Church-encoded data" are inverses of each other.
 
 ####### Proof
 
@@ -14131,7 +14144,7 @@ let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(functorG : Functor G) →
     let C = LFix F
     in λ(gc : G C) →
-        λ(R : Type) → λ(frr: F R → R) →
+        λ(R : Type) → λ(frr : F R → R) →
           let c2r : C → R = λ(c : C) → c R frr
           in functorG.fmap C R c2r gc
 ```
@@ -14152,7 +14165,7 @@ To prove item (1), we begin by substituting the definitions of `fromCY` and `toC
 ```dhall
 -- Symbolic derivation. We expect this to equal `gc`.
 fromCY F functorF G (toCY F G functorG gc)
-  ≡ fromCY F functorF G (λ(R : Type) → λ(frr: F R → R) →
+  ≡ fromCY F functorF G (λ(R : Type) → λ(frr : F R → R) →
     functorG.fmap C R (λ(c : C) → c R frr) gc
 ) ≡ functorG.fmap C C (λ(c : C) → c C (fix F functorF)) gc
 ```
@@ -15250,7 +15263,7 @@ The Church-co-Yoneda identity says that, for any functors `P` and `Q`,
 
 `P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })`
 
-The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = { seed: x, step: x → F x a }` and `Q a = G x a`.
+The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = { seed : x, step : x → F x a }` and `Q a = G x a`.
 With these definitions, `P` and `Q` are covariant functors.
 Then we may use the Church-co-Yoneda identity to obtain:
 
@@ -15260,10 +15273,10 @@ T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
   ≡ Exists (λ(x : Type) → P (GFix Q))
   ≡ Exists (λ(x : Type) → Exists (λ(A : Type) → { seed : P A, step : A → Q A }))
 -- Rename A to y and expand the definitions of P and Q:
-  ≡ Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed: x, step: x → F x y }, step : y → G x y }))
+  ≡ Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed : x, step : x → F x y }, step : y → G x y }))
 ```
 
-It remains to replace the record type `{ seed : { seed: x, step: x → F x y }, step : y → G x y }` by an equivalent record type `{ seed : x, stepA : x → F x y, stepB : y → G x y }`.
+It remains to replace the record type `{ seed : { seed : x, step : x → F x y }, step : y → G x y }` by an equivalent record type `{ seed : x, stepA : x → F x y, stepB : y → G x y }`.
 Then we get the required type formula for `T`:
 
 ```dhall
@@ -15384,8 +15397,8 @@ Church encoding of mutually recursive greatest fixpoints (for covariant bifuncto
 
 ```dhall
 -- Two fixpoint equations: U = F U V, V = G U V
-U  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB: b → G a b }))
-V  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB: b → G a b }))
+U  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+V  ≅  Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
 ```
 $$ U \cong \exists a.~\exists b.~a \times (a\to F~a~b)\times (b\to G~a~b)  $$
 $$ V \cong \exists a.~\exists b.~b \times (a\to F~a~b)\times (b\to G~a~b)  $$
