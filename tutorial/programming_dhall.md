@@ -12549,13 +12549,39 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
 
 #### Free monads
 
-The free monad on a functor `F` is defined recursively as `L a = a + F (L a)`.
-Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching.
+The free monad on a functor `F` can be defined recursively as `L a = Either a (F (L a))`.
+Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data in leaves has type `a` .
 
-The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (a + F (T M a))`.
+The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (Either a (F (T M a)))`.
 Note that the foreign monad `M` is applied on the outside, but recursion makes it appear also inside the transformed type.
 
+We will now implement the free monad transformer using the Church encoding.
+The recursive type equation `r = M (Either a (F r))` corresponds to the following Church-encoded type:
 
+```dhall
+let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) →
+  ∀(r : Type) → (M (Either a (F r)) → r) → r
+```
+
+This type is difficult to work with because of the layer of `M` outside of `Either`.
+We will simplify this type by using a trick based on the **unrolling lemma** and the **Church-Yoneda identity**.
+
+This code implements a transformer evidence for `TFreeMonad`:
+
+
+```dhall
+let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → CompleteTransformer (TFreeMonad F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →  -- need a Monad evidence for TFreeMonad F M.
+      monadForall (λ(a : Type) → T a M) (λ(a : Type) → (transformerT a).monadTM M monadM)
+      -- ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(t : Type) → (transformerT t).flift M monadM a ma
+    , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+        λ(a : Type) → λ(tma : ∀(t : Type) → T t M a) → λ(t : Type) → (transformerT t).frun M monadM N g a (tma t)
+    }
+```
+TODO: implement
 
 ## Free typeclass instances
 
@@ -15048,7 +15074,7 @@ From the shape of those types, it is clear how to generalize these Church encodi
 
 To prove these type formulas, we will need the property we call the "nested fixpoint lemma":
 
-###### Statement 1 (nested fixpoint lemma).
+###### Statement 1 (nested fixpoint lemma)
 Suppose `J` is any bifunctor. Then the nested fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
 That property holds both for the least fixpoints and for the greatest fixpoints:
 
@@ -15179,10 +15205,23 @@ The proofs in both cases (least and greatest fixpoints) have many similar steps.
 The first step is to express `U` via `T` and to derive a fixpoint equation for `T` alone.
 We already know how to encode fixpoints defining a single recursive type, and we will use those encodings to express `T`.
 Then we will use the Church-Yoneda identity (for least fixpoints) and the Church-co-Yoneda identity (for greatest fixpoints) to show that the Church encodings of `T` are equivalent to the type formulas given above.
-The derivation for `U` will be exactly similar and will be omitted.
+Those identities say that a type with a fixpoint inside a functor is equivalent to a type whose quantifier is outside.
+This is a key step in the proofs that allows us to derive the required type expressions for `T`. 
+
+The derivations for `U` will be exactly similar and will be omitted.
 
 
-Let us first consider the greatest fixpoints.
+###### Statement 2 (greatest fixpoints)
+
+The greatest fixpoints `T`, `U` of mutually recursive equations  `T = F T U` and `U = G T U` may be expressed as:
+
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
+```
+####### Proof
+
 Rewrite the equations `T = F T U` and `U = G T U` as:
 
 ```dhall
@@ -15238,47 +15277,31 @@ let H = λ(x : Type) → GFix (G x)
 in let T = GFix (λ(x : Type) → F x (H x))
 ```
 
-For the case of least fixpoints, the argument is similar. The resulting definitions for `H` and `T` are:
-
-```dhall
-let H = λ(x : Type) → LFix (G x)
-in let T = LFix (λ(x : Type) → F x (H x))
-```
 
 We have eliminated `U` and obtained a fixpoint equation for `T` alone.
-Now we use the known Church encodings:
+Now we use the known Church encoding  for the greatest fixpoints:
+
 
 ```dhall
--- For the greatest fixpoints:
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 -- Written out in full:
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → { seed : y , step : y → G x y })) })
--- For the least fixpoints:
-let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
--- Written out in full:
-let T = ∀(x : Type) → (F x (∀(y : Type) → (G x y → y) → y) → x) → x
 ```
 
-Note that both type formulas involve type quantifiers _inside_ functors:
-For the greatest fixpoints, `T` has the form `T = Exists ( ... F x (Exists ...))`.
-For the least fixpoints, `T` has the form `T = ∀x( ... F x (∀y ...))`.
 
-Our goal is to derive the type formulas we started with:
+Note that the type formulas involve type quantifiers _inside_ functors:
+namely, `T` has the form `T = Exists ( ... F x (Exists ...))`.
+
+Our goal is to derive the type formula  we started with:
 
 ```dhall
--- For the greatest fixpoints:
 let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
--- For the least fixpoints:
-let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 ```
-These formulas are simpler because all type quantifiers are outside.
-To achieve that simplification, we will need to use the Church-Yoneda and the Church-co-Yoneda identities.
-Those identities say that a type with a fixpoint inside a functor is equivalent to a type whose quantifier is outside.
-For the greatest fixpoints, we will apply the Church-co-Yoneda identity, and for the least fixpoints, we will apply the Church-Yoneda identity.
-It remains to bring the type expressions for `T` into the form suitable for applying those identities.
+This formula is simpler because all type quantifiers are outside.
+To achieve that simplification, we will need to use the Church-co-Yoneda identity.
+It remains to bring the type expressions for `T` into the form suitable for applying that identity.
 
-First consider the case of the greatest fixpoints.
-Write the type expression for `T` that we last obtained:
+Write again the type expression for `T` that we last obtained:
 
 ```dhall
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
@@ -15311,7 +15334,50 @@ T ≡ Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : x, stepA : x �
 
 This concludes the proof for the greatest fixpoints.
 
-For the least fixpoints, we recall the last obtained type expression for `T`:
+
+###### Statement 3 (least fixpoints)
+
+The least fixpoints `T`, `U` of mutually recursive equations  `T = F T U` and `U = G T U` may be expressed as:
+
+
+```dhall
+let T = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : a, stepA : a → F a b, stepB : b → G a b }))
+let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a → F a b, stepB : b → G a b }))
+```
+####### Proof
+
+As in the proof for the greatest fixpoints, we first introduce a functor `H` so that we can express `T` as a fixpoint without using `U`.
+The resulting definitions for `H` and `T` are:
+
+```dhall
+let H = λ(x : Type) → LFix (G x)
+in let T = LFix (λ(x : Type) → F x (H x))
+```
+
+We have eliminated `U` and obtained a fixpoint equation for `T` alone.
+Now we use the known Church encoding  for the least fixpoints:
+
+```dhall
+let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
+-- Written out in full:
+let T = ∀(x : Type) → (F x (∀(y : Type) → (G x y → y) → y) → x) → x
+```
+
+Note that the type formulas involve type quantifiers _inside_ functors:
+namely, `T` has the form `T = ∀x( ... F x (∀y ...))`.
+
+Our goal is to derive the type formula we started with:
+
+```dhall
+-- For the least fixpoints:
+let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
+```
+This formula is simpler because all type quantifiers are outside.
+To achieve that simplification, we will need to use the Church-Yoneda  identity.
+It remains to bring the type expressions for `T` into the form suitable for applying that identity.
+
+Write again the type expression for `T` that we last obtained:
+
 
 ```dhall
 let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
@@ -15340,6 +15406,53 @@ let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → 
 ```
 
 This concludes the proof for the least fixpoints.
+
+### The "unrolling lemma"
+
+A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.`
+Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
+Nevertheless, many properties of recursive types become more clear with this visualization.
+
+An example is the recursive type defined by `T = F (G T)` where `F` and `G` are some functors.
+Looking at the "unrolling" formula `T = F (G (F (G (...))))`, it appears that `T = F U` where `U = G (F (G (F (...))))`.
+The recursive type `U` can be defined rigorously via `U = G (F U)`.
+The unrolled type expression for `U` also suggests that `U = G T`.
+
+It turns out that the properties `T = F U` and `U = G T` may be derived rigorously.
+This property of  recursive types is called the "unrolling lemma".
+We will prove two versions of this lemma: for the least fixpoints and for the greatest fixpoints.
+
+Statement 1
+
+Proof
+
+`T = ∀(x : Type) → (F (G x) → x) → x`
+
+`U = ∀(x : Type) → (G (F x) → x) → x`
+
+In the expression for `T`, use the covariant Yoneda identity to replace `G x` by  `y` in this formula (note that `(F y → x) → x` is covariant with respect to `y`):
+
+`T = ∀(x : Type) → ∀(y : Type) → (G x → y) → (F y → x) → x`
+
+Now switch x and y and also swap the curried arguments:
+
+`T = ∀(y : Type) → ∀(x : Type) → (F y → x) → (G x → y) → x`
+
+As `(G x → y) → x` is also covariant in `x`, we may use the covariant Yoneda identity again, this time with respect to `x`:
+
+`T = ∀(y : Type) → (G (F y) → y) → F y`
+
+The last formula is in the form of the Church-Yoneda identity, which says that `T = F U` where `U` is defined above.
+
+The proof of `U = G T` is similar.
+
+Now we consider the same situation with greatest fixpoints.
+
+Statement 2
+
+Proof
+
+TODO: fill in the proof for the greatest fixpoints.
 
 ### Summary of type equivalence identities
 
