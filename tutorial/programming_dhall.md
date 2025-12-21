@@ -15033,6 +15033,65 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
   ≡ c
 ```
 
+
+### The "unrolling lemma"
+
+The Church-Yoneda and Church-co-Yoneda identities are not well known but enable easy proofs of certain properties of recursive types.
+In this section we will study the property known as the "unrolling lemma".
+
+A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.`
+Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
+Nevertheless, many properties of recursive types become more clear with this visualization.
+
+An example is the recursive type defined by `T = F (G T)` where `F` and `G` are some functors.
+Looking at the "unrolling" formula `T = F (G (F (G (...))))`, it appears that `T = F U` where `U = G (F (G (F (...))))`.
+The recursive type `U` can be defined rigorously via `U = G (F U)`.
+The unrolled type expression for `U` also suggests that `U = G T`.
+
+It turns out that the properties `T = F U` and `U = G T` may be derived rigorously; this is known as the "unrolling lemma".
+We will prove two versions of this property: for the least fixpoints and for the greatest fixpoints.
+
+###### Statement 1
+
+For any functors `F` and `G`, define the types `T` and `U` as the least fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
+Then `T = F U` and `U = G T`.
+
+####### Proof
+
+Write the Church encodings of `T` and `U`:
+```dhall
+
+```
+`T = ∀(x : Type) → (F (G x) → x) → x`
+
+`U = ∀(x : Type) → (G (F x) → x) → x`
+
+In the expression for `T`, use the covariant Yoneda identity to replace `G x` by  `y` in this formula (note that `(F y → x) → x` is covariant with respect to `y`):
+
+`T = ∀(x : Type) → ∀(y : Type) → (G x → y) → (F y → x) → x`
+
+Now switch x and y and also swap the curried arguments:
+
+`T = ∀(y : Type) → ∀(x : Type) → (F y → x) → (G x → y) → x`
+
+As `(G x → y) → x` is also covariant in `x`, we may use the covariant Yoneda identity again, this time with respect to `x`:
+
+`T = ∀(y : Type) → (G (F y) → y) → F y`
+
+The last formula is in the form of the Church-Yoneda identity, which says that `T = F U` where `U` is defined above.
+
+The proof of `U = G T` is similar.
+
+Now we consider the same situation with greatest fixpoints.
+
+###### Statement 2
+
+####### Proof
+
+TODO: fill in the proof for the greatest fixpoints.
+
+TODO: explain that we are now going to generalize to two arbitrary fixpoints
+
 ### Church encodings for mutually recursive fixpoints: Proofs
 
 Suppose two types `T`, `U` are defined via **mutually recursive** definitions: each type's definition uses that type itself and also the other type.
@@ -15406,53 +15465,6 @@ let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → 
 ```
 
 This concludes the proof for the least fixpoints.
-
-### The "unrolling lemma"
-
-A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.`
-Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
-Nevertheless, many properties of recursive types become more clear with this visualization.
-
-An example is the recursive type defined by `T = F (G T)` where `F` and `G` are some functors.
-Looking at the "unrolling" formula `T = F (G (F (G (...))))`, it appears that `T = F U` where `U = G (F (G (F (...))))`.
-The recursive type `U` can be defined rigorously via `U = G (F U)`.
-The unrolled type expression for `U` also suggests that `U = G T`.
-
-It turns out that the properties `T = F U` and `U = G T` may be derived rigorously.
-This property of  recursive types is called the "unrolling lemma".
-We will prove two versions of this lemma: for the least fixpoints and for the greatest fixpoints.
-
-Statement 1
-
-Proof
-
-`T = ∀(x : Type) → (F (G x) → x) → x`
-
-`U = ∀(x : Type) → (G (F x) → x) → x`
-
-In the expression for `T`, use the covariant Yoneda identity to replace `G x` by  `y` in this formula (note that `(F y → x) → x` is covariant with respect to `y`):
-
-`T = ∀(x : Type) → ∀(y : Type) → (G x → y) → (F y → x) → x`
-
-Now switch x and y and also swap the curried arguments:
-
-`T = ∀(y : Type) → ∀(x : Type) → (F y → x) → (G x → y) → x`
-
-As `(G x → y) → x` is also covariant in `x`, we may use the covariant Yoneda identity again, this time with respect to `x`:
-
-`T = ∀(y : Type) → (G (F y) → y) → F y`
-
-The last formula is in the form of the Church-Yoneda identity, which says that `T = F U` where `U` is defined above.
-
-The proof of `U = G T` is similar.
-
-Now we consider the same situation with greatest fixpoints.
-
-Statement 2
-
-Proof
-
-TODO: fill in the proof for the greatest fixpoints.
 
 ### Summary of type equivalence identities
 
