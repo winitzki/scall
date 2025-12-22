@@ -998,11 +998,7 @@ This makes importing libraries faster after the first time.
 Keep in mind that Dhall programs with non-frozen imports may produce different results when evaluated at different times.
 An example of that behavior is found in Dhall's test suite.
 It imports [a randomness source](https://test.dhall-lang.org/random-string), which is a Web service that returns a new random string each time it is called.
-So, this Dhall program:
-
-```dhall
-https://test.dhall-lang.org/random-string as Text -- This is a complete program.
-```
+So, the Dhall expression `https://test.dhall-lang.org/random-string as Text`
 will return a different result _each time_ it is evaluated:
 
 ```bash
@@ -1373,7 +1369,7 @@ If `r` contains fields named `_1` and/or `_2`, the expression `myTupleDefault //
 The field selection `.(MyTuple)` will remove any other fields.
 
 The built-in Dhall operations `//` and `.()` can be viewed as functions that accept polymorphic record types.
-For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool` , `_2 : Natural` and possibly any other fields.
+For instance, `r.(MyTuple)` will accept records `r` having the fields `_1 : Bool`, `_2 : Natural` and possibly any other fields.
 Similarly, `myTupleDefault // r` will accept records `r` of any record type and return a record that is guaranteed to have the fields `_1 : Bool` and `_2 : NAtural`.
 
 But Dhall cannot directly describe the type of records with unknown fields.
@@ -12566,22 +12562,64 @@ let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type
 This type is difficult to work with because of the layer of `M` outside of `Either`.
 We will simplify this type by using a trick based on the **unrolling lemma** and the **Church-Yoneda identity**.
 
-This code implements a transformer evidence for `TFreeMonad`:
+As we will prove in section "The unrolling lemma" in Appendix "Naturality and parametricity"), a recursive definition of the form `T = F (G T)` may be rewritten equivalently as `T = F U`, where `U` is defined by `U = G (F U)`. 
+We apply this property to the recursive definition `r = M (Either a (F r))`.
+Setting `F = M` and `G x = Either a (F x)`, we obtain `r = M s`, where `s` is defined by `s = Either a (F (M s))`.
+We note that `s` is the same as the free monad on the functor composition `F (M s)`.
+So, we may  rewrite `TFreeMonad F M a` as `M (FreeMonad (Compose F M) a)`.
 
+By definition,  `FreeMonad F a` is a Church-encoded least fixpoint (`LFix G`) of the functor `G` defined by `G x = Either a (F x)`.
+But it is inconvenient to work with a type such as `M (LFix ...)` that contains a universal type quantifier under a functor.
+The Church-Yoneda identity (proved in Appendix "Naturality and parametricity") allows us to rewrite such types via modified Church encodings:
+
+```dhall
+M (FreeMonad (Compose F M) a)  ≅  ∀(r : Type) → (Either a (F (M r)) → r) → M r
+```
+The difference is that the usual `LFix` has the form `∀(r : Type) → ... → r`, while the Church-Yoneda identity gives us a type of the form `∀(r : Type) → ... → M r`.
+
+Using these techniques, we may redefine `TFreeMonad` equivalently as:
+```dhall
+let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type) →
+  ∀(r : Type) → (a → r) → (F (M r) → r) → M r
+```
+
+A `Monad` evidence for `TFreeMonad` can be implemented directly with this encoding:
+
+```dhall
+let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → Type) → Monad M → Monad (TFreeMonad F M)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(M : Type → Type) → λ(monadM : Monad M) →
+    { pure = λ(a : Type) → λ(x : a) →
+      λ(r : Type) → λ(ar : a → r) → λ(_ : F (M r) → r) → monadM.pure r (ar x)
+    , bind = λ(a : Type) → λ(tma : TFreeMonad F M a) → λ(b : Type) → λ(f : a → TFreeMonad F M b) →
+      -- Need to compute a value of type TFreeMonad F M b.
+       λ(r : Type) → λ(br : b → r) → λ(fmrr : F (M r) → r) →
+         let amr : a → M r = λ(x : a) → f x r br fmrr
+         let fmmr2mr : F (M (M r)) → M r = λ(fmmr : F (M (M r))) →
+           let fmr : F (M r) = functorF.fmap (M (M r)) (M r) (monadJoin M monadM r) fmmr
+           let y : r = fmrr fmr
+           in monadM.pure r y
+         let mmr : M (M r) = tma (M r) amr fmmr2mr
+         in monadJoin M monadM r mmr
+    }
+```
+
+Then we implement a `TFreeMonad` transformer evidence:
 
 ```dhall
 let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → CompleteTransformer (TFreeMonad F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
-    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →  -- need a Monad evidence for TFreeMonad F M.
-      monadForall (λ(a : Type) → T a M) (λ(a : Type) → (transformerT a).monadTM M monadM)
-      -- ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
+    { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) → monadTFreeMonad F functorF M monadM
     , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
-      λ(t : Type) → (transformerT t).flift M monadM a ma
+      λ(r : Type) → λ(ar : a → r) → λ(_ : F (M r) → r) → (functorM M monadM).fmap a r ar ma
     , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
-        λ(a : Type) → λ(tma : ∀(t : Type) → T t M a) → λ(t : Type) → (transformerT t).frun M monadM N g a (tma t)
+        λ(a : Type) → λ(tma : TFreeMonad F M a) →
+          λ(r : Type) → λ(ar : a → r) → λ(fnrr : F (N r) → r) →
+            let fmr2fnr : F (M r) → F (N r) = functorF.fmap (M r) (N r) (g r)
+            let fmrr : F (M r) → r = λ(fmr : F (M r)) → fnrr (fmr2fnr fmr)
+            in g r (tma r ar fmrr)
     }
 ```
-TODO: implement
+
 
 ## Free typeclass instances
 
@@ -15034,16 +15072,16 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
 ```
 
 
-### The "unrolling lemma"
+### The unrolling lemma
 
-The Church-Yoneda and Church-co-Yoneda identities are not well known but enable easy proofs of certain properties of recursive types.
+The Church-Yoneda and Church-co-Yoneda identities are not well known, but they are useful for proofs of certain properties of recursive types.
 In this section we will study the property known as the "unrolling lemma".
 
 A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.`
 Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
 Nevertheless, many properties of recursive types become more clear with this visualization.
 
-An example is the recursive type defined by `T = F (G T)` where `F` and `G` are some functors.
+An example is the recursive type defined by `T = F (G T)` where `F` and `G` are two given functors.
 Looking at the "unrolling" formula `T = F (G (F (G (...))))`, it appears that `T = F U` where `U = G (F (G (F (...))))`.
 The recursive type `U` can be defined rigorously via `U = G (F U)`.
 The unrolled type expression for `U` also suggests that `U = G T`.
@@ -15054,54 +15092,91 @@ We will prove two versions of this property: for the least fixpoints and for the
 ###### Statement 1
 
 For any functors `F` and `G`, define the types `T` and `U` as the least fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
-Then `T = F U` and `U = G T`.
+Then `T ≅ F U` and `U ≅ G T`.
 
 ####### Proof
 
 Write the Church encodings of `T` and `U`:
 ```dhall
-
+let T = ∀(x : Type) → (F (G x) → x) → x
+let U = ∀(x : Type) → (G (F x) → x) → x
 ```
-`T = ∀(x : Type) → (F (G x) → x) → x`
 
-`U = ∀(x : Type) → (G (F x) → x) → x`
+In the expression for `T`, use the covariant Yoneda identity to replace `G x` by  `y` in that formula.
+We may use the Yoneda identity because `(F y → x) → x` is covariant with respect to `y`:
 
-In the expression for `T`, use the covariant Yoneda identity to replace `G x` by  `y` in this formula (note that `(F y → x) → x` is covariant with respect to `y`):
+```dhall
+let T = ∀(x : Type) → ∀(y : Type) → (G x → y) → (F y → x) → x
+```
 
-`T = ∀(x : Type) → ∀(y : Type) → (G x → y) → (F y → x) → x`
+Now switch `x` and `y` and also swap the curried arguments:
 
-Now switch x and y and also swap the curried arguments:
-
-`T = ∀(y : Type) → ∀(x : Type) → (F y → x) → (G x → y) → x`
+```dhall
+let T = ∀(y : Type) → ∀(x : Type) → (F y → x) → (G x → y) → x
+```
 
 As `(G x → y) → x` is also covariant in `x`, we may use the covariant Yoneda identity again, this time with respect to `x`:
 
-`T = ∀(y : Type) → (G (F y) → y) → F y`
+```dhall
+let T = ∀(y : Type) → (G (F y) → y) → F y
+```
 
-The last formula is in the form of the Church-Yoneda identity, which says that `T = F U` where `U` is defined above.
+The last formula is in the form of the Church-Yoneda identity, which shows that `T ≅ F U` with `U` is defined above.
 
-The proof of `U = G T` is similar.
+The proof of `U ≅ G T` is similar.
 
 Now we consider the same situation with greatest fixpoints.
 
 ###### Statement 2
 
+For any functors `F` and `G`, define the types `T` and `U` as the greatest fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
+Then `T ≅ F U` and `U ≅ G T`.
+
 ####### Proof
 
-TODO: fill in the proof for the greatest fixpoints.
+Write the Church encodings of `T` and `U`:
+```dhall
+let T = Exists (λ(x : Type) → { seed : x, step : x → F (G x) })
+let U = Exists (λ(x : Type) → { seed : x, step : x → G (F x) })
+```
 
-TODO: explain that we are now going to generalize to two arbitrary fixpoints
+In the expression for `T`, use the covariant co-Yoneda identity to replace `G x` by  `y` in that formula.
+We may use that identity because the type expression `{ seed : x, step : x → F y }` is covariant with respect to `y`:
+```dhall
+let T = Exists (λ(x : Type) → Exists (λ(y : Type) → { seed : { seed : x, step : x → F y }, step : y → G x }))
+```
+
+Now switch `x` and `y` and also rearrange the nested records, renaming their fields but keeping all content intact:
+
+```dhall
+let T = Exists (λ(y : Type) → Exists (λ(x : Type) → { seed : { seed : x, step : y → G x }, step : x → F y }))
+```
+
+The type expression `{ seed : x, step : y → G x }` is also covariant in `x`, so we may use the covariant co-Yoneda identity again, this time with respect to `x`:
+
+```dhall
+let T = Exists (λ(y : Type) → { seed : F y, step : y → G (F y) })
+```
+
+The last formula is in the form of the Church-co-Yoneda identity, which shows that `T ≅ F U` with `U` defined above.
+
+The proof of `U ≅ G T` is similar.
 
 ### Church encodings for mutually recursive fixpoints: Proofs
 
-Suppose two types `T`, `U` are defined via **mutually recursive** definitions: each type's definition uses that type itself and also the other type.
+In the previous section, we have defined types `T` and `U` and then proved that `T = F U` and `U = G T`.
+These two type equations may be considered as _definitions_ of `T` and `U` that are recursive: `T` is defined via `U` but `U` is defined via `T`.
+This form of recursion is called "mutual recursion".
+
+Let us now consider a more general situation where two types (`T` and `U`) are defined via **mutual recursion**: each type's definition uses that type itself and also the other type.
+In the general case, such a definition may be written as:
 
 ```dhall
 -- Type error: Dhall does not support recursive definitions.
 let T = F T U
 let U = G T U
 ```
-Here `F` and `G` are some (covariant) bifunctors.
+Here `F` and `G` are some given (covariant) bifunctors.
 
 An example definition of `F` and `G` is:
 
@@ -15109,7 +15184,6 @@ An example definition of `F` and `G` is:
 let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → < One | Two : a | Three : b >
 let G : Type → Type → Type = λ(a : Type) → λ(b : Type) →  { first : a, second : b, third : Bool }
 ```
-
 
 Types `T` and `U` are defined as solutions of two simultaneous equations.
 Solutions may be defined as least fixpoints or as greatest fixpoints of those equations, depending on what is necessary for the application code.
@@ -15131,7 +15205,7 @@ let U = Exists (λ(a : Type) → Exists (λ(b : Type) → { seed : b, stepA : a 
 
 From the shape of those types, it is clear how to generalize these Church encodings to any number of mutually recursive types.
 
-To prove these type formulas, we will need the property we call the "nested fixpoint lemma":
+To prove these type formulas, we will need the property we call the **nested fixpoint lemma**:
 
 ###### Statement 1 (nested fixpoint lemma)
 Suppose `J` is any bifunctor. Then the nested fixpoint of `J x y` with respect to both `x` and `y` is equivalent to a simple fixpoint of `J x x` with respect to `x`.
@@ -15201,8 +15275,8 @@ LFix (λ(x : Type) → N x)
   ≅  LFix (λ(y : Type) → J y y)
 ```
 
-For the greatest fixpoints, the proof is similar.
-We denote for brevity by `N x` the greatest fixpoint of `J x y` with respect to `y`:
+We use a similar argument for the greatest fixpoints.
+Denote for brevity by `N x` the greatest fixpoint of `J x y` with respect to `y`:
 
 `N x = GFix (λ(y : Type) → J x y) = GFix (J x)`
 
@@ -15344,7 +15418,7 @@ Now we use the known Church encoding  for the greatest fixpoints:
 ```dhall
 let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 -- Written out in full:
-let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → { seed : y , step : y → G x y })) })
+let T = Exists (λ(x : Type) → { seed : x, step : x → F x (Exists (λ(y : Type) → { seed : y, step : y → G x y })) })
 ```
 
 
