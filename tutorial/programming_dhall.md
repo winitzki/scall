@@ -11836,7 +11836,7 @@ let exampleListC1345 : ListC Natural = toListC Natural [ 1, 3, 4, 5 ]
 let _ = assert : showListNat exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
 ```
 
-Now we may guess the code of the `Monad` evidence for `ListC`.
+Now we can guess the code of the `Monad` evidence for `ListC`.
 The trick for implementing `bind` is to create a function `arr` of type `a → r → r`, since we have exactly the necessary data within the body of `bind`:
 ```dhall
 let monadListC : Monad ListC =
@@ -11847,8 +11847,7 @@ let monadListC : Monad ListC =
         in la r nil arr
     in { pure, bind }
 ```
-
-Let us test this code by deriving `ListC/join` and applying it to a nested list:
+Test this code by deriving `ListC/join` and applying it to a nested list:
 
 ```dhall
 let ListC/join = monadJoin ListC monadListC
@@ -11926,6 +11925,8 @@ let nestedNEL : NEL (NEL Natural) = toNEL (NEL Natural)
 let flattenedNELNatural = NEL/join Natural nestedNEL
 let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
 ```
+
+TODO: implement monadNEL directly in Church encoding, without using concatNEL. Then test it. This is ncessary for the NEL transformer.
 
 #### The binary tree monad
 
@@ -12541,8 +12542,6 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
 
 ### Transformers for recursive monads
 
-#### List-like monads
-
 #### Free monads
 
 The free monad on a functor `F` can be defined recursively as `L a = Either a (F (L a))`.
@@ -12562,20 +12561,22 @@ let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type
 This type is difficult to work with because of the layer of `M` outside of `Either`.
 We will simplify this type by using a trick based on the **unrolling lemma** and the **Church-Yoneda identity**.
 
-As we will prove in section "The unrolling lemma" in Appendix "Naturality and parametricity"), a recursive definition of the form `T = F (G T)` may be rewritten equivalently as `T = F U`, where `U` is defined by `U = G (F U)`. 
+As we will prove in section "The unrolling lemma" in Appendix "Naturality and parametricity", a recursive definition of the form `T = F (G T)` may be rewritten equivalently as `T = F U`, where `U` is defined by `U = G (F U)`. 
 We apply this property to the recursive definition `r = M (Either a (F r))`.
 Setting `F = M` and `G x = Either a (F x)`, we obtain `r = M s`, where `s` is defined by `s = Either a (F (M s))`.
 We note that `s` is the same as the free monad on the functor composition `F (M s)`.
 So, we may  rewrite `TFreeMonad F M a` as `M (FreeMonad (Compose F M) a)`.
 
 By definition,  `FreeMonad F a` is a Church-encoded least fixpoint (`LFix G`) of the functor `G` defined by `G x = Either a (F x)`.
-But it is inconvenient to work with a type such as `M (LFix ...)` that contains a universal type quantifier under a functor.
+But it is inconvenient to work with a type such as `M (LFix ...)` that contains a Church-encoded type under a functor.
+For instance, one cannot use currying to make the code more convenient: we can curry `(Either a b → c) → d` into `(a → c) → (b → c) → d`, but we cannot curry a function of type `M (Either a b → c) → d` into a curried type.
 The Church-Yoneda identity (proved in Appendix "Naturality and parametricity") allows us to rewrite such types via modified Church encodings:
 
 ```dhall
 M (FreeMonad (Compose F M) a)  ≅  ∀(r : Type) → (Either a (F (M r)) → r) → M r
 ```
 The difference is that the usual `LFix` has the form `∀(r : Type) → ... → r`, while the Church-Yoneda identity gives us a type of the form `∀(r : Type) → ... → M r`.
+It is then straightforward to apply currying to this type if desired.
 
 Using these techniques, we may redefine `TFreeMonad` equivalently as:
 ```dhall
@@ -12598,12 +12599,12 @@ let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → 
            let fmr : F (M r) = functorF.fmap (M (M r)) (M r) (monadJoin M monadM r) fmmr
            let y : r = fmrr fmr
            in monadM.pure r y
-         let mmr : M (M r) = tma (M r) amr fmmr2mr
+         let mmr : M (M r) = tma (M r) amr fmmr2mr   -- Apply tma with type M r instead of r.
          in monadJoin M monadM r mmr
     }
 ```
 
-Then we implement a `TFreeMonad` transformer evidence:
+Then we can implement a `TFreeMonad` transformer evidence:
 
 ```dhall
 let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → CompleteTransformer (TFreeMonad F)
@@ -12620,6 +12621,55 @@ let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → Com
     }
 ```
 
+TODO: show how the encoding obtained from the unrolling lemma and the CY identity can be translated into the initially written encoding (direct Church encoding) for the free monad 
+#### List-like monads
+
+The `List` and `NEL` (non-empty list) are monads representing a sequence of data items.
+We have already seen how to use Church encoding for implementing  these type constructors. 
+In a similar way, we implement transformers for these monads.
+
+The recursive definitions of the transformers `TList` and `TNEL` can be written as:
+
+`TList M a = M (Optional { head : a, tail : TList M a })`
+
+`TNEL M a = M (Either a { head : a, tail : TNEL M a })`
+
+Similarly to what we did with free monads, we will use the unrolling lemma and the Church-Yoneda identity in order to obtain more convenient Church encodings for `TList` and `TNEL`.
+
+For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
+For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M U }`.
+This gives the code:
+
+```dhall
+let TList = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → r → (a → M r → r) → M r
+let TNEL = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → (a → r) → (a → M r → r) → M r
+```
+
+We begin by implementing `Monad` evidence for these types, via techniques similar to what we used for `Monad` evidence for free monads:
+
+```dhall
+let monadTList : ∀(M : Type → Type) → Monad M → Monad (TList M)
+  = λ(M : Type → Type) → λ(monadM : Monad M) →
+  { pure = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(nil : r) → λ(cons : a → M r → r) →
+      monadM.pure r (cons x (monadM.pure r nil))
+  , bind = λ(a : Type) → λ(tma : TList M a) → λ(b : Type) → λ(f : a → TList M b) →
+      λ(r : Type) → λ(nil : r) → λ(cons : b → M r → r) →
+        let join = monadJoin M monadM r
+        let consMr : b → M (M r) → M r = λ(y : b) → λ(mmr : M (M r)) → monadM.pure r (cons y (join mmr))
+        let ammrmr : a → M (M r) → M r = λ(x : a) → λ(prev : M (M r)) → f x (M r) (join prev) consMr
+        let mmr : M (M r) = tma (M r) (monadM.pure r nil) ammrmr   -- Apply tma with type M r instead of r.
+        in join mmr
+  }
+let TNEL = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → (a → r) → (a → M r → r) → M r
+let monadListC : Monad ListC =
+    let bind = λ(a : Type) → λ(la : ListC a) → λ(b : Type) → λ(f : a → ListC b) →
+      λ(r : Type) → λ(nil : r) → λ(cons : b → r → r) →
+        let arr : a → r → r = λ(x : a) → λ(prev : r) → f x r prev cons
+        in la r nil arr
+    in { pure, bind }
+```
+
+TODO: implement
 
 ## Free typeclass instances
 
@@ -12632,7 +12682,7 @@ It works by wrapping the type `T` by the `List` functor.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
 
-To qualify as a free typeclass, the wrapping must satisfy certain laws that we will not discuss here.
+To qualify as a free typeclass, the type constructor must satisfy certain laws that we will not discuss here.
 See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for full details.
 
 As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
