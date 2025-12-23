@@ -12637,6 +12637,7 @@ Similarly to what we did with free monads, we will use the unrolling lemma and t
 
 For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
 For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M V }`.
+(Both `U` and `V` depend on the fixed `a`.)
 This gives the code:
 
 ```dhall
@@ -12664,11 +12665,14 @@ let monadTList : ∀(M : Type → Type) → Monad M → Monad (TList M)
 ```
 
 For non-empty lists, this technique does not work and we need to write some helper functions.
-The first function "absorbs" a layer of `M` in a transformer of type `TNEL M`:
+The first function "absorbs" a layer of `M` in a transformer of type `TNEL M`.
+This operation is possible because `TNEL M a` is an encoding of a type `M V` for some `V`, and we can use `M`'s monad properties to transform values of type `M (M V)` into values of type `M V`.
+The code is:
 
 ```dhall
 let absorbTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M (TNEL M a) → TNEL M a
-  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(mt : M (TNEL M a)) → 1 
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(mt : M (TNEL M a)) →
+     λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) → monadM.bind (TNEL M a) mt r (λ(tma : TNEL M a) → tma r one consn) 
 ```
 
 The second  helper function concatenates transformed lists of type `TNEL M`.
