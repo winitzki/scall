@@ -12771,6 +12771,31 @@ let PTypeclass = λ(P : Type → Type) → λ(t : Type) → P t → t
 ```
 We will not specify laws as part of the typeclass definition, as the limited support of dependent types in Dhall makes working with laws impossible in most cases.
 
+We will need to define the property of "preserving the $P$-typeclass operations".
+This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same $P$-typeclass.
+We say that `f` preserves  the typeclass operations if the following law holds: For any `x : P u`,
+
+`pTypeclassV (functorP.fmap u v f x) = f (pTypeclasU x)`
+
+This law expresses the structural property of `f`: any operations of the $P$-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
+
+The "lawful free $P$-typeclass instance" is a type constructor we will denote by `FreeP`, with the following properties:
+
+- For any type `t` (not necessarily of the $P$-typeclass) the type `FreeP t` belongs to the $P$-typeclass. The evidence value `ev : P t → t` satisfies the typeclass laws.
+- The type constructor `FreeP` is a monad.
+- For any types `s`, `t` and any function `f : s → t` the function `functorP.fmap s t f` of type `FreeP s → FreeP t` preserves the $P$-typeclass operations.
+- For any type `p` that belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. When `p = FreeP t` (for some `t`) then the mentioned function of type `FreeP (FreeP t) → FreeP t` is the `join` method of the monad `FreeP`.
+
+These requirements (without the laws) may be formulated in terms of a typeclass:
+
+```dhall
+let FreePTypeclass = λ(P : Type → Type) → λ(FreeP : Type → Type) →
+  { evidence : ∀(t : Type) → PTypeclass P (FreeP t)
+  , monadFreeP : Monad FreeP
+  , eval : ∀(p : Type) → PTypeclass P p → FreeP p → p
+  }
+```
+
 For type constructors, the typeclass methods typically have their own type parameters.
 So, the structure functor is more complicated and must be defined as `P : (Type → Type) → Type → Type`.
 Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the $P$-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
@@ -12778,6 +12803,7 @@ Given such a `P`, we say that a type constructor `T : Type → Type` belongs to 
 ```dhall
 let PTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(T : Type → Type) → ∀(a : Type) → P T a → T a
 ```
+
 
 
 ### Free semigroup and free monoid
