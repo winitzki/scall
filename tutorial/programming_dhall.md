@@ -12446,7 +12446,7 @@ let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) →
   }
 ```
 
-### Free pointed transformers
+### Free pointed monads
 
 Given a monad `F` with a known transformer `T`, we can implement a transformer for the free pointed monad `CoProduct Id F`.
 We need to formulate this combinator purely in terms of an arbitrary given transformer `T`, without using the monad `F` explicitly.
@@ -12638,7 +12638,7 @@ Similarly to what we did with free monads, we will use the unrolling lemma and t
 For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
 For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M V }`.
 (Both `U` and `V` depend on the fixed `a`.)
-This gives the code:
+This leads us to the code:
 
 ```dhall
 let TList = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → r → (a → M r → r) → M r
@@ -12732,20 +12732,53 @@ It works by wrapping the type `T` by the `List` functor.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
 
-To qualify as a free typeclass, the type constructor must satisfy certain laws that we will not discuss here.
+We have already seen two examples of "free instances" (the free monad and the free pointed functor) in the chapter about monads.
+That chapter  did not emphasize that the type constructors involved in `monadFreeMonad` and `monadFreePointed` are in any way special, and did not explain the choice of the term "free".
+But we can see that the free monad  on   `F`  wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
+
+Similarly,  the "free pointed" functor on `F` is the functor `CoProduct Id F`.
+It is always a pointed functor, even if the functor `F` is not  pointed.
+
+It turns out that a wide range of typeclasses (called **$P$-typeclasses** in "The Science of Functional Programming") have free instances.
+The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are $P$-typeclasses.
+All those typeclasses admit "free instances", which this chapter will implement.
+
+To qualify as a free typeclass, the type constructor must satisfy certain laws that are beyond the scope of this book.
 See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for full details.
 
-As a counterexample, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
+As an example of a type constructor that is _not_ a free typeclass instance, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
 This construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
 So, `Optional T` can be also described as a "wrapping" that is guaranteed to produce a monoid out of any type `T`.
-But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required laws.
-
-Another example of a free typeclass is the "free monad on a functor `F`", which wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
-
-This chapter will show how to implement free instances for many of the frequently used typeclasses.
+But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of a free typeclass instance.
 
 Keep in mind that not all typeclasses can have free instances.
 Examples of typeclasses that cannot have free instances are `Eq`, `Show`, `Comonad`, `Foldable`, and `Traversable`.
+
+### $P$-typeclasses and their free instances
+
+Typeclasses may describe either the properties of ordinary types (e.g., `Semigroup`, `Monoid`, `Eq`) or the properties of type constructors (e.g., `Functor`, `Monad`).
+While the general idea of a free typeclass instance applies to both kinds of typeclasses, 
+the required properties involve functions with quite different type signatures.
+We will first describe the free typeclass instance for ordinary types.
+
+Each  $P$-typeclass is defined via a chosen structure functor `P`.
+A type `t` belongs to the $P$-typeclass if there exist an evidence value of type `P t → t`.
+Additionally, that evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses do not have any laws).
+
+We may write down the required type signature as:
+```dhall
+let PTypeclass = λ(P : Type → Type) → λ(t : Type) → P t → t
+```
+We will not specify laws as part of the typeclass definition, as the limited support of dependent types in Dhall makes working with laws impossible in most cases.
+
+For type constructors, the typeclass methods typically have their own type parameters.
+So, the structure functor is more complicated and must be defined as `P : (Type → Type) → Type → Type`.
+Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the $P$-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
+
+```dhall
+let PTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(T : Type → Type) → ∀(a : Type) → P T a → T a
+```
+
 
 ### Free semigroup and free monoid
 
@@ -12761,7 +12794,7 @@ Examples of typeclasses that cannot have free instances are `Eq`, `Show`, `Comon
 
 ### Free applicative
 
-### Free $P$-typeclass evidence
+### Free $P$-typeclass instance
 
 # Appendixes
 
