@@ -12702,7 +12702,7 @@ let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
   , bind = λ(a : Type) → λ(tma : TNEL M a) → λ(b : Type) → λ(f : a → TNEL M b) →
       let atmb : a → M (TNEL M b) → TNEL M b = λ(x : a) → λ(mtmb : M (TNEL M b)) →
         concatTNEL M monadM b (f x) (absorbTNEL M monadM b mtmb)
-      in tma (TNEL M b) f atmb
+      in absorbTNEL M monadM b (tma (TNEL M b) f atmb)
   }
 ```
 
@@ -12717,7 +12717,7 @@ let completeTransformerTNEL : CompleteTransformer TNEL
         λ(a : Type) → λ(tma : TNEL M a) →
           λ(r : Type) → λ(ar : a → r) → λ(consn : a → N r → r) →
             let amrr : a → M r → r = λ(x : a) → λ(mr : M r) → consn x (g r mr)
-            in g r (tma r ar fmrr)
+            in g r (tma r ar amrr)
     }
 ```
 
