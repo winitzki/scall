@@ -12654,15 +12654,25 @@ let monadTList : ∀(M : Type → Type) → Monad M → Monad (TList M)
       monadM.pure r (cons x (monadM.pure r nil))
   , bind = λ(a : Type) → λ(tma : TList M a) → λ(b : Type) → λ(f : a → TList M b) →
       λ(r : Type) → λ(nil : r) → λ(cons : b → M r → r) →
+        let pure = monadM.pure r
         let join = monadJoin M monadM r
-        let consMr : b → M (M r) → M r = λ(y : b) → λ(mmr : M (M r)) → monadM.pure r (cons y (join mmr))
-        let ammrmr : a → M (M r) → M r = λ(x : a) → λ(prev : M (M r)) → f x (M r) (join prev) consMr
-        let mmr : M (M r) = tma (M r) (monadM.pure r nil) ammrmr   -- Apply tma with type M r instead of r.
+        let consMr : b → M (M r) → M r = λ(y : b) → λ(mmr : M (M r)) → pure (cons y (join mmr))
+        let ammrmr : a → M (M r) → M r = λ(x : a) → λ(prev : M (M r)) → join (f x (M r) (join prev) consMr)
+        let mmr : M (M r) = tma (M r) (pure nil) ammrmr   -- Apply tma with type M r instead of r.
         in join mmr
   }
 ```
 
-For non-empty lists, this technique does not work and we need to write a helper function that concatenates lists of type `TNEL M`, similarly to how we implemented `concatNEL`: 
+For non-empty lists, this technique does not work and we need to write some helper functions.
+The first function "absorbs" a layer of `M` in a transformer of type `TNEL M`:
+
+```dhall
+let absorbTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M (TNEL M a) → TNEL M a
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(mt : M (TNEL M a)) → 1 
+```
+
+The second  helper function concatenates transformed lists of type `TNEL M`.
+This function (`concatTNEL`) is implemented similarly to `concatNEL`: 
 
 
 ```dhall
@@ -12675,7 +12685,7 @@ let concatTNEL: ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M 
       λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) →
         let mr : M r = monadM.bind (TNEL M a) prev r (λ(t : TNEL M a) → t r one consn) 
         in monadM.pure r (consn x mr)
-    in nel1 (TNEL M a) oneT consT -- here we get M(TNEL M a) but we need only TNEL M a...
+    in absorbTNEL M monadM a (nel1 (TNEL M a) oneT consT)
 ```
 
 
@@ -12686,7 +12696,8 @@ let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
   = λ(M : Type → Type) → λ(monadM : Monad M) →
   { pure = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (one x)
   , bind = λ(a : Type) → λ(tma : TNEL M a) → λ(b : Type) → λ(f : a → TNEL M b) →
-      let atmb : a → M (TNEL M b) → TNEL M b =
+      let atmb : a → M (TNEL M b) → TNEL M b = λ(x : a) → λ(mtmb : M (TNEL M b)) →
+        concatTNEL M monadM b (f x) (absorbTNEL M monadM b mtmb)
       in tma (TNEL M b) f atmb
   }
 ```
