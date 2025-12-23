@@ -6285,6 +6285,7 @@ let consn : ∀(a : Type) → a → NEL a → NEL a =
         arr x (prev r ar arr)
 let example1 : NEL Natural = consn Natural 1 (consn Natural 2 (one Natural 3))
 let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
+let example3 : NEL Natural = consn Natural 4 (one Natural 5)
 ```
 
 The folding function is just an identity function (this is always the case when working with Church encodings):
@@ -6311,12 +6312,12 @@ To concatenate two lists, we right-fold the first list and substitute the second
 let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
         foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
-let test = assert : concatNEL Natural example1 example2 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 3 (consn Natural 2 (one Natural 1)))))
+let test = assert : concatNEL Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
 ```
 
-To reverse a list, we right-fold over it and accumulate a new list by appending elements to it.
+To reverse a list, we right-fold over it and accumulate a new list by appending elements at the end.
 
-So, we will need a new constructor (`nsnoc`) that appends a given value of type `a` to a list of type `NEL a`, rather than prepending as `consn` does.
+For this, we will need a new constructor (`nsnoc`) that appends a given value of type `a` to a list of type `NEL a`, rather than prepending as `consn` does.
 
 ```dhall
 let nsnoc : ∀(a : Type) → a → NEL a → NEL a
@@ -6335,7 +6336,7 @@ let test = assert : reverseNEL Natural example2 ≡ example1
 ```
 
 The reversing function allows us to program a _left_ fold: just reverse the list and apply the right fold.
-However, the resulting code works much slower than the right fold.
+However, the resulting code works slower than the right fold.
 To see why, consider that `reverseNEL` uses `foldNEL` with an argument involving `nsnoc`, which itself also uses `foldNEL`.
 So, `reverseNEL` involves two nested iterations over the list (a quadratic number of operations).
 
@@ -11926,8 +11927,6 @@ let flattenedNELNatural = NEL/join Natural nestedNEL
 let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
 ```
 
-TODO: implement monadNEL directly in Church encoding, without using concatNEL. Then test it. This is ncessary for the NEL transformer.
-
 #### The binary tree monad
 
 Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
@@ -12637,7 +12636,7 @@ The recursive definitions of the transformers `TList` and `TNEL` can be written 
 Similarly to what we did with free monads, we will use the unrolling lemma and the Church-Yoneda identity in order to obtain more convenient Church encodings for `TList` and `TNEL`.
 
 For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
-For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M U }`.
+For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M V }`.
 This gives the code:
 
 ```dhall
@@ -12645,7 +12644,8 @@ let TList = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → r → (
 let TNEL = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → (a → r) → (a → M r → r) → M r
 ```
 
-We begin by implementing `Monad` evidence for these types, via techniques similar to what we used for `Monad` evidence for free monads:
+We begin by implementing `Monad` evidence for these types, via techniques similar to what we used for `Monad` evidence for free monads.
+A `Monad` evidence for `TList` is implemented quite similarly to that of the Church-encoded list (`ListC`) we have written earlier:
 
 ```dhall
 let monadTList : ∀(M : Type → Type) → Monad M → Monad (TList M)
@@ -12660,16 +12660,51 @@ let monadTList : ∀(M : Type → Type) → Monad M → Monad (TList M)
         let mmr : M (M r) = tma (M r) (monadM.pure r nil) ammrmr   -- Apply tma with type M r instead of r.
         in join mmr
   }
-let TNEL = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → (a → r) → (a → M r → r) → M r
-let monadListC : Monad ListC =
-    let bind = λ(a : Type) → λ(la : ListC a) → λ(b : Type) → λ(f : a → ListC b) →
-      λ(r : Type) → λ(nil : r) → λ(cons : b → r → r) →
-        let arr : a → r → r = λ(x : a) → λ(prev : r) → f x r prev cons
-        in la r nil arr
-    in { pure, bind }
 ```
 
-TODO: implement
+For non-empty lists, this technique does not work and we need to write a helper function that concatenates lists of type `TNEL M`, similarly to how we implemented `concatNEL`: 
+
+
+```dhall
+let concatTNEL: ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
+  = λ(M: Type → Type) → λ(monadM: Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
+  -- Append nel1 to the end of the list nel2.
+    let oneT : a → TNEL M a = λ(x : a) → λ(r : Type) →
+      λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (consn x (nel2 r one consn))
+    let consT : a → M (TNEL M a) → TNEL M a = λ(x : a) → λ(prev : M (TNEL M a)) →
+      λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) →
+        let mr : M r = monadM.bind (TNEL M a) prev r (λ(t : TNEL M a) → t r one consn) 
+        in monadM.pure r (consn x mr)
+    in nel1 (TNEL M a) oneT consT -- here we get M(TNEL M a) but we need only TNEL M a...
+```
+
+
+The monad instance for `TNEL M` can be written now:
+
+```dhall
+let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
+  = λ(M : Type → Type) → λ(monadM : Monad M) →
+  { pure = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (one x)
+  , bind = λ(a : Type) → λ(tma : TNEL M a) → λ(b : Type) → λ(f : a → TNEL M b) →
+      let atmb : a → M (TNEL M b) → TNEL M b =
+      in tma (TNEL M b) f atmb
+  }
+```
+
+This allows us to complete the implementation of the `TNEL` transformer:
+
+```dhall
+let completeTransformerTNEL : CompleteTransformer TNEL
+  = { monadTM = monadTNEL
+    , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
+      λ(r : Type) → λ(ar : a → r) → λ(_ : a → M r → r) → (functorM M monadM).fmap a r ar ma
+    , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
+        λ(a : Type) → λ(tma : TNEL M a) →
+          λ(r : Type) → λ(ar : a → r) → λ(consn : a → N r → r) →
+            let amrr : a → M r → r = λ(x : a) → λ(mr : M r) → consn x (g r mr)
+            in g r (tma r ar fmrr)
+    }
+```
 
 ## Free typeclass instances
 
