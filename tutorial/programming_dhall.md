@@ -916,6 +916,7 @@ This convention helps make the code for imports more visual:
 
 ```dhall
 let Integer/add = https://prelude.dhall-lang.org/Integer/add
+let List/concat = https://prelude.dhall-lang.org/List/concat
 let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
 let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
@@ -2876,10 +2877,10 @@ Let us first clarify the terminology used with typeclasses, beginning with a def
 ###### Definition
 
 A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy (for all `t : Type`).
-A **typeclass instance** is a type `t` together with a value of type `P t` that satisfies those laws.
-That value is called an **evidence value** for the typeclass membership of `t`.
-We say that a type `t` "has an instance" of the typeclass (or "is an instance" of the typeclass) if we are able to compute an evidence value of type `P t`.
-We say that we have "computed a typeclass instance for `t`" if we have computed an evidence value.
+A **typeclass instance** for a type `t` is a value of type `P t` that satisfies those laws.
+That value is also called a **typeclass evidence** for the membership of `t` in the typeclass.
+We say that a type `t` "has an instance" of the typeclass if we are able to compute an evidence value of type `P t`.
+
 We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. $\square$
 
 To illustrate this definition, let us give an example using the `Semigroup` typeclass.
@@ -3803,7 +3804,7 @@ let monadWriter : ∀(W : Type) → Monoid W → Monad (Writer W)
     in { pure, bind }
 ```
 
-Another well-known monad is `State`, which has an additional type parameter `S` describing the type of the internal state:
+Another well-known monad is the **state monad** (`State`), which has an additional type parameter `S` describing the type of the internal state:
 
 ```dhall
 let State = λ(S : Type) → λ(A : Type) → S → Pair S A
@@ -3818,7 +3819,7 @@ let monadState : ∀(S : Type) → Monad (State S)
     in { pure, bind }
 ```
 
-The "continuation" monad has a type parameter `R` for the return type of continuation handlers:
+The **continuation monad** has a type parameter `R` for the return type of continuation handlers:
 
 ```dhall
 let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R
@@ -3963,7 +3964,7 @@ let comonadWriter : ∀(W : Type) → Comonad (Writer W) =
     in { duplicate, extract }
 ```
 
-Another example is the so-called **Store comonad**.
+Another example is the so-called **store comonad**.
 It is defined as a pair `(s, s → a)`, where `s` is a fixed type.
 
 ```dhall
@@ -4353,7 +4354,7 @@ let MonadFP = λ(F : Type → Type) → Functor F //\\ Pointed F //\\
 As an example, let us define a `Monad` evidence value for `List` in that way:
 
 ```dhall
-let monadList : MonadFP List =
+let monadListFP : MonadFP List =
   functorList /\ pointedList /\
     { bind = λ(a : Type) → λ(fa : List a) → λ(b : Type) → λ(f : a → List b) → List/concatMap a b f fa }
 ```
@@ -8635,28 +8636,28 @@ Rewrite that type by replacing the record by two curried arguments:
 
 `∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
-Functions with this type signature are called **hylomorphisms**.
-See also [this tutorial](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
+A functions with this type signature is called a **hylomorphism**.
+See also [this tutorial on recursion schemes](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 
 So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types (instead of least fixpoints).
 Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
 An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
-The types `t` and `r` do not need to be fixpoint types.
 
 Another way of understanding hylomorphisms is to rewrite their type signature as:
 
 `GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
 
-This can be now seen as a conversion from the greatest fixpoint to the least fixpoint of the same pattern functor.
+This looks like a conversion from the greatest fixpoint to the least fixpoint of the same pattern functor.
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
 
 Now we turn to the question of implementing hylomorphisms in Dhall.
 An immediate problem for Dhall is that termination of hylomorphisms is not (and _cannot_ be) guaranteed.
 To see why, note that a hylomorphism converts `GFix F` to `LFix F` in a way that is natural in `F` (i.e., it works in the same way for all pattern functors `F`).
-This sort of conversion can be done only by copying all values from one data structure to another, completely preserving the recursive structure.
-However, a value of a greatest fixpoint type (for example, an unbounded list or an unbounded tree) could allow us to extract an unbounded number of data items, while values of least fixpoint types are always bounded (that is, the data size must be known in advance).
-A hylomorphism's code will try to extract all data from an unbounded list, which cannot terminate.
+This sort of conversion can be done only by copying all values from one data structure to another, completely preserving the recursive structure given in the input.
+However, an input value of type `GFix F` could be an unbounded list or an unbounded tree.
+We cannot extract an unbounded number of data items into a container of type `LFix F`, which is always bounded (in a least fixpoint type, the data size is known in advance).
+A hylomorphism's code will have to extract all data from an unbounded list; but this will not terminate.
 
 So, Dhall cannot directly support hylomorphisms as they are usually defined.
 We will now examine that problem in more detail and show some solutions.
@@ -8675,8 +8676,8 @@ hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
 The code of `hylo` calls `hylo` recursively under `fmap`, and there seems to be no explicit termination for the recursion.
-Nevertheless, this code will terminate for some input values `t`.
-Specifically, hylomorphisms will terminate when `t` produces a finite data structure when `coalg` is being repeatedly applied to it.
+Nevertheless, this code _does_ terminate for some input values `t`.
+Specifically, hylomorphisms will terminate when `t` produces a finite data structure as `coalg` is repeatedly applied to it.
 
 Let us consider an example
 where both `t` and `r` are the type of (finite) binary trees with string-valued leaves.
@@ -12360,7 +12361,7 @@ This combinator may be used only in certain specific cases when it is known that
 
 #### State monad
 
-The "state monad" is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
+The **State monad** is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
 The corresponding transformer is given by `T S M a = S → M (Pair S a)`.
 
 Let us implement this in Dhall:
@@ -12885,6 +12886,63 @@ let FreePTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreePT : 
 
 ### Free semigroup and free monoid
 
+A semigroup must support an associative `append` operation.
+A monoid is a semigroup that has in addition an `empty` operation, such that appending `empty` does not modify the value.
+
+The free semigroup constructor is the non-empty list `NEL`.
+The `append` operation is the concatenation function (`concatNEL`).
+
+The free monoid constructor is `List`.
+The `append` operation is the concatenation of lists; the `empty` operation produces an empty list.
+
+Let us formally define the free typeclass instances for semigroups and monoids:
+
+```dhall
+let FreeSemigroup = NEL
+let FreeMonoid = List
+```
+
+The type constructors `FreeSemigroup` and `FreeMonoid` have evidence of `FreePTypeclass` if we define the structure functors `P` appropriately.
+
+For the semigroup, the `append` operation has type `t → t → t`.
+We need to rewrite this type equivalently in the form `P t → t` using a suitable structure functor `P`.
+Note that we can uncurry the function type `t → t → t`, producing an equivalent type:
+
+`t → t → t  ≅  Pair t t → t`
+
+So, we define `P t = Pair t t` as the structure functor for `Semigroup`.
+The free typeclass instance is formulated as:
+
+```dhall
+let SemigroupP = λ(t : Type) → Pair t t
+let freePTypeclassFreeSemigroup : FreePTypeclass SemigroupP FreeSemigroup
+  = { evidence = λ(t : Type) → λ(pf : SemigroupP (FreeSemigroup t)) →
+      concatNEL t pf._1 pf._2
+  , monadFreeP = monadNEL
+  , eval = λ(p : Type) → λ(methods : SemigroupP p → p) → λ(expr : FreeSemigroup p) →
+      expr p (identity p) (λ(x : p) → λ(y : p) → methods { _1 = x, _2 = y })
+  }
+```
+
+For the free monoid, we define the structure functor as `P t = Optional (Pair t t)`.
+Then the function type `P t → t` is equivalent to a pair of values of types `t` and `Pair t t → t`.
+These correspond to the methods `empty` and `append` of a monoid.
+
+The corresponding code is:
+
+
+```dhall
+let MonoidP = λ(t : Type) → Optional (Pair t t)
+let freePTypeclassFreeMonoid : FreePTypeclass MonoidP FreeMonoid
+  = { evidence = λ(t : Type) → λ(opf : MonoidP (FreeMonoid t)) →
+      merge { None = [] : List t
+            , Some = λ(pf : Pair (FreeMonoid t) (FreeMonoid t)) → List/concat t [ pf._1, pf._2 ]
+            } opf
+  , monadFreeP = monadList
+  , eval = λ(p : Type) → λ(methods : MonoidP p → p) → λ(expr : FreeMonoid p) →
+      List/fold p expr p (λ(x : p) → λ(y : p) → methods (Some { _1 = x, _2 = y })) (methods (None { _1 : p, _2 : p }))
+  }
+```
 
 
 ### Free monad
@@ -15311,7 +15369,7 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
 ### The unrolling lemma
 
 The Church-Yoneda and Church-co-Yoneda identities are not well known, but they are useful for proofs of certain properties of recursive types.
-In this section we will study the property known as the "unrolling lemma".
+In this section we will study the property known as the **unrolling lemma**.
 
 A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.
 Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
@@ -15331,7 +15389,7 @@ The unrolled type expression for `U` also suggests that `U = G T`.
 It turns out that the properties `T = F U` and `U = G T` may be derived rigorously; this is known as the "unrolling lemma".
 We will prove two versions of this property: for the least fixpoints and for the greatest fixpoints.
 The fixpoints will be Church-encoded, as required in Dhall.
-###### Statement 1
+###### Statement 1 (unrolling lemma for least fixpoints)
 
 For any functors `F` and `G`, define the types `T` and `U` as the least fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
 Then `T ≅ F U` and `U ≅ G T`.
@@ -15369,7 +15427,7 @@ The proof of `U ≅ G T` is similar.
 
 Now we consider the same situation with greatest fixpoints.
 
-###### Statement 2
+###### Statement 2 (unrolling lemma for greatest fixpoints)
 
 For any functors `F` and `G`, define the types `T` and `U` as the greatest fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
 Then `T ≅ F U` and `U ≅ G T`.
@@ -16037,3 +16095,28 @@ Each version of the License is given a distinguishing version number. If the Doc
 An MMC is "eligible for relicensing" if it is licensed under this License, and if all works that were first published under this License somewhere other than this MMC, and subsequently incorporated in whole or in part into the MMC, (1) had no cover texts or invariant sections, and (2) were thus incorporated prior to November 1, 2008.
 
 The operator of an MMC Site may republish an MMC contained in the site under CC-BY-SA on the same site at any time before August 1, 2009, provided the MMC is eligible for relicensing.
+
+## Appendix: About example Dhall code within this book
+
+There are two kinds of Dhall code examples in this book.
+
+The first kind is examples of code that is fully evaluated and typechecked.
+This code defines and uses common types such as `Either` and `Pair`, combinators such as `Compose` and `Product`, or typeclasses such as `Functor` and `Monad`.
+The typechecked code includes example calculations and validations, asserting that all result values are as expected.
+
+The second kind of examples are purely illustrative code fragments that are, as a rule, not valid when taken literally as Dhall programs, because they are incomplete or contain invalid Dhall symbols such as `???` or `≅`.
+These code fragments show steps in derivations or equations that are written out.
+They are not intended as executable Dhall code.
+
+The script `convertMd.sh` extracts the Dhall code from the source Markdown file and removes the purely illustrative examples from the extracted code.
+The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
+
+All parts of typechecked code must have the form of `let` expressions.
+To make the typechecked code complete, the following code is appended:
+
+```dhall
+in "Example code from the book was evaluated successfully."
+```
+This becomes the last line in `generated.dhall`.
+
+The `Makefile` script will show this message only if the entire book's source file was parsed correctly and if the entire Dhall code typechecked without errors.

@@ -258,6 +258,5 @@ def main(code: Boolean, preludePath: String): Unit =
 
   val convert = if code then toDhall(preludePath) else toLatex
   val sep = if code then "" else "\n"
-  val finalLine = if code then " in \"Example code from the book was evaluated successfully.\"\n" else ""
   
-  println(result.map(convert).mkString(sep) + finalLine)  
+  println(result.map(convert).mkString(sep))
