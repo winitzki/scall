@@ -12874,8 +12874,8 @@ Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFi
 
 Let us now formulate the free $P$-typeclass for type constructors as the typeclass `FreePTypeclassT`.
 We will drop the monad evidence requirement from that typeclass:
-Implementing a monad at the level of type constructors is technically cumbersome but brings no practical advantages.
-The formulation of typeclass laws via monad algebras helps in theoretical derivations but is not directly usable in code.
+Implementing monads at the level of type constructors is technically difficult but brings no practical advantages.
+The formulation of typeclass laws via monad algebras helps in theoretical derivations but cannot be directly used in code.
 
 ```dhall
 let FreePTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreePT : (Type → Type) → Type → Type) →
@@ -12883,6 +12883,8 @@ let FreePTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreePT : 
   , eval : ∀(U : Type → Type) → PTypeclassT P U → ∀(a : Type) → FreePT U a → U a
   }
 ```
+
+The code of `FreePTypeclassT` evidence values for `FreePointed`, `FreeFilterable`, and other functor typeclasses will be shown later in this chapter.
 
 ### Free semigroup and free monoid
 
@@ -12944,16 +12946,57 @@ let freePTypeclassFreeMonoid : FreePTypeclass MonoidP FreeMonoid
   }
 ```
 
+### Free pointed functor
+
+This and the following sections study type constructor typeclasses.
+The simplest one is the free pointed functor.
+
+The typeclass `Pointed` has only one method, `pure : ∀(a : Type) → a → F a`.
+The free pointed functor is defined as `FreePointed F a = Either a (F a)`.
+For any functor `F` (not necessarily pointed),  `FreePointed F` is a pointed functor because we can define `pure` that returns a `Left` variant of `Either`.
+The following code makes this precise:
+
+```dhall
+let pointedFreePointed : ∀(F : Type → Type) → Pointed (FreePointed F)
+  = λ(F : Type → Type) → { pure = λ(a : Type) → λ(x : a) → (FreePointed F a).Left x } 
+```
+
+
+To formulate the free pointed functor construction as a free $P$-typeclass, we first need to rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with some structure functor `P : (Type → Type) → Type → Type`.
+Looking at the type signature of `pure`, we find that a suitable `P` is defined by:
+
+```dhall
+let PointedP : (Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(a : Type) → a 
+```
+
+We may view `PointedP` as a map from functors to functors that always returns the identity functor (a "constant map", so to speak).
+
+The corresponding free $P$-typeclass evidence is here:
+
+```dhall
+let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed 
+  = { evidence = λ(T : Type → Type) → λ(a : Type) → λ(x : a) → (FreePointed T a).Left x
+    , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
+        merge { Left = λ(x : a) → pTypeclassTPointedU a x
+              , Right = λ(ua : U a) → ua
+              } freePT
+    }
+```
+
+### Free filterable
+
 
 ### Free monad
+
+We already saw the code for the free monad (`FreeMonad`).
+Now we will reformulate it as a free $P$-typeclass constructor.
+
+The first step 
 
 ### Free functor
 
 ### Free contrafunctor
-
-### Free pointed functor
-
-### Free filterable
 
 ### Free applicative
 
@@ -13642,7 +13685,7 @@ The problem with type universes is that there isn't a reasonable practical need 
 
 ## Appendix: Naturality and parametricity
 
-The properties known as "naturality" and "parametricity" are rigorous mathematical expressions of a programmer's intuition about functions with type parameters.
+The properties known as "naturality" and "parametricity" are rigorous mathematical formulations of a programmer's intuition about functions with type parameters.
 
 This appendix will describe some results of the theory that studies those properties, applied to Dhall programs.
 
