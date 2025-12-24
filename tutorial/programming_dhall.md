@@ -12785,7 +12785,7 @@ We may write down the required type signature as:
 ```dhall
 let PTypeclass = λ(P : Type → Type) → λ(t : Type) → P t → t
 ```
-We will not specify laws as part of the typeclass definition, as the limited support of dependent types in Dhall makes working with laws impossible in most cases.
+We will not specify laws as part of the typeclass definition: the limited support of dependent types in Dhall makes working with laws impossible in most cases.
 
 We will need to define the property of "preserving the $P$-typeclass operations".
 This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same $P$-typeclass.
@@ -12814,15 +12814,15 @@ let FreePTypeclass = λ(P : Type → Type) → λ(FreeP : Type → Type) →
   }
 ```
 
-The laws of the $P$-typeclass can be formulated using `FreeP` as a monad.
-They turn out to be the laws of a $FreeP$-monad algebra.
+The laws of the $P$-typeclass can be formulated using the monad properties of `FreeP`.
+The typeclass laws turn out to be equivalent to the laws of a $FreeP$-monad algebra.
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
 This book focuses on code rather than of proofs of laws.
 
 It is not known how to construct a free $P$-typeclass evidence in general for arbitrary $P$ and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some known free typeclasses.
 
-When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated for arbitrary $P$ and turns out to be just the free monad on $P$.
+When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$ and turns out to be just the free monad on $P$.
 This $P$-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
 Unevaluated expression trees have the right shape for all the typeclass operations but will not satisfy any typeclass laws.
 
@@ -12869,7 +12869,19 @@ For now, let us just write down the required types for the free pointed and the 
 let FreePointed = λ(F : Type → Type) → λ(a : Type) → Either a (F a)
 let FreeFilterable = λ(F : Type → Type) → λ(a : Type) → F (Optional a)
 ```
-Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFilterable` will be again functors and will supported the required methods for the pointed and the filterable typeclasses.
+Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFilterable` will be again functors and will support the required methods for the pointed and the filterable functor typeclasses.
+
+Let us now formulate the free $P$-typeclass for type constructors as the typeclass `FreePTypeclassT`.
+We will drop the monad evidence requirement from that typeclass:
+Implementing a monad at the level of type constructors is technically cumbersome but brings no practical advantages.
+The formulation of typeclass laws via monad algebras helps in theoretical derivations but is not directly usable in code.
+
+```dhall
+let FreePTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreePT : (Type → Type) → Type → Type) →
+  { evidence : ∀(T : Type → Type) → PTypeclassT P (FreePT T)
+  , eval : ∀(U : Type → Type) → PTypeclassT P U → ∀(a : Type) → FreePT U a → U a
+  }
+```
 
 ### Free semigroup and free monoid
 
@@ -12884,8 +12896,6 @@ Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFi
 ### Free filterable
 
 ### Free applicative
-
-### Free $P$-typeclass instance
 
 # Appendixes
 

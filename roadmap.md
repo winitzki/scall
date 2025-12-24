@@ -97,8 +97,7 @@ Proposed features of µDhall:
 Implement µDhall and verify that:
 - There are no stack overflows, even with very deeply nested data.
 - There are no performance bottlenecks, even with large normal forms.
-- There is no problem with highly repetitive data or highly repetitive normal forms.
-- Avoid normal-form explosion.
+- There is no problem with highly repetitive data or highly repetitive normal forms (must mitigate the problem of explosion of normal forms).
 
 Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time), reuse memory, share data (given that the source text is already in memory).
 Ideally the interpreter will reject a program early if it is suspicious in terms of its space or time leaks.
