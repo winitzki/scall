@@ -12776,6 +12776,8 @@ the required properties involve functions with quite different type signatures.
 
 We will first describe the free typeclass instance for ordinary types.
 
+TODO: explain more about why we can use P t → t and refer to examples later in this chapter
+
 Each  $P$-typeclass is defined via a chosen structure functor `P`.
 A type `t` belongs to the $P$-typeclass if there exist an evidence value of type `P t → t`.
 Additionally, that evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses do not have any laws).
@@ -13062,6 +13064,68 @@ We did not need a `Functor` evidence for `T` because `FreeMonad T` does not need
 Nevertheless, we need to keep in mind that `FreeMonad T` works correctly only when `T` is a functor.
 
 ### Free functor
+
+It turns out that the `Functor` typeclass itself can be represented as a $P$-typeclass and has a free instance.
+This allows us to create functors out of arbitrary type constructors.
+
+Begin by writing the type signature of a functor's `fmap` method:
+```dhall
+let FmapT = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
+
+
+We need to find some `P : (Type → Type) → Type → Type` such that `FmapT F` is equivalent to `∀(a : Type) → P F a → F a` for any `F`, even when `F` is not a functor. 
+How can we find such a `P`?
+
+The last output type of `FmapT` is `F b`, so let us rename `b` to `a` and `a` to `t` for convenience.
+Currying the arguments of types `a → b` and `F a` within `FmapT` into a record type, we then get:
+
+```dhall
+let FmapTCurried = λ(F : Type → Type) → ∀(a : Type) → ∀(t : Type) → { step : t → a, seed : F t } → F a
+```
+
+We can "pack" the type `t` into the record if we use the existential quantifier:
+A function type of the form `∀(t : Type) → H t → c` is equivalent to the function type `Exists H → c`.
+For convenience, let us define a suitable type constructor `H` separately:
+```dhall
+let H = λ(F : Type → Type) → λ(a : Type) → λ(t : Type) → { step : t → a, seed : F t }
+```
+Using this `H`, we rewrite `FmapTCurried` equivalently as:
+
+```dhall
+let FmapTE = λ(F : Type → Type) → ∀(a : Type) → Exists (H F a) → F a
+```
+
+The last type is in the form of a $P$-typeclass evidence type.
+It follows that we need to define the structure functor for the `Functor` typeclass as:
+
+```dhall
+let FunctorP = λ(F : Type → Type) → λ(a : Type) → Exists (H F a)
+```
+
+It turns out that the free functor construction is given by the same code:
+
+```dhall
+let FreeFunctor = FunctorP
+```
+The mathematical notation for this type is:
+
+$$ \textrm{FreeFunctor}~F~a = \exists t.\~(t\to a)\times F t $$
+
+Here is the corresponding `Functor` typeclass evidence:
+
+```dhall
+let functorFreeFunctor : ∀(F : Type → Type) → Functor (FreeFunctor F)
+  = λ(F : Type → Type) →
+      { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+          let mapFreeFunctor : FreeFunctor F a → FreeFunctor F b
+            = mapExists (H F a) (H F b) (λ(t : Type) → λ(kfac : H F a t) → { step = λ(x : t) → f (kfac.step x), seed = kfac.seed }) -- Mapping H F a t → H F b t.
+          in mapFreeFunctor
+      }
+```
+
+TODO: Mention that FreeFunctor F is equivalent to F if F is already a functor
+
 
 ### Free contrafunctor
 
