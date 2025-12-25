@@ -4965,7 +4965,7 @@ The value `identityLeibnizEqual2` is evidence that `f a c` equals `f b d`.
 
 Given functions `f : T → U → V` and `g : T → U → V` and evidence for `f ≡ g`, `a ≡ b` and `c ≡ d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c ≡ g b d`.
 
-## Church encodings for simple types
+## Church encodings of simple types
 
 ### Fixpoints and Church encoding
 
@@ -5034,7 +5034,7 @@ Here we will focus on the practical uses of Church encoding.
 
 ### First examples of recursive types
 
-Here are some examples of Church encoding for recursively defined types.
+Here are some examples of Church encodings of recursively defined types.
 
 TODO: insert Haskell recursive definitions for each of these types, and indicate how F is to be defined in each case.
 
@@ -5551,7 +5551,7 @@ So, the Church encoding of `Nat` is the type `∀(r : Type) → (Optional r → 
 It is more convenient to use the curried form of the Church encoding.
 The function type `Optional r → r` is isomorphic to the pair `(r, r → r)`.
 If we curry the function type `(Optional r → r) → r`, we obtain `r → (r → r) → r`.
-In this way, we derive the Church encoding for `Nat` as it is often shown in tutorials:
+In this way, we derive the Church encoding of `Nat` as it is often shown in tutorials:
 ```dhall
 let Nat = ∀(r : Type) → r → (r → r) → r
 ```
@@ -6000,11 +6000,11 @@ For example, concatenating or reversing lists of type `ListInt` takes time quadr
 
 TODO:validate these statements by running some examples and show timings!
 
-## Church encodings for more complicated types
+## Church encodings of more complicated types
 
 ### Mutually recursive types
 
-If two or more types are defined recursively through each other, one needs a separate pattern functor and a separate the Church encoding for each of the types.
+If two or more types are defined recursively through each other, one needs a separate pattern functor and a separate Church encoding for each of the types.
 
 As an example, consider this Haskell definition:
 
@@ -6051,7 +6051,7 @@ But that difference is crucial.
 
 See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
-### Type constructors
+### Recursive type constructors
 
 Typically, a recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
 To describe such type equations, the pattern functor `F` must have more type parameters.
@@ -6991,7 +6991,7 @@ If we consider the product type of the entire set of constructors in the "long s
 That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
 
 Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
-The Church encoding for that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
+The Church encoding of that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
 The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations:
 
 ```dhall
@@ -7059,7 +7059,7 @@ Let us write them side by side:
 These types will be equal if we define `F P Int = Text` and `F P Text = (Bool, P Int)`.
 The type constructor `F P` will be void unless applied to `Int` and `Text` type parameters.
 
-Write the Church encoding for the type constructor `P` as `LFixK F`, which after currying looks like this:
+Write the Church encoding of the type constructor `P` as `LFixK F`, which after currying looks like this:
 
 ```dhall
 let C = λ(a : Type) →
@@ -7087,7 +7087,7 @@ data P a where                    -- Haskell.
 We see that the type parameter `r` replaces all recursive usages of `P` in the long-syntax definition.
 This is the recipe of writing GADTs in the Church encoding.
 
-Here is the Church encoding for the toy language `LExp` shown above:
+Here is the Church encoding of the toy language `LExp` shown above:
 
 ```dhall
 let LExp = λ(t : Type) → ∀(r : Type → Type) →
@@ -7479,7 +7479,7 @@ Instead, we will apply the technique similar to that used for the Church encodin
 ```dhall
 Pair A B  ≅  ∀(R : Type) → (A → B → R) → R
 ```
-The analogous encoding for the dependent pair is:
+The analogous encoding of the dependent pair is:
 ```dhall
 DependentPair X P  ≅  ∀(R : Type) → (∀(x : X) → P x → R) → R
 ```
@@ -9984,7 +9984,7 @@ Here we will show the Dhall code for those instances.
 
 A least-fixpoint type constructor is defined via a pattern functor that must be a type constructor with _two_ type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter is used for recursion.
-(See the section "Recursive type constructors" in the chapter "Church encoding for recursive.)
+(See the section "Recursive type constructors" in the chapter "Church encodings of more complicated types".)
 
 Suppose `F` is a given pattern functor with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
@@ -11272,7 +11272,7 @@ let monadArrowContraF : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
     in { pure, bind }
 ```
 
-### Function-type monads. Combinators for $M$-filterable (contra)functors
+### Function-type monads and $M$-filterable (contra)functors
 
 The combinator `monadArrowContraF` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
 The price for supporting all monads `M` is a new special restriction on the contrafunctors `F`.
@@ -12636,7 +12636,7 @@ TODO: show how the encoding obtained from the unrolling lemma and the CY identit
 #### List-like monads
 
 The `List` and `NEL` (non-empty list) are monads representing a sequence of data items.
-We have already seen how to use Church encoding for implementing  these type constructors. 
+We have already seen how to use the Church encoding for implementing  these type constructors. 
 In a similar way, we implement transformers for these monads.
 
 The recursive definitions of the transformers `TList` and `TNEL` can be written as:
@@ -13110,7 +13110,7 @@ let FreeFunctor = FunctorP
 ```
 The mathematical notation for this type is:
 
-$$ \textrm{FreeFunctor}~F~a = \exists t.\~(t\to a)\times F t $$
+$$ \textrm{FreeFunctor}~F~a = \exists t.\~(t\to a)\times F ~t $$
 
 Here is the corresponding `Functor` typeclass evidence:
 
@@ -13124,8 +13124,28 @@ let functorFreeFunctor : ∀(F : Type → Type) → Functor (FreeFunctor F)
       }
 ```
 
-TODO: Mention that FreeFunctor F is equivalent to F if F is already a functor
+We can now formulate the free functor as a free $P$-typeclass:
 
+```dhall
+let freePTypeclassTFreeFunctor : FreePTypeclassT FunctorP FreeFunctor
+  = { evidence = λ(T : Type → Type) →
+        λ(a : Type) → λ(p : FunctorP FreeFunctor a) → ???
+    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) → ???
+  }
+
+```
+
+The free functor construction is useful because it can convert any type constructor to a functor.
+After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable or the free monad constructions shown earlier). 
+
+What if we take a type constructor `F` that is already a functor, and compute `FreeFunctor F`?
+It turns out that the resulting functor is equivalent to `F`.
+This happens because of the **co-Yoneda identities**:
+
+
+$$  \exists t.\~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
+
+We will prove the co-Yoneda identities in the Appendix "Naturaltiy and parametricity".
 
 ### Free contrafunctor
 
@@ -14064,7 +14084,7 @@ F A  ≅  Exists (λ(B : Type) → { seed : F B, step : B → A })
 C A  ≅  Exists (λ(B : Type) → { seed : C B, step : A → B })
 ```
 Here it is required that `F` be a covariant functor and `C` a contrafunctor.
-These type equivalences are sometimes called **co-Yoneda identities**.
+These type equivalences are known as **co-Yoneda identities**.
 
 In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
 Proofs for the contravariant versions are similar.
@@ -15638,7 +15658,7 @@ The last formula is in the form of the Church-co-Yoneda identity, which shows th
 
 The proof of `U ≅ G T` is similar.
 
-### Church encodings for mutually recursive fixpoints
+### Church encodings of mutually recursive fixpoints
 
 In the previous section, we have defined types `T` and `U` and then proved that `T = F U` and `U = G T`.
 These two type equations may be considered as _definitions_ of `T` and `U` that are recursive: `T` is defined via `U` but `U` is defined via `T`.
@@ -15711,7 +15731,7 @@ LFix (λ(x : Type) → LFix (λ(y : Type) → J x y))
   ≅  LFix (λ(x : Type) → N x)  =  LFix N
 ```
 
-Use the Church encoding for the last expression:
+Write down the Church encoding of the last expression:
 
 ```dhall
 LFix N  ≅  ∀(x : Type) → (N x → x) → x
@@ -16068,7 +16088,7 @@ LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
 ```
 $$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
 
-Church encoding for mutually recursive least fixpoints (for covariant bifunctors `F`, `G`):
+Church encodings of mutually recursive least fixpoints (for covariant bifunctors `F`, `G`):
 
 
 ```dhall
