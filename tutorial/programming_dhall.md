@@ -12359,7 +12359,7 @@ This combinator may be used only in certain specific cases when it is known that
 
 #### State monad
 
-The **State monad** is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
+The **state monad** is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
 The corresponding transformer is given by `T S M a = S → M (Pair S a)`.
 
 Let us implement this in Dhall:
@@ -13046,17 +13046,20 @@ let MonadP : (Type → Type) → Type → Type
   = λ(M : Type → Type) → λ(a : Type) → Either a (M (M a))
 ```
 
-Now we can write the code for a free $P$-typeclass evidence:
+Now we can write the code of a free $P$-typeclass evidence for `FreeMonad`:
 ```dhall
-let freePTypeclassTFunctorFreeMonad : FreePTypeclassTFunctor MonadP FreeMonad
-  = { evidence = λ(T : Type → Type) → λ(functorT : Functor T) → ???
-    , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
-        merge { Left = λ(x : a) → pTypeclassTPointedU a x
-              , Right = λ(ua : U a) → ua
-              } freePT
-    }
+let freePTypeclassTFreeMonad : FreePTypeclassT MonadP FreeMonad
+  = { evidence = λ(T : Type → Type) →
+        λ(a : Type) → λ(p : Either a (FreeMonad T (FreeMonad T a))) →
+          merge { Left = λ(x : a) → (monadFreeMonad T).pure a x
+                , Right = λ(y : FreeMonad T (FreeMonad T a)) → monadJoin (FreeMonad T) (monadFreeMonad T) a y
+                } p
+    , eval = λ(U : Type → Type) → λ(pTypeclassTMonadU : PTypeclassT MonadP U) → λ(a : Type) → λ(freePU : FreeMonad U a) →
+        freePU (U a) (λ(x : a) → pTypeclassTMonadU a ((MonadP U a).Left x)) (λ(uua : U (U a)) → pTypeclassTMonadU a ((MonadP U a).Right uua))
+  }
 ```
-
+We did not need a `Functor` evidence for `T` because `FreeMonad T` does not need it when defined via the Church encoding.
+Nevertheless, we need to keep in mind that `FreeMonad T` works correctly only when `T` is a functor.
 
 ### Free functor
 
