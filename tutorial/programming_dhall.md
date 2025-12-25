@@ -11272,11 +11272,11 @@ let monadArrowContraF : ∀(F : Type → Type) → Contrafunctor F → Monad (Ar
     in { pure, bind }
 ```
 
-### Function-type monads with $M$-filterable contrafunctors
+### Function-type monads. Combinators for $M$-filterable (contra)functors
 
 The combinator `monadArrowContraF` is a special case of the construction that produces a monad `Arrow F M` with any monad `M` (not necessarily with `M = Id`).
 The price for supporting all monads `M` is a new special restriction on the contrafunctors `F`.
-Namely, the  function-type construction works only for   **$M$-filterable contrafunctors**.
+Namely, the  function-type construction works only for   **$M$-filterable contrafunctors** `F`.
 
 By definition, a contrafunctor `F` is $M$-filterable (where `M` is a monad) if there is a method `inflateM` with the type signature `∀(a : Type) → F a → F (M a)`.
 This method is a generalization of `inflate` (from filterable contrafunctors) where we replace the `Optional` monad by an arbitrary monad $M$.
@@ -11366,8 +11366,6 @@ let toIdContraFilterable : ∀(F : Type → Type) → Contrafunctor F → MContr
     contrafunctorF /\ { inflateM = λ(a : Type) → identity (F a) }
 ```
 Because of this property, we were able to formulate the simpler monadic combinator `monadArrowContraF` for arbitrary contrafunctors `F` without invoking the notion of $M$-filterable contrafunctors.
-
-#### Combinators for $M$-filterable functors and contrafunctors
 
 In this section, we will assume that a monad `M` is given and fixed.
 Because the concepts of $M$-filterable functors and contrafunctors become trivial when `M = Id`, we will assume that `M` is not the identity monad.
@@ -11863,7 +11861,7 @@ let flattenedListC = ListC/join Natural nestedListC
 let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
 ```
 
-#### The non-empty list monad
+#### The non-empty list
 
 We have already seen the definition of the non-empty list via curried Church encoding:
 
@@ -11928,7 +11926,7 @@ let flattenedNELNatural = NEL/join Natural nestedNEL
 let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
 ```
 
-#### The binary tree monad
+#### The binary tree
 
 Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
 We have defined this data type before as `TreeC` via curried Church encoding.
@@ -12975,12 +12973,12 @@ We may view `PointedP` as a map from functors to functors that always returns th
 The corresponding free $P$-typeclass evidence is here:
 
 ```dhall
-let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed 
+let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed
   = { evidence = λ(T : Type → Type) → (pointedFreePointed T).pure
-    , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
+    , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePU : FreePointed U a) →
         merge { Left = λ(x : a) → pTypeclassTPointedU a x
               , Right = λ(ua : U a) → ua
-              } freePT
+              } freePU
     }
 ```
 
@@ -12999,7 +12997,6 @@ let filterableFunctorFreeFilterable : ∀(F : Type → Type) → Functor F → F
     in functorFreeFilterable /\ { deflate }
 ```
 
-
 To formulate the free filterable functor construction as a free $P$-typeclass, we  rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with a suitable `P : (Type → Type) → Type → Type`.
 Looking at the type signature of `deflate`, we find that a suitable `P` is defined by:
 
@@ -13008,11 +13005,51 @@ let FilterableP : (Type → Type) → Type → Type
   = λ(F : Type → Type) → λ(a : Type) → F (Optional a) 
 ```
 
-The corresponding free $P$-typeclass evidence is:
-TODO: reformulate this to allow assumptions on T
+We did not include the `fmap` method into `P`; instead, we will derive that method the `Functor` evidence of `F`.
+To be able to do that, we define a version of the free typeclass instance that is specialized for functor-based typeclasses:
+
 ```dhall
-let freePTypeclassTFreeFilterable : FreePTypeclassT FilterableP FreeFilterable 
-  = { evidence = λ(T : Type → Type) → (filterableFunctorFreeFilterable T).pure
+let FreePTypeclassTFunctor = λ(P : (Type → Type) → Type → Type) → λ(FreePT : (Type → Type) → Type → Type) →
+  { evidence : ∀(T : Type → Type) → Functor T → PTypeclassT P (FreePT T)
+  , eval : ∀(U : Type → Type) → PTypeclassT P U → ∀(a : Type) → FreePT U a → U a
+  }
+```
+
+The corresponding free $P$-typeclass evidence for `FreeFilterable` is:
+
+```dhall
+let freePTypeclassTFunctorFreeFilterable : FreePTypeclassTFunctor FilterableP FreeFilterable
+  = { evidence = λ(T : Type → Type) → λ(functorT : Functor T) → (filterableFunctorFreeFilterable T functorT).deflate
+    , eval = λ(U : Type → Type) → λ(pTypeclassTFilterable : PTypeclassT FilterableP U) → pTypeclassTFilterable
+    }
+```
+
+### Free monad
+
+We already saw the code for the free monad (`FreeMonad`).
+Now we will reformulate it as a free $P$-typeclass constructor.
+
+The first step is to formulate the monad's methods as a single value of type `∀(a : Type) → P M a → M a`.
+Instead of using `pure` and `bind`, it is easier to use `pure` and `join` as the monad's methods.
+The types of these methods are:
+
+`pure : ∀(a : Type) → a → M a`
+
+`join : ∀(a : Type) → M (M a) → M a`
+
+These two methods do not cover the functionality of `fmap`, but we will use a `Functor` evidence of `F` to derive the free monad on `F`.
+
+If we choose `P M a` as a union type `Either a (M (M a))`, the type `P M a → M a` will be equivalent to the pair of function types `a → M a` and `M (M a) → M a`.
+This motivates the definition:
+```dhall
+let MonadP : (Type → Type) → Type → Type
+  = λ(M : Type → Type) → λ(a : Type) → Either a (M (M a))
+```
+
+Now we can write the code for a free $P$-typeclass evidence:
+```dhall
+let freePTypeclassTFunctorFreeMonad : FreePTypeclassTFunctor MonadP FreeMonad
+  = { evidence = λ(T : Type → Type) → λ(functorT : Functor T) → ???
     , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
         merge { Left = λ(x : a) → pTypeclassTPointedU a x
               , Right = λ(ua : U a) → ua
@@ -13020,13 +13057,6 @@ let freePTypeclassTFreeFilterable : FreePTypeclassT FilterableP FreeFilterable
     }
 ```
 
-
-### Free monad
-
-We already saw the code for the free monad (`FreeMonad`).
-Now we will reformulate it as a free $P$-typeclass constructor.
-
-The first step 
 
 ### Free functor
 
@@ -13638,14 +13668,15 @@ and:
 ```
 
 Note that `List` itself is not a type that has values. It is not valid to write `[ 1, 2, 3 ] : List`.
-We must apply `List` to a type parameter in order to get a type that has values.
+We must apply `List` to a type that has values (such as `Natural`, `Bool`, etc.) in order to get another type that has values (`List Natural`, `List Bool`, etc.).
 
-It is inconvenient to say "the type of a type". So, types of types are called **kinds**.
-The symbol `Type` itself is a "kind".
+It is inconvenient to say "the type of a type". So, we call it a **kind** instead.
+The symbol `Type` itself is an example of a "kind".
+We say that the symbol `Natural` has kind `Type`.
 
-Types that has values, such as `Natural` or `List Bool`, have kind `Type`.
+Types that have values (`Natural`, `Bool`, `List Bool`, etc.) have kind `Type`.
 
-The symbol `List` itself has kind `Type → Type`, indicating that `List` is a function that maps types to types.
+The symbol `List` has kind `Type → Type`, indicating that `List` is a function that maps types to types.
 
 Dhall has another built-in symbol of the same kind: `Optional`.
 
@@ -13741,7 +13772,7 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 ```
 In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
-Functions of type `∀(A : Type) → F A → G A` are called **natural transformations** when both `F` and `G` are covariant functors, or when both are contravariant (and when the function satisfies the naturality law).
+A function of type `∀(A : Type) → F A → G A` is called a **natural transformation** when both `F` and `G` are covariant functors or when both are contravariant functors, provided that the function satisfies the appropriate naturality law (see the next subsection below).
 
 
 If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
@@ -14144,7 +14175,7 @@ The corresponding code consists of two functions:
 
 TODO
 
-### Church encoding of least fixpoints: Proofs
+### Church encoding of least fixpoints
 
 Here we show proofs of some technical properties of Church-encoded types.
 (Those properties are explained in the paper "Recursive types for free" by P. Wadler.
@@ -14980,17 +15011,17 @@ This is translated into Dhall as:
 
 After renaming `t = ep`, this is the same equation we proved above.
 
-### Church encodings of greatest fixpoints: Proofs
+### Church encodings of greatest fixpoints
 
-In this section, we will prove some general properties of co-inductive types, such as `GFix F` defined in the chapter "Co-inductive types".
-In particular, we will prove that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
+In this section, we will prove some general properties of co-inductive types such as `GFix F` defined in the chapter "Co-inductive types".
+In particular, we will show that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
 
-For simplicity, we will assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
+For simplicity, we assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
 An example of such an `F` could be:
 
 ```dhall
 let F = Optional
-let functorF : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
+let functorF : Functor Optional = { fmap = Optional/map }
 ```
 
 To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
@@ -15443,16 +15474,16 @@ toCCoY (fromCCoY c)  -- Expand definitions of toCCoY and fromCCoY:
 ```
 
 
-### The unrolling lemma
+### The "unrolling" lemma
 
 The Church-Yoneda and Church-co-Yoneda identities are not well known, but they are useful for proofs of certain properties of recursive types.
-In this section we will study the property known as the **unrolling lemma**.
+In this section we will use them to prove the property known as the **unrolling lemma**.
 
 A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.
 Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
 Nevertheless, many properties of recursive types become more clear with this visualization.
 
-An example is the recursive type defined by `T = F (G T)` where `F` and `G` are two given functors.
+An example is the recursive type defined by `T = F (G T)` where `F` and `G` are two given functors:
 
 ```dhall
 let F : Type → Type = λ(a : Type) → < One | Two : a | Three : Natural >
@@ -15463,9 +15494,10 @@ Looking at the "unrolling" formula `T = F (G (F (G (...))))`, it appears that `T
 The recursive type `U` can be defined rigorously via `U = G (F U)`.
 The unrolled type expression for `U` also suggests that `U = G T`.
 
-It turns out that the properties `T = F U` and `U = G T` may be derived rigorously; this is known as the "unrolling lemma".
+It turns out that the type isomorphisms `T ≅ F U` and `U ≅ G T` may be derived rigorously; this is known as the "unrolling lemma".
 We will prove two versions of this property: for the least fixpoints and for the greatest fixpoints.
-The fixpoints will be Church-encoded, as required in Dhall.
+The fixpoints need to be Church-encoded, as required in Dhall.
+
 ###### Statement 1 (unrolling lemma for least fixpoints)
 
 For any functors `F` and `G`, define the types `T` and `U` as the least fixpoints of the equations `T = F (G T)` and `U = G (F U)`.
@@ -15539,7 +15571,7 @@ The last formula is in the form of the Church-co-Yoneda identity, which shows th
 
 The proof of `U ≅ G T` is similar.
 
-### Church encodings for mutually recursive fixpoints: Proofs
+### Church encodings for mutually recursive fixpoints
 
 In the previous section, we have defined types `T` and `U` and then proved that `T = F U` and `U = G T`.
 These two type equations may be considered as _definitions_ of `T` and `U` that are recursive: `T` is defined via `U` but `U` is defined via `T`.
