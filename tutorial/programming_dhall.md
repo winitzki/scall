@@ -3300,7 +3300,7 @@ Define the type constructor for evidence values:
 let Functor = λ(F : Type → Type) → { fmap : FmapT F }
 ```
 
-Here is a `Functor` evidence values for `List` and `Optional`.
+Here are `Functor` evidence values for `List` and `Optional`.
 The required `fmap` methods are already available in the Dhall prelude:
 
 ```dhall
@@ -12958,7 +12958,7 @@ The following code makes this precise:
 
 ```dhall
 let pointedFreePointed : ∀(F : Type → Type) → Pointed (FreePointed F)
-  = λ(F : Type → Type) → { pure = λ(a : Type) → λ(x : a) → (FreePointed F a).Left x } 
+  = λ(F : Type → Type) → { pure = λ(a : Type) → (FreePointed F a).Left } 
 ```
 
 
@@ -12976,7 +12976,7 @@ The corresponding free $P$-typeclass evidence is here:
 
 ```dhall
 let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed 
-  = { evidence = λ(T : Type → Type) → λ(a : Type) → λ(x : a) → (FreePointed T a).Left x
+  = { evidence = λ(T : Type → Type) → (pointedFreePointed T).pure
     , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
         merge { Left = λ(x : a) → pTypeclassTPointedU a x
               , Right = λ(ua : U a) → ua
@@ -12985,6 +12985,40 @@ let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed
 ```
 
 ### Free filterable
+
+The free filterable functor on a given functor `F` is obtained as `FreeFilterable F a = F (Optional a)`.
+In other words, it is enough to compose any functor with `Optional` to obtain a filterable functor.
+
+To see how this works, let us implement a `Filterable` instance:
+
+```dhall
+let filterableFunctorFreeFilterable : ∀(F : Type → Type) → Functor F → Filterable (Compose F Optional)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    let functorFreeFilterable : Functor (Compose F Optional) = functorFunctorCompose F functorF Optional functorOptional
+    let deflate : ∀(a : Type) → F (Optional (Optional a)) → F (Optional a) = λ(a : Type) → λ(fooa : F (Optional (Optional a))) → functorF.fmap (Optional (Optional a)) (Optional a) (https://prelude.dhall-lang.org/Optional/concat a) fooa
+    in functorFreeFilterable /\ { deflate }
+```
+
+
+To formulate the free filterable functor construction as a free $P$-typeclass, we  rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with a suitable `P : (Type → Type) → Type → Type`.
+Looking at the type signature of `deflate`, we find that a suitable `P` is defined by:
+
+```dhall
+let FilterableP : (Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(a : Type) → F (Optional a) 
+```
+
+The corresponding free $P$-typeclass evidence is:
+TODO: reformulate this to allow assumptions on T
+```dhall
+let freePTypeclassTFreeFilterable : FreePTypeclassT FilterableP FreeFilterable 
+  = { evidence = λ(T : Type → Type) → (filterableFunctorFreeFilterable T).pure
+    , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePT : FreePointed U a) →
+        merge { Left = λ(x : a) → pTypeclassTPointedU a x
+              , Right = λ(ua : U a) → ua
+              } freePT
+    }
+```
 
 
 ### Free monad
