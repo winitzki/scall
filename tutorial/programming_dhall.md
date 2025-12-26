@@ -2657,15 +2657,15 @@ Dhall functions of the form `λ(X : Type) → body` or `λ(X : Kind) → body` _
 The standard combinators for functions are forward and backward composition, currying / uncurrying, argument flipping, and constant functions.
 
 Implementing these combinators in Dhall is straightforward.
-Instead of pairs, we use the record type `{ _1 : a, _2 : b }`.
+Instead of pairs, we use the record type `Pair a b` that we have defined earlier as  `{ _1 : a, _2 : b }`.
 
 ```dhall
-let compose_forward
+let composeForward
  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b) → (b → c) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b) → λ(g : b → c) → λ(x : a) →
     g (f (x))
 
-let compose_backward
+let composeBackward
  : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → (a → c)
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
     f (g (x))
@@ -2676,13 +2676,13 @@ let flip
     f y x
 
 let curry
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → ({ _1 : a, _2 : b } → c) → (a → b → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : { _1 : a, _2 : b } → c) → λ(x : a) → λ(y : b) →
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (Pair a b → c) → (a → b → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : Pair a b → c) → λ(x : a) → λ(y : b) →
     f { _1 = x, _2 = y }
 
 let uncurry
- : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → ({ _1 : a, _2 : b } → c)
-  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : { _1 : a, _2 : b }) →
+ : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (a → b → c) → (Pair a b → c)
+  = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : a → b → c) → λ(p : Pair a b) →
     f p._1 p._2
 
 let const
@@ -2800,25 +2800,25 @@ This check is equivalent to a rigorous mathematical proof that the law holds.
 To see more examples, let us verify the laws of function composition:
 
 ```dhall
-let compose_backward
+let composeBackward
   : ∀(a : Type) → ∀(b : Type) → ∀(c : Type) → (b → c) → (a → b) → a → c
   = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(f : b → c) → λ(g : a → b) → λ(x : a) →
     f (g (x))
 
   -- The identity laws.
 let left_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
-  assert : compose_backward a a b f (identity a) ≡ f
+  assert : composeBackward a a b f (identity a) ≡ f
 let right_id_law = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
-  assert : compose_backward a b b (identity b) f ≡ f
+  assert : composeBackward a b b (identity b) f ≡ f
 
   -- The constant function composition law.
 let const_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(x : c) → λ(f : a → b) →
-  compose_backward a b c (const b c x) f ≡ const a c x
+  composeBackward a b c (const b c x) f ≡ const a c x
 
   -- The associativity law.
 let assoc_law = λ(a : Type) → λ(b : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → b) → λ(g : b → c) → λ(h : c → d) →
-  assert : compose_backward a b d (compose_backward b c d h g) f
-         ≡ compose_backward a c d h (compose_backward a b c g f)
+  assert : composeBackward a b d (composeBackward b c d h g) f
+         ≡ composeBackward a c d h (composeBackward a b c g f)
 ```
 
 In the Haskell syntax, these laws look like this:
@@ -2903,7 +2903,7 @@ A `Semigroup` typeclass evidence value for the type `Natural` is a value of type
 Here are some examples of `Semigroup` evidence values:
 ```dhall
 let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
-let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = compose_forward Bool Bool Bool }
+let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = composeForward Bool Bool Bool }
 ```
 
 The type `Natural`  is an instance of `Semigroup` because the associativity law holds for the evidence value `semigroupNatural`.
@@ -3375,10 +3375,10 @@ let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
     let fmap = functor_F.fmap
     in { functor_id_law = fmap a a (identity a) ≡ identity (F a)
        , functor_comp_law =
-           let fg = compose_forward a b c f g
+           let fg = composeForward a b c f g
            let fmap_f = fmap a b f
            let fmap_g = fmap b c g
-           let fmapf_fmapg = compose_forward (F a) (F b) (F c) fmap_f fmap_g
+           let fmapf_fmapg = composeForward (F a) (F b) (F c) fmap_f fmap_g
            in fmap a c fg ≡ fmapf_fmapg
        }
 ```
@@ -3543,10 +3543,10 @@ let contrafunctorLaws = λ(F : Type → Type) → λ(contrafunctor_F : Contrafun
     let cmap = contrafunctor_F.cmap
     in { contrafunctor_id_law = cmap a a (identity a) ≡ identity (F a)
        , contrafunctor_comp_law =
-          let gf = compose_backward a b c g f
+          let gf = composeBackward a b c g f
           let cmap_f = cmap a b f
           let cmap_g = cmap b c g
-          let cmapf_cmapg = compose_backward (F c) (F b) (F a) cmap_f cmap_g
+          let cmapf_cmapg = composeBackward (F c) (F b) (F a) cmap_f cmap_g
           in cmap a c gf ≡ cmapf_cmapg
        }
 ```
@@ -9542,9 +9542,9 @@ It may be defined in one of the two ways, depending on the choice of forward or 
 
 ```dhall
 let monoidFuncBackward : ∀(T : Type) → Monoid (T → T)
-  = λ(T : Type) → { empty = identity T, append = compose_backward T T T }
+  = λ(T : Type) → { empty = identity T, append = composeBackward T T T }
 let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
-  = λ(T : Type) → { empty = identity T, append = compose_forward T T T }
+  = λ(T : Type) → { empty = identity T, append = composeForward T T T }
 ```
 
 ### Unit type
@@ -13085,7 +13085,8 @@ let FmapTCurried = λ(F : Type → Type) → ∀(a : Type) → ∀(t : Type) →
 ```
 
 We can "pack" the type `t` into the record if we use the existential quantifier:
-A function type of the form `∀(t : Type) → H t → c` is equivalent to the function type `Exists H → c`.
+A function type of the form `∀(t : Type) → F t → c` is equivalent to the function type `Exists F → c` (here `F` is any type constructor.
+
 For convenience, let us define a suitable type constructor `H` separately:
 ```dhall
 let H = λ(F : Type → Type) → λ(a : Type) → λ(t : Type) → { step : t → a, seed : F t }
@@ -13119,21 +13120,42 @@ let functorFreeFunctor : ∀(F : Type → Type) → Functor (FreeFunctor F)
   = λ(F : Type → Type) →
       { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
           let mapFreeFunctor : FreeFunctor F a → FreeFunctor F b
-            = mapExists (H F a) (H F b) (λ(t : Type) → λ(kfac : H F a t) → { step = λ(x : t) → f (kfac.step x), seed = kfac.seed }) -- Mapping H F a t → H F b t.
+            = mapExists (H F a) (H F b) (λ(t : Type) → λ(hfac : H F a t) → { step = λ(x : t) → f (hfac.step x), seed = hfac.seed }) -- Mapping H F a t → H F b t.
           in mapFreeFunctor
       }
 ```
 
-We can now formulate the free functor as a free $P$-typeclass:
+We can now formulate the free functor as a free $P$-typeclass.
+As the types have become quite complicated, we will sometimes write out the types for clarity:
 
 ```dhall
 let freePTypeclassTFreeFunctor : FreePTypeclassT FunctorP FreeFunctor
   = { evidence = λ(T : Type → Type) →
-        λ(a : Type) → λ(p : FunctorP FreeFunctor a) → ???
-    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) → ???
+        λ(a : Type) → λ(p : FunctorP (FreeFunctor T) a) →
+  -- Have p : Exists (H (λ(b : Type) → Exists (H T b)) a), need Exists (H T a).
+          let _ = p : Exists (H (λ(b : Type) → Exists (H T b)) a) -- Just to make sure the type of p is what we expect.
+          let unpackHTA : ∀(t : Type) → H (λ(b : Type) → Exists (H T b)) a t → Exists (H T a)
+            = λ(t : Type) → λ(q : { step : t → a, seed : Exists (H T t) }) →
+              -- Given q.seed and q.step, need a value of type Exists (H T a).
+              mapExists (H T t) (H T a)
+                (λ(c : Type) → λ(httc : H T t c) →
+                  -- Need a value of type H T a c = { step = c → a, seed : T c }.
+                  let _ = httc : { step : c → t, seed : T c } -- Just to make sure the type is what we expect.
+                  let c2a : c → a = composeForward c t a httc.step q.step
+                  in { step = c2a, seed = httc.seed }
+                ) q.seed
+          in p (FreeFunctor T a) unpackHTA
+    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) →
+        pTypeclassTFunctorU a freePU
   }
-
 ```
+
+In this code, we can see that the value of `evidence` has type `FunctorP (FreeFunctor T) a → FreeFunctor T a`.
+In this case, `FunctorP` and `FreeFunctor` are actually the same.
+So, we have a function of type `FreeFunctor (FreeFunctor T) a → FreeFunctor T a`.
+This type is similar to the type of the `join` method of a monad, except that it is operating at the level of type constructors (`FreeFunctor T`).
+
+This is a general property of free $P$-typeclass instances. The constructor of a free $P$-typeclass instance is always a monad.
 
 The free functor construction is useful because it can convert any type constructor to a functor.
 After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable or the free monad constructions shown earlier). 
@@ -13939,7 +13961,7 @@ To write the corresponding naturality law, we introduce arbitrary types `X`, `Y`
 Then, for any value `p : List X` we must have:
 
 ```dhall
-let fThenG : X → B = compose_forward X A B f g
+let fThenG : X → B = composeForward X A B f g
  in      -- Symbolic derivation.
    assert : List/map X B fThenG p ≡ List/map A B g (List/map X A f p)
 ```
@@ -14120,16 +14142,16 @@ The naturality law corresponding to the type `Y = ∀(B : Type) → (A → B) �
 
 ```dhall
 -- Symbolic derivation.
-y C (compose_forward A B C f g) ≡ fmap_F B C g (y B f)
+y C (composeForward A B C f g) ≡ fmap_F B C g (y B f)
 ```
 
 We substitute `y = inY fa` into the left-hand side of this naturality law:
 
 ```dhall
 -- Symbolic derivation.
-y C (compose_forward A B C f g)   -- Expand the definition of y:
-  ≡ inY fa C (compose_forward A B C f g)  -- Expand the definition of inY:
-  ≡ fmap_F A C (compose_forward A B C f g) fa  -- Use fmap_F's composition law:
+y C (composeForward A B C f g)   -- Expand the definition of y:
+  ≡ inY fa C (composeForward A B C f g)  -- Expand the definition of inY:
+  ≡ fmap_F A C (composeForward A B C f g) fa  -- Use fmap_F's composition law:
   ≡ fmap_F B C g (fmap_F A B f fa)
 ```
 
@@ -14173,7 +14195,7 @@ yNew B f ≡ inY fa B f  -- Expand the definition of inY:
   ≡ fmap_F A B f fa  -- Expand the definition of fa:
   ≡ fmap_F A B f (outY y)  -- Expand the definition of outY:
   ≡ fmap_F A B f (y A (identity A))  -- Use the naturality law of y:
-  ≡ y B (compose_forward A A B (identity A) f)  -- Compute composition:
+  ≡ y B (composeForward A A B (identity A) f)  -- Compute composition:
   ≡ y B f
 ```
 
