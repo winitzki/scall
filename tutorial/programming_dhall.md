@@ -12803,7 +12803,7 @@ The "lawful free $P$-typeclass instance" is a type constructor we will denote by
 - For any type `t` (not necessarily of the $P$-typeclass) the type `FreeP t` belongs to the $P$-typeclass. The evidence value `ev : P t → t` satisfies the typeclass laws.
 - The type constructor `FreeP` is a monad.
 - For any types `s`, `t` and any function `f : s → t` the function `functorP.fmap s t f` of type `FreeP s → FreeP t` preserves the $P$-typeclass operations.
-- For any type `p` that belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. When `p = FreeP t` (for some `t`) then the mentioned function of type `FreeP (FreeP t) → FreeP t` is the `join` method of the monad `FreeP`.
+- For any type `p` that already belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. When `p = FreeP t` (for some `t`) then the mentioned function of type `FreeP (FreeP t) → FreeP t` is the `join` method of the monad `FreeP`.
 
 These requirements (without the laws) may be formulated in terms of a typeclass:
 
@@ -12815,13 +12815,25 @@ let FreePTypeclass = λ(P : Type → Type) → λ(FreeP : Type → Type) →
   }
 ```
 
-The laws of the $P$-typeclass can be formulated using the monad properties of `FreeP`.
-The typeclass laws turn out to be equivalent to the laws of a $FreeP$-monad algebra.
+The free $P$-typeclass instance `FreeP t` belongs to the $P-typeclass even if `t` does not.
+For any   type `u` that belongs to the $P$-typeclass, we may convert `FreeP t` into `u` as long as we have a function of type `t → u`.
+The required conversion function (called `runP`) may be implemented generally, given an evidence value of `FreePTypeclass`:
+
+```dhall
+let runP : ∀(P : Type → Type) → ∀(FreeP : Type → Type) → FreePTypeclass P FreeP → ∀(t : Type) → FreeP t → ∀(u : Type) → PTypeclass P u → (t → u) → u
+  = λ(P : Type → Type) → λ(FreeP : Type → Type) → λ(freePT : FreePTypeclass P FreeP) → λ(t : Type) → λ(freeT : FreeP t) → λ(u : Type) → λ(pTu : PTypeclass P u) → λ(f : t → u) →
+    let freeU : FreeP u = (functorM FreeP freePT.monadFreeP).fmap t u f freeT
+    in freePT.eval u pTu freeU
+```
+
+
+The monad property of `FreeP` is helpful for formulating the laws of a $P$-typeclass:
+Those laws turn out to be equivalent to the laws of a $FreeP$-monad algebra.
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
-This book focuses on code rather than of proofs of laws.
+This book focuses on code rather than on proofs of laws.
 
 It is not known how to construct a free $P$-typeclass evidence in general for arbitrary $P$ and arbitrary required typeclass laws.
-In the following subsections, we will write down the definitions of some known free typeclasses.
+In the following subsections, we will write down the definitions of some free typeclasses.
 
 When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$ and turns out to be just the free monad on $P$.
 This $P$-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
