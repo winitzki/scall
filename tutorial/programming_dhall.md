@@ -13207,7 +13207,7 @@ We now formulate the free contrafunctor as a free $P$-typeclass:
 
 ```dhall
 let freePTypeclassTFreeContrafunctor : FreePTypeclassT ContrafunctorP FreeContrafunctor
-  = { evidence = λ(T : Type → Type) → ???
+  = { evidence = λ(T : Type → Type) →
         λ(a : Type) → λ(p : ContrafunctorP (FreeContrafunctor T) a) →
   -- Have p : Exists (J (λ(b : Type) → Exists (J T b)) a), need Exists (J T a).
           let _ = p : Exists (J (λ(b : Type) → Exists (J T b)) a) -- Just to make sure the type of p is what we expect.
