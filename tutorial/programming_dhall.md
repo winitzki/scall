@@ -13120,7 +13120,7 @@ let functorFreeFunctor : ∀(F : Type → Type) → Functor (FreeFunctor F)
   = λ(F : Type → Type) →
       { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
           let mapFreeFunctor : FreeFunctor F a → FreeFunctor F b
-            = mapExists (H F a) (H F b) (λ(t : Type) → λ(hfac : H F a t) → { step = λ(x : t) → f (hfac.step x), seed = hfac.seed }) -- Mapping H F a t → H F b t.
+            = mapExists (H F a) (H F b) (λ(t : Type) → λ(hfat : H F a t) → { step = λ(x : t) → f (hfat.step x), seed = hfat.seed }) -- Mapping H F a t → H F b t.
           in mapFreeFunctor
       }
 ```
@@ -13145,8 +13145,7 @@ let freePTypeclassTFreeFunctor : FreePTypeclassT FunctorP FreeFunctor
                   in { step = c2a, seed = httc.seed }
                 ) q.seed
           in p (FreeFunctor T a) unpackHTA
-    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) →
-        pTypeclassTFunctorU a freePU
+    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) → pTypeclassTFunctorU a freePU
   }
 ```
 
@@ -13160,18 +13159,85 @@ This is a general property of free $P$-typeclass instances. The constructor of a
 The free functor construction is useful because it can convert any type constructor to a functor.
 After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable or the free monad constructions shown earlier). 
 
-What if we take a type constructor `F` that is already a functor, and compute `FreeFunctor F`?
+What if we take a type constructor `F` that is already a functor and compute `FreeFunctor F`?
 It turns out that the resulting functor is equivalent to `F`.
-This happens because of the **co-Yoneda identities**:
-
+This happens due to one of the **co-Yoneda identities**:
 
 $$  \exists t.\~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
 
-We will prove the co-Yoneda identities in the Appendix "Naturaltiy and parametricity".
+We will prove the co-Yoneda identities in the Appendix "Naturality and parametricity".
 
 ### Free contrafunctor
 
+The free contrafunctor is constructed similarly to the free functor.
+
+We define some helper functions and types:
+```dhall
+let J = λ(F : Type → Type) → λ(a : Type) → λ(t : Type) → { step : a → t, seed : F t }
+```
+Note that the function type in `step` is `a → t` instead of `t → a` that was used in the free functor construction.
+Other than that difference, the code for the free contrafunctor is the same as that for the free functor.
+
+
+We define similar type constructors for the `Contrafunctor` typeclass:
+
+```dhall
+let ContrafunctorP = λ(F : Type → Type) → λ(a : Type) → Exists (J F a)
+let FreeContrafunctor = ContrafunctorP
+```
+
+
+The mathematical notation for this type is:
+
+$$ \textrm{FreeContrafunctor}~F~a = \exists t.\~(a\to t)\times F ~t $$
+
+Here is the corresponding `Contrafunctor` typeclass evidence:
+
+```dhall
+let contrafunctorFreeContrafunctor : ∀(F : Type → Type) → Contrafunctor (FreeContrafunctor F)
+  = λ(F : Type → Type) →
+      { cmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
+          let mapFreeContrafunctor : FreeContrafunctor F b → FreeContrafunctor F a
+            = mapExists (J F b) (J F a) (λ(t : Type) → λ(jfbt : J F b t) → { step = λ(x : a) → jfbt.step (f x), seed = jfbt.seed }) -- Mapping J F b t → J F a t.
+          in mapFreeContrafunctor
+      }
+```
+
+We now formulate the free contrafunctor as a free $P$-typeclass:
+
+```dhall
+let freePTypeclassTFreeContrafunctor : FreePTypeclassT ContrafunctorP FreeContrafunctor
+  = { evidence = λ(T : Type → Type) → ???
+        λ(a : Type) → λ(p : ContrafunctorP (FreeContrafunctor T) a) →
+  -- Have p : Exists (J (λ(b : Type) → Exists (J T b)) a), need Exists (J T a).
+          let _ = p : Exists (J (λ(b : Type) → Exists (J T b)) a) -- Just to make sure the type of p is what we expect.
+          let unpackJTA : ∀(t : Type) → J (λ(b : Type) → Exists (J T b)) a t → Exists (J T a)
+            = λ(t : Type) → λ(q : { step : a → t, seed : Exists (J T t) }) →
+              -- Given q.seed and q.step, need a value of type Exists (J T a).
+              mapExists (J T t) (J T a)
+                (λ(c : Type) → λ(jttc : J T t c) →
+                  -- Need a value of type J T a c = { step = a → c, seed : T c }.
+                  let _ = jttc : { step : t → c, seed : T c } -- Just to make sure the type is what we expect.
+                  let a2c : a → c = composeBackward a t c jttc.step q.step
+                  in { step = a2c, seed = jttc.seed }
+                ) q.seed
+          in p (FreeContrafunctor T a) unpackJTA
+    , eval = λ(U : Type → Type) → λ(pTypeclassTContrafunctorU : PTypeclassT ContrafunctorP U) → λ(a : Type) → λ(freePU : FreeContrafunctor U a) → pTypeclassTContrafunctorU a freePU
+  }
+```
+
+
+If we take a type constructor `F` that is already a contrafunctor and compute `FreeContrafunctor F`, the result will be equivalent to `F`.
+This can be shown via the following co-Yoneda identity:
+
+$$  \exists t.\~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
+
+
 ### Free applicative
+
+The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition, and the methods of an applicative functor require an existential quantifier.
+
+TODO: implement
 
 # Appendixes
 
