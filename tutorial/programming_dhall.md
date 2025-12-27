@@ -12778,9 +12778,9 @@ We will first describe the free typeclass instance for ordinary types.
 
 TODO: explain more about why we can use P t → t and refer to examples later in this chapter
 
-Each  $P$-typeclass is defined via a chosen structure functor `P`.
-A type `t` belongs to the $P$-typeclass if there exist an evidence value of type `P t → t`.
-Additionally, that evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses do not have any laws).
+Each  $P$-typeclass is defined via a chosen structure functor `P` (of kind `Type → Type`).
+A type `t` belongs to the $P$-typeclass if there exists an evidence value of type `P t → t`.
+In addition, the evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses do not have any laws).
 
 We may write down the required type signature as:
 ```dhall
@@ -12801,8 +12801,8 @@ This law expresses the structural property of `f`: any operations of the $P$-typ
 The "lawful free $P$-typeclass instance" is a type constructor we will denote by `FreeP`, with the following properties:
 
 - For any type `t` (not necessarily of the $P$-typeclass) the type `FreeP t` belongs to the $P$-typeclass. The evidence value `ev : P t → t` satisfies the typeclass laws.
-- The type constructor `FreeP` is a monad.
-- For any types `s`, `t` and any function `f : s → t` the function `functorP.fmap s t f` of type `FreeP s → FreeP t` preserves the $P$-typeclass operations.
+- For any types `s`, `t` and any function `f : s → t` the function `fmap s t f` of type `FreeP s → FreeP t` preserves the $P$-typeclass operations.
+- The type constructor `FreeP` is a monad. Its `pure` method converts values of type `t` into values of type `FreeP t`. 
 - For any type `p` that already belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. When `p = FreeP t` (for some `t`) then the mentioned function of type `FreeP (FreeP t) → FreeP t` is the `join` method of the monad `FreeP`.
 
 These requirements (without the laws) may be formulated in terms of a typeclass:
@@ -12826,14 +12826,15 @@ let runP : ∀(P : Type → Type) → ∀(FreeP : Type → Type) → FreePTypecl
     in freePT.eval u pTu freeU
 ```
 
-
-The monad property of `FreeP` is helpful for formulating the laws of a $P$-typeclass:
-Those laws turn out to be equivalent to the laws of a $FreeP$-monad algebra.
+The monad property of `FreeP` is helpful for formulating the laws of a $P$-typeclass in the language of category theory.
+In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a $P$-functor algebra.
+The typeclass laws  turn out to be equivalent to `t` being a monad algebra (of the monad `FreeP`).
+So, a $P$-typeclass with laws is described as a set of $P$-functor algebras that are at the same time $F$-monad algebras, with suitable choices of $P$ and $F$. 
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
-This book focuses on code rather than on proofs of laws.
+This book focuses on code rather than on proofs of laws or category theory.
 
-It is not known how to construct a free $P$-typeclass evidence in general for arbitrary $P$ and arbitrary required typeclass laws.
-In the following subsections, we will write down the definitions of some free typeclasses.
+It is not known how to construct a free $P$-typeclass in general for arbitrary $P$ and arbitrary required typeclass laws.
+In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
 
 When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$ and turns out to be just the free monad on $P$.
 This $P$-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
@@ -12863,7 +12864,7 @@ For example, the `fmap` method of `Functor` has two type parameters:
 
 `fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b`
 
-The structure functor is more complicated and must be defined as `P : (Type → Type) → Type → Type`.
+Structure functors `P` for type constructor $P$-typeclasses must have kind `(Type → Type) → Type → Type`.
 Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the $P$-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
 
 ```dhall
@@ -12888,10 +12889,12 @@ Let us now formulate the free $P$-typeclass for type constructors as the typecla
 We will drop the monad evidence requirement from that typeclass:
 Implementing monads at the level of type constructors is technically difficult but brings no practical advantages.
 The formulation of typeclass laws via monad algebras helps in theoretical derivations but cannot be directly used in code.
+We will just add the monad's `pure` method, as it is necessary for creating values of a free typeclass out of base functor's values.
 
 ```dhall
 let FreePTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreePT : (Type → Type) → Type → Type) →
   { evidence : ∀(T : Type → Type) → PTypeclassT P (FreePT T)
+  , pure : ∀(T : Type → Type) → ∀(a : Type) → T a → FreePT T a
   , eval : ∀(U : Type → Type) → PTypeclassT P U → ∀(a : Type) → FreePT U a → U a
   }
 ```
@@ -12965,7 +12968,7 @@ The simplest one is the free pointed functor.
 
 The typeclass `Pointed` has only one method, `pure : ∀(a : Type) → a → F a`.
 The free pointed functor is defined as `FreePointed F a = Either a (F a)`.
-For any functor `F` (not necessarily pointed),  `FreePointed F` is a pointed functor because we can define `pure` that returns a `Left` variant of `Either`.
+For any functor `F` (not necessarily pointed),  `FreePointed F` is a pointed functor because we can define `pure` that returns the `Left` variant of `Either`.
 The following code makes this precise:
 
 ```dhall
@@ -12989,6 +12992,7 @@ The corresponding free $P$-typeclass evidence is here:
 ```dhall
 let freePTypeclassTFreePointed : FreePTypeclassT PointedP FreePointed
   = { evidence = λ(T : Type → Type) → (pointedFreePointed T).pure
+    , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → (FreePointed T a).Right ta
     , eval = λ(U : Type → Type) → λ(pTypeclassTPointedU : PTypeclassT PointedP U) → λ(a : Type) → λ(freePU : FreePointed U a) →
         merge { Left = λ(x : a) → pTypeclassTPointedU a x
               , Right = λ(ua : U a) → ua
@@ -13020,11 +13024,12 @@ let FilterableP : (Type → Type) → Type → Type
 ```
 
 We did not include the `fmap` method into `P`; instead, we will derive that method the `Functor` evidence of `F`.
-To be able to do that, we define a version of the free typeclass instance that is specialized for functor-based typeclasses:
+To be able to do that, we define a version of the free $P$-typeclass instance adapated to use with `Functor`-based typeclasses:
 
 ```dhall
 let FreePTypeclassTFunctor = λ(P : (Type → Type) → Type → Type) → λ(FreePT : (Type → Type) → Type → Type) →
   { evidence : ∀(T : Type → Type) → Functor T → PTypeclassT P (FreePT T)
+  , pure : ∀(T : Type → Type) → Functor T → ∀(a : Type) → T a → FreePT T a
   , eval : ∀(U : Type → Type) → PTypeclassT P U → ∀(a : Type) → FreePT U a → U a
   }
 ```
@@ -13034,6 +13039,7 @@ The corresponding free $P$-typeclass evidence for `FreeFilterable` is:
 ```dhall
 let freePTypeclassTFunctorFreeFilterable : FreePTypeclassTFunctor FilterableP FreeFilterable
   = { evidence = λ(T : Type → Type) → λ(functorT : Functor T) → (filterableFunctorFreeFilterable T functorT).deflate
+    , pure = λ(T : Type → Type) → λ(functorT : Functor T) → λ(a : Type) → λ(ta : T a) → functorT.fmap a (Optional a) (λ(x : a) → Some x) ta
     , eval = λ(U : Type → Type) → λ(pTypeclassTFilterable : PTypeclassT FilterableP U) → pTypeclassTFilterable
     }
 ```
@@ -13062,18 +13068,23 @@ let MonadP : (Type → Type) → Type → Type
 
 Now we can write the code of a free $P$-typeclass evidence for `FreeMonad`:
 ```dhall
-let freePTypeclassTFreeMonad : FreePTypeclassT MonadP FreeMonad
-  = { evidence = λ(T : Type → Type) →
+let freePTypeclassTFreeMonad : FreePTypeclassTFunctor MonadP FreeMonad
+  = { evidence = λ(T : Type → Type) → λ(_ : Functor T) →
         λ(a : Type) → λ(p : Either a (FreeMonad T (FreeMonad T a))) →
           merge { Left = λ(x : a) → (monadFreeMonad T).pure a x
                 , Right = λ(y : FreeMonad T (FreeMonad T a)) → monadJoin (FreeMonad T) (monadFreeMonad T) a y
                 } p
+    , pure = λ(T : Type → Type) → λ(functorT : Functor T) → λ(a : Type) → λ(ta : T a) →
+       λ(r : Type) → λ(ar : a → r) → λ(alg : T r → r) →
+         let tr : T r = functorT.fmap a r ar ta
+         in alg tr
     , eval = λ(U : Type → Type) → λ(pTypeclassTMonadU : PTypeclassT MonadP U) → λ(a : Type) → λ(freePU : FreeMonad U a) →
         freePU (U a) (λ(x : a) → pTypeclassTMonadU a ((MonadP U a).Left x)) (λ(uua : U (U a)) → pTypeclassTMonadU a ((MonadP U a).Right uua))
   }
 ```
-We did not need a `Functor` evidence for `T` because `FreeMonad T` does not need it when defined via the Church encoding.
+The `evidence` field in this record does not need a `Functor` evidence for `T` because `FreeMonad T` does not need it when defined via the Church encoding.
 Nevertheless, we need to keep in mind that `FreeMonad T` works correctly only when `T` is a functor.
+Also, the `pure` field requires a `Functor` evidence for `T`.
 
 ### Free functor
 
@@ -13157,6 +13168,7 @@ let freePTypeclassTFreeFunctor : FreePTypeclassT FunctorP FreeFunctor
                   in { step = c2a, seed = httc.seed }
                 ) q.seed
           in p (FreeFunctor T a) unpackHTA
+    , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → pack (H T a) a { step = identity a, seed = ta }
     , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) → pTypeclassTFunctorU a freePU
   }
 ```
@@ -13234,6 +13246,7 @@ let freePTypeclassTFreeContrafunctor : FreePTypeclassT ContrafunctorP FreeContra
                   in { step = a2c, seed = jttc.seed }
                 ) q.seed
           in p (FreeContrafunctor T a) unpackJTA
+    , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → pack (J T a) a { step = identity a, seed = ta }
     , eval = λ(U : Type → Type) → λ(pTypeclassTContrafunctorU : PTypeclassT ContrafunctorP U) → λ(a : Type) → λ(freePU : FreeContrafunctor U a) → pTypeclassTContrafunctorU a freePU
   }
 ```
