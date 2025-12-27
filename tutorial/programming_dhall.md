@@ -3990,12 +3990,18 @@ let ApplicativeFunctor = λ(F : Type → Type ) →
 ```
 
 An example of an applicative functor is the built-in `List` type constructor.
-Its evidence value for the `ApplicativeFunctor` typeclass can be written as:
+Its evidence value for the `ApplicativeFunctor` typeclass can be written using a special "padding zip" function:
 
 ```dhall
-let applicativeFunctorList : ApplicativeFunctor List = functorList /\ pointedList /\
-  { zip = https://prelude.dhall-lang.org/List/zip }
+let applicativeFunctorList : ApplicativeFunctor List
+  = functorList /\ pointedList /\ { zip = paddingZip }
 ```
+Why cannot we use the standard `List/zip` function here?
+The reason is the laws of `zip`.
+
+TODO: explain why.
+
+TODO: explain and implement paddingZip somewhere
 
 It turns out that a `zip` method can be defined for many contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
@@ -6606,7 +6612,7 @@ let bifunctorLFix
 In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on.
 Whenever possible, we will implement typeclass evidence values for Church-encoded type constructors.
 
-### Data structures at type level
+### Recursive data structures at type level
 
 Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, of type `Type`).
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
@@ -6768,7 +6774,7 @@ Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a)
 Because of that change, the type equation for `PBTree` is not of the form `PBTree a = F (PBTree a)` with any functor `F`.
 
 The pattern functor `F` needs to be able to apply `PBTree` to different type parameters.
-So, `F` must have the type constructor `PBTree` as its parameter.
+So, `F` must have the _type constructor_ `PBTree` as its parameter.
 The result of applying `F PBTree` must be a new type constructor that takes a type parameter `a` and applies `PBTree` to the pair `(a, a)`.
 Then we will be able to rewrite the definition of `PBTree` in the form `PBTree = F PBtree`.
 For that, we need to define `F` by:
@@ -13253,14 +13259,42 @@ let freePTypeclassTFreeContrafunctor : FreePTypeclassT ContrafunctorP FreeContra
 
 
 If we take a type constructor `F` that is already a contrafunctor and compute `FreeContrafunctor F`, the result will be equivalent to `F`.
-This can be shown via the following co-Yoneda identity:
+This can be shown via the contravariant co-Yoneda identity:
 
 $$  \exists t.\~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
 
 
 ### Free applicative
 
-The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition, and the methods of an applicative functor require an existential quantifier.
+The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition at the level of type constructors, and the structure functor $P$ must contain an existential quantifier.
+
+To make the formulas shorter, let us assume that `F` is a fixed functor.
+Then the free applicative functor on `F` is defined in mathematical notation by:
+
+$$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a)  $$
+
+This is a recursive definition of the form `FAF a = Q FAF a`, where `Q : (Type → Type) → Type → Type` is a pattern functor (at the level of type constructors) written as:
+
+$$ Q ~ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a)  $$
+
+The Dhall code for `Q` needs to take `F` as an additional argument.
+Let us also define a helper type constructor `R` for the record type we will need to use under the existential quantifier: 
+
+```dhall
+let R : (Type → Type) → (Type → Type) → Type → Type → Type
+  = λ(F : Type → Type) → λ(T : Type → Type) → λ(a : Type) → λ(b : Type) →
+    { seed : T b, step: F (b → a) }  -- This record type is R F T a b.
+let Q : (Type → Type) → (Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(T : Type → Type) → λ(a : Type) → Either a (Exists (R F T a))
+```
+What remains for the definition of the free applicative functor is to set `FreeA F = T`, where `T` is the type constructor corresponding to the least fixpoint of the equation `T = Q F T`.
+The fixpoint type is computed by an application of `LFixK` that we defined earlier in the chapter "Church encodings of more complicated types":
+
+```dhall
+let FreeA : (Type → Type) → (Type → Type)
+  = λ(F : Type → Type) → LFixK (Q F)
+```
+
 
 TODO: implement
 
