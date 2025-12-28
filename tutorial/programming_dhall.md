@@ -11048,7 +11048,7 @@ let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : 
       ga (GFix (F (Pair a b))) (λ(s : Type) → λ(p : { seed : s, step : s → F a s }) →
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
           -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
-          makeGFix (F (Pair a b)) (Pair a b) { _1 = s, _2 = t }
+          makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
             (λ(st : Pair s t) → bizip a s (p.step p.seed) b t (q.step q.seed))
         )
       ) 
@@ -11063,15 +11063,18 @@ let unitViaBiunit : ∀(F : Type → Type → Type) → Bifunctor F → F {} {} 
     makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
 ```
 
-Assuming suitable laws for `bizip` and `biunit`, we can now write an `ApplicativeFunctor` evidence for the greatest fixpoint:
+Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicative` evidence for the greatest fixpoint:
 
 ```dhall
-let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT F → F {} {} → ApplicativeFunctor (λ(c : Type) → GFix (F c))
+let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizip : BizipT F) → λ(biunit : F {} {}) →
-    functorGFix /\ { unit = unitViaBiunit F bifunctorF biunit
-                   , zip = zipviaBizip F bizip
-                   }
+    { unit = unitViaBiunit F bifunctorF biunit
+    , zip = zipViaBizip F bizip
+    }
 ```
+bifunctorGFix
+: ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → GFix (F a))
+
 
 TODO: use bizipFC to implement ordinary zip and padding zip, run example tests
 
