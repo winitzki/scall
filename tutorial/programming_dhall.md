@@ -4035,12 +4035,12 @@ For two non-empty lists, the "padding zip" will return a list of the length of t
 The missing elements are "padded" with the last value in the shorter of the lists:
 
 ```dhall
-let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, True, False, True ]
+let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, False, True, True ]
   ≡ [
       { _1 = 10, _2 = True },
       { _1 = 20, _2 = False },
-      { _1 = 30, _2 = True },
-      { _1 = 30, _2 = False }, 
+      { _1 = 30, _2 = False },
+      { _1 = 30, _2 = True }, 
       { _1 = 30, _2 = True },
     ]
 let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
@@ -11072,9 +11072,9 @@ let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT
     , zip = zipViaBizip F bizip
     }
 ```
-bifunctorGFix
-: ∀(F : Type → Type → Type) → Bifunctor F → Functor (λ(a : Type) → GFix (F a))
 
+Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizip`.
+To implement the `zip` function for its greatest fixpoint, ???
 
 TODO: use bizipFC to implement ordinary zip and padding zip, run example tests
 
@@ -16630,4 +16630,4 @@ in "Example code from the book was evaluated successfully."
 ```
 This becomes the last line in `generated.dhall`.
 
-The `Makefile` script will show this message only if the entire book's source file was parsed correctly and if the entire Dhall code typechecked without errors.
+The `Makefile` script will show this message and proceed to building the PDF file only if the entire book's source file was parsed correctly and if the complete Dhall code typechecked without errors.
