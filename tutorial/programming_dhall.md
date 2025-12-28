@@ -3165,7 +3165,7 @@ foldMap :: Monoid m => (a -> m) -> List a -> m
 foldMap f xs = foldr (\x -> \y -> mappend y (f x)) mempty xs
 ```
 
-Note that Dhall's `List/fold` implements a "right fold", similarly to Haskell's `foldr` and Scala's `foldRight`.
+Note that Dhall's `List/fold` implements a **right fold**, similarly to Haskell's `foldr` and Scala's `foldRight`.
 For this reason, the code shown above appends `y` to `x` and not `x` to `y`.
 The corresponding Dhall code for `reduce` and `foldMap` is:
 
@@ -3304,8 +3304,10 @@ Here are `Functor` evidence values for `List` and `Optional`.
 The required `fmap` methods are already available in the Dhall prelude:
 
 ```dhall
-let functorList : Functor List = { fmap = https://prelude.dhall-lang.org/List/map }
-let functorOptional : Functor Optional = { fmap = https://prelude.dhall-lang.org/Optional/map }
+let List/map = https://prelude.dhall-lang.org/List/map
+let functorList : Functor List = { fmap = List/map }
+let Optional/map = https://prelude.dhall-lang.org/Optional/map
+let functorOptional : Functor Optional = { fmap = Optional/map }
 ```
 
 Using the functions `fmap_F` and `fmap_G` shown above, we may write `Functor` evidence values for the type constructors `F` and `G` as:
@@ -3318,7 +3320,7 @@ let functorG : Functor G = { fmap = fmap_G }
 It turns out that the code for `fmap` can be derived mechanically from the type definition of a functor.
 The Haskell compiler will do that if the programmer just writes `deriving Functor` after the definition.
 But Dhall does not support any such metaprogramming facilities.
-The code of `fmap` must be written by hand in Dhall programs.
+The code of `fmap` must be written out in Dhall programs.
 
 ###### Example: a function with a typeclass constraint
 
@@ -3990,22 +3992,79 @@ let ApplicativeFunctor = λ(F : Type → Type ) →
 ```
 
 An example of an applicative functor is the built-in `List` type constructor.
-Its evidence value for the `ApplicativeFunctor` typeclass can be written using a special "padding zip" function:
+Its evidence value for the `ApplicativeFunctor` typeclass can be written using a special **padding `zip`** function:
+
+```dhall
+let Natural/min = https://prelude.dhall-lang.org/Natural/min
+let List/tail : ∀(a : Type) → List a → List a
+  = λ(a : Type) → λ(la : List a) →
+    let Accum = { result : List a, seen : Bool }
+    let init : Accum = { result = [] : List a, seen = False }
+    let update : a → Accum → Accum = λ(x : a) → λ(prev : Accum) →
+      let newResult = if prev.seen then [x] # prev.result else prev.result
+      in { result = newResult, seen = True }
+    in (List/fold a la Accum update init).result
+let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List (Pair a b)
+  = λ(a : Type) → λ(la : List a) → λ(b : Type) → λ(lb : List b) →
+    let lenA = List/length a la
+    let lenB = List/length b lb
+    let padding = λ(a : Type) → λ(longer : List a) → λ(b : Type) → λ(shorter : List b) →
+    -- This code assumes that both lists are non-empty.
+      let U = Either (List b) b -- Left if not yet padding, Right if started padding.
+      let Accum = { pad : U, result : List (Pair a b) } -- The accumulator type.
+      let nil : Accum = { pad = U.Left shorter, result = [] : List (Pair a b) }
+      let cons : a → Accum → Accum
+        = λ(x : a) → λ(prev : Accum) →
+          merge { Left = λ(tail : List b) →
+                       merge { None = prev -- This will happen only when one of the input lists is empty.
+                             , Some = λ(y : b) →
+                               let pad = if Natural/equal 1 (List/length b tail) then U.Right y else U.Left (List/tail b tail)
+                               in { pad = pad, result = [ { _1 = x, _2 = y } ] # prev.result }
+                             } (List/last b tail)  
+                 , Right = λ(y : b) → { pad = prev.pad, result = [ { _1 = x, _2 = y } ] # prev.result }
+                } prev.pad
+      in List/reverse (Pair a b) (List/fold a longer Accum cons nil).result
+    let revA = List/reverse a la
+    let revB = List/reverse b lb
+    in if lessThanEqual lenA lenB
+    then List/map (Pair b a) (Pair a b) (swap b a) (padding b revB a revA)
+    else padding a revA b revB
+```
+
+For two non-empty lists, the "padding zip" will return a list of the length of the longest of the two lists.
+The missing elements are "padded" with the last value in the shorter of the lists:
+
+```dhall
+let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, True, False, True ]
+  ≡ [
+      { _1 = 10, _2 = True },
+      { _1 = 20, _2 = False },
+      { _1 = 30, _2 = True },
+      { _1 = 30, _2 = False }, 
+      { _1 = 30, _2 = True },
+    ]
+let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
+  ≡ ([] : List (Pair Bool Bool))
+```
+
+Now we can complete the `ApplicativeFunctor` evidence for `List`: 
 
 ```dhall
 let applicativeFunctorList : ApplicativeFunctor List
   = functorList /\ pointedList /\ { zip = paddingZip }
 ```
-Why cannot we use the standard `List/zip` function here?
-The reason is the laws of `zip`.
 
-TODO: explain why.
+Why cannot we use the standard `List/zip` function for implementing this?
+Because the identity laws of `zip` do not hold with our `pointedList` implementation (creating a list of length 1) and the standard `List/zip` function.
+The identity laws say that `List/zip` applied to any list `xs` and to the result of `pointedList.pure a x` must be a list of the same length as `xs`, containing all the original elements of `xs` paired with the value `x : a`.
+However,  `List/zip a p q` will truncate the result to the shortest of the lists `p` and `q`.
+The only way of making  `List/zip` compatible with the applicative identity law is by making `pointedList.pure` return a list of infinite length, which is incompatible with the `List` type. 
 
-TODO: explain and implement paddingZip somewhere
+Below we will show how a function equivalent to `List/zip` can be written for a data structure representing lazily evaluated infinite lists, as well as for other "infinite" data structures.
 
 It turns out that a `zip` method can be defined for many contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
-As an example, consider the type constructor that defines the `Monoid` typeclass:
+As an example of the latter, consider the type constructor that defines the `Monoid` typeclass:
 
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
@@ -4067,8 +4126,7 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
 
 ### Foldable and traversable functors
 
-The standard library function `List/fold` corresponds to the "right fold" known in other functional languages.
-This folding operation implements a general **fold-like aggregation** on lists.
+The standard library function `List/fold` corresponds to the "right fold" known in other functional languages and implements a general **fold-like aggregation** on lists.
 It turns out that this operation can be generalized to many other data types.
 Type constructors that support a `fold` operation are called "foldable" functors.
 
@@ -4086,7 +4144,7 @@ Compare this with the standard type signature of `foldr` in Haskell:
 foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b
 ```
 The type parameters `a`, `b` do not need to be introduced explicitly in Haskell.
-In Dhall, we need to write `∀(a : Type) → ...` and `∀(b : Type) → ...` at the appropriate places.
+But in Dhall, we need to write `∀(a : Type) → ...` and `∀(b : Type) → ...` at the appropriate places.
 The Dhall and Haskell type signatures are equivalent if we set `t = List`, `b = list`, and move the curried argument `t a` to the front of the type signature.
 
 This comparison shows us how to generalize the type signature of `List/fold` to other functors `F`:
@@ -7966,9 +8024,8 @@ In this implementation, `GFix` is a higher-order function that we can inspect by
   ∀(r : Type) → (∀(t : Type) → { seed : t, step : t → F t } → r) → r
 ```
 
-A rigorous proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is shown in the Appendix "Naturality and parametricity" of this book.
-A proof is also outlined in the paper "Recursive types for free".
-This chapter focuses on the practical use of the greatest fixpoints.
+A proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is outlined in the paper "Recursive types for free" and also written out in the Appendix "Naturality and parametricity" of this book.
+This chapter focuses on the practical use of the greatest fixpoints rather than on the proofs of laws.
 
 ### Greatest fixpoints for mutually recursive types
 
@@ -8109,8 +8166,9 @@ To create values of type `GFix F` more conveniently, we will now implement a fun
 The code of that function uses the generic `pack` function (defined in the section "Working with existential types") to create values of type `∃ r. r × (r → F r)`.
 
 ```dhall
-let makeGFix = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
-  pack (GF_T F) r { seed = x, step = rfr }
+let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) → GFix F
+  = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
+    pack (GF_T F) r { seed = x, step = rfr }
 ```
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
@@ -8127,13 +8185,13 @@ For that, we need the general constructor `makeGFix`.
 We can also apply `unfixG` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
 We can then perform pattern-matching directly on that value, since `F` is typically a union type.
 
-So, similarly to the case of Church encodings, `fixG` provides constructors and `unfixG` provides pattern-matching for co-inductive types.
+So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern-matching for co-inductive types.
 
 ### Example of a co-inductive type: "Stream"
 
 To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
 
-Consider the greatest fixpoint of the pattern functor for `List`:
+Consider `Stream`, which we define as  the greatest fixpoint of the pattern functor for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -8149,7 +8207,6 @@ let makeStream = λ(a : Type) → makeGFix (F a)
 ```
 
 Values of type `Stream a` are higher-order functions with quantified types.
-
 For more clarity about how to create and use values of type `Stream a`, let us expand the definitions of `Stream` and `makeStream` using Dhall's REPL:
 
 ```dhall
@@ -8250,17 +8307,19 @@ let streamToList : ∀(a : Type) → Stream a → Natural → List a
    let Accum = { list : List a, stream : Optional (Stream a) }
    let init : Accum = { list = [] : List a, stream = Some s }
    let update : Accum → Accum = λ(prev : Accum) →
-     let headTail : Optional { head : a, tail : Stream a } = merge { None = None { head : a, tail : Stream a }
-                                                                   , Some = λ(str : Stream a) → headTailOption a str
-                                                                   } prev.stream
+     let headTail : Optional { head : a, tail : Stream a }
+       = merge { None = None { head : a, tail : Stream a }
+               , Some = λ(str : Stream a) → headTailOption a str
+               } prev.stream
      in merge { None = prev // { stream = None (Stream a) }
-                , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail } } headTail
+              , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail }
+              } headTail
     in (Natural/fold limit Accum update init).list
 ```
 
 #### Creating finite streams
 
-Let us now see how to create streams.
+Let us now see how to create stream values.
 We begin with finite streams.
 
 To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
@@ -10591,12 +10650,19 @@ The familiar `zip` method for lists works by transforming a pair of lists into a
 It turns out that the `zip` method, together with its mathematical properties, can be generalized from `List` to a wide range of type constructors, such as polynomial functors, tree-like recursive types, and even non-covariant type constructors.
 In the functional programming community, pointed functors with a suitable `zip` method are known as **applicative functors**.
 
-We defined the `Applicative` typeclass in chapter "Typeclasses":
+We defined the `Applicative` typeclass in chapter "Typeclasses".
+Let us define for convenience a type constructor `ZipT` that describes the type signature of the `zip` method:
+
+```dhall
+let ZipT = λ(F : Type → Type) → ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
+```
+
+Then the `Applicative` typeclass can be rewritten as:
 
 ```dhall
 let Applicative = λ(F : Type → Type) →
   { unit : F {}
-  , zip : ∀(a : Type) → F a → ∀(b : Type) → F b → F (Pair a b)
+  , zip : ZipT F
   }
 ```
 This typeclass does not assume that `F` is a covariant or contravariant functor.
@@ -10913,9 +10979,107 @@ let applicativeForall1
        }
 ```
 
-### Least fixpoint types
+### Recursive types. Greatest fixpoints
 
-Implementing a `zip` method for recursive type constructors turns out to require quite a bit of work.
+In this and the next subsections, we will implement `Applicative` evidence for fixpoint type constructors.
+
+Suppose `F` is a bifunctor; that is,  `F a b` is covariant with respect to both `a` and `b`.
+Then we may define the recursive functors `C` and `D` such that `C a = LFix (F a)` and `D a = GFix (F a)`.
+The functors `C` and `D` are applicative as long as `F` has a special `zip`-like method that works at once with both type parameters.
+
+As it turns out, there are several possible ways of defining a `zip` method for bifunctors, and each of those possibilities has its uses.
+One possibility is the method we call `bizip`, with the following type signature:
+
+`bizip : F a s → F b t → F (Pair a b) (Pair s t)`.
+
+We may define this type signature formally as a Dhall type constructor:
+
+```dhall
+let BizipT = λ(F : Type → Type → Type) →
+  ∀(a : Type) → ∀(s : Type) → F a s →
+  ∀(b : Type) → ∀(t : Type) → F b t →
+    F (Pair a b) (Pair s t)
+```
+
+The requirement of having `bizip` turns out to be too strong for some `F`.
+For example, binary trees are defined via the pattern bifunctor `F a b = Either a (Pair b b)`.
+But implementing `bizip : BizipT F` is impossible for this `F`:
+In one of the required pattern-matching cases, we would need to implement a function of type `a → Pair t t → Either (Pair a b) (Pair (Pair s t) (Pair s t))`.
+This is not possible as we cannot produce values of unknown types `b` or `s` from scratch.   
+
+Implementing a `zip` function for binary trees and many other recursive data structures becomes possible
+if we impose a suitable requirement for `F` that is weaker than having `bizip`.
+
+We will use two weaker versions of `bizip`, called `bizipI` and  `bizipL`.
+The  type signature of `bizipI` is:
+
+`bizipI : F a r → F b r → F (Pair a b) r`
+
+The method `bizipI` is the same as `zip` acting on the first type parameter of `F`, while the second type parameter (`r`) is held fixed.
+
+The type signature of `bizipL` is:
+
+`bizipL : F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b))`
+
+Here `L` is another _arbitrary_ functor, viewed as an extra type parameter.
+
+Let us  define these type signatures formally in Dhall:
+
+```dhall
+let bizipI = λ(F : Type → Type → Type) → ∀(r : Type) →
+  ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+let bizipL = λ(F : Type → Type → Type) → λ(L : Type → Type) →
+  ∀(a : Type) → F a (L a) →
+  ∀(b : Type) → F b (L b) →
+    F (Pair a b) (Pair (L a) (L b))
+```
+
+Now we turn to implementing  `zip` for the greatest fixpoint of a bifunctor `F`.
+
+If we assume that `F` has a `bizip` method, an implementation is:
+
+```dhall
+let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : Type) → GFix (F c))
+  = λ(F : Type → Type → Type) → λ(bizip : BizipT F) →
+    λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
+      -- Need a value of type GFix (F (Pair a b)).
+      -- Type GFix (F a) is ∀(r : Type) → (∀(t : Type) → { seed : F a t, step : t → F a t } → r) → r.
+      -- We apply ga and gb with r = GFix (F (Pair a b)).
+      ga (GFix (F (Pair a b))) (λ(s : Type) → λ(p : { seed : s, step : s → F a s }) →
+        gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
+          -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
+          makeGFix (F (Pair a b)) (Pair a b) { _1 = s, _2 = t }
+            (λ(st : Pair s t) → bizip a s (p.step p.seed) b t (q.step q.seed))
+        )
+      ) 
+```
+
+To make an applicative functor complete, we need a corresponding `unit` method.
+For that, we require a `biunit : F {} {}` and a `Bifunctor` evidence for `F`.
+
+```dhall
+let unitViaBiunit : ∀(F : Type → Type → Type) → Bifunctor F → F {} {} → GFix (F {})
+  = λ(F : Type → Type → Type) → λ(bifunctor : Bifunctor F) → λ(biunit : F {} {}) →
+    makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
+```
+
+Assuming suitable laws for `bizip` and `biunit`, we can now write an `ApplicativeFunctor` evidence for the greatest fixpoint:
+
+```dhall
+let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT F → F {} {} → ApplicativeFunctor (λ(c : Type) → GFix (F c))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizip : BizipT F) → λ(biunit : F {} {}) →
+    functorGFix /\ { unit = unitViaBiunit F bifunctorF biunit
+                   , zip = zipviaBizip F bizip
+                   }
+```
+
+TODO: use bizipFC to implement ordinary zip and padding zip, run example tests
+
+TODO: show that bizipFC can work with any functor instead of C?
+
+### Least fixpoints
+
+Implementing a `zip` method for the least-fixpoint type constructors turns out to require quite a bit of work.
 In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
 
 Given a pattern bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
@@ -10979,8 +11143,8 @@ let bizip_F1
      } far
 ```
 
-The function `bizip_FC` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded.
-When one argument is a `Left x` and the other is a `Right y` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
+The function `bizip_FC` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
+When one argument is a `Left` and the other is a `Right` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
 A `Functor` typeclass evidence for `C` is derived via `bifunctorLFix` from a `Bifunctor` evidence for `F`.
 ```dhall
 let C = λ(a : Type) → LFix (F a)
@@ -11801,14 +11965,16 @@ This monad is _not_ obtained by imposing a universal quantifier on another monad
 
 ### Monads with recursive types
 
-Most often used monads that have recursive types are the list-like and the tree-like monads.
+There does not seem to exist a combinator that produces a monad out of a fixpoint of an arbitrary type constructor that has some properties.
+Instead, we will look at specific known monads that have recursive types.
+Some often used monads of that kind are the list-like and the tree-like monads.
 
 Examples of list-like monads are the standard `List` and the non-empty list.
 
 #### The `List` monad
 
 Although `List` is a built-in type in Dhall,
-it is instructive to see how one would implement the list monad in Dhall code without using the built-in `List`.
+it is instructive to see how one would implement a list monad in Dhall code without using the built-in `List`.
 
 The type constructor equivalent to `List a` was defined before as `CList` via the general Church encoding method.
 Let us instead write an equivalent definition in the curried form (`ListC`), together with data constructors `nilC` and `consC`:
@@ -14014,8 +14180,7 @@ If a function has several type parameters, it may be a natural transformation se
 To see how it works, consider the method `List/map` that has the following type signature:
 
 ```dhall
-let List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B
-  = https://prelude.dhall-lang.org/List/map
+let List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B = ???
 ```
 
 To see that `List/map` is a natural transformation, we first fix the type parameter `B`.
