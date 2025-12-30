@@ -4014,11 +4014,11 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
                        merge { None = prev -- This will happen only when one of the input lists is empty.
                              , Some = λ(y : b) →
                                let pad = if Natural/equal 1 (List/length b tail) then U.Right y else U.Left (List/drop 1 b tail)
-                               in { pad = pad, result = [ { _1 = x, _2 = y } ] # prev.result }
+                               in { pad = pad, result = prev.result # [ { _1 = x, _2 = y } ] }
                              } (List/head b tail)  
-                 , Right = λ(y : b) → { pad = prev.pad, result = [ { _1 = x, _2 = y } ] # prev.result }
+                 , Right = λ(y : b) → { pad = prev.pad, result = prev.result # [ { _1 = x, _2 = y } ] }
                 } prev.pad
-      in List/reverse (Pair a b) (List/fold a longer Accum cons nil).result
+      in (List/fold a longer Accum cons nil).result
     in if lessThanEqual lenA lenB
     then List/map (Pair b a) (Pair a b) (swap b a) (padding b revB a la)
     else padding a revA b lb
