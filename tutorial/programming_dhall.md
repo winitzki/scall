@@ -4049,7 +4049,7 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
     else padding a revA b lb
 ```
 
-For two non-empty lists, the "padding zip" will return a list of the length of the longest of the two lists.
+For two non-empty lists, the padding `zip` will return a list of the length of the longest of the two lists.
 The missing elements are "padded" at the end of the list, using the last value in the shorter of the lists:
 
 ```dhall
@@ -4064,6 +4064,10 @@ let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, False
 let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
   ≡ ([] : List (Pair Bool Bool))
 ```
+
+The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip` function as long as both input lists have the same lengths.
+When one of the input lists is longer, the standard `zip` truncates the longer list; but the padding `zip` pads the shorter list instead.
+In any case, the padding `zip` (together with the `unit` value, defined as `unit = [ {} ]` for lists) satisfies all the laws of applicative functors and, unlike the truncating `zip`, does not discard any input information.
 
 Now we can complete the `ApplicativeFunctor` evidence for `List`: 
 
