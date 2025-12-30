@@ -9350,8 +9350,8 @@ In this book, we will only explain the simple HIT algorithm for a single recursi
 
 The HIT algorithm works only for recursive code of a certain restricted form:
 
-- The code must have a single top-level pattern matching expression that decides whether (and how many) recursive calls are needed.
-- Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching branch.
+- The code must have a single top-level pattern matching expression that splits the code in several branches.
+- Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ for each branch and cannot depend on any further conditions evaluated within the branch.
 - Recursive calls are not nested: the arguments of all recursive calls are computed without any further recursive calls.
 
 However, a tail-recursive form is _not_ required for the HIT algorithm to work.
