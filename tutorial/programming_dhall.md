@@ -6161,9 +6161,10 @@ let functorF : Functor F = {
     } fa
   }
 -- Constructors.
-let cons = λ(h : Integer) → λ(t : ListInt) →
-  λ(r : Type) → λ(frr : F r → r) → frr ((F r).Cons { head = h, tail = t r frr})
-let nil = λ(r : Type) → λ(frr : F r → r) → frr (F r).Nil
+let cons : Integer → ListInt → ListInt
+  = λ(h : Integer) → λ(t : ListInt) →
+    fix F functorF ((F ListInt).Cons { head = h, tail = t})
+let nil : ListInt = fix F functorF (F ListInt).Nil
 
 -- Assume the definition of `unfix` as shown above.
 
@@ -6184,19 +6185,65 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) ≡ Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) ≡ Some (cons +123 nil)
 ```
 
-### Performance of "unfix"
+### Performance of Church encodings
 
-Note that `unfix` is implemented by applying the Church-encoded argument to some function.
-In practice, this means that `unfix` will need to traverse the entire data structure.
+Note that `unfix` is implemented by applying the Church-encoded value to some function.
+In practice, this means that `unfix` executes a folding on the data, which will need to traverse the entire data structure.
 This behavior may be counter-intuitive.
-For example, `headOptional` (as shown above) will need to traverse the entire list of type `ListInt` before
-it can determine whether the list is not empty.
+For example, it follows that `headOptional` will need to traverse the entire list of type `ListInt` before
+it can determine whether the list is empty.
 
-Church-encoded data are higher-order functions, and it is not possible to pattern match on them directly.
-The data traversal is necessary to enable pattern matching for Church-encoded types.
+The reason is that Church-encoded data are higher-order functions, and it is not possible to pattern match on them directly.
+The only way to enable pattern matching for Church-encoded data is to apply those higher-order functions to suitable arguments.
+However, once we execute that function call, the code embedded in the Church-encoded data will run a certain number of argument function calls, as that behavior is hard-coded.
+This is equivalent to traversing the entire data structure.
 
 As a result, the performance of programs will be often slow when working with large Church-encoded data structures.
 For example, concatenating or reversing lists of type `ListInt` takes time quadratic in the list length.
+
+Let us run some timing tests to see this behavior  in Dhall.
+
+We will create a long list of integers and time some operations: adding one more integer (using `cons`), computing the sum of the list, extracting that integer via `headOptional`, and concatenating that list to itself.
+
+First, let us implement helper functions for computing the sum of a `ListInt` and for concatenating such lists.
+
+```dhall
+let ListInt/sum : ListInt → Integer
+  = λ(list : ListInt) → list Integer (λ(p : F Integer) →
+    merge { Nil = +0
+          , Cons = λ(q : { head : Integer, tail : Integer }) → Integer/add q.head q.tail
+          } p
+  )
+let _ = assert : ListInt/sum (cons +1 (cons +2 nil)) ≡ +3
+
+let ListInt/concat : ListInt → ListInt → ListInt
+  = λ(left : ListInt) → λ(right : ListInt) → left ListInt (
+      λ(p : F ListInt) →
+        merge { Nil = right
+              , Cons = λ(q : { head : Integer, tail : ListInt }) → cons q.head q.tail
+              } p
+    )
+let _ = assert : ListInt/concat (cons +1 (cons +2 nil)) (cons +3 nil) ≡ cons +1 (cons +2 (cons +3 nil))
+```
+
+The timing tests are run using parts of this code:
+
+```dhall
+let length = 100
+let longList1 : ListInt = Natural/fold length ListInt (cons +1) nil
+let sum1 : Integer = ListInt/sum longList1
+let _ = assert : sum1 ≡ Natural/toInteger length
+let longList2 : ListInt = cons +2 longList1
+let _ = assert : headOptional longList2 ≡ Some +2
+let longList3 = ListInt/concat longList1 longList1
+let sum3 : Integer = ListInt/sum longList3
+let _ = assert : sum3 ≡ Natural/toInteger (length * 2) 
+```
+
+let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
+= λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
+foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
+let test = assert : concatNEL Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
 
 TODO:validate these statements by running some examples and show timings!
 
