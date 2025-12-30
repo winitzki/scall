@@ -4606,7 +4606,7 @@ To summarize, Leibniz equality types have the following properties:
 - One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
 - If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x y`.
 
-### Leibniz equality and "assert" expressions
+### Leibniz equality and `assert` expressions
 
 The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at typechecking time.
 The expression `assert : x ≡ y` will be accepted only if `x` and `y` have the same type and the same normal forms.
@@ -6631,7 +6631,7 @@ let depth
 
 TODO: test examples for binary tree
 
-### Implementing "fmap" for Church-encoded functors
+### Implementing Church-encoded functors
 
 TODO: reformulate in terms of the Functor typeclass
 
@@ -9341,217 +9341,6 @@ Speed tests show that `hylo_N` is somewhat faster than computing the maximum dep
 
 TODO:try revising this logic, accumulating both the h function and the result of applying h to seed? No. We can't just stop when the result of applying to seed stops changing. We need to accumulate a second hylomorphism that detects the max depth.
 
-### Example: the Egyptian division algorithm
-
-The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
-
-```haskell
-egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
-egyptian_div_mod a b =  -- Divide a / b assuming that b > 0.
-  if a < b then (0, a) else if a - b < b then (1, a - b)
-      else
-        let (quotient, remainder) = egyptian_div_mod a (2 * b) -- Recursive call.
-        in
-          if remainder < b then (2 * quotient, remainder)
-          else (2 * quotient + 1, remainder - b)
-```
-
-The function `egyptian_div_mod` is recursive and cannot be directly translated to Dhall.
-We have two options:
-- By trial and error, we can perhaps guess how to convert `egyptian_div_mod` into some calls to `Natural/fold` that Dhall accepts.
-- Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
-
-The general procedure for converting recursive code to hylomorphisms is explained in the paper by Hu, Iwasaki, and Takeichi (HIT), ["Deriving structural hylomorphisms"](https://www.researchgate.net/publication/2813507).
-The HIT derivation procedure applies to a wide range of recursive functions including the egyptian division algorithm.
-We will now follow that procedure for the code of `egyptian_div_mod` shown above.
-
-A first problem is that
-the HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
-So, let us first refactor `egyptian_div_mod` into a recursive function of a single argument.
-Notice that recursive calls to `egyptian_div_mod` only change the value of the argument `b`, while the value of `a` remains the same for all recursive calls.
-We will define `egyptian_div_mod a b = e_div_mod b` where `e_div_mod` is defined within the scope of `egyptian_div_mod` so that it captures the value of `a`.
-We will also introduce helper functions `postprocess1` and `postprocess2` to make the structure of the code more transparent:
-
-```haskell
-egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
-egyptian_div_mod a b =
-  let
-    postprocess1 :: Int -> (Int, Int)
-    postprocess1 b = if a < b then (0, a) else (1, a - b)
-    postprocess2 :: ((Int, Int), Int) -> (Int, Int)
-    postprocess2 ((quotient, remainder), b) =
-      if remainder < b then (2 * quotient, remainder)
-      else (2 * quotient + 1, remainder - b)
-
-    e_div_mod :: Int -> (Int, Int)
-    e_div_mod b =
-      if a - b < b then postprocess1 b
-      else postprocess2 ((e_div_mod (2 * b)), b) -- Recursive call.
-  in e_div_mod b
-```
-
-The function `e_div_mod` can be rewritten as a hylomorphism if we find a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
-
-- A function `coalg` of type `Int → P Int`.
-- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int → P (Int, Int)`.
-- A function `alg` of type `P (Int, Int) → (Int, Int)`.
-
-Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
-
-To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether a recursive call to `e_div_mod` is needed.
-To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_mod . coalg`, we need to choose `P` such that `fmap_P` skips calling `e_div_mod` in one case but does call it in another case.
-This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
-For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
-```haskell
-type P x = P1 Int | P2 x         -- Haskell.
-fmap_P :: (a -> b) -> P a -> P b
-fmap_P f (P1 i) = P1 i
-fmap_P f (P2 a) = P2 (f a)
-```
-then the application `fmap_P e_div_mod (P1 123)` will not call `e_div_mod`, while the application `fmap_P e_div_mod (P2 123)` will.
-
-So, the functor `P` must be chosen as a union type whose structure describes the presence or the absence of recursive calls in the various choice branches of the function `e_div_mod`.
-In our case, it is sufficient if the union type `P x` has _two_ parts because the code of `e_div_mod` only has two choice branches (one branch without recursive calls and one branch with one recursive call):
-```haskell
-    ...
-    e_div_mod b =
-      if a - b < b then postprocess1 b      -- No recursive calls.
-      else postprocess2 (e_div_mod (2 * b)) -- Recursive call.
-    ...
-```
-
-The next question is what data should the constructors `P1` and `P2` carry.
-Do we need to define `P` as `type P x = P1 (Int, Int, Int) | P2 (x, Int, Int)` or as something else like that?
-To answer that question, we look at the data `e_div_mod` requires in the two branches when computing the final result:
-
-- In the first branch, a single integer value (`b`) is used to compute the result as `postprocess1 b`.
-So, it suffices to define `P1` storing a single integer (the value of `b`).
-
-- In the second branch, we apply `postprocess2` to a pair of integers returned by the recursive call `e_div_mod (2 * b)`.
-The recursive call will be taken care of by `fmap_P e_div_mod`.
-The result of that call will be a value of type `P (Int, Int)`.
-So, the type parameter `x` in `P x` will be actually set to `(Int, Int)` when `fmap_P` is applied.
-In addition, `postprocess2` needs to have the value of `b`.
-
-We conclude that it is sufficient to use `P2 (x, Int)` in the definition of the union type.
-
-This consideration shows that `P` can be defined as the Haskell code `data P x = P1 Int | P2 (x, Int)` or the Dhall equivalent:
-
-```dhall
-let P = λ(X : Type) → < P1 : Natural | P2 : { p : X, b : Natural } >
-let fmap_P : FmapT P
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
-    merge {
-      P1 = (P b).P1,
-      P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b },
-    } pa
-let functorP : Functor P = { fmap = fmap_P }
-let toList_P : ∀(a : Type) → P a → List a
-  = λ(a : Type) → λ(pa : P a) → merge {
-      P1 = λ(_ : Natural) → [] : List a,
-      P2 = λ(x : { p : a, b : Natural }) → [x.p],
-  } pa
-let foldableP : Foldable P = { toList = toList_P }
-```
-
-The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) → (Int, Int)` implemented in Haskell as:
-```haskell
-alg :: P (Int, Int) -> (Int, Int)  -- Haskell.
-alg (P1 b) = postprocess1 b
-alg (P2 ((quotient, remainder), b)) = postprocess2 ((quotient, remainder), b)
-```
-
-This code can be rewritten in Dhall straightforwardly.
-For convenience, we define a record type `Result` that holds the quotient and the remainder.
-Also, we add an extra argument to some functions for supplying a value of `a`:
-
-```dhall
-let Result = { div : Natural, rem : Natural }
-let postprocess1 = λ(a : Natural) → λ(b : Natural) →
-  -- if a < b then (0, a) else (1, a - b)
-  if Natural/lessThan a b then { div = 0, rem = a }
-  else { div = 1, rem = Natural/subtract b a }
-let postprocess2 = λ(p2 : { p : Result, b : Natural }) →
-    -- if remainder < b then (2 * quotient, remainder) else (2 * quotient + 1, remainder - b)
-  let quotient = p2.p.div
-  let remainder = p2.p.rem
-  in if Natural/lessThan remainder p2.b then { div = 2 * quotient, rem = remainder }
-     else { div = 2 * quotient + 1 , rem = Natural/subtract p2.b remainder }
-
-let alg : Natural → P Result → Result
-  = λ(a : Natural) → λ(pp : P Result) → merge {
-    P1 = postprocess1 a,
-    P2 = postprocess2,
-  } pp
-```
-
-It remains to implement the function `coalg` whose Haskell type signature is `Int → P Int`.
-That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
-Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
-
-A Haskell implementation of `coalg` is:
-```haskell
-coalg :: Int -> P Int   -- Haskell.
-coalg b = if a - b < b then P1 b else P2 (2 * b, b)
-```
-Here, the value `P2 (2 * b, b)` contains at once the argument `2 * b` for the recursive call of `e_div_mod` and the extra value `b` needed for `postprocess2`.
-
-The code of `coalg` can be translated to Dhall as:
-
-```dhall
-let coalg : Natural → Natural → P Natural
-  = λ(a : Natural) → λ(b : Natural) →
-    if Natural/lessThan (Natural/subtract b a) b then (P Natural).P1 b
-    else (P Natural).P2 { p = 2 * b, b = b }
-```
-
-This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell code would be:
-
-```haskell
-e_div_mod = hylo coalg alg  -- Haskell.
-```
-
-Now we can implement `e_div_mod` in Dhall using `hylo_Nat` or `hylo_N` with appropriate extra arguments:
-
-```dhall
-let egyptian_div_mod : Natural → Natural → Result
-  = λ(a : Natural) → λ(b : Natural) →
-    let stopgap : Natural → Result = λ(b : Natural) →
-       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
-    let limit = a    -- A very imprecise upper bound on the number of iterations.
-    in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
--- Test:
-let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
-```
-
-We may also use `hylo_N` instead of `hylo_Nat`, with an automatic detection of recursion depth and early termination:
-
-```dhall
-let egyptian_div_mod : Natural → Natural → Result
-  = λ(a : Natural) → λ(b : Natural) →
-    let stopgap : Natural → Result = λ(b : Natural) →
-       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
-    let limit = a
-    in hylo_N P functorP foldableP limit Natural b (coalg a) Result (alg a) stopgap
--- Test:
-let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
-```
-
-This function is fast enough to divide even very large numbers.
-The following test takes just a few seconds (when using Dhall version 1.42.2 or later):
-
-```dhall
-⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
-
-{ div =
-    333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
-, rem = 1
-}
-```
-
-The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
-This is another practical motivation for studying hylomorphisms.
 
 ### Converting recursive code into hylomorphisms: the HIT algorithm
 
@@ -9564,6 +9353,8 @@ The HIT algorithm works only for recursive code of a certain restricted form:
 - The code must have a single top-level pattern matching expression that decides whether (and how many) recursive calls are needed.
 - Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching branch.
 - Recursive calls are not nested: the arguments of all recursive calls are computed without any further recursive calls.
+
+However, a tail-recursive form is _not_ required for the HIT algorithm to work.
 
 Code of that form can be described by this Haskell skeleton:
 
@@ -9767,6 +9558,220 @@ To improve the asymptotic complexity of the resulting code, it would be best to 
 Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
 Such techniques are beyond the scope of this book.
 We view hylomorphisms only as a vehicle for converting recursive code to a form that Dhall will accept.
+
+
+
+### Example: Egyptian division algorithm
+
+The [Egyptian algorithm for integer division](https://isocpp.org/blog/2016/08/turning-egyptian-division-into-logarithms) can be written via recursive code like this:
+
+```haskell
+egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
+egyptian_div_mod a b =  -- Divide a / b assuming that b > 0.
+  if a < b then (0, a) else if a - b < b then (1, a - b)
+    else
+      let (quotient, remainder) = egyptian_div_mod a (2 * b) -- Recursive call.
+      in
+        if remainder < b then (2 * quotient, remainder)
+        else (2 * quotient + 1, remainder - b)
+```
+
+The recursive Haskell function `egyptian_div_mod` cannot be directly translated to Dhall.
+We have two options:
+- By trial and error, we can perhaps guess how to convert `egyptian_div_mod` into some calls to `Natural/fold` that Dhall accepts.
+- Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
+
+A uistable  general procedure for converting recursive code to hylomorphisms is The HIT algorithm explained in a previous section.
+The HIT procedure applies to a wide range of recursive functions including the egyptian division algorithm.
+We will now follow that procedure for the code of `egyptian_div_mod` shown above.
+
+A first problem is that
+the HIT derivation procedure works with functions of a single argument, while `egyptian_div_mod` has two (curried) arguments.
+So, let us first refactor `egyptian_div_mod` into a recursive function of a single argument.
+Notice that recursive calls to `egyptian_div_mod` only change the value of the argument `b`, while the value of `a` remains the same for all recursive calls.
+We will define `egyptian_div_mod a b = e_div_mod b` where `e_div_mod` is defined within the scope of `egyptian_div_mod` so that it captures the value of `a`.
+We will also introduce helper functions `postprocess1` and `postprocess2` to make the structure of the code more transparent:
+
+```haskell
+egyptian_div_mod :: Int -> Int -> (Int, Int)   -- Haskell.
+egyptian_div_mod a b =
+  let
+    postprocess1 :: Int -> (Int, Int)
+    postprocess1 b = if a < b then (0, a) else (1, a - b)
+    postprocess2 :: ((Int, Int), Int) -> (Int, Int)
+    postprocess2 ((quotient, remainder), b) =
+      if remainder < b then (2 * quotient, remainder)
+      else (2 * quotient + 1, remainder - b)
+
+    e_div_mod :: Int -> (Int, Int)
+    e_div_mod b =
+      if a - b < b then postprocess1 b
+      else postprocess2 ((e_div_mod (2 * b)), b) -- Recursive call.
+  in e_div_mod b
+```
+
+The function `e_div_mod` can be rewritten as a hylomorphism if we find a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
+
+- A function `coalg` of type `Int → P Int`.
+- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int → P (Int, Int)`.
+- A function `alg` of type `P (Int, Int) → (Int, Int)`.
+
+Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
+
+To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether a recursive call to `e_div_mod` is needed.
+To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_mod . coalg`, we need to choose `P` such that `fmap_P` skips calling `e_div_mod` in one case but does call it in another case.
+This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
+For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
+```haskell
+type P x = P1 Int | P2 x         -- Haskell.
+fmap_P :: (a -> b) -> P a -> P b
+fmap_P f (P1 i) = P1 i
+fmap_P f (P2 a) = P2 (f a)
+```
+then the application `fmap_P e_div_mod (P1 123)` will not call `e_div_mod`, while the application `fmap_P e_div_mod (P2 123)` will.
+
+So, the functor `P` must be chosen as a union type whose structure describes the presence or the absence of recursive calls in the various choice branches of the function `e_div_mod`.
+In our case, it is sufficient if the union type `P x` has _two_ parts because the code of `e_div_mod` only has two choice branches (one branch without recursive calls and one branch with one recursive call):
+```haskell
+    ...
+    e_div_mod b =
+      if a - b < b then postprocess1 b      -- No recursive calls.
+      else postprocess2 (e_div_mod (2 * b)) -- Recursive call.
+    ...
+```
+
+The next question is what data should the constructors `P1` and `P2` carry.
+Do we need to define `P` as `type P x = P1 (Int, Int, Int) | P2 (x, Int, Int)` or as something else like that?
+To answer that question, we look at the data `e_div_mod` requires in the two branches when computing the final result:
+
+- In the first branch, a single integer value (`b`) is used to compute the result as `postprocess1 b`.
+So, it suffices to define `P1` storing a single integer (the value of `b`).
+
+- In the second branch, we apply `postprocess2` to a pair of integers returned by the recursive call `e_div_mod (2 * b)`.
+The recursive call will be taken care of by `fmap_P e_div_mod`.
+The result of that call will be a value of type `P (Int, Int)`.
+So, the type parameter `x` in `P x` will be actually set to `(Int, Int)` when `fmap_P` is applied.
+In addition, `postprocess2` needs to have the value of `b`.
+
+We conclude that it is sufficient to use `P2 (x, Int)` in the definition of the union type.
+
+This consideration shows that `P` can be defined as the Haskell code `data P x = P1 Int | P2 (x, Int)` or the Dhall equivalent:
+
+```dhall
+let P = λ(X : Type) → < P1 : Natural | P2 : { p : X, b : Natural } >
+let fmap_P : FmapT P
+  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(pa : P a) →
+    merge {
+      P1 = (P b).P1,
+      P2 = λ(x : { p : a, b : Natural }) → (P b).P2 { p = f x.p, b = x.b },
+    } pa
+let functorP : Functor P = { fmap = fmap_P }
+let toList_P : ∀(a : Type) → P a → List a
+  = λ(a : Type) → λ(pa : P a) → merge {
+      P1 = λ(_ : Natural) → [] : List a,
+      P2 = λ(x : { p : a, b : Natural }) → [x.p],
+  } pa
+let foldableP : Foldable P = { toList = toList_P }
+```
+
+The "postprocessing" steps in the code of `e_div_mod` are translated into a function `alg : P (Int, Int) → (Int, Int)` implemented in Haskell as:
+```haskell
+alg :: P (Int, Int) -> (Int, Int)  -- Haskell.
+alg (P1 b) = postprocess1 b
+alg (P2 ((quotient, remainder), b)) = postprocess2 ((quotient, remainder), b)
+```
+
+This code can be rewritten in Dhall straightforwardly.
+For convenience, we define a record type `Result` that holds the quotient and the remainder.
+Also, we add an extra argument to some functions for supplying a value of `a`:
+
+```dhall
+let Result = { div : Natural, rem : Natural }
+let postprocess1 = λ(a : Natural) → λ(b : Natural) →
+  -- if a < b then (0, a) else (1, a - b)
+  if Natural/lessThan a b then { div = 0, rem = a }
+  else { div = 1, rem = Natural/subtract b a }
+let postprocess2 = λ(p2 : { p : Result, b : Natural }) →
+    -- if remainder < b then (2 * quotient, remainder) else (2 * quotient + 1, remainder - b)
+  let quotient = p2.p.div
+  let remainder = p2.p.rem
+  in if Natural/lessThan remainder p2.b then { div = 2 * quotient, rem = remainder }
+     else { div = 2 * quotient + 1 , rem = Natural/subtract p2.b remainder }
+
+let alg : Natural → P Result → Result
+  = λ(a : Natural) → λ(pp : P Result) → merge {
+    P1 = postprocess1 a,
+    P2 = postprocess2,
+  } pp
+```
+
+It remains to implement the function `coalg` whose Haskell type signature is `Int → P Int`.
+That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
+Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
+
+A Haskell implementation of `coalg` is:
+```haskell
+coalg :: Int -> P Int   -- Haskell.
+coalg b = if a - b < b then P1 b else P2 (2 * b, b)
+```
+Here, the value `P2 (2 * b, b)` contains at once the argument `2 * b` for the recursive call of `e_div_mod` and the extra value `b` needed for `postprocess2`.
+
+The code of `coalg` can be translated to Dhall as:
+
+```dhall
+let coalg : Natural → Natural → P Natural
+  = λ(a : Natural) → λ(b : Natural) →
+    if Natural/lessThan (Natural/subtract b a) b then (P Natural).P1 b
+    else (P Natural).P2 { p = 2 * b, b = b }
+```
+
+This completes the rewriting of `e_div_mod` as a hylomorphism, whose Haskell code would be:
+
+```haskell
+e_div_mod = hylo coalg alg  -- Haskell.
+```
+
+Now we can implement `e_div_mod` in Dhall using `hylo_Nat` or `hylo_N` with appropriate extra arguments:
+
+```dhall
+let egyptian_div_mod : Natural → Natural → Result
+  = λ(a : Natural) → λ(b : Natural) →
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
+    let limit = a    -- A very imprecise upper bound on the number of iterations.
+    in hylo_Nat P functorP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test:
+let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
+```
+
+We may also use `hylo_N` instead of `hylo_Nat`, with an automatic detection of recursion depth and early termination:
+
+```dhall
+let egyptian_div_mod : Natural → Natural → Result
+  = λ(a : Natural) → λ(b : Natural) →
+    let stopgap : Natural → Result = λ(b : Natural) →
+       { div = 0, rem = b }   -- An obviously wrong result: remainder cannot be b.
+    let limit = a
+    in hylo_N P functorP foldableP limit Natural b (coalg a) Result (alg a) stopgap
+-- Test:
+let _ = assert : egyptian_div_mod 11 2 ≡ { div = 5, rem = 1 }
+```
+
+This function is fast enough to divide even very large numbers.
+The following test takes just a few seconds (when using Dhall version 1.42.2 or later):
+
+```dhall
+⊢ (./tutorial/EgyptianDivision.dhall).egyptian_div_mod_N 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 3
+
+{ div =
+    333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+, rem = 1
+}
+```
+
+The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
+In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
+This is another practical motivation for studying hylomorphisms.
 
 ### Hylomorphisms driven by a Church-encoded template
 
