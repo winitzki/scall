@@ -8061,7 +8061,7 @@ let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) �
 ```
 
 
-#### First example: infinite sequences of natural numbers
+#### Example: infinite sequences of natural numbers
 
 A simple example of a co-inductive type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values.
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
