@@ -3587,7 +3587,7 @@ let P : Type → Type → Type  -- In Haskell and Scala, this is (a, a, b, Int).
 Bifunctors have a `bimap` method that changes both type parameters at once:
 
 ```dhall
-let bimap
+let bimap_P
  : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P c d
   = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(pab : P a b) →
     { x = f pab.x, y = f pab.y, z = g pab.z, t = pab.t }
@@ -3599,33 +3599,60 @@ let Bifunctor : (Type → Type → Type) → Type
   = λ(F : Type → Type → Type) → { bimap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d }
 ```
 
+As an example, let us define a `Bifunctor` evidence for the bifunctor `P` shown above:
+
+```dhall
+let bifunctor_P : Bifunctor P = { bimap = bimap_P }
+```
+
+Here is a `Bifunctor` evidence for the `Pair` bifunctor we defined earlier:
+
+```dhall
+let bifunctorPair : Bifunctor Pair
+  = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(pab : Pair a b) →
+      { _1 = f pab._1, _2 = g pab._2 }
+    }
+```
+
 Given `bimap`, one can then define two `fmap` methods that work only on the first or on the second of `P`'s type parameters.
 
 ```dhall
-let fmap1
+let fmap1_P
   : ∀(a : Type) → ∀(c : Type) → ∀(d : Type) → (a → c) → P a d → P c d
-  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → bimap a c f d d (identity d)
+  = λ(a : Type) → λ(c : Type) → λ(d : Type) → λ(f : a → c) → bimap_P a c f d d (identity d)
 ```
 
 ```dhall
-let fmap2
+let fmap2_P
   : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
-  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap a a (identity a) b d g
+  = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap_P a a (identity a) b d g
 ```
 Here, we have used the `identity` function defined earlier.
 
 These definitions allow us to compute `Functor` typeclass evidence values for the two functors obtained from a bifunctor `P` by setting one of its type parameters to a fixed type.
 The code is:
 ```dhall
-let functor1
+let functor1_P
   : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → Functor (λ(b : Type) → P a b)
   = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → { fmap = λ(b : Type) → λ(c : Type) → λ(f : b → c) → bifunctorP.bimap a a (identity a) b c f }
-let functor2
+let functor2_P
   : ∀(P : Type → Type → Type) → Bifunctor P → ∀(b : Type) → Functor (λ(a : Type) → P a b)
   = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(b : Type) → { fmap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → bifunctorP.bimap a c f b b (identity b) }
 ```
 
-Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of types.
+This code can be generalized to produce `Functor` evidence from `Bifunctor` evidence for an arbitrary bifunctor.
+The following two functions  will derive a `Functor` evidence with respect to the first or the second type parameters of a bifunctor, while the other type parameter is held fixed:
+
+```dhall
+let functorBifunctorF1 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(b : Type) → Functor (λ(a : Type) → F a b)
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(b : Type) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap c d f b b (identity b) }
+let functorBifunctorF2 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(a : Type) → Functor (λ(b : Type) → F a b)
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(a : Type) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap a a (identity a) c d f }
+```
+
+Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of functions operating on the first type parameters.
 
 A Dhall definition of the `Profunctor` typeclass can be written as:
 
@@ -8030,9 +8057,9 @@ let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) �
 ```
 
 
-#### First example: infinite sequences
+#### First example: infinite sequences of natural numbers
 
-A simple example of a co-inductive type is a data type `InfSeq` representing an infinite sequence of `Natural` values.
+A simple example of a co-inductive type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values.
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
 An intuitive picture of this data type is an infinitely nested record:
 
@@ -8042,45 +8069,45 @@ Of course, it is impossible to   represent  this data structure literally.
 Instead, we use the encoding via the `GFix` constructor:
 
 ```dhall
-let InfSeq = GFix (Pair Natural)
+let InfSeqNat = GFix (Pair Natural)
 ```
 
 More verbosely, we can rewrite this type using an existential type:
 
 ```dhall
-let InfSeq = Exists (λ(r : Type) → { seed : r, step : r → Pair Natural r })
+let InfSeqNat = Exists (λ(r : Type) → { seed : r, step : r → Pair Natural r })
 ```
 
-A value of type `InfSeq` is a function that stores some "seed" value of type `r` and is able to compute, on demand, the next "step" of the data: a `Natural` value together with a new "seed".
+A value of type `InfSeqNat` is a function that stores some "seed" value of type `r` and is able to compute, on demand, the next "step" of the data: a `Natural` value together with a new "seed".
 
 To create values of this type, we need to choose a specific "seed" type and to provide an initial "seed" value and a "step" function.
 The "seed" type must carry sufficient information for computing the next values at every step.
 
-Let us look at two example values of the type `InfSeq`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
+Let us look at two example values of the type `InfSeqNat`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
 
 To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the next `Natural` value.
 This requires no information to be stored in the "seed"; so we can choose a unit type as the "seed" type.
 The code is:
 
 ```dhall
-let zeros : InfSeq = makeGFix (Pair Natural) {} {=} (λ(_ : {}) → { _1 = 0, _2 = {=} })
+let zeros : InfSeqNat = makeGFix (Pair Natural) {} {=} (λ(_ : {}) → { _1 = 0, _2 = {=} })
 ```
 
-To create an `InfSeq` value representing `0, 1, 2, 3, ...`, we need to be able to produce the next `Natural` value at each step.
+To create an `InfSeqNat` value representing `0, 1, 2, 3, ...`, we need to be able to produce the next `Natural` value at each step.
 Let us use the "seed" to store that value.
 The "step" function will then be able to increment the seed value.
 
 ```dhall
-let naturals : InfSeq = makeGFix (Pair Natural) Natural 0 (λ(n : Natural) → { _1 = n, _2 = n + 1 })
+let naturals : InfSeqNat = makeGFix (Pair Natural) Natural 0 (λ(n : Natural) → { _1 = n, _2 = n + 1 })
 ```
 
-To verify that this code works, let us write a function `InfSeq/take` that extracts from an infinite sequence a prefix of a given length.
+To verify that this code works, let us write a function `InfSeqNat/take` that extracts from an infinite sequence a prefix of a given length.
 We will use `Natural/fold` to iterate over the sequence and accumulate the resulting list.
 At each iteration, we will unpack the existential type and compute the next iteration.
 ```dhall
-let InfSeq/take : Natural → InfSeq → List Natural
-  = λ(limit : Natural) → λ(seq: InfSeq) →
-   let Accum = { list : List Natural, seq : InfSeq }
+let InfSeqNat/take : Natural → InfSeqNat → List Natural
+  = λ(limit : Natural) → λ(seq: InfSeqNat) →
+   let Accum = { list : List Natural, seq : InfSeqNat }
    let init : Accum = { list = [] : List Natural, seq = seq }
    let update : Accum → Accum = λ(prev : Accum) →
      let makeNewAccum = λ(r : Type) → λ(p : { seed : r, step : r → Pair Natural r }) →
@@ -8093,8 +8120,8 @@ let InfSeq/take : Natural → InfSeq → List Natural
 We can now test our code:
 
 ```dhall
-let _ = assert : InfSeq/take 5 zeros ≡ [ 0, 0, 0, 0, 0 ]
-let _ = assert : InfSeq/take 5 naturals ≡ [ 0, 1, 2, 3, 4 ]
+let _ = assert : InfSeqNat/take 5 zeros ≡ [ 0, 0, 0, 0, 0 ]
+let _ = assert : InfSeqNat/take 5 naturals ≡ [ 0, 1, 2, 3, 4 ]
 ```
 
 ### Greatest fixpoints for mutually recursive types
@@ -8131,7 +8158,7 @@ For the rest of this chapter, we will focus on the simpler case of a single recu
 Similarly to the least fixpoints for type constructors, we start with a pattern bifunctor `F` and define a type constructor `G` by applying an existential quantifier to the second type parameter of `F`.
 So, `G a` is equal to `GFix (F a)`.
 
-The resulting type constructor `G` will have a single type parameter, and will be a functor.
+The resulting type constructor `G` will have a single type parameter and will be a functor.
 Here is a function that computes a `Functor` evidence for `G`:
 ```dhall
 let bifunctorGFix
@@ -8145,6 +8172,70 @@ let bifunctorGFix
     let paqa : ∀(t : Type) → P t → Q t = λ(t : Type) → λ(pt : P t) → { seed = pt.seed, step = λ(x : t) → bifunctorF.bimap a b f t t (identity t) (pt.step x) }
     in mapExists P Q paqa ga
   }
+```
+
+#### Example: infinite sequence functor
+
+Let us generalize `InfSeqNat` to hold data of arbitrary type instead of `Natural`.
+The result is a functor `InfSeq` describing infinite sequences.
+
+```dhall
+let InfSeq = λ(a : Type) → GFix (Pair a)
+```
+
+An example of an `InfSeq a` is an infinite sequence of constant values of type `a`.
+We implement them using a unit type for "seed", similarly to how we implemented `zeros` for `InfSeqNat`:
+
+```dhall
+let repeatValue : ∀(a : Type) → a → InfSeq a
+  = λ(a : Type) → λ(x : a) →
+    makeGFix (Pair a) {} {=} (λ(_ : {}) → { _1 = x, _2 = {=} })
+```
+
+Another example is a sequence obtained by applying a given function `f : a → a` repeatedly, starting from a given initial value.
+The "seed" will store the current value, similarly to how we implemented `naturals` for `InfSeqNat`.
+
+
+```dhall
+let repeatFunction : ∀(a : Type) → a → (a → a) → InfSeq a
+  = λ(a : Type) → λ(init : a) → λ(f : a → a) →
+    makeGFix (Pair a) a init (λ(x : a) → { _1 = x, _2 = f x })
+```
+
+We can use this function to create an infinite sequence `[True, False, True, False, ...]`:
+
+```dhall
+let Bool/not = https://prelude.dhall-lang.org/Bool/not
+let repeatTrueFalse : InfSeq Bool = repeatFunction Bool True (λ(b : Bool) → Bool/not b)
+```
+
+The `InfSeq` type constructor is a functor:
+
+```dhall
+let functorInfSeq : Functor InfSeq = bifunctorGFix Pair bifunctorPair
+```
+
+Let us write a function `InfSeq/take` to extract a finite prefix from an infinite sequence, similarly to `InfSeqNat/take`.
+
+```dhall
+let InfSeq/take : Natural → ∀(a : Type) → InfSeq a → List a
+  = λ(limit : Natural) → λ(a : Type) → λ(seq: InfSeq a) →
+   let Accum = { list : List a, seq : InfSeq a }
+   let init : Accum = { list = [] : List a, seq = seq }
+   let update : Accum → Accum = λ(prev : Accum) →
+     let makeNewAccum = λ(r : Type) → λ(p : { seed : r, step : r → Pair a r }) →
+       let newPair : Pair a r = p.step p.seed
+       in { list = prev.list # [newPair._1], seq = makeGFix (Pair a) r newPair._2 p.step }
+     in prev.seq Accum makeNewAccum
+   in (Natural/fold limit Accum update init).list
+```
+
+We can now test our code:
+
+```dhall
+let _ = assert : InfSeq/take 3 Bool (repeatValue Bool True)  ≡ [ True, True, True ]
+let _ = assert : InfSeq/take 6 Bool repeatTrueFalse ≡ [ True, False, True, False, True, False ]
+let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : Bool) → if b then +1 else -1) repeatTrueFalse) ≡ [ +1, -1, +1, -1, +1, -1 ]
 ```
 
 
@@ -10113,16 +10204,7 @@ let contrafunctorExists1
 ```
 
 Deriving a `Functor` evidence for types with type quantifiers is similar but not the same as deriving a `Functor` evidence with respect to one type parameter while others are held fixed.
-To illustrate the difference, let us show how one could derive a `Functor` evidence with respect to the first or the second type parameters of a bifunctor, while the other type parameter is held fixed:
-
-```dhall
-let functorBifunctorF1 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(b : Type) → Functor (λ(a : Type) → F a b)
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(b : Type) →
-    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap c d f b b (identity b) }
-let functorBifunctorF2 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(a : Type) → Functor (λ(b : Type) → F a b)
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(a : Type) →
-    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap a a (identity a) c d f }
-```
+We have already seen the latter in the chapter "Typeclasses" when we implemented `functorBifunctorF1` and `functorBifunctorF2`.
 
 ### Recursive functors and contrafunctors
 
