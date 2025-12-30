@@ -27,6 +27,7 @@
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
 - Prevent explosion of normal forms; implement automatic stopping for normal form expansion under lambda or whenever they grow exponentially beyond a certain limit.
+- Implement an alternative to `merge` as a pattern-matching function utilizing both row and column subtyping as appropriate.
 
 ## Parsing enhancements
 
@@ -114,6 +115,7 @@ Try various ideas about term inference / implicit parameters.
 - Literal singleton types, or, more generally, types allowed to have a prescribed set of values
 - Numbers or booleans with prescribed properties (given a predicate)
 - How to implement a type that includes a proposition with a more ergonomic syntax?
+- This must be exported to JSON and YAML as ordinary values
 
 ## Implement "late binding as in OOP" for records
 

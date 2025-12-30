@@ -8349,8 +8349,8 @@ let listToStream : ∀(a : Type) → List a → Stream a
 #### Creating infinite streams
 
 Creating an infinite stream involves deciding how the next data item should be computed.
-A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r`.
-The "step" function will never return `Nil`, which will make the stream unbounded.
+A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r` repeatedly.
+This is implemented by making the "step" function never return `Nil`, which will make the stream unbounded.
 
 ```dhall
 let streamFunction
@@ -8361,7 +8361,7 @@ let streamFunction
     in makeStream a a seed step
 ```
 
-We can compute a finite prefix of an infinite stream:
+We can compute a finite prefix of this infinite stream:
 
 ```dhall
 ⊢ streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
@@ -8369,7 +8369,7 @@ We can compute a finite prefix of an infinite stream:
 [ 1, 2, 4, 8, 16 ]
 ```
 
-One can also implement streams that repeat a certain sequence infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
+Another example of an infinite stream is a certain sequence repeated infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
 For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `listToStream`.
 The initial "seed" value is the list `[ 1, 2, 3 ]`.
 Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
@@ -8381,11 +8381,11 @@ let repeatForever : ∀(a : Type) → List a → Stream a
       let step : List a → HeadTailT a = λ(prev : List a) →
         merge { None = (HeadTailT a).Cons { head = h.head, tail = h.tail }
               , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = List/drop 1 a prev }
-        } (List/head a prev)
+              } (List/head a prev)
       in makeStream a (List a) list step
     -- Check whether `list` is empty. If so, return an empty stream.
     in merge { Nil = Stream/nil a
-               , Cons = λ(h : { head : a, tail : List a }) → mkStream h
+             , Cons = λ(h : { head : a, tail : List a }) → mkStream h
              } (headTail a list)
 
 let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
@@ -8398,10 +8398,10 @@ let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
 The standard Dhall function for concatenating lists is `List/concat`.
 Let us now implement an analogous function for concatenating streams.
 The function `Stream/concat` will take two streams and will return a new stream that works by first letting the first stream run.
-If the first stream ever finishes, the second stream will start (otherwise the first stream will continue running forever).
+If the first stream finishes, the second stream will start; otherwise the first stream will continue running forever.
 
 We can implement this behavior if the seed type of the new stream is a union type showing which stream is now running.
-As the internal state of the new stream, we just store the first or the second stream.
+As the internal state of the new stream, we just store the first or the second stream, with updated states.
 
 ```dhall
 let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
@@ -8411,18 +8411,18 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
     let stepSecond = λ(str : Stream a) → merge {
               None = StepT.Nil
             , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InSecond ht.tail }
-          } (headTailOption a str)
+            } (headTailOption a str)
     let step : State → StepT = λ(state : State) →
-      merge {
-          InFirst = λ(str : Stream a) → merge {
-              None = stepSecond second    -- The first stream is finished. Switch to the second stream.
-            , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InFirst ht.tail }
-          } (headTailOption a str)
-        , InSecond = stepSecond
-      } state
+      merge { InFirst = λ(str : Stream a) → merge {
+                None = stepSecond second    -- The first stream is finished. Switch to the second stream.
+              , Some = λ(ht : { head : a, tail : Stream a }) → StepT.Cons { head = ht.head, tail = State.InFirst ht.tail }
+              } (headTailOption a str)
+           , InSecond = stepSecond
+           } state
     in makeStream a State (State.InFirst first) step
 ```
 
+TODO: test this code on streams obtained from lists or by repeatForever
 
 #### Truncated streams
 
@@ -8450,6 +8450,7 @@ Just like `streamToList`, the function `Stream/truncate` requires an explicit bo
 output list. It is impossible to implement a function that determines whether a given stream terminates.
 Also, we cannot terminate a stream at the data item that satisfies some condition (say, at the first
 `Natural` number that is equal to zero).
+
 Streams represent conceptually "infinite" structures, and
 working with those structures in System Fω often requires an explicit upper bound on the number of
 possible iterations.
@@ -8485,7 +8486,7 @@ Pattern-matching operations with that type will take `O(N)` time in the Dhall in
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
-### Running aggregations ("scan" and "scanMap")
+#### Running aggregations ("scan" and "scanMap")
 
 A typical task for streams is to perform **running aggregations**.
 A running aggregation extracts each new value from a source stream and updates an aggregated value in some way.
@@ -8566,7 +8567,11 @@ The function `scanMap` is analogous to `foldMap` and can be implemented via `sca
 We can implement `runningSum` and `runningList` via `scanMap` like this:
 
 ```dhall
-
+TODO: implement
+let runningSum : Stream Natural → Stream Natural
+  = λ(sn : Stream Natural) → ???
+let runningList : ∀(a : Type) → Stream a → Stream (List a)
+  = λ(a : Type) → λ(sa : Stream a) → ???
 ```
 
 The `Stream` type constructor is a functor.
@@ -8609,6 +8614,9 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
 In this book, we will not show the full proof, as the focus is on practical applications.
 
+### Example: infinite trees
+
+TODO: implement
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
@@ -8628,10 +8636,12 @@ Because of the use of `unfix`, the resulting fixpoint value will have poor perfo
 
 
 The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
-In Dhall, it is generally not possible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
+In Dhall, it is impossible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
 To guarantee termination, one must supply an explicit upper bound on the size of the data.
-The required technique will be studied in the next chapter. 
-We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor evidence for least fixpoint types.
+
+An example is the function `streamToList`  that we have seen earlier.
+The required technique for the general case will be studied in the next chapter. 
+We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
 ## Translating recursive code into Dhall
 
@@ -8650,7 +8660,7 @@ We will begin by explaining the notion of a "hylomorphism" and giving some examp
 
 ### Motivation for hylomorphisms
 
-We have seen the function `streamToList` that extracts at most a given number of values from the stream.
+The function `streamToList` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 (The size limit guarantees termination.)
 
