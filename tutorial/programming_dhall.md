@@ -3627,7 +3627,7 @@ let fmap2_P
   : ∀(a : Type) → ∀(b : Type) → ∀(d : Type) → (b → d) → P a b → P a d
   = λ(a : Type) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → bimap_P a a (identity a) b d g
 ```
-Here, we have used the `identity` function defined earlier.
+Here we have used the `identity` function defined earlier.
 
 These definitions allow us to compute `Functor` typeclass evidence values for the two functors obtained from a bifunctor `P` by setting one of its type parameters to a fixed type.
 The code is:
@@ -8174,6 +8174,9 @@ let bifunctorGFix
   }
 ```
 
+Note that the `fmap` method does not attempt to traverse the greatest fixpoint data structure to transform all its data, as that may  possibly require infinite time.
+Instead, `fmap` creates a new data structure that will evaluate and transform the data on demand.
+
 #### Example: infinite sequence functor
 
 Let us generalize `InfSeqNat` to hold data of arbitrary type instead of `Natural`.
@@ -8238,6 +8241,7 @@ let _ = assert : InfSeq/take 6 Bool repeatTrueFalse ≡ [ True, False, True, Fal
 let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : Bool) → if b then +1 else -1) repeatTrueFalse) ≡ [ +1, -1, +1, -1, +1, -1 ]
 ```
 
+The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
 
 ### The fixpoint isomorphism
 
@@ -8784,6 +8788,10 @@ We will implement two versions of an infinite tree: a tree that has data in leav
 
 TODO: implement
 
+### Example: graphs
+
+TODO: refer to GG's blog post and implement here 
+
 ### Converting from the least fixpoint to the greatest fixpoint
 
 A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
@@ -8803,6 +8811,13 @@ Because of the use of `unfix`, the resulting fixpoint value will have poor perfo
 
 The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
 In Dhall, it is impossible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
+
+The `InfSeq` example shows why it is impossible to convert the greatest fixpoint to the least fixpoint of the same functor.
+The type `InfSeq` is a greatest fixpoint of the bifunctor `Pair`.
+The least fixpoint of the same bifunctor is the _void type_: there are no finite structures that satisfy the fixpoint equation `T = Pair a T`.
+If it were possible to implement a terminating hylomorphism, we would be able to convert values of type `InfSeq a` to values of the void type; but the void type has no values.
+A  program "creating a value of the void type" means, in practice, a program that never terminates.
+
 To guarantee termination, one must supply an explicit upper bound on the size of the data.
 
 An example is the function `Stream/take`  that we have seen earlier.
