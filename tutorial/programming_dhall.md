@@ -915,6 +915,7 @@ For instance, functions working with the `Natural` type are in the `Natural/` su
 This convention helps make the code for imports more visual:
 
 ```dhall
+let Bool/not = https://prelude.dhall-lang.org/Bool/not
 let Integer/add = https://prelude.dhall-lang.org/Integer/add
 let List/concat = https://prelude.dhall-lang.org/List/concat
 let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
@@ -6701,7 +6702,7 @@ let bifunctorLFix
 In later chapters of this book, we will go systematically through various typeclasses such as `Functor`, `Applicative`, and so on.
 Whenever possible, we will implement typeclass evidence values for Church-encoded type constructors.
 
-### Recursive data structures at type level
+### Recursive data structures containing types
 
 Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, of type `Type`).
 One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
@@ -6991,7 +6992,14 @@ In this section, we studied only one example of a nested type (the "perfect bina
 This and other advanced examples of designing and using nested recursive types
 are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001).
 
+### Church encoding at the level of type constructors
+
+TODO: give examples of a list and a tree (free monad), show how data is constructed and used, compare with ordinary Church encoding
+
 ### Generalized algebraic data types (GADTs)
+
+GADTs are a powerful built-in feature of languages such as OCaml, Haskell, and Scala.
+In this section we will see how to encode GADTs in Dhall.
 
 To motivate GADTs, consider that ordinary type constructors (such as `List`, `Optional`, or user-defined types like `PBTree` in the previous section) work in the same way for all type arguments.
 Indeed, `List Natural`, `List Bool`, etc., are always of the same shape -- they are lists of values of a given type.
@@ -7011,22 +7019,21 @@ data LExp t where                      -- Haskell.
   LIsZero :: Lexp Int -> LExp Bool
 ```
 This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
-The language guarantees statically that operations are applied to arguments of the correct type.
+The language guarantees statically that operations are applied to arguments of  correct types.
 For instance, `LNot x` will typecheck only when `x` is a boolean expression such as `LBool True`.
-The compiler will report a type error if the programmer writes by mistake something like `LNot (LInt 123)`.
+The compiler will report a type error if we  write something like `LNot (LInt 123)`.
 
 
-The definition of `LExp t` is not parametrically polymorphic in `t`.
-To see that it is _not_ a data structure that works in the same way for all `t`,
-notice that values of type `LExp t` can be created only when `t = Int` or `t = Bool`, and not with arbitrary other types `t`.
+The definition of `LExp t` is _not_ parametrically polymorphic in `t`.
+To see that it is not a data structure that works in the same way for all `t`,
+notice that values of type `LExp t` can be created only when `t = Int` or `t = Bool` but not with arbitrary other types `t`.
 Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
 
 GADTs are usually defined to work in special ways when their parameters are set to specific types.
 For that reason, GADTs are normally neither covariant nor contravariant in their type parameters.
-This is not a problem, because in practice it is not necessary to have a `fmap` function for GADTs.
+This is not a problem, because in practice it is not necessary to have a `fmap` or a `cmap` function for GADTs.
 
-The definition of a GADT can use its type parameters in a precise way required by the task at hand.
-Because of this flexibility, GADTs are a powerful feature of languages such as OCaml, Haskell, and Scala.
+The definition of a GADT can be written with great flexibility, setting type parameters in a precise way required by the task at hand.
 
 For illustration, let us implement an interpreter for the toy language in Haskell.
 The interpreter will be a function of type `LExp t -> t`, which will guarantee _at type-checking time_ that expressions are evaluated to correct types.
@@ -7040,13 +7047,13 @@ eval (LNot b) = not b
 eval (LIsZero x) = x == 0
 ```
 
-GADTs are usually recursively defined because the constructor arguments need to use the GADT itself.
+GADTs are usually recursively defined because the constructor arguments often need to use the GADT itself.
 So, we will encode GADTs with the technique similar to the Church encoding of nested types.
 
-Let us first look at how those types are defined in Haskell and Scala, in order to motivate the corresponding definition in Dhall.
+Let us first look at how those types are defined in Haskell and Scala, in order to motivate the Dhall encoding of GADTs.
 
 We begin by reviewing the syntax for defining an ordinary **algebraic data type** (ADT) that is not a GADT.
-For ADTs, both Haskell and Scala have a "short syntax" and a "long syntax".
+For ADTs, both Haskell and Scala support _two_ equivalent possibilities: the "short syntax" and the "long syntax".
 
 The short syntax looks like this:
 
@@ -7061,10 +7068,10 @@ enum Tree[A]:                                            // Scala 3.
 
 The type `Tree` has two constructors, which may be viewed as functions whose output type is `Tree a`.
 In Haskell, `Leaf` is a function of type `a → Tree a`, and `Branch` is a function of type `Tree a → Tree a → Tree a`.
-In Scala, `Leaf` and `Branch` behave as functions of types `A => Tree[A]` and `(Tree[A], Tree[A]) => Tree[A]`.
+In Scala, `Leaf` and `Branch` are  functions of types `A => Tree[A]` and `(Tree[A], Tree[A]) => Tree[A]` respectively.
 
-The short syntax does not show those functions explicitly.
-The long syntax writes out each constructor separately, specifying the output type as well as inputs.
+The short syntax does not show those functions explicitly; only the inputs to the constructor functions are shown.
+The long syntax writes out each constructor function separately, specifying the output type as well as inputs.
 
 In Haskell, the long syntax for defining `Tree` looks like this:
 ```haskell
@@ -7081,13 +7088,13 @@ enum Tree[A]:                                       // Scala 3.
   case Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 ```
 
-Denote temporarily `Tree a` by just `T` and consider `a` as a fixed type.
-If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that we can write in Haskell as `(a → T, T → T → T)`.
+It helps to consider `a` temporarily as a fixed type and to denote temporarily `Tree a` by just `T`.
+If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that looks in Haskell as `(a → T, T → T → T)`.
 That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
 
 Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
 The Church encoding of that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
-The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations:
+The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations and use suggestive argument names ("leaf" and "branch"):
 
 ```dhall
 let Tree_ = λ(a : Type) → ∀(r : Type) → ∀(leaf : a → r) → ∀(branch : r → r → r) → r
@@ -7100,14 +7107,14 @@ In this example, all three constructors have the same output type `Tree a`.
 
 However, note that the output type parameter `a` in `Tree a` is written out explicitly in the long syntax.
 Haskell and Scala allow the programmer to use a _different_ type expression (instead of `a`) in that place.
-For example, the output type could be `Tree Int` instead of `Tree a`, or even a more complicated type with other type parameters.
+For example, the output type could be `Tree Int` instead of `Tree a`, or a more complicated type with other  type parameters.
 The resulting type would then be a GADT.
 
 
 Defining a GADT in Haskell or Scala always requires the "long syntax".
 Now we will show how to translate such "long syntax" definitions into Dhall.
 
-We use the technique of curried Church encoding at the level of type constructors, similarly to what we did for nested recursive types.
+We use the technique of curried Church encoding for type constructors, similarly to what we had to do for nested recursive types.
 
 Suppose we have the following Haskell definition of a GADT:
 ```haskell
@@ -7129,6 +7136,7 @@ The next step is to rewrite this type in the form of a mapping `F P -> P`.
 In this way, we will derive the pattern functor `F` for this recursive type, showing us how to define the Church encoding.
 
 Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
+
 Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
 The Church encoding must be applied at the level of type constructors via the same type formula as we used in the previous section:
@@ -7141,7 +7149,7 @@ This is the general Church encoding at the level of type constructors.
 The type constructor `P` will be defined via `LFixK F` with some `F`.
 It remains to figure out how to write a suitable `F`.
 
-As the the definition of `P` is non-parametric, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all `t`.
+As the the definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all allowed `t`.
 In the example at hand, `P t` can have values only when `t = Int` or `t = Text`.
 So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Int → P Int` and `F P Text → P Text`.
 
@@ -7152,7 +7160,7 @@ Let us write them side by side:
 - Mapping type `F P -> P` is: `(F P Int → P Int, F P Text → P Text)`.
 
 These types will be equal if we define `F P Int = Text` and `F P Text = (Bool, P Int)`.
-The type constructor `F P` will be void unless applied to `Int` and `Text` type parameters.
+We will define the type constructor `F P t` as void unless `t = Int` or `t = Text`.
 
 Write the Church encoding of the type constructor `P` as `LFixK F`, which after currying looks like this:
 
@@ -7195,9 +7203,17 @@ let LExp = λ(t : Type) → ∀(r : Type → Type) →
 ```
 
 To create values of type `LExp`, we use constructor functions corresponding to each of the constructors in the Haskell code.
-The code for those constructor functions is quite repetitive, so let us only show two of them:
+The code for those constructor functions is quite repetitive, but any error will be caught at typechecking stage:
 
 ```dhall
+let LBool : Bool → LExp Bool
+  = λ(b : Bool) → λ(r : Type → Type) →
+    λ(lBool : Bool → r Bool) →
+    λ(lInt : Integer → r Integer) →
+    λ(lAdd : r Integer → r Integer → r Integer) →
+    λ(lNot : r Bool → r Bool) →
+    λ(lIsZero : r Integer → r Bool) →
+      lBool b
 let LInt : Integer → LExp Integer
   = λ(i : Integer) → λ(r : Type → Type) →
     λ(lBool : Bool → r Bool) →
@@ -7214,26 +7230,42 @@ let LAdd : LExp Integer → LExp Integer → LExp Integer
     λ(lNot : r Bool → r Bool) →
     λ(lIsZero : r Integer → r Bool) →
       lAdd (x r lBool lInt lAdd lNot lIsZero) (y r lBool lInt lAdd lNot lIsZero)
+let LNot : LExp Bool → LExp Bool
+  = λ(b : LExp Bool) → λ(r : Type → Type) →
+    λ(lBool : Bool → r Bool) →
+    λ(lInt : Integer → r Integer) →
+    λ(lAdd : r Integer → r Integer → r Integer) →
+    λ(lNot : r Bool → r Bool) →
+    λ(lIsZero : r Integer → r Bool) →
+      lNot (b r lBool lInt lAdd lNot lIsZero)
+let LIsZero : LExp Integer → LExp Bool
+  = λ(x : LExp Integer) → λ(r : Type → Type) →
+    λ(lBool : Bool → r Bool) →
+    λ(lInt : Integer → r Integer) →
+    λ(lAdd : r Integer → r Integer → r Integer) →
+    λ(lNot : r Bool → r Bool) →
+    λ(lIsZero : r Integer → r Bool) →
+      lIsZero (x r lBool lInt lAdd lNot lIsZero)
 ```
 
-We can now  create an  example  expression in the toy language:
+We can now  create some example  expressions in the toy language:
 
 ```dhall
-let exampleLExp : LExp Integer = LAdd (LInt +10) (LInt +20)
+let exampleLExp1 : LExp Integer = LAdd (LInt +10) (LInt +20)
+let exampleLExp2 : LExp Bool = LNot (LIsZero (LAdd (LInt +10) (LInt -10)))
 ```
 
 Let us now implement in Dhall an interpreter for this  language.
 
-Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by Church-encoded data.
+Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by non-recursive code  that uses Church-encoded data.
 In the Church encoding, recursion is replaced by applications of the higher-order functions.
 The Dhall code for the interpreter will be non-recursive and will consist of applying a value of type `LExp t` to suitable arguments.
 
 The first of those arguments is the type constructor parameter `r : Type → Type`.
 To choose this parameter, we consider the final output type `r t` of the function `LExp t`.
 We need to obtain a value of type `t`.
-So, we must choose `r` as the identity functor.
-We use the function `identityK` to create it.
-After that, all other arguments are easy to compute:
+So, we must choose `r` as the identity functor (`λ(a : Type) → a`).
+After that, all other arguments are easy to compute as they are just ordinary functions on primitive types:
 ```dhall
 let evalLExp : ∀(t : Type) → LExp t → t
   = λ(t : Type) → λ(expr : LExp t) →
@@ -7241,20 +7273,21 @@ let evalLExp : ∀(t : Type) → LExp t → t
     let lBool : Bool → r Bool                     = identity Bool
     let lInt : Integer → r Integer                = identity Integer
     let lAdd : r Integer → r Integer → r Integer  = Integer/add
-    let lNot : r Bool → r Bool                    = identity Bool
+    let lNot : r Bool → r Bool                    = Bool/not
     let lIsZero : r Integer → r Bool              = Integer/equal +0
     in expr r lBool lInt lAdd lNot lIsZero
 ```
 
-To test this code, let us evaluate the example expression:
+To test this code, let us evaluate our example expressions:
 
 ```dhall
-let _ = assert : evalLExp Integer exampleLExp ≡ +30
+let _ = assert : evalLExp Integer exampleLExp1 ≡ +30
+let _ = assert : evalLExp Bool exampleLExp2 ≡ False
 ```
 
 
 The toy language `LExp` did not need to use all the possible features of GADTs.
-To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we assign various type parameters in different ways:
+To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we assign various type parameters in different ways, and where some type parameters remain unrestricted:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -7308,21 +7341,23 @@ The corresponding code in Scala is:
 ```scala
 // Scala
 sealed trait F[_]
-case class Example[A, T](init: T => Boolean, transform: T => A) extends F[A]
+case class F1[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
-The type parameter `T` is visible only within the scope of the case class `Example` but is not visible outside:
-The class is defined via `extends F[A]`, which shows only the type parameter `A`.
+The type parameter `T` is visible only within the scope of the case class `F1` but is not visible outside.
+This is because the class is defined via `extends F[A]`, which shows only the type parameter `A`.
+A value constructed using `F1[Int, String]`  will be viewed by the compiler as a value of type `F[Int]`, and the type `String` will remain hidden.
 
 From the point of view of the program code, an existentially quantified type parameter is one that is present within the scope of a specific data constructor but absent from the overall data type.
 In the Haskell code, it is the type parameter `t`, and in the Scala code, it is `T`.
 
-The mathematical notation for `F` is `F a = ∃ t. (t → Bool) × (t → a)`.
+The mathematical notation for `F` is $F~ a = \exists t.~ (t \to \textrm{Bool}) \times (t \to a)$.
 
 To understand how the existential types work, let us look at the way the type parameter `t` is used in the Haskell code just shown.
 
-The type parameter `t` is bound by the quantifier and is visible only inside the type expression `∃ t. (t → Bool) × (t → a)`.
+The type parameter `t` is bound by the quantifier and is visible only inside the type expression $ \exists t.~ (t \to \textrm{Bool}) \times (t \to a)$.
 To create a value `x` of type `F a`, we will need to supply two functions, of types `t → Bool` and `t → a`, with a specific (somehow chosen) type `t`.
-At that point, we are free to choose `t` arbitrarily.
+At that point, we are still free to choose `t` arbitrarily.
+
 But when working with a value `x : F a`, we will not directly see the type `t` anymore.
 The type of `x` is `F a`; that type does not show what `t` is.
 (The type `t` is not a free type parameter in the expression `F a`.)
@@ -7341,7 +7376,6 @@ Now we look at the function type `F a → r` more closely.
 
 A value `x : F a` must be created as a pair of type `{ _1 : t → Bool, _2 : t → a }` with a chosen type `t`.
 A function `f : F a → r` must produce a result value of type `r` from any value `x`, for any type `t`.
-
 In fact, `f` may not inspect the type `t` or make choices based on `t` because the type `t` is existentially quantified and is hidden inside `x`.
 So, the function `f` must work for all types `t` in the same way.
 
@@ -7374,8 +7408,8 @@ In this code, we apply the given argument `pack` of type `∀(t : Type) → { _1
 It is clear that we may produce a value `x : F Natural` given any specific type `t` and any value of type `{ _1 : t → Bool, _2 : t → Natural }`.
 This exactly corresponds to the information contained within a value of an existentially quantified type `∃ t. (t → Bool) × (t → Natural)`.
 
-To generalize this example to arbitrary existentially quantified types, we replace the type `{ _1 : t → Bool, _2 : t → a }` by an arbitrary type constructor `P t`.
-Here `a` needs to be viewed as a fixed type; for instance, if `a = Natural` we will get:
+To generalize this example to arbitrary existentially quantified types, we replace the type `{ _1 : t → Bool, _2 : t → a }` by a type expression `P t`, where `P` is an arbitrary type constructor.
+Here `a` needs to be viewed as a fixed type; for instance, if `a = Natural` we will define `P` as:
 
 ```dhall
 let P = λ(t : Type) → { _1 : t → Bool, _2 : t → Natural }
@@ -7972,7 +8006,7 @@ We have chosen the semigroup type `Bool → Bool` in this example because Dhall 
 
 ## Encoding of greatest fixpoints (co-inductive types)
 
-### Greatest fixpoints: Motivation
+### Greatest fixpoints: motivation
 
 Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
@@ -7991,13 +8025,15 @@ Least fixpoints of polynomial functors are always  _finite_ data structures.
 One can always traverse all data stored in such structures by using a finite number of operations.
 One can also extract all stored data into a list; so, least fixpoints of polynomial functors are always `Foldable`.
 
-Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration.
-A traversal of all data items stored in those data structures will not necessarily terminate.
-So, it is not possible to traverse all data or extract all data from such data structures.
-Those data structures are used only in ways that do not involve a full traversal of all data.
+Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration (such as infinite lists or infinite trees).
+A traversal of all data items stored in those data structures might not  terminate.
+So, it is not possible to traverse or extract all data  from such   structures.
+Those data types are used only in ways that do not involve a full traversal of all data.
+
+In practice, the data is not stored in memory but is computed on demand during traversal.
 It is helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
-To illustrate the contrast  between the least fixpoints and the greatest fixpoints, consider the pattern functor `F` for the data type `List Text`.
+To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same pattern functor, consider the pattern functor `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
 
 ```dhall
@@ -8233,7 +8269,6 @@ let repeatFunction : ∀(a : Type) → a → (a → a) → InfSeq a
 We can use this function to create an infinite sequence `[True, False, True, False, ...]`:
 
 ```dhall
-let Bool/not = https://prelude.dhall-lang.org/Bool/not
 let repeatTrueFalse : InfSeq Bool = repeatFunction Bool True (λ(b : Bool) → Bool/not b)
 ```
 
