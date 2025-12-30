@@ -9947,10 +9947,10 @@ let functorContrafunctorArrow
 ### Universal and existential type quantifiers
 
 Given a type constructor with multiple type parameters, we may impose a type quantifier on some of the parameters and obtain a type constructor with fewer type parameters.
-Imposing type quantifiers will not change the covariance properties of the type constructor.
+Imposing type quantifiers will not change the covariance properties of the type constructor with respect to the type parameter that remains free.
 In this way, we may produce new functors or contrafunctors.
 
-Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the second type parameter of `F`.
+Without loss of generality, we consider a type constructor `F` that has two type parameters and define a new type constructor `G` by imposing a universal type quantifier on the _second_ type parameter of `F`.
 (The first type parameter remains free.)
 In a mathematical notation, the definition of `G` is $G ~a = \forall b.~ F~ a~ b$.
 The corresponding Dhall code is:
@@ -10038,6 +10038,17 @@ let contrafunctorExists1
     }
 ```
 
+Deriving a `Functor` evidence for types with type quantifiers is similar but not the same as deriving a `Functor` evidence with respect to one type parameter while others are held fixed.
+To illustrate the difference, let us show how one could derive a `Functor` evidence with respect to the first or the second type parameters of a bifunctor, while the other type parameter is held fixed:
+
+```dhall
+let functorBifunctorF1 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(b : Type) → Functor (λ(a : Type) → F a b)
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(b : Type) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap c d f b b (identity b) }
+let functorBifunctorF2 : ∀(F : Type → Type → Type) → Bifunctor F → ∀(a : Type) → Functor (λ(b : Type) → F a b)
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(a : Type) →
+    { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap a a (identity a) c d f }
+```
 
 ### Recursive functors and contrafunctors
 
@@ -10985,7 +10996,7 @@ In this and the next subsections, we will implement `Applicative` evidence for f
 
 Suppose `F` is a bifunctor; that is,  `F a b` is covariant with respect to both `a` and `b`.
 Then we may define the recursive functors `C` and `D` such that `C a = LFix (F a)` and `D a = GFix (F a)`.
-The functors `C` and `D` are applicative as long as `F` has a special `zip`-like method that works at once with both type parameters.
+We will now show that the functors `C` and `D` are applicative as long as `F` has a special `zip`-like method that works at once with both type parameters.
 
 As it turns out, there are several possible ways of defining a `zip` method for bifunctors, and each of those possibilities has its uses.
 One possibility is the method we call `bizip`, with the following type signature:
@@ -11026,17 +11037,22 @@ Here `L` is another _arbitrary_ functor, viewed as an extra type parameter.
 Let us  define these type signatures formally in Dhall:
 
 ```dhall
-let bizipI = λ(F : Type → Type → Type) → ∀(r : Type) →
+let BizipI = λ(F : Type → Type → Type) → ∀(r : Type) →
   ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
-let bizipL = λ(F : Type → Type → Type) → λ(L : Type → Type) →
+let BizipL = λ(F : Type → Type → Type) → ∀(L : Type → Type) → Functor L →
   ∀(a : Type) → F a (L a) →
   ∀(b : Type) → F b (L b) →
     F (Pair a b) (Pair (L a) (L b))
 ```
 
-Now we turn to implementing  `zip` for the greatest fixpoint of a bifunctor `F`.
+Now we turn to implementing  `zip` for the greatest fixpoint `D`.
 
-If we assume that `F` has a `bizip` method, an implementation is:
+If we assume that `F` has a `bizip` method, we can implement `zip` by unpacking the existential types within the greatest fixpoints.
+Recall that the greatest fixpoint `D` is encoded as $D~a = \exists t.~t\times (t\to F~a~t)$.
+If we have two values of types `D a` and `D b`, we may unpack those values and obtain values of types `F a s` and `F b t` (under universal quantifiers for `s` and `t`).
+The `bizip` method will then give us a value of type `F (Pair a b) (Pair s t)`, which is sufficient for constructing a value of the fixpoint type `GFix (F (Pair a b))`.
+
+This gives the following code of `zip`:
 
 ```dhall
 let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : Type) → GFix (F c))
@@ -11044,14 +11060,14 @@ let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : 
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
       -- Type GFix (F a) is ∀(r : Type) → (∀(t : Type) → { seed : F a t, step : t → F a t } → r) → r.
-      -- We apply ga and gb with r = GFix (F (Pair a b)).
+      -- We unpack ga and gb with r = GFix (F (Pair a b)).
       ga (GFix (F (Pair a b))) (λ(s : Type) → λ(p : { seed : s, step : s → F a s }) →
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
           -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
           makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
             (λ(st : Pair s t) → bizip a s (p.step p.seed) b t (q.step q.seed))
         )
-      ) 
+      )
 ```
 
 To make an applicative functor complete, we need a corresponding `unit` method.
@@ -11073,12 +11089,42 @@ let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT
     }
 ```
 
+TODO: code examples with List and binary trees (with data in branches to allow for bizip)
+
 Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizip`.
-To implement the `zip` function for its greatest fixpoint, ???
+To implement the `zip` function for the greatest fixpoint of `D a = GFix (F a)`, we need to convert a pair of values of types `D a` and `D b`
+This time we use a different approach.
+We apply the standard `unfixG` method and obtain values of types `F a (D a)` and `F b (D b)`.
+Then we use the `bizipL` method with `D = L` to compute a value of type `F (Pair a b) (Pair (D a) (D b))`.
+That value is sufficient for creating a value of type `D (Pair a b)`.
 
-TODO: use bizipFC to implement ordinary zip and padding zip, run example tests
+The corresponding code is:
 
-TODO: show that bizipFC can work with any functor instead of C?
+```dhall
+let zipViaBizipL : ∀(F : Type → Type → Type) → Bifunctor F →
+  let D = λ(c : Type) → GFix (F c) in
+    BizipL F → ZipT D
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) →
+      let D = λ(c : Type) → GFix (F c) in
+        λ(bizipL : BizipL F) →
+    λ(a : Type) → λ(da : D a) → λ(b : Type) → λ(db : D b) →
+      let makeFpair : Pair (D a) (D b) → F (Pair a b) (Pair (D a) (D b))
+       = λ(dadb : Pair (D a) (D b)) →
+        -- Use unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F).
+        let functorF2 : ∀(t : Type) → Functor (F t) = functorBifunctorF2 F bifunctorF
+        let unfixD : ∀(t : Type) → D t → F t (D t) = λ(t : Type) → unfixG (F t) (functorF2 t) 
+        -- Apply unfixD to ga and gb.
+        let fada : F a (D a) = unfixD a dadb._1
+        let fbdb : F b (D b) = unfixD b dadb._2
+        let functorD : Functor D = functorGFix F (functorBifunctorF1 F bifunctorF)
+        let fabdadb : F (Pair a b) (Pair (D a) (D b)) = bizipL D functorD a fada b fbdb
+        in fabdadb
+      -- Create a value of type D (Pair a b).
+      -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
+      in makeGFix (F (Pair a b)) (Pair (D a) (D b)) { _1 = da, _2 = db } makeFpair
+```
+
+TODO: use bizipL to implement ordinary zip and padding zip, run example tests
 
 ### Least fixpoints
 
@@ -11130,7 +11176,7 @@ TODO:write the general code for `zip`
 For illustration, let us implement `zip` for `F a r = Either a (Pair r r)`.
 This `F` describes binary trees with data held in leaves.
 
-We are allowed to imlpement the function `bizip_F1` in any way whatsoever, as it does not need to satisfy any laws.
+We are allowed to implement the function `bizip_F1` in any way whatsoever, as it does not need to satisfy any laws.
 For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
