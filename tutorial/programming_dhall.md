@@ -1319,7 +1319,7 @@ Library functions for working with `Natural` and `Integer` numbers include funct
 Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
 
 All those functions are implemented through Dhall built-ins.
-As Dhall intentionally includes only a small number of built-in functions, implementing functionality such as `List/take` and `List/drop` results in slower and/or larger code than one might expect.
+To keep the language simpler, Dhall has only a small number of built-in functions.
 
 TODO:describe DirectoryFile, JSON, Function, Operator
 
@@ -3996,16 +3996,11 @@ Its evidence value for the `ApplicativeFunctor` typeclass can be written using a
 
 ```dhall
 let Natural/min = https://prelude.dhall-lang.org/Natural/min
-let List/tail : ∀(a : Type) → List a → List a
-  = λ(a : Type) → λ(la : List a) →
-    let Accum = { result : List a, seen : Bool }
-    let init : Accum = { result = [] : List a, seen = False }
-    let update : a → Accum → Accum = λ(x : a) → λ(prev : Accum) →
-      let newResult = if prev.seen then [x] # prev.result else prev.result
-      in { result = newResult, seen = True }
-    in (List/fold a la Accum update init).result
+let List/drop = https://prelude.dhall-lang.org/List/drop
 let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List (Pair a b)
   = λ(a : Type) → λ(la : List a) → λ(b : Type) → λ(lb : List b) →
+    let revA = List/reverse a la
+    let revB = List/reverse b lb
     let lenA = List/length a la
     let lenB = List/length b lb
     let padding = λ(a : Type) → λ(longer : List a) → λ(b : Type) → λ(shorter : List b) →
@@ -4018,21 +4013,19 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
           merge { Left = λ(tail : List b) →
                        merge { None = prev -- This will happen only when one of the input lists is empty.
                              , Some = λ(y : b) →
-                               let pad = if Natural/equal 1 (List/length b tail) then U.Right y else U.Left (List/tail b tail)
+                               let pad = if Natural/equal 1 (List/length b tail) then U.Right y else U.Left (List/drop 1 b tail)
                                in { pad = pad, result = [ { _1 = x, _2 = y } ] # prev.result }
-                             } (List/last b tail)  
+                             } (List/head b tail)  
                  , Right = λ(y : b) → { pad = prev.pad, result = [ { _1 = x, _2 = y } ] # prev.result }
                 } prev.pad
       in List/reverse (Pair a b) (List/fold a longer Accum cons nil).result
-    let revA = List/reverse a la
-    let revB = List/reverse b lb
     in if lessThanEqual lenA lenB
-    then List/map (Pair b a) (Pair a b) (swap b a) (padding b revB a revA)
-    else padding a revA b revB
+    then List/map (Pair b a) (Pair a b) (swap b a) (padding b revB a la)
+    else padding a revA b lb
 ```
 
 For two non-empty lists, the "padding zip" will return a list of the length of the longest of the two lists.
-The missing elements are "padded" with the last value in the shorter of the lists:
+The missing elements are "padded" at the end of the list, using the last value in the shorter of the lists:
 
 ```dhall
 let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, False, True, True ]
@@ -7949,11 +7942,12 @@ But Church encodings always give the **least fixpoints** of type equations.
 The least fixpoints give types that are also known as "inductive types".
 Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive types".
 
-In this book, we will denote by `LFix F` the least fixpoint and by `GFix F` the greatest fixpoint of the type equation `T = F T`.
-Type theory denotes $\mu F$  for the least fixpoint   and   $\nu F$  for the greatest fixpoint.
+In this book, we write `LFix F` for the least fixpoint and   `GFix F` for the greatest fixpoint of the type equation `T = F T`.
+Type theory denotes  the least fixpoint by  $\mu F$    and     the greatest fixpoint by  $\nu F$  (more verbosely,  $\mu x.~F~x$  and  $\nu x.~F~x$ ).
 
 Intuitively, the least fixpoint is the "smallest possible" data type `T` that satisfies `T = F T`.
 The greatest fixpoint is the "largest possible" data type that satisfies the same equation.
+This intuition can be made rigorous but those proofs are beyond the scope of this book.
 
 Least fixpoints of polynomial functors are always  _finite_ data structures.
 One can always traverse all data stored in such structures by using a finite number of operations.
@@ -7965,7 +7959,7 @@ So, it is not possible to traverse all data or extract all data from such data s
 Those data structures are used only in ways that do not involve a full traversal of all data.
 It is helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
-As an example of the contrast between the least fixpoints and the greatest fixpoints, consider the pattern functor `F` for the data type `List Text`.
+To illustrate the contrast  between the least fixpoints and the greatest fixpoints, consider the pattern functor `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
 
 ```dhall
@@ -7979,30 +7973,30 @@ A data structure of type `List Text` always stores a finite number of `Text` str
 The greatest fixpoint `GFix F` is a (potentially infinite) stream of `Text` values.
 The stream could terminate after a finite number of strings, but it could also go on indefinitely.
 
-Of course, we cannot implement infinite streams by literally storing an infinite number of strings in memory.
-Instead, we give an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
+Of course, we cannot implement infinite streams by literally storing an infinite number of `Text` values in memory.
+Instead, we create an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
 In the present example, that function will have type `r → < Nil | Cons { head : Text, tail : r } >`.
 When that function is applied to a value of type `r`, the function will either return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new "seed" value of type `r`.
 
-The type `r` represents the internal state of the stream's decision process and may be different for different streams.
+The type `r` represents the internal state of the stream generator's decision process and may be different for different streams.
 However, the type `r` is not visible to the code outside the stream.
-That code can only extract values of type `r` and pass those values around without being able to do anything else with them.
+That code _can_ extract "seed" values of type `r` and pass those values around but will not  be able to do anything else with those values, because their type is unknown.
 
 This restriction is enforced by the type quantifier:
 To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
 That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
 
-### Encoding of greatest fixpoints with existential types
+We will now show in detail how this is implemented.
 
-This motivates the following implementation of the greatest fixpoint of `T = F T` in the general case:
+### Encoding of greatest fixpoints via existential types
 
-We take some unknown type `r` and implement `T` as a pair of values of types `r` and `r → F r`.
+The greatest fixpoint of `T = F T`  is  implemented  as a pair of values of types `r` and `r → F r`.
 To hide the type `r` from outside code, we impose an existential quantifier on `r`.
 
-So, the mathematical notation for the greatest fixpoint of `T = F T` is `GFix F = ∃ r. r × (r → F r)`.
+The type theory  notation for the greatest fixpoint of `T = F T` is $\mu F = \exists r.~r\times (r\to F~r)$. 
 
-The corresponding Dhall code uses the type constructor `Exists` that we defined in a previous section.
-To use `Exists`, we need to supply a type constructor that creates the type expression `r × (r → F r)` from the type parameter `r`.
+The corresponding Dhall code uses the type constructor `Exists`   defined in a previous section.
+To use `Exists`, we need to supply a type constructor that creates the type expression  $r\times (r\to F~r)$ from the type parameter `r`.
 We will call that type constructor `GF_T` and use it to define `GFix`:
 
 ```dhall
@@ -8297,8 +8291,8 @@ Given a value of type `Stream a`, we may apply `headTailOption` several times to
 
 Let us now implement a function `streamToList` that converts `Stream a` to `List a`.
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
-The limit length must be specified as an additional argument.
 Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
+The length limit  must be specified as an additional argument.
 So, the type signature of `streamToList` must be something like `Stream a → Natural → List a`.
 
 ```dhall
@@ -8347,11 +8341,9 @@ let HeadTailT = λ(a : Type) → < Cons : { head : a, tail : List a } | Nil >
 
 let headTail : ∀(a : Type) → List a → HeadTailT a
   = λ(a : Type) → λ(list : List a) →
-    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
-    in merge { None = (HeadTailT a).Nil
-               , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = getTail list }
-    } (List/head a list)
-
+    merge { None = (HeadTailT a).Nil
+          , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = List/drop 1 a list }
+           } (List/head a list)
 let listToStream : ∀(a : Type) → List a → Stream a
   = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
 ```
@@ -8387,11 +8379,10 @@ Whenever the "seed" value becomes an empty list, it is reset to the initial list
 ```dhall
 let repeatForever : ∀(a : Type) → List a → Stream a
   = λ(a : Type) → λ(list : List a) →
-    let getTail = https://prelude.dhall-lang.org/List/drop 1 a
     let mkStream = λ(h : { head : a, tail : List a }) →
       let step : List a → HeadTailT a = λ(prev : List a) →
         merge { None = (HeadTailT a).Cons { head = h.head, tail = h.tail }
-              , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = getTail prev }
+              , Some = λ(x : a) → (HeadTailT a).Cons { head = x, tail = List/drop 1 a prev }
         } (List/head a prev)
       in makeStream a (List a) list step
     -- Check whether `list` is empty. If so, return an empty stream.
