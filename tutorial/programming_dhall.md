@@ -4067,7 +4067,7 @@ let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
 
 The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip` function as long as both input lists have the same lengths.
 When one of the input lists is longer, the standard `zip` truncates the longer list; but the padding `zip` pads the shorter list instead.
-In any case, the padding `zip` (together with the `unit` value, defined as `unit = [ {} ]` for lists) satisfies all the laws of applicative functors and, unlike the truncating `zip`, does not discard any input information.
+In any case, the padding `zip` (together with the `pure` function defined as `pure x = [x]` for lists) satisfies all the laws of applicative functors and, unlike the truncating `zip`, does not discard any input information.
 
 Now we can complete the `ApplicativeFunctor` evidence for `List`: 
 
@@ -4077,7 +4077,7 @@ let applicativeFunctorList : ApplicativeFunctor List
 ```
 
 Why cannot we use the standard `List/zip` function for implementing this?
-Because the identity laws of `zip` do not hold with our `pointedList` implementation (creating a list of length 1) and the standard `List/zip` function.
+Because the identity laws of `zip` do not hold with our `pointedList` implementation (creating a list of length `1`) and the standard `List/zip` function.
 The identity laws say that `List/zip` applied to any list `xs` and to the result of `pointedList.pure a x` must be a list of the same length as `xs`, containing all the original elements of `xs` paired with the value `x : a`.
 However,  `List/zip a p q` will truncate the result to the shortest of the lists `p` and `q`.
 The only way of making  `List/zip` compatible with the applicative identity law is by making `pointedList.pure` return a list of infinite length, which is incompatible with the `List` type. 
@@ -8792,9 +8792,13 @@ We will implement two versions of an infinite tree: a tree that has data in leav
 
 TODO: implement
 
-### Example: graphs
+### Example: labeled cyclic graphs
 
 TODO: refer to GG's blog post and implement here 
+
+This code is [available as a small library](https://github.com/Gabriella439/graph) on Github.
+
+Also see [this Stackoverflow question](https://stackoverflow.com/questions/60423705/). 
 
 ### Converting from the least fixpoint to the greatest fixpoint
 
@@ -11265,6 +11269,8 @@ let applicativeGFix : ∀(F : Type → Type → Type) → BizipT F → F {} {} �
 ```
 
 TODO: code examples with List and binary trees (with data in branches to allow for bizip)
+
+TODO: explain that "padding" corresponds to using the functor instance in bizipL to convert (a, L b) -> L (a, b)
 
 Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizip`.
 To implement the `zip` function for the greatest fixpoint of `D a = GFix (F a)`, we need to convert a pair of values of types `D a` and `D b`
