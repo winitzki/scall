@@ -9346,15 +9346,15 @@ TODO:try revising this logic, accumulating both the h function and the result of
 
 The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
-In this book, we will only explain the simple HIT algorithm for a single recursive function.
+In this book, we will only explain the simple HIT algorithm for a single recursive function having only one argument.
 
 The HIT algorithm works only for recursive code of a certain restricted form:
 
-- The code must have a single top-level pattern matching expression that splits the code in several branches.
-- Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ for each branch and cannot depend on any further conditions evaluated within the branch.
-- Recursive calls are not nested: the arguments of all recursive calls are computed without any further recursive calls.
+- The function must have a single top-level pattern matching expression that splits the code into several branches. Each pattern-matching branch of the code may contain zero or more recursive calls.
+- For each pattern-matching branch, the number of  recursive calls must be known _statically_ (at compile time). The number of recursive calls  cannot depend on any conditions evaluated within the branch. In particular, the result value of one recursive call cannot determine whether another recursive call will be necessary within the code of this branch.
+- Recursive calls are not nested: the argument of one recursive call cannot depend on the return value of another recursive call.
 
-However, a tail-recursive form is _not_ required for the HIT algorithm to work.
+However, a tail-recursive form of the code is _not_ required for the HIT algorithm to work.
 
 Code of that form can be described by this Haskell skeleton:
 
@@ -9551,9 +9551,9 @@ The reason is that the $n$-th iteration works with a data structure of type `P (
 With our definition of $P$, that data structure is a binary tree of depth $n$, which stores $2^n$ values of type `Natural`.
 Processing that data structure takes exponential time ($O(2^n)$).
 
-The HIT algorithm does not change the asymptotic performance of recursive code.
+The HIT algorithm does not change the asymptotic complexity of recursive code.
 It only converts the code into the form of a hylomorphism.
-To improve the asymptotic complexity of the resulting code, it would be best to start with a faster recursive algorithm, such as the ["doubling algorithm"](https://www.nayuki.io/page/fast-fibonacci-algorithms) for the Fibonacci sequence.
+To improve the asymptotic complexity of the code, it would be best to start with a faster recursive algorithm, such as the ["doubling algorithm"](https://www.nayuki.io/page/fast-fibonacci-algorithms) for the Fibonacci sequence.
 
 Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
 Such techniques are beyond the scope of this book.
@@ -9581,8 +9581,8 @@ We have two options:
 - By trial and error, we can perhaps guess how to convert `egyptian_div_mod` into some calls to `Natural/fold` that Dhall accepts.
 - Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
 
-A uistable  general procedure for converting recursive code to hylomorphisms is The HIT algorithm explained in a previous section.
-The HIT procedure applies to a wide range of recursive functions including the egyptian division algorithm.
+A   general procedure for converting recursive code to hylomorphisms is the HIT algorithm explained in a previous section.
+The HIT procedure applies to a wide range of recursive functions including the Egyptian division algorithm.
 We will now follow that procedure for the code of `egyptian_div_mod` shown above.
 
 A first problem is that
