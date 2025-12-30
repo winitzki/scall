@@ -8019,6 +8019,84 @@ In this implementation, `GFix` is a higher-order function that we can inspect by
 A proof that `GFix F` is indeed the greatest fixpoint of `T = F T` is outlined in the paper "Recursive types for free" and also written out in the Appendix "Naturality and parametricity" of this book.
 This chapter focuses on the practical use of the greatest fixpoints rather than on the proofs of laws.
 
+
+To create values of type `GFix F` more conveniently, we will now implement a function called `makeGFix`.
+The code of that function uses the generic `pack` function (defined in the section "Working with existential types") to create values of type $\exists r.~r\times (r\to F~r)$.
+
+```dhall
+let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) → GFix F
+  = λ(F : Type → Type) → λ(r : Type) → λ(seed : r) → λ(step : r → F r) →
+    pack (GF_T F) r { seed = seed, step = step }
+```
+
+
+#### First example: infinite sequences
+
+A simple example of a co-inductive type is a data type `InfSeq` representing an infinite sequence of `Natural` values.
+This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
+An intuitive picture of this data type is an infinitely nested record:
+
+`{ _1 = 101, _2 = { _1 = 102, _2 = ... } }`
+
+Of course, it is impossible to   represent  this data structure literally.
+Instead, we use the encoding via the `GFix` constructor:
+
+```dhall
+let InfSeq = GFix (Pair Natural)
+```
+
+More verbosely, we can rewrite this type using an existential type:
+
+```dhall
+let InfSeq = Exists (λ(r : Type) → { seed : r, step : r → Pair Natural r })
+```
+
+A value of type `InfSeq` is a function that stores some "seed" value of type `r` and is able to compute, on demand, the next "step" of the data: a `Natural` value together with a new "seed".
+
+To create values of this type, we need to choose a specific "seed" type and to provide an initial "seed" value and a "step" function.
+The "seed" type must carry sufficient information for computing the next values at every step.
+
+Let us look at two example values of the type `InfSeq`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
+
+To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the next `Natural` value.
+This requires no information to be stored in the "seed"; so we can choose a unit type as the "seed" type.
+The code is:
+
+```dhall
+let zeros : InfSeq = makeGFix (Pair Natural) {} {=} (λ(_ : {}) → { _1 = 0, _2 = {=} })
+```
+
+To create an `InfSeq` value representing `0, 1, 2, 3, ...`, we need to be able to produce the next `Natural` value at each step.
+Let us use the "seed" to store that value.
+The "step" function will then be able to increment the seed value.
+
+```dhall
+let naturals : InfSeq = makeGFix (Pair Natural) Natural 0 (λ(n : Natural) → { _1 = n, _2 = n + 1 })
+```
+
+To verify that this code works, let us write a function `InfSeq/take` that extracts from an infinite sequence a prefix of a given length.
+We will use `Natural/fold` to iterate over the sequence and accumulate the resulting list.
+At each iteration, we will unpack the existential type and compute the next iteration.
+```dhall
+let InfSeq/take : Natural → InfSeq → List Natural
+  = λ(limit : Natural) → λ(seq: InfSeq) →
+   let Accum = { list : List Natural, seq : InfSeq }
+   let init : Accum = { list = [] : List Natural, seq = seq }
+   let update : Accum → Accum = λ(prev : Accum) →
+     let makeNewAccum = λ(r : Type) → λ(p : { seed : r, step : r → Pair Natural r }) →
+       let newPair : Pair Natural r = p.step p.seed
+       in { list = prev.list # [newPair._1], seq = makeGFix (Pair Natural) r newPair._2 p.step }
+     in prev.seq Accum makeNewAccum
+   in (Natural/fold limit Accum update init).list
+```
+
+We can now test our code:
+
+```dhall
+let _ = assert : InfSeq/take 5 zeros ≡ [ 0, 0, 0, 0, 0 ]
+let _ = assert : InfSeq/take 5 naturals ≡ [ 0, 1, 2, 3, 4 ]
+```
+
 ### Greatest fixpoints for mutually recursive types
 
 Consider two mutually recursive types that we have already seen in the section "Mutually recursive types" of chapter "Church encodings for more complicated types":
@@ -8154,19 +8232,12 @@ let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
 
 ### Data constructors and pattern matching
 
-To create values of type `GFix F` more conveniently, we will now implement a function called `makeGFix`.
-The code of that function uses the generic `pack` function (defined in the section "Working with existential types") to create values of type `∃ r. r × (r → F r)`.
-
-```dhall
-let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) → GFix F
-  = λ(F : Type → Type) → λ(r : Type) → λ(x : r) → λ(rfr : r → F r) →
-    pack (GF_T F) r { seed = x, step = rfr }
-```
+We have already seen a `makeGFix` function that helps  create values of type `GFix F`.
 
 Creating a value of type `GFix F` requires an initial "seed" value and a "step" function.
 We imagine that the code will run the "step" function as many times as needed, in order to retrieve more values from the data structure.
 
-The required reasoning is quite different from that of creating values of the least fixpoint types.
+The reasoning here is quite different from that for creating values of the least fixpoint types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
 Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fixG : F T → T`.
@@ -8179,11 +8250,11 @@ We can then perform pattern-matching directly on that value, since `F` is typica
 
 So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern-matching for co-inductive types.
 
-### Example of a co-inductive type: "Stream"
+### Example: streams
 
-To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific example.
+To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific data type: `Stream`.
 
-Consider `Stream`, which we define as  the greatest fixpoint of the pattern functor for `List`:
+We define `Stream` as the greatest fixpoint of the same pattern functor used for `List`:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -8280,21 +8351,21 @@ let headTailOption
                 }
          , Nil = None ResultT
       } (state.step state.seed)
-    in s (Optional ResultT) unpack_
+   in s (Optional ResultT) unpack_
 ```
 
 Given a value of type `Stream a`, we may apply `headTailOption` several times to extract further data items from the stream, or to discover that the stream has finished.
 
 #### Converting a stream to a `List`
 
-Let us now implement a function `streamToList` that converts `Stream a` to `List a`.
+Let us now implement a function `Stream/take` that converts `Stream a` to `List a`.
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
 Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
 The length limit  must be specified as an additional argument.
-So, the type signature of `streamToList` must be something like `Stream a → Natural → List a`.
+So, the type signature of `Stream/take` must be something like `Stream a → Natural → List a`.
 
 ```dhall
-let streamToList : ∀(a : Type) → Stream a → Natural → List a
+let Stream/take : ∀(a : Type) → Stream a → Natural → List a
  = λ(a : Type) → λ(s : Stream a) → λ(limit : Natural) →
    let Accum = { list : List a, stream : Optional (Stream a) }
    let init : Accum = { list = [] : List a, stream = Some s }
@@ -8306,7 +8377,7 @@ let streamToList : ∀(a : Type) → Stream a → Natural → List a
      in merge { None = prev // { stream = None (Stream a) }
               , Some = λ(ht : { head : a, tail : Stream a } ) →  { list = prev.list # [ ht.head ], stream = Some ht.tail }
               } headTail
-    in (Natural/fold limit Accum update init).list
+   in (Natural/fold limit Accum update init).list
 ```
 
 #### Creating finite streams
@@ -8364,7 +8435,7 @@ let streamFunction
 We can compute a finite prefix of this infinite stream:
 
 ```dhall
-⊢ streamToList Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
+⊢ Stream/take Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
 
 [ 1, 2, 4, 8, 16 ]
 ```
@@ -8388,7 +8459,7 @@ let repeatForever : ∀(a : Type) → List a → Stream a
              , Cons = λ(h : { head : a, tail : List a }) → mkStream h
              } (headTail a list)
 
-let _ = assert : streamToList Natural (repeatForever Natural [ 1, 2, 3 ]) 7
+let _ = assert : Stream/take Natural (repeatForever Natural [ 1, 2, 3 ]) 7
         ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
 ```
 
@@ -8442,11 +8513,11 @@ let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
     in makeStream a State { remaining = n, stream = stream } step
 ```
 
-This is different from `streamToList` because we are not traversing the stream; we just need to modify the stream's seed and the step function.
+This is different from `Stream/take` because we are not traversing the stream; we just need to modify the stream's seed and the step function.
 So, `Stream/truncate` is a `O(1)` operation.
 
 
-Just like `streamToList`, the function `Stream/truncate` requires an explicit bound on the size of the
+Just like `Stream/take`, the function `Stream/truncate` requires an explicit bound on the size of the
 output list. It is impossible to implement a function that determines whether a given stream terminates.
 Also, we cannot terminate a stream at the data item that satisfies some condition (say, at the first
 `Natural` number that is equal to zero).
@@ -8533,7 +8604,7 @@ As an example, we implement a running sum computation via `scan`:
 let runningSum : Stream Natural → Stream Natural
   = λ(sn : Stream Natural) → Stream/scan Natural sn Natural 0 (λ(x : Natural) → λ(sum : Natural) → x + sum)
 
-let _ = assert : streamToList Natural (runningSum (repeatForever Natural [ 1, 2, 3 ])) 7
+let _ = assert : Stream/take Natural (runningSum (repeatForever Natural [ 1, 2, 3 ])) 7
         ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 ```
 
@@ -8543,12 +8614,12 @@ The result is a function we may call `runningList`:
 ```dhall
 let runningList : ∀(a : Type) → Stream a → Stream (List a)
   = λ(a : Type) → λ(sa : Stream a) → Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
-let _ = assert : streamToList (List Natural) (runningList Natural (repeatForever Natural [ 1, 2, 3 ])) 5
+let _ = assert : Stream/take (List Natural) (runningList Natural (repeatForever Natural [ 1, 2, 3 ])) 5
         ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
 ```
 
-This is different from the function `streamToList`.
-When we apply `streamToList`, we have to give an explicit bound on the size of the output list.
+This is different from the function `Stream/take`.
+When we apply `Stream/take`, we have to give an explicit bound on the size of the output list.
 When we apply `runningList`, we obtain a _stream_ of lists of growing size.
 We can decide later how many values to take from that stream.
 
@@ -8601,7 +8672,7 @@ let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → 
       in sa r pack_a
 let functorStream : Functor Stream = { fmap = Stream/map }
 
-let _ = assert : streamToList Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 ≡ [ 10, 20, 30 ]
+let _ = assert : Stream/take Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 ≡ [ 10, 20, 30 ]
 ```
 
 Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat similar.
@@ -8612,9 +8683,13 @@ The equivalence "at the level of types" (that is, a **type isomorphism**) means 
 So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
 
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
-In this book, we will not show the full proof, as the focus is on practical applications.
+We will not show the full proof, as the focus of this book is on code.
 
 ### Example: infinite trees
+
+Another example of a co-inductive type is a data structure representing infinite trees. 
+
+We will implement two versions of an infinite tree: a tree that has data in leaves and can be finite; and a tree that has data in branches and is always infinite.
 
 TODO: implement
 
@@ -8632,14 +8707,14 @@ let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
     makeGFix F (LFix F) x (unfix F functorF)
 ```
 
-Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching every new element.
+Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching _every_ new data element.
 
 
 The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
 In Dhall, it is impossible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
 To guarantee termination, one must supply an explicit upper bound on the size of the data.
 
-An example is the function `streamToList`  that we have seen earlier.
+An example is the function `Stream/take`  that we have seen earlier.
 The required technique for the general case will be studied in the next chapter. 
 We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
@@ -8660,7 +8735,7 @@ We will begin by explaining the notion of a "hylomorphism" and giving some examp
 
 ### Motivation for hylomorphisms
 
-The function `streamToList` that extracts at most a given number of values from the stream.
+The function `Stream/take` that extracts at most a given number of values from the stream.
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 (The size limit guarantees termination.)
 
