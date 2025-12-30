@@ -1322,7 +1322,17 @@ Functions for working with lists include `List/map`, `List/filter`, and other ut
 All those functions are implemented through Dhall built-ins.
 To keep the language simpler, Dhall has only a small number of built-in functions.
 
-TODO:describe DirectoryFile, JSON, Function, Operator
+The `Function` module contains utility methods for working with functions, such as composing all functions in a list. 
+
+The `Operator` module exposes various built-in and library functions as operators with names such as `+`, `-`, or `!=`.
+
+The `DirectoryTree` module contains types and functions for working with file paths, file permissions, and directory names.
+
+The `JSON` module contains definitions that are useful for creating a custom JSON export.
+If a Dhall program creates a value of type `JSON` then the standard `dhall-to-json` and `dhall-to-yaml` utilities will apply custom logic to export that value correctly.
+
+The `DirectoryTree` and `JSON` modules are based on Church encoding, which will be explained later in this book.
+
 
 ## Other features of Dhall's type system
 
@@ -5132,26 +5142,47 @@ Here we will focus on the practical uses of Church encoding.
 
 Here are some examples of Church encodings of recursively defined types.
 
-TODO: insert Haskell recursive definitions for each of these types, and indicate how F is to be defined in each case.
 
-The type `Nat`, equivalent to Dhall's `Natural`, can be defined by:
-```dhall
-let F = Optional
-let Nat = ∀(r : Type) → (F r → r) → r
+For each recursive type `C`, we will first show a direct recursive definition of `C` in Haskell; then a Haskell definition of the corresponding pattern functor `F`; and then the Dhall definitions of `F` and the Church encoding of `C`.
+
+
+A simple recursive type is `Nat`; it is equivalent to Dhall's `Natural`.
+
+```haskell
+data Nat = Zero | Succ Nat -- Haskell.
+data NatF a = ZeroF | SuccF a 
 ```
 
-The type `ListInt` (a list with integer values):
-
+In Dhall:
 ```dhall
-let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
-let ListInt = ∀(r : Type) → (F r → r) → r
+let NatF = Optional
+let Nat = ∀(r : Type) → (NatF r → r) → r
 ```
 
-The type `TreeText` (a binary tree with `Text` strings in leaves):
+The type `ListInt` represents a list with integer values.
 
+```haskell
+data ListInt = Nil | Cons Int ListInt -- Haskell.
+data ListIntF a = NilF | ConsF Int a
+```
+
+In Dhall:
 ```dhall
-let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (FT r → r) → r
+let ListIntF = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = ∀(r : Type) → (ListIntF r → r) → r
+```
+
+The type `TreeText` is a binary tree with `Text` strings in leaves.
+
+```haskell
+data TreeText = Leaf Text | Branch TreeText TreeText -- Haskell.
+data TreeTextF a = LeafF Text | BranchF a a
+```
+
+In Dhall:
+```dhall
+let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
 ```
 
 ### Church encoding of non-recursive types
@@ -5252,7 +5283,7 @@ As a result, we obtain the following encoding of the `Either` type:
 
 These derivations show that the curried function types and the universal type quantifier are sufficient to Church-encode all other types that Dhall can have.
 
-Let us also summarize the standard type equivalence identities we have used in these derivations:
+Let us also summarize the standard type identities we have used in these derivations:
 
 - Function from the unit type: `{} → r  ≅  r`
 - Function from the void type: `<> → r  ≅  {}`
@@ -5261,10 +5292,10 @@ Let us also summarize the standard type equivalence identities we have used in t
 
 ### Church encoding in the curried form
 
-Using the standard type equivalence identities shown in the previous section, we can rewrite the type `ListInt` in a form more convenient for practical applications.
+Using the standard type   identities shown in the previous section, we can rewrite the type `ListInt` in a form more convenient for practical applications.
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
-So, the type `F r → r`, written in full as:
+So, the type `ListIntF r → r`, written in full as:
 
 `< Nil | Cons : { head : Integer, tail : r } > → r`
 
@@ -5290,11 +5321,11 @@ As an example, let us rewrite the type `TreeText` defined above in the curried f
 Begin with the definition already shown:
 
 ```dhall
-let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (FT r → r) → r
+let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
 ```
 
-Since `FT r` is a union type with two parts, the type of functions `FT r → r` can be replaced by a pair of functions.
+Since `TreeTextF r` is a union type with two parts, the type of functions `FT r → r` can be replaced by a pair of functions.
 
 We can also replace functions from a record type by curried functions.
 
@@ -5331,9 +5362,9 @@ let x
 ```
 
 Working with data encoded in this way is not straightforward.
-It takes some work to figure out convenient ways of creating values of those types and of working with them.
+It takes some work to figure out convenient ways of creating values of those types and working with them.
 
-Our next steps is to figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
+Our next steps are to figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
 
 For simplicity, we now consider a Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a pattern functor `F`.
 Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
@@ -5341,24 +5372,39 @@ Later we will see that the same techniques work for Church-encoded type construc
 An important requirement is that the pattern functor `F` should be a _covariant_ type constructor.
 If this is not so, the Church encoding will not work as expected.
 
-We will assume that `F` has a known and lawful `fmap` method that we denote by `fmapF`.
+We will assume that `F` has a known and lawful `fmap` method, encapsulated by a `Functor` typeclass evidence.
 So, all Dhall code below assumes a given set of definitions of this form:
 
 ```dhall
 let F : Type → Type = ???
-let fmapF : FmapT F = ???
+let functorF : Functor F = ???
 ```
 
-The required code for the text-valued trees would be:
+The required `Functor` evidence for integer-valued lists is:
+
+```dhall
+let functorListIntF : Functor ListIntF =
+  { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : ListIntF a) →
+      merge { Nil = (ListIntF b).Nil
+            , Cons = λ(p : { head : Integer, tail: a }) → (ListIntF b).Cons (p // { tail = f p.tail })
+            } fa
+  }
+```
+
+```dhall
+let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
+```
+The required code for the text-valued trees is:
 
 ```dhall
 let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let fmapF : FmapT FT
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FT a) →
-    merge {
-      Leaf = λ(t : Text) → (FT b).Leaf t,
-      Branch = λ(br : { left : a, right : a }) → (FT b).Branch { left = f br.left, right = f br.right },
-    } fa
+let functorTreeTextF : Functor TreeTextF =
+  { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : TreeTextF a) →
+      merge { Leaf = λ(t : Text) → (TreeTextF b).Leaf t
+            , Branch = λ(br : { left : a, right : a }) → (TreeTextF b).Branch { left = f br.left, right = f br.right }
+            } fa
+  }
 ```
 
 
@@ -5465,11 +5511,69 @@ let TreeText = ∀(r : Type) → (< Leaf : Text | Branch : { left : r, right : r
 ```
 
 Let us first see how we could derive the data constructors (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors).
-We begin by writing the types of the `fix` functions specific to each data type:
+We begin by writing the types of the `fix` functions specific to each data type.
 
-TODO: illustrate how we would apply fix to suitable arguments and derive the constructors nil, cons, leaf, branch.
+For `ListInt`:
 
-Now pass to the curried Church encodings:
+```dhall
+let fixListInt : < Nil | Cons : { head : Integer, tail : ListInt } > → ListInt
+  = fix ListIntF functorListIntF
+```
+
+
+For `TreeText`:
+
+
+```dhall
+let fixTreeText : < Leaf : Text | Branch : { left : TreeText, right : TreeText } > → TreeText
+  = fix TreeTextF functorTreeTextF
+```
+Note that the union types `< Nil | Cons : { head : Integer, tail : ListInt } >` and `< Leaf : Text | Branch : { left : TreeText, right : TreeText } >` can be written more concisely as `ListIntF ListInt` and `TreeTextF TreeText`.
+
+In both cases, the type signature of `fix` is a function from a two-part union type to the Church-encoded type.
+
+
+Generally, a function from a two-part union type is equivalent to a pair of functions from the parts of the type.
+For example, a function `f : < A : a | B : b > → c` is equivalent to a pair of functions  `g : a → c` and `h : b → c`.
+The functions `g` and `h`  may be extracted from `f` by applying `f` to arguments created via `< A : a | B : b >.A x` and `< A : a | B : b >.B y`, where `x : a` and `y : b` are arbitrary argument values.
+The functions `g` and `h` are "specialized" for the two possible variants of the argument of `f`. 
+
+Now we use this technique to convert the `fix` functions to a pair of more specialized data constructor functions for the types `ListInt` and `TreeText`.
+
+For `ListInt`, we first apply `fix` to `< Nil | Cons : { head : Integer, tail : ListInt } >.Nil` and obtain a value of type `ListInt` that we will call `nil`.
+Then we apply `fix` to the `Cons` constructor and unpack the arguments for convenience:
+
+```dhall
+let nil : ListInt = fixListInt (ListIntF ListInt).Nil
+let cons : Integer → ListInt → ListInt
+  = λ(head : Integer) → λ(tail : ListInt) →
+      fixListInt ((ListIntF ListInt).Cons { head = head, tail = tail }) 
+```
+
+With these definitions, we may create values of type `ListInt` as:
+
+```dhall
+let example1 : ListInt = cons +1 (cons +2 nil) -- List [ +1,  +2 ].
+```
+
+
+For `TreeTtext`, we again apply `fix` to the two parts of `TreeTextF TreeText` and obtain the data constructors `leaf` and `branch`:
+
+```dhall
+let leaf : Text → TreeText = λ(t : Text) → fixTreeText ((TreeTextF TreeText).Leaf t)
+let branch : TreeText → TreeText → TreeText = λ(left : TreeText) → λ(right : TreeText) → fixTreeText ((TreeTextF TreeText).Branch { left = left, right = right }) 
+```
+
+Values of type `TreeText` can be now created like this:
+
+
+```dhall
+let example2 : TreeText = branch (branch (leaf "a") (leaf "b")) (leaf "c")
+```
+
+After showing how we could use the `fix` function explicitly, let us pass to the curried Church encodings and look at how we could write data constructors by hand.
+
+We redefine `ListInt` and `TreeText` in the curried form (we will not be using the old definitions any more):
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
