@@ -6003,7 +6003,7 @@ The first step is to apply the general function `unfix` of type `C → F C`.
 The function `unfix` is available for all Church-encoded types; we have shown its implementation above.
 
 Given a value `c : C` of a Church-encoded type, the value `unfix c` will have type `F C`, which is typically a union type.
-The second step is to use the ordinary pattern-matching (Dhall's `merge`) on that value.
+The second step is to use the ordinary pattern matching (Dhall's `merge`) on that value.
 
 
 This technique allows us to translate `isSingleLeaf` and `headMaybe` to Dhall.
@@ -8063,33 +8063,35 @@ let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) �
 
 #### Example: infinite sequences of natural numbers
 
-A simple example of a co-inductive type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values.
+A simple example of a co-inductive type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values (such as `101, 102, 103, ...`).
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
 An intuitive picture of this data type is an infinitely nested record:
 
-`{ _1 = 101, _2 = { _1 = 102, _2 = ... } }`
+`{ _1 = 101, _2 = { _1 = 102, _2 = { _1 = 103, _2 = ... } } }`
 
 Of course, it is impossible to   represent  this data structure literally.
-Instead, we use the encoding via the `GFix` constructor:
+In Dhall, we use the encoding via the `GFix` constructor:
 
 ```dhall
 let InfSeqNat = GFix (Pair Natural)
 ```
 
-More verbosely, we can rewrite this type using an existential type:
+We can rewrite`InfSeqNat` using an existential type more verbosely:
 
 ```dhall
 let InfSeqNat = Exists (λ(r : Type) → { seed : r, step : r → Pair Natural r })
 ```
 
-A value of type `InfSeqNat` is a function that stores some "seed" value of type `r` and is able to compute, on demand, the next "step" of the data: a `Natural` value together with a new "seed".
+A value of type `InfSeqNat`  is a data structure  that stores some "seed" value of type `r` and is able to compute, on demand, the next "step" of the data: a `Natural` value together with a new "seed".
+The seed type `r` is encapsulated within the data structure and is not visible from outside.
 
-To create values of this type, we need to choose a specific "seed" type and to provide an initial "seed" value and a "step" function.
+To create values of   type `InfSeqNat`, we need to choose a specific "seed" type and then to provide an initial "seed" value and a "step" function.
 The "seed" type must carry sufficient information for computing the next values at every step.
 
 Let us look at two example values of the type `InfSeqNat`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
+We will see that the "seed" type needs to be chosen appropriately in each case.
 
-To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the next `Natural` value.
+To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the `Natural` value in the pair.
 This requires no information to be stored in the "seed"; so we can choose a unit type as the "seed" type.
 The code is:
 
@@ -8127,6 +8129,16 @@ We can now test our code:
 let _ = assert : InfSeqNat/take 5 zeros ≡ [ 0, 0, 0, 0, 0 ]
 let _ = assert : InfSeqNat/take 5 naturals ≡ [ 0, 1, 2, 3, 4 ]
 ```
+
+If the greatest fixpoint   of the functor `Pair Natural` is the type of infinite sequences (`InfSeqNat`), what is the least fixpoint of the same functor?
+That turns out to be the **void type** (denoted by `<>` in Dhall).
+
+The formal reason is that  `T = <>` is a solution of the type equation `T = Pair Natural T`, because the pair of a void type with anything is again void.
+So, `T = <>` is  one of the fixpoints of that type equation.
+Since the void type is the smallest possible type, it is the least fixpoint.
+
+The intuitive picture is that the least fixpoint of a polynomial functor is always a finite data structure.
+But there are no finite data structures that contain a full copy of themselves, as the equation `T = Pair Natural T` requires. 
 
 ### Greatest fixpoints for mutually recursive types
 
@@ -8247,7 +8259,7 @@ let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : 
 
 The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
 
-### The fixpoint isomorphism
+### The fixpoint isomorphism for greatest fixpoints
 
 Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
 It means there exist two functions, here called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
@@ -8345,9 +8357,9 @@ Those constructors are "finite": they cannot create an infinite data structure.
 For that, we need the general constructor `makeGFix`.
 
 We can also apply `unfixG` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
-We can then perform pattern-matching directly on that value, since `F` is typically a union type.
+We can then perform pattern matching directly on that value, since `F` is typically a union type.
 
-So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern-matching for co-inductive types.
+So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern matching for co-inductive types.
 
 ### Example: streams
 
@@ -8427,12 +8439,12 @@ Other such values can be obtained after calling `stream.step` one or more times.
 
 As we step through the stream, the seed values (of type `t`) are changing but the "step" function always remains the same.
 
-#### Pattern-matching on streams
+#### Pattern matching on streams
 
 Consider the tasks of extracting the "head" and the "tail" of a stream.
 
 The "head" is either empty (if the stream is empty) or a value of type `a`.
-We implement a function (`headTailOption`) that applies `stream.step` to `stream.seed` and performs pattern-matching on the resulting value of type `< Cons : { head : a, tail : t } | Nil >`.
+We implement a function (`headTailOption`) that applies `stream.step` to `stream.seed` and performs pattern matching on the resulting value of type `< Cons : { head : a, tail : t } | Nil >`.
 If that value is non-empty, the function returns the corresponding values `head` and `tail` wrapped into the type `Optional { head : a, tail : Stream a }`.
 Otherwise the function returns `None` of that type.
 
@@ -8639,20 +8651,20 @@ We may use `Stream/nil` and `Stream/cons` to create finite streams, similar to h
 
 Are finite streams better than (Church-encoded) lists?
 
-We have seen that the performance of Church-encoded data is slow when doing pattern-matching or concatenation.
-For instance, pattern-matching a Church-encoded list will take time `O(N)`, where `N` is the size of the list.
+We have seen that the performance of Church-encoded data is slow when doing pattern matching or concatenation.
+For instance, pattern matching a Church-encoded list will take time `O(N)`, where `N` is the size of the list.
 Even just finding out whether a Church-encoded list is empty will still need to traverse the entire list.
 
 The situation for streams is different but not "better".
 Since streams may be infinite, no operation on a stream could ever require traversing the entire data structure.
 At most, an operation may step the stream once.
-So, all stream operations like pattern-matching or concatenating are not iterative and, _at first sight_, take `O(1)` time.
+So, all stream operations like pattern matching or concatenating are not iterative and, _at first sight_, take `O(1)` time.
 
 However, streams are higher-order functions operating with complicated types.
 We need to consider the complexity of code that represents a stream.
 For instance, the `Stream/cons` operation creates a new stream whose state type is a union of two stream types.
 So, if we use the `Stream/cons` constructor many times, we will obtain a stream with a "large" state type (a deeply nested union type).
-Pattern-matching operations with that type will take `O(N)` time in the Dhall interpreter.
+Pattern matching operations with that type will take `O(N)` time in the Dhall interpreter.
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 
@@ -9505,7 +9517,7 @@ In this book, we will limit our consideration to the simple HIT algorithm for a 
 
 The HIT algorithm works only for recursive code of a certain restricted form:
 
-- The code must have a single top-level pattern-matching expression that decides whether (and how many) recursive calls are needed.
+- The code must have a single top-level pattern matching expression that decides whether (and how many) recursive calls are needed.
 - Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching branch.
 - Recursive calls are not nested: the arguments of recursive calls are computed without any further recursive calls.
 
@@ -14500,7 +14512,7 @@ Because the type `A` is unknown, the function `f` cannot examine the values `x` 
 
 Neither can the code of `f` examine the type `A` itself and make decisions based on that.
 The code of `f` cannot check whether the type parameter `A` is equal to `Natural`, say.
-This is so because Dhall does not support comparing types or pattern-matching on type parameters.
+This is so because Dhall does not support comparing types or pattern matching on type parameters.
 
 The function `f` must work in the same way for all types `A`.
 It is not possible to create a value of an unknown type `A` from scratch.
