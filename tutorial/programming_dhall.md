@@ -8006,7 +8006,7 @@ We have chosen the semigroup type `Bool → Bool` in this example because Dhall 
 
 ## Encoding of greatest fixpoints (co-inductive types)
 
-### Greatest fixpoints: motivation
+### Motivation. "Infinite" data structures
 
 Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
@@ -8019,7 +8019,7 @@ Type theory denotes  the least fixpoint by  $\mu F$    and     the greatest fixp
 
 Intuitively, the least fixpoint is the "smallest possible" data type `T` that satisfies `T = F T`.
 The greatest fixpoint is the "largest possible" data type that satisfies the same equation.
-This intuition can be made rigorous but those proofs are beyond the scope of this book.
+This intuition can be made rigorous, but the required derivations are beyond the scope of this book.
 
 Least fixpoints of polynomial functors are always  _finite_ data structures.
 One can always traverse all data stored in such structures by using a finite number of operations.
@@ -8031,7 +8031,7 @@ So, it is not possible to traverse or extract all data  from such   structures.
 Those data types are used only in ways that do not involve a full traversal of all data.
 
 In practice, the data is not stored in memory but is computed on demand during traversal.
-It is helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
+It is still helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
 To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same pattern functor, consider the pattern functor `F` for the data type `List Text`.
 The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
@@ -13747,6 +13747,17 @@ let FreeA : (Type → Type) → (Type → Type)
   = λ(F : Type → Type) → LFixK (Q F)
 ```
 
+We have three ways of creating   values of type `FreeA F a` for any given type `a`: 
+
+- From a given value `x : a` (the `pure` operation).
+- From a given value `p : F a`.
+- By using the `ap` operation of the free applicative functor.
+
+TODO: implement these data constructors
+
+We will now implement an `Applicative` evidence for `FreeA F`.
+
+The `pure` method is 
 
 TODO: implement
 
