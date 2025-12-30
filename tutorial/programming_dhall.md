@@ -11071,20 +11071,20 @@ let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : 
 ```
 
 To make an applicative functor complete, we need a corresponding `unit` method.
-For that, we require a `biunit : F {} {}` and a `Bifunctor` evidence for `F`.
+For that, we require a `biunit : F {} {}`  value for `F`.
 
 ```dhall
-let unitViaBiunit : ∀(F : Type → Type → Type) → Bifunctor F → F {} {} → GFix (F {})
-  = λ(F : Type → Type → Type) → λ(bifunctor : Bifunctor F) → λ(biunit : F {} {}) →
+let unitViaBiunit : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
+  = λ(F : Type → Type → Type) → λ(biunit : F {} {}) →
     makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
 ```
 
 Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicative` evidence for the greatest fixpoint:
 
 ```dhall
-let applicativeGFix : ∀(F : Type → Type → Type) → Bifunctor F → BizipT F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizip : BizipT F) → λ(biunit : F {} {}) →
-    { unit = unitViaBiunit F bifunctorF biunit
+let applicativeGFix : ∀(F : Type → Type → Type) → BizipT F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
+  = λ(F : Type → Type → Type) → λ(bizip : BizipT F) → λ(biunit : F {} {}) →
+    { unit = unitViaBiunit F biunit
     , zip = zipViaBizip F bizip
     }
 ```
