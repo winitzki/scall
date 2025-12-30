@@ -3999,10 +3999,6 @@ let Natural/min = https://prelude.dhall-lang.org/Natural/min
 let List/drop = https://prelude.dhall-lang.org/List/drop
 let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List (Pair a b)
   = λ(a : Type) → λ(la : List a) → λ(b : Type) → λ(lb : List b) →
-    let revA = List/reverse a la
-    let revB = List/reverse b lb
-    let lenA = List/length a la
-    let lenB = List/length b lb
     let padding = λ(a : Type) → λ(longer : List a) → λ(b : Type) → λ(shorter : List b) →
     -- This code assumes that both lists are non-empty.
       let U = Either (List b) b -- Left if not yet padding, Right if started padding.
@@ -4016,10 +4012,12 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
                                let pad = if Natural/equal 1 (List/length b tail) then U.Right y else U.Left (List/drop 1 b tail)
                                in { pad = pad, result = prev.result # [ { _1 = x, _2 = y } ] }
                              } (List/head b tail)  
-                 , Right = λ(y : b) → { pad = prev.pad, result = prev.result # [ { _1 = x, _2 = y } ] }
+                , Right = λ(y : b) → { pad = prev.pad, result = prev.result # [ { _1 = x, _2 = y } ] }
                 } prev.pad
       in (List/fold a longer Accum cons nil).result
-    in if lessThanEqual lenA lenB
+    let revA = List/reverse a la
+    let revB = List/reverse b lb
+    in if lessThanEqual (List/length a la) (List/length b lb)
     then List/map (Pair b a) (Pair a b) (swap b a) (padding b revB a la)
     else padding a revA b lb
 ```
