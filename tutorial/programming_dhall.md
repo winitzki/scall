@@ -1767,7 +1767,7 @@ let isStringEmpty = λ(t : Text) →
   assert : t ≡ "" -- Type error: assertion failed.
 ```
 This fails at typechecking time because the normal form of `t` is just the symbol `t` at that time, and that symbol is never equal to the empty string.
-An `assert` expression such as `assert : t ≡ ""` can be validated only when the value `t` is "statically known" in the scope of the expression.
+An `assert` expression such as `assert : t ≡ ""` can be validated only when the value `t` is statically known in the scope of the expression.
 (We will discuss "statically known" values in more detail in the next subsection.)
 
 These examples show that it rarely makes sense to use `assert` inside function bodies.
@@ -1785,42 +1785,44 @@ let _ = assert : f "" ≡ "()"    -- OK.
 
 ### Asserting that a value is statically known
 
-We say that a value in a Dhall program is a **statically known value** if it is built up from literal constants, imported values, and/or other statically known values.
+We say that a value in a Dhall program is a **statically known value** in a given scope if it is built up from literal constants, imported values, and/or other statically known values visible in that scope.
+
 To get some intuition, consider a typical Dhall program:
 
 ```dhall
 let Integer/add = https://prelude.dhall-lang.org/Integer/add
-let Natural/equal = ...         -- Other library imports.
+let Natural/equal = ...         -- Some library imports.
 
-let k : Natural = ./size.dhall  -- Some value is imported.
+let k : Natural = ./size.dhall  -- A custom value is imported.
 let n : Natural = k + 123       -- Compute some more values.
-let f = λ(x : Natural) →        -- Some custom function.
+let f = λ(x : Natural) →        -- A custom function.
     let y = x * k
     in ...
-let g = λ(a : Type) → ???       -- More custom functions.
+let g = λ(a : Type) → ???       -- Another custom function.
 let _ = assert : f n ≡ True     -- Perform some validations.
-in ???                          -- Now compute the final result.
+in f (g ...) k ???              -- Compute the final result.
 ```
-The values `f`, `g`, `k`, and `n` are statically known in this code.
-The value `k` is a direct import.
-The value`n` is computed from a literal number (`123`) and from `k`.
-The values `f` and `g` are literal function expressions defined at the top level.
-The bodies of the functions `f` and `g` may use `k`, `n`, and library imports.
-So, those functions are built up from statically  known values. 
+The values `f`, `g`, `k`, and `n` are statically known in this code because:
 
-Usually, values at the top level of a standalone Dhall program are statically known.
+- The value `k` is a direct import.
+- The value`n` is computed from a literal number (`123`) and from `k`.
+- The values `f` and `g` are literal function expressions defined at the top level.
+- The bodies of the functions `f` and `g` may use `k`, `n`, and library imports. So, those functions are built up from statically  known values. 
+
+All values at the top level of a valid Dhall program are statically known.
+Values can be non-statically known only within the scope of a function body.
 Examples of values that are _not_ statically known are the parameter `x` and the local variable `y` inside the body of the function `f` above.
 Generally, parameters of functions are not statically known within the scope of those functions.
 
 The concept of "statically known values" is useful for understanding the usage of `assert` expressions.
 Consider an assertion of the form `assert : x ≡ y`.
-If `x` and `y` are statically known then the Dhall typechecker will validate that assertion by reducing both `x` and `y` to literal values.
+If `x` and `y` are statically known then the Dhall typechecker will be able to validate that assertion by reducing both `x` and `y` to literal values.
 Typically, that's what the programmer expects when writing an `assert` expression.
-For this reason, `assert` expressions are most often used with statically known values.
+For this reason, `assert` expressions are almost always used with statically known values.
 
 Reducing an expression to a literal value at typechecking time is possible only if that expression is a statically known value.
 
-When `x` or `y` is not statically known, the typechecker will only be able to reduce `x ≡ y` to a normal form containing symbolic variables.
+When `x` or `y` is not statically known, the typechecker will only be able to reduce `x ≡ y` to a normal form containing some symbolic variables.
 In most cases, this is not useful because it cannot be validated.
 
 For example, here is an attempt to create a function `f` enforcing the condition that `f x` may be called only with nonzero `x`:
@@ -1833,46 +1835,49 @@ Within the body of this function, `x` is not a statically known value.
 The assertion of `Natural/isZero x ≡ False` will be examined at type-checking time, before the function `f` is ever applied to an argument.
 Dhall will try to validate the assertion of `Natural/isZero x ≡ False` by reducing both sides to the normal form.
 But the normal form of `Natural/isZero x` is just the symbolic expression `Natural/isZero x` itself.
-That symbolic expression is not equal to `False`, and so the assertion fails.
-We see that Dhall cannot validate this assertion in a meaningful way; this is almost surely not what the programmer expected.
+That symbolic expression is not equal to the symbol `False`, and so the assertion fails.
+We see that this code is almost surely not what the programmer wanted.
+Dhall cannot validate this assertion in a meaningful way.
 
 A function may return the _type_ `Natural/isZero x ≡ False` itself; that type is well-defined as a function of `x`.
 Then one can use that type to write assertions for statically known values: 
 ```dhall
-let NonzeroNat : Natural → Type
+let MustBeNonzero : Natural → Type
   = λ(x : Natural) → Natural/isZero x ≡ False
-let _ = assert : NonzeroNat 123   -- OK.
--- let _ = assert : NonzeroNat 0    -- This fails!
+let _ = assert : MustBeNonzero 123   -- OK.
+-- let _ = assert : MustBeNonzero 0    -- This fails!
 ```
 
 
-A curious consequence of the limitations of Dhall's evaluator and typechecker is that a function can require evidence that one of its parameters is a statically known value.
+A curious consequence of the limitations of Dhall's evaluator and typechecker is that one can construct a type for _evidence_ that a parameter in a function is a statically known value.
+This 
 
-The implementation is based on the fact that Dhall cannot perform symbolic reasoning with `Natural` values other than in simplest cases.
-So, one can implement a constant function of type `Natural → Natural` that appears to perform nontrivial computations but actually always returns `0`.
-The function body can be chosen such that Dhall will be unable to detect statically that the function always returns `0`.
+The implementation is based on the fact that Dhall cannot perform symbolic reasoning with `Natural`  values other than in simplest cases.
+So, one can implement a constant function of type `Natural → Bool` that appears to perform nontrivial computations but actually always returns `True`.
+The function body can be chosen such that Dhall will be unable to detect statically that the function always returns `True`.
 
-We can then apply that function to a `Natural`-valued parameter and assert that the result is indeed `0`.
+We can then apply that function to a `Natural`-valued parameter and assert that the result is indeed `True`.
 Dhall will accept the assertion only if the parameter can be reduced to a literal value.
 And that will be possible only when the parameter is statically known.
 
 A suitable function is the following:
 
 ```dhall
-let zeroNatural : Natural → Natural = λ(x : Natural) → Natural/subtract 1 (Natural/subtract x 1)
+let zeroNatural : Natural → Bool
+  = λ(x : Natural) → Natural/isZero (Natural/subtract 1 (Natural/subtract x 1))
 ```
-The function `zeroNatural` is a constant function that always returns `0`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a statically known `Natural` argument:
+The function `zeroNatural` is a constant function that always returns `True`, but Dhall cannot recognize that property unless `zeroNatural` is applied to a statically known `Natural` argument:
 ```dhall
-let _ = assert : zeroNatural 0 ≡ 0
-let _ = assert : zeroNatural 1 ≡ 0
-let _ = assert : zeroNatural 2 ≡ 0
+let _ = assert : zeroNatural 0 ≡ True
+let _ = assert : zeroNatural 1 ≡ True
+let _ = assert : zeroNatural 2 ≡ True
 -- This fails with a type error:
--- λ(x : Natural) → assert : zeroNatural x ≡ 0
+-- λ(x : Natural) → assert : zeroNatural x ≡ True
 ```
 
-With this function, we can create a dependent type that always represents a valid assertion, but Dhall will be able to validate that assertion only for statically known values.
+With this function, we can create a dependent type that always represents a valid assertion, but Dhall will be able to validate that assertion only for statically known argument values.
 ```dhall
-let StaticNatural : Natural → Type = λ(x : Natural) → zeroNatural x ≡ 0
+let StaticNatural : Natural → Type = λ(x : Natural) → zeroNatural x ≡ True
 let _ = assert : StaticNatural 123      -- OK.
 -- This fails with a type error because `x` is not statically known:
 -- λ(x : Natural) → assert : StaticNatural x
@@ -1897,21 +1902,21 @@ let _ = λ(x : Natural) →
   in functionStaticOnly x xIsStatic
 ```
 
-A suitable equality type for `Integer` numbers is defined by:
+A suitable equality type for `Integer`s  is defined by:
 ```dhall
-let zeroInteger : Integer → Integer = λ(x : Integer) → Natural/toInteger (zeroNatural (Integer/clamp x))
-let StaticInteger : Integer → Type = λ(x : Integer) → zeroInteger x ≡ +0
+let zeroInteger : Integer → Bool = λ(x : Integer) → zeroNatural (Integer/clamp x)
+let StaticInteger : Integer → Type = λ(x : Integer) → zeroInteger x ≡ True
 ```
 
 For `Bool` arguments, the code could look like this:
 
 ```dhall
-let zeroBool : Bool → Natural = λ(x : Bool) → zeroNatural (if x then 1 else 0)
-let StaticBool : Bool → Type = λ(x : Bool) → zeroBool x ≡ 0
+let zeroBool : Bool → Bool = λ(x : Bool) → zeroNatural (if x then 1 else 0)
+let StaticBool : Bool → Type = λ(x : Bool) → zeroBool x ≡ True
 let _ = assert : StaticBool False  -- OK.
 ```
 
-For `Text` arguments, we create a sequence of operations that will always return an empty string, and we assert on that property.
+For `Text` values, we can create a sequence of operations that will always return an empty string, and we assert on that property.
 But the Dhall interpreter is unable to validate that property symbolically.
 So, the assertion on `StaticText x` will fail unless `x` is a statically known value:
 ```dhall
@@ -1921,6 +1926,8 @@ let StaticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
 -- λ(x : Text) → assert : StaticText x
 ```
 
+In this way, we have implemented assertions on statically known values of primitive types `Bool`, `Integer`, `Natural`, and `Text`.
+With more work, similar assertions may be also implemented for   lists, records, and unions built from  those primitive types.
 
 ### Kinds and sorts
 
@@ -2189,35 +2196,36 @@ The value `x div y` is the number of times we subtracted.
 
 This algorithm can be directly implemented in Dhall, but we need to specify in advance the maximum required number of iterations.
 A safe upper bound for the number of subtractions is the value `x` itself (because `y` is at least 1).
-So, our code will use the function call `Natural/fold x ...`.
+So, the code will use a function call `Natural/fold x ...`.
 
 In most cases, the actual required number of iterations will be smaller than `x`.
-For clarity, we will maintain a Boolean flag (`done`) and set it to `True` once we reach the final result.
-The code will use that flag to ensure that any further iterations do not modify the final result.
-(The same functionality could be implemented also without using such a flag.)
-
+The final result is reached when the result of the last subtraction is smaller than `y`.
+Once that condition holds, the code will keep the accumulator value unchanged.
+The Dhall interpreter will detect that and will stop the loop early.
 ```dhall
 let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
 
--- unsafeDiv x y means x / y, but it will return wrong results when y = 0.
+-- unsafeDiv x y means x / y, but it will return x when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
-  let Accum = { result : Natural, sub : Natural, done : Bool }
+  let Accum = { result : Natural, sub : Natural }
   in λ(x : Natural) → λ(y : Natural) →
-         let init : Accum = { result = 0, sub = x, done = False}
+         let init : Accum = { result = 0, sub = x }
          let update : Accum → Accum = λ(acc : Accum) →
-             if acc.done then acc    -- Stop modifying the result.
-             else if Natural/lessThan acc.sub y then acc // { done = True }
+             if Natural/lessThan acc.sub y then acc -- Stop modifying `acc`.
              else acc // { result = acc.result + 1, sub = Natural/subtract y acc.sub }
          let r : Accum = Natural/fold x Accum update init
          in r.result
 
-let test = assert : unsafeDiv 3 2 ≡ 1
+let test1 = assert : unsafeDiv 3 2 ≡ 1  -- 3 / 2 = 1.
+let test2 = assert : unsafeDiv 120 11 ≡ 10  -- 120 / 11 = 10.
+let test3 = assert : unsafeDiv 121 11 ≡ 11  -- 121 / 11 = 11.
+let test4 = assert : unsafeDiv 10 0 ≡ 10 -- Invalid input.
 ```
 
 ### Safe division via dependently-typed evidence
 
 The function `unsafeDiv` works but produces wrong results when dividing by zero.
-For instance, `unsafeDiv 2 0` returns `2`.
+Namely, `unsafeDiv x 0` returns `x`.
 We would like to prevent using that function when the second argument is zero.
 
 To ensure that we never divide by zero, we may use a technique based on dependently-typed "evidence values".
@@ -2331,23 +2339,24 @@ We also cannot test whether `y` is zero at run time and then call `safeDiv` only
 This code:
 
 ```dhall
-λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=} -- ???
+-- Type error: types do not match.
+let _ = λ(y : Natural) → if Natural/isZero y then 0 else safeDiv 10 y {=}
 ```
 will give a type error because Dhall cannot verify that `{=}` is of type `Nonzero y`.
 
 Neither can we use the `Optional` type to create a value of type `Optional (Nonzero y)` that will be `None` when `y` equals zero.
-Dhall will not accept code like this:
+Dhall will refuse code like this:
 
 ```dhall
-λ(y : Natural) → if Natural/isZero y then None (Nonzero y) else (Some {=} : Optional (Nonzero y)) -- Type error: types do not match.
+let _ = λ(y : Natural) → if Natural/isZero y then None (Nonzero y) else (Some {=} : Optional (Nonzero y)) -- Type error: types do not match.
 ```
 
-Here, Dhall does not recognize that `Nonzero y` is the unit type (`{}`) within the `else` clause.
+Here Dhall cannot recognize that `Nonzero y` is the unit type (`{}`) within the `else` clause.
 To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
 But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
 So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
-That argument can be easily provided as `{=}` when calling that function, as long as `y` is a statically  known value.
+That argument can be easily provided as `{=}` when calling that function, as long as `y` is a **statically  known value** (a value that is a known literal within the current scope).
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
 
@@ -4769,10 +4778,10 @@ There is only one value of that type, and that value is produced by `refl Bool T
 The Dhall typechecker will accept the function call `f 100 10 (refl Bool True)`.
 But trying to call `f 1 1 (refl Bool True)` will be a type error.
 
-This technique works only when evaluating conditions on values that are statically known.
+This technique works only when evaluating conditions on a **statically known value**.
 For instance, the expression `λ(n : Natural) → f 200 n (refl Bool True)` will not be accepted by Dhall, even though `200 + n` is always greater than `100`.
-This is because Dhall's typechecker is not powerful enough to determine symbolically that `200 + n > 100` for an arbitrary natural `n`.
-
+This is because Dhall's typechecker is not powerful enough to determine symbolically that `200 + n > 100` for an arbitrary but unknown natural `n`.
+Dhall can validate such conditions only if `n` is a known literal (known "statically" within the current scope).
 
 
 ### Leibniz equality at type level
@@ -9513,13 +9522,13 @@ This is another practical motivation for studying hylomorphisms.
 
 The [HIT paper](https://www.researchgate.net/publication/2813507) gives an algorithm for converting a recursive function into a hylomorphism.
 [Another paper](https://www.researchgate.net/publication/2649019) describes an extension of the HIT algorithm for mutually recursive functions.
-In this book, we will limit our consideration to the simple HIT algorithm for a single recursive function.
+In this book, we will only explain the simple HIT algorithm for a single recursive function.
 
 The HIT algorithm works only for recursive code of a certain restricted form:
 
 - The code must have a single top-level pattern matching expression that decides whether (and how many) recursive calls are needed.
 - Each pattern-matching branch may have zero or more recursive calls. The number of recursive calls must be known _statically_ within each pattern-matching branch.
-- Recursive calls are not nested: the arguments of recursive calls are computed without any further recursive calls.
+- Recursive calls are not nested: the arguments of all recursive calls are computed without any further recursive calls.
 
 Code of that form can be described by this Haskell skeleton:
 
@@ -9613,7 +9622,7 @@ That will guarantee termination, and the resulting code will be accepted by Dhal
 
 ### Example: Fibonacci numbers
 
-As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (but quite slow) implementation of a function that computes the $n$-th Fibonacci number:
+As an artificial but instructive example of a recursive function that does not use any recursive types, consider a straightforward (but slow) implementation of a function that computes the $n$-th Fibonacci number:
 
 ```haskell
 fibonacci :: Int -> Int  -- Haskell.
@@ -9710,7 +9719,7 @@ let _ = assert : fibonacci 8 ≡ 21
 ```
 
 What is the time complexity of the hylomorphism-based `fibonacci` function?
-At first sight, it may appear that the complexity is linear because the hylomorphism runs `Natural/fold n`, which iterates a function `n` times.
+At first sight, it may appear that the complexity is linear because the hylomorphism runs `Natural/fold n`, which iterates `n` times.
 But actually the complexity is still exponential in `n`, just like the initial recursive code.
 The reason is that the $n$-th iteration works with a data structure of type `P (P (... (P Natural) ...))` nested $n$ times.
 With our definition of $P$, that data structure is a binary tree of depth $n$, which stores $2^n$ values of type `Natural`.
@@ -9722,7 +9731,7 @@ To improve the asymptotic complexity of the resulting code, it would be best to 
 
 Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
 Such techniques are beyond the scope of this book.
-We use hylomorphisms only as a vehicle for converting recursive code to a form that Dhall will accept.
+We view hylomorphisms only as a vehicle for converting recursive code to a form that Dhall will accept.
 
 ### Hylomorphisms driven by a Church-encoded template
 
