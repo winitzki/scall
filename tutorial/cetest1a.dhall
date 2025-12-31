@@ -4,7 +4,7 @@ let L =
 
 let longList1 =
       ./cetest-longlist-200000.dhall
-
+        sha256:409849e348d60aa0e3db3aa78efb48574d4c89e4d68730bb0d1b7e9d4a93ec35
 
 let sum1
     : Integer

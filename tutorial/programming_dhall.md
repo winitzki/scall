@@ -6659,7 +6659,7 @@ Let us define that functor and the corresponding function `sizeF`:
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
-let sizeF_Tree : ∀(a : Type) → FTree a Natural → Natural
+let sizeFTree : ∀(a : Type) → FTree a Natural → Natural
   = λ(a : Type) → λ(fa : FTree a Natural) →
     merge {
       Leaf = λ(x : a) → 1,
@@ -6692,9 +6692,9 @@ let Tree2 = λ(a : Type) → LFix (FTree a)
 let leaf = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Leaf x)
 let branch = λ(a : Type) → λ(x : Tree2 a) → λ(y : Tree2 a) → λ(r : Type) → λ(frr : FTree a r → r) → frr ((FTree a r).Branch { left = x r frr, right = y r frr } )
 let exampleTree2 : Tree2 Natural = branch Natural (leaf Natural 1) (leaf Natural 2)
-let _ = assert : 2 ≡ size FTree Natural sizeF_Tree exampleTree2
+let _ = assert : 2 ≡ size FTree Natural sizeFTree exampleTree2
 let exampleTree3 : Tree2 Natural = branch Natural (branch Natural (leaf Natural 1) (leaf Natural 2)) (leaf Natural 3)
-let _ = assert : 3 ≡ size FTree Natural sizeF_Tree exampleTree3
+let _ = assert : 3 ≡ size FTree Natural sizeFTree exampleTree3
 ```
 
 Turning now to the depth calculation, we proceed similarly and find that the only difference is in the `sizeF` function.
@@ -8524,15 +8524,16 @@ We imagine that the code will run the "step" function as many times as needed, i
 The reasoning here is quite different from that for creating values of the least fixpoint types.
 The main difference is that the `seed` value needs to carry enough information for the `step` function to decide which new data to create at any place in the data structure.
 
-Because the type `T = GFix F` is a fixpoint of `T = F T`, we always have the function `fixG : F T → T`.
-Similarly to the case of Church encodings, the function `fix` provides a set of constructors for `GFix F`.
-Those constructors are "finite": they cannot create an infinite data structure.
-For that, we need the general constructor `makeGFix`.
+Because the type `T = GFix F` is a fixpoint of `T = F T`, we   have the general function `fixG : F T → T`.
+Similarly to the case of Church encodings,   `fix` provides a set of constructors for `GFix F`.
+However, those constructors are "finite": they cannot create an infinite data structure from scratch.
+For that, we need the more general constructor `makeGFix`.
 
 We can also apply `unfixG` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
 We can then perform pattern matching directly on that value, since `F` is typically a union type.
 
 So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern matching for co-inductive types.
+However, as we will see below, creating "infinite" values requires us to use `makeGFix` and to reason about the suitable choice of  the "seed" data type and the "step" function.
 
 ### Example: streams
 
@@ -8982,7 +8983,47 @@ We will not show the full proof, as the focus of this book is on code.
 
 Another example of a co-inductive type is a data structure representing infinite trees. 
 
-We will implement two versions of an infinite tree: a tree that has data in leaves and can be finite; and a tree that has data in branches and is always infinite.
+We will show the techniques required for implementing two versions of an infinite tree: a tree that has data in leaves and can be either finite or infinite; and a tree that has data in branches and is always infinite.
+Many other kinds of infinite trees can be implemented similarly with these techniques.
+
+In Scala, one would write the following code to define the type of a possibly infinite binary tree with data of type `A` in leaves:
+
+```scala
+enum BInfTree[A]:  // Scala 3.
+    case Leaf[A](a: A) extends BInfTree[A]
+    case Branch[A](left: () => BInfTree[A], right: () => BInfTree[A]) extends BInfTree[A] 
+```
+The data in the `Branch` constructor is a pair of functions that delay the evaluation of the tree branches until the program calls those functions explicitly.
+Those functions could encapsulate some internal state ("seed") that determines that subtrees will be generated.
+Those functions could also hide a recursion inside the tree data: for example, one of the branches could be a recursive reference to the whole tree:
+```scala
+lazy val example1: BInfTree[Int] = BInfTree.Branch(left = () => example1, right = () => BInfTree.Leaf(123))
+```
+
+In Haskell, lazy evaluation is the default, and analogous code is written more concisely:
+
+```haskell
+data BInfTree a = Leaf a | Branch (BInfTree a) (BInfTree a) -- Haskell.
+
+example1 :: BInfTreeInt
+example1 = Branch example1 (Leaf 123)
+```
+
+To translate this into Dhall, we use the greatest fixpoint of the structure bifunctor `FTree` defined before:
+
+```dhall
+let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
+let BInfTree = λ(a : Type) → GFix (FTree a)
+let bifunctorFTree : Bifunctor FTree = { bimap =
+   λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : FTree a b) → merge { Leaf = λ(x : a) → (FTree c d).Leaf (ac x)
+                  , Branch = λ(p : { left : b, right : b }) →
+                    (FTree c d).Branch { left = bd p.left, right = bd p.right }
+                  } fab
+}
+```
+
+Define the data constructors using the general `fixG` function:
+
 
 TODO: implement
 
@@ -9026,7 +9067,7 @@ An example is the function `Stream/take`  that we have seen earlier.
 The required technique for the general case will be studied in the next chapter. 
 We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
-## Translating recursive code into Dhall
+## Translating recursive functions into Dhall
 
 In any Dhall definition, such as `let x = ...`, the right-hand side of `let x` may _not_ recursively refer to the same `x` being defined.
 The lack of support for recursion applies both to types and to values.
