@@ -6199,7 +6199,7 @@ However, once we execute that function call, the code embedded in the Church-enc
 This is equivalent to traversing the entire data structure.
 
 As a result, the performance of programs will be often slow when working with large Church-encoded data structures.
-For example, concatenating or reversing lists of type `ListInt` takes time quadratic in the list length.
+For example,  reversing lists of type `ListInt` takes time quadratic in the list length.
 
 Let us run some timing tests to see this behavior  in Dhall.
 
@@ -6229,7 +6229,7 @@ let _ = assert : ListInt/concat (cons +1 (cons +2 nil)) (cons +3 nil) ≡ cons +
 The timing tests are run using parts of this code:
 
 ```dhall
-let length = 100
+let length = 100    -- 10000 takes minutes, 100000 takes hours.
 let longList1 : ListInt = Natural/fold length ListInt (cons +1) nil
 let sum1 : Integer = ListInt/sum longList1
 let _ = assert : sum1 ≡ Natural/toInteger length
@@ -6240,10 +6240,10 @@ let sum3 : Integer = ListInt/sum longList3
 let _ = assert : sum3 ≡ Natural/toInteger (length * 2) 
 ```
 
-let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
-= λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
-foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
-let test = assert : concatNEL Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
+In Dhall, the computation time is usually dominated by type-checking and reducing to normal forms.
+For instance, creating a Church-encoded list of `10000` elements and reducing it to the final normal form suitable for caching will take about 1 minute on a fast laptop.
+Once the value is stored in the file cache, reading it and computing the sum of the list takes only 1 second.
+So, timing tests need to begin by preparing all initial data in the cache as frozen inputs (using a command such as `dhall freeze --all --file test.dhall`).
 
 TODO:validate these statements by running some examples and show timings!
 
@@ -6784,58 +6784,36 @@ TODO: test examples for binary tree
 
 ### Implementing Church-encoded functors
 
-TODO: reformulate in terms of the Functor typeclass
-
 A type constructor `F` is a **covariant functor** if it admits an `fmap` method with the type signature:
 
 ```dhall
 let fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b = ???
 ```
 satisfying the appropriate laws (the identity and the composition laws).
-
-For convenience, we will use the type constructor `FmapT` defined earlier and write the type signature of `fmap` as
-`fmap : FmapT F`.
+For convenience, we will use the `Functor` typeclass defined earlier.
 
 Church-encoded type constructors such as lists and trees are covariant in their type arguments.
 
-As an example, let us implement the `fmap` method for the type constructor `Tree` in the curried Church encoding:
+As an example, let us implement a `Functor` evidence for the type constructor `Tree` in the curried Church encoding:
 
 ```dhall
 let TreeC = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
-let fmapTreeC : FmapT TreeC
-   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : TreeC a) →
-     λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
-       let leafA : a → r = λ(x : a) → leafB (f x)
-       in treeA r leafA branch
+let functorTreeC : Functor TreeC = { fmap =
+  λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(treeA : TreeC a) →
+    λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
+      let leafA : a → r = λ(x : a) → leafB (f x)
+      in treeA r leafA branch
+}
 ```
 
-This code only needs to convert a function argument of type `b → r` to a function of type `a → r`.
+The code of `fmap` only needs to convert a function argument of type `b → r` to a function of type `a → r`.
 All other arguments are just copied over.
 
 We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a pattern functor `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
-This can be done if `F` is a covariant bifunctor with a known `bimap` function (which we call `bimap_F`).
+This can be done if `F` is a covariant bifunctor with a known `Bifunctor` evidence.
 
-The code is:
-
-```dhall
-let F : Type → Type → Type = λ(a : Type) → λ(b : Type) → ??? -- Define the pattern functor.
-let bimap_F
-  : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F a b → F c d
-  = ??? -- Define the bimap function for F.
-let C : Type → Type = λ(a : Type) → ∀(r : Type) → (F a r → r) → r
-
-let fmapC
-  : ∀(a : Type) → ∀(b : Type) → (a → b) → C a → C b
-  = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(ca : C a) →
-    λ(r : Type) → λ(fbrr : F b r → r) →
-      let farr : F a r → r = λ(far : F a r) →
-        let fbr : F b r = bimap_F a b f r r (identity r) far
-        in fbrr fbr
-      in ca r farr
-```
-
-We can generalize this code to a function that transforms an arbitrary bifunctor `F` into a `Functor` evidence for the type constructor `LFix (F a)`:
+Here is a  function that transforms an arbitrary bifunctor `F` into a `Functor` evidence for the type constructor `LFix (F a)`:
 
 ```dhall
 let bifunctorLFix
@@ -8671,8 +8649,8 @@ The length limit  must be specified as an additional argument.
 So, the type signature of `Stream/take` must be something like `Stream a → Natural → List a`.
 
 ```dhall
-let Stream/take : ∀(a : Type) → Stream a → Natural → List a
- = λ(a : Type) → λ(s : Stream a) → λ(limit : Natural) →
+let Stream/take : ∀(a : Type) → Natural → Stream a → List a
+ = λ(a : Type) → λ(limit : Natural) → λ(s : Stream a) →
    let Accum = { list : List a, stream : Optional (Stream a) }
    let init : Accum = { list = [] : List a, stream = Some s }
    let update : Accum → Accum = λ(prev : Accum) →
@@ -8741,7 +8719,7 @@ let streamFunction
 We can compute a finite prefix of this infinite stream:
 
 ```dhall
-⊢ Stream/take Natural (streamFunction Natural 1 (λ(x : Natural) → x * 2)) 5
+⊢ Stream/take Natural 5 (streamFunction Natural 1 (λ(x : Natural) → x * 2))
 
 [ 1, 2, 4, 8, 16 ]
 ```
@@ -8765,7 +8743,7 @@ let repeatForever : ∀(a : Type) → List a → Stream a
              , Cons = λ(h : { head : a, tail : List a }) → mkStream h
              } (headTail a list)
 
-let _ = assert : Stream/take Natural (repeatForever Natural [ 1, 2, 3 ]) 7
+let _ = assert : Stream/take Natural 7 (repeatForever Natural [ 1, 2, 3 ])
         ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
 ```
 
@@ -8799,7 +8777,14 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
     in makeStream a State (State.InFirst first) step
 ```
 
-TODO: test this code on streams obtained from lists or by repeatForever
+To test this code:
+
+```dhall
+let example1Concat = Stream/concat Natural (repeatForever Natural [ 1, 2, 3 ]) (listToStream Natural [ 10, 20, 30 ])
+let _ = assert : Stream/take Natural 5 example1Concat ≡ [ 1, 2, 3, 1, 2 ]
+let example2Concat = Stream/concat Natural (listToStream Natural [ 10, 20, 30 ]) (repeatForever Natural [ 1, 2, 3 ])
+let _ = assert : Stream/take Natural 5 example2Concat ≡ [ 10, 20, 30, 1, 2 ]
+```
 
 #### Truncated streams
 
@@ -8910,7 +8895,7 @@ As an example, we implement a running sum computation via `scan`:
 let runningSum : Stream Natural → Stream Natural
   = λ(sn : Stream Natural) → Stream/scan Natural sn Natural 0 (λ(x : Natural) → λ(sum : Natural) → x + sum)
 
-let _ = assert : Stream/take Natural (runningSum (repeatForever Natural [ 1, 2, 3 ])) 7
+let _ = assert : Stream/take Natural 7 (runningSum (repeatForever Natural [ 1, 2, 3 ]))
         ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 ```
 
@@ -8920,7 +8905,7 @@ The result is a function we may call `runningList`:
 ```dhall
 let runningList : ∀(a : Type) → Stream a → Stream (List a)
   = λ(a : Type) → λ(sa : Stream a) → Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
-let _ = assert : Stream/take (List Natural) (runningList Natural (repeatForever Natural [ 1, 2, 3 ])) 5
+let _ = assert : Stream/take (List Natural) 5 (runningList Natural (repeatForever Natural [ 1, 2, 3 ]))
         ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
 ```
 
@@ -8978,7 +8963,7 @@ let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → 
       in sa r pack_a
 let functorStream : Functor Stream = { fmap = Stream/map }
 
-let _ = assert : Stream/take Natural (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) 5 ≡ [ 10, 20, 30 ]
+let _ = assert : Stream/take Natural 5 (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) ≡ [ 10, 20, 30 ]
 ```
 
 Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat similar.
