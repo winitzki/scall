@@ -3147,7 +3147,7 @@ Let us write some specific `Monoid` instances for the types `Bool`, `Natural`, `
 ```dhall
 let monoidBool : Monoid Bool
   = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
-let monoidNatural : Monoid Natural
+let monoidNaturalSum : Monoid Natural
   = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
 let monoidText : Monoid Text
   = { empty = "", append = λ(x : Text) → λ(y : Text) → x ++ y }
@@ -3239,7 +3239,7 @@ let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool
 ```
 
 The symbolic law checking works only in sufficiently simple cases. For instance, the current version of Dhall cannot establish and equivalence between expressions `x + (y + z)` and `(x + y) + z` when `x`, `y`, `z` are free variables of type `Natural`.
-So, it is not possible to check the associativity law for `monoidNatural`.
+So, it is not possible to check the associativity law for `monoidNaturalSum`.
 
 
 ### The `Functor` typeclass
@@ -4503,11 +4503,11 @@ let monoidPair
     }
 ```
 
-To show how this code may be used, let us derive a `Monoid` evidence value for the type `Pair Bool Natural` using our previously defined evidence values `monoidBool` and `monoidNatural`.
+To show how this code may be used, let us derive a `Monoid` evidence value for the type `Pair Bool Natural` using our previously defined evidence values `monoidBool` and `monoidNaturalSum`.
 
 ```dhall
 let monoidBoolNatural : Monoid (Pair Bool Natural)
-  = monoidPair Bool monoidBool Natural monoidNatural
+  = monoidPair Bool monoidBool Natural monoidNaturalSum
 ```
 
 It turns out that the monoid laws will hold automatically for all `Monoid` evidence values obtained via `monoidPair`.
@@ -8894,7 +8894,6 @@ As an example, we implement a running sum computation via `scan`:
 ```dhall
 let runningSum : Stream Natural → Stream Natural
   = λ(sn : Stream Natural) → Stream/scan Natural sn Natural 0 (λ(x : Natural) → λ(sum : Natural) → x + sum)
-
 let _ = assert : Stream/take Natural 7 (runningSum (repeatForever Natural [ 1, 2, 3 ]))
         ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 ```
@@ -8921,19 +8920,22 @@ The updating function is the monoid's "append" operation.
 The function `scanMap` is analogous to `foldMap` and can be implemented via `scan` as:
 
 ```dhall
- let Stream/scanMap : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → Stream a → Stream m
+let Stream/scanMap : ∀(m : Type) → Monoid m → ∀(a : Type) → (a → m) → Stream a → Stream m
   = λ(m : Type) → λ(monoidM : Monoid m) → λ(a : Type) → λ(map : a → m) → λ(sa : Stream a) →
-    Stream/scan a sa m monoidM.empty (λ(x : a) → λ(y : m) → monoidM.append (map x) y)
+    Stream/scan a sa m monoidM.empty (λ(x : a) → λ(y : m) → monoidM.append y (map x))
 ```
 
 We can implement `runningSum` and `runningList` via `scanMap` like this:
 
 ```dhall
-TODO: implement
 let runningSum : Stream Natural → Stream Natural
-  = λ(sn : Stream Natural) → ???
+  = Stream/scanMap Natural monoidNaturalSum Natural (identity Natural)  
+let _ = assert : Stream/take Natural 7 (runningSum (repeatForever Natural [ 1, 2, 3 ]))
+        ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 let runningList : ∀(a : Type) → Stream a → Stream (List a)
-  = λ(a : Type) → λ(sa : Stream a) → ???
+  = λ(a : Type) → Stream/scanMap (List a) (monoidList a) a (pointedList.pure a)
+let _ = assert : Stream/take (List Natural) 5 (runningList Natural (repeatForever Natural [ 1, 2, 3 ]))
+        ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
 ```
 
 The `Stream` type constructor is a functor.
