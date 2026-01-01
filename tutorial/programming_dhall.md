@@ -2205,8 +2205,8 @@ The factorial function must be expressed through a computation of the form `s(s(
 We need to find `A`, `s`, and `z` that permit implementing the factorial function in that way.
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
-It is clear that the type `A` must hold both the current partial result and the iteration count.
-So, let us define the accumulator type `A` as a pair `{ current : Natural, iteration : Natural }`.
+It is clear that the accumulator must hold both the current partial result and the iteration count.
+So, let us define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
 ```dhall
 let Accum = { current : Natural, iteration : Natural }
 ```

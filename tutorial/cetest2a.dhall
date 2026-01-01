@@ -6,13 +6,14 @@ let longList1 =
       ./cetest-longlist-200000.dhall
         sha256:409849e348d60aa0e3db3aa78efb48574d4c89e4d68730bb0d1b7e9d4a93ec35
 
--- Just reading longList1 takes 1.4 seconds.
+-- Reading longList1 takes 1.37 seconds.
 
-let sum1 = L.ListInt/sum longList1.list
+let _ = assert : L.headOptional longList1.list ≡ Some +1
 
-let _ = assert : sum1 ≡ Natural/toInteger longList1.length
+-- Computing headOptional takes 0.1 seconds.
 
--- Computing the sum takes 0.4 seconds.
+let longList2    = L.cons +2 longList1.list
 
+let _ = assert : L.headOptional longList2 ≡ Some +2
 
 in  True
