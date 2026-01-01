@@ -2149,7 +2149,7 @@ The total number of iterations must be given as the first argument of `Natural/f
 When the total number of iterations is not known precisely, one must give an upper estimate and design the algorithm so that further iterations will not change the result once the final iteration is reached.
 The Haskell and Scala implementations of Dhall will stop iterations in `Natural/fold` when the result stops changing.
 
-For example, consider this (artificial) example:
+For example, consider this (artificially simple) example:
 
 ```dhall
 let f : Natural → Natural = λ(x : Natural) → if Natural/isZero x then 1 else x
@@ -2161,7 +2161,41 @@ Theoretically, `Natural/fold 100000000` needs to apply a given function `1000000
 But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
-The next subsections will show some examples of iterative algorithms implemented via `Natural/fold`.
+A more useful example is implementing a function `powers2` that creates a list of powers of `2` that are below  a given upper limit.
+For instance, `powers2 100` should return `[ 1, 2, 4, 8, 16, 32, 64 ]`.
+
+In a programming language with "`while`" loops, we could write a loop that computes next powers of `2` and appends them to the list until the limit is reached.
+But this is not possible in Dhall, where 
+the only way of creating a loop is to write code such as `Natural/fold n Acc update init`.
+The  total number of iterations (`n`) must be given in advance.
+It remains to choose the "accumulator" type (`Acc`), the initial value (`init : Acc`),  and the updating function (`update: Acc → Acc`).
+
+An upper bound for the number of iterations when computing `powers2 n` is the number `n` itself.
+We will design the updating function such that the list of powers stops growing when the next power would have been larger than `n`.
+The "accumulator" is a record containing the current list of powers and the power of `2` for the next step.
+Once the next value becomes larger than `n`, the accumulator value stops changing:
+```dhall
+let powers2 : Natural → List Natural = λ(n : Natural) →
+  let Acc = { result : List Natural, next : Natural }
+  let init : Acc = { result = [] : List Natural, next = 1 }
+  let update : Acc → Acc = λ (acc : Acc) →
+    if Natural/greaterThan acc.next n then acc -- Remains unchanged.
+    else { result = acc.result # [ acc.next ], next = acc.next * 2 }
+  in (Natural/fold n Acc update init).result
+```
+
+Here are some unit tests for this code:
+
+```dhall
+let _ = assert : powers2 0 ≡ ([] : List Natural)
+let _ = assert : powers2 1 ≡ [ 1 ]
+let _ = assert : powers2 2 ≡ [ 1, 2 ]
+let _ = assert : powers2 3 ≡ [ 1, 2 ]
+let _ = assert : powers2 4 ≡ [ 1, 2, 4 ]
+let _ = assert : powers2 100 ≡ [ 1, 2, 4, 8, 16, 32, 64 ]
+```
+
+The next subsections will show some examples of iterative algorithms implemented via `Natural/fold` using a similar technique.
 
 ### Factorial
 
