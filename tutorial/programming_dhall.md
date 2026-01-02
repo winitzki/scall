@@ -6819,7 +6819,9 @@ let sizeAndDepthF
     let listC : List c = (foldableF1 Natural).toList c p
     let listNatural : List Natural = (foldableF2 c).toList Natural p
     let size = List/length c listC + Natural/sum listNatural
-    let depth = Optional/default Natural 0 (Natural/listMax listNatural)
+    let depth = merge { None = 0
+                      , Some = λ(n : Natural) → n + 1
+                      } (Natural/listMax listNatural)
     in { size, depth }
 ```
 
@@ -6839,24 +6841,38 @@ let depth
 ```
 
 Let us test this code on binary trees (`Tree2`) implemented as fixpoints of the bifunctor `FTree`.
-To use the generic `size` and `depth` functions, we just need to implement the required `Foldable1` and `Foldable2`  evidence values:
+To use the generic `size` and `depth` functions, we just need to implement the required `Bifunctor`, `Foldable1` and `Foldable2`  evidence values:
 
 ```dhall
+let bifunctorFTree : Bifunctor FTree
+  = { bimap = λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : FTree a b) →
+    merge { Leaf = λ(x : a) → (FTree c d).Leaf (ac x)
+          , Branch = λ(p : { left : b, right : b }) →
+            (FTree c d).Branch { left = bd p.left, right = bd p.right }
+          } fab
+}
 let foldable1FTree : Foldable1 FTree
-  = λ(b: Type) → { toList = λ(a: Type) → λ(p : FTree a b) →
+  = λ(b : Type) → { toList = λ(a : Type) → λ(p : FTree a b) →
     merge { Leaf = λ(leaf : a) → [ leaf ]
           , Branch = λ(_ : { left : b, right : b }) → ([] : List a)
           } p
     }
 let foldable2FTree : Foldable2 FTree
-  = λ(a: Type) → { toList = λ(b: Type) → λ(p : FTree a b) →
-    merge { Leaf = λ(leaf : a) → ([] : List b)
+  = λ(a : Type) → { toList = λ(b : Type) → λ(p : FTree a b) →
+    merge { Leaf = λ(_ : a) → ([] : List b)
           , Branch = λ(q : { left : b, right : b }) → [ q.left, q.right ]
           } p
     }
 ```
 
 Now we can apply the `size` and `depth` functions to the example trees and verify that the results are as expected:
+
+```dhall
+let _ = assert : 2 ≡ size FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree2
+let _ = assert : 3 ≡ size FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree3
+let _ = assert : 1 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree2
+let _ = assert : 2 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree3
+```
 
 TODO: test examples for binary tree
 
@@ -9092,12 +9108,6 @@ To translate this into Dhall, we use the greatest fixpoint of the structure bifu
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let BInfTree = λ(a : Type) → GFix (FTree a)
-let bifunctorFTree : Bifunctor FTree = { bimap =
-   λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : FTree a b) → merge { Leaf = λ(x : a) → (FTree c d).Leaf (ac x)
-                  , Branch = λ(p : { left : b, right : b }) →
-                    (FTree c d).Branch { left = bd p.left, right = bd p.right }
-                  } fab
-}
 ```
 
 Define the data constructors using the general `fixG` function:
