@@ -2267,6 +2267,9 @@ let test3 = assert : unsafeDiv 121 11 ≡ 11  -- 121 / 11 = 11.
 let test4 = assert : unsafeDiv 10 0 ≡ 10 -- Invalid input.
 ```
 
+This algorithm takes time $O(x / y)$ when computing `unsafeDiv x y`.
+A faster division algorithm (the Egyptian division algorithm) will be implemented later in this book using more advanced techniques.
+
 ### Safe division via dependently-typed evidence
 
 The function `unsafeDiv` works but produces wrong results when dividing by zero.
@@ -2431,6 +2434,24 @@ let _ = assert : sqrt 16 ≡ 4
 There are faster algorithms of computing the square root, but those algorithms require division.
 Our implementation of division already requires a slow iteration.
 So, we will not attempt to optimize the performance of this proof-of-concept code.
+
+### Natural powers
+
+A function for computing powers of  natural numbers can be implemented by a simple loop using `Natural/fold`:
+
+```dhall
+let powerNatLoop : Natural → Natural → Natural
+  = λ(n : Natural) → λ(p: Natural) →
+    Natural/fold p Natural (λ(prev : Natural) → prev * n) 1
+let _ = assert : powerNatLoop 123 0 ≡ 1
+let _ = assert : powerNatLoop 123 1 ≡ 123
+let _ = assert : powerNatLoop 2 8 ≡ 256
+let _ = assert : powerNatLoop 234 678 ≡ 21298613082084559486766682810299344847158768047622771954454616180578072183065129530143262511387281851231278687896243915724575165438335281636691108698122540872404590849688419007963093646772215265474486442030908522230720510424831858643380520864108062835179905447332969684204173149675145262427903199508569200896940828765426782789992486786853970408724844647705101858367372447496493640297872365311098512280992731730880530769354674376947602053201118244188868050998269963697509776646569807681531751685018003172053758805680597170889594768481928517100873397616424436741858913961089998441122751530854870249083736912205256862095629608791012485750300351543963119166409515004435118670746988869691728537219031599104931268345924940101192044107807332729664090472219316580860202215961200242354857488390078377757082022694568127004680616898956963848362547027274608233257629200574833485819996926077250433307097235865629507909110501959719755617525896082713671171681093167330512226752677867976660688533688460151083836346154489116563027719702979582893006874174383984840337842350115539438486846889630050373292196433262301396937261166181121501734339821525124427899241428268197271385127151687417919244329792393344530432814706381117989330073243288384941463692052474996306543546049485072393738938526196300568620990653775020768759794562991219572972887910014286997989579112911555278038747353294499609470283356514899964420198863092401056176751614449338607214916988039404776478912157603152222542233089332733089701096649890490426649211622013887194519806801118080564696194916973411833861303022434972586204986073809345737294864493493245444096
+```
+
+This calculation takes time linear in the power `p`.
+However, the runtime is short enough even for computing large powers.
+It is not worthwhile to optimize the algorithm.
 
 ### Integer logarithm
 
@@ -5324,7 +5345,7 @@ Let us also summarize the standard type identities we have used in these derivat
 - Function from a record type: `Pair a b → r  ≅  a → b → r`
 - Function from a union type: `Either a b → r  ≅  Pair (a → r) (b → r)`
 
-### Church encoding in the curried form
+### Church encoding in the curried form (Boehm-Berarducci encoding)
 
 Using the standard type   identities shown in the previous section, we can rewrite the type `ListInt` in a form more convenient for practical applications.
 
@@ -5379,7 +5400,7 @@ So, the curried form is `∀(r : Type) → r → (r → r) → r`.
 The curried form is often convenient for practical programming with Church-encoded values.
 However, the type `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
 
-Historical note: The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
+The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
 See [this discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) for more details.
 
 ## Working with Church-encoded data
@@ -6232,12 +6253,12 @@ The only way to enable pattern matching for Church-encoded data is to apply thos
 However, once we execute that function call, the code embedded in the Church-encoded data will run a certain number of argument function calls, as that behavior is hard-coded.
 This is equivalent to traversing the entire data structure.
 
-As a result, the performance of programs will be often slow when working with large Church-encoded data structures.
-For example,  reversing lists of type `ListInt` takes time quadratic in the list length.
+As a result, the performance of programs may be slow when working with large Church-encoded data structures.
+However, lazy evaluation in Dhall makes Church-encoded data perform faster than expected.
 
-Let us run some timing tests to see this behavior  in Dhall.
+Timing tests show that `cons`, `headOptional`, and concatenation are actually $O(1)$ in time, while traversing the list is $O(N)$ (where $N$ is the length of the list). 
 
-We will create a long list of integers and time some operations: adding one more integer (using `cons`), computing the sum of the list, extracting that integer via `headOptional`, and concatenating that list to itself.
+To verify this, we can create a long list of integers and time some operations: adding one more integer (using `cons`), computing the sum of the list, extracting that integer via `headOptional`, and concatenating that list to itself.
 
 First, let us implement helper functions for computing the sum of a `ListInt` and for concatenating such lists.
 
@@ -6274,12 +6295,15 @@ let sum3 : Integer = ListInt/sum longList3
 let _ = assert : sum3 ≡ Natural/toInteger (length * 2) 
 ```
 
-In Dhall, the computation time is usually dominated by type-checking and reducing to normal forms.
-For instance, creating a Church-encoded list of `10000` elements and reducing it to the final normal form suitable for caching will take about 1 minute on a fast laptop.
-Once the value is stored in the file cache, reading it and computing the sum of the list takes only 1 second.
-So, timing tests need to begin by preparing all initial data in the cache as frozen inputs (using a command such as `dhall freeze --all --file test.dhall`).
+In Dhall, the computation time is completely dominated by  type-checking and reducing large Church-encoded data to normal forms.
+For instance, creating a Church-encoded list of `10000` elements and reducing it to the final normal form   takes about 1 minute on a fast laptop.
+Once the value is stored in the file cache, reading it takes only 1 second; computing the sum of the list takes about 0.5 seconds.
+Computing `headOptional` or `ListInt/concat` is so quick that it is below the measurement error.
 
-TODO:validate these statements by running some examples and show timings!
+The curried forms of the Church encoding have significantly smaller normal forms and  faster performance than the uncurried forms involving union types.
+
+Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs (using a command such as `dhall freeze --all test.dhall`).
+
 
 ## Church encodings of more complicated types
 
@@ -6813,6 +6837,26 @@ let depth
     let depthF = λ(fa : F a Natural) → (sizeAndDepthF F bifunctorF foldableF1 foldableF2 a fa).depth
     in ca Natural depthF
 ```
+
+Let us test this code on binary trees (`Tree2`) implemented as fixpoints of the bifunctor `FTree`.
+To use the generic `size` and `depth` functions, we just need to implement the required `Foldable1` and `Foldable2`  evidence values:
+
+```dhall
+let foldable1FTree : Foldable1 FTree
+  = λ(b: Type) → { toList = λ(a: Type) → λ(p : FTree a b) →
+    merge { Leaf = λ(leaf : a) → [ leaf ]
+          , Branch = λ(_ : { left : b, right : b }) → ([] : List a)
+          } p
+    }
+let foldable2FTree : Foldable2 FTree
+  = λ(a: Type) → { toList = λ(b: Type) → λ(p : FTree a b) →
+    merge { Leaf = λ(leaf : a) → ([] : List b)
+          , Branch = λ(q : { left : b, right : b }) → [ q.left, q.right ]
+          } p
+    }
+```
+
+Now we can apply the `size` and `depth` functions to the example trees and verify that the results are as expected:
 
 TODO: test examples for binary tree
 
@@ -9043,7 +9087,7 @@ example1 :: BInfTreeInt
 example1 = Branch example1 (Leaf 123)
 ```
 
-To translate this into Dhall, we use the greatest fixpoint of the structure bifunctor `FTree` defined before:
+To translate this into Dhall, we use the greatest fixpoint of the structure bifunctor `FTree` we have already seen:
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
