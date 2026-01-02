@@ -6773,7 +6773,7 @@ For non-empty lists (and also for empty lists), the `depthF` function is the sam
 For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
-let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right : Natural } > → Natural
+let depthFTree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right : Natural } > → Natural
   = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
     merge {
       Leaf = λ(x : a) → 0,
@@ -6784,8 +6784,8 @@ let depthF_Tree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, righ
 To test:
 
 ```dhall
-let _ = assert : 1 ≡ depth FTree Natural depthF_Tree exampleTree2
-let _ = assert : 2 ≡ depth FTree Natural depthF_Tree exampleTree3
+let _ = assert : 1 ≡ depth FTree Natural depthFTree exampleTree2
+let _ = assert : 2 ≡ depth FTree Natural depthFTree exampleTree3
 ```
 
 One may notice that the implementations of `size` and `depth` are actually the same code.
@@ -6807,7 +6807,7 @@ let Foldable2 = λ(F : Type → Type → Type) → ∀(a : Type) → Foldable (�
 
 Two `Foldable` instances give us two `toList` functions (having types `F a b → List a` and `F a b → List b`).
 Those functions allow us to extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
-With that, it is straightforward to perform the computations required for `sizeF` and `depthF`.
+With that, it is straightforward to translate the special code for the computations in `sizeFTree` and `depthFTree` into a generic versions that work with all pattern bifunctors `F`.
 The code is:
 
 ```dhall
@@ -6873,8 +6873,6 @@ let _ = assert : 3 ≡ size FTree bifunctorFTree foldable1FTree foldable2FTree N
 let _ = assert : 1 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree2
 let _ = assert : 2 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree3
 ```
-
-TODO: test examples for binary tree
 
 ### Implementing Church-encoded functors
 
