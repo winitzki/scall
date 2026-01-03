@@ -7243,7 +7243,24 @@ let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
 
 This is the  Church encoding at the level of type constructors.
 
-To illustrate the usage of this Church encoding, we will now redefine  the `List` functor and the free monad in terms of `LFixK`. 
+To illustrate the usage of this Church encoding, we will now redefine  the `List` functor   in terms of `LFixK`. 
+
+A recursive type equation defining the `List` functor can be written as:
+
+`T a = Either a (Pair a (T a))`
+
+We rewrite this equation in the form `T a = F T a` with the pattern functor `F` defined by:
+
+`F T a = Either a (Pair a (T a))`
+
+The corresponding Dhall code looks like this:
+
+```dhall
+let F = λ(T : Type → Type) → λ(a : Type) → Either a (Pair a (T a))
+let ListTC = LFixK F
+```
+The last line uses the Church encoding to define the type constructor `ListTC`.
+We can convert this definition to the curried form, which is more convenient in practice:
 
 TODO: give examples of a list and a tree (free monad), show how data is constructed and used, compare with ordinary Church encoding
 
