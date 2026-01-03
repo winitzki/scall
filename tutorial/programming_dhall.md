@@ -7045,7 +7045,7 @@ So, typechecking of `ListTGeneric` fails.
 The conclusion is that Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
 
 
-### Perfect trees and other nested recursive types
+### Perfect trees
 
 A "perfect tree" is a tree-like data structure whose branches are constrained to have the same shape until a chosen depth is reached.
 For example, a perfect _binary_ tree of depth $n$ must have exactly $2^n$ leaves.
@@ -7215,6 +7215,36 @@ are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx
 
 ### Church encoding at the level of type constructors
 
+The ordinary Church encoding involves a type expression of the form  `∀(r : Type) →...`, where the universal quantifier is applied to a type parameter (`r : Type`).
+
+A Church encoding "at the level of type constructors" applies the universal quantifier   to a _type constructor_ as a parameter (`∀(r : Type → Type) → ...`).
+As we found in the previous section, this kind of Church encoding is needed  to represent perfect trees, because the ordinary Church encoding does not work for such data types.
+
+However, one can also use the type-constructor Church encoding to represent lists, trees, and other recursive type constructors for which the ordinary Church encoding is sufficient.
+Let us outline how that would work.
+
+The ordinary Church encoding begins with a type equations of the form `T = F T` and then proceeds to write the type formula `C = ∀(r : Type) → (F r → r) → r`.
+
+To do a similar thing for type constructors, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable pattern functor.
+
+The Church encoding for ordinary types involves the function  type `F r → r`.
+The corresponding mapping at the level of type constructors must be written in Dhall as the type `∀(t : Type) → F r t → r t`, with an extra type parameter `t`.
+
+Then the Church encoding formula becomes:
+
+`C a = ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a`
+
+We can write this as a general combinator (`LFixK`) that creates a fixpoint type constructor out of any given pattern functor `F`:
+
+```dhall
+let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
+   ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+```
+
+This is the  Church encoding at the level of type constructors.
+
+To illustrate the usage of this Church encoding, we will now redefine  the `List` functor and the free monad in terms of `LFixK`. 
+
 TODO: give examples of a list and a tree (free monad), show how data is constructed and used, compare with ordinary Church encoding
 
 ### Generalized algebraic data types (GADTs)
@@ -7360,13 +7390,13 @@ Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have th
 
 Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
-The Church encoding must be applied at the level of type constructors via the same type formula as we used in the previous section:
+The Church encoding must be applied at the level of type constructors via the same general formula   we used in the previous section:
 
 ```dhall
 let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
    ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
-This is the general Church encoding at the level of type constructors.
+
 The type constructor `P` will be defined via `LFixK F` with some `F`.
 It remains to figure out how to write a suitable `F`.
 
