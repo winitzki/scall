@@ -3043,6 +3043,12 @@ In the case of the `Show` typeclass, an evidence value for a type `t` is just a 
 let Show = λ(t : Type) → { show : t → Text }
 ```
 
+Here is an  implementation of the `Show` evidence for `Natural`:
+
+```dhall
+let showNatural : Show Natural = { show = Natural/show }
+```
+
 As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
 For that, we would write the following Haskell code:
 ```haskell
@@ -5366,7 +5372,7 @@ is equivalent to `Integer → r → r`.
 Using these type equivalences, we may rewrite the type `ListInt` in the **curried form** as:
 
 ```dhall
-let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
+let ListIntC = ∀(r : Type) → r → (Integer → r → r) → r
 ```
 This type is isomorphic to the previous definition of `ListInt`, but now the code does not involve union types or record types any more.
 Working with curried functions often gives shorter code than working with union types and record types.
@@ -6240,6 +6246,35 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) ≡ Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) ≡ Some (cons +123 nil)
 ```
 
+### Pattern matching in the curried Church encoding
+
+The previous section shows  a general technique for pattern matching that works with  any Church-encoded type.
+When using the curried form of the Church encoding, it is sometimes more convenient to implement pattern matching functions by hand, especially if there are only a few specific needs.
+Let us show how to implement `headOptional` and `lastOptional` directly for  `ListInt` in the curried Church encoding.
+
+Recall the curried definition of `ListInt`, which we called `ListIntC`: 
+```dhall
+let ListIntC = ∀(r : Type) → r → (Integer → r → r) → r
+```
+
+The type `ListIntC` is a higher-order function that returns a value of an arbitrary type `r`.
+To write  a function such as `headOptional` that returns a value of type `Optional Integer`, we pass `r = Optional Integer` as the type parameter of `ListIntC`.
+The other arguments must specify the result for empty lists, and the result updated after a next element.
+
+```dhall
+let headOptionalC : ListIntC → Optional Integer
+  = λ(c : ListIntC) → c (Optional Integer) (None Integer)
+      (λ(i : Integer) → λ(_ : Optional Integer) → Some i)
+
+let lastOptionalC : ListIntC → Optional Integer
+  = λ(c : ListIntC) → c (Optional Integer) (None Integer)
+      (λ(i : Integer) → λ(o : Optional Integer) →
+      merge { None = Some i, Some = λ(prev : Integer) → Some prev } o
+      )
+```
+
+In such simple cases, it is easier to write the pattern-matching functions by hand.
+
 ### Performance of Church encodings
 
 Note that `unfix` is implemented by applying the Church-encoded value to some function.
@@ -6519,7 +6554,7 @@ let CList/show : ∀(a : Type) → Show a → CList a → Text
 As an example of using these tools, let us write a `CList` value corresponding to the list `[ 1, 3, 4, 5 ]` and print it:
 ```dhall
 let exampleCList1345 : CList Natural = consCList Natural 1 (consCList Natural 3 (consCList Natural 4 (consCList Natural 5 (nilCList Natural))))
-let _ = assert : CList/show Natural { show = Natural/show } exampleCList1345 ≡ "[ 1, 3, 4, 5, ]"
+let _ = assert : CList/show Natural showNatural exampleCList1345 ≡ "[ 1, 3, 4, 5, ]"
 ```
 
 
@@ -6644,7 +6679,7 @@ let test = assert : reverseNEL Natural example2 ≡ example1
 The reversing function allows us to program a _left_ fold: just reverse the list and apply the right fold.
 However, the resulting code works slower than the right fold.
 To see why, consider that `reverseNEL` uses `foldNEL` with an argument involving `nsnoc`, which itself also uses `foldNEL`.
-So, `reverseNEL` involves two nested iterations over the list (a quadratic number of operations).
+So, traversing a result of `reverseNEL` involves two nested iterations over the list (a quadratic number of operations).
 
 
 ### Size and depth of generic Church-encoded data
@@ -7256,13 +7291,44 @@ We rewrite this equation in the form `T a = F T a` with the pattern functor `F` 
 The corresponding Dhall code looks like this:
 
 ```dhall
-let F = λ(T : Type → Type) → λ(a : Type) → Either a (Pair a (T a))
+let F = λ(T : Type → Type) → λ(a : Type) → Optional (Pair a (T a))
 let ListTC = LFixK F
 ```
 The last line uses the Church encoding to define the type constructor `ListTC`.
 We can convert this definition to the curried form, which is more convenient in practice:
 
-TODO: give examples of a list and a tree (free monad), show how data is constructed and used, compare with ordinary Church encoding
+```dhall
+let ListTC = λ(a: Type) → ∀(r : Type → Type) → (∀(t : Type) → r t) → (∀(t : Type) → t → r t → r t) → r a
+```
+Note that currying makes it necessary to duplicate the universal quantifier inside the function argument (`∀(t : Type) → ...`).
+This is due to the general type isomorphism of the form:
+
+$$ \forall t. ~ a \times b \cong (\forall t. ~ a) \times (\forall t.~b )  $$
+
+Let us implement   data constructors for `ListTC` and create some sample values:
+
+```dhall
+let nilTC : ∀(a : Type) → ListTC a
+  = λ(a : Type) → λ(r : Type → Type) → λ(nilT : ∀(t : Type) → r t) → λ(consT : ∀(t : Type) → t → r t → r t) →
+    nilT a
+let consTC : ∀(a : Type) → a → ListTC a → ListTC a
+  = λ(a : Type) → λ(head : a) → λ(tail : ListTC a) → λ(r : Type → Type) → λ(nilT : ∀(t : Type) → r t) → λ(consT : ∀(t : Type) → t → r t → r t) →
+    consT a head (tail r nilT consT)
+let example1 : ListTC Natural = consTC Natural 1 (consTC Natural 2 (consTC Natural 3 (nilTC Natural)))   
+```
+
+To verify that   `example1` actually corresponds to  the list `[1, 2, 3]`, let us  create  a `Show` evidence for `ListTC`:
+
+```dhall
+let showListTC : ∀(a : Type) → Show a → Show (ListTC a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(list : ListTC a) →
+    let R : Type → Type = λ(_ : Type) → Text
+    let body = list R (λ(_ : Type) → "") (λ(t : Type) → λ(x : t) → λ(prev : Text) → prev ++ ", " ) 
+    in "[ " ++ body ++ "]"
+  }
+let _ = assert : (showListTC Natural showNatural).show example1 ≡ "[ 1, 2, 3, ]"
+```
+
 
 ### Generalized algebraic data types (GADTs)
 
@@ -7407,14 +7473,7 @@ Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have th
 
 Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
-The Church encoding must be applied at the level of type constructors via the same general formula   we used in the previous section:
-
-```dhall
-let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
-   ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
-```
-
-The type constructor `P` will be defined via `LFixK F` with some `F`.
+The Church encoding must be applied at the level of type constructors, similarly to what we did   in the previous section.
 It remains to figure out how to write a suitable `F`.
 
 As the the definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all allowed `t`.
@@ -11135,7 +11194,7 @@ let filterableCList : Filterable CList = filterableLFix FList filterableFList1
 Then we apply the generic `filter` function with the predicate `Natural/odd` to the list `exampleCList1345` and obtain the result corresponding to the list `[ 1, 3 ]`.
 ```dhall
 let result : CList Natural = filter CList filterableCList Natural Natural/odd exampleCList1345
-let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, ]"
+let _ = assert : CList/show Natural showNatural result ≡ "[ 1, 3, ]"
 ```
 So, this filtering operation indeed truncates the data after the first item that fails the predicate.
 
@@ -11199,7 +11258,7 @@ We now define a new `Filterable` evidence for `CList` and test that it does not 
 let filterableCListEither : Filterable CList
   = filterableLFixEither FList bifunctorFList deflateFListEither
 let result : CList Natural = filter CList filterableCListEither Natural Natural/odd exampleCList1345
-let _ = assert : CList/show Natural { show = Natural/show } result ≡ "[ 1, 3, 5, ]"
+let _ = assert : CList/show Natural showNatural result ≡ "[ 1, 3, 5, ]"
 ```
 
 
@@ -12606,7 +12665,7 @@ let showListC : ∀(a : Type) → Show a → Show (ListC a)
     let bareList : Text = la Text "" printNext
     in "[ ${bareList}]"
   }
-let showListNat = (showListC Natural { show = Natural/show }).show 
+let showListNat = (showListC Natural showNatural).show 
 let exampleListC1345 : ListC Natural = toListC Natural [ 1, 3, 4, 5 ]
 let _ = assert : showListNat exampleListC1345 ≡ "[ 1, 3, 4, 5, ]" 
 ```
@@ -12658,7 +12717,7 @@ let showNEL : ∀(a : Type) → Show a → Show (NEL a)
     let bareNEL : Text = na Text showA.show printNext
     in "[| ${bareNEL} |]"
   }
-let showNELNat = (showNEL Natural { show = Natural/show }).show 
+let showNELNat = (showNEL Natural showNatural).show 
 let exampleNEL1345 : NEL Natural = toNEL Natural [ 1, 3, 4 ] 5
 let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]"
 ```
