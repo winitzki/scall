@@ -2482,7 +2482,7 @@ let _ = assert : powerNatSq 123 456 ≡ 9925006877209885670083146205746963263729
 
 The new function will work faster than `powerNatLoop` once the input numbers become large enough.
 Tests show that `powerNatLoop n p` starts getting quite slow when inputs are above `100000`.
-But computing `powerNatSq 12345678 12345678` takes just a few seconds. 
+But computing `powerNatSq 12345678 12345678` takes just a few seconds.
 
 ### Integer logarithm
 
