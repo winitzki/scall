@@ -2176,7 +2176,7 @@ The "accumulator" is a record containing the current list of powers and the powe
 Once the next value becomes larger than `n`, the accumulator value stops changing:
 ```dhall
 let powers2 : Natural → List Natural = λ(n : Natural) →
-  let Acc = { result : List Natural, next : Natural }
+  let Acc : Type = { result : List Natural, next : Natural }
   let init : Acc = { result = [] : List Natural, next = 1 }
   let update : Acc → Acc = λ (acc : Acc) →
     if Natural/greaterThan acc.next n then acc -- Remains unchanged.
@@ -2208,7 +2208,7 @@ We expect to iterate over `1, 2, ..., n` while computing the factorial.
 It is clear that the accumulator must hold both the current partial result and the iteration count.
 So, let us define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
 ```dhall
-let Accum = { current : Natural, iteration : Natural }
+let Accum : Type = { current : Natural, iteration : Natural }
 ```
 Each iteration will multiply the current result by the iteration count and increment that count.
 We define the function `s` accordingly.
@@ -2252,7 +2252,7 @@ let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
 
 -- unsafeDiv x y means x / y, but it will return x when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
-  let Accum = { result : Natural, sub : Natural }
+  let Accum : Type = { result : Natural, sub : Natural }
   in λ(x : Natural) → λ(y : Natural) →
          let init : Accum = { result = 0, sub = x }
          let update : Accum → Accum = λ(acc : Accum) →
@@ -2443,15 +2443,46 @@ A function for computing powers of  natural numbers can be implemented by a simp
 let powerNatLoop : Natural → Natural → Natural
   = λ(n : Natural) → λ(p: Natural) →
     Natural/fold p Natural (λ(prev : Natural) → prev * n) 1
+let _ = assert : powerNatLoop 2 4 ≡ 16
 let _ = assert : powerNatLoop 123 0 ≡ 1
 let _ = assert : powerNatLoop 123 1 ≡ 123
-let _ = assert : powerNatLoop 2 8 ≡ 256
-let _ = assert : powerNatLoop 234 678 ≡ 21298613082084559486766682810299344847158768047622771954454616180578072183065129530143262511387281851231278687896243915724575165438335281636691108698122540872404590849688419007963093646772215265474486442030908522230720510424831858643380520864108062835179905447332969684204173149675145262427903199508569200896940828765426782789992486786853970408724844647705101858367372447496493640297872365311098512280992731730880530769354674376947602053201118244188868050998269963697509776646569807681531751685018003172053758805680597170889594768481928517100873397616424436741858913961089998441122751530854870249083736912205256862095629608791012485750300351543963119166409515004435118670746988869691728537219031599104931268345924940101192044107807332729664090472219316580860202215961200242354857488390078377757082022694568127004680616898956963848362547027274608233257629200574833485819996926077250433307097235865629507909110501959719755617525896082713671171681093167330512226752677867976660688533688460151083836346154489116563027719702979582893006874174383984840337842350115539438486846889630050373292196433262301396937261166181121501734339821525124427899241428268197271385127151687417919244329792393344530432814706381117989330073243288384941463692052474996306543546049485072393738938526196300568620990653775020768759794562991219572972887910014286997989579112911555278038747353294499609470283356514899964420198863092401056176751614449338607214916988039404776478912157603152222542233089332733089701096649890490426649211622013887194519806801118080564696194916973411833861303022434972586204986073809345737294864493493245444096
+let _ = assert : powerNatLoop 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
 ```
 
 This calculation takes time linear in the power `p`.
 However, the runtime is short enough even for computing large powers.
-It is not worthwhile to optimize the algorithm.
+
+An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n` (creating a list of $n$, $n^2$, $n^4$, $n^8$, etc.).
+The powers are computed via `Natural/fold` similarly to the code of `powers2` shown earlier. 
+Then the powers of `2` are subtracted from `p`, starting from the highest power that is still not greater than `p`.
+This finds the decomposition of `p` as a sum of powers of `2`; we then compute the product of the corresponding powers of `n`.
+For example, $n^13$ is computed by finding that $13 = 1 + 4 + 8$ and then computing $n^13 = n^1 * n^4 * n^8$.
+The code uses `List/fold` that corresponds to the **right fold** operation that starts from the end of the list:
+```dhall
+let powerNatSq : Natural → Natural → Natural
+  = λ(n : Natural) → λ(p: Natural) →
+    let PairT : Type = { of_2 : Natural, of_n : Natural }
+    let Accum : Type = { powers : List PairT, next : PairT }
+    let update = λ(acc : Accum) → if Natural/greaterThan acc.next.of_2 p then acc
+    else { powers = acc.powers # [ { of_2 = acc.next.of_2, of_n = acc.next.of_n } ]
+         , next = { of_2 = acc.next.of_2 * 2, of_n = acc.next.of_n * acc.next.of_n }
+         }
+    let init = { powers =  [] : List PairT, next = { of_2 = 1, of_n = n } }
+    let powers : Accum = Natural/fold p Accum update init
+    let ResultT : Type = { result : Natural, rest : Natural}
+    let update : PairT → ResultT → ResultT = λ(p : PairT) → λ(prev : ResultT) →
+      if Natural/greaterThan p.of_2 prev.rest then prev
+      else { result = prev.result * p.of_n, rest = Natural/subtract p.of_2 prev.rest}
+    in (List/fold PairT powers.powers ResultT update { result = 1, rest = p }).result
+let _ = assert : powerNatSq 123 0 ≡ 1
+let _ = assert : powerNatSq 123 1 ≡ 123
+let _ = assert : powerNatSq 2 8 ≡ 256
+let _ = assert : powerNatSq 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
+```
+
+The new function will work faster than `powerNatLoop` once the input numbers become large enough.
+Tests show that `powerNatLoop n p` starts getting quite slow when inputs are above `100000`.
+But computing `powerNatSq 12345678 12345678` takes just a few seconds. 
 
 ### Integer logarithm
 
@@ -9214,8 +9245,9 @@ let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, 
 let BInfTree = λ(a : Type) → GFix (FTree a)
 ```
 
-Define the data constructors using the general `fixG` function:
+Define the "finite" data constructors using the general `fixG` function:
 
+To create infinite trees, we need a more general data constructor that uses `makeGFix`:
 
 TODO: implement
 
