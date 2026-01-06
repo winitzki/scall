@@ -210,6 +210,10 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 Most functions in the Dhall standard library are curried.
 Currying allows function argument types to depend on some of the previous curried arguments.
 
+TODO: import and explain Operator/+ as a curried function for Naturals
+
+TODO: explain eta-reduction and eta-expansion for functions and for curried fun
+
 #### Functions at type level
 
 Types in Dhall are treated somewhat similar to values of type `Type`.
@@ -7392,6 +7396,9 @@ The compiler will report a type error if we  write something like `LNot (LInt 12
 The definition of `LExp t` is _not_ parametrically polymorphic in `t`.
 To see that it is not a data structure that works in the same way for all `t`,
 notice that values of type `LExp t` can be created only when `t = Int` or `t = Bool` but not with arbitrary other types `t`.
+It is not possible to create any values of type `LExp Text`, `LExp (List Int)`, or `LExp t` with any `t` other than `t = Int` or `t = Bool`.
+Formally speaking,  `LExp (List Int)`,  `LExp Text`, etc., are all  void types (having no values).
+
 Also, specific constructors (`LAdd`, `LNot`, etc.) require arguments of specific types (such as `LExp Int`) and will not work with an `LExp t` with an arbitrary `t`.
 
 GADTs are usually defined to work in special ways when their parameters are set to specific types.
@@ -7487,54 +7494,78 @@ data P a where  -- Haskell.
   TInt :: Text -> P Int
   BText :: Bool -> P Int -> P Text
 ```
+We would like to implement an equivalent type in Dhall.
+We will replace Haskell's `Int` type by Dhall's `Integer`, and a recursive GADT definition by a suitable Church encoding.
 
-The first step is to consider the product type of all constructors:
+The first step is to consider the product type of all defined constructors:
 
-`(Text -> P Int, Bool -> P Int -> P Text)`
+`(Text → P Integer, Bool → P Integer → P Text)`
 
-It will be useful to uncurry all constructor arguments:
+It will be useful to uncurry all constructor arguments temporarily:
 
-`(Text -> P Int, (Bool, P Int) -> P Text)`
+`(Text → P Integer, (Bool, P Integer) → P Text)`
 
 
-The next step is to rewrite this type in the form of a mapping `F P -> P`.
-In this way, we will derive the pattern functor `F` for this recursive type, showing us how to define the Church encoding.
+The next step is to rewrite this type as a  mapping of the form `F P → P`.
+In this way, we will derive the pattern functor `F` for this recursive type,
+which is the first step towards a Church encoding.
 
 Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
 
-Because the mapping between `F P` and `P` is a mapping between _type constructors_, it must be written in Dhall as the type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
-Here `F P t` is the application of `F` to `P`, giving a type constructor, which is then applied to the type `t`.
-The Church encoding must be applied at the level of type constructors, similarly to what we did   in the previous section.
+The mapping between `F P` and `P` is a mapping between _type constructors_ and  must be written in Dhall as the function type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
+Here `F P t` is the application of `F` to `P` and then to `t`.
+
+The application `F P` should give us   a new type constructor.
 It remains to figure out how to write a suitable `F`.
+Then we will use the Church encoding   at the level of type constructors, similarly to what we did   in the previous sections.
 
-As the the definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for all allowed `t`.
-In the example at hand, `P t` can have values only when `t = Int` or `t = Text`.
-So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Int → P Int` and `F P Text → P Text`.
+As the  definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for each allowed `t`.
+In the example at hand, `P t` can have values only when `t = Integer` or `t = Text`.
+So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Integer → P Integer` and `F P Text → P Text`.
 
-The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all type constructors.
+The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all   constructors.
 Let us write them side by side:
 
-- Product of type constructors is: `(Text -> P Int, (Bool, P Int) -> P Text)`
-- Mapping type `F P -> P` is: `(F P Int → P Int, F P Text → P Text)`.
+- Product of constructors: `(Text → P Integer, (Bool, P Integer) → P Text)`
+- Mapping type `F P → P`: `(F P Integer → P Integer, F P Text → P Text)`.
 
-These types will be equal if we define `F P Int = Text` and `F P Text = (Bool, P Int)`.
-We will define the type constructor `F P t` as void unless `t = Int` or `t = Text`.
+These types will be equal if we define `F P Integer = Text` and `F P Text = (Bool, P Integer)`.
 
-Write the Church encoding of the type constructor `P` as `LFixK F`, which after currying looks like this:
+How should we define the type `F P t`  when `t` is neither `Integer` nor `Text`?
+It should be the void type: then the function type `F P → P` will be equivalent to a unit type, which can be omitted from the type product.
+
+So, the type constructor `F` must take its argument `P` and create another GADT.
+We conclude that we cannot encode `F P` directly in Dhall.
+Instead, we will rewrite the mapping `F P → P` by hand into the correct equivalent type.
+
+Write the Church encoding of `P` as if we are dealing with parametrically polymorphic type constructors:
 
 ```dhall
-let C = λ(a : Type) →
+let P = λ(a : Type) →
+  ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+```
+
+Looking at our specific requirements, we find that we must rewrite the mapping type `∀(t : Type) → F r t → r t` first as a tuple type `(F r Integer → r Integer, F r Text → r Text)` because the type parameter `t` may only be either `Integer` or `Text.
+
+After currying, we obtain the following definition:
+```dhall
+let P = λ(a : Type) →
   ∀(r : Type → Type) → (F r Integer → r Integer) → (F r Text → r Text) → r a
 ```
-Substituting the definition of `F` (namely, the two cases `F r Integer = Text` and `F r Text = (Bool, r Integer)`) and currying some more, we obtain:
+It remains to substitute  the definition of `F` (namely, the two cases `F r Integer = Text` and `F r Text = (Bool, r Integer)`) and to curry  some more:
 ```dhall
-let C = λ(a : Type) →
+let P = λ(a : Type) →
   ∀(r : Type → Type) → (Text → r Integer) → (Bool → r Integer → r Text) → r a
 ```
-Let us add names to the type signature, making the correspondence with the long-syntax Haskell definition more apparent:
+This is the final form of the Church encoding of `P`.
+
+Note that we _cannot_ obtain this type formula by applying `LFixK` to `F`.
+The reason is that `F` is not parametrically polymorphic and itself would need to be defined as a GADT, which is not supported directly in Dhall.
+
+Let us add names to the type signature of `P`, making the correspondence with the long-syntax Haskell definition more apparent:
 
 ```dhall
-let C = λ(a : Type) → ∀(r : Type → Type) →
+let P = λ(a : Type) → ∀(r : Type → Type) →
   ∀(tInt : Text → r Integer) →
   ∀(bText : Bool → r Integer → r Text)
     → r a
@@ -7613,7 +7644,7 @@ let exampleLExp1 : LExp Integer = LAdd (LInt +10) (LInt +20)
 let exampleLExp2 : LExp Bool = LNot (LIsZero (LAdd (LInt +10) (LInt -10)))
 ```
 
-Let us now implement in Dhall an interpreter for this  language.
+Let us now implement (in Dhall) an interpreter for this toy language.
 
 Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by non-recursive code  that uses Church-encoded data.
 In the Church encoding, recursion is replaced by applications of the higher-order functions.
@@ -7644,8 +7675,8 @@ let _ = assert : evalLExp Bool exampleLExp2 ≡ False
 ```
 
 
-The toy language `LExp` did not need to use all the possible features of GADTs.
-To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we assign various type parameters in different ways, and where some type parameters remain unrestricted:
+The toy language `LExp` did not  use all the possible features of GADTs.
+To see how the Church encoding technique can implement the full power of GADTs, look at an artificial example of a GADT where we assign various type parameters in different ways while some type parameters remain unrestricted:
 
 ```haskell
 data WeirdBox a where   -- Haskell.
@@ -7673,7 +7704,8 @@ let WeirdBox = λ(t : Type) → ∀(r : Type → Type) →
    ∀(box3 : ∀(a : Type) → ∀(b : Type) → Integer → a → r b → r (Pair a b)) →
      r t
 ```
-Note that the extra type parameters in the constructors `Box1` and `Box3` need to be written explicitly, similarly to the syntax in Scala.
+The parameter `r` denotes all places where the GADT's definition recursively uses the type `WeirdBox` itself.
+The extra type parameters in the constructors `Box1` and `Box3` need to be written explicitly, similarly to the syntax in Scala.
 Haskell's more concise syntax hides the declaration of those type parameters.
 
 Dhall's verbose syntax exposes the full complexity behind GADTs.
