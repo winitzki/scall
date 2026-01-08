@@ -7474,16 +7474,16 @@ The type constructor `F` must be chosen such that `F Natural` carries enough inf
 
 Let us see what properties `F` should have if we want to compute the sum of values in a `ListCK Natural`:
 ```dhall
-let helper : ∀(F : Type → Type) → ∀(a : Type) → ListCK (F a) → F a
-  = λ(F : Type → Type) → λ(a : Type) → λ(listfa : ListCK (F a)) →
+let helper : ∀(F : Type → Type) → ∀(a : Type) → ListCK a → F a
+  = λ(F : Type → Type) → λ(a : Type) → λ(lista : ListCK a) →
     let nilT : ∀(t : Type) → F t = λ(t : Type) → ??? -- For an empty list.
     let constT : ∀(t : Type) → t → F t → F t
     = λ(t : Type) → λ(x : t) → λ(ft : F t) → ??? -- Combine x with ft. 
-    in listfa F nilT consT
+    in lista F nilT consT
 ```
 We see that implementing `helper` requires us to find a type constructor `F`   that has functions of types `∀(t : Type) → F t` and `∀(t : Type) → t → F t → F t`.
-The most general   type constructor fitting these requirements is just `List`, which will give us a function `helper List : ∀(a : Type) → ListCK (List a) → List a`.
-But this function is not very different from `foldableListCK.toList` that  converts `ListCK t` to `List t` for any type `t`.
+The most general   type constructor fitting these requirements is just `List`, which will give us a function `helper List : ∀(a : Type) → ListCK a → List a`.
+But  we have already seen this function: this is `foldableListCK.toList`.
 
 We find that aggregations with the higher-kinded Church encoding of lists requires converting the ordinary `List` (or to its ordinary Church encoding).
 This is actually a general property: If a recursive type constructor can be Church-encoded without higher kinds then the higher-kinded Church encoding can be mapped to the ordinary one.
@@ -7491,9 +7491,23 @@ This is actually a general property: If a recursive type constructor can be Chur
 To express this property in code, we assume that a pattern bifunctor `P` is given.
 We  first define an ordinary Church-encoded  type constructor `LFixT P`.
 Then we find a higher-kinded pattern functor `Q` that is equivalent to `P` and obtain a higher-kinded Church encoding `LFixK Q`.
+The definition of `Q` can be formalized as a function of `P` that we denote by `ToChurchK P`:
+
+```dhall
+let ToChurchK : (Type → Type → Type) → (Type → Type) → Type → Type
+  = λ(P : Type → Type → Type) → λ(T : Type → Type) → λ(a : Type) → P a (T a)
+```
+
+
 Finally, we implement a mapping from `LFixK Q` to `LFixT P` that is generic in `P`: 
 
 todo: implement
+
+```dhall
+let toChurchEncodingT : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → LFixK (ToChurchK P) a → LFixT P a
+  = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → λ(lq : LFixK (ToChurchK P) a) →
+    λ(r : Type) → λ(alg : P a r → r) → 9
+```
 
 However, this does not help with nested recursive types (such as the perfect binary tree) that do not have  ordinary Church encodings and can be represented in Dhall only via higher-kinded Church encodings.
 
