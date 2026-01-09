@@ -7659,9 +7659,6 @@ TODO: rewrite in terms of typeclass-constrained encoding
 #### Functor properties
 
 
-
-todo: implement `fixK` and `unfixK` as they are needed for the functor combinator!
-
 We now turn to the question of  implementing a `Functor` evidence for `ListCK` and other higher-kinded Church encodings.
 In the case of `ListCK`, we need to map `ListCK a → ListCK b` given a function `f : a → b`.
 This  was straightforward in the ordinary Church encoding because the type formula `∀(r : Type) → (F a r → r) → r` is covariant in `a`.
@@ -7669,7 +7666,7 @@ But this is not the case with the higher-kinded Church encoding.
 The type parameter `a` enters   as an argument of `r`,
 but `r` is itself a type parameter of kind `Type → Type`.
 It  is an arbitrary type constructor that is not known to be a functor.
-
+This prevents us from implementing `fmap` in a simple way.
 
 Another attempt at  implementing `fmap` is by applying a value of type `ListCK a` to the type constructor parameter `r` chosen as a constant functor:   `r a = ListCK b`.
 This  fails for the same reason as our failure with `sumListCK`: the argument `consT` of type `∀(t : Type) → t → ListCK b → ListCK b` cannot be implemented.
