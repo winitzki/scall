@@ -7665,9 +7665,9 @@ let examplePBC1 : ∀(P : Type → Type) → P Natural → PBTreeC P Natural
 
 The value `examplePBC1` represents a tree that consists of a single leaf (a tree of depth `0`).
 When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)`; but we only have evidence of type `P t`.
-In most cases, it is possible to derive the required evidence automatically.
-(For example, a pair of two monoids is again a monoid.)
-So, we will need to add a combinator of type `P t → P (Pair t t)` as another requirement to the type signature:
+In many cases, it is possible to derive the required evidence automatically.
+(For example, a pair of two monoids is again a monoid. We may call such typeclass "pair-preserving".)
+We will need to add a combinator of type `P t → P (Pair t t)` as another argument in the type signature:
 ```dhall
 let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P t → P (Pair t t)) → PBTreeC P Natural
   = λ(P : Type → Type) → λ(pNat : P Natural) → λ(pPair: (∀(t : Type) → P t → P (Pair t t))) →
@@ -7676,9 +7676,24 @@ let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P 
           leafPBC P (Pair (Pair Natural Natural) (Pair Natural Natural)) (pPair (Pair Natural Natural) (pPair Natural pNat)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } ))
 ```
 
+We see that working with a perfect binary tree requires us not only to select a suitable typeclass for each computation but also to provide evidence for a special "pair-preserving" property for that typeclass. 
 
-This encoding  allows us  to implement generic functions for aggregation and   for pretty-printing (a `Show` evidence) for  `PBTreeC`. 
+Let us now implement    aggregation and     pretty-printing (a `Show` evidence) for  `PBTreeC`. 
 
+For   aggregations, we will use the `Monoid` typeclass.
+
+```dhall
+let reducePBTreeC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → PBTreeC P a) → a
+  = λ(a : Type) → λ(monoidA : Monoid a) → λ(tree : ∀(P : Type → Type) → P a → PBTreeC P a) →
+  -- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
+    let leafT : ∀(t : Type) → Monoid t → t → Id t
+      = λ(t : Type) → λ(monoidT : Monoid t) → identity t
+    let branchT : ∀(t : Type) → Monoid t → Id (Pair t t) → Id t
+      = λ(t : Type) → λ(monoidT : Monoid t) → λ(p : Id (Pair t t)) → monoidT.append p._1 p._2
+    in tree Monoid monoidA Id leafT branchT
+let _ = assert : reducePBTreeC Natural monoidNaturalSum examplePBC1 ≡ 10
+```
+To test this code with `examplePBC2`, we need to use the pair-preserving combinator for `Monoid`:
 
 To implement a `Show` evidence for  `PBTreeC`:
 
