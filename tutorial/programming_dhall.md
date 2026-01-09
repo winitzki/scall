@@ -7593,20 +7593,21 @@ let nilCKC : ∀(P : Type → Type) → ∀(a : Type) → P a → ListCKC P a
 let consCKC : ∀(P : Type → Type) → ∀(a : Type) → ∀(pa : P a) → a → ListCKC P a → ListCKC P a
   = λ(P : Type → Type) → λ(a : Type) → λ(pa : P a) → λ(head : a) → λ(tail : ListCKC P a) → λ(r : Type → Type) → λ(nilT : ∀(t : Type) → P t → r t) → λ(consT : ∀(t : Type) → P t → t → r t → r t) →
     consT a pa head (tail r nilT consT)
-let example2 : ∀(P : Type → Type) → P Natural → ListCKC P Natural = λ(P : Type → Type) → λ(pNat : P Natural) → consCKC P Natural pNat 1 (consCKC P Natural pNat 2 (consCKC P Natural pNat 3 (nilCKC P Natural pNat)))  
+let example2 : ∀(P : Type → Type) → P Natural → ListCKC P Natural
+  = λ(P : Type → Type) → λ(pNat : P Natural) →
+    consCKC P Natural pNat 1 (
+      consCKC P Natural pNat 2 (
+        consCKC P Natural pNat 3 (
+          nilCKC P Natural pNat)))  
 ```
 Note that values such as `example2` are still functions of an arbitrary typeclass `P`.
-In order to extract any concrete values from   `example2`, one will need to supply some `P` and an evidence value of type `P Natural`.
+Indeed, the type of `example2` is `∀(P : Type → Type) → P Natural → ListCKC P Natural`.
+In order to extract any concrete values from   `example2`, we will need to supply some `P` and an evidence value of type `P Natural`.
 
+How do we choose the typeclass parameter `P`?
+We will have to choose it in a different way for each computation that we need to perform with values of type `ListCKC P a`.
 
-As an example, let us implement functions that compute the sum of all `Natural` numbers in a list or in a perfect tree, and also functions for pretty-printing (a `Show` evidence) for `ListCKC` and `PBTreeC`. 
-
-To implement a `Show` evidence for `ListCKC` and `PBTreeC`:
-
-
-TODO: rewrite in terms of typeclass-constrained encoding 
-
-Here is     a `Show` evidence for `ListCKC` and a test that `example2` indeed corresponds to the list `[ 1, 2, 3 ]`:
+Here is how we would use the typeclass parameter to implement       a `Show` evidence for `ListCKC`.
 
 ```dhall
 let showListCKC : ∀(a : Type) → Show a → Show (∀(P : Type → Type) → P a → ListCKC P a)
@@ -7615,8 +7616,41 @@ let showListCKC : ∀(a : Type) → Show a → Show (∀(P : Type → Type) → 
     let body = list Show showA R (λ(t : Type) → λ(showT : Show t) → "") (λ(t : Type) → λ(showT : Show t) → λ(x : t) → λ(prev : Text) → showT.show x ++ ", " ++ prev ) 
     in "[ " ++ body ++ "]"
   }
+```
+This code substitutes the `Show` typeclass instead of the typeclass parameter `P` in the definition of `ListCKC`.
+To print the data in   a list of type `ListCKC P Natural`, we need to supply a `Show` evidence for `Natural`.
+Let us  verify that `example2` indeed corresponds to the list `[ 1, 2, 3 ]`:
+
+```dhall
 let _ = assert : (showListCKC Natural showNatural).show example2 ≡ "[ 1, 2, 3, ]"
 ```
+
+To aggregate the data in that list, we need to choose    some typeclass that supports aggregation, and to supply    evidence that `Natural` belongs to that typeclass.
+If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum` that adds the numbers (we have already defined `monoidNaturalSum` earlier in this book).
+We set the typeclass parameter `P = Monoid` and apply the Church-encoded value to suitable arguments.
+Instead of summation, we will just perform aggregation in the monoidal type.
+We will use the identify functor (`Id`) as the type constructor parameter `r` in the higher-kinded Church encoding: 
+```dhall
+let Id : Type → Type = λ(a : Type) → a
+let reduceListCKC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → ListCKC P a) → a
+  = λ(a : Type) → λ(monoidA : Monoid a) → λ(list : ∀(P : Type → Type) → P a → ListCKC P a) →
+    let nilT = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.empty
+    let constT = λ(t : Type) → λ(monoidT : Monoid t) → λ(head : t) → λ(tail : t) → monoidT.append head tail
+    in list Monoid monoidA Id nilT constT
+let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
+```
+
+The code in `example2` is a   complicated higher-order function with a large number of parameters, needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
+This  heavy price is justified only when the higher-kinded Church encoding is actually reqruied to represent the data structures we are working with.
+
+An example of such a data structure is the perfect binary tree (`PBTreeC`).
+We can now implement functions that compute the sum of all `Natural` numbers in a   perfect tree, and also functions for pretty-printing (a `Show` evidence) for  `PBTreeC`. 
+
+To implement a `Show` evidence for  `PBTreeC`:
+
+
+TODO: rewrite in terms of typeclass-constrained encoding 
+
 
 
 #### Functor properties
