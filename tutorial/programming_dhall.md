@@ -7634,9 +7634,9 @@ let Id : Type → Type = λ(a : Type) → a
 let reduceListCKC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → ListCKC P a) → a
   = λ(a : Type) → λ(monoidA : Monoid a) → λ(list : ∀(P : Type → Type) → P a → ListCKC P a) →
   -- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
-    let nilT : ∀(t : Type → Monoid t → Id t
+    let nilT : ∀(t : Type) → Monoid t → Id t
       = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.empty
-    let constT : ∀(t : Type → Monoid t → t → Id t → Id t
+    let constT : ∀(t : Type) → Monoid t → t → Id t → Id t
       = λ(t : Type) → λ(monoidT : Monoid t) → λ(head : t) → λ(tail : t) → monoidT.append head tail
     in list Monoid monoidA Id nilT constT
 let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
