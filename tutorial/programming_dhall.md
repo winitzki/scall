@@ -7501,15 +7501,22 @@ let ToChurchK : (Type → Type → Type) → (Type → Type) → Type → Type
 
 Finally, we implement a mapping from `LFixK Q` to `LFixT P` that is generic in `P`: 
 
-todo: implement
 
 ```dhall
 let toChurchEncodingT : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → LFixK (ToChurchK P) a → LFixT P a
   = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → λ(lq : LFixK (ToChurchK P) a) →
-    λ(r : Type) → λ(alg : P a r → r) → 9
+    let functorlf : ∀(t : Type) → Functor (P t) = λ(t : Type) → { fmap = bifunctorP.bimap t t (identity t) }
+    let algK : ∀(t : Type) → ToChurchK P (LFixT P) t → LFixT P t
+      = λ(t : Type) → λ(lpt : P t (LFixT P t)) → fixT P t (functorlf t) lpt
+    let result : LFixT P a = lq (LFixT P) algK   
+    in result
 ```
+let fixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → F a (LFixT F a) → LFixT F a
 
-However, this does not help with nested recursive types (such as the perfect binary tree) that do not have  ordinary Church encodings and can be represented in Dhall only via higher-kinded Church encodings.
+It appears that   to work with concrete data computations in the higher-kinded Church encoding, we have to use   the ordinary Church encoding as well.
+Certainly,  the higher-kinded Church encoding is not needed when the ordinary one is available.
+
+However,  nested recursive types (such as the perfect binary tree)  do not have  ordinary Church encodings and can be represented in Dhall only via higher-kinded Church encodings.
 
 We have seen that the perfect binary tree is foldable and can be converted to a list of values.
 However, implementing a pretty-printing function for perfect binary trees is still out of reach, as it requires structural information about the positions of each value in the tree and not merely a flat list of all values. 
