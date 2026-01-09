@@ -7628,20 +7628,23 @@ let _ = assert : (showListCKC Natural showNatural).show example2 ≡ "[ 1, 2, 3,
 To aggregate the data in that list, we need to choose    some typeclass that supports aggregation, and to supply    evidence that `Natural` belongs to that typeclass.
 If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum` that adds the numbers (we have already defined `monoidNaturalSum` earlier in this book).
 We set the typeclass parameter `P = Monoid` and apply the Church-encoded value to suitable arguments.
-Instead of summation, we will just perform aggregation in the monoidal type.
-We will use the identify functor (`Id`) as the type constructor parameter `r` in the higher-kinded Church encoding: 
+Instead of summation, we will just perform aggregation with respect to the monoidal type, similarly to the `reduce` method for lists (with the type signature `reduce : ∀(a : Type) → Monoid a → List a → a`).
 ```dhall
 let Id : Type → Type = λ(a : Type) → a
 let reduceListCKC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → ListCKC P a) → a
   = λ(a : Type) → λ(monoidA : Monoid a) → λ(list : ∀(P : Type → Type) → P a → ListCKC P a) →
-    let nilT = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.empty
-    let constT = λ(t : Type) → λ(monoidT : Monoid t) → λ(head : t) → λ(tail : t) → monoidT.append head tail
+  -- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
+    let nilT : ∀(t : Type → Monoid t → Id t
+      = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.empty
+    let constT : ∀(t : Type → Monoid t → t → Id t → Id t
+      = λ(t : Type) → λ(monoidT : Monoid t) → λ(head : t) → λ(tail : t) → monoidT.append head tail
     in list Monoid monoidA Id nilT constT
 let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
 ```
 
-The code in `example2` is a   complicated higher-order function with a large number of parameters, needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
-This  heavy price is justified only when the higher-kinded Church encoding is actually reqruied to represent the data structures we are working with.
+The code in `example2` is a   higher-order function with five complicated parameters; some parameters include type quantifiers inside their types.
+All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
+This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
 
 An example of such a data structure is the perfect binary tree (`PBTreeC`).
 We can now implement functions that compute the sum of all `Natural` numbers in a   perfect tree, and also functions for pretty-printing (a `Show` evidence) for  `PBTreeC`. 
