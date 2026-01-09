@@ -208,13 +208,50 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 ```
 
 Most functions in the Dhall standard library are curried.
-Currying allows function argument types to depend on some of the previous curried arguments.
+The built-in infix operators (such as `+` or `*`) are also defined in the library's `Operator` module as curried functions.
+For example, the built-in operator `+` (the addition for `Natural` numbers) is exported like this:
 
-TODO: import and explain Operator/+ as a curried function for Naturals
+```dhall
+let `+` = (https://prelude.dhall-lang.org/Operator/package.dhall).`+`
+let _ = assert : `+` 123 1 ≡ 124
+```
+The name `+` must be enclosed in backquotes in order to be usable as an identifier.
+Defined in this way, `+` is a curried function.
+There is no particular significance to the fact that this function is called `+`; we could choose any other name. 
 
-TODO: explain eta-reduction and eta-expansion for functions and for curried fun
+Unlike Haskell where infix operators are automatically declared as functions, Dhall needs to redeclare them, for example like this:
 
-#### Functions at type level
+```dhall
+let times = λ(x : Natural) → λ(y : Natural) → x * y
+let _ = assert : times 4 5 ≡ 20
+```
+
+A curried function can be used more easily when some of the arguments are fixed.
+For example, a function that multiplies its argument by `4` can be defined via `times` by:
+
+```dhall
+let multiplyBy4 = λ(x : Natural) → times 4 x
+```
+This code is equivalent to the shorter version:
+
+```dhall
+let multiplyBy4 = times 4
+```
+
+The shortening pattern is that `λ(x : Natural) → times 4 x` is reduced to `λ(x : Natural) → times 4`.
+More generally, `λ(x : a) → f x` is reduced to just `f` for any function `f`.
+This is known as the **eta-reduction**.
+
+Note that the eta-reduction applies only to the last curried arguments of functions.
+For example, `λ(x : a) → λ(y : b) → f z x y` can be eta-reduced to just `f z`.
+But   `λ(x : a) → λ(y : b) → f x y z` or `λ(x : a) → λ(y : b) → y x z` cannot be eta-reduced because the last curried argument (here, `z`) is not exposed as a `λ(z : c) →` in front of the function.
+
+
+
+#### Functions with type parameters
+
+Currying   allows function argument types to depend on some of the previous curried arguments.
+In this section, we will see how that feature is used to define functions with type parameters.
 
 Types in Dhall are treated somewhat similar to values of type `Type`.
 For example, the symbol `Natural` is considered to have type `Type`:
@@ -234,9 +271,10 @@ This allows Dhall to implement a rich set of type-level features:
 
 - Functions with type parameters: for example, `λ(A : Type) → λ(x : A) → ...`
 - Type constructors, via functions of type `Type → Type` (both the input and the output is a type).
-- Type constructor parameters: for example, `λ(F : Type → Type) → λ(A : Type) → λ(x : F A) → ...`
+- Type constructor parameters: for example, `λ(F : Type → Type) → λ(a : Type) → λ(x : F a) → ...`
 - Dependent types: functions whose inputs are values and outputs are types.
 
+We will look at these features in detail later in this book.
 
 #### Shadowing and the syntax for de Bruijn indices
 
