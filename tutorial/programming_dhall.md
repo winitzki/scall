@@ -7735,7 +7735,7 @@ let _ =
   in assert : (showPBTreeC Natural showNatural).show example2 ≡ "((20, 30), (40, 50))"
 ```
 
-
+todo: investigate if we can use the continuation monad as r and avoid the typeclass-constrained encodings!
 
 #### Functor properties
 
