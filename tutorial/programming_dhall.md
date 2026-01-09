@@ -7643,7 +7643,10 @@ let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
 ```
 
 The code in `example2` is a   higher-order function with five complicated parameters; some parameters include type quantifiers inside their types.
+For each computation, `example2` may need to use a different typeclass parameter.
 All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
+
+
 This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
 
 An example of such a data structure is the perfect binary tree (defined before as `PBTree`).
@@ -7680,25 +7683,57 @@ We see that working with a perfect binary tree requires us not only to select a 
 
 Let us now implement    aggregation and     pretty-printing (a `Show` evidence) for  `PBTreeC`. 
 
-For   aggregations, we will use the `Monoid` typeclass.
-
+For   aggregations, we will specialize up front to the `Monoid` typeclass.
+This will allow us to avoid too many extra arguments.
+We will need to pass a monoid pair-preserving combinator when the tree requires it.
 ```dhall
-let reducePBTreeC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → PBTreeC P a) → a
-  = λ(a : Type) → λ(monoidA : Monoid a) → λ(tree : ∀(P : Type → Type) → P a → PBTreeC P a) →
-  -- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
+let reducePBTreeC : ∀(a : Type) → Monoid a → PBTreeC Monoid a → a
+  = λ(a : Type) → λ(monoidA : Monoid a) → λ(tree : PBTreeC Monoid a) →
+-- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
     let leafT : ∀(t : Type) → Monoid t → t → Id t
       = λ(t : Type) → λ(monoidT : Monoid t) → identity t
     let branchT : ∀(t : Type) → Monoid t → Id (Pair t t) → Id t
       = λ(t : Type) → λ(monoidT : Monoid t) → λ(p : Id (Pair t t)) → monoidT.append p._1 p._2
-    in tree Monoid monoidA Id leafT branchT
-let _ = assert : reducePBTreeC Natural monoidNaturalSum examplePBC1 ≡ 10
+    in tree Id leafT branchT
+let _ = assert : reducePBTreeC Natural monoidNaturalSum (examplePBC1 Monoid monoidNaturalSum) ≡ 10
 ```
-To test this code with `examplePBC2`, we need to use the pair-preserving combinator for `Monoid`:
+To test this code with `examplePBC2`, we need to adapt the type of `examplePBC2` to the type signature of `reducePBTreeC`.
+We will reuse the pair-preserving combinator `monoidPair` that  we have previously implemented  for `Monoid`:
 
-To implement a `Show` evidence for  `PBTreeC`:
+```dhall
+let _ =
+  let monoidPairEqual : ∀(t : Type) → Monoid t → Monoid (Pair t t)
+    = λ(t : Type) → λ(monoidT : Monoid t) → monoidPair t monoidT t monoidT
+  -- Prepare examplePBC2 for aggregation.
+  let example2 : PBTreeC Monoid Natural
+    = examplePBC2 Monoid monoidNaturalSum monoidPairEqual 
+  in assert : reducePBTreeC Natural monoidNaturalSum example2 ≡ 140
+```
 
+Finally, we  implement a `Show` evidence for  `PBTreeC`.
+We will print a perfect tree with parentheses showing its structure:
 
-TODO: rewrite in terms of typeclass-constrained encoding 
+```dhall
+let showPBTreeC : ∀(a : Type) → Show a → Show (PBTreeC Show a)
+  = λ(a : Type) → λ(showA : Show a) →
+    { show = λ(tree : PBTreeC Show a) →
+-- Use R as the parameter r : Type → Type in the higher-kinded Church encoding.
+        let R = λ(t : Type) → (t → Text) → Text
+        let leafT : ∀(t : Type) → Show t → t → R t
+          = λ(t : Type) → λ(showT : Show t) → λ(x : t) → λ(k : t → Text) → k x
+        let branchT : ∀(t : Type) → Show t → R (Pair t t) → R t
+          = λ(t : Type) → λ(showT : Show t) → λ(p : (Pair t t → Text) → Text) → λ(k : t → Text) → p (λ(tt : Pair t t) → "(" ++ k tt._1 ++ ", " ++ k tt._2 ++ ")")
+        in tree R leafT branchT showA.show
+    }
+let _ =
+  let example1 : PBTreeC Show Natural = examplePBC1 Show showNatural
+  in assert : (showPBTreeC Natural showNatural).show example1 ≡ "10"
+let _ =
+  let showPair : ∀(t : Type) → Show t → Show (Pair t t)
+    = λ(t : Type) → λ(showT : Show t) → { show = λ(pair : Pair t t) → "[" ++ showT.show pair._1  ++ ", " ++ showT.show pair._2 ++ "]" }
+  let example2 : PBTreeC Show Natural = examplePBC2 Show showNatural showPair 
+  in assert : (showPBTreeC Natural showNatural).show example2 ≡ "((20, 30), (40, 50))"
+```
 
 
 
