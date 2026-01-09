@@ -7598,7 +7598,7 @@ let example2 : ∀(P : Type → Type) → P Natural → ListCKC P Natural
     consCKC P Natural pNat 1 (
       consCKC P Natural pNat 2 (
         consCKC P Natural pNat 3 (
-          nilCKC P Natural pNat)))  
+          nilCKC P Natural pNat)))
 ```
 Note that values such as `example2` are still functions of an arbitrary typeclass `P`.
 Indeed, the type of `example2` is `∀(P : Type → Type) → P Natural → ListCKC P Natural`.
@@ -7646,8 +7646,39 @@ The code in `example2` is a   higher-order function with five complicated parame
 All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
 This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
 
-An example of such a data structure is the perfect binary tree (`PBTreeC`).
-We can now implement functions that compute the sum of all `Natural` numbers in a   perfect tree, and also functions for pretty-printing (a `Show` evidence) for  `PBTreeC`. 
+An example of such a data structure is the perfect binary tree (defined before as `PBTree`).
+We will now rewrite it as a typeclass-constrained encoding (`PBTreeC`) in a curried form.
+```dhall
+let PBTreeC = λ(P : Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → P t → t → r t) → (∀(t : Type) → P t → r (Pair t t) → r t) → r a
+let leafPBC : ∀(P : Type → Type) → ∀(a : Type) → P a → a → PBTreeC P a
+  = λ(P : Type → Type) → λ(a : Type) → λ(pa : P a) → λ(leaf : a) →
+      λ(r : Type → Type) → λ(leafT : ∀(t : Type) → P t → t → r t) → λ(branchT : ∀(t : Type) → P t → r (Pair t t) → r t) →
+        leafT a pa leaf
+let branchPBC : ∀(P : Type → Type) → ∀(a : Type) → ∀(pa : P a) → PBTreeC P (Pair a a) → PBTreeC P a
+  = λ(P : Type → Type) → λ(a : Type) → λ(pa : P a) → λ(branch : PBTreeC P (Pair a a)) →
+      λ(r : Type → Type) → λ(leafT : ∀(t : Type) → P t → t → r t) → λ(branchT : ∀(t : Type) → P t → r (Pair t t) → r t) →
+        let raa : r (Pair a a) = branch r leafT branchT
+        in branchT a pa raa 
+let examplePBC1 : ∀(P : Type → Type) → P Natural → PBTreeC P Natural
+  = λ(P : Type → Type) → λ(pNat : P Natural) → leafPBC P Natural pNat 10
+```
+
+The value `examplePBC1` represents a tree that consists of a single leaf (a tree of depth `0`).
+When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)`; but we only have evidence of type `P t`.
+In most cases, it is possible to derive the required evidence automatically.
+(For example, a pair of two monoids is again a monoid.)
+So, we will need to add a combinator of type `P t → P (Pair t t)` as another requirement to the type signature:
+```dhall
+let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P t → P (Pair t t)) → PBTreeC P Natural
+  = λ(P : Type → Type) → λ(pNat : P Natural) → λ(pPair: (∀(t : Type) → P t → P (Pair t t))) →
+      branchPBC P Natural pNat (
+        branchPBC P (Pair Natural Natural) (pPair Natural pNat) (
+          leafPBC P (Pair (Pair Natural Natural) (Pair Natural Natural)) (pPair (Pair Natural Natural) (pPair Natural pNat)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } ))
+```
+
+
+This encoding  allows us  to implement generic functions for aggregation and   for pretty-printing (a `Show` evidence) for  `PBTreeC`. 
+
 
 To implement a `Show` evidence for  `PBTreeC`:
 
