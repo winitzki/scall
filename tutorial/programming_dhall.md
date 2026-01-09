@@ -7722,8 +7722,7 @@ let functorLFixK : ∀(P : (Type → Type) → Type → Type) → FunctorK P →
           λ(b : Type) → λ(f : t → b) →  -- Need to construct LFixK P b here.
             let phb : P HelperF b = functorPHelperF.fmap t b f pht
             let plb : P (LFixK P) b = functorKP.fmapK HelperF (LFixK P) helper2lfix b phb
-            let lb : LFixK P b = fixK P functorKP b plb
-            in lb
+            in fixK P functorKP b plb : LFixK P b
         in la HelperF algK
       in { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(la : LFixK P a) → fmapFlipped a la b f }
 ```
