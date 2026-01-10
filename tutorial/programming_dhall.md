@@ -30,7 +30,7 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
 The book shows many complete code examples, which have been validated by the Dhall interpreter.
 
-The Appendix of the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
+In addition, the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
 
 _The text of this book was written and edited without using any LLMs._
 
@@ -42,8 +42,8 @@ Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
 The syntax of Dhall is similar to that of Haskell.
-One major difference is Dhall's syntax for functions, which resembles the notation of System F and System Fω.
-Namely, System F's notation: $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
+But Dhall's syntax for functions  resembles the notation of System F and System Fω.
+For instance, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
 $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 Here is an example of a complete Dhall program:
@@ -57,13 +57,13 @@ in f 10 (id Natural 20)
 
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
-The [Dhall standard prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
+[Dhall's  Prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
 such as `Natural/lessThan` or `List/map`.
 
 ### Identifiers and variables
 
 Dhall variables are immutable constant values with names, introduced via the "`let`" syntax.
-We will call them "variables", even though they stand for constants that cannot vary.
+Following tradition, we will call them "variables", even though they stand for constants that cannot vary.
 
 For example, `let x = 1 in ...` defines the variable `x` that can be used in the code that follows.
 Names of variables are arbitrary identifiers, like in most programming languages.
@@ -96,7 +96,7 @@ Identifiers may contain arbitrary characters (even keywords or whitespace) if es
 3
 ```
 
-The standalone underscore character (`_`) is used in Haskell, Scala, other languages as syntax for a special "unused" variable.
+The standalone underscore character (`_`) is used in Haskell, Scala, and some other languages to denote a special "unused" variable.
 But in Dhall, the symbol `_` is a variable like any other:
 
 ```dhall
@@ -137,7 +137,7 @@ These restrictions are intentional and are designed to keep users from writing D
 
 Nevertheless, it is possible in Dhall to "assert" certain conditions that string values should satisfy.
 For example, one can assert that a string value should be non-empty, or begin with certain characters, or consist entirely of alphanumeric characters.
-These and other similar conditions may be enforced statically via the "assert" feature that we will discuss later.
+These and other similar conditions may be enforced statically via the `assert` keyword  that we will discuss later.
 A Dhall program will fail to compile if an asserted condition does not hold.
 
 ### Functions and function types
@@ -147,10 +147,9 @@ An example of a function in Dhall is:
 ```dhall
 let inc = λ(x : Natural) → x + 1
 ```
-Dhall does not support Haskell's concise function definition syntax such as  `inc x = x + 1`, where arguments are given on the left-hand side and types are inferred automatically.
-Functions must be defined via `λ` symbols as we have just seen.
+Dhall does not support Haskell's concise  syntax such as  `inc x = x + 1`, where arguments are given on the left-hand side and types are inferred automatically.
 
-Generally, functions in Dhall look like `λ(x : input_type) → body`, where:
+Functions in Dhall must look like `λ(x : input_type) → body`, where:
 
 - `x` is a bound variable representing the function's input argument,
 - `input_type` is the type of the function's input argument, and
@@ -164,11 +163,12 @@ A function's type has the form `∀(x : input_type) → output_type`, where:
 The function `inc` shown above has type `∀(x : Natural) → Natural`.
 
 The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with their equivalent ASCII representations: `forall`, `\`, and `->`.
-In this book, we will use the Unicode symbols for brevity.
+In this book, we will always use the Unicode symbols.
 
 Usually, the function body is an expression that uses the bound variable `x`.
-However, the type expression `output_type` might itself also depend on the input _value_ `x`.
+However, the type expression `output_type` might   also depend on the input _value_ `x`.
 We will discuss such functions in more detail later.
+
 In many cases, the output type does not depend on `x`.
 Then the function's type may be written in a simpler form: `input_type → output_type`.
 
@@ -178,14 +178,14 @@ For example, the function `inc` shown above may be written with a type annotatio
 let inc : Natural → Natural = λ(x : Natural) → x + 1
 ```
 
-We may also write a fully detailed type annotation if we like:
+We may also write a longer type annotation if we like:
 
 ```dhall
 let inc : ∀(x : Natural) → Natural = λ(x : Natural) → x + 1
 ```
 
 It is not required that the name `x` in the type annotation (`∀(x : Natural)`) should be the same as the name `x` in the function (`λ(x : Natural)`).
-So, the following code is just as valid (although may be confusing):
+So, the following code is just as valid, although it may be confusing:
 
 ```dhall
 let inc : ∀(a : Natural) → Natural = λ(b : Natural) → b + 1
@@ -194,9 +194,9 @@ let inc : ∀(a : Natural) → Natural = λ(b : Natural) → b + 1
 #### Curried functions
 
 All Dhall functions have just one argument.
-To implement functions with more than one argument, one can use either curried functions or record types (see below).
+To implement functions with more than one argument, one can use either curried functions or record types.
 
-For example, a function that adds 3 numbers can be written in different ways according to convenience:
+For example, a function that adds three numbers can be written in different ways according to convenience:
 
 ```dhall
 let add3_curried : Natural → Natural → Natural → Natural
@@ -208,8 +208,8 @@ let add3_record : { x : Natural, y : Natural, z : Natural } → Natural
 ```
 
 Most functions in the Dhall standard library are curried.
-The built-in infix operators (such as `+` or `*`) are also defined in the library's `Operator` module as curried functions.
-For example, the built-in operator `+` (the addition for `Natural` numbers) is exported like this:
+The built-in infix operators (such as `+` or `*`) are duplicated in the library's `Operator` module as curried functions.
+For example, the built-in operator `+` (the addition for `Natural` numbers) can be imported from the Prelude like this:
 
 ```dhall
 let `+` = (https://prelude.dhall-lang.org/Operator/package.dhall).`+`
@@ -219,7 +219,7 @@ The name `+` must be enclosed in backquotes in order to be usable as an identifi
 Defined in this way, `+` is a curried function.
 There is no particular significance to the fact that this function is called `+`; we could choose any other name. 
 
-Unlike Haskell where infix operators are automatically declared as functions, Dhall needs to redeclare them, for example like this:
+Unlike Haskell where infix operators are automatically usable as functions, Dhall needs to redeclare them, for example like this:
 
 ```dhall
 let times = λ(x : Natural) → λ(y : Natural) → x * y
@@ -289,14 +289,14 @@ The inner function shadows the outer `x`; inside the inner function body, `123 +
 The outer `x` is a **shadowed variable**.
 
 In most programming languages, one cannot directly refer to shadowed variables.
-Instead, one needs to rename the inner `x` to `t`:
+Instead, one needs to rename the inner `x`:
 
 ```dhall
 let _ = λ(x : Natural) → λ(t : Natural) → 123 + t
 ```
 Now the function body could (if necessary) refer to the outer `x`.
 
-What if we do not want (or cannot) rename `x` to `t`
+What if we do not want (or cannot) rename the inner `x`
 but still want to refer to the outer `x`? In Dhall, we write `x@1` for that:
 
 ```dhall
@@ -307,13 +307,13 @@ The `1` in `x@1` is called the **de Bruijn index** of the outer variable `x`.
 De Bruijn indices are non-negative integers.
 We usually do not write `x@0`, we write just `x` instead.
 
-Each de Bruijn index points to a specific nested lambda in some outer scope for a variable with a given name.
+Each de Bruijn index points to a specific nested lambda binding a variable with a given name in some outer scope.
 For example, look at this code:
 
 ```dhall
-let _ = λ(x : Natural) → λ(t : Natural) → λ(x : Natural) → 123 + x@1
+let _ = λ(x : Natural) → λ(y : Natural) → λ(x : Natural) → 123 + x@1
 ```
-The variable `x@1` still points to the outer `x`. The presence of another lambda with the argument `t` does not matter for counting the nesting depth for `x`.
+The variable `x@1` still points to the outer `x`. The presence of another lambda with the argument `y` does not matter for counting the nesting depth for `x`.
 
 It is invalid to use a de Bruijn index that is greater than the total number of nested lambdas.
 For example, these expressions are invalid at the top level (as there cannot be any outer scope):
@@ -324,11 +324,10 @@ For example, these expressions are invalid at the top level (as there cannot be 
 ```
 At the top level, these expressions are just as invalid as the expression `123 + x` because `x` remains undefined.
 
-The variable `x` in the expression `123 + x` is considered a "free variable", meaning that it should have been defined in the outer scope.
-
+The variable `x` in the expression `123 + x` is considered a **free variable**, meaning that it should have been defined somewhere in an outer scope.
 Similarly, `x@1` in `λ(x : Natural) → 123 + x@1` is a free variable.
 
-At the top level, all variables must be bound. One cannot evaluate expressions with free variables at the top level.
+At the top level, all variables must be bound. One cannot evaluate expressions with free variables at the top level, because there cannot be any outer scope where those variables may be defined.
 Expressions with free variables must be within bodies of some functions that bind their free variables.
 
 In principle, nonzero de Bruijn indices could be always eliminated by renaming some bound variables.
@@ -352,10 +351,10 @@ let function1 = λ(x : Natural) → λ(y : Natural) →
   ( λ(x : Natural) → λ(y : Natural) → λ(x : Natural) → x + x@1 + x@2 ) y
 ```
 
-Suppose we need to evaluate this expression (that is, evaluate "under a lambda").
-In other words, we need to simplify the body of `function1` before applying that function.
+We will now evaluate this expression (that is, evaluate "under a lambda").
+To do  that, we need to simplify the body of `function1` without applying that function.
 
-To evaluate this expression correctly, we cannot simply substitute `y` instead of `x` in the body of the function. Note that:
+To evaluate this expression correctly, we cannot simply remove the outer `λ(x : Natural)` and substitute `y` instead of `x` in the body of the function:
 
 - The outer `x` corresponds to `x@1` within the expression, so we need to substitute `y` instead of `x@1` while keeping `x` and `x@2` unchanged.
 - Another `y` is already bound in an inner scope; so, we need to write `y@1` instead of `y`, in order to refer to the free variable `y` in the outside scope.
@@ -431,23 +430,17 @@ Dhall does not distinguish `RecordType1` and `RecordType2` from each other or fr
 as the order of record fields is not significant.
 So, the values `x` and `y` actually have the same type in this code.
 
-It will be convenient to define a `Pair` type constructor:
-```dhall
-let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
-```
-
-### Co-product types ("union types")
+### Co-product types (union types)
 
 Co-product types (called "union types" in Dhall) are implemented via tagged unions, for example: `< X : Natural | Y : Bool >`.
 Here `X` and `Y` are called the **constructors** of the given union type.
 
-Values of union types are created via constructor functions.
-Constructor functions are written using the "dot" operator.
+Values of union types are created via constructor functions  written using the "dot" syntax.
 For example, the Dhall expression `< X : Natural | Y : Bool >.X` is a function of type `Natural → < X : Natural | Y : Bool >`.
 Applying that function to a value of type `Natural` will create a value of the union type `< X : Natural | Y : Bool >`, as shown in this example:
 
 ```dhall
-let x : < X : Natural | Y : Bool > = < X : Natural | Y : Bool >.X 123
+let a = < X : Natural | Y : Bool >.X 123
 ```
 
 Constructor names are often capitalized (`X`, `Y`, etc.), but Dhall does not enforce that convention.
@@ -463,7 +456,7 @@ The corresponding value is written as `< X : Natural | Y >.Y`.
 This is the only value that can be created via that constructor.
 
 Union types can be nested, for example, `< T | X : < Y | Z : Natural > >`.
-Here is an (artificial) example of creating a value of that type:
+Here is an  example of creating a value of that type:
 
 ```dhall
 let nested = < T | X : < Y | Z : Natural > >.X (< Y | Z : Natural >.Z 123)
@@ -471,16 +464,16 @@ let nested = < T | X : < Y | Z : Natural > >.X (< Y | Z : Natural >.Z 123)
 
 It is important that Dhall's union types use **structural typing**: two union types are distinguished only via their constructor names and types, while constructors are unordered.
 So, the union types `< X : Natural | Y >` and `< Y | X : Natural >` are the same, while the types `< X : Natural | Y >` and `< X : Text | Y : Natural >` are different and unrelated to each other.
-There is no **nominal typing** for union types; that is, no way of assigning a permanent unique name to a certain union type, as it is done in Haskell, Scala, and other languages to distinguish one union type from another.
+There is no **nominal typing** for union types; that is, no way of assigning a permanent unique name to a certain union type, as it is done in Haskell, Scala, and other languages to distinguish  union types.
 
 For convenience, Dhall programs often define local names for union types:
 
 ```dhall
 let MyXY = < X : Natural | Y : Bool >
-let x : MyXY = MyXY.X 123
+let a = MyXY.X 123
 ```
 The constructor expression `MyXY.X` is a function of type `Bool → MyXY`.
-But the name `MyXY` is no more than a (locally defined) value that is used as a type alias.
+But   `MyXY` is no more than a (locally defined) value that is used as a type alias.
 Dhall considers `MyXY` to be the same type as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`,
 as the order of a union type's constructors is not significant.
 
@@ -506,16 +499,11 @@ Constructor names are always written together with the union type.
 So, there is no conflict between the constructors `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
 (A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.)
 
-It will be convenient to define an `Either` type constructor:
-```dhall
-let Either = λ(a : Type) → λ(b : Type) → < Left : a | Right : b >
-```
-
 ### Pattern matching
 
-Pattern matching for union types is implemented via the `merge` keyword.
-Dhall's `merge` expressions are similar to `match/with` expressions in OCaml, `case/of` expressions in Haskell, and `match/case` expressions in Scala.
-One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation.
+Pattern matching for union types is written via the `merge` keyword.
+Dhall's `merge` expressions are similar to `match/with`   in OCaml, `case/of`   in Haskell, and `match/case`   in Scala.
+One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation, as we will see.
 
 As an example, consider a union type defined in Haskell by:
 
@@ -537,7 +525,6 @@ The corresponding type is defined in Dhall by:
 ```dhall
 let P = < X : Integer | Y : Bool | Z >
 ```
-
 Here is the Dhall code for a function that prints values of type `P`:
 
 ```dhall
@@ -558,14 +545,14 @@ For no-argument constructors (e.g., for the constructor `Z` in the example shown
 The second argument of `merge` is a value of a union type on which the pattern matching is being done.
 
 Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
-It is a syntax error to write `merge { X = 0 }` without specifying a value (`x`) of a union type.
+It is a syntax error to write `merge { X = 0 }` without specifying a value (such as `x`) at the end.
 
 
 ### The void type
 
-The **void type** is a type that cannot have any values.
+The **void type** is the type that cannot have any values.
 
-Dhall's empty union type (denoted by `<>`) is an example of a void type.
+Dhall's empty union type (denoted by `<>`) is an example of the void type.
 Values of union types may be created only via constructors, but the union type `<>` has no constructors.
 So, no Dhall code will ever be able to create a value of type `<>`.
 
@@ -663,7 +650,7 @@ Type constructors in Dhall are written as functions from `Type` to `Type`.
 
 In Haskell, one could define a type constructor as `type AAInt a = (a, a, Int)`.
 The analogous type constructor in Scala looks like `type AAint[A] = (A, A, Int)`.
-To encode this type constructor in Dhall, one writes an explicit function taking a parameter `a` of type `Type` and returning another type.
+To encode this type constructor in Dhall, one writes an explicit function taking a parameter of type `Type` and returning another type.
 
 Because Dhall does not have nameless tuples, we will use a record with field names `_1`, `_2`, and `_3` to represent a tuple with three parts:
 
@@ -698,9 +685,9 @@ The types of `Either` and `Pair` is `Type → Type → Type`.
 As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are just type aliases.
 Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves (**structural typing**).
 
-### The "Optional" type constructor
+### The  type constructor `Optional`
 
-An `Optional` type (similar to Haskell's `Maybe` and Scala's `Option`) could be defined in Dhall like this:
+A  type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall like this:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
@@ -718,9 +705,8 @@ Here is an example of using Dhall's `merge` for implementing a `getOrElse` funct
 ```dhall
 let getOrElse : ∀(a : Type) → Optional a → a → a
   = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
-    merge {
-            None = default,
-            Some = λ(x : a) → x
+    merge { None = default
+          ,  Some = λ(x : a) → x
           } oa
 ```
 
@@ -730,7 +716,7 @@ Second, the `Optional` type plays a special role when exporting data to JSON and
 
 ### Functions with type parameters
 
-Functions with type parameters (also known as **generic functions**) are written as functions with extra arguments of type `Type`.
+Functions with type parameters (also known as **generic functions**) are written as curried functions with extra arguments of type `Type`.
 
 To see how this works, first consider a function that takes a pair of `Natural` numbers and swaps the order of numbers in the pair.
 We use a record type `{ _1 : Natural, _2 : Natural }` to represent a pair of `Natural` numbers.
@@ -745,7 +731,8 @@ Note that the code of `swapNatNat` does not depend on having values of type `Nat
 The same logic would work with any two types.
 So, we can generalize `swapNatNat` to a function `swap` that supports arbitrary types of values in the pair.
 The two types will become type parameters; we will denote them by `a` and `b`.
-The input type of `swap` will be `{ _1 : a, _2 : b }` (which is the same as `Pair a b `) instead of `{ _1 : Natural, _2 : Natural }`, and the output type will be `{ _1 : b, _2 : a }` (which is the same as `Pair b a`).
+The input type of `swap` will be `{ _1 : a, _2 : b }` (which is the same as `Pair a b`) instead of `{ _1 : Natural, _2 : Natural }`.
+The output type will be `{ _1 : b, _2 : a }`, which is the same as `Pair b a`.
 The type parameters are given as additional curried arguments of `swap`.
 The new code is:
 
@@ -754,16 +741,17 @@ let swap : ∀(a : Type) → ∀(b : Type) → Pair a b → Pair b a
   = λ(a : Type) → λ(b : Type) → λ(p : Pair a b) → { _1 = p._2, _2 = p._1 }
 ```
 Note that some parts of the type signature of `swap` depend on the type parameters (namely, the types `Pair a b` and `Pair b a`).
-To be able to express that dependence, we need to specify the type parameter names in the type signature of `swap` as `∀(a : Type)` and `∀(b : Type)`.
+To be able to express that dependence, we need to specify the type parameter _names_ in the type signature of `swap`, writing `∀(a : Type)` and `∀(b : Type)`.
 
 Compare this with the type signature of `Pair`, which is written as `Type → Type → Type`.
 We could write, if we like, `Pair : ∀(a : Type) → ∀(b : Type) → Type`. That would be the same type signature in a longer syntax.
+We usually prefer to shorten the type annotations.
 But we cannot shorten the type signature of `swap` to `Type → Type → Pair a b → Pair b a`, because the names `a` and `b` would have become undefined.
-The type signature of `swap` requires a longer form that introduces the names `a` and `b`.
+The type signature of `swap` requires a longer syntax that introduces the names `a` and `b`.
 
 As another example, consider functions that extract the first or the second element of a pair.
-These functions also work in the same way for all types.
-So, it is useful to declare those functions as "generic functions" having type parameters:
+These functions   work in the same way for all types.
+So, we may declare those functions as "generic functions" with type parameters:
 
 ```dhall
 let take_1 : ∀(a : Type) → ∀(b : Type) → Pair a b → a
@@ -783,7 +771,7 @@ in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
   -- This is a complete program that returns [2, 3, 4].
 ```
 
-A **polymorphic identity function** is written (with a full type annotation) as:
+A **polymorphic identity function** is written (with a long type annotation) as:
 
 ```dhall
 let identity : ∀(A : Type) → ∀(x : A) → A
@@ -844,7 +832,7 @@ $ dhall --file ./sum.dhall
 
 Although each Dhall module exports only one value, that value may be a record with many fields.
 Record fields may contain values and/or types.
-In that way, Dhall modules may export a number of values and/or types:
+In that way, Dhall modules may export a number of values and  types:
 
 ```dhall
 -- This file is `./SimpleModule.dhall`.
@@ -904,13 +892,12 @@ Dhall denotes imports via special syntax:
 - If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
 - A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
 
-It is important that the import paths, environment variable names, and SHA256 hash values are _not strings_.
+The import paths, environment variable names, and SHA256 hash values are _not strings_.
 They are hard-coded and cannot be manipulated at run time.
-
 It is not possible to import a file whose name is computed by concatenating some strings.
-For instance, one cannot write anything like `let x = ./Dir/${filename}`, with the intention of substituting the value `filename` as part of the path to the imported file.
+For instance, one cannot write   `let x = ./Dir/${filename}`  with the intention of substituting the value `filename` as part of the path to an imported file.
 
-The contents of the imported resource my be treated as plain text or as binary data, instead of treating it as Dhall code.
+The contents of the imported resource may be treated as plain text or as binary data, instead of treating it as Dhall code.
 This is achieved with the syntax `as Text` or `as Bytes`.
 
 For example, environment variables typically contain plain text rather than Dhall code.
@@ -921,7 +908,6 @@ So, they should be imported `as Text`:
 
 "/bin/bash"
 ```
-
 But one cannot read an external resource as a string and then use that string as a URL or file path for another import.
 
 
@@ -934,7 +920,6 @@ The syntax `as Location` enables that option:
 < Environment : Text | Local : Text | Missing | Remote : Text >.Environment "SHELL"
 ```
 The result is a value of a union type that describes all supported external resources.
-
 However, `Location` values cannot be reused to perform further imports.
 
 
@@ -952,7 +937,7 @@ See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/d
 
 #### Organizing modules and submodules
 
-The Dhall standard library (the ["prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
+The Dhall standard library (the ["Prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
 For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with lists are in the `List/` subdirectory, and so on.
 This convention helps make the code for imports more visual:
 
@@ -991,15 +976,15 @@ Dhall will neither require nor verify that `let Dir1/file1 = ...` imports a file
 To create a hierarchical library structure of modules and submodules, the Dhall standard library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's standard prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the prelude.
-A Dhall file may import the entire prelude and access its submodules like this:
+The top level of Dhall's Prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the Prelude.
+A Dhall file may import the entire Prelude and access its submodules like this:
 ```dhall
 let p = https://prelude.dhall-lang.org/package.dhall -- Takes a while to import!
 let x = p.Bool.not (p.Natural.greaterThan 1 2)     -- We can use any module now.
   in ???
 ```
 
-The standard prelude is not treated specially by Dhall.
+The Prelude is not treated specially by Dhall.
 It is just an ordinary import from a Web URL.
 A user's own libraries and modules may have a similar structure of nested records and may be imported as external resources in the same way.
 In this way, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
@@ -1077,17 +1062,17 @@ This mechanism resolves only "non-fatal" import failures: that is, failures to r
 A "fatal" import failure means that the external resource was available but gave a Dhall expression that failed to parse, to typecheck, to validate the given semantic hash, or violated some import restrictions (e.g., a circular import).
 
 The operator for alternative imports (`?`) is designed for situations where the same Dhall resource might be stored in different files or at different URLs, some of which might be temporarily unavailable.
-If all alternatives fail to read, the import fails (and the entire Dhall program fails to type-check).
+If all alternatives fail to read, the import will fail (and the entire Dhall program will fail to type-check).
 
 Other than providing import alternatives, Dhall does not support any possibility of reacting to an import failure in a custom way.
 The intention is to prevent Dhall programs from depending on side effects due to timing issues or network availability.
 Dhall programs are intended to be pure and referentially transparent values even in the presence of imports.
 
-The special keyword `missing` denotes an external resource that will _never_ be available.
-It works as a neutral element of the `?` operation: `x ? missing` is the same as `x`.
+The special keyword `missing` denotes an external resource that is _never_   available.
+It works as a neutral element of the `?` operation: `x ? missing` and `missing ? x` are  the same as `x`.
 
-The `missing` keyword is sometimes used as a trick to speed up import loading for frozen imports.
-To achieve that, annotate a `missing` import with an SHA256 hash value and provide an alternative:
+The `missing` keyword can be used as a trick to speed up import loading for frozen imports.
+To achieve that, annotate a `missing` import with an SHA256 hash value and provide an alternative import:
 ```dhall
 let Natural/lessThan
   = missing sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
@@ -1122,11 +1107,19 @@ Welcome to the Dhall v1.42.2 REPL! Type :help for more information.
 ⊢ :let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }
 
 Pair : ∀(a : Type) → ∀(b : Type) → Type
+
+⊢ Pair Natural Bool
+
+{ _1 : Natural, _2 : Bool }
+
+⊢ { _1 = 123, _2 = True } : Pair Natural Bool
+
+{ _1 = 123, _2 = True }
 ```
 
 Dhall does not require capitalizing the names of types and type parameters.
 In this book, we capitalize all type constructors (such as `List`).
-Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.) for additional clarity.
+Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.).
 Values are never capitalized in this book.
 
 #### Almost no type inference
@@ -1169,10 +1162,11 @@ Each imported value is loaded and validated at typechecking time, even if the va
 
 ```dhall
 let constZero = λ(x : Natural) → 0   -- This function ignores its argument.
-let ??? = constZero ./nonexisting_file.dhall -- Error at typechecking time!
+let y = constZero ./nonexisting_file.dhall -- Error at typechecking time!
+in ???
 ```
 
-The typechecking stage is analogous to the compile-time stage in compiled programming languages.
+Dhall's typechecking stage is analogous to the compile-time stage in compiled programming languages.
 At that stage, the Dhall interpreter resolves all imports and then typechecks all sub-expressions in the program, whether they are used or not.
 (Imports must be resolved first, in order to be able to proceed with typechecking.)
 
@@ -1180,17 +1174,17 @@ When no type errors are found, the interpreter goes on evaluating the program to
 
 It is important to keep in mind that in almost all cases a well-typed Dhall program should give the same result whether evaluated lazily or strictly.
 
-The lazy and strict evaluation strategies will give different results in two situations:
-- When a certain sub-expression creates a lazy side effect whose execution may influence the result value.
-- When a certain "rogue" sub-expression _cannot_ be evaluated (because it will either crash the program or enter an infinite loop).
+The lazy and strict evaluation strategies will give different results only if:
+- a sub-expression creates a side effect whose execution may influence the result value; or
+- a  "rogue" sub-expression _cannot_ be evaluated because it will either crash the program or enter an infinite loop.
 
 To implement the first case, we would need to create a Dhall expression containing a side effect.
 The only side effect in Dhall is importing an external resource.
-However, Dhall makes all imports strictly evaluated and validated at typechecking time.
-So, imports are never lazily evaluated.
+However, Dhall evaluates and validates  all imports at typechecking time.
+Imports are never lazily evaluated.
 As Dhall has no other side effects, we see that the first case does not create a difference between lazy and strict evaluation strategies at evaluation time.
 
-To see how the second case could work, suppose a program defines a rogue expression but does it in such a way that the rogue expression is _not_ actually needed for computing the final result.
+To see how the second case could work, suppose a program defines a rogue expression that is _not_ actually needed for computing the final result.
 Under the lazy evaluation strategy, the rogue expression will not be evaluated (because it is not used), and the program will complete successfully.
 But the strict evaluation strategy will try to compute all expressions (whether or not they are used for obtaining the final result).
 In that case, the program will fail due to failure evaluating the rogue expression.
@@ -1246,7 +1240,7 @@ The result values of any Dhall program will be the same, as long as memory or ti
 
 #### No computations with custom data
 
-In Dhall, most built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`) are completely opaque to the user.
+In Dhall, several built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`) are completely opaque to the user.
 One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
 Those types are intended for creating strongly-typed configuration data schemas and for safely exporting data to configuration files.
 
@@ -1274,10 +1268,10 @@ Those loops perform as many iterations as needed to reach a given stopping condi
 In certain cases, it is not possible to find out in advance whether the stopping condition will ever be reached.
 So, programs that contain "while" or "until" loops are not statically guaranteed to terminate.
 
-A list may be created only if the required length of the list is known in advance.
-It is not possible to write a program that creates a list by adding more and more elements until some condition is reached, without setting an upper limit in advance.
+A list may be created only if the required length of the list is bounded in advance.
+It is not possible to write a program that creates a list by adding more and more elements until some condition is reached, without an upper limit set in advance.
 
-Similarly, all text strings are statically limited in length.
+Similarly, all text strings will have a length limit known up front.
 
 Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that simulate recursive types, recursive functions, and "lazy infinite" data structures.
 Later chapters in this book will show how that can be achieved.
@@ -1307,7 +1301,7 @@ Dhall reads import values similarly to the way a mathematical function reads its
 The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
 Even though the actual external resource may change during evaluation, the Dhall interpreter will ignore those changes and use only the first value obtained by reading the resource.
 A repeated import of the same resource will always give the same Dhall value.
-So, it is not possible to write a Dhall program that repeatedly reads a value from an external file and reacts in some way to changes in the file's contents.
+It is not possible to write a Dhall program that repeatedly reads a value from a  file and reacts in some way to changes in the file's contents.
 
 A Dhall program also cannot have a custom behavior reacting to a failure _while importing_ the external resources.
 There is only a simple mechanism providing fall-back alternative imports in case a resource is missing.
@@ -1337,29 +1331,29 @@ The lack of Turing-completeness is not a significant limitation for a wide scope
 Dhall can still perform iterative or recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
 
 The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
-As Dhall supports arbitrary-precision integers, it is possible to write a Dhall program that runs a loop with an extremely large number of iterations.
-It is also possible to come up with short Dhall expressions creating data structures that consume terabytes or petabytes of memory.
-We will see some examples of such "rogue expressions" later in this book.
+As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
+We have already seen examples of such rogue expressions.
 
 However, it is improbable that a programmer creates a rogue expression by mistake while implementing ordinary tasks in Dhall.
 A malicious adversary could try to inject such expressions into Dhall programs.
 To mitigate that possibility, Dhall implements strict guardrails on external imports.
 
-### Overview of the standard library ("prelude")
+### Overview of the standard library (the "Prelude")
 
-Dhall's [standard library](https://prelude.dhall-lang.org) has a number of modules containing utility functions.
+Dhall's [Prelude](https://prelude.dhall-lang.org) has a number of modules containing utility functions.
 
-The library functions are mostly organized in subdirectories whose names indicate the main type with which the functions work.
+The library functions are   organized in subdirectories whose names indicate the main type with which the functions work.
 So, functions in the `Bool` subdirectory are for working with the `Bool` type,
 functions in the `List` subdirectory work with lists, and so on.
 
-All built-in Dhall functions have the corresponding standard library functions (just for the purpose of clean re-export).
-For example, the built-in function `Date/show` has the corresponding standard library code exported at `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
-
-In addition, there are subdirectories such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
-
 Library functions for working with `Natural` and `Integer` numbers include functions such as `Natural/lessThan`, `Integer/lessThan`, and so on.
 Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
+
+All built-in Dhall functions have the corresponding standard library functions (just for the purpose of clean re-export).
+For example, the built-in function `Date/show` is also exported as `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
+
+In addition, there are  modules such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
+
 
 All those functions are implemented through Dhall built-ins.
 To keep the language simpler, Dhall has only a small number of built-in functions.
@@ -1563,7 +1557,7 @@ So, for instance, type expressions `∀(A : Type) → A → A` and `∀(A : Type
 The additional name `x` could be chosen to help the programmer remember the intent behind that argument.
 
 
-#### Example: Optional
+#### Example
 
 To illustrate the difference between `∀` and `λ` compare the Dhall expressions `λ(r : Type) → Optional r` and `∀(r : Type) → Optional r`.
 
@@ -1746,7 +1740,7 @@ Because of this and other limitations, Dhall can work productively with dependen
 
 Below in the chapter "Numerical algorithms" we will see an example of using dependent types for implementing a safe division operation.
 
-### The "assert" keyword and equality types
+### The keyword "assert"  and equality types
 
 For values other than `Bool` and `Natural` numbers, equality testing is not available as a function.
 However, values of any type may be tested for equality at typechecking time via Dhall's `assert` feature.
@@ -2192,7 +2186,7 @@ This book will show many more examples of higher-kinded types.
 ## Numerical algorithms
 
 Dhall's `Natural` numbers have arbitrary precision and support a limited number of built-in operations.
-The standard prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
+The Prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
 
 We will now show how to implement other numerical operations such as division or logarithm.
 In an ordinary programming language, we would use loops to implement those operations.
@@ -3051,7 +3045,7 @@ Those values are passed as additional arguments to functions that require a type
 With that technique, one can define and use different typeclass evidence values for the same type, if that is necessary.
 This is similar to the way Scala implements typeclasses (except Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
 
-### Instances and evidence values
+### Implementing typeclasses via  evidence values
 
 Let us first clarify the terminology used with typeclasses, beginning with a definition that is sufficient for the purposes of this book:
 
@@ -3123,7 +3117,7 @@ Dhall's `assert` feature may be sometimes used to verify typeclass laws.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
-### The "Show" typeclass
+### The  "Show" typeclass
 
 The `Show` typeclass is usually defined in Haskell as:
 
@@ -3488,7 +3482,7 @@ let Functor = λ(F : Type → Type) → { fmap : FmapT F }
 ```
 
 Here are `Functor` evidence values for `List` and `Optional`.
-The required `fmap` methods are already available in the Dhall prelude:
+The required `fmap` methods are already available in   Dhall's Prelude:
 
 ```dhall
 let List/map = https://prelude.dhall-lang.org/List/map
@@ -3849,7 +3843,7 @@ let Profunctor : (Type → Type → Type) → Type
 ```
 
 
-### Pointed functors and contrafunctors
+### Pointed functors and pointed contrafunctors
 
 A functor `F` is a **pointed functor** if it has a method called `pure` with the type signature `∀(a : Type) → a → F a`.
 This method constructs values of type `F a` from values of type `a`.
@@ -4141,7 +4135,7 @@ We can use this function to obtain a `join` method for `List` like this:
 let List/join : ∀(a : Type) → List (List a) → List a
   = monadJoin List monadList
 ```
-In the Dhall prelude, this function is available as `List/concat`.
+In  Dhall's Prelude, this function is available as `List/concat`.
 
 ### Comonads
 
@@ -5593,7 +5587,7 @@ Later in this book, we will work in Church encoding generically whenever possibl
 We will assume that `F` and `fmap_F` are given, and we will implement various functions in terms of `F` and `fmap_F` once and for all.
 
 
-### Isomorphism `C = F C` via the functions `fix` and `unfix`
+### Isomorphism `C ≅ F C` via the functions `fix` and `unfix`
 
 The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C = F C`.
 A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
@@ -6228,7 +6222,7 @@ let _ = assert : treeDepth tree123 ≡ 2
 ```
 
 
-### Pattern matching via "unfix"
+### Pattern matching
 
 When working with recursive types in ordinary functional languages, one often uses pattern matching.
 For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
@@ -9040,7 +9034,7 @@ In Dhall, we use the encoding via the `GFix` constructor:
 let InfSeqNat = GFix (Pair Natural)
 ```
 
-We can rewrite`InfSeqNat` using an existential type more verbosely:
+We can rewrite `InfSeqNat` using an existential type more verbosely:
 
 ```dhall
 let InfSeqNat = Exists (λ(r : Type) → { seed : r, step : r → Pair Natural r })
@@ -9222,14 +9216,15 @@ let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : 
 
 The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
 
-### The fixpoint isomorphism for greatest fixpoints
+### The fixpoint isomorphism
 
 Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
 It means there exist two functions, here called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
 
 To implement these functions, we need to assume that `F` belongs to the `Functor` typeclass and has an `fmap` method.
 
-We begin by implementing `unfixG : GFix F → F (GFix F)`. (That function is called `out` in the paper "Recursive types for free".)
+We begin by implementing `unfixG : GFix F → F (GFix F)`.
+(That function is called `out` in the paper "Recursive types for free".)
 
 To see how `unfixG g` could work, let us write the type of `g : GFix F` in detail:
 
@@ -10790,7 +10785,7 @@ It turns out that there are general combinators that produce `Monoid` evidence f
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
 The proofs that the laws hold are given in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
 
-### "Optional" monoid
+### The monoid `Optional T`
 
 For any type `T`, the type `Optional T` is a monoid.
 The `empty` value is `None T`.
@@ -10835,7 +10830,7 @@ let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
   = λ(T : Type) → { empty = identity T, append = composeForward T T T }
 ```
 
-### Unit type
+### Unit types
 
 The unit type (`{}`) is a monoid whose operations always return the value `{=}`.
 
@@ -11393,7 +11388,7 @@ This combinator works because the functionality of `bind` includes the functiona
 
 ## Filterable (contra)functors and their combinators
 
-Dhall's standard prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
+Dhall's Prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
 ```dhall
 let List/filter = https://prelude.dhall-lang.org/List/filter
 let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] ≡ [ 5, 6, 7, 8 ]
@@ -11531,7 +11526,7 @@ let swapFilterable
       λ(ofoa : Optional (F (Optional a))) → Optional/concat (F a) (Optional/map (F (Optional a)) (Optional (F a)) (swap a) ofoa) }
 ```
 
-### Filterable (contra)functor (co-)products
+### Filterable (contra)functor  products and co-products
 
 When a new type constructor is created via a product or a co-product, the filterable property is preserved. There are four cases:
 
@@ -11567,7 +11562,7 @@ let filterableContrafunctorCoProduct
     contrafunctorCoProduct F contrafilterableF.{cmap} G contrafilterableG.{cmap} /\ { inflate = λ(a : Type) → fCoProduct (F a) (F (Optional a)) (contrafilterableF.inflate a) (G a) (G (Optional a)) (contrafilterableG.inflate a) }
 ```
 
-### Function types with filterable (contra)functors
+### Function types
 
 When a new type constructor has a function type, the filterable property is preserved.
 To define the new functor or contrafunctor, we use the `Arrow` combinator shown in the previous chapter.
@@ -11677,7 +11672,7 @@ let contrafilterableExists1
      }
 ```
 
-### Recursive filterable (contra)functors
+### Recursive type constructors
 
 Recursive type constructors are defined via `LFix` or `GFix` from pattern functors, which are type constructors `F` with two type parameters (so that `F a b` is a type).
 
@@ -14746,7 +14741,7 @@ TODO: implement
 
 One can logically derive a functional programming language similar to Dhall by following certain principles of language design motivated by mathematical experience.
 
-#### Some principles of functional programming
+Here are some principles of functional programming that we will refer to:
 
 - A program is a (large) expression built up by combining smaller expressions.
 - Any changeable part of a program can be replaced by another expression, giving us another valid program.
@@ -17880,7 +17875,7 @@ An MMC is "eligible for relicensing" if it is licensed under this License, and i
 
 The operator of an MMC Site may republish an MMC contained in the site under CC-BY-SA on the same site at any time before August 1, 2009, provided the MMC is eligible for relicensing.
 
-## Appendix: About example Dhall code within this book
+## Appendix: About Dhall code examples in this book
 
 There are two kinds of Dhall code examples in this book.
 
