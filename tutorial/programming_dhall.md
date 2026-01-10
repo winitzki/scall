@@ -1659,9 +1659,9 @@ let example3 : Type → Type → Type = λ(x : Type) → λ(y : Type) → x
 
 ### Dependent types in Dhall
 
-Dependent types are types that depend on _values_.
+Dependent types are types that depend on values.
 
-Dhall supports **dependent functions**: those are functions whose output type depends on the input value.
+Dhall supports **dependent functions**: those are functions whose output _type_ depends on the input _value_.
 More generally, Dhall allows an argument type to depend on any previously given curried arguments.
 
 A simple instance of this dependence is the type of the polymorphic identity function:
@@ -1682,6 +1682,8 @@ let example2 : Type = ∀(F : Type → Type) → ∀(A : Type) → ∀(x : A) �
 In the type `example2`, the argument `x` has type `A`, which is given by a previous argument.
 The output type `F A` depends on the first two arguments.
 
+The values `example1` and `example2` are _not_ dependent functions: their output type depends on a type parameter rather than on an input value.
+
 
 In Dhall, one can   define functions from types to types or from values to types via the same syntax as for defining ordinary functions.
 As an example, look at this function that transforms a value into a type:
@@ -1693,7 +1695,20 @@ let f : ∀(x : Bool) → Type  -- From value to type.
 
 The result of evaluating `f False` is the _type_ `Text` itself.
 This is an example of a **dependent type**, that is, a type that depends on a value (`x`).
-This `f` can be used within the type signature for another function as a type annotation, like this:
+This `f` can be used within the type signature to define the type of a dependent function.
+
+A simple example of a dependent function whose type uses `f` would be:
+
+```dhall
+let g : ∀(x : Bool) → f x
+  = λ(x : Bool) → if x then 123 else "abc" -- Type error: different types in the two "if" branches!
+```
+However, Dhall cannot accept this function as valid.
+The output type of `g` is `f x`, which depends on the input value `x`.
+But Dhall cannot accept that the two branches of the "`if`" expression have different types. 
+
+We can try to hide   the dependent type in another argument of a curried function.
+Consider this function type:
 
 ```dhall
 let some_func_type = ∀(x : Bool) → ∀(y : f x) → Text
@@ -1708,8 +1723,6 @@ If we imagine uncurrying that function, we would get a function of type that we 
 This type is not valid in Dhall, because a record's field types must be fixed and cannot depend on the _value_ of another field.
 Such "dependent records" or "dependent pairs" are directly supported in more advanced languages that are intended for working with dependent types.
 We will show later in this book how Dhall can encode dependent pairs despite that limitation.
-
-The type `∀(x : Bool) → f x` is also a form of a dependent type, known as a "dependent function".
 
 Dhall's implementation of dependent types is limited to the simplest use cases.
 The main limitation is that Dhall cannot correctly infer types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
@@ -7267,9 +7280,9 @@ When defining `examplePB2`, we used the nested record syntax, and we had to writ
 The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records and types.
 
 Let us now write a function that extracts all values stored in a perfect tree to a list,
-and another function that computes the depth of a perfect tree.
+a function that determines the tree's depth, and a function that prints a tree.
 
-Extracting values from a perfect tree will be done by code like this:
+Extracting values from a perfect tree into a list will be done by code with this type signature:
 ```dhall
 let pbTreeToList : ∀(a : Type) → PBTree a → List a = ???
 ```
@@ -7293,7 +7306,7 @@ Implementing that function is straightforward, and we get the final code of `pbT
 ```dhall
 let pbTreeToList : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) →
-    let toList : ∀(s : Type) → < Leaf : s | Branch : List (Pair s s) > → List s
+    let toList : ∀(s : Type) → F List s → List s
       = λ(s : Type) → λ(p : < Leaf : s | Branch : List (Pair s s) >) →
         merge { Leaf = λ(leaf : s) → [ leaf ]
               , Branch = λ(branch : List (Pair s s)) → List/concatMap (Pair s s) s (λ(pair : Pair s s) → [ pair._1, pair._2 ] ) branch
@@ -7337,6 +7350,51 @@ let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
 let _ = assert : pbTreeDepth Natural examplePB1 ≡ 0
 let _ = assert : pbTreeDepth Natural examplePB2 ≡ 2
 ```
+
+Finally, a more complicated example where we need to print a perfect tree of type `PBTree a`.
+We expect to be able to convert a tree to a `Text` string if we have  a  `Show` evidence for the type `a`.
+The code should look like this:
+
+```dhall
+let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
+  = λ(a: Type) → λ(showA : Show a) → λ(tree : PBTree a) →
+    let P : Type → Type = ???
+    let q : ∀(s : Type) → F P s → P s = ???
+    in tree P q
+```
+The first question is to choose the type constructor parameter `P`.
+In the previous example (`pbTreeDepth`), we needed to compute a result of type `Natural` and we chose `P` as a constant functor that returns `Natural`.
+In the case of `printPBTree`, we need to compute a result of type `Text`, so we might try to choose `P`  as a constant functor `P a = Text`.
+However, we run into a difficulty with that choice: we cannot implement the required function `q`.
+The type of `q` is `∀(s : Type) → < Leaf : s | Branch : Text > → Text`.
+The leaf value has an arbitrary type `s`, and we cannot convert it to `Text`.
+We have a `Show` evidence for the type `a`, but not for an unknown type `s`.
+
+The solution is to rewrite the type signature of `printPBTree` in the form `∀(a : Type) → PBTree a → P a`.
+We can do this if we   choose  `P` such that `P a = Show a → Text`. 
+The required function `q` will then have the type `∀(s : Type) → < Leaf : s | Branch : Show (Pair s s) → Text > → Show s → Text`.
+Implementing that function is straightforward, and we can complete the code of `printPBTree`:
+
+```dhall
+let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
+  = λ(a: Type) → λ(showA : Show a) → λ(tree : PBTree a) →
+    let P : Type → Type = λ(t : Type) → Show t → Text 
+    let q : ∀(s : Type) → <Leaf : s | Branch : Show (Pair s s) → Text > → Show s → Text 
+      = λ(s : Type) → λ(fps : <Leaf : s | Branch : Show (Pair s s) → Text >) → λ(showS : Show s) →
+          merge { Leaf = λ(x : s) → showS.show x
+                , Branch = λ(k : Show (Pair s s) → Text) →
+                    let showPair : Show (Pair s s)
+                      = { show = λ(pair : Pair s s) →
+                          "(" ++ showS.show pair._1 ++ ", " ++ showS.show pair._2 ++ ")"
+                        }
+                    in k showPair
+                } fps
+    in tree P q showA
+let _ = assert : printPBTree Natural showNatural examplePB1 ≡ "10"
+let _ = assert : printPBTree Natural showNatural examplePB2 ≡ "((20, 30), (40, 50))"
+```
+
+todo:implement
 
 In this section, we studied only one example of a nested type (the "perfect binary tree").
 This and other advanced examples of designing and using nested recursive types
@@ -9724,7 +9782,17 @@ let BInfTree = λ(a : Type) → GFix (FTree a)
 
 Define the "finite" data constructors using the general `fixG` function:
 
-To create infinite trees, we need a more general data constructor that uses `makeGFix`:
+todo: implement
+
+These data constructors can create any finite tree of type `BInfTree`:
+
+todo: implement
+
+To create infinite trees, we need    more general data constructors that use  `makeGFix`.
+Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
+This is because there are infinitely many different ways in which one can build an infinite tree.
+For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
+In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
 
 TODO: implement
 
