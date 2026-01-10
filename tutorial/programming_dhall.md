@@ -7066,8 +7066,9 @@ Whenever possible, we will implement typeclass evidence values for Church-encode
 
 ### Recursive data structures containing types
 
-Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, of type `Type`).
-One can create a list of Booleans, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
+Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, types of kind `Type`).
+Ground types are types of values.
+One can create a list of Boolean values, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
 But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols `Bool` and `Natural`.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
 
@@ -7104,7 +7105,7 @@ let _ = 123 : someType2 -- This typechecks because someType1 is Natural.
 We now turn to the type-level `List` analogs.
 This is more difficult because `List` requires a recursive definition.
 
-Recursive "type-level" data structures can be implemented via the Church encoding technique.
+Recursive "type-level" data structures can be also implemented via the Church encoding technique.
 We use the same pattern as before, except that stored data items will now have type `Type`.
 
 Begin by looking at the curried Church encoding of the list of integers:
@@ -7186,7 +7187,7 @@ So, typechecking of `ListTGeneric` fails.
 The conclusion is that Dhall does not allow us to define a single list type that would work with arbitrary kinds (that is, a "kind-polymorphic" list).
 
 
-### Perfect trees
+### Nested recursive types: Perfect trees
 
 A "perfect tree" is a tree-like data structure whose branches are constrained to have the same shape until a chosen depth is reached.
 For example, a perfect _binary_ tree of depth $n$ must have exactly $2^n$ leaves.
@@ -7253,8 +7254,9 @@ The resulting type formula is:
 let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(s : Type) → F r s → r s) → r a
 ```
 This is the general Church encoding at the level of type constructors.
+We call this the **higher-kinded Church encoding**.
 
-For instance, with the pattern functor `F` defined above, we obtain the type constructor for perfect binary trees:
+This section will study a simple example of this encoding:  the type constructor for perfect binary trees via the pattern functor `F` defined above.
 
 ```dhall
 let PBTree : Type → Type = LFixK F
@@ -7394,11 +7396,12 @@ let _ = assert : printPBTree Natural showNatural examplePB1 ≡ "10"
 let _ = assert : printPBTree Natural showNatural examplePB2 ≡ "((20, 30), (40, 50))"
 ```
 
-todo:implement
-
 In this section, we studied only one example of a nested type (the "perfect binary tree").
 This and other advanced examples of designing and using nested recursive types
 are explained in the paper by Ralph Hinze, ["Manufacturing datatypes"](http://dx.doi.org/10.1017/S095679680100404X) (2001).
+All those types can be implemented using the Church encoding at the level of type constructors.
+In the next section, we will study that kind of Church encoding in more detail.
+
 
 ### Church encodings for higher kinds
 
@@ -7408,12 +7411,11 @@ A Church encoding "at the level of type constructors" applies the universal quan
 We will call it a **higher-kinded Church encoding** because its formula requires a higher-kinded type.
 As we found in the previous section, a  higher-kinded  Church encoding is needed  to represent perfect trees, because the ordinary Church encoding cannot work for such data types.
 
-However, one can also use the higher-kinded Church encodings to represent lists, trees, and other recursive type constructors for which the ordinary Church encoding would be sufficient.
-Let us see how that would work.
+Let us recall the motivation for the higher-kinded Church encoding.
 
 The ordinary Church encoding begins with a type equations of the form `T = F T` and then proceeds to write the type formula `C = ∀(r : Type) → (F r → r) → r`.
 
-To do a similar thing for type constructors, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
+To do a similar thing for higher kinds, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
 
 The Church encoding for ordinary types involves the function  type `F r → r`.
 The corresponding mapping at the level of type constructors must be written in Dhall as the type `∀(t : Type) → F r t → r t`, with an extra type parameter `t`.
@@ -7468,7 +7470,9 @@ As before, `fixK` and `unfixK` are inverse functions for each other.
 
 #### Example: lists defined via higher-kinded encoding
 
-To illustrate the usage and limitations of the higher-kinded Church encoding, we will now redefine  the `List` functor   in terms of `LFixK` and try working with the resulting data type. 
+It is instructive to try using the higher-kinded Church encodings for representing ordinary lists, trees, and other recursive type constructors for which the ordinary Church encoding would be perfectly sufficient.
+To see how that would work, let us   now redefine  the `List` functor   in terms of `LFixK` and try working with the resulting data type.
+This will illustrate the complications and the limitations of the higher-kinded encodings.
 
 A recursive type equation defining the `List` functor can be written as:
 
@@ -7708,7 +7712,7 @@ All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing comp
 This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
 
 An example of such a data structure is the perfect binary tree (defined before as `PBTree`).
-We will now rewrite it as a typeclass-constrained encoding (`PBTreeC`) in a curried form.
+We will now rewrite it as a typeclass-constrained encoding in a curried form and call it  `PBTreeC`.
 ```dhall
 let PBTreeC = λ(P : Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → P t → t → r t) → (∀(t : Type) → P t → r (Pair t t) → r t) → r a
 let leafPBC : ∀(P : Type → Type) → ∀(a : Type) → P a → a → PBTreeC P a
@@ -7725,7 +7729,8 @@ let examplePBC1 : ∀(P : Type → Type) → P Natural → PBTreeC P Natural
 ```
 
 The value `examplePBC1` represents a tree that consists of a single leaf (a tree of depth `0`).
-When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)`; but we only have evidence of type `P t`.
+When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)` for an arbitrary type `t`; but we only have evidence of type `P t`.
+
 In many cases, it is possible to derive the required evidence automatically.
 (For example, a pair of two monoids is again a monoid. We may call such typeclass "pair-preserving".)
 We will need to add a combinator of type `P t → P (Pair t t)` as another argument in the type signature:
@@ -7740,14 +7745,20 @@ let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P 
 We see that working with a perfect binary tree requires us not only to select a suitable typeclass for each computation but also to provide evidence for a special "pair-preserving" property for that typeclass. 
 
 Let us now implement    aggregation and     pretty-printing (a `Show` evidence) for  `PBTreeC`. 
+We can then compare the code with what we have written in the section "Nested recursive types: Perfect trees".
+
+As always when working with a higher-kinded Church encoding of type `P a`, we need to choose a type constructor to be used as the type parameter `r : Type → Type`.
+This type constructor must be chosen by keeping in mind that the result value will have type `r a`.
+In addition, we now need to choose a _typeclass_ that constrains the type `a`. 
 
 For   aggregations, we will specialize up front to the `Monoid` typeclass.
 This will allow us to avoid too many extra arguments.
 We will need to pass a monoid pair-preserving combinator when the tree requires it.
+The type parameter `r` can be set to the identity functor:
 ```dhall
 let reducePBTreeC : ∀(a : Type) → Monoid a → PBTreeC Monoid a → a
   = λ(a : Type) → λ(monoidA : Monoid a) → λ(tree : PBTreeC Monoid a) →
--- Use Id as the parameter r : Type → Type in the higher-kinded Church encoding.
+-- Use Id as the parameter r : Type → Type in LFixK.
     let leafT : ∀(t : Type) → Monoid t → t → Id t
       = λ(t : Type) → λ(monoidT : Monoid t) → identity t
     let branchT : ∀(t : Type) → Monoid t → Id (Pair t t) → Id t
@@ -7769,31 +7780,46 @@ let _ =
 ```
 
 Finally, we  implement a `Show` evidence for  `PBTreeC`.
-We will print a perfect tree with parentheses showing its structure:
+We will print a perfect tree with parentheses showing its structure, just like we did in the section "Nested recursive types: Perfect trees".
+We will use `Show` as the constraining typeclass.
+Here is a pair-preserving combinator for `Show` that is suitable for printing a perfect binary tree:
+
+```dhall
+let showPair : ∀(a : Type) → Show a → Show (Pair a a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(pair : Pair a a) →
+      "(" ++ showA.show pair._1 ++ ", " ++ showA.show pair._2 ++ ")"
+    }
+```
+
+In the code, the type constructor parameter `r` cannot be set to a constant functor or to the identity functor, because we need to be able to implement the functions `leafT : ∀(t : Type) → Show t → t → R t` and `branchT : ∀(t : Type) → Show t → r (Pair t t) → r t`.
+The data structure `r t` may not ignore its argument of type `t` but also needs to create a resulting  `Text` value.
+One sipmle possibility is to set `r t = Pair Text t`.
+The `Text` value will accumulate the result while the `t` value will be used to print the leaves.
 
 ```dhall
 let showPBTreeC : ∀(a : Type) → Show a → Show (PBTreeC Show a)
   = λ(a : Type) → λ(showA : Show a) →
     { show = λ(tree : PBTreeC Show a) →
 -- Use R as the parameter r : Type → Type in the higher-kinded Church encoding.
-        let R = λ(t : Type) → (t → Text) → Text
+        let R = Pair Text
         let leafT : ∀(t : Type) → Show t → t → R t
-          = λ(t : Type) → λ(showT : Show t) → λ(x : t) → λ(k : t → Text) → k x
+          = λ(t : Type) → λ(showT : Show t) → λ(x : t) → { _1 = showT.show x, _2 = x }
         let branchT : ∀(t : Type) → Show t → R (Pair t t) → R t
-          = λ(t : Type) → λ(showT : Show t) → λ(p : (Pair t t → Text) → Text) → λ(k : t → Text) → p (λ(tt : Pair t t) → "(" ++ k tt._1 ++ ", " ++ k tt._2 ++ ")")
-        in tree R leafT branchT showA.show
+          = λ(t : Type) → λ(showT : Show t) → λ(p : Pair Text (Pair t t)) →
+            { _1 = p._1, _2 = p._2._1 } -- We can just ignore Pair t t here.
+        in (tree R leafT branchT)._1 -- Choose the Text value here.
     }
 let _ =
   let example1 : PBTreeC Show Natural = examplePBC1 Show showNatural
   in assert : (showPBTreeC Natural showNatural).show example1 ≡ "10"
 let _ =
-  let showPair : ∀(t : Type) → Show t → Show (Pair t t)
-    = λ(t : Type) → λ(showT : Show t) → { show = λ(pair : Pair t t) → "[" ++ showT.show pair._1  ++ ", " ++ showT.show pair._2 ++ "]" }
   let example2 : PBTreeC Show Natural = examplePBC2 Show showNatural showPair 
   in assert : (showPBTreeC Natural showNatural).show example2 ≡ "((20, 30), (40, 50))"
 ```
 
-todo: investigate if we can use the continuation monad as r and avoid the typeclass-constrained encodings!
+This code is somewhat simpler than the code in the section "Nested recursive types: Perfect trees" that needed to use the continuation monad as the type `R`.
+
+We see that concrete computations with the higher-kinded Church encoding give flexibilty but require guessing some nontrivial choices of type constructors that can be only justified after the code is written and tested.
 
 #### Functor properties
 
