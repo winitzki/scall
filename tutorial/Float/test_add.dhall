@@ -1,10 +1,20 @@
-let Float/add = ./add.dhall
+let Float/add =
+      ./add.dhall
+        sha256:e0ec80c5c98820b0c9166f75cdc96df64b570f795a392c257e109df1203d7b25
 
-let Float/show = ./show.dhall
+let Float/show =
+      ./show.dhall
+        sha256:4cb171d3b191cb0e5c5a477e6e230da297600ff20e275c84dd79a04d531bb434
 
-let Float/normalize = (./Type.dhall).Float/normalize
+let Float/normalize =
+      ( ./Type.dhall
+          sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
+      ).Float/normalize
 
-let Float/create = (./Type.dhall).Float/create
+let Float/create =
+      ( ./Type.dhall
+          sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
+      ).Float/create
 
 let checkAdd =
       λ(x : Integer) →

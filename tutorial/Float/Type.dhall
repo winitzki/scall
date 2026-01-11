@@ -30,7 +30,9 @@ let FloatExtraData =
 let FloatBare =
       { mantissa : Natural, mantissaPositive : Bool, exponent : Integer }
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let Base = 10
 
@@ -44,7 +46,9 @@ let Float/topPower = λ(a : Float) → a.topPower
 
 let Float/exponent = λ(a : Float) → a.exponent
 
-let N = ./numerics.dhall
+let N =
+      ./numerics.dhall
+        sha256:181ca57153831e9088c2940471fb767f94e2b352cdfab520d04789abb2b095a1
 
 let Result = N.Result
 

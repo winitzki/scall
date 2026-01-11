@@ -1,10 +1,14 @@
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
 let Integer/subtract =
       https://prelude.dhall-lang.org/Integer/subtract
         sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let Float = T.Float
 
@@ -18,7 +22,10 @@ let divmod = T.divmod
 
 let Float/create = T.Float/create
 
-let Float/round = (./rounding.dhall).Float/round
+let Float/round =
+      ( ./rounding.dhall
+          sha256:b38a8d34468e4cab1e087f8ba6a9d92571dc847e6e8811cee35f4400c918aa5b
+      ).Float/round
 
 let Float/divide
                  -- Float/divide a b means to divide a / b, like divmod.

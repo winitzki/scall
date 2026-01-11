@@ -38,24 +38,36 @@ let List/index =
       https://prelude.dhall-lang.org/List/index
         sha256:e657b55ecae4d899465c3032cb1a64c6aa6dc2aa3034204f3c15ce5c96c03e63
 
-let N = ./numerics.dhall
+let N =
+      ./numerics.dhall
+        sha256:181ca57153831e9088c2940471fb767f94e2b352cdfab520d04789abb2b095a1
 
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
 let Float = T.Float
 
-let Float/add = ./add.dhall
+let Float/add =
+      ./add.dhall
+        sha256:e0ec80c5c98820b0c9166f75cdc96df64b570f795a392c257e109df1203d7b25
 
-let Float/divide = ./divide.dhall
+let Float/divide =
+      ./divide.dhall
+        sha256:07d3a50e5c14319b95164881c396c18091b25a6573a798ded3aedbf176850166
 
-let Float/multiply = ./multiply.dhall
+let Float/multiply =
+      ./multiply.dhall
+        sha256:a51ab0cfd7690c82b7db49b887644b6a4afda241539da7b10e040c15598eb208
 
 let Integer/divide =
       λ(i : Integer) →
       λ(n : Natural) →
         N.Integer/mapSign (λ(p : Natural) → (T.divmod p n).div) i
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let compute_init_approximation =
       λ(x : Float) →
@@ -133,7 +145,9 @@ let Float/sqrt
 
                               in  { x, prec }
 
-                      in  (./rounding.dhall).Float/round
+                      in  ( ./rounding.dhall
+                              sha256:b38a8d34468e4cab1e087f8ba6a9d92571dc847e6e8811cee35f4400c918aa5b
+                          ).Float/round
                             (Natural/fold iterations Accum update init).x
                             prec
               )

@@ -10,13 +10,17 @@ let Natural/max =
       https://prelude.dhall-lang.org/Natural/max
         sha256:1f3b18da330223ab039fad11693da72c7e68d516f50502c73f41a89a097b62f7
 
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
 let Base = T.Base
 
 let Pair = T.Pair
 
-let Float/show = ./show.dhall
+let Float/show =
+      ./show.dhall
+        sha256:4cb171d3b191cb0e5c5a477e6e230da297600ff20e275c84dd79a04d531bb434
 
 let Float/create = T.Float/create
 
@@ -34,7 +38,9 @@ let Float/abs = T.Float/abs
 
 let Float/negate = T.Float/negate
 
-let C = ./compare.dhall
+let C =
+      ./compare.dhall
+        sha256:da183a6c2829465ad3e4b2dffdbe499040458ce8ff8f16b2a665cf9cb6977637
 
 let TorsorType = C.TorsorType
 
@@ -48,7 +54,9 @@ let computeTorsorForBothNonzero = C.computeTorsorForBothNonzero
 
 let compareUnsignedNonzero = C.compareUnsignedNonzero
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let predicate_Float = λ(x : Float) → stop.predicate_Natural x.mantissa
 
@@ -57,7 +65,9 @@ let predicate_2Floats =
 
 let predicate_TorsorType = λ(t : TorsorType) → stop.predicate_Natural t.x
 
-let R = ./rounding.dhall
+let R =
+      ./rounding.dhall
+        sha256:b38a8d34468e4cab1e087f8ba6a9d92571dc847e6e8811cee35f4400c918aa5b
 
 let Float/round = R.Float/round
 

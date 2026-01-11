@@ -11,16 +11,20 @@ let Natural/lessThanEqual =
         sha256:1a5caa2b80a42b9f58fff58e47ac0d9a9946d0b2d36c54034b8ddfe3cb0f3c99
 
 let Integer/abs =
-      https://prelude.dhall-lang.org/abs
+      https://prelude.dhall-lang.org/Integer/abs
         sha256:35212fcbe1e60cb95b033a4a9c6e45befca4a298aa9919915999d09e69ddced1
 
 let Integer/nonNegative =
       https://prelude.dhall-lang.org/Integer/nonNegative
         sha256:b463373f070df6b1c8c7082051e0810fee38b360bab35256187c8c2b6af5c663
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
 let divmod = T.divmod
 

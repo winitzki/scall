@@ -1237,6 +1237,22 @@ So, a Dhall programmer typically does not need to distinguish strict and lazy ev
 One can equally well imagine that all Dhall expressions are lazily evaluated, or that they are all strictly evaluated.
 The result values of any Dhall program will be the same, as long as memory or time constraints are satisfied, and as long as all imported external resources are valid.
 
+#### The problem of "size explosion" of normal forms
+
+todo: explain with examples, also show the reduction trick
+
+From the point of view of language theory, reducing to the normal form under lambda is the right thing to do for a pure System Fω interpreter.
+For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
+Refactoring a function under lambda (renaming variables, introducing new local variables, etc.) will keep the normal form  unchanged.
+However, this sort of "normal-form-oriented programming" turns out to have some unexpected consequences.
+One consequence is that the normal form of some functions unexpectedly grows extremely large in size.
+
+Here is an example: consider a function that applies a function to a list of `Natural` numbers unless the arguments.
+
+```dhall
+let listWithPrefix = λ(message1 : Text) → λ(message2 : Text) →
+  [ message1, message2 ]
+```
 
 #### No computations with custom data
 
@@ -2626,7 +2642,7 @@ let _ = assert : gcd 5 10 ≡ 5
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [proof-of-concept code](https://github.com/winitzki/scall/blob/master/tutorial/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
+The `scall` repository contains [proof-of-concept code](https://winitzki.github.io/dhall/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
 Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and support arbitrary precision (in both mantissa and exponent).
 ```dhall
 let Float/create = (./Float/Type.dhall).Float/create

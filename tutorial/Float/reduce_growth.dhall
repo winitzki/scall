@@ -40,8 +40,9 @@ let predicate_Bool
     : Bool → Bool
     = λ(x : Bool) → predicate_Natural (if x then 1 else 0)
 
-let predicate_List : ∀(T : Type) → List T → Bool
-= λ(T : Type) →λ(list : List T) → predicate_Natural (List/length T list)
+let predicate_List
+    : ∀(T : Type) → List T → Bool
+    = λ(T : Type) → λ(list : List T) → predicate_Natural (List/length T list)
 
 let reduce_growth_Natural
     : ∀(R : Type) → R → (Natural → R) → Natural → R
@@ -55,7 +56,10 @@ let reduce_growth_Natural_Natural
     = λ(R : Type) →
       λ(default : R) →
       λ(f : Natural → Natural → R) →
-        reduce_growth_Natural (Natural → R) (\(n : Natural) -> default) (\(n : Natural) -> reduce_growth_Natural R default (f n))
+        reduce_growth_Natural
+          (Natural → R)
+          (λ(n : Natural) → default)
+          (λ(n : Natural) → reduce_growth_Natural R default (f n))
 
 let reduce_growth_Integer
     : ∀(R : Type) → R → (Integer → R) → Integer → R
@@ -74,7 +78,8 @@ let reduce_growth_Bool
 let reduce_growth_List
     : ∀(R : Type) → R → ∀(T : Type) → (List T → R) → List T → R
     = λ(R : Type) →
-      λ(default : R) → λ(T : Type) →
+      λ(default : R) →
+      λ(T : Type) →
       λ(f : List T → R) →
         reduce_growth (List T) (predicate_List T) R default f
 
@@ -83,7 +88,9 @@ in  { reduce_growth
     , predicate_Natural
     , predicate_Integer
     , predicate_Bool
-    , reduce_growth_Natural, reduce_growth_Natural_Natural
-    , reduce_growth_Integer, reduce_growth_List
+    , reduce_growth_Natural
+    , reduce_growth_Natural_Natural
+    , reduce_growth_Integer
+    , reduce_growth_List
     , reduce_growth_Bool
     }
