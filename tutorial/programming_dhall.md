@@ -2182,7 +2182,7 @@ This book will show many more examples of higher-kinded types.
 
 ## Numerical algorithms
 
-Dhall's `Natural` numbers have arbitrary precision and support a limited number of built-in operations.
+Dhall's `Natural` numbers have arbitrary precision but support a limited number of built-in operations.
 The Prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
 
 We will now show how to implement other numerical operations such as division and square root.
@@ -2212,8 +2212,8 @@ In this way, Dhall can perform many operations that are usually implemented via 
 However, `Natural/fold` is not a `while`-loop: it cannot iterate as many times as needed until some condition holds.
 The total number of iterations must be given as the first argument of `Natural/fold`.
 
-When the total number of iterations is not known precisely, one must give an upper estimate and design the algorithm so that further iterations will not change the result once the final iteration is reached.
-The Haskell and Scala implementations of Dhall will stop iterations in `Natural/fold` when the result stops changing.
+When the total number of iterations is not known precisely, one must give an upper estimate and design the algorithm in such a way that further iterations will not change the result once the final result is reached.
+The Haskell and Scala implementations of Dhall will stop iterations once the result stops changing.
 
 For example, consider this (artificially simple) example:
 
@@ -2224,10 +2224,10 @@ let _ = assert : result ≡ 1
 ```
 
 Theoretically, `Natural/fold 100000000` needs to apply a given function `100000000` times.
-But in this example, the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
+But in fact the result of applying the function `f` will no longer change after the second iteration, and the loop can be stopped early.
 The current Haskell and Scala implementations of Dhall will detect that and complete running this code quite quickly.
 
-A more useful example is implementing a function `powers2` that creates a list of powers of `2` that are below  a given upper limit.
+Another example is implementing a function `powers2` that creates a list of powers of `2` that are below  a given upper limit.
 For instance, `powers2 100` should return `[ 1, 2, 4, 8, 16, 32, 64 ]`.
 
 In a programming language with "`while`" loops, we could write a loop that computes next powers of `2` and appends them to the list until the limit is reached.
@@ -2237,7 +2237,7 @@ The  total number of iterations (`n`) must be given in advance.
 It remains to choose the "accumulator" type (`Acc`), the initial value (`init : Acc`),  and the updating function (`update: Acc → Acc`).
 
 An upper bound for the number of iterations when computing `powers2 n` is the number `n` itself.
-We will design the updating function such that the list of powers stops growing when the next power would have been larger than `n`.
+We will design the updating function in such a way that the list of powers stops growing when the next power would have been larger than `n`.
 The "accumulator" is a record containing the current list of powers and the power of `2` for the next step.
 Once the next value becomes larger than `n`, the accumulator value stops changing:
 ```dhall
@@ -2261,13 +2261,12 @@ let _ = assert : powers2 4 ≡ [ 1, 2, 4 ]
 let _ = assert : powers2 100 ≡ [ 1, 2, 4, 8, 16, 32, 64 ]
 ```
 
-The next subsections will show some examples of iterative algorithms implemented via `Natural/fold` using a similar technique.
+The next subsections will implement a number of iterative algorithms  via `Natural/fold`.
 
 ### Factorial
 
 A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
-Since Dhall does not directly support recursion, we need to reformulate this computation through repeated application of a certain function.
-The factorial function must be expressed through a computation of the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
+Since Dhall does not directly support recursion, we will reformulate this computation in the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
 We need to find `A`, `s`, and `z` that permit implementing the factorial function in that way.
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
@@ -2301,14 +2300,12 @@ let _ = assert : factorial 10 ≡ 3628800
 ### Integer division
 As another example, we implement division for natural numbers.
 
-A simple iterative algorithm that uses only subtraction runs like this.
+A simple iterative algorithm  uses only subtraction.
 Given `x : Natural` and `y : Natural`, we subtract `y` from `x` as many times as needed until the result becomes negative.
 The value `x div y` is the number of times we subtracted.
 
-This algorithm can be directly implemented in Dhall, but we need to specify in advance the maximum required number of iterations.
-A safe upper bound for the number of subtractions is the value `x` itself (because `y` is at least 1).
-So, the code will use a function call `Natural/fold x ...`.
-
+To  implement this in Dhall,   we need to specify in advance the maximum required number of subtractions.
+A safe upper bound for the number of subtractions is the value `x` itself (because `y` is at least `1`; we do not expect to divide by zero).
 In most cases, the actual required number of iterations will be smaller than `x`.
 The final result is reached when the result of the last subtraction is smaller than `y`.
 Once that condition holds, the code will keep the accumulator value unchanged.
@@ -2336,13 +2333,13 @@ let test4 = assert : unsafeDiv 10 0 ≡ 10 -- Invalid input.
 This algorithm takes time $O(x / y)$ when computing `unsafeDiv x y`.
 A faster division algorithm (the Egyptian division algorithm) will be implemented later in this book using more advanced techniques.
 
-### Safe division via dependently-typed evidence
+#### Safe division via dependently-typed evidence
 
 The function `unsafeDiv` works but produces wrong results when dividing by zero.
 Namely, `unsafeDiv x 0` returns `x`.
 We would like to prevent using that function when the second argument is zero.
 
-To ensure that we never divide by zero, we may use a technique based on dependently-typed "evidence values".
+To ensure that we never divide by zero, we will use a technique based on dependently-typed "evidence values".
 
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
@@ -2422,7 +2419,7 @@ Then we require an evidence argument of type `AssertLessThan x 100`:
 
 ```dhall
 let myFunc = λ(x : Natural) → λ(_ : AssertLessThan x 100) →
-  x -- Or some other code.
+  x + 50 -- Or whatever code we need here.
 ```
 
 There are no errors if we evaluate `myFunc 1 {=}` or `myFunc 50 {=}`.
@@ -2472,7 +2469,7 @@ But Dhall's typechecking is insufficiently powerful to handle dependent types in
 So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
 That argument can be easily provided as `{=}` when calling that function, as long as `y` is a **statically  known value** (a value that is a known literal within the current scope).
 
-The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never divide by zero.
+The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never attempt to divide by zero.
 
 ### Integer square root
 
@@ -2480,18 +2477,18 @@ The integer-valued square root of a natural number `n` is the largest natural nu
 
 A simple algorithm for determining `r` is to start from `1` and increment repeatedly, until the result `r` satisfies `r * r > n`.
 
-As before, Dhall requires is to specify an upper bound on the number of iterations up front.
+As before, Dhall requires us to specify an upper bound on the number of iterations up front.
 A safe upper bound is the number  `n` itself.
 
 We will begin with `n` and iterate applying a function `stepUp`.
-That function will increment its argument `r` by `1` while checking the condition `r * r <= n`.
+That function will increment its argument `r` by `1` as long as the condition `r * r <= n` holds.
 
 The code is:
 
 ```dhall
 let lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 let sqrt = λ(n : Natural) →
-  let stepUp = λ(r : Natural) → if (lessThanEqual (r * r) n) then r + 1 else r
+  let stepUp = λ(r : Natural) → if lessThanEqual (r * r) n then r + 1 else r
   in Natural/subtract 1 (Natural/fold (n + 1) Natural stepUp 1)
 let _ = assert : sqrt 15 ≡ 3
 let _ = assert : sqrt 16 ≡ 4
@@ -2516,9 +2513,9 @@ let _ = assert : powerNatLoop 123 456 ≡ 99250068772098856700831462057469632637
 ```
 
 This calculation takes time linear in the power `p`.
-However, the runtime is short enough even for computing large powers.
+However, the runtime is short enough even for computing large powers (when arguments are not larger than `10000`).
 
-An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n` (creating a list of $n$, $n^2$, $n^4$, $n^8$, etc.).
+An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n`, creating a list of powers `[` $n, n^2, n^4, n^8, ...$`]` by repeated squaring.
 The powers are computed via `Natural/fold` similarly to the code of `powers2` shown earlier. 
 Then the powers of `2` are subtracted from `p`, starting from the highest power that is still not greater than `p`.
 This finds the decomposition of `p` as a sum of powers of `2`; we then compute the product of the corresponding powers of `n`.
@@ -2589,6 +2586,7 @@ let log : Natural → Natural → Natural = λ(base : Natural) → λ(n : Natura
   let result : Accum = Natural/fold n Accum update init
   in Natural/subtract 1 result.log
 
+let _ = assert : log 10 99 ≡ 1
 let _ = assert : log 10 100 ≡ 2
 ```
 
@@ -2618,6 +2616,10 @@ let gcd : Natural → Natural → Natural = λ(x : Natural) → λ(y : Natural) 
   let max_iter = init.x
   let result : Pair = Natural/fold max_iter Pair update init
   in result.x
+
+let _ = assert : gcd 13 8 ≡ 1
+let _ = assert : gcd 28 8 ≡ 4
+let _ = assert : gcd 5 10 ≡ 5
 ```
 
 ### Floating-point operations
@@ -16396,7 +16398,7 @@ Substitute the parameters as shown above:
 ```
 This holds by Statement 1 in the previous section if we set `fc = x` and `c2r = f`.
 
-### Existential types: Identity law of "pack"
+### Existential types: Identity law of `pack`
 
 In this subsection, we fix an arbitrary type constructor `P : Type → Type` and study values of type `ExistsP` defined by:
 
