@@ -28,6 +28,7 @@
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
 - Prevent explosion of normal forms; implement automatic stopping for normal form expansion under lambda or whenever they grow exponentially beyond a certain limit.
 - Implement an alternative to `merge` as a pattern-matching function utilizing both row and column subtyping as appropriate.
+- Enable `assert` for types and kinds.
 
 ## Parsing enhancements
 
