@@ -38,9 +38,14 @@ let dropc
               { remains : Natural, result : List a }
               ( λ(x : a) →
                 λ(acc : { remains : Natural, result : List a }) →
-                  if    Natural/isZero acc.remains
-                  then  acc // { result = [ x ] # acc.result }
-                  else  acc // { remains = Natural/subtract 1 acc.remains }
+                  { remains = Natural/subtract 1 acc.remains
+                  , result =
+                        ( if    Natural/isZero acc.remains
+                          then  [ x ]
+                          else  [] : List a
+                        )
+                      # acc.result
+                  }
               )
               { remains = n, result = [] : List a }
           ).result
@@ -49,19 +54,34 @@ let _ = assert : dropc 2 Natural [ 2, 3, 5 ] ≡ [ 5 ]
 
 let _ = assert : dropc 5 Natural [ 2, 3, 5 ] ≡ ([] : List Natural)
 
-let index : ∀(n : Natural) → ∀(a : Type) → List a → Optional a
+let index
+    : ∀(n : Natural) → ∀(a : Type) → List a → Optional a
     = λ(n : Natural) → λ(a : Type) → λ(xs : List a) → List/head a (drop n a xs)
 
 let indexc =
       λ(n : Natural) → λ(a : Type) → λ(xs : List a) → List/head a (dropc n a xs)
 
-let data
-         -- let data = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p" ]
-         =
-      [ "a", "b", "c", "d", "e"  ]
+let data =
+      [ "a"
+      , "b"
+      , "c"
+      , "d"
+      , "e"
+      , "f"
+      , "g"
+      , "h"
+      , "i"
+      , "j"
+      , "k"
+      , "l"
+      , "m"
+      , "n"
+      , "o"
+      , "p"
+      ]
 
 let lookup
     : Natural → Optional Text
-    = λ(n : Natural) → indexc  n Text data
+    = λ(n : Natural) → index n Text data
 
 in  { drop, dropc, indexc, lookup }

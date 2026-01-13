@@ -1239,8 +1239,6 @@ The result values of any Dhall program will be the same, as long as memory or ti
 
 #### The problem of "size explosion" of normal forms
 
-todo: explain with examples, also show the reduction trick
-
 Dhall's interpreter evaluates expressions by reducing them to the normal form.
 This reduction is also performed within function bodies even if a function is not yet applied to arguments.
 For example, consider a function that adds numbers:
@@ -1265,23 +1263,197 @@ If the interpreter supports reducing under lambdas then refactoring a function's
 This enables us to refactor code at will without changing its semantic hash.
 
 However, the "normal-form-oriented programming" turns out to have some unexpected consequences.
-One issue is that the normal form of some functions unexpectedly grows to an extremely large size.
+One issue is that the normal form of some functions can grow to an extremely large size even though the code is not "obviously large".
 
-The growth of normal forms happens for two reasons:
+A small example comes from the implementation of floating-point numbers.
+Suppose we need to write the following helper functions:
 
-- When `let` expressions are used to define some helper functions repeatedly through other helper functions.
-- When functions such as `List/index` or `List/fold` are used with a literal list but some other arguments are symbolic.
+- Given `i : Integer`, compute a pair `(x, y)` of `Natural` numbers such that `x = i + y`. This is the function `f`.
+- Given two integers `i`, `j`, compute a pair `(x, y)` of `Natural` numbers such that `x + i = y + j`. This is the function `g`.
+- Given four integers `i`, `j`, `k`, `l`, compute a pair `(x, y)` of `Natural` numbers such that `x + i + j = y + k + l`. This is the function `h`.
 
-We will show examples of these situations and offer a workaround.
+The code for `f`, `g`, `h` is straightforward. It is natural to define `g` through `f` and `h` through `g`:
+```dhall
+let Integer/positive =  https://prelude.dhall-lang.org/Integer/positive
+let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
+let Integer/add = https://prelude.dhall-lang.org/Integer/add
+let Integer/subtract = https://prelude.dhall-lang.org/Integer/subtract
 
-todo: look at the github discussion and find good examples here.
+let Result = { x : Natural, y : Natural }
 
-Here is an example:   a function that applies a given function to a list of `Natural` numbers when the arguments are equal to a given set of numbers.
+let f : Integer → Result = λ(i : Integer) →
+  if    Integer/positive i
+  then  { x = Integer/clamp i, y = 0 }
+  else  { x = 0, y = Integer/abs i }
+
+let g : Integer → Integer → Result
+  = λ(a : Integer) → λ(b : Integer) → f (Integer/subtract a b)
+
+let h : Integer → Integer → Integer → Integer → Result
+  = λ(i : Integer) → λ(j : Integer) → λ(k : Integer) → λ(l : Integer) →
+      g (Integer/add i j) (Integer/add k l)
+```
+This code appears to be simple and short, uses only simple library functions, and creates neither a large data structure nor a large `Integer` or `Natural` value.
+However, the normal form of `g` turns out to be about 14 KB of text, while the normal form of `h` is almost 800 KB long.
+
+The  printed form of `h` contains thousands of repetitions like this:
 
 ```dhall
-let listWithPrefix = λ(message1 : Text) → λ(message2 : Text) →
-  [ message1, message2 ]
+( Integer/clamp ( Integer/negate (
+     if Natural/isZero ( Integer/clamp ( Integer/negate k ) )
+     then  if    Natural/isZero ( Integer/clamp l )
+        then  if    Natural/isZero ( Natural/subtract ( Integer/clamp ( Integer/negate l ) )  ( Integer/clamp ( Integer/negate  ( Integer/negate k ) ) ) )
+              then  Integer/negate ( Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate ( Integer/negate k ) ) ) ( Integer/clamp ( Integer/negate l ) ) ) )
+              else  Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate l) ... Why so many???
 ```
+Why did the functions grow so much?
+
+Looking at the code of `f`, we notice that `f` uses its argument `i` three times.
+The code of `g` applies `f` to an argument `Integer/subtract a b`.
+When we evaluate `g`, we need to apply `f` to this argument "under a lambda"; that is, we need to substitute the body of `f` and the code of `Integer/subtract` and expand the resulting code, keeping the arguments of `g` symbolic.
+Let us see what happens when we do that.
+
+The normal form of the library function `Integer/subtract` is:
+
+```dhall
+let Integer/subtract = λ(a : Integer) → λ(b : Integer) →
+  if    Natural/isZero (Integer/clamp a)
+  then  if    Natural/isZero (Integer/clamp b)
+        then  if    Natural/isZero
+                      ( Natural/subtract
+                          (Integer/clamp (Integer/negate b))
+                          (Integer/clamp (Integer/negate a))
+                      )
+              then  Integer/negate
+                      ( Natural/toInteger
+                          ( Natural/subtract
+                              (Integer/clamp (Integer/negate a))
+                              (Integer/clamp (Integer/negate b))
+                          )
+                      )
+              else  Natural/toInteger
+                      ( Natural/subtract
+                          (Integer/clamp (Integer/negate b))
+                          (Integer/clamp (Integer/negate a))
+                      )
+        else  Natural/toInteger
+                (Integer/clamp (Integer/negate a) + Integer/clamp b)
+  else  if Natural/isZero (Integer/clamp b)
+  then  Integer/negate
+          ( Natural/toInteger
+              (Integer/clamp a + Integer/clamp (Integer/negate b))
+          )
+  else  if Natural/isZero (Natural/subtract (Integer/clamp a) (Integer/clamp b))
+  then  Integer/negate
+          ( Natural/toInteger
+              (Natural/subtract (Integer/clamp b) (Integer/clamp a))
+          )
+  else  Natural/toInteger (Natural/subtract (Integer/clamp a) (Integer/clamp b))
+```
+This long normal form is repeated three times when we apply `f` to `Integer/subtract a b`.
+The body of `Integer/subtract` needs to be inlined and applied to symbolic arguments  every time it is used in `f`; no further reduction is possible.
+This gives rise to a large text of `g`.
+
+Finally, note that the function `Integer/subtract` uses each of its arguments (`a` and `b`) ten times.
+So, `g` repeats its arguments `30` times each.
+When we write `g (Integer/add i j) (Integer/add k l)` in the code of `h`, we force thirty times the repetition of already long normal forms for `Integer/add i j`.
+
+This is something programmers do not expect at all.
+Programmers are used to writing libraries of small functions that call each other repeatedly, like this:
+```dhall
+let y = if satisfies_condition x then f x else g x
+let z = if p1 y then p2 y else p3 ???
+```
+But the "normal-form-oriented programming" forces each function's code to be inlined and repeated at each call site.
+When this occurs under lambda, an exremely large normal form can be produced.
+
+Generally, the growth of normal forms happens for two reasons:
+
+- When `let` expressions are used to define some helper functions repeatedly through other helper functions.
+- When `List/fold` is used with a literal list, or `Natural/fold` is used with a literal `Natural` value, but some other arguments are symbolic.
+
+We have already illustrated the first kind of explosions (due to inlined `let` expressions).
+To see what happens with `List/fold` and its derivatives (`List/drop`, `List/index`), consider the code for looking up a symbol by its index:
+
+```dhall
+let List/index = https://prelude.dhall-lang.org/List/index
+let data = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p" ]
+let lookup : Natural → Optional Text = λ(n : Natural) → List/index n Text data
+```
+For example, `lookup 2` returns `"c"` and `lookup 10` returns `"k"`.
+At first sight this function is perfectly ordinary. However, its normal form is about 50 MB!
+The reason is the extremely repetitive inlining that `List/index` performs with its `data` argument if it is given as a literal list value.
+
+To see what happens with `Natural/fold`, consider this code:
+
+```dhall
+let f : Natural → Natural = ???
+in λ(init : Natural) → Natural/fold 5 Natural f init
+```
+The normal form of this expression is `λ(init : Natural) → f(f(f(f(f(init)))))`.
+The function `f` will be inlined 5 times without any possibility of simplification because it is applied to a symbolic argument (`init`).
+If the function `f` uses its own argument `n` times then the length of the normal form will be $O(n^5)$.
+
+Here is an example showing how this works:
+
+```dhall
+let h = λ(x : Natural) → λ(b : Bool) → if b then x else x + 1
+let k = λ(x : Natural) →
+        if    Natural/isZero x
+        then  h x (Natural/isZero x)
+        else  h (x + 1) (Natural/isZero x)
+let big = λ(a : Natural) → Natural/fold 6 Natural k a
+```
+The normal form of `big` with the code just shown is about 17 MB.
+If we replace `Natural/fold 6` by `Natural/fold 7` in this code, the normal form will become 170 MB in size.
+The explosive growth occurs because the function `h` uses `x` twice, and the function `k` uses `h` twice and `x` five times.
+The result is that the normal form grows by factor `10` after each iteration. 
+
+The normal form explosion occurs only when writing libraries of functions that use each other repeatedly, or when some arguments given to `List/fold` or `Natural/fold` are symbolic and others literal, and when the final result is a function (a "lambda").
+When all arguments are literal values and the final results are not functions, the normal forms of course remain short.
+
+Let us show a workaround that mitigates (but does not eliminate) the problem of exploding normal forms.
+
+The trick for mitigating the growth is based on two features of Dhall:
+
+- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or not, then the merge expression will stay unexpanded. This will get rid of the problem of expression growth, even if the code of q uses `x` several times.
+- Dhall cannot recognize that certain functions always return `True`. If we use such a function instead of `b` in `if b then Some x else None` then Dhall will not be able to simplify that expression into `Some x`.
+In this way, we can trick Dhall into avoiding a normal form expansion under lambda.
+
+Here is a generic helper function that reduces the growth of normal forms:
+```dhall
+let reduce_growth
+    : ∀(T : Type) → (T → Bool) → ∀(R : Type) → R → (T → R) → T → R
+    = λ(T : Type) →
+      λ(predicate : T → Bool) →
+      λ(R : Type) →
+      λ(default : R) →
+      λ(f : T → R) →
+      λ(x : T) →
+        merge
+          { Some = f, None = default }
+          (if predicate x then Some x else None T)
+```
+The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function that always returns `True` but such that Dhall cannot recognize it as a constant function. The default value is an arbitrary value of type `R`, as it will be never used.
+
+An example of a suitable constant function of type `Natural → Bool` is:
+```dhall
+let predicate_natural : Natural → Bool = λ(x : Natural) →
+        Natural/isZero (Natural/subtract 1 (Natural/subtract x 1))
+```
+This function always returns `True` because it first computes `1 - x`, which is always 0 or 1, and then it subtracts 1 from that, which will always give 0. But Dhall cannot recognize this property unless `x` is a literal `Natural` value.
+
+Here is an application of this technique to the example shown above:
+```dhall
+let h = λ(x : Natural) → λ(b : Bool) → if b then x else x + 1
+let k = λ(x : Natural) →
+        if    Natural/isZero x
+        then  h x (Natural/isZero x)
+        else  h (x + 1) (Natural/isZero x)
+let k_reduced = reduce_growth Natural predicate_natural Natural 0 k
+let big = λ(x : Natural) → Natural/fold 6 Natural k_reduced x
+```
+The normal form of `big` is now only 200 KB, as opposed to 17 MB that it was without using `reduce_growth`. 
 
 #### No computations with custom data
 
