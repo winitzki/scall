@@ -1241,13 +1241,42 @@ The result values of any Dhall program will be the same, as long as memory or ti
 
 todo: explain with examples, also show the reduction trick
 
-From the point of view of language theory, reducing to the normal form under lambda is the right thing to do for a pure System Fω interpreter.
-For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
-Refactoring a function under lambda (renaming variables, introducing new local variables, etc.) will keep the normal form  unchanged.
-However, this sort of "normal-form-oriented programming" turns out to have some unexpected consequences.
-One consequence is that the normal form of some functions unexpectedly grows extremely large in size.
+Dhall's interpreter evaluates expressions by reducing them to the normal form.
+This reduction is also performed within function bodies even if a function is not yet applied to arguments.
+For example, consider a function that adds numbers:
 
-Here is an example: consider a function that applies a function to a list of `Natural` numbers unless the arguments.
+```dhall
+⊢ :let add1 = λ(x : Natural) → λ(y : Natural) → 123 + x + y
+
+add1 : ∀(x : Natural) → ∀(y : Natural) → Natural
+
+⊢ λ(z : Natural) → add1 456 z
+
+λ(z : Natural) → 579 + z
+```
+
+The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Natural) → 579 + z`, while the argument `z` remains symbolic.
+The simplification occurred in the functon body under a `λ(z ...)`.
+This sort of simplification is what we call "evaluation under a lambda".
+
+From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do when desining a pure System Fω interpreter.
+For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
+If the interpreter supports reducing under lambdas then refactoring a function's body (renaming variables, introducing new local variables, etc.) will keep the normal form unchanged.
+This enables us to refactor code at will without changing its semantic hash.
+
+However, the "normal-form-oriented programming" turns out to have some unexpected consequences.
+One issue is that the normal form of some functions unexpectedly grows to an extremely large size.
+
+The growth of normal forms happens for two reasons:
+
+- When `let` expressions are used to define some helper functions repeatedly through other helper functions.
+- When functions such as `List/index` or `List/fold` are used with a literal list but some other arguments are symbolic.
+
+We will show examples of these situations and offer a workaround.
+
+todo: look at the github discussion and find good examples here.
+
+Here is an example:   a function that applies a given function to a list of `Natural` numbers when the arguments are equal to a given set of numbers.
 
 ```dhall
 let listWithPrefix = λ(message1 : Text) → λ(message2 : Text) →

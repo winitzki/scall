@@ -17,7 +17,7 @@ generated.dhall: programming_dhall.md convertMd.sh convertMd.scala
 	bash convertMd.sh dhall ../dhall-lang/Prelude
 
 clean:
-	rm -f programming_dhall.{pdf,log,out,aux,idx,ind,ilg,toc} generated.{log,dhall,tex} check_dhall_code
+	rm -f programming_dhall.{pdf,log,out,aux,idx,ind,ilg,toc} generated.{log,dhall,tex} check_dhall_code convertMd.graal convertMd.jar
 
 convertMd.graal: convertMd.scala
 	scala-cli --power package convertMd.scala -o convertMd.graal --native-image --force
