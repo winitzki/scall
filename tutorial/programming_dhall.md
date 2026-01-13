@@ -1416,8 +1416,9 @@ Let us show a workaround that mitigates (but does not eliminate) the problem of 
 
 The trick for mitigating the growth is based on two features of Dhall:
 
-- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or not, then the merge expression will stay unexpanded. This will get rid of the problem of expression growth, even if the code of q uses `x` several times.
+- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or `False` then the merge expression will stay unexpanded. This will get rid of the problem of expression growth, even if the code of `q` uses `x` several times.
 - Dhall cannot recognize that certain functions always return `True`. If we use such a function instead of `b` in `if b then Some x else None` then Dhall will not be able to simplify that expression into `Some x`.
+
 In this way, we can trick Dhall into avoiding a normal form expansion under lambda.
 
 Here is a generic helper function that reduces the growth of normal forms:
@@ -1427,14 +1428,14 @@ let reduce_growth
     = λ(T : Type) →
       λ(predicate : T → Bool) →
       λ(R : Type) →
-      λ(default : R) →
+      λ(stopgap : R) →
       λ(f : T → R) →
       λ(x : T) →
         merge
-          { Some = f, None = default }
+          { Some = f, None = stopgap }
           (if predicate x then Some x else None T)
 ```
-The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function that always returns `True` but such that Dhall cannot recognize it as a constant function. The default value is an arbitrary value of type `R`, as it will be never used.
+The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. The `stopgap` is an arbitrary value of type `R`, as it will be never used.
 
 An example of a suitable constant function of type `Natural → Bool` is:
 ```dhall
@@ -1453,7 +1454,10 @@ let k = λ(x : Natural) →
 let k_reduced = reduce_growth Natural predicate_natural Natural 0 k
 let big = λ(x : Natural) → Natural/fold 6 Natural k_reduced x
 ```
-The normal form of `big` is now only 200 KB, as opposed to 17 MB that it was without using `reduce_growth`. 
+The normal form of `big` is now only 200 KB, as opposed to 17 MB that it was without using `reduce_growth`.
+
+When `reduce_growth` is applied to the example with the functions `f`, `g`, `h` shown earlier, the normal form of `h` is shortened from 800KB to 35KB.
+The code is still far too repetitive but its size becomes more manageable in many cases.
 
 #### No computations with custom data
 
