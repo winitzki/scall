@@ -1423,7 +1423,7 @@ In this way, we can trick Dhall into avoiding a normal form expansion under lamb
 
 Here is a generic helper function that reduces the growth of normal forms:
 ```dhall
-let reduce_growth
+let reduceGrowth
     : ∀(T : Type) → (T → Bool) → ∀(R : Type) → R → (T → R) → T → R
     = λ(T : Type) →
       λ(predicate : T → Bool) →
@@ -1439,10 +1439,10 @@ The function transforms a given function of type `T → R` into another function
 
 An example of a suitable constant function of type `Natural → Bool` is:
 ```dhall
-let predicate_natural : Natural → Bool = λ(x : Natural) →
+let predicateNatural : Natural → Bool = λ(x : Natural) →
         Natural/isZero (Natural/subtract 1 (Natural/subtract x 1))
 ```
-This function always returns `True` because it first computes `1 - x`, which is always 0 or 1, and then it subtracts 1 from that, which will always give 0. But Dhall cannot recognize this property unless `x` is a literal `Natural` value.
+This function always returns `True` because it first computes `1 - x`, which is always `0` or `1`, and then it subtracts `1` from that, which will always give `0`. But Dhall cannot recognize this property unless `x` is a literal `Natural` value.
 
 Here is an application of this technique to the example shown above:
 ```dhall
@@ -1451,12 +1451,12 @@ let k = λ(x : Natural) →
         if    Natural/isZero x
         then  h x (Natural/isZero x)
         else  h (x + 1) (Natural/isZero x)
-let k_reduced = reduce_growth Natural predicate_natural Natural 0 k
-let big = λ(x : Natural) → Natural/fold 6 Natural k_reduced x
+let kReduced = reduceGrowth Natural predicateNatural Natural 0 k
+let big = λ(x : Natural) → Natural/fold 6 Natural kReduced x
 ```
-The normal form of `big` is now only 200 KB, as opposed to 17 MB that it was without using `reduce_growth`.
+The normal form of `big` is now only 200 KB, as opposed to 17 MB that it was without using `reduceGrowth`.
 
-When `reduce_growth` is applied to the example with the functions `f`, `g`, `h` shown earlier, the normal form of `h` is shortened from 800KB to 35KB.
+When `reduceGrowth` is applied to the example with the functions `f`, `g`, `h` shown earlier, the normal form of `h` is shortened from 800KB to 35KB.
 The code is still far too repetitive but its size becomes more manageable in many cases.
 
 #### No computations with custom data
