@@ -1966,7 +1966,7 @@ Because of this and other limitations, Dhall can work productively with dependen
 
 Below in the chapter "Numerical algorithms" we will see an example of using dependent types for implementing a safe division operation.
 
-### The keyword "assert". Equality types
+### The keyword `assert`. Equality types
 
 For types other than `Bool`, `Integer`, and `Natural`, equality testing is not available as a function.
 However, values of any type may be tested for equality at typechecking time via Dhall's `assert` feature.
