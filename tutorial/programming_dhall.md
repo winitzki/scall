@@ -16077,7 +16077,7 @@ TODO:write this code
 ### Church encoding of least fixpoints
 
 Here we show proofs of some technical properties of Church-encoded types.
-(Those properties are explained in the paper "Recursive types for free" by P. Wadler.
+(This material is explained in the paper "Recursive types for free" by P. Wadler.
 This section gives fully detailed proofs.)
 
 Throughout this section, we assume that `F` is a lawful covariant functor for which an evidence value `functorF : Functor F` is available.
@@ -16914,6 +16914,9 @@ After renaming `t = ep`, this is the same equation we proved above.
 
 In this section, we will prove some general properties of co-inductive types such as `GFix F` defined in the chapter "Co-inductive types".
 In particular, we will show that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
+
+The properties of greatest fixpoints are also covered in the paper "Recursive types for free" by P. Wadler, except that he uses special notation for existential types.
+This section gives fully detailed proofs and explanations using Dhall code.
 
 For simplicity, we assume that `F` is a covariant type constructor with one argument and a given `Functor` evidence value.
 An example of such an `F` could be:
