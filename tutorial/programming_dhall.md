@@ -1137,7 +1137,7 @@ This verbosity has helped the author in learning some of the more advanced conce
 In a programming language, the **strict evaluation** strategy means that all sub-expressions in a program are evaluated even if they are not used to compute the final result of the program.
 The **lazy evaluation** strategy means that sub-expressions are evaluated only if they are needed for computing the program's final result.
 
-In this sense, the Dhall interpreter almost always uses lazy evaluation.
+In this sense, the Dhall interpreter uses lazy evaluation in most cases.
 For example, it will be quick to run Dhall programs similar to this:
 ```dhall
 let x = some_function 1000000 ??? -- Imagine that this is a long computation.
@@ -1153,12 +1153,13 @@ in 123
 ```
 The value `x` now needs to be evaluated in order to verify that `validate x` actually returns `True`.
 
-Validation of `assert` expressions will happen at typechecking time, and Dhall's _typechecking_ is strict (not lazy).
+Validation of `assert` expressions happens at typechecking time, and Dhall's _typechecking_ is strict (not lazy).
 For this reason, the value `x` will get evaluated in the program shown above, even though `x` is not used anywhere later in the code.
-Also, a type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used in any expressions later in the program.
+
+Because typechecking is not lazy in Dhall, a type error such as `let x : Natural = "abc"` will prevent the entire program from evaluating, even if the ill-typed value `x` is never used.
 
 Another case where Dhall enforces strict evaluation is when importing values from external resources.
-Each imported value is loaded and validated at typechecking time, even if the value is not used in the code that follows:
+Each imported value is loaded and validated at typechecking time, even if the value is not actually used:
 
 ```dhall
 let constZero = λ(x : Natural) → 0   -- This function ignores its argument.
@@ -1168,13 +1169,13 @@ in ???
 
 Dhall's typechecking stage is analogous to the compile-time stage in compiled programming languages.
 At that stage, the Dhall interpreter resolves all imports and then typechecks all sub-expressions in the program, whether they are used or not.
-(Imports must be resolved first, in order to be able to proceed with typechecking.)
+Imports must be resolved and evaluated first, in order to be able to proceed with typechecking; otherwise Dhall would not be able to determine, say, the type of `x` in `let x = ./import_file.dhall`.
 
-When no type errors are found, the interpreter goes on evaluating the program to a normal form, using the lazy evaluation strategy.
+When no type errors are found, the interpreter goes on evaluating the program to the normal form, using the lazy evaluation strategy.
 
-It is important to keep in mind that in almost all cases a well-typed Dhall program should give the same result whether evaluated lazily or strictly.
+It is important to keep in mind that in almost all cases a well-typed Dhall program will give the same result whether evaluated lazily or strictly.
 
-The lazy and strict evaluation strategies will give different results only if:
+The lazy and strict evaluation strategies give different results only if:
 - a sub-expression creates a side effect whose execution may influence the result value; or
 - a  "rogue" sub-expression _cannot_ be evaluated because it will either crash the program or enter an infinite loop.
 
@@ -1435,8 +1436,9 @@ let reduceGrowth
           { Some = f, None = stopgap }
           (if predicate x then Some x else None T)
 ```
-The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. The `stopgap` is an arbitrary value of type `R`, as it will be never used.
+The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The `stopgap` is an arbitrary value of type `R`, as it will be never used. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. 
 
+For each input type `T`, we need to find such a `predicate` function of type `T → Bool`.
 An example of a suitable constant function of type `Natural → Bool` is:
 ```dhall
 let predicateNatural : Natural → Bool = λ(x : Natural) →
