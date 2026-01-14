@@ -4174,6 +4174,30 @@ let Monad = λ(F : Type → Type) →
   }
 ```
 
+Let us show an example of how we can use this typeclass constructor.
+
+Note that the `Monad` typeclass via the `pure` and `bind` methods.
+It is well known that monads also have the `join` method, with type signature `F (F a) → F a`.
+Using the typeclass constraint, we can implement a function that provides the `join` method for any monad.
+
+In Haskell, we would define `join` via `bind` as:
+
+```haskell
+-- Haskell.
+monadJoin :: Monad F => F (F a) -> F a
+monadJoin ffa = bind ffa id
+```
+In this Haskell code, `id` is an identity function of type `F a → F a`.
+
+The corresponding Dhall code is similar, except we need to write out all type parameters:
+
+```dhall
+let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) → λ(ffa : F (F a)) →
+  monadF.bind (F a) ffa a (identity (F a))
+```
+
+
+
 #### Implementing specific monads
 
 Let us define a `Monad` evidence values for `Optional` and `List`:
@@ -4193,6 +4217,16 @@ let monadList : Monad List =
       List/concatMap a b f fa
   in { pure, bind }
 ```
+
+
+We can use the generic function `monadJoin` to obtain a `join` method for `List` like this:
+
+```dhall
+let List/concat : ∀(a : Type) → List (List a) → List a
+  = monadJoin List monadList
+```
+An equivalent function is available in  Dhall's Prelude as `List/concat`.
+
 
 The `Either` monad structure is defined via the convention that the "left" type parameter represents an error and the "right" type parameter represents the result value.
 ```dhall
@@ -4328,36 +4362,6 @@ let lawsHoldForStateMonad = λ(S : Type) → λ(a : Type) → λ(x : a) → λ(p
 For the State monad, the Dhall interpreter can verify the left identity law and the associativity law, but not the right identity law.
 The missing feature is being able to verify that `{ _1 = x._1, _2 = x._2 } ≡ x` when `x` is an arbitrary unknown record with fields `_1` and `_2`.
 The Dhall interpreter does not have access to the type of `x` at the time of evaluating `{ _1 = x._1, _2 = x._2 }`, and so it cannot verify that `x` is a record with no other fields than `_1` and `_2`.
-
-#### Implementing `join` via `pure` and `bind`
-
-We have defined the `Monad` typeclass via the `pure` and `bind` methods.
-Let us implement a function that provides the `join` method for any member of the `Monad` typeclass.
-
-In Haskell, we would define `join` via `bind` as:
-
-```haskell
--- Haskell.
-monadJoin :: Monad F => F (F a) -> F a
-monadJoin ffa = bind ffa id
-```
-
-In this Haskell code, `id` is an identity function of type `F a → F a`.
-
-The corresponding Dhall code is similar, except we need to write out all type parameters:
-
-```dhall
-let monadJoin = λ(F : Type → Type) → λ(monadF : Monad F) → λ(a : Type) → λ(ffa : F (F a)) →
-  monadF.bind (F a) ffa a (identity (F a))
-```
-
-We can use this function to obtain a `join` method for `List` like this:
-
-```dhall
-let List/join : ∀(a : Type) → List (List a) → List a
-  = monadJoin List monadList
-```
-In  Dhall's Prelude, this function is available as `List/concat`.
 
 ### Comonads
 
@@ -8009,9 +8013,10 @@ let showPair : ∀(a : Type) → Show a → Show (Pair a a)
 
 In the code, the type constructor parameter `r` cannot be set to a constant functor or to the identity functor, because we need to be able to implement the functions `leafT : ∀(t : Type) → Show t → t → R t` and `branchT : ∀(t : Type) → Show t → r (Pair t t) → r t`.
 The data structure `r t` may not ignore its argument of type `t` but also needs to create a resulting  `Text` value.
-One sipmle possibility is to set `r t = Pair Text t`.
+Since the required functor `r` must carry data of type `t` and also of type `Text`, we can try setting `r t = Pair Text t`.
+This simple choice turns out to work correctly.
 The `Text` value will accumulate the result while the `t` value will be used to print the leaves.
-
+The code is:
 ```dhall
 let showPBTreeC : ∀(a : Type) → Show a → Show (PBTreeC Show a)
   = λ(a : Type) → λ(showA : Show a) →
@@ -9510,7 +9515,7 @@ let unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F)
     g (F (GFix F)) (packF F functorF)
 ```
 
-Implementing the function `fixG : F (GFix F) → GFix F` is simpler, once we have `unfixG`.
+Implementing the function `fixG : F (GFix F) → GFix F` is simpler once we have `unfixG`.
 We first compute `fmap_F unfixG : F (GFix F) → F (F (GFix F))`.
 Then we create a value of type `GFix F` by using `pack` with `t = F (GFix F)`:
 
@@ -9520,6 +9525,39 @@ let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
     let fmap_unfixG : F (GFix F) → F (F (GFix F)) = functorF.fmap (GFix F) (F (GFix F)) (unfixG F functorF)
     in pack (GF_T F) (F (GFix F)) { seed = fg, step = fmap_unfixG }
 ```
+
+
+#### Converting from the least fixpoint to the greatest fixpoint
+
+A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
+
+Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
+The least fixpoint type `LFix F` already has that function (`unfix`).
+So, we can implement a conversion function:
+
+```dhall
+let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
+    makeGFix F (LFix F) x (unfix F functorF)
+```
+
+Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching _every_ new data element.
+
+
+The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
+In Dhall, it is impossible to implement hylomorphisms because their termination is not guaranteed in general.
+We will look at hylomorphisms in more detail later in the chapter "Translating recursive functions into Dhall".
+
+The `InfSeq` type constructor is an example where it is clearly impossible to convert the greatest fixpoint to the least fixpoint of the same functor.
+The type `InfSeq` is a greatest fixpoint of the bifunctor `Pair`.
+The least fixpoint of the same bifunctor is the _void type_: there are no finite structures that satisfy the fixpoint equation `T = Pair a T`.
+If it were possible to implement a terminating hylomorphism, we would be able to convert values of type `InfSeq a` to values of the void type; but the void type has no values.
+A  program "creating a value of the void type" means, in practice, a program that never terminates.
+This is an illustration of the fact that hylomorphisms cannot be guaranteed to terminate.
+
+To guarantee termination, one must supply an explicit upper bound on the size of the data.
+The required technique for the general case will be studied in the next chapter. 
+We will also use that technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
 ### Data constructors and pattern matching
 
@@ -10046,38 +10084,6 @@ TODO: refer to GG's blog post and implement here
 This code is [available as a small library](https://github.com/Gabriella439/graph) on Github.
 
 Also see [this Stackoverflow question](https://stackoverflow.com/questions/60423705/). 
-
-### Converting from the least fixpoint to the greatest fixpoint
-
-A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
-
-Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
-The least fixpoint type `LFix F` already has that function (`unfix`).
-So, we can implement a conversion function:
-
-```dhall
-let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(x : LFix F) →
-    makeGFix F (LFix F) x (unfix F functorF)
-```
-
-Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching _every_ new data element.
-
-
-The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
-In Dhall, it is impossible to implement hylomorphisms, because it is not guaranteed that the greatest fixpoint type contains finitely many data items.
-
-The `InfSeq` example shows why it is impossible to convert the greatest fixpoint to the least fixpoint of the same functor.
-The type `InfSeq` is a greatest fixpoint of the bifunctor `Pair`.
-The least fixpoint of the same bifunctor is the _void type_: there are no finite structures that satisfy the fixpoint equation `T = Pair a T`.
-If it were possible to implement a terminating hylomorphism, we would be able to convert values of type `InfSeq a` to values of the void type; but the void type has no values.
-A  program "creating a value of the void type" means, in practice, a program that never terminates.
-
-To guarantee termination, one must supply an explicit upper bound on the size of the data.
-
-An example is the function `Stream/take`  that we have seen earlier.
-The required technique for the general case will be studied in the next chapter. 
-We will also use this technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
 ## Translating recursive functions into Dhall
 
@@ -16057,15 +16063,16 @@ We find:
 ∀(R : Type) → (F A → R) → R  ≅  F A
 ```
 
-This proves the equivalence `Exists P ≅ F A`.
+This proves the type equivalence `Exists P ≅ F A`.
 
+In this proof, we just used the Yoneda identities and did not write explicit code that transforms the equivalent types into each other.
 To derive the code that transforms values of type `F A` into values of type `Exists P` and back,
 we turn to the two Yoneda identities used in the proof.
 
 The first type equivalence (`∀(B : Type) → (B → A) → F B → R  ≅  F A → R`) corresponds to using the contravariant Yoneda identity.
 The corresponding code consists of two functions:
 
-TODO
+TODO:write this code
 
 ### Church encoding of least fixpoints
 
