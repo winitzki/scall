@@ -14666,7 +14666,8 @@ The data constructors `makeTC2` and `applyTC2` not only serve to build values bu
 Finally, we may use the generic function `runP` in order to convert values such as `example1TC2` and `example2TC2` into values of a specific type `m` that belongs to the typeclass.
 To use `runP` with values of type `FreeTC2 t`, we will need to provide a function of type `t → m`.
 
-As an example, we set `m = Natural` and choose the function `exampleT → Natural` like this:
+As an example, we set `m = Natural`, as we already have a `TC2` typeclass evidence for `Natural`.
+We choose the function `exampleT → Natural` in some way and use `runPTypeclassFreeP` to evaluate the results:
 
 ```dhall
 let convTC2 : exampleT → Natural = λ(f : exampleT) → f 100
