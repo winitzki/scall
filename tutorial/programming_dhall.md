@@ -224,9 +224,13 @@ Unlike Haskell where infix operators are automatically usable as functions, Dhal
 ```dhall
 let times = λ(x : Natural) → λ(y : Natural) → x * y
 let _ = assert : times 4 5 ≡ 20
+let `||` = λ(a : Bool) → λ(b : Bool) → a || b
+let _ = assert : `||` True False ≡ True
 ```
+Note that Dhall does not support user-defined infix functions.
+The function `||` defined here must be used with the standard (prefix) function syntax as shown in the example above.
 
-A curried function can be used more easily when some of the arguments are fixed.
+Curried functions work as usual in functional languages.
 For example, a function that multiplies its argument by `4` can be defined via `times` by:
 
 ```dhall
@@ -14583,8 +14587,8 @@ Here are examples of  `TC2` evidence values for `Bool` and `Natural`:
 
 ```dhall
 let TC2Bool : TC2 Bool
-  = { make = Natural/isEven
-    , apply = Bool/or
+  = { make = Natural/even
+    , apply = `||`
     }
 let TC2Natural : TC2 Natural
   = { make = identity Natural
@@ -14601,7 +14605,7 @@ Then we  combine both methods into a single value of type `P t → t`.
 A suitable functor `P` is defined by:
 
 ```dhall
-let PTC2 = λ(t : Type) → < Make : Natural | Apply : Pair t Bool >
+let PTC2 = λ(t : Type) → < Make : Natural | Apply : Pair t Bool >
 let functorPTC2 : Functor PTC2 = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : PTC2 a) →
     merge { Make = λ(n : Natural) → (PTC2 b).Make n
           , Apply = λ(p : Pair a Bool) → (PTC2 b).Apply (p // { _1 = f p._1 })
