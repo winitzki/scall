@@ -6,11 +6,11 @@
 - Implement parsing enhancements, without changing normal forms. (See below.)
 - Implement a type-checker that can modify the expression being type checked. The new expression may have some arguments inserted and some type annotations inserted, etc.
 - Implement "one-step" type inference for ∀-spines using that feature. (Not sure whether also λ-spines are required for this to work.) Modify the do-notation by using type inference.
-- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x`, distribute functions such as `List/head` over `if/then/else` when there is opportunity to simplify, or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code.
-- Automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
-- Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
-- Revisit the standard library's `List` module and implement a better choice of a `List` index built-in. Maybe slicing or direct indexing?
-- Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
+- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x`, distribute functions such as `List/head` over `if/then/else` when there is opportunity to simplify, or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code. For example, also `(if a then b else c).d` in case `b` and `c` are literal records, or `Integer/negate (Integer/negate x) = x`.
+- At type-checking stage, automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
+- Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be). For example, implement the reduction `{ a = x.a } = x` when `x` is a record containing the single field `a`, and similarly with `merge`. Make sure we can symbolically validate monoid laws, state monad laws, etc., which we can't do without such reduction rules. This is low priority because those kinds of reductions are only seen under lambda and not when evaluating concrete literal values.
+- Revisit the standard library's `List` module and implement a better choice of a `List` index built-in. Maybe slicing or direct indexing? Try avoiding the explosion of normal forms.
+- Implement more features for dependent type checking. Add a "value context" to the typechecker and to the beta reducer. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
 - Implement widening on union values. `(x : U).(V)` is valid if `V` has the type constructor of the same type as used for `x : U`.
@@ -20,7 +20,7 @@
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Implement more features in the VSCode plugin for Dhall and dhall-language-server.
 - Enhance the Dhall grammar for better error reporting.
-- Implement the Dhall grammar via tree-sitter or via an Earley parser.
+- Implement the Dhall grammar via tree-sitter or via an Earley parser?
 - Try normalization-by-evaluation for speedup.
 - Implement native code overrides for Dhall expressions, dynamic loading from JAR by SHA256.
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe. Alternatively, use `TailCalls` in the output type of the parsers. (Will that work? Probably not.)
@@ -67,9 +67,9 @@ If `D` contains `x = y` then it is assumed also that `D` contains `y = x`. (Do w
 
 If `D` contains `x = y` and we are type-checking or beta-reducing an expression that has `x` free, we may substitute `y` instead of `x` in that expression.
 
-- If we have `λ(x : a === b) → expr` then we add the relation `a = b` to `D` while type-checking `expr`.
-- In an expression `merge r (x : X)`, suppose a handler clause has the form `ConstructorName = λ(p : P) → expr`. While type-checking `expr`, we add the relation `x = X.ConstructorName p` to `D`.
-- In an expression `if c then x else y`, we add `c = True` while typechecking `x` and `c = False` while typechecking `y`.
+- If we have `λ(x : a === b) → expr` then we add the relation `a = b` to `D` while type-checking or beta-reducing `expr`.
+- In an expression `merge r (x : X)`, suppose a handler clause has the form `ConstructorName = λ(p : P) → expr`. While type-checking or beta-reducing `expr`, we add the relation `x = X.ConstructorName p` to `D`.
+- In an expression `if c then x else y`, we add `c = True` while typechecking or beta-reducing `x` and `c = False` while typechecking or beta-reducing `y`.
 
 ## µDhall
 
@@ -102,13 +102,16 @@ Implement µDhall and verify that:
 - There is no problem with highly repetitive data or highly repetitive normal forms (must mitigate the problem of explosion of normal forms).
 
 Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time), reuse memory, share data (given that the source text is already in memory).
+
 Ideally the interpreter will reject a program early if it is suspicious in terms of its space or time leaks.
 
-Try various implementation ideas: HOAS, PHOAS, CBOR-based processing (?), or various abstract machines.
+Try various implementation ideas: HOAS, PHOAS, directly CBOR-based processing (?), or various abstract machines.
 
 Try various ideas about how to combine type-checking with evaluation in a single pass.
 
 Try various ideas about term inference / implicit parameters.
+
+Try an implementation where both HOAS and an AST (or CBOR form) are kept around at the same time.
 
 ## Implement type refinement
 

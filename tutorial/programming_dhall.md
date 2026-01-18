@@ -1823,7 +1823,7 @@ identity = \x -> x
 The corresponding Scala code is:
 
 ```scala
-def identity[X]: X => X  = { x => x }     // Scala
+def identity[X]: X => X  = { x => x }     // Scala.
 ```
 
 In Dhall, all type parameters must be specified explicitly  when defining a function and when calling it:
@@ -2884,15 +2884,16 @@ The initial approximation is defined as follows:
 
 The initial value is chosen such that the number of correct decimal digits doubles after each update.
 The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
-The total number of iterations is set to $n = 1 + \log N$ (the logarithm is in base 2).
+The total number of iterations is set to $n = 1 + \log N$ (the logarithm here is in base 2).
 ```dhall
 let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   let iterations = 1 + (./numerics.dhall).log 2 prec
   let init : Float = ??? -- Code omitted for brevity.
-  let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec
+  let update = λ(x : Float) → Float/multiply (Float/add x (Float/divide p x prec) prec) (T.Float/create +5 -1) prec   -- Compute 0.5 * (x + p / x).
   in Natural/fold iterations Float update init
 ```
-This code is shown for illustration only! A fully tested version of `Float/sqrt.dhall` is found [in the source code repository](https://github.com/winitzki/scall/blob/master/tutorial/Float/sqrt.dhall).
+This code is shown only for illustration.
+The complete code of `Float/sqrt.dhall` is [a part of the `Float` package](https://winitzki.github.io/dhall/Float/sqrt.dhall).
 
 ## Programming with functions
 
@@ -2942,9 +2943,9 @@ So, a simple implementation of `identityT` is:
 let identityT = λ(t : Type) → t
 ```
 
-This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the type of `List` is not `Type` but `Type → Type`.
+This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the kind of `List` is not `Type` but `Type → Type`.
 We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors as arguments.
-For instance, it should accept arguments of type `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
+For instance, it should accept arguments of kind `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
 
 The type of all those type expressions is `Kind`.
 So, we add an argument of type `Kind` to describe the "kinds" of all possible arguments.
@@ -2954,9 +2955,9 @@ The Dhall code is:
 ```dhall
 let identityK = λ(k : Kind) → λ(t : k) → t
 ```
-Here, `t` is anything that has type `k`, while `k` is a kind that could be `Type`, or `Type → Type`, etc., because the only constraint is `k : Kind`.
+Here  `t` is anything that has kind `k`, while `k`   could be `Type`, or `Type → Type`, etc., because the only constraint is `k : Kind`.
 
-Now we can test this function on various inputs:
+Now we can test this function:
 
 ```dhall
 ⊢ identityK Type Bool
@@ -3001,24 +3002,36 @@ You annotated a function input with the following expression:
 ```
 This error message still needs some explanation.
 
-We must keep in mind that any function's input type and output type must be types that can be used to annotate values.
+We must keep in mind that any function's input type and output type must be types that can be used in type annotations.
 
-Examples of types that can be used to annotate values are: `Natural`, `List Bool`, `Type`, `Type → Type`, and `Kind`.
-Indeed, we can use each of those types to annotate some values, for instance:
+Examples of types that can be used in annotations are: `Natural`, `List Bool`, `Type`, `Type → Type`, and `Kind`.
+Indeed, we can use each of those types to annotate some expressions:
 
-`0 : Natural`
+```dhall
+⊢ 0 : Natural
 
-`[ True ] : List Bool`
+0
 
-`Text : Type`
+⊢ [ True ] : List Bool
 
-`List : Type → Type`
+[ True ]
 
-`Type → Type : Kind`
+⊢ Text : Type
 
-So, it is valid to write `λ(x : List Bool) → ...` or `λ(x : Type) → ...`.
+Text
 
-An example of a type that _cannot_ be used to annotate values is `List`.
+⊢ List : Type → Type
+
+List
+
+⊢ Type → Type : Kind
+
+Type → Type
+```
+
+So, it is valid to write `λ(x : List Bool) → ...` or `λ(x : Type) → ...` and so on.
+
+An example of a type that _cannot_ be used in annotations is `List`.
 It is a type _constructor_, that is, a function from `Type` to `Type`. (The type of `List` is `Type → Type`.)
 There are no Dhall expressions `x` such that `x : List` is a valid type annotation.
 So, the function code `λ(x : List) → ...` is invalid.
@@ -3026,8 +3039,8 @@ The input type of that function (`List`) is not a type that can ever annotate an
 
 In the example shown above, the expression causing a type error is the inner function `λ(x : t) → x`.
 The input type of that function is designated as `t`.
-So, Dhall requires `t` to be a type that can annotate values.
-But all we know in our case is that `t` has type `k`, and that `k` is something of type `Kind`.
+Because the annotation `x : t` must be valid, Dhall requires `t` to be a type that can be used in annotations.
+But all we know in our case is that `t` has kind `k`, and that `k` is a kind.
 It is not guaranteed that `k` is `Type`.
 For example, `k` could be `Type → Type`, while `t` could be `List`.
 This would be the case if we applied `identityX` like this:
@@ -3036,16 +3049,15 @@ This would be the case if we applied `identityX` like this:
 identityX (Type → Type) List  -- ???
 ```
 Then the type annotations `k : Kind` and `t : k` would both match.
-
 However, it will not be valid in that case to write `x : t`, that is, `x : List`,
 because `List` is a type _constructor_.
 
-So, the error is that `t` is not a type that can be used to annotate a value.
+So, the error is that `t` is not guaranteed to be a type of kind `Type`.
 Dhall indicates such situations by the error message "Invalid function input".
 
-A more formal condition is that a type `X` "can be used for annotating a value" if we have `X : Type`, or `X : Kind`, or `X : Sort`.
+A   formal condition is that a type `X` "can be used in type annotations" if `X : Type`, or `X : Kind`, or `X : Sort`.
 So, Dhall functions of the form `λ(X : Kind) → λ(Y : X) → body` may not use `Y` in any type annotations within `body`.
-The argument `Y` may only be used as part of the function's return value.
+
 
 Dhall functions of the form `λ(X : Type) → body` or `λ(X : Kind) → body` _may_ use `X` in type annotations within `body`.
 
@@ -3122,7 +3134,7 @@ The type of `f` is `(Type → Type) → Type`.
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, such laws may be verified only through testing.
-Dhall's `assert` feature may be used to verify certain laws rigorously.
+Dhall's `assert` feature may be used to verify certain laws symbolically, which is equivalent to a machine-verified proof.
 
 A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x ≡ f y` for all `x` and `y` of a suitable type.
@@ -3134,20 +3146,20 @@ let f_const_law = λ(x : Natural) → λ(y : Natural) → assert : f x ≡ f y
 
 Dhall can determine that `f x ≡ f y` even though `x` and `y` are unknown, because it is able to evaluate `f x` and `f y` _symbolically_ within the body of `f_const_law`.
 Dhall's interpreter can simplify expressions inside function bodies.
-So, an `assert` within a function body will verify that the equation holds for all possible function arguments.
+So, an `assert` within a function body will verify that the law holds for all possible function arguments.
 
 Let us verify that the same law holds for any functions created via `const`:
 
 ```dhall
-let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) → λ(x : a) → λ(y : a) →
-  assert : const a b c x ≡ const a b c y
+let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) →
+      λ(x : a) → λ(y : a) →
+        let f = const a b c   in   assert : f x ≡ f y
 ```
-
 The Dhall interpreter will substitute the definition of `const` into that code and perform some evaluation, even though that code is under several layers of λ and arguments `a`, `b`, `c`, `x`, `y` have not yet been given.
 In this way, Dhall will be able to verify that the `assert` expression is valid.
 
-To see how this works in detail, begin by evaluating `const a b c x` within the body of the function `const_law`.
-
+To see how this works in detail, begin by evaluating `f x` within the body of the function `const_law`.
+First, Dhall will rewrite `f x` to `const a b c x`.
 Using the definition of `const`, Dhall will reduce `const a b c x` to just `c`.
 Also, `const a b c y` will be reduced to just `c`.
 There cannot be any further evaluation: the value `c` is unknown within the body of the function since `c` is a parameter.
@@ -3189,9 +3201,9 @@ The right-hand side of the assertion is the function `k`.
 The expression `λ(xx : a) → λ(yy : b) → k xx yy` is just an expanded form of the same function `k`.
 So, both sides of the assertion are equal.
 
-Here, Dhall verifies the equivalence of symbolic expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`.
-This code does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k` for the `assert` test.
-The `assert` verifies that both sides are equal "symbolically" (that is, equal as unevaluated code expressions with free variables).
+How does   Dhall verify  the equivalence of expression terms such as `λ(xx : a) → λ(yy : b) → k xx yy`?
+The Dhall interpreter  does not substitute any specific values of `xx` or `yy`, nor does it select a specific function `k`.
+The `assert` verifies that both sides are equal "symbolically"; that is, they must be _syntactically_ equal as unevaluated code expressions with free variables.
 This check is equivalent to a rigorous mathematical proof that the law holds.
 
 To see more examples, let us verify the laws of function composition:
@@ -3265,7 +3277,7 @@ Typeclasses can be implemented in Dhall via evidence values.
 Those values are passed as additional arguments to functions that require a typeclass constraint.
 
 With that technique, one can define and use different typeclass evidence values for the same type, if that is necessary.
-This is similar to the way Scala implements typeclasses (except Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
+This is similar to the way Scala implements typeclasses (except that Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
 
 ### Implementing typeclasses via  evidence values
 
@@ -3278,6 +3290,10 @@ A **typeclass instance** for a type `t` is a value of type `P t` that satisfies 
 That value is also called a **typeclass evidence** for the membership of `t` in the typeclass.
 We say that a type `t` "has an instance" of the typeclass if we are able to compute an evidence value of type `P t`.
 
+In languages such as Haskell and Scala, typeclass evidence values are implicit, making it easier for programmers to use typeclass membership.
+In Dhall, typeclasses are implemented by passing evidence values as explicit arguments to functions.
+For this reason, this book prefers to talk about evidence values rather than "typeclass instances".
+
 We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. $\square$
 
 To illustrate this definition, let us give an example using the `Semigroup` typeclass.
@@ -3285,7 +3301,7 @@ Below we will look at other typeclasses more systematically.
 
 ###### Example: The `Semigroup` typeclass
 
-A set is called a "semigroup" if there is a binary associative operation for it.
+In mathematics, a set is called a "semigroup" if there is a binary associative operation for it.
 In the language of types, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
 
 `append x (append y z) = append (append x y) z`
@@ -3295,15 +3311,17 @@ To express this property as a typeclass, we introduce a type constructor called 
 ```dhall
 let Semigroup = λ(t : Type) → { append : t → t → t }
 ```
-For example, `Natural` is a type that can be an instance of `Semigroup`.
+For example, `Natural` is a type that can belong to the `Semigroup` typeclass.
 A `Semigroup` typeclass evidence value for the type `Natural` is a value of type `Semigroup Natural` that satisfies the associativity law.
+
 Here are some examples of `Semigroup` evidence values:
 ```dhall
 let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
+let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ ", " ++ y }
 let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = composeForward Bool Bool Bool }
 ```
 
-The type `Natural`  is an instance of `Semigroup` because the associativity law holds for the evidence value `semigroupNatural`.
+The types `Natural`, `Text`, and `Bool → Bool` belong to the  `Semigroup` typeclass because the associativity law holds for their evidence values.
 
 The associativity law can be expressed using Dhall's equality types like this:
 ```dhall
@@ -3312,30 +3330,29 @@ let semigroup_law = λ(t : Type) → λ(ev : Semigroup t) →
     ev.append x (ev.append y z) ≡ ev.append (ev.append x y) z
 ```
 
-Dhall's typechecker is able to validate the associativity law for the evidence value `semigroupBoolToBool` (but not for `semigroupNatural`):
+Dhall's typechecker is able to validate the associativity law for the evidence value `semigroupBoolToBool` (but not for `semigroupNatural` or `semigroupText`):
 
 ```dhall
 let _ = λ(x : Bool → Bool) → λ(y : Bool → Bool) → λ(z : Bool → Bool) →
   assert : semigroup_law (Bool → Bool) semigroupBoolToBool x y z
 ```
-A value of type `semigroup_law (Bool → Bool) semigroupBoolToBool` can be seen as a symbolic proof that the `Semigroup` typeclass instance for `Bool → Bool` satisfies the associativity law.
+A value of type `semigroup_law (Bool → Bool) semigroupBoolToBool` can be seen as a symbolic proof that the `Semigroup` typeclass evidence for `Bool → Bool` satisfies the associativity law.
 
 The typeclass laws are an essential part of the definition of a typeclass, because program correctness often implicitly depends on those laws.
-So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type `semigroup_law t ev`.
+So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type  for the required laws.
 
 This is not a simple pair of values, because the _type_ of the second value depends on the first _value_.
-This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings for more complicated types".
+This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings for more complicated types" below.
 
 Most programming languages do not support dependent pairs.
-Dhall can encode their type (see the chapter "Church encodings for more complicated types" below) but provides only quite limited ways of working with dependent pairs.
+Dhall can encode their type  but provides only quite limited ways of working with dependent pairs.
 
-For this reason, one usually makes the pragmatic decision to represent typeclass instances only via evidence values (of type `P t`) and omit the equality type evidence altogether, relying on the programmer to validate the laws (e.g., by writing a proof by hand).
+For this reason, one usually makes the pragmatic decision to represent typeclass instances only via evidence values (of type `P t`) and omit the equality type  altogether, relying on the programmer to validate the laws (e.g., by writing a proof by hand).
 
-Below we will construct evidence values and only occasionally try a symbolic validation of the laws.
+Below we will construct evidence values and only occasionally perform a symbolic validation of the laws.
 
 As Dhall does not support implicit arguments, all typeclass evidence values must be defined and passed to functions explicitly.
 
-Dhall's `assert` feature may be sometimes used to verify typeclass laws.
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
@@ -3395,16 +3412,17 @@ To test this code, let us print a list containing values of a record type `{ use
 First, we define a `Show` evidence value for that type:
 ```dhall
 let UserWithId = { user : Text, id : Natural }
-let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) → "user ${r.user} with id ${Natural/show r.id}" }
+let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) →
+    "user ${r.user} has id ${Natural/show r.id}" }
 ```
 Then we can  use `printWithPrefix` to print a list of values of that type:
 ```dhall
-let users : List UserWithId = [ { user = "a", id = 1 }, { user = "b", id = 2 } ]
+let users : List UserWithId = [ { user = "A", id = 1 }, { user = "B", id = 2 } ]
 let printed = printWithPrefix UserWithId showUserWithId "users: " users
-let _ = assert : printed ≡ "users: user a with id 1, user b with id 2"
+let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
 ```
 
-Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we could define `Show` typeclass evidence values for the built-in types.
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for the built-in types.
 The function `printWithPrefix` could then be used with lists of types `List Natural`, `List Double`, etc.
 
 ###  The "Eq" typeclass
@@ -3416,11 +3434,11 @@ The function `equal` must satisfy the usual laws of a equality relation: reflexi
 - Reflexivity: for all `x : t` we must have `equal x x ≡ True`. It says that any value should be equal to itself.
 - Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`. It says that equality is symmetric.
 - Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y ≡ True` and `equal y z ≡ True` then we must have `equal x z ≡ True`.
-- Extensional identity: for all `t : Type` and `u : Type`, and for all `x : t`, `y : t`, `f : t → u`, if both `t` and `u` are instances of `Eq`, and if `equal x y ≡ True`, then we must have `equal (f x) (f y) ≡ True`. It says that for any `x` and `y` that are equal, any function `f` will also compute equal results `f x` and `f y`.
+- Extensional identity: for any `u : Type`, `v : Type` that both belong to the `Eq` typeclass, and for any `x : u`, `y : u` such that `equal x y ≡ True`, we must have   `equal (f x) (f y) ≡ True` for any `f : u → v`. In other words:   for any `x` and `y` that are equal, applying any function `f` will give equal results (`f x` and `f y`).
 
 The type constructor for the `Eq` typeclass can be defined like this:
 ```dhall
-let Eq = λ(t : Type) → { equal : t → t → Bool}
+let Eq = λ(t : Type) → { equal : t → t → Bool }
 ```
 
 In Dhall, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
@@ -3436,8 +3454,8 @@ let eqNatural : Eq Natural = { equal = Natural/equal }
 ```
 These evidence values satisfy all the required laws.
 
-We can then implement `Eq` instances for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, and other types for which `Eq` instances are given.
-To illustrate how that works in general, let us implement combinators that compute `Eq` instances for `Pair a b` and for `Either a b` from given `Eq` instances for arbitrary types `a` and `b`.
+We can then derive `Eq` evidence values for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, or other types for which `Eq` evidence is given.
+To illustrate how that works in general, let us implement combinators that compute `Eq` evidence values for `Pair a b` and for `Either a b` from given `Eq` evidence for arbitrary types `a` and `b`.
 ```dhall
 let eqPair : ∀(a : Type) → Eq a → ∀(b : Type) → Eq b → Eq (Pair a b)
   = λ(a : Type) → λ(eq_a : Eq a) → λ(b : Type) → λ(eq_b : Eq b) →
@@ -3457,10 +3475,10 @@ let eqEither : ∀(a : Type) → Eq a → ∀(b : Type) → Eq b → Eq (Either 
             } x
     }
 ```
-These combinators perform **typeclass derivation**: a typeclass instance for a more complicated type is derived from given typeclass instances for simpler types.
-When `Eq` instances are derived using `eqPair` and `eqEither`, it is guaranteed that the laws will all hold (assuming that those laws already hold for the simpler types).
+These combinators perform **typeclass derivation**: a typeclass evidence for a compound type is derived from given evidence values for simpler types.
+It is usually guaranteed that the laws will hold for new types (assuming that those laws already hold for the simpler types).
 
-Let us also show examples of `Eq` evidence values that violate some of the laws.
+For illustration, let us show examples of `Eq` evidence values that violate some of the laws.
 
 The first example uses a record as the type `t`.
 The comparison operation will only compare the first field of the record and ignore the second one:
@@ -3469,7 +3487,7 @@ let Record2 : Type = { n : Natural, label : Text }
 let eqRecord2: Eq Record2 = { equal = λ(x : Record2) → λ(y : Record2) → Natural/equal x.n y.n }
 ```
 
-This operation violates the extensional identity law: there are some functions `f` that give unequal results for records that are supposedly equal according to this typeclass instance.
+This operation violates the extensional identity law: there are some functions `f` that give unequal results for records that are supposedly equal according to this typeclass evidence.
 That will be the case for any function that uses the `label` field of the record, for instance:
 ```dhall
 let f : Record2 → Text = λ(x : Record2) → x.label ++ Natural/show x.n
@@ -3496,8 +3514,7 @@ This operation violates the reflexivity law: values such as `Union2.Right "abc"`
 The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
--- Haskell.
-class Monoid m where
+class Monoid m where    -- Haskell.
   mempty :: m
   mappend :: m -> m -> m
 ```
@@ -3506,8 +3523,7 @@ The values `mempty` and `mappend` are the **typeclass methods** of the `Monoid` 
 In Scala, a corresponding definition is:
 
 ```scala
-// Scala
-trait Monoid[M] {
+trait Monoid[M] {      // Scala.
  def empty: M
  def combine: (M, M) => M
 }
@@ -3524,9 +3540,9 @@ let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values showing that the type `Bool` belongs to the `Monoid` typeclass.
-We also say that values of that type "provide `Monoid` typeclass instances" to the `Bool` type.
+We also say that values of that type "provide `Monoid` typeclass evidence" for the `Bool` type.
 
-Let us write some specific `Monoid` instances for the types `Bool`, `Natural`, `Text`, and `List`:
+Here are examples of `Monoid` evidence for some types:
 ```dhall
 let monoidBool : Monoid Bool
   = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
@@ -3538,18 +3554,18 @@ let monoidList : ∀(a : Type) → Monoid (List a)
   = λ(a : Type) → { empty = [] : List a, append = λ(x : List a) → λ(y : List a) → x # y }
 ```
 
-The `Monoid` instances shown above are not the only ones possible.
-For example, one could implement a `Monoid` instance for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
-A `Monoid` instance for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
-The specific implementation of `Monoid` should be chosen according to the needs of a specific application.
+The `Monoid` evidence values shown above are not the only ones possible.
+For example, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
+A `Monoid` evidence for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
+The   implementation of `Monoid` should be chosen according to the needs of a specific application.
 
-A **semigroup** is a weaker typeclass that has the `append` method like a monoid, but without the `empty` method.
+A **semigroup** is a weaker typeclass that can be viewed as a monoid without the `empty` method.
 
 ```dhall
 let Semigroup = λ(m : Type) → { append : m → m → m }
 ```
 
-Any monoid is a semigroup, but not all semigroups are monoids, because the `empty` method cannot be defined for certain types.
+Any monoid is a semigroup, but not all semigroups are monoids, because no suitable `empty` method can be defined for certain types.
 
 ### Functions with typeclass constraints
 
@@ -3610,7 +3626,7 @@ let monoidLaws = λ(m : Type) → λ(monoid_m : Monoid m) → λ(x : m) → λ(y
 Note that we did not add `assert` expressions here.
 If we did, the assertions would have always failed because the body of `monoidLaws` cannot yet substitute a specific implementation of `monoid_m` to check whether the laws hold.
 For instance, the expressions `plus e x` and `x` are always going to be different _while typechecking the body of that function_, which happens before that function is ever applied.
-Those expressions will become the same only after we apply `monoidLaws` to a type `m` and to a lawful instance of a `Monoid` typeclass for `m` that provides code for `append` and `empty`.
+Those expressions will become the same only after we apply `monoidLaws` to a type `m` and to a lawful `Monoid` evidence   for `m` that provides code for `append` and `empty`.
 
 To check the laws, we will write `assert` values corresponding to each law.
 
@@ -3621,7 +3637,8 @@ let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool
   assert : (monoidLaws Bool monoidBool x y z).monoid_left_id_law
 ```
 
-The symbolic law checking works only in sufficiently simple cases. For instance, the current version of Dhall cannot establish and equivalence between expressions `x + (y + z)` and `(x + y) + z` when `x`, `y`, `z` are free variables of type `Natural`.
+The symbolic law checking works only in sufficiently simple cases.
+For instance, the current version of Dhall cannot establish an equivalence between expressions `x + (y + z)` and `(x + y) + z` when `x`, `y`, `z` are free variables of type `Natural`.
 So, it is not possible to check the associativity law for `monoidNaturalSum`.
 
 
@@ -3635,7 +3652,7 @@ For type constructors, "covariant" means "has a lawful `fmap` method".
 Note that this definition of "covariant" does not depend on the concept of subtyping.
 One can decide whether a type constructor is covariant just by looking at its type expression.
 
-The intuition behind "covariant functors" is that they represent data structures or "data containers" that can store (zero or more) data items of any given type.
+The intuition behind covariant functors is that they represent  "data containers" that can store some data items of a given type.
 
 We will call covariant functors just "functors" for short.
 
@@ -4830,7 +4847,7 @@ let semigroupText : Semigroup Text
 ```
 
 We can use this definition to rewrite the `Monoid` typeclass using the record type from the `Semigroup` typeclass.
-We can also rewrite the `Monoid` evidence value for the type `Text` using the `Semigroup` typeclass instance for `Text` (defined above as `semigroupText`):
+We can also rewrite the `Monoid` evidence value for the type `Text` using the `Semigroup` evidence for `Text` (defined above as `semigroupText`):
 
 ```dhall
 let Monoid = λ(m : Type) → Semigroup m //\\ { empty : m }
@@ -8479,8 +8496,7 @@ The data type is defined as `data F a`, which shows only the type parameter `a`.
 The corresponding code in Scala is:
 
 ```scala
-// Scala
-sealed trait F[_]
+sealed trait F[_]     // Scala.
 case class F1[A, T](init: T => Boolean, transform: T => A) extends F[A]
 ```
 The type parameter `T` is visible only within the scope of the case class `F1` but is not visible outside.
@@ -9104,11 +9120,11 @@ let _ = assert : f "abc" "def" ≡ "abcdef"
 
 Using a singleton type as a function argument gives no practical advantages in Dhall because we need to know the singleton's value in advance at all usage sites.
 
-### Typeclass instances with laws
+### Evidence for typeclass laws
 
 
-Dependent pairs can be used to encode typeclass instances that are guaranteed to satisfy the typeclass laws.
-In this sense, a typeclass instance with evidence of laws is a refinement type.
+Dependent pairs can be used to assure  that a typeclass evidence value satisfies the typeclass laws.
+In this sense, a typeclass  evidence type becomes a refinement type.
 
 A simple example is the `Semigroup` typeclass with the associativity law.
 Recall the definitions shown in the chapter "Typeclasses":
@@ -9988,7 +10004,7 @@ The `Stream` type constructor is a functor.
 The corresponding `fmap` function, called `Stream/map`, can be implemented like this:
 
 ```dhall
--- Define some typeclass instances to make code more concise.
+-- Define some typeclass evidence values to make code more concise.
 let HT = λ(h : Type) → λ(t : Type) → < Cons : { head : h, tail : t } | Nil >
 let bifunctorHT : Bifunctor HT = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(pab : HT a b) → merge {
   Cons = λ(ht : { head : a, tail : b }) → (HT c d).Cons { head = f ht.head, tail = g ht.tail },
@@ -10065,17 +10081,24 @@ Define the "finite" data constructors using the general `fixG` function:
 
 todo: implement
 
-These data constructors can create any finite tree of type `BInfTree`:
+These data constructors can create  finite trees of type `BInfTree`:
 
 todo: implement
 
-To create infinite trees, we need    more general data constructors that use  `makeGFix`.
+To build infinite trees, we need    more general data constructors that use  `makeGFix`.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
 This is because there are infinitely many different ways in which one can build an infinite tree.
 For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
 In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
 
+Our first example is an infinite tree that contains no data: the tree starts with a `Branch`, and each branch is again a `Branch`.
+We can implement this tree as a generic value of type `BInfTree a` for any type `a` since we will not need to store any values.
+
 TODO: implement
+
+The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while branching further always on the right.
+
+The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
 ### Example: labeled cyclic graphs
 
@@ -10092,11 +10115,13 @@ The lack of support for recursion applies both to types and to values.
 
 Nevertheless, we have seen that Dhall can work with recursive types if one uses a trick known as the Church encoding of fixpoints.
 
-In this chapter, we will see that Dhall can also accept a wide range of recursive _code_, including code that does not use any recursive types.
-This is achieved by a procedure we call the Hu-Iwasaki-Takeichi ("HIT") algorithm.
+In this chapter, we will see that Dhall can be also adapted to work with a wide range of recursive _code_, including code that does not use any recursive types.
+This is achieved by a procedure we call the **Hu-Iwasaki-Takeichi algorithm**  (the "HIT" algorithm).
+
 The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, known as a "hylomorphism".
-To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value to be used if the recursion bound turns out to be too low.
-In many cases, those modifications are straightforward.
+To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value.
+The stop-gap value will be used if the recursion bound turns out to be too low.
+
 
 We will begin by explaining the notion of a "hylomorphism" and giving some examples.
 
@@ -10615,8 +10640,8 @@ let P = λ(T : Type) →
   | ???  -- And so on.
 >
 ```
-We will also need to define `Functor` and `Foldable` typeclass instances for the chosen functor `P`.
-(Later chapters in this book show general procedures for defining such typeclass instances for all functors `P` of the required form.)
+We will also need to define `Functor` and `Foldable` typeclass evidence values for the chosen functor `P`.
+(Later chapters in this book show general procedures for defining such evidence values for all functors `P` of the required form.)
 
 The next step is to define suitable functions `coalg : X → P X` and `alg : P Y → Y` such that the code of `f` is equivalent to `hylo coalg alg`.
 The function `coalg` prepares the arguments for the recursive calls, and the function `alg` performs the post-processing after the recursive calls are done:
@@ -11166,7 +11191,7 @@ The result is a set of standard combinators that create larger (contra)functors 
 
 All the combinators preserve functor laws; the created new functor instances are automatically lawful.
 This is proved in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
-We will only give the Dhall code that creates the typeclass instance values for all the combinators.
+We will only give the Dhall code that creates the typeclass evidence values for all the combinators.
 
 ### Constant (contra)functors
 
@@ -11668,7 +11693,7 @@ Here, we will focus on implementing those combinators in Dhall.
 
 A constant functor is at the same time a contrafunctor and is always filterable.
 The `deflate` function and the `inflate` function are just identity functions.
-The typeclass instances are:
+The typeclass evidence values are:
 ```dhall
 let filterableConst : ∀(c : Type) → Filterable (Const c)
   = λ(c : Type) → functorConst c /\ { deflate = λ(a : Type) → identity c }
@@ -12900,8 +12925,8 @@ let monadFreePointed : ∀(F : Type → Type) → Monad F → Monad (CoProduct I
 
 ### Function types
 
-With several other typeclasses we have seen in previous chapters, the `Arrow` constructor (`Arrow F M a = F a → M a`) gives another typeclass instance.
-However, it is not true that `Arrow F M` is a monad whenever `F` and `M` are monads.
+With several other typeclasses we have seen in previous chapters, the `Arrow` constructor (`Arrow F M a = F a → M a`) preserves those typeclasses.
+However, `Arrow` does not preserve monads: it is not true that `Arrow F M` is a monad whenever `F` and `M` are monads.
 The main reason is that monads must be covariant functors, while `F a → M a` can be covariant only if `F` is contravariant.
 
 Nevertheless, there exists a construction that produces lawful monads of type `F a → M a`.
@@ -13671,9 +13696,10 @@ data Free F a = Pure a | Join (F (Free T a)) -- Haskell.
 ```
 
 To translate this Haskell definition into Dhall, we need to use the Church encoding.
-Denote temporarily by `r` the recursive type `Free F a` and hold the type parameter `a` fixed; then we obtain the recursive definition `r = Pure a | Join (F r)`.
+Denote temporarily by `r` the recursive type `Free F a` (where we hold the type parameter `a` fixed).
+Then we obtain the recursive definition `r = Pure a | Join (F r)`.
 Now it is straightforward to Church-encode this definition.
-We curry the function type to make the implementation easier:
+We just curry the function type to make the implementation easier:
 ```dhall
 let FreeMonad : ∀(F : Type → Type) → Type → Type
   = λ(F : Type → Type) → λ(a : Type) →
@@ -13739,19 +13765,25 @@ let _ = assert : showFrTreeBool flattenedFrTree ≡ "[ [ True, True ], [ False, 
 
 
 We note that the code for `monadFreeMonad` does not use a `Functor` evidence for `F`.
-However, we need to keep in mind that the Church encoding will work correctly only when `F` is a functor.
+However, we need to keep in mind that the code of `FreeMonad` will work correctly only when `F` is a functor.
 Applying `fix`, `unfix`, or other operations will require a `Functor` evidence for `F`.
 
-As an example, let us implement a function that transforms `F (FreeMonad F a)` into `FreeMonad F a`.
+As an example, let us implement a function `fixFreeMonad` that transforms `F (FreeMonad F a)` into `FreeMonad F a`.
+Similarly to the standard `fix` method, as it allows us to derive the data constructors for the free monad types.
 
 ```dhall
-let absorbFFreeMonad : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F (FreeMonad F a) → FreeMonad F a
+let fixFreeMonad : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F (FreeMonad F a) → FreeMonad F a
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(ffm : F (FreeMonad F a)) →
     λ(r : Type) → λ(ar : a → r) → λ(frr: F r → r) →
       let fm2r : FreeMonad F a → r = λ(fm : FreeMonad F a) → fm r ar frr
       let fr : F r = functorF.fmap (FreeMonad F a) r fm2r ffm
       in frr fr
 ```
+
+In the example with `FrTree`, we have written the data constructors (`frLeaf` and `frBranch`) by hand.
+But their code could be also derived mechanically.
+The code of `frLeaf` is the same as the free monad's `pure` method.
+The code of `frBranch` could be derived by applying `fixFreeMonad` to a value of type `D (FrTree a)`.
 
 ## Monad transformers
 
@@ -14395,12 +14427,13 @@ let completeTransformerTNEL : CompleteTransformer TNEL
 
 ## Free typeclass instances
 
-Certain typeclasses support "free instances", which means a type construction that automatically creates a typeclass instance out of another type that does not necessarily belong to that typeclass.
+Certain typeclasses support "free instances".
+A "free instance" creates a type that belongs to a typeclass out of another type that does not necessarily belong to that typeclass.
 
-For example, a "free monoid on `T`" is the type `List T`.
+For example, a "free monoid on `T`" creates a monoidal type out of any given type `T` in a certain way.
+It turns out that the free monoid on `T` is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
-So, the "free monoid on `T`" is a construction that creates a monoidal type out of any given type `T`.
-It works by wrapping the type `T` by the `List` functor.
+So, the free monoid is created by the type constructor `List`.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
 
@@ -14415,16 +14448,23 @@ It turns out that a wide range of typeclasses (called **$P$-typeclasses** in "Th
 The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are $P$-typeclasses.
 All those typeclasses admit "free instances", which this chapter will implement.
 
-To qualify as a free typeclass, the type constructor must satisfy certain laws that are beyond the scope of this book.
-See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for full details.
-
-As an example of a type constructor that is _not_ a free typeclass instance, consider the "`Optional` monoid" construction (see the chapter "Combinators for monoids").
+To qualify as a free typeclass instance, the type constructor must satisfy certain laws (that we will not write out in detail here).
+An example of a type constructor that does _not_ give a free typeclass instance is the "`Optional` monoid" construction (see the chapter "Combinators for monoids" where we defined `monoidOptionalKeepX` and `monoidOptionalKeepY`).
 This construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
-So, `Optional T` can be also described as a "wrapping" that is guaranteed to produce a monoid out of any type `T`.
+So, `Optional T` can be also viewed as a construction that is guaranteed to produce a monoid out of any type `T`.
 But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of a free typeclass instance.
+
+How can we see that?
+One of the required properties is that for any monoid `M` there must be a function of type `Optional M → M` that preserves the operations of both monoids.
+But the definitions of `monoidOptionalKeepX` or `monoidOptionalKeepY` do not satisfy that property.
+Both those functions lose information about one of the arguments and cannot preserve the monoid operations.
 
 Keep in mind that not all typeclasses can have free instances.
 Examples of typeclasses that cannot have free instances are `Eq`, `Show`, `Comonad`, `Foldable`, and `Traversable`.
+
+The study of the theory of free typeclass instances is beyond the scope of this book.
+See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for full details.
+
 
 ### $P$-typeclasses and their free instances
 
@@ -14434,13 +14474,24 @@ the required properties involve functions with quite different type signatures.
 
 #### Free $P$-typeclasses for ordinary types
 
-We will first describe the free typeclass instance for ordinary types.
+To describe the free typeclass instances for ordinary types, we begin by motivating the notion of a $P$-typeclass.
 
-TODO: explain more about why we can use P t → t and refer to examples later in this chapter
+Look at the type signatures of methods required by an  evidence value of type `Monoid m`, which we defined as `{ empty : m , append : m → m → m }`.
+We find that each method creates a value of type `m` as a final result.
+To make this property explicit, we can uncurry the `append` method into the equivalent type `Pair m m → m`.
+Then we rewrite the record type `{ empty : m , append : Pair m m → m }` in the equivalent form `something → m`, where `something` is the union type `< Empty | Append : Pair m m >`.
 
+The methods for the `Semigroup` typeclass can be also rewritten in the form `something → m`, where `something` is simply `Pair m m`.
+
+Many typeclasses have methods whose final result type is the typeclass member type itself.
+The evidence type for those typeclasses can be rewritten in the equivalent form `something → m`, where `something` is a type expression that depends on `m`.
+If we introduce a type constructor `P` and denote that expression by `P m`, we arrive at the formulation of typeclass evidence as a value of type `P m → m`.
+In most cases of interest, `P` will be a covariant functor, called the "structure functor" of the typeclass.
+
+This motivates the definition of a $P$-typeclass.
 Each  $P$-typeclass is defined via a chosen structure functor `P` (of kind `Type → Type`).
 A type `t` belongs to the $P$-typeclass if there exists an evidence value of type `P t → t`.
-In addition, the evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses do not have any laws).
+In addition, the evidence value must satisfy the laws appropriate for the typeclass (if any laws are required; some typeclasses have no laws).
 
 We may write down the required type signature as:
 ```dhall
@@ -14450,20 +14501,19 @@ We will not specify laws as part of the typeclass definition: the limited suppor
 
 We will need to define the property of "preserving the $P$-typeclass operations".
 This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same $P$-typeclass.
-We say that `f` "preserves the typeclass operations" if the following law holds: For any `x : P u`,
+We say that `f` "preserves the $P$-typeclass operations" if the following law holds: For any `x : P u`,
 
 `pTypeclassV (functorP.fmap u v f x) = f (pTypeclassU x)`
 
 where `pTypeclassU : P u → u` and `pTypeclassV : P v → v` are evidence values for types `u`, `v`. 
 
-This law expresses the structural property of `f`: any operations of the $P$-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
+This law expresses the structural property of `f`: any operation of the $P$-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
 
 The "lawful free $P$-typeclass instance" is a type constructor we will denote by `FreeP`, with the following properties:
 
-- For any type `t` (not necessarily of the $P$-typeclass) the type `FreeP t` belongs to the $P$-typeclass. The evidence value `ev : P t → t` satisfies the typeclass laws.
-- For any types `s`, `t` and any function `f : s → t` the function `fmap s t f` of type `FreeP s → FreeP t` preserves the $P$-typeclass operations.
+- For any type `t` (not necessarily of the $P$-typeclass) the type `FreeP t` belongs to the $P$-typeclass. There exists an evidence value `ev : P (FreeP t) → FreeP t` that satisfies the typeclass laws. The evidence value `ev` is a natural transformation in `t` (works in the same way for all `t`).
 - The type constructor `FreeP` is a monad. Its `pure` method converts values of type `t` into values of type `FreeP t`. 
-- For any type `p` that already belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. When `p = FreeP t` (for some `t`) then the mentioned function of type `FreeP (FreeP t) → FreeP t` is the `join` method of the monad `FreeP`.
+- For any type `p` that belongs to the $P$-typeclass, there exists a unique function `eval : FreeP p → p` that preserves the $P$-typeclass operations. If we set `p = FreeP t` (for any chosen `t`) then the function `eval` of type `FreeP (FreeP t) → FreeP t` is the same as the `join` method of the monad `FreeP`.
 
 These requirements (without the laws) may be formulated in terms of a typeclass:
 
@@ -14476,6 +14526,7 @@ let FreePTypeclass = λ(P : Type → Type) → λ(FreeP : Type → Type) →
 ```
 
 The free $P$-typeclass instance `FreeP t` belongs to the $P-typeclass even if `t` does not.
+
 For any   type `u` that belongs to the $P$-typeclass, we may convert `FreeP t` into `u` as long as we have a function of type `t → u`.
 The required conversion function (called `runP`) may be implemented generally, given an evidence value of `FreePTypeclass`:
 
@@ -14486,21 +14537,20 @@ let runP : ∀(P : Type → Type) → ∀(FreeP : Type → Type) → FreePTypecl
     in freePT.eval u pTu freeU
 ```
 
-The monad property of `FreeP` is helpful for formulating the laws of a $P$-typeclass in the language of category theory.
-In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a $P$-functor algebra.
-The typeclass laws  turn out to be equivalent to `t` being a monad algebra (of the monad `FreeP`).
-So, a $P$-typeclass with laws is described as a set of $P$-functor algebras that are at the same time $F$-monad algebras, with suitable choices of $P$ and $F$. 
+The monad property of `FreeP` is mainly helpful for formulating the laws of a $P$-typeclass in the language of category theory.
+In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a functor algebra of the functor $P$.
+The typeclass laws  turn out to be equivalent to `t` being a monad algebra of the monad `FreeP`.
+So, a $P$-typeclass with laws is described as a set of all $P$-functor algebras that are at the same time $F$-monad algebras, with suitable choices of $P$ and $F$. 
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
-This book focuses on code rather than on proofs of laws or category theory.
+This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
 
 It is not known how to construct a free $P$-typeclass in general for arbitrary $P$ and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
 
-When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$ and turns out to be just the free monad on $P$.
+When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$.
+It   turns out to be just the free monad on $P$.
 This $P$-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
-Unevaluated expression trees have the right shape for all the typeclass operations but will not satisfy any typeclass laws.
-
-TODO: give a simple example with a DSL having 2 operations?
+Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any  extra laws.
 
 Here is an implementation of `FreePTypeclass` via `FreeMonad` that works for an arbitrary $P$-typeclass _without_ laws:
 
@@ -14509,12 +14559,71 @@ Here is an implementation of `FreePTypeclass` via `FreeMonad` that works for an 
 let freePTypeclassFreeP : ∀(P : Type → Type) → Functor P → FreePTypeclass P (FreeMonad P)
   = λ(P : Type → Type) → λ(functorP : Functor P) →
   { evidence = λ(t : Type) → λ(pf : P (FreeMonad P t)) →
-      absorbFFreeMonad P functorP t pf
+      fixFreeMonad P functorP t pf
   , monadFreeP = monadFreeMonad P
   , eval = λ(p : Type) → λ(methods : P p → p) → λ(expr : FreeMonad P p) →
       expr p (identity p) methods
   }
 ```
+
+#### Example of a $P$-typeclass and its free instance
+
+To illustrate how $P$-typeclasses and their free instances work, consider a typeclass called `TC2`.
+A type  `t` belongs to the `TC2` typeclass if:
+- We can create a value of type `t` out of a `Natural` number.
+- We can apply a value of type `t` to a `Bool` value and get another value of type `t`.
+
+To encode the methods of this typeclass in Dhall, we may write:
+
+```dhall
+let TC2 = λ(t : Type) → { make : Natural → t, apply : t → Bool → t }
+```
+
+Here are examples of  `TC2` evidence values for `Bool` and `Natural`:
+
+```dhall
+let TC2Bool : TC2 Bool
+  = { make = Natural/isEven
+    , apply = Bool/or
+    }
+let TC2Natural : TC2 Natural
+  = { make = identity Natural
+    , apply = λ(n : Natural) → λ(b : Bool) →
+        if b then n + 1 else Natural/subtract 1 n
+    }
+```
+
+We do not require any laws for the operations `make` and `apply`.
+
+The first step is to reformulate `TC2` as a $P$-typeclass.
+We   uncurry the type signature of `apply` to get the type `Pair t Bool → t`.
+Then we  combine both methods into a single value of type `P t → t`.
+A suitable functor `P` is defined by:
+
+```dhall
+let PTC2 = λ(t : Type) → < Make : Natural | Apply : Pair t Bool >
+let functorPTC2 : Functor PTC2 = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : PTC2 a) →
+    merge { Make = λ(n : Natural) → (PTC2 b).Make n
+          , Apply = λ(p : Pair a Bool) → (PTC2 b).Apply (p // { _1 = f p._1 })
+          } fa
+  }
+```
+
+Next, we use the free monad constructor to obtain a free instance of `TC2`:
+
+```dhall
+let FreeTC2 = λ(t : Type) → FreeMonad PTC2 t
+```
+
+We need some helper functions for building values of type `FreeTC2 t`.
+There are two ways of doing this:
+- From a value of type `t`: via the free monad's `pure` method.
+- From a value of type `PTC2 t`: via the function `fixFreeMonad`.
+
+As the type constructor `PTC2` is a union type with two parts, there will be two data constructors derived from `fixFreeMonad`.
+
+
+TODO: give a simple example with a DSL having 2 operations
 
 
 #### Free $P$-typeclasses for type constructors
@@ -14749,7 +14858,7 @@ Also, the `pure` field requires a `Functor` evidence for `T`.
 ### Free functor
 
 It turns out that the `Functor` typeclass itself can be represented as a $P$-typeclass and has a free instance.
-This allows us to create functors out of arbitrary type constructors.
+This allows us to create functors out of arbitrary type constructors (such as GADTs).
 
 Begin by writing the type signature of a functor's `fmap` method:
 ```dhall
@@ -18131,3 +18240,5 @@ in "Example code from the book was evaluated successfully."
 This becomes the last line in `generated.dhall`.
 
 The `Makefile` script will show this message and proceed to building the PDF file only if the entire book's source file was parsed correctly and if the complete Dhall code typechecked without errors.
+
+The typechecked code constitutes about 30$\%$ of the book's text.
