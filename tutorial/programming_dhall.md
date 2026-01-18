@@ -14625,6 +14625,18 @@ There are two ways of doing this:
 - From a value of type `PTC2 t`: via the function `fixFreeMonad`.
 
 As the type constructor `PTC2` is a union type with two parts, there will be two data constructors derived from `fixFreeMonad`.
+In total, we have three data constructors:
+
+```dhall
+let wrapTC2 : ∀(t : Type) → t → FreeTC2 t
+  = λ(t : Type) → (monadFreeMonad PTC2).pure t
+let makeTC2 : ∀(t : Type) → Natural → FreeTC2 t
+  = λ(t : Type) → λ(n : Natural) →
+      fixFreeMonad PTC2 functorPTC2 t ((PTC2 (FreeTC2 t)).Make n)
+let applyTC2 : ∀(t : Type) → FreeTC2 t → Bool → FreeTC2 t
+  = λ(t : Type) → λ(x : FreeTC2 t) → λ(b : Bool) →
+      fixFreeMonad PTC2 functorPTC2 t ((PTC2 (FreeTC2 t)).Apply { _1 = x, _2 = b })
+```
 
 
 TODO: give a simple example with a DSL having 2 operations

@@ -41,13 +41,15 @@ The following enhancements could be implemented by changing only the parser:
 | `∀(x : X)(y : Y)(z : Z) → expr`         | `∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr`                                                             |
 | `λ(x : X)(y : Y)(z : Z) → expr`         | `λ(x : X) → λ(y : Y) → λ(z : Z) → expr`                                                             |
 | `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where the type annotation (`Z`) is optional              |
+| `∀ { x : X, y : Y } → texpr`            | `∀(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in texpr`                                     |
 | `λ { x : X, y : Y } → expr`             | `λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in expr`                                      |
 | `let f { x : X, y : Y } : Z = expr`     | `let f = λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in (expr : Z)` where `Z` is optional  |
 | `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where the type annotations (`A`, `B`) are optional        |
-| `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may need to be single-back-quoted                                         |
+| `let { x, y } = c in d`                 | `let x = c.x in let y = c.y in d`                                                                   |
+| `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may still need to be single-back-quoted                                   |
 | `f a $ g b`  at low precedence          | `f a (g b)`                                                                                         |
 | `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version `pipe` or `pipe >` of the triangle)                    |
-| `x.[a]`                                 | `List.index A a x`    (with inferred type)                                                          |
+| `x.[a]`                                 | `List.index A a x`    (this depends on inferring the type parameter)                                |
 | `{ f (x : X) (y : Y) = expr }`          | `{ f = λ(x : X) → λ(y : Y) → expr }`    (record field with a function type)                         |
 
 The precedence of the operator `|>`
@@ -57,13 +59,15 @@ The operators `|>` and all double back-quoted infix operators associate to the l
 
 The operator `$` associates to the right as in Haskell.
 
+Non-breaking space (` `) should be parsed equivalently to normal space.
+
 ## Typechecker and beta-reducer with a "value context"
 
 A "value context" `D` is a set of ordered pairs of terms.
 
 `D = { x = y, a = b, ... }`
 
-If `D` contains `x = y` then it is assumed also that `D` contains `y = x`. (Do we need this feature?)
+If `D` contains `x = y` then it is assumed also that `D` contains `y = x`. (Do we need this?)
 
 If `D` contains `x = y` and we are type-checking or beta-reducing an expression that has `x` free, we may substitute `y` instead of `x` in that expression.
 
