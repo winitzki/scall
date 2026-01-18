@@ -14570,6 +14570,14 @@ let freePTypeclassFreeP : ∀(P : Type → Type) → Functor P → FreePTypeclas
   }
 ```
 
+The generic function `runP` is specialized to this case as:
+
+```dhall
+let runPTypeclassFreeP : ∀(P : Type → Type) → Functor P → ∀(t : Type) → FreeMonad P t → ∀(u : Type) → PTypeclass P u → (t → u) → u
+  = λ(P : Type → Type) → λ(functorP : Functor P) → λ(t : Type) → λ(x : FreeMonad P t) → λ(u : Type) → λ(ev : P u → u) → λ(conv : t → u) →
+      runP P (FreeMonad P) (freePTypeclassFreeP P functorP) t x u ev conv 
+```
+
 #### Example of a $P$-typeclass and its free instance
 
 To illustrate how $P$-typeclasses and their free instances work, consider a typeclass called `TC2`.
@@ -14583,13 +14591,9 @@ To encode the methods of this typeclass in Dhall, we may write:
 let TC2 = λ(t : Type) → { make : Natural → t, apply : t → Bool → t }
 ```
 
-Here are examples of  `TC2` evidence values for `Bool` and `Natural`:
+Here is an of a `TC2` evidence value for the type `Natural`:
 
 ```dhall
-let TC2Bool : TC2 Bool
-  = { make = Natural/even
-    , apply = `||`
-    }
 let TC2Natural : TC2 Natural
   = { make = identity Natural
     , apply = λ(n : Natural) → λ(b : Bool) →
@@ -14613,18 +14617,27 @@ let functorPTC2 : Functor PTC2 = { fmap = λ(a : Type) → λ(b : Type) → λ(f
   }
 ```
 
-Next, we use the free monad constructor to obtain a free instance of `TC2`:
+The typeclass evidence for `Natural` then looks like this:
+
+```dhall
+let tc2Natural : PTypeclass PTC2 Natural = λ(pt : PTC2 Natural) →
+  merge { Make = TC2Natural.make
+        , Apply = λ(p : Pair Natural Bool) → TC2Natural.apply p._1 p._2
+        } pt
+```
+
+Now we use the free monad constructor to obtain a free instance of `TC2`:
 
 ```dhall
 let FreeTC2 = λ(t : Type) → FreeMonad PTC2 t
 ```
 
-We need some helper functions for building values of type `FreeTC2 t`.
-There are two ways of doing this:
+Next, we derive  data constructors for building values of type `FreeTC2 t`:
+
 - From a value of type `t`: via the free monad's `pure` method.
 - From a value of type `PTC2 t`: via the function `fixFreeMonad`.
 
-As the type constructor `PTC2` is a union type with two parts, there will be two data constructors derived from `fixFreeMonad`.
+As the type constructor `PTC2` is a union type with two parts, there will be two data constructors derived via `fixFreeMonad`.
 In total, we have three data constructors:
 
 ```dhall
@@ -14638,8 +14651,31 @@ let applyTC2 : ∀(t : Type) → FreeTC2 t → Bool → FreeTC2 t
       fixFreeMonad PTC2 functorPTC2 t ((PTC2 (FreeTC2 t)).Apply { _1 = x, _2 = b })
 ```
 
+An example value of type `FreeTC2 t` can be now computed.
+We set `t = Natural → Natural`, as we do not have a `TC2` evidence value for that type.
+We may use any of the three constructors:
+```dhall
+let exampleT = Natural → Natural
+let exampleFunc : exampleT = λ(n : Natural) → n + 200
+let example1TC2 : FreeTC2 exampleT = applyTC2 exampleT (makeTC2 exampleT 123) True
+let example2TC2 : FreeTC2 exampleT = applyTC2 exampleT (wrapTC2 exampleT exampleFunc) False
+```
+The example values are unevaluated expression trees involving operations of the typeclass and arbitrary values of type `exampleT`.
+The data constructors `makeTC2` and `applyTC2` not only serve to build values but also implement the free typeclass operations.
 
-TODO: give a simple example with a DSL having 2 operations
+Finally, we may use the generic function `runP` in order to convert values such as `example1TC2` and `example2TC2` into values of a specific type `m` that belongs to the typeclass.
+To use `runP` with values of type `FreeTC2 t`, we will need to provide a function of type `t → m`.
+
+As an example, we set `m = Natural` and choose the function `exampleT → Natural` like this:
+
+```dhall
+let convTC2 : exampleT → Natural = λ(f : exampleT) → f 100
+let result1 : Natural = runPTypeclassFreeP PTC2 functorPTC2 exampleT example1TC2 Natural tc2Natural convTC2
+let _ = assert : result1 ≡ 124
+let result2 : Natural = runPTypeclassFreeP PTC2 functorPTC2 exampleT example2TC2 Natural tc2Natural convTC2
+let _ = assert : result2 ≡ 299
+```
+
 
 
 #### Free $P$-typeclasses for type constructors
