@@ -12465,9 +12465,9 @@ Then we may define the recursive functors `C` and `D` such that `C a = LFix (F a
 We will now show that the functors `C` and `D` are applicative as long as `F` has a special `zip`-like method that works at once with both type parameters.
 
 As it turns out, there are several possible ways of defining a `zip` method for bifunctors, and each of those possibilities has its uses.
-One possibility is the method we call `bizip`, with the following type signature:
+One possibility is the method we call `bizipT`, with the following type signature:
 
-`bizip : F a s → F b t → F (Pair a b) (Pair s t)`.
+`bizipT : F a s → F b t → F (Pair a b) (Pair s t)`.
 
 We may define this type signature formally as a Dhall type constructor:
 
@@ -12478,16 +12478,16 @@ let BizipT = λ(F : Type → Type → Type) →
     F (Pair a b) (Pair s t)
 ```
 
-The requirement of having `bizip` turns out to be too strong for some `F`.
+The requirement of having `BizipT` turns out to be too strong for some `F`.
 For example, binary trees are defined via the pattern bifunctor `F a b = Either a (Pair b b)`.
-But implementing `bizip : BizipT F` is impossible for this `F`:
+But implementing `bizipT : BizipT F` is impossible for this `F`:
 In one of the required pattern-matching cases, we would need to implement a function of type `a → Pair t t → Either (Pair a b) (Pair (Pair s t) (Pair s t))`.
 This is not possible as we cannot produce values of unknown types `b` or `s` from scratch.   
 
 Implementing a `zip` function for binary trees and many other recursive data structures becomes possible
-if we impose a suitable requirement for `F` that is weaker than having `bizip`.
+if we impose a suitable requirement for `F` that is weaker than having `bizipT`.
 
-We will use two weaker versions of `bizip`, called `bizipI` and  `bizipL`.
+We will use two weaker versions of `bizipT`, called `bizipI` and  `bizipL`.
 The  type signature of `bizipI` is:
 
 `bizipI : F a r → F b r → F (Pair a b) r`
@@ -12513,15 +12513,15 @@ let BizipL = λ(F : Type → Type → Type) → ∀(L : Type → Type) → Funct
 
 Now we turn to implementing  `zip` for the greatest fixpoint `D`.
 
-If we assume that `F` has a `bizip` method, we can implement `zip` by unpacking the existential types within the greatest fixpoints.
+If we assume that `F` has a `bizipT` method, we can implement `zip` by unpacking the existential types within the greatest fixpoints.
 Recall that the greatest fixpoint `D` is encoded as $D~a = \exists t.~t\times (t\to F~a~t)$.
 If we have two values of types `D a` and `D b`, we may unpack those values and obtain values of types `F a s` and `F b t` (under universal quantifiers for `s` and `t`).
-The `bizip` method will then give us a value of type `F (Pair a b) (Pair s t)`, which is sufficient for constructing a value of the fixpoint type `GFix (F (Pair a b))`.
+Applying `bizipT`  will then give us a value of type `F (Pair a b) (Pair s t)`, which is sufficient for constructing a value of the fixpoint type `GFix (F (Pair a b))`.
 
 This gives the following code of `zip`:
 
 ```dhall
-let zipViaBizip : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : Type) → GFix (F c))
+let zipViaBizipT : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(bizip : BizipT F) →
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
@@ -12545,21 +12545,21 @@ let unitViaBiunit : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
     makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
 ```
 
-Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicative` evidence for the greatest fixpoint:
+Assuming suitable laws for `bizipT` and `biunit`, we can now write an `Applicative` evidence for the greatest fixpoint:
 
 ```dhall
 let applicativeGFix : ∀(F : Type → Type → Type) → BizipT F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
-  = λ(F : Type → Type → Type) → λ(bizip : BizipT F) → λ(biunit : F {} {}) →
+  = λ(F : Type → Type → Type) → λ(bizipT : BizipT F) → λ(biunit : F {} {}) →
     { unit = unitViaBiunit F biunit
-    , zip = zipViaBizip F bizip
+    , zip = zipViaBizipT F bizipT
     }
 ```
 
-TODO: code examples with List and binary trees (with data in branches to allow for bizip)
+TODO: code examples with List and binary trees (with data in branches to allow for bizipT, or strictly infinite trees with data in branches)
 
 TODO: explain that "padding" corresponds to using the functor instance in bizipL to convert (a, L b) -> L (a, b)
 
-Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizip`.
+Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizipT`.
 To implement the `zip` function for the greatest fixpoint of `D a = GFix (F a)`, we need to convert a pair of values of types `D a` and `D b`
 This time we use a different approach.
 We apply the standard `unfixG` method and obtain values of types `F a (D a)` and `F b (D b)`.
@@ -12594,7 +12594,7 @@ let zipViaBizipL : ∀(F : Type → Type → Type) → Bifunctor F →
 
 TODO: use bizipL to implement ordinary zip and padding zip, run example tests
 
-### Least fixpoints
+### Recursive types. Least fixpoints
 
 Implementing a `zip` method for the least-fixpoint type constructors turns out to require quite a bit of work.
 In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
