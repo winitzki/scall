@@ -12522,7 +12522,7 @@ This gives the following code of `zip`:
 
 ```dhall
 let zipViaBizipT : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c : Type) → GFix (F c))
-  = λ(F : Type → Type → Type) → λ(bizip : BizipT F) →
+  = λ(F : Type → Type → Type) → λ(bizipT : BizipT F) →
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
       -- Type GFix (F a) is ∀(r : Type) → (∀(t : Type) → { seed : F a t, step : t → F a t } → r) → r.
@@ -12531,12 +12531,12 @@ let zipViaBizipT : ∀(F : Type → Type → Type) → BizipT F → ZipT (λ(c :
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
           -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
           makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
-            (λ(st : Pair s t) → bizip a s (p.step p.seed) b t (q.step q.seed))
+            (λ(st : Pair s t) → bizipT a s (p.step p.seed) b t (q.step q.seed))
         )
       )
 ```
 
-To make an applicative functor complete, we need a corresponding `unit` method.
+To make an applicative functor complete, we need a   `unit` method.
 For that, we require a `biunit : F {} {}`  value for `F`.
 
 ```dhall
@@ -12561,10 +12561,14 @@ TODO: explain that "padding" corresponds to using the functor instance in bizipL
 
 Let us now assume that the pattern bifunctor `F` has a `bizipL` method instead of `bizipT`.
 To implement the `zip` function for the greatest fixpoint of `D a = GFix (F a)`, we need to convert a pair of values of types `D a` and `D b`
+into a value of type `D (Pair a b)`.
+
 This time we use a different approach.
 We apply the standard `unfixG` method and obtain values of types `F a (D a)` and `F b (D b)`.
-Then we use the `bizipL` method with `D = L` to compute a value of type `F (Pair a b) (Pair (D a) (D b))`.
+Then we apply  `bizipL`   with `D = L`, which gives us  a value of type `F (Pair a b) (Pair (D a) (D b))`.
 That value is sufficient for creating a value of type `D (Pair a b)`.
+The "seed" for the greatest fixpoint will have type `Pair (D a) (D b)`.
+
 
 The corresponding code is:
 
