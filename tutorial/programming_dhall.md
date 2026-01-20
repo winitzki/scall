@@ -18131,6 +18131,35 @@ This holds for both least fixpoints and greatest fixpoints.
 $$ \mu x.~F~ (G~ x) \cong F (\mu y.~G~(F y)) $$
 $$ \nu x.~F~ (G~ x) \cong F (\nu y.~G~(F y)) $$
 
+
+## Appendix: About Dhall code examples in this book
+
+There are two kinds of Dhall code examples in this book.
+
+The first kind is examples of code that is fully evaluated and typechecked.
+This code defines and uses common types such as `Either` and `Pair`, combinators such as `Compose` and `Product`, or typeclasses such as `Functor` and `Monad`.
+The typechecked code includes example calculations and validations, asserting that all result values are as expected.
+
+The second kind of examples are purely illustrative code fragments that are, as a rule, not valid when taken literally as Dhall programs, because they are incomplete or contain invalid Dhall symbols such as `???` or `≅`.
+These code fragments show steps in derivations or equations that are written out.
+They are not intended as executable Dhall code.
+
+The script `convertMd.sh` extracts the Dhall code from the source Markdown file and removes the purely illustrative examples from the extracted code.
+The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
+
+All parts of typechecked code must have the form of `let` expressions.
+To make the typechecked code complete, the following code is appended:
+
+```dhall
+in "Example code from the book was evaluated successfully."
+```
+This becomes the last line in `generated.dhall`.
+
+The `Makefile` script will show this message and proceed to building the PDF file only if the entire book's source file was parsed correctly and if the complete Dhall code typechecked without errors.
+
+The typechecked code constitutes about 30$\%$ of the book's text.
+
+
 ## Appendix: GNU Free Documentation License
 
 GNU Free Documentation License
@@ -18272,30 +18301,3 @@ Each version of the License is given a distinguishing version number. If the Doc
 An MMC is "eligible for relicensing" if it is licensed under this License, and if all works that were first published under this License somewhere other than this MMC, and subsequently incorporated in whole or in part into the MMC, (1) had no cover texts or invariant sections, and (2) were thus incorporated prior to November 1, 2008.
 
 The operator of an MMC Site may republish an MMC contained in the site under CC-BY-SA on the same site at any time before August 1, 2009, provided the MMC is eligible for relicensing.
-
-## Appendix: About Dhall code examples in this book
-
-There are two kinds of Dhall code examples in this book.
-
-The first kind is examples of code that is fully evaluated and typechecked.
-This code defines and uses common types such as `Either` and `Pair`, combinators such as `Compose` and `Product`, or typeclasses such as `Functor` and `Monad`.
-The typechecked code includes example calculations and validations, asserting that all result values are as expected.
-
-The second kind of examples are purely illustrative code fragments that are, as a rule, not valid when taken literally as Dhall programs, because they are incomplete or contain invalid Dhall symbols such as `???` or `≅`.
-These code fragments show steps in derivations or equations that are written out.
-They are not intended as executable Dhall code.
-
-The script `convertMd.sh` extracts the Dhall code from the source Markdown file and removes the purely illustrative examples from the extracted code.
-The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
-
-All parts of typechecked code must have the form of `let` expressions.
-To make the typechecked code complete, the following code is appended:
-
-```dhall
-in "Example code from the book was evaluated successfully."
-```
-This becomes the last line in `generated.dhall`.
-
-The `Makefile` script will show this message and proceed to building the PDF file only if the entire book's source file was parsed correctly and if the complete Dhall code typechecked without errors.
-
-The typechecked code constitutes about 30$\%$ of the book's text.
