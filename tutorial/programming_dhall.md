@@ -14550,7 +14550,10 @@ In that language, the typeclass evidence (a value of type `P t → t`) correspon
 The typeclass laws  turn out to be equivalent to `t` being a monad algebra of the monad `FreeP`.
 So, a $P$-typeclass with laws is described as a set of all $P$-functor algebras that are at the same time $F$-monad algebras, with suitable choices of $P$ and $F$. 
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
+
+Instead of the name "$P$-typeclasses" one could use a longer name, such as "functor-monad-algebraic typeclasses", to express more concretely the required categorical properties.
 This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
+We will be using the shorter name "$P$-typeclasses".
 
 It is not known how to construct a free $P$-typeclass in general for arbitrary $P$ and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
@@ -14960,7 +14963,7 @@ let FreeFunctor = FunctorP
 ```
 The mathematical notation for this type is:
 
-$$ \textrm{FreeFunctor}~F~a = \exists t.\~(t\to a)\times F ~t $$
+$$ \textrm{FreeFunctor}~F~a = \exists t.~(t\to a)\times F ~t $$
 
 Here is the corresponding `Functor` typeclass evidence:
 
@@ -15013,7 +15016,7 @@ What if we take a type constructor `F` that is already a functor and compute `Fr
 It turns out that the resulting functor is equivalent to `F`.
 This happens due to one of the **co-Yoneda identities**:
 
-$$  \exists t.\~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
+$$  \exists t.~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
 
 We will prove the co-Yoneda identities in the Appendix "Naturality and parametricity".
 
@@ -15039,7 +15042,7 @@ let FreeContrafunctor = ContrafunctorP
 
 The mathematical notation for this type is:
 
-$$ \textrm{FreeContrafunctor}~F~a = \exists t.\~(a\to t)\times F ~t $$
+$$ \textrm{FreeContrafunctor}~F~a = \exists t.~(a\to t)\times F ~t $$
 
 Here is the corresponding `Contrafunctor` typeclass evidence:
 
@@ -15081,21 +15084,21 @@ let freePTypeclassTFreeContrafunctor : FreePTypeclassT ContrafunctorP FreeContra
 If we take a type constructor `F` that is already a contrafunctor and compute `FreeContrafunctor F`, the result will be equivalent to `F`.
 This can be shown via the contravariant co-Yoneda identity:
 
-$$  \exists t.\~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
+$$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
 
 
 ### Free applicative
 
-The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition at the level of type constructors, and the structure functor $P$ must contain an existential quantifier.
+The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition at the level of type constructors, and the structure functor $P$ requires an existential quantifier.
 
 To make the formulas shorter, let us assume that `F` is a fixed functor.
 Then the free applicative functor on `F` is defined in mathematical notation by:
 
-$$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a)  $$
+$$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
 
-This is a recursive definition of the form `FAF a = Q FAF a`, where `Q : (Type → Type) → Type → Type` is a pattern functor (at the level of type constructors) written as:
+This is a recursive definition of the form `FAF a = Q FAF a`, where `Q` is a pattern functor (at the level of type constructors) written as:
 
-$$ Q ~ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a)  $$
+$$ Q ~ T~ a = a + \exists b.~(T~b) \times(F~(b\to a))  $$
 
 The Dhall code for `Q` needs to take `F` as an additional argument.
 Let us also define a helper type constructor `R` for the record type we will need to use under the existential quantifier: 
