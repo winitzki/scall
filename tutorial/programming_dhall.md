@@ -4436,7 +4436,7 @@ let comonadStore : ∀(s : Type) → Comonad (Store s)
 
 ### Applicative functors and contrafunctors
 
-One may define applicative functors as pointed functors that have a `zip` method (that obeys suitable laws).
+One may define applicative functors as pointed functors that have a `zip` method (obeying suitable laws).
 
 The corresponding typeclass looks like this:
 
@@ -4511,6 +4511,18 @@ However,  `List/zip a p q` will truncate the result to the shortest of the lists
 The only way of making  `List/zip` compatible with the applicative identity law is by making `pointedList.pure` return a list of infinite length, which is incompatible with the `List` type. 
 
 Below we will show how a function equivalent to `List/zip` can be written for a data structure representing lazily evaluated infinite lists, as well as for other "infinite" data structures.
+
+Another method available for applicative functors is known as `ap`.
+Its type signature is `ap : F (a → b) → F a → F b`.
+We can implement this method generically for any functor as long as an `ApplicativeFunctor` evidence is given:
+
+```dhall
+let ap : ∀(F : Type → Type) → ApplicativeFunctor F → ∀(a : Type) → ∀(b : Type) → F (a → b) → F a → F b
+  = λ(F : Type → Type) → λ(applicativeFunctorF : ApplicativeFunctor F) → λ(a : Type) → λ(b : Type) → λ(fab : F (a → b)) → λ(fa : F a) →
+    let faa2b : F (Pair a (a → b)) = applicativeFunctorF.zip a fa (a → b) fab
+    let applyPair : Pair a (a → b) → b = λ(p : Pair a (a → b)) → p._2 p._1
+    in applicativeFunctorF.fmap (Pair a (a → b)) b applyPair faa2b
+```
 
 It turns out that a `zip` method can be defined for many contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
@@ -7680,7 +7692,7 @@ The condition that `F` is a "higher-kinded functor" can be formalized via the `F
 - `P F` is covariant with respect to `F`;
 - `P` preserves functors: whenever `F` is a functor then so is `P F`.
 
-Here is the definition of the `FunctorK` typeclass:
+Here is the code for the `FunctorK` typeclass:
 
 ```dhall
 let FunctorK = λ(F : (Type → Type) → Type → Type) →
@@ -7731,7 +7743,7 @@ The corresponding Dhall code (including a `FunctorK` evidence for `ListFK`) look
 let ListFK = λ(T : Type → Type) → λ(a : Type) → Optional (Pair a (T a))
 let functorKListFK : FunctorK ListFK
   = { fmapK = λ(U : Type → Type) → λ(V : Type → Type) → λ(g : ∀(t : Type) → U t → V t) → λ(a : Type) → λ(lua : ListFK U a) →
-    -- lua : Optional (Pair a (U a))
+    -- Pattern matching on lua : Optional (Pair a (U a)).
    merge { None = None (Pair a (V a))
          , Some = λ(p : Pair a (U a)) → Some { _1 = p._1, _2 = g a p._2 } 
          } lua
@@ -8067,8 +8079,8 @@ We see that concrete computations with the higher-kinded Church encoding give fl
 
 
 We now turn to the question of  implementing a `Functor` evidence for `ListCK` and other higher-kinded Church encodings.
-In the case of `ListCK`, we need to map `ListCK a → ListCK b` given a function `f : a → b`.
-This  was straightforward in the ordinary Church encoding because the type formula `∀(r : Type) → (F a r → r) → r` is covariant in `a`.
+In the case of `ListCK`, we would need to map `ListCK a → ListCK b` given a function `f : a → b`.
+This kind of mapping was straightforward in the ordinary Church encoding because the type formula `∀(r : Type) → (F a r → r) → r` is covariant in `a`.
 But this is not the case with the higher-kinded Church encoding.
 The type parameter `a` enters   as an argument of `r`,
 but `r` is itself a type parameter of kind `Type → Type`.
@@ -8076,15 +8088,15 @@ It  is an arbitrary type constructor that is not known to be a functor.
 This prevents us from implementing `fmap` in a simple way.
 
 Another attempt at  implementing `fmap` is by applying a value of type `ListCK a` to the type constructor parameter `r` chosen as a constant functor:   `r a = ListCK b`.
-This  fails for the same reason as our failure with `sumListCK`: the argument `consT` of type `∀(t : Type) → t → ListCK b → ListCK b` cannot be implemented.
+This  fails for the same reason as our failure with `sumListCK`: the argument `consT` of type `∀(t : Type) → t → ListCK b → ListCK b` cannot be provided.
 
 How should we choose `r` to overcome these problems?
 Let us look at the required type signature of `fmap`:
 
 `fmap : ∀(a : Type) → ∀(b : Type) → (f : a → b) → ListCK a → ListCK b`
 
-We may be able to implement this type signature if we rewrite it in the form  `∀(a : Type) → ListCK a → F1 a` with a suitable `F1`.
-Then the code will apply a value of type `ListCK a` setting the type constructor parameter `r = F1`.
+We may be able to implement this type signature if we rewrite it in the form  `∀(a : Type) → ListCK a → F1 a` with a suitable functor `F1`.
+Then the code will apply a value of type `ListCK a` by setting the type constructor parameter `r = F1`.
 
 Indeed, after reordering some curried arguments in `fmap`, we find an equivalent signature:
 
@@ -8114,7 +8126,7 @@ let functorListCK : Functor ListCK = { fmap = λ(a : Type) → λ(b : Type) → 
 ```
 
 This technique can be generalized to  all higher-kinded Church-encoded type constructors.
-Let us write a combinator (`functorLFixK`) producing a `Functor` evidence for `LFixK P`  if `P` has a `FunctorK` evidence:
+Here is  a general combinator (`functorLFixK`) giving a `Functor` evidence for `LFixK P`  when `P` has a `FunctorK` evidence:
 
 ```dhall
 let functorLFixK : ∀(P : (Type → Type) → Type → Type) → FunctorK P → Functor (LFixK P)
@@ -14555,7 +14567,7 @@ Instead of the name "$P$-typeclasses" one could use a longer name, such as "func
 This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
 We will be using the shorter name "$P$-typeclasses".
 
-It is not known how to construct a free $P$-typeclass in general for arbitrary $P$ and arbitrary required typeclass laws.
+It is _not_ known how to construct a free $P$-typeclass in general for arbitrary $P$ and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
 
 When a $P$-typeclass has no laws, the free $P$-typeclass constructor _can_ be formulated in general for arbitrary $P$.
@@ -14704,7 +14716,7 @@ A free $P$-typeclass instance is a way of creating a new type constructor `FreeP
 
 For typeclasses whose members are functors with additional methods, such as (`Pointed`, `Monad`, or `ApplicativeFunctor`), one often  assumes that `F` is a functor.
 This makes it simpler to construct a free typeclass instance.
-Examples of such constructions are the free pointed functor, the free filterable functor, and the free monad.
+Examples of such constructions are the free pointed functor, the free filterable functor, the free monad, and the free applicative functor.
 The following subsections will implement these constructions in more detail.
 For now, let us just write down the required types for the free pointed and the free filterable functors:
 
@@ -15089,12 +15101,15 @@ $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a c
 
 ### Free applicative
 
-The free applicative functor is the most complicated construction of all free typeclass instances considered in this book: it has a recursive definition at the level of type constructors, and the structure functor $P$ requires an existential quantifier.
+The free applicative functor is the most complicated construction of all free typeclass instances considered in this book.
+It requires a higher-kinded Church encoding whose structure functor contains an existential quantifier.
 
 To make the formulas shorter, let us assume that `F` is a fixed functor.
 Then the free applicative functor on `F` is defined in mathematical notation by:
 
 $$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
+
+todo:insert reference to the Capriotti paper and explain that we are using "FreeA" from that paper but it is equivalent to FreeAL and that there are other equivalent definitions.
 
 This is a recursive definition of the form `FAF a = Q FAF a`, where `Q` is a pattern functor (at the level of type constructors) written as:
 
@@ -15104,33 +15119,127 @@ The Dhall code for `Q` needs to take `F` as an additional argument.
 Let us also define a helper type constructor `R` for the record type we will need to use under the existential quantifier: 
 
 ```dhall
-let R : (Type → Type) → (Type → Type) → Type → Type → Type
+let R : ∀(F : Type → Type) → ∀(T : Type → Type) → Type → Type → Type
   = λ(F : Type → Type) → λ(T : Type → Type) → λ(a : Type) → λ(b : Type) →
-    { seed : T b, step: F (b → a) }  -- This record type is R F T a b.
-let Q : (Type → Type) → (Type → Type) → Type → Type
-  = λ(F : Type → Type) → λ(T : Type → Type) → λ(a : Type) → Either a (Exists (R F T a))
+    { seed : T b, step : F (b → a) }  -- This record type is R F T a b.
+let Q : ∀(F : Type → Type) → ∀(T : Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(T : Type → Type) → λ(a : Type) →
+    < Pure : a | Ap : Exists (R F T a) >  -- This union type is Q F T a.
 ```
 What remains for the definition of the free applicative functor is to set `FreeA F = T`, where `T` is the type constructor corresponding to the least fixpoint of the equation `T = Q F T`.
-The fixpoint type is computed by an application of `LFixK` that we defined earlier in the chapter "Church encodings of more complicated types":
+The fixpoint type is computed by an application of `LFixK`, which was defined  in the chapter "Church encodings of more complicated types":
 
 ```dhall
-let FreeA : (Type → Type) → (Type → Type)
+let FreeA : ∀(F : Type → Type) → Type → Type
   = λ(F : Type → Type) → LFixK (Q F)
 ```
 
-We have three ways of creating   values of type `FreeA F a` for any given type `a`: 
+The next step is to define a `FunctorK` evidence for the new type constructor.
+For that, it is required to have a `Functor` evidence for `F`:
 
-- From a given value `x : a` (the `pure` operation).
-- From a given value `p : F a`.
-- By using the `ap` operation of the free applicative functor.
+```dhall
+let functorKQ : ∀(F : Type → Type) → Functor F → FunctorK (Q F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    { fmapK = λ(U : Type → Type) → λ(V : Type → Type) → λ(uv : ∀(t : Type) → U t → V t) → λ(a : Type) → λ(qfua : Q F U a) →
+        merge { Pure = λ(x : a) → (Q F V a).Pure x
+              , Ap = λ(eu : Exists (R F U a)) →
+                  let u2v : ∀(t : Type) → R F U a t → R F V a t
+                    = λ(t : Type) → λ(p : { seed : U t, step : F (t → a) }) →
+                      { seed  = uv t p.seed, step = p.step }
+                  let ev : Exists (R F V a) = mapExists (R F U a) (R F V a) u2v eu
+                  in (Q F V a).Ap ev
+              } qfua
+    , functorP = λ(U : Type → Type) → λ(functorU : Functor U) →
+      { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : Q F U a) →
+        merge { Pure = λ(x : a) → (Q F U b).Pure (f x)
+              , Ap = λ(ea : Exists (R F U a)) →
+                  let a2b : ∀(t : Type) → R F U a t → R F U b t
+                    = λ(t : Type) → λ(p : { seed : U t, step : F (t → a) }) →
+                      { seed  = p.seed, step = functorF.fmap (t → a) (t → b) (λ(g : t → a) → λ(y : t) → f (g y)) p.step }
+                  let eb : Exists (R F U b) = mapExists (R F U a) (R F U b) a2b ea
+                  in (Q F U b).Ap eb
+              } fa
+      }
+    }
+```
 
-TODO: implement these data constructors
+The functor evidence for `FreeA F` is obtained via the combinator `functorLFixK`:
 
-We will now implement an `Applicative` evidence for `FreeA F`.
+```dhall
+let functorFreeA : ∀(F : Type → Type) → Functor F → Functor (FreeA F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+      functorLFixK (Q F) (functorKQ F functorF)
+```
 
-The `pure` method is 
 
-TODO: implement
+The generic function `fixK` gives us some data constructors that create values of the free applicative type.
+For clarity, we will first specialize the `fixK` function to the structure functors used in `FreeA`.
+
+```dhall
+let fixKFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → < Pure : a | Ap : Exists (R F (FreeA F) a) > → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) →
+    fixK (Q F) (functorKQ F functorF) a
+```
+As the union type `< Pure : a | Ap : Exists (R F (FreeA F) a) >` has two variants, we obtain two data constructors:
+
+```dhall
+let pureCFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → a → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(x : a) →
+      fixKFreeA F functorF a ((Q F (FreeA F) a).Pure x)
+let apCFreeA : ∀(F : Type → Type) → Functor F → ∀(b : Type) → FreeA F b → ∀(a : Type) → F (b → a) → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(b : Type) → λ(ffb : FreeA F b) → λ(a : Type) → λ(fba : F (b → a)) →
+    let e : Exists (R F (FreeA F) a)
+      = pack (R F (FreeA F) a) b { seed = ffb, step = fba }
+    in fixKFreeA F functorF a ((Q F (FreeA F) a).Ap e)
+```
+
+The constructor `pureCFreeA` corresponds to the `pure` method of the applicative functor.
+We can codify this by implementing a `Pointed` evidence:
+
+```dhall
+let pointedFreeA : ∀(F : Type → Type) → Functor F → Pointed (FreeA F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    { pure = pureCFreeA F functorF }
+```
+
+However, the second constructor (`apCFreeA`) does not directly correspond to an applicative functor's methods.
+One of the methods is `ap`.
+Let us implemement it for the free applicative functor:
+
+```dhall
+let apFreeA : ∀(F : Type → Type) → Functor F → ∀(b : Type) → FreeA F b → ∀(a : Type) → FreeA F (b → a) → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(b : Type) → λ(ffb : FreeA F b) → λ(a : Type) → λ(fba : FreeA F (b → a)) →
+    λ (r : Type → Type) → λ(alg : ∀(t : Type) → < Pure : t | Ap : Exists (R F r t) > → r t) →
+      let result : r a = ???
+      in result
+```
+
+
+We can also write the `zip` method by using `ap`:
+
+```dhall
+let zipFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → FreeA F a → ∀(b : Type) → FreeA F b → FreeA F (Pair a b)
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(ffa : FreeA F a) → λ(b : Type) → λ(ffb : FreeA F b) →
+      ???
+```
+
+We can now write an `ApplicativeFunctor` evidence for `FreeA F`:
+
+```dhall
+let applicativeFreeA : ∀(F : Type → Type) → Functor F → ApplicativeFunctor (FreeA F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    (functorFreeA F functorF) /\ (pointedFreeA F functorF) /\
+      { zip = zipFreeA F functorF } ???
+```
+
+Another data constructor is   a function that converts a value of type `F a` into a value of type `FreeA F a`.
+
+todo:implement it
+
+In order to implement a full `FreePTypeclassT` evidence for `FreeA`,
+it remains to implement the evaluator function.
+
+TODO: implement the full evidence for free applicative typeclass constructor
 
 # Appendixes
 
