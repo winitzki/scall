@@ -15203,24 +15203,42 @@ let pointedFreeA : ∀(F : Type → Type) → Functor F → Pointed (FreeA F)
 ```
 
 However, the second constructor (`apCFreeA`) does not directly correspond to an applicative functor's methods.
-One of the methods is `ap`.
-Let us implemement it for the free applicative functor:
+
+One of those methods is `ap`.
+We will implemement it first for the free applicative functor.
+
+To fit the higher-kinded Church encoding, we need to rewrite the type signature `FreeA F (b → a) → FreeA F b → FreeA F a` in the form of a natural transformation of type `FreeA F b → F1 b` with some helper functor `F1`.
+Then we can use `F1` as the higher-kinded type parameter in the Church encoding.
+We will also need to use the constructor `apCFreeA` and the `Functor` evidence for `FreeA F`:
 
 ```dhall
-let apFreeA : ∀(F : Type → Type) → Functor F → ∀(b : Type) → FreeA F b → ∀(a : Type) → FreeA F (b → a) → FreeA F a
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(b : Type) → λ(ffb : FreeA F b) → λ(a : Type) → λ(fba : FreeA F (b → a)) →
-    λ (r : Type → Type) → λ(alg : ∀(t : Type) → < Pure : t | Ap : Exists (R F r t) > → r t) →
-      let result : r a = ???
-      in result
+let apFreeA : ∀(F : Type → Type) → Functor F → ∀(b : Type) → ∀(a : Type) → FreeA F (b → a) → FreeA F b → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(b : Type) → λ(a : Type) → λ(fba : FreeA F (b → a)) → λ(ffb : FreeA F b) →
+    let F1 = λ(c : Type) → FreeA F (c → a) → FreeA F a
+    let alg : ∀(t : Type) → Q F F1 t → F1 t
+      = λ(t : Type) → λ(q : < Pure : t | Ap : Exists (R F F1 t) >) → λ(fta : FreeA F (t → a)) →
+      -- Need a value of type FreeA F a.
+      merge { Pure = λ(x : t) → (functorFreeA F functorF).fmap (t → a) a (λ(f : t → a) → f x) fta
+            , Ap = λ(e : Exists (R F F1 t)) →
+                let unpack : ∀(u : Type) → { seed : FreeA F (u → a) → FreeA F a, step : F (u → t) } → FreeA F a
+                  = λ(u : Type) → λ(r : { seed : FreeA F (u → a) → FreeA F a, step : F (u → t) }) →
+                    let fta2ua : F ((t → a) → u → a) = functorF.fmap (u → t) ((t → a) → u → a) (λ(g : u → t) → λ(h : t → a) → λ(y : u) → h (g y)) r.step
+                    let fua : FreeA F (u → a) = apCFreeA F functorF (t → a) fta (u → a) fta2ua
+                    in r.seed fua
+                in e (FreeA F a) unpack
+            } q
+    let transform : FreeA F b → F1 b = λ(p : FreeA F b) → p F1 alg
+    in transform ffb fba
 ```
 
 
-We can also write the `zip` method by using `ap`:
+The `zip` method can be expressed easily via `apFreeA` :
 
 ```dhall
 let zipFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → FreeA F a → ∀(b : Type) → FreeA F b → FreeA F (Pair a b)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(ffa : FreeA F a) → λ(b : Type) → λ(ffb : FreeA F b) →
-      ???
+    let ffbpab : FreeA F (b → Pair a b) = (functorFreeA F functorF).fmap a (b → Pair a b) (λ(x : a) → λ(y : b) → { _1 = x, _2 = y }) ffa
+    in apFreeA F functorF b (Pair a b) ffbpab ffb
 ```
 
 We can now write an `ApplicativeFunctor` evidence for `FreeA F`:
@@ -15229,15 +15247,50 @@ We can now write an `ApplicativeFunctor` evidence for `FreeA F`:
 let applicativeFreeA : ∀(F : Type → Type) → Functor F → ApplicativeFunctor (FreeA F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
     (functorFreeA F functorF) /\ (pointedFreeA F functorF) /\
-      { zip = zipFreeA F functorF } ???
+      { zip = zipFreeA F functorF }
 ```
 
-Another data constructor is   a function that converts a value of type `F a` into a value of type `FreeA F a`.
+Another required data constructor is   a function `wrapFreeA` that converts a value of type `F a` into a value of type `FreeA F a`.
 
-todo:implement it
+```dhall
+let wrapFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F a → FreeA F a
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(fa : F a) →
+    let fau : FreeA F {} = pureCFreeA F functorF {} {=}
+    let fua : F ({} → a) = functorF.fmap a ({} → a) (λ(x : a) → λ(_ : {}) → x) fa
+    in apCFreeA F functorF {} fau a fua
+```
 
-In order to implement a full `FreePTypeclassT` evidence for `FreeA`,
-it remains to implement the evaluator function.
+In order to finish implementing a full `FreePTypeclassT` evidence for `FreeA`,
+it remains to formulate applicative functors as a $P$-typeclass and to implement the evaluator function.
+
+The structure functor is defined by:
+
+```dhall
+let ApplicativeP = 
+```
+
+
+```dhall
+let freePTypeclassTFreeA : FreePTypeclassT ApplicativeP FreeA
+  = { evidence = λ(T : Type → Type) →
+        λ(a : Type) → λ(p : FunctorP (FreeFunctor T) a) →
+  -- Have p : Exists (H (λ(b : Type) → Exists (H T b)) a), need Exists (H T a).
+          let _ = p : Exists (H (λ(b : Type) → Exists (H T b)) a) -- Just to make sure the type of p is what we expect.
+          let unpackHTA : ∀(t : Type) → H (λ(b : Type) → Exists (H T b)) a t → Exists (H T a)
+            = λ(t : Type) → λ(q : { step : t → a, seed : Exists (H T t) }) →
+              -- Given q.seed and q.step, need a value of type Exists (H T a).
+              mapExists (H T t) (H T a)
+                (λ(c : Type) → λ(httc : H T t c) →
+                  -- Need a value of type H T a c = { step = c → a, seed : T c }.
+                  let _ = httc : { step : c → t, seed : T c } -- Just to make sure the type is what we expect.
+                  let c2a : c → a = composeForward c t a httc.step q.step
+                  in { step = c2a, seed = httc.seed }
+                ) q.seed
+          in p (FreeFunctor T a) unpackHTA
+    , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → pack (H T a) a { step = identity a, seed = ta }
+    , eval = λ(U : Type → Type) → λ(pTypeclassTFunctorU : PTypeclassT FunctorP U) → λ(a : Type) → λ(freePU : FreeFunctor U a) → pTypeclassTFunctorU a freePU
+  }
+```
 
 TODO: implement the full evidence for free applicative typeclass constructor
 
