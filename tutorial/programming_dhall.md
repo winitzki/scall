@@ -14464,8 +14464,8 @@ But we can see that the free monad  on   `F`  wraps any given functor `F` into a
 Similarly,  the "free pointed" functor on `F` is the functor `CoProduct Id F`.
 It is always a pointed functor, even if the functor `F` is not  pointed.
 
-It turns out that a wide range of typeclasses (called **$FM$-typeclasses** in "The Science of Functional Programming") have free instances.
-The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are $FM$-typeclasses.
+It turns out that a wide range of typeclasses (called **FM-typeclasses** in "The Science of Functional Programming") have free instances.
+The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are FM-typeclasses.
 All those typeclasses admit "free instances", which this chapter will implement.
 
 To qualify as a free typeclass instance, the type constructor must satisfy certain laws (that we will not write out in detail here).
@@ -14485,7 +14485,7 @@ The study of the theory of free typeclass instances is beyond the scope of this 
 See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13 for more details.
 
 
-### $FM$-typeclasses and their free instances
+### FM-typeclasses and their free instances
 
 Typeclasses may describe either the properties of ordinary types (e.g., `Semigroup`, `Monoid`, `Eq`) or the properties of type constructors (e.g., `Functor`, `Monad`).
 While the general idea of a free typeclass instance applies to both kinds of typeclasses, 
@@ -14493,9 +14493,9 @@ the required properties involve functions with quite different type signatures.
 
 We begin by looking at typeclasses for ordinary types.
 
-#### Free $FM$-typeclasses for ordinary types
+#### Free FM-typeclasses for ordinary types
 
-To prepare for describing the free typeclass instances for ordinary types, let us first motivate the notion of an $FM$-typeclass.
+To prepare for describing the free typeclass instances for ordinary types, let us first motivate the notion of an FM-typeclass.
 
 Consider the type signatures of methods required by an  evidence value of type `Monoid m`, which we defined as `{ empty : m , append : m → m → m }`.
 We find that each method creates a value of type `m` as a final result (after all curried arguments).
@@ -14508,11 +14508,11 @@ Many typeclasses have methods whose final result type is the typeclass member ty
 The evidence type for those typeclasses can be rewritten in the equivalent form `something → m`, where `something` is a type expression that depends on `m`.
 If we introduce a type constructor `P` and write more precisely `P m` instead of `something`, we arrive at the formulation of typeclass evidence as a value of type `P m → m`.
 
-This motivates the definition of an $FM$-typeclass.
-A type `t` belongs to the $FM$-typeclass if there exists an evidence value of type `P t → t`.
-Here we denote by `P` a certain chosen functor, called the **structure functor** of the $FM$-typeclass.
+This motivates the definition of an FM-typeclass.
+A type `t` belongs to the FM-typeclass if there exists an evidence value of type `P t → t`.
+Here we denote by `P` a certain chosen functor, called the **structure functor** of the FM-typeclass.
 
-The letters "FM" is a shorthand for "functor-monad" and refer to the properties of $FM$-typeclasses that we will discuss shortly.
+The letters "FM" is a shorthand for "functor-monad" and refer to the properties of FM-typeclasses that we will discuss shortly.
 
 In this book we will usually denote the structure functor by `P` rather than by, say, `F`, as `F` will be sometimes used to denote other functors.
 
@@ -14524,21 +14524,21 @@ let FMTypeclass = λ(P : Type → Type) → λ(t : Type) → P t → t
 ```
 We will not specify laws as part of the typeclass definition: the limited support of dependent types in Dhall makes working with laws impossible in most cases.
 
-We will need to define the property of "preserving the $FM$-typeclass operations".
-This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same $FM$-typeclass.
-We say that `f` "preserves the $FM$-typeclass operations" if the following law holds: For any `x : P u`,
+We will need to define the property of "preserving the FM-typeclass operations".
+This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same FM-typeclass.
+We say that `f` "preserves the FM-typeclass operations" if the following law holds: For any `x : P u`,
 
 `fmTypeclassV (functorP.fmap u v f x) = f (fmTypeclassU x)`
 
 where `fmTypeclassU : P u → u` and `fmTypeclassV : P v → v` are evidence values for types `u`, `v`. 
 
-This law expresses the structural property of `f`: any operation of the $FM$-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
+This law expresses the structural property of `f`: any operation of the FM-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
 
-The "lawful free $FM$-typeclass instance" is a type constructor we will denote by `FreeFM`, with the following properties:
+The "lawful free FM-typeclass instance" is a type constructor we will denote by `FreeFM`, with the following properties:
 
-- For any type `t` (not necessarily of the $FM$-typeclass) the type `FreeFM t` belongs to the $FM$-typeclass. There exists an evidence value `ev : ∀(t : Type) → P (FreeFM t) → FreeFM t` that satisfies the typeclass laws. The evidence value `ev` is a natural transformation in `t` (works in the same way for all `t`).
+- For any type `t` (not necessarily of the FM-typeclass) the type `FreeFM t` belongs to the FM-typeclass. There exists an evidence value `ev : ∀(t : Type) → P (FreeFM t) → FreeFM t` that satisfies the typeclass laws. The evidence value `ev` is a natural transformation in `t` (works in the same way for all `t`).
 - The type constructor `FreeFM` is a monad. Its `pure` method converts values of type `t` into values of type `FreeFM t`.
-- For any type `p` that belongs to the $FM$-typeclass, there exists a unique function `eval : FreeFM p → p` that preserves the $FM$-typeclass operations. If we set `p = FreeFM t` (for any chosen `t`) then the function `eval` of type `FreeFM (FreeFM t) → FreeFM t` is the same as the `join` method of the monad `FreeFM`.
+- For any type `p` that belongs to the FM-typeclass, there exists a unique function `eval : FreeFM p → p` that preserves the FM-typeclass operations. If we set `p = FreeFM t` (for any chosen `t`) then the function `eval` of type `FreeFM (FreeFM t) → FreeFM t` is the same as the `join` method of the monad `FreeFM`.
 
 These requirements (without the laws) may be formulated in terms of a typeclass:
 
@@ -14550,9 +14550,9 @@ let FreeFMTypeclass = λ(P : Type → Type) → λ(FreeFM : Type → Type) →
   }
 ```
 
-The free $FM$-typeclass instance `FreeFM t` belongs to the $FM$-typeclass even if `t` does not.
+The free FM-typeclass instance `FreeFM t` belongs to the FM-typeclass even if `t` does not.
 
-For any   type `u` that belongs to the $FM$-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
+For any   type `u` that belongs to the FM-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
 The required conversion function (called `runP`) may be implemented generally, given an evidence value of `FreeFMTypeclass`:
 
 ```dhall
@@ -14562,26 +14562,26 @@ let runP : ∀(P : Type → Type) → ∀(FreeFM : Type → Type) → FreeFMType
     in freeFMT.eval u pTu freeU
 ```
 
-The monad property of `FreeFM` is mainly helpful for formulating the laws of an $FM$-typeclass in the language of category theory.
+The monad property of `FreeFM` is mainly helpful for formulating the laws of an FM-typeclass in the language of category theory.
 In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a functor algebra of the functor $P$.
 The typeclass laws  turn out to be equivalent to `t` being a monad algebra of the monad `FreeFM`.
 
-To summarize, an $FM$-typeclass with laws is described as a set of all $F$-functor algebras that are at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$. 
+To summarize, an FM-typeclass with laws is described as a set of all $F$-functor algebras that are at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$. 
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
 
-Instead of the name "$FM$-typeclasses" one could use a longer name, such as "functor-monad-algebraic typeclasses", to express more concretely the required categorical properties.
+Instead of the name "FM-typeclasses" one could use a longer name, such as "functor-monad-algebraic typeclasses", to express more concretely the required categorical properties.
 This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
-We will be using the shorter name "$FM$-typeclasses".
+We will be using the shorter name "FM-typeclasses".
 
-It is _not_ known how to construct a free $FM$-typeclass in general for an arbitrary structure functor and arbitrary required typeclass laws.
+It is _not_ known how to construct a free FM-typeclass in general for an arbitrary structure functor and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
 
-When an $FM$-typeclass has no laws, the free $FM$-typeclass constructor _can_ be formulated in general for an arbitrary structure functor $P$.
+When an FM-typeclass has no laws, the free FM-typeclass constructor _can_ be formulated in general for an arbitrary structure functor $P$.
 It   turns out to be just the free monad on $P$.
-This $FM$-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
+This FM-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
 Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any  extra laws.
 
-Here is an implementation of `FreeFMTypeclass` via `FreeMonad` that works for an arbitrary $FM$-typeclass _without_ laws:
+Here is an implementation of `FreeFMTypeclass` via `FreeMonad` that works for an arbitrary FM-typeclass _without_ laws:
 
 ```dhall
 -- FreeMonad P is a free P-typeclass instance without laws.
@@ -14603,9 +14603,9 @@ let runFMTypeclassFreeFM : ∀(P : Type → Type) → Functor P → ∀(t : Type
       runP P (FreeMonad P) (freeFMTypeclassFreeFM P functorP) t x u ev conv 
 ```
 
-#### Example of an $FM$-typeclass and its free instance
+#### Example of an FM-typeclass and its free instance
 
-To illustrate how $FM$-typeclasses and their free instances work, consider a typeclass called `TC2`.
+To illustrate how FM-typeclasses and their free instances work, consider a typeclass called `TC2`.
 A type  `t` belongs to the `TC2` typeclass if:
 - We can create a value of type `t` out of a `Natural` number.
 - We can apply a value of type `t` to a `Bool` value and get another value of type `t`.
@@ -14628,10 +14628,10 @@ let TC2Natural : TC2 Natural
 
 We do not require any laws for the operations `make` and `apply`.
 
-The first step is to reformulate `TC2` as an $FM$-typeclass.
+The first step is to reformulate `TC2` as an FM-typeclass.
 We   uncurry the type signature of `apply` to get the type `Pair t Bool → t`.
 Then we  combine both methods into a single value of type `P t → t`.
-A suitable functor `P` is defined by:
+A suitable structure functor `P` is defined by:
 
 ```dhall
 let PTC2 = λ(t : Type) → < Make : Natural | Apply : Pair t Bool >
@@ -14704,21 +14704,21 @@ let _ = assert : result2 ≡ 299
 
 
 
-#### Free $FM$-typeclasses for type constructors
+#### Free FM-typeclasses for type constructors
 
 The typeclass methods of type constructor typeclasses (such as `Functor` and `Monad`) typically have their own type parameters.
 For example, the `fmap` method of `Functor` has two type parameters:
 
 `fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b`
 
-Structure functors `P` for type constructor $FM$-typeclasses must have kind `(Type → Type) → Type → Type`.
-Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the $FM$-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
+Structure functors `P` for type constructor FM-typeclasses must have kind `(Type → Type) → Type → Type`.
+Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the FM-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
 
 ```dhall
 let FMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(T : Type → Type) → ∀(a : Type) → P T a → T a
 ```
 
-A free $FM$-typeclass instance is a way of creating a new type constructor `FreeFMTypeclassT F` out of any given type constructor `F`, such that `FreeFMTypeclassT F` belongs to the $FM$-typeclass.
+A free FM-typeclass instance is a way of creating a new type constructor `FreeFMTypeclassT F` out of any given type constructor `F`, such that `FreeFMTypeclassT F` belongs to the FM-typeclass.
 
 For typeclasses whose members are functors with additional methods, such as (`Pointed`, `Monad`, or `ApplicativeFunctor`), one often  assumes that `F` is a functor.
 This makes it simpler to construct a free typeclass instance.
@@ -14732,7 +14732,7 @@ let FreeFilterable = λ(F : Type → Type) → λ(a : Type) → F (Optional a)
 ```
 Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFilterable` will be again functors and will support the required methods for the pointed and the filterable functor typeclasses.
 
-Let us now formulate the free $FM$-typeclass for type constructors as the typeclass `FreeFMTypeclassT`.
+Let us now formulate the free FM-typeclass for type constructors as the typeclass `FreeFMTypeclassT`.
 We will drop the monad evidence requirement from that typeclass:
 Implementing monads at the level of type constructors is technically difficult but brings no practical advantages.
 The formulation of typeclass laws via monad algebras helps in theoretical derivations but cannot be directly used in code.
@@ -14824,7 +14824,7 @@ let pointedFreePointed : ∀(F : Type → Type) → Pointed (FreePointed F)
 ```
 
 
-To formulate the free pointed functor construction as a free $FM$-typeclass, we first need to rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with some structure functor `P : (Type → Type) → Type → Type`.
+To formulate the free pointed functor construction as a free FM-typeclass, we first need to rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with some structure functor `P : (Type → Type) → Type → Type`.
 Looking at the type signature of `pure`, we find that a suitable `P` is defined by:
 
 ```dhall
@@ -14834,7 +14834,7 @@ let PointedP : (Type → Type) → Type → Type
 
 We may view `PointedP` as a map from functors to functors that always returns the identity functor (a "constant map", so to speak).
 
-The corresponding free $FM$-typeclass evidence is here:
+The corresponding free FM-typeclass evidence is here:
 
 ```dhall
 let freeFMTypeclassTFreePointed : FreeFMTypeclassT PointedP FreePointed
@@ -14862,7 +14862,7 @@ let filterableFunctorFreeFilterable : ∀(F : Type → Type) → Functor F → F
     in functorFreeFilterable /\ { deflate }
 ```
 
-To formulate the free filterable functor construction as a free $FM$-typeclass, we  rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with a suitable `P : (Type → Type) → Type → Type`.
+To formulate the free filterable functor construction as a free FM-typeclass, we  rewrite the typeclass evidence type in the form `∀(a : Type) → P F a → F a` with a suitable `P : (Type → Type) → Type → Type`.
 Looking at the type signature of `deflate`, we find that a suitable `P` is defined by:
 
 ```dhall
@@ -14871,7 +14871,7 @@ let FilterableP : (Type → Type) → Type → Type
 ```
 
 We did not include the `fmap` method into `P`; instead, we will derive that method the `Functor` evidence of `F`.
-To be able to do that, we define a version of the free $FM$-typeclass instance adapated to use with `Functor`-based typeclasses:
+To be able to do that, we define a version of the free FM-typeclass instance adapated to use with `Functor`-based typeclasses:
 
 ```dhall
 let FreeFMTypeclassTFunctor = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT : (Type → Type) → Type → Type) →
@@ -14881,7 +14881,7 @@ let FreeFMTypeclassTFunctor = λ(P : (Type → Type) → Type → Type) → λ(F
   }
 ```
 
-The corresponding free $FM$-typeclass evidence for `FreeFilterable` is:
+The corresponding free FM-typeclass evidence for `FreeFilterable` is:
 
 ```dhall
 let freeFMTypeclassTFunctorFreeFilterable : FreeFMTypeclassTFunctor FilterableP FreeFilterable
@@ -14894,7 +14894,7 @@ let freeFMTypeclassTFunctorFreeFilterable : FreeFMTypeclassTFunctor FilterableP 
 ### Free monad
 
 We already saw the code for the free monad (`FreeMonad`).
-Now we will reformulate it as a free $FM$-typeclass constructor.
+Now we will reformulate it as a free FM-typeclass constructor.
 
 The first step is to formulate the monad's methods as a single value of type `∀(a : Type) → P M a → M a`.
 Instead of using `pure` and `bind`, it is easier to use `pure` and `join` as the monad's methods.
@@ -14913,7 +14913,7 @@ let MonadP : (Type → Type) → Type → Type
   = λ(M : Type → Type) → λ(a : Type) → Either a (M (M a))
 ```
 
-Now we can write the code of a free $FM$-typeclass evidence for `FreeMonad`:
+Now we can write the code of a free FM-typeclass evidence for `FreeMonad`:
 ```dhall
 let freeFMTypeclassTFreeMonad : FreeFMTypeclassTFunctor MonadP FreeMonad
   = { evidence = λ(T : Type → Type) → λ(_ : Functor T) →
@@ -14935,7 +14935,7 @@ Also, the `pure` field requires a `Functor` evidence for `T`.
 
 ### Free functor
 
-It turns out that the `Functor` typeclass itself can be represented as an $FM$-typeclass and has a free instance.
+It turns out that the `Functor` typeclass itself can be represented as an FM-typeclass and has a free instance.
 This allows us to create functors out of arbitrary type constructors (such as GADTs).
 
 Begin by writing the type signature of a functor's `fmap` method:
@@ -14967,7 +14967,7 @@ Using this `H`, we rewrite `FmapTCurried` equivalently as:
 let FmapTE = λ(F : Type → Type) → ∀(a : Type) → Exists (H F a) → F a
 ```
 
-The last type is in the form of an $FM$-typeclass evidence type.
+The last type is in the form of an FM-typeclass evidence type.
 It follows that we need to define the structure functor for the `Functor` typeclass as:
 
 ```dhall
@@ -14995,7 +14995,7 @@ let functorFreeFunctor : ∀(F : Type → Type) → Functor (FreeFunctor F)
       }
 ```
 
-We can now formulate the free functor as a free $FM$-typeclass.
+We can now formulate the free functor as a free FM-typeclass.
 As the types have become quite complicated, we will sometimes write out the types for clarity:
 
 ```dhall
@@ -15025,7 +15025,7 @@ In this case, `FunctorP` and `FreeFunctor` are actually the same.
 So, we have a function of type `FreeFunctor (FreeFunctor T) a → FreeFunctor T a`.
 This type is similar to the type of the `join` method of a monad, except that it is operating at the level of type constructors (`FreeFunctor T`).
 
-This is a general property of free $FM$-typeclass instances. The constructor of a free $FM$-typeclass instance is always a monad.
+This is a general property of free FM-typeclass instances. The constructor of a free FM-typeclass instance is always a monad.
 
 The free functor construction is useful because it can convert any type constructor to a functor.
 After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable or the free monad constructions shown earlier). 
@@ -15074,7 +15074,7 @@ let contrafunctorFreeContrafunctor : ∀(F : Type → Type) → Contrafunctor (F
       }
 ```
 
-We now formulate the free contrafunctor as a free $FM$-typeclass:
+We now formulate the free contrafunctor as a free FM-typeclass:
 
 ```dhall
 let freeFMTypeclassTFreeContrafunctor : FreeFMTypeclassT ContrafunctorP FreeContrafunctor
@@ -15110,10 +15110,10 @@ $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a c
 The free applicative functor is the most complicated construction of all free typeclass instances considered in this book.
 It requires a higher-kinded Church encoding whose structure functor contains an existential quantifier.
 
-The first step is to formulate the applicative functor typeclass as an $FM$-typeclass.
+The first step is to formulate the applicative functor typeclass as an FM-typeclass.
 
 We have defined the typeclass `ApplicativeFunctor` via the methods `pure`, `fmap`, and `zip`.
-This is not convenient for the present purpose because the type signature of `zip` is not of the form suitable for an $FM$-typeclass.
+This is not convenient for the present purpose because the type signature of `zip` is not of the form suitable for an FM-typeclass.
 We will replace `zip` by an equivalent method `ap`, whose type signature is `ap : F (x → y) → F x → F y`.
 It remains to uncurry and to rewrite the type signatures of `pure` and `ap` together in a single method signature of the form `P F t → F t`. 
 
@@ -15305,7 +15305,7 @@ let wrapFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F a �
 ```
 
 In order to finish implementing a full `FreeFMTypeclassT` evidence for `FreeA`,
-it remains  to implement the $FM$-typeclass evidence and the evaluator function.
+it remains  to implement the FM-typeclass evidence and the evaluator function.
 
 
 
@@ -15328,7 +15328,7 @@ let freeFMTypeclassTFreeA : FreeFMTypeclassT ApplicativeP FreeA
           in p (FreeFunctor T a) unpackHTA
     , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → pack (H T a) a { step = identity a, seed = ta }
     , eval = λ(U : Type → Type) → λ(fmTypeclassTFunctorU : FMTypeclassT FunctorP U) → λ(a : Type) → λ(freeFMU : FreeFunctor U a) → fmTypeclassTFunctorU a freeFMU
-  }
+  }???
 ```
 
 TODO: implement the full evidence for free applicative typeclass constructor
