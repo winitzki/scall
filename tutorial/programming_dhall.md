@@ -16480,8 +16480,8 @@ The first type equivalence (`∀(B : Type) → (B → A) → F B → R  ≅  F A
 The corresponding code consists of two functions:
 
 ```dhall
-let bafbr2far : ∀(F : Type → Type) → Functor F → ∀(A : Type) → ∀(R : Type) → (∀(B : Type) → (B → A) → F B → R) → F A → R
-  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(A : Type) → λ(R : Type) →
+let bafbr2far : ∀(F : Type → Type) → ∀(A : Type) → ∀(R : Type) → (∀(B : Type) → (B → A) → F B → R) → F A → R
+  = λ(F : Type → Type) → λ(A : Type) → λ(R : Type) →
     λ(k : ∀(B : Type) → (B → A) → F B → R) → λ(fa : F A) →
       k A (identity A) fa
 let far2bafbr : ∀(F : Type → Type) → Functor F → ∀(A : Type) → ∀(R : Type) → (F A → R) → ∀(B : Type) → (B → A) → F B → R
@@ -16490,9 +16490,27 @@ let far2bafbr : ∀(F : Type → Type) → Functor F → ∀(A : Type) → ∀(R
       far (functorF.fmap B A b2a fb)
 ```
 
-The 
+The second type equivalence is a specific form of the covariant Yoneda identity: `∀(R : Type) → (F A → R) → R  ≅  F A`.
+The Dhall code for the isomorphism is:
+```dhall
+let farr2fa : ∀(F : Type → Type) → ∀(A : Type) → (∀(R : Type) → (F A → R) → R) → F A
+  = λ(F : Type → Type) → λ(A : Type) → λ(k : ∀(R : Type) → (F A → R) → R) → k (F A) (identity (F A))
+let fa2farr : ∀(F : Type → Type) → ∀(A : Type) → F A → ∀(R : Type) → (F A → R) → R
+  = λ(F : Type → Type) → λ(A : Type) → λ(fa : F A) → λ(R : Type) → λ(far : F A → R) → far fa
+```
 
-TODO:write this code
+The isomorphism `Exists P ≅ F A` is then demonstrated by these two functions:
+
+```dhall
+let existsP2fa : ∀(F : Type → Type) → Functor F → ∀(A : Type) → Exists (λ(B : Type) → { seed : F B, step : B → A }) → F A
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(A : Type) → λ(e : Exists (λ(B : Type) → { seed : F B, step : B → A })) →
+      let unpack : ∀(B : Type) → { seed : F B, step : B → A } → F A
+        = λ(B : Type) → λ(r : { seed : F B, step : B → A }) → functorF.fmap B A r.step r.seed
+      in e (F A) unpack
+let fa2existsP : ∀(F : Type → Type) → ∀(A : Type) → F A → Exists (λ(B : Type) → { seed : F B, step : B → A })
+  = λ(F : Type → Type) → λ(A : Type) → λ(fa : F A) → pack (λ(B : Type) → { seed : F B, step : B → A }) A { seed = fa, step = identity A } 
+```
+
 
 ### Church encoding of least fixpoints
 
@@ -16882,7 +16900,8 @@ As an example, let us implement the `List` functor using the Mendler encoding.
 let ListF = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
 let ListM = λ(a : Type) → MFix (ListF a)
 let nilM = λ(a : Type) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (None (Pair a r))
-let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) → f r (identity r) (Some { _1 = head, _2 = tail r f } )
+let consM = λ(a : Type) → λ(head : a) → λ(tail : ListM a) → λ(r : Type) → λ(f : ∀(s : Type) → (s → r) → Optional (Pair a s) → r) →
+            f r (identity r) (Some { _1 = head, _2 = tail r f } )
 ```
 
 Here are some example values of type `ListM Natural`:
@@ -16892,7 +16911,16 @@ let exampleListM0 : ListM Natural = nilM Natural
 let exampleListM3 : ListM Natural = consM Natural 10 (consM Natural 20 (consM Natural 30 (nilM Natural)))
 ```
 
-TODO:implement headOptional for ListM and discuss performance
+For illustration, we write a `headOptional` function for `ListM`.
+
+```dhall
+let headOptionalListM : ∀(a : Type) → ListM a → Optional a
+  = λ(a : Type) → λ(list : ListM a) → list (Optional a) (λ(s : Type) → λ(f : s → Optional a) → λ(os : Optional (Pair a s)) →
+    merge { None = None a
+          , Some = λ(p : Pair a s) → Some p._1
+          } os )
+```
+
 
 Let us implement the `fix` and `unfix` methods for the Mendler encoding.
 Note that `fix` no longer needs a `Functor` typeclass evidence for `F`.
