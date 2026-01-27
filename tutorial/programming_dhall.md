@@ -8680,6 +8680,14 @@ We will prove in the appendix "Naturality and parametricity" that the functions 
 
 Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
+For convenience, we may implement a generic version of `outE` where the type constructor `P` is not fixed:
+
+```dhall
+let outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+  = λ(P : Type → Type) → λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
+    consume (pack P t pt)
+```
+
 #### Differences between existential and universal quantifiers
 
 We have introduced the type constructor `Exists` that helps us create existential types.
@@ -14871,7 +14879,7 @@ let FilterableP : (Type → Type) → Type → Type
 ```
 
 We did not include the `fmap` method into `P`; instead, we will derive that method the `Functor` evidence of `F`.
-To be able to do that, we define a version of the free FM-typeclass instance adapated to use with `Functor`-based typeclasses:
+To be able to do that, we define a version of the free FM-typeclass instance adapted to use with `Functor`-based typeclasses:
 
 ```dhall
 let FreeFMTypeclassTFunctor = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT : (Type → Type) → Type → Type) →
@@ -15110,9 +15118,11 @@ $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a c
 The free applicative functor is the most complicated construction of all free typeclass instances considered in this book.
 It requires a higher-kinded Church encoding whose structure functor contains an existential quantifier.
 
+#### `ApplicativeFunctor` as an FM-typeclass
+
 The first step is to formulate the applicative functor typeclass as an FM-typeclass.
 
-We have defined the typeclass `ApplicativeFunctor` via the methods `pure`, `fmap`, and `zip`.
+We have defined   `ApplicativeFunctor` via the methods `pure`, `fmap`, and `zip`.
 This is not convenient for the present purpose because the type signature of `zip` is not of the form suitable for an FM-typeclass.
 We will replace `zip` by an equivalent method `ap`, whose type signature is `ap : F (x → y) → F x → F y`.
 It remains to uncurry and to rewrite the type signatures of `pure` and `ap` together in a single method signature of the form `P F t → F t`. 
@@ -15135,13 +15145,51 @@ $$ P ~ F ~a =  a + \exists b.~ (F~ (b \to a)) \times (F ~b) $$
 The corresponding Dhall code is:
 
 ```dhall
-let ApplicativeP = λ(F : Type → Type) → λ(a : Type) → < Pure : a | Ap : Exists (λ(b : Type) → { seed : F b, step : F (b → a) }) >
+let ApplicativeFunctorP : (Type → Type) → Type → Type
+  = λ(F : Type → Type) → λ(a : Type) → < Pure : a | Ap : Exists (λ(b : Type) → { seed : F b, step : F (b → a) }) >
+let ApplicativeFMTypeclass = FMTypeclassT ApplicativeFunctorP
 ```
 Here we have used a union type and a record type with suggestive names.
 
-If we have a functor with an `ApplicativeFunctor` evidence, we can compute evidence of the FM-typeclass based on `ApplicativeP`.
+If we have a functor with an `ApplicativeFunctor` evidence, we can compute an evidence of the FM-typeclass based on `ApplicativeFunctorP`.
+This is just a repackaging of the standard method `ap` for applicative functors.
 
-todo: implement
+```dhall
+let fmTypeclassTApplicativeFunctor : ∀(F : Type → Type) → ApplicativeFunctor F → ApplicativeFMTypeclass F
+  = λ(F : Type → Type) → λ(applicativeFunctorF : ApplicativeFunctor F) → λ(a : Type) → λ(pfa : ApplicativeFunctorP F a) →
+    -- Need a value of type F a. Use "ap".
+    merge { Pure = λ(x : a) → applicativeFunctorF.pure a x
+          , Ap = λ(e : Exists (λ(b : Type) → { seed : F b, step : F (b → a) })) →
+            let unpack : ∀(b : Type) → { seed : F b, step : F (b → a) } → F a
+              = λ(b : Type) → λ(r : { seed : F b, step : F (b → a) }) → ap F applicativeFunctorF b a r.step r.seed
+            in e (F a) unpack
+          } pfa
+```
+
+For convenience, let us also implement the converse transformation: from an evidence of `ApplicativeFMTypeclass` to the more practical `ApplicativeFunctor`.
+
+```dhall
+let applicativeFunctorFMTypeclassT : ∀(F : Type → Type) → ApplicativeFMTypeclass F → ApplicativeFunctor F
+  = λ(F : Type → Type) → λ(evidence : ∀(a : Type) → < Pure : a | Ap : Exists (λ(b : Type) → { seed : F b, step : F (b → a) }) > → F a) →
+    let P : Type → Type → Type = λ(a : Type) → λ(b : Type) → { seed : F b, step : F (b → a) }
+    let ap : ∀(a : Type) → ∀(b : Type) → F (b → a) → F b → F a
+      = λ(a : Type) → λ(b : Type) → λ(fba : F (b → a)) → λ(fb : F b) →
+        let ExistsU = Exists (λ(b : Type) → { seed : F b, step : F (b → a) })
+      -- Use outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+        let existsU2fa : ExistsU → F a
+          = λ(u : ExistsU) → evidence a (< Pure : a | Ap : ExistsU >.Ap u)
+        in outEG (P a) (F a) existsU2fa b { seed = fb, step = fba }
+    let pure : ∀(a : Type) → a → F a = λ(a : Type) → λ(x : a) → evidence a ((ApplicativeFunctorP F a).Pure x)
+    let fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → ap b a (pure (a → b) f)
+    let zip = λ(a : Type) → λ(fa : F a) → λ(b : Type) → λ(fb : F b) →
+      let makePair : a → b → Pair a b = λ(x : a) → λ(y : b) → { _1 = x, _2 = y }
+      let fb2ab : F (b → Pair a b) = fmap a (b → Pair a b) makePair fa
+      in ap (Pair a b) b fb2ab fb
+    in { fmap, pure, zip }
+```
+
+
+#### Defining the free applicative functor
 
 For the free applicative functor, we use the definition from [Capriotti and Kaposi (2014)](https://arxiv.org/pdf/1403.0749).
 
@@ -15150,7 +15198,8 @@ Then the free applicative functor on `F` is defined in mathematical notation by:
 
 $$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
 
-This definition is recursive; it uses `FAF` to define itself.
+This definition is recursive; `FAF` is defined using itself.
+
 Note the difference between the type  expression $\exists b.~(\textrm{FAF}~b) \times(F~(b\to a))$ and the similar expression  $\exists b.~ (F~ (b \to a)) \times (F ~b)$ found in the structure functor $P$.
 The difference is that $F~(b\to a)$ involves the fixed functor `F` rather than the free applicative functor.
 This difference is crucial for the correct working of this construction.
@@ -15216,6 +15265,7 @@ let functorFreeA : ∀(F : Type → Type) → Functor F → Functor (FreeA F)
       functorLFixK (Q F) (functorKQ F functorF)
 ```
 
+#### Data constructors and the `ap` method
 
 The generic function `fixK` gives us some data constructors that create values of the free applicative type.
 For clarity, we will first specialize the `fixK` function to the structure functors used in `FreeA`.
@@ -15278,7 +15328,7 @@ let apFreeA : ∀(F : Type → Type) → Functor F → ∀(b : Type) → ∀(a :
 
 Our code for `apFreeA` uses the higher-kinded Church encoding techniques and is non-recursive.
 The paper of Capriotti and Kaposi needed a separate proof to justify that their recursive code for `ap` terminates.
-In Dhall, termination is guaranteed and we do not need any further proof.
+In Dhall, termination is guaranteed, and so we do not need any further proof.
 
 The `zip` method can be expressed easily via `apFreeA` :
 
@@ -15289,10 +15339,10 @@ let zipFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → FreeA 
     in apFreeA F functorF b (Pair a b) ffbpab ffb
 ```
 
-We can now write an `ApplicativeFunctor` evidence for `FreeA F`:
+We can now write an `ApplicativeFunctor` evidence for `FreeA F` with arbitrary `F` (as long as it is a functor):
 
 ```dhall
-let applicativeFreeA : ∀(F : Type → Type) → Functor F → ApplicativeFunctor (FreeA F)
+let applicativeFunctorFreeA : ∀(F : Type → Type) → Functor F → ApplicativeFunctor (FreeA F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
     (functorFreeA F functorF) /\ (pointedFreeA F functorF) /\
       { zip = zipFreeA F functorF }
@@ -15308,34 +15358,17 @@ let wrapFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F a �
     in apCFreeA F functorF {} fau a fua
 ```
 
-In order to finish implementing a full `FreeFMTypeclassT` evidence for `FreeA`,
-it remains  to implement the FM-typeclass evidence for `FreeA` and the evaluator function.
-
-
-
+In order to finish implementing a `FreeFMTypeclassTFunctor` evidence for `FreeA`,
+it just remains  to encode the evaluator function.
+The complete code is:
 ```dhall
-let freeFMTypeclassTFreeA : FreeFMTypeclassT ApplicativeP FreeA
-  = { evidence = λ(T : Type → Type) →
-        λ(a : Type) → λ(p : FunctorP (FreeFunctor T) a) →
-  -- Have p : Exists (H (λ(b : Type) → Exists (H T b)) a), need Exists (H T a).
-          let _ = p : Exists (H (λ(b : Type) → Exists (H T b)) a) -- Just to make sure the type of p is what we expect.
-          let unpackHTA : ∀(t : Type) → H (λ(b : Type) → Exists (H T b)) a t → Exists (H T a)
-            = λ(t : Type) → λ(q : { step : t → a, seed : Exists (H T t) }) →
-              -- Given q.seed and q.step, need a value of type Exists (H T a).
-              mapExists (H T t) (H T a)
-                (λ(c : Type) → λ(httc : H T t c) →
-                  -- Need a value of type H T a c = { step = c → a, seed : T c }.
-                  let _ = httc : { step : c → t, seed : T c } -- Just to make sure the type is what we expect.
-                  let c2a : c → a = composeForward c t a httc.step q.step
-                  in { step = c2a, seed = httc.seed }
-                ) q.seed
-          in p (FreeFunctor T a) unpackHTA
-    , pure = λ(T : Type → Type) → λ(a : Type) → λ(ta : T a) → pack (H T a) a { step = identity a, seed = ta }
-    , eval = λ(U : Type → Type) → λ(fmTypeclassTFunctorU : FMTypeclassT FunctorP U) → λ(a : Type) → λ(freeFMU : FreeFunctor U a) → fmTypeclassTFunctorU a freeFMU
-  }???
+let freeFMTypeclassTFreeA : FreeFMTypeclassTFunctor ApplicativeFunctorP FreeA
+  = { evidence = λ(F : Type → Type) → λ(functorF : Functor F) → fmTypeclassTApplicativeFunctor (FreeA F) (applicativeFunctorFreeA F functorF)
+    , pure = wrapFreeA
+    , eval = λ(U : Type → Type) → λ(evidenceU : FMTypeclassT ApplicativeFunctorP U) → λ(a : Type) → λ(freeFMU : FreeA U a) →
+               freeFMU U evidenceU
+  }
 ```
-
-TODO: implement the full evidence for free applicative typeclass constructor
 
 # Appendixes
 
@@ -16445,6 +16478,19 @@ we turn to the two Yoneda identities used in the proof.
 
 The first type equivalence (`∀(B : Type) → (B → A) → F B → R  ≅  F A → R`) corresponds to using the contravariant Yoneda identity.
 The corresponding code consists of two functions:
+
+```dhall
+let bafbr2far : ∀(F : Type → Type) → Functor F → ∀(A : Type) → ∀(R : Type) → (∀(B : Type) → (B → A) → F B → R) → F A → R
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(A : Type) → λ(R : Type) →
+    λ(k : ∀(B : Type) → (B → A) → F B → R) → λ(fa : F A) →
+      k A (identity A) fa
+let far2bafbr : ∀(F : Type → Type) → Functor F → ∀(A : Type) → ∀(R : Type) → (F A → R) → ∀(B : Type) → (B → A) → F B → R
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(A : Type) → λ(R : Type) →
+    λ(far : F A → R) → λ(B : Type) → λ(b2a : B → A) → λ(fb : F B) →
+      far (functorF.fmap B A b2a fb)
+```
+
+The 
 
 TODO:write this code
 
