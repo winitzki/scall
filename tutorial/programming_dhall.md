@@ -15105,7 +15105,7 @@ This can be shown via the contravariant co-Yoneda identity:
 $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
 
 
-### Free applicative
+### Free applicative functor
 
 The free applicative functor is the most complicated construction of all free typeclass instances considered in this book.
 It requires a higher-kinded Church encoding whose structure functor contains an existential quantifier.
@@ -15138,6 +15138,10 @@ The corresponding Dhall code is:
 let ApplicativeP = λ(F : Type → Type) → λ(a : Type) → < Pure : a | Ap : Exists (λ(b : Type) → { seed : F b, step : F (b → a) }) >
 ```
 Here we have used a union type and a record type with suggestive names.
+
+If we have a functor with an `ApplicativeFunctor` evidence, we can compute evidence of the FM-typeclass based on `ApplicativeP`.
+
+todo: implement
 
 For the free applicative functor, we use the definition from [Capriotti and Kaposi (2014)](https://arxiv.org/pdf/1403.0749).
 
@@ -15305,7 +15309,7 @@ let wrapFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F a �
 ```
 
 In order to finish implementing a full `FreeFMTypeclassT` evidence for `FreeA`,
-it remains  to implement the FM-typeclass evidence and the evaluator function.
+it remains  to implement the FM-typeclass evidence for `FreeA` and the evaluator function.
 
 
 
