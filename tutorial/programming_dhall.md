@@ -10104,10 +10104,11 @@ let BInfTree = λ(a : Type) → GFix (FTree a)
 Define the two "finite" data constructors using the general `fixG` function:
 
 ```dhall
-let leafBInf = λ(a : Type) → λ(x : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Leaf x)
+let leafBInf : ∀(a : Type) → a → BInfTree a
+  = λ(a : Type) → λ(leaf : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Leaf leaf)
+let branchBinf : ∀(a : Type) → BInfTree a → BInfTree a → BInfTree a
+  = λ(a : Type) → λ(left : BInfTree a) → λ(right : BInfTree a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Branch { left = left, right = right })
 ```
-
-todo: implement
 
 These data constructors can create  finite trees of type `BInfTree`:
 
