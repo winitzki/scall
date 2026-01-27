@@ -10101,7 +10101,11 @@ let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, 
 let BInfTree = λ(a : Type) → GFix (FTree a)
 ```
 
-Define the "finite" data constructors using the general `fixG` function:
+Define the two "finite" data constructors using the general `fixG` function:
+
+```dhall
+let leafBInf = λ(a : Type) → λ(x : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Leaf x)
+```
 
 todo: implement
 
@@ -10123,6 +10127,8 @@ TODO: implement
 The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while branching further always on the right.
 
 The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
+
+TODO: implement
 
 ### Example: labeled cyclic graphs
 
