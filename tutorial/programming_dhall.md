@@ -10112,7 +10112,12 @@ let branchBinf : ∀(a : Type) → BInfTree a → BInfTree a → BInfTree a
 
 These data constructors can create  finite trees of type `BInfTree`:
 
-todo: implement
+```dhall
+let example1BInf : BInfTree Natural = leafBInf Natural 123
+let example2BInf : BInfTree Text = branchBInf Text (BranchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
+```
+These finite trees are fully analogous to values of the least fixpoint type 
+todo: say which, look it up in code above
 
 To build infinite trees, we need    more general data constructors that use  `makeGFix`.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
@@ -15043,7 +15048,7 @@ This type is similar to the type of the `join` method of a monad, except that it
 This is a general property of free FM-typeclass instances. The constructor of a free FM-typeclass instance is always a monad.
 
 The free functor construction is useful because it can convert any type constructor to a functor.
-After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable or the free monad constructions shown earlier). 
+After that, we may apply another free construction that requires its base type constructor to be already a functor (such as the free filterable, the free monad, or the free applicative constructions shown in this chapter).
 
 What if we take a type constructor `F` that is already a functor and compute `FreeFunctor F`?
 It turns out that the resulting functor is equivalent to `F`.
