@@ -14484,10 +14484,6 @@ But we can see that the free monad  on   `F`  wraps any given functor `F` into a
 Similarly,  the "free pointed" functor on `F` is the functor `CoProduct Id F`.
 It is always a pointed functor, even if the functor `F` is not  pointed.
 
-It turns out that a wide range of typeclasses (called **FM-typeclasses** in "The Science of Functional Programming") have free instances.
-The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are FM-typeclasses.
-All those typeclasses admit "free instances", which this chapter will implement.
-
 To qualify as a free typeclass instance, the type constructor must satisfy certain laws (that we will not write out in detail here).
 An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined `monoidOptionalKeepX` and `monoidOptionalKeepY`.
 That construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
@@ -14506,6 +14502,11 @@ See ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter
 
 
 ### FM-typeclasses and their free instances
+
+
+The subset of typeclasses that can have free instances is called **FM-typeclasses** in "The Science of Functional Programming".
+The typeclasses `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor` are FM-typeclasses.
+All those typeclasses admit "free instances", which this chapter will implement.
 
 Typeclasses may describe either the properties of ordinary types (e.g., `Semigroup`, `Monoid`, `Eq`) or the properties of type constructors (e.g., `Functor`, `Monad`).
 While the general idea of a free typeclass instance applies to both kinds of typeclasses, 
