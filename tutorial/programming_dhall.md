@@ -9564,6 +9564,9 @@ let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
 
 #### Converting from the least fixpoint to the greatest fixpoint
 
+For the same structure functor `F`, we may define the least fixpoint type (`LFix F`) and the greatest fixpoint type (`GFix F`).
+These types are usually not the same, and the greatest fixpoint type is usually "larger" than the least fixpoint type.
+
 A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
 
 Creating a value of the type `GFix F` requires a value of some type `t` and a function of type `t → F t`.
@@ -9576,12 +9579,12 @@ let toGFix : ∀(F : Type → Type) → Functor F → LFix F → GFix F
     makeGFix F (LFix F) x (unfix F functorF)
 ```
 
-Because of the use of `unfix`, the resulting fixpoint value will have poor performance: it will traverse the entire initial data structure (`x`) when fetching _every_ new data element.
+Because of the use of `unfix`, the resulting fixpoint value may have poor performance: it could have to traverse the entire initial data structure (`x`) when fetching _every_ new data element.
 
+#### Converting from the greatest fixpoint to the least fixpoint
 
 The converse transformation (from the greatest fixpoint to the least fixpoint) is known as a **hylomorphism**.
-In Dhall, it is impossible to implement hylomorphisms because their termination is not guaranteed in general.
-We will look at hylomorphisms in more detail later in the chapter "Translating recursive functions into Dhall".
+In Dhall, it is impossible to implement hylomorphisms as they are usually formulated, because a hylomophism is generally not guaranteed to terminate.
 
 The `InfSeq` type constructor is an example where it is clearly impossible to convert the greatest fixpoint to the least fixpoint of the same functor.
 The type `InfSeq` is a greatest fixpoint of the bifunctor `Pair`.
@@ -9590,9 +9593,85 @@ If it were possible to implement a terminating hylomorphism, we would be able to
 A  program "creating a value of the void type" means, in practice, a program that never terminates.
 This is an illustration of the fact that hylomorphisms cannot be guaranteed to terminate.
 
-To guarantee termination, one must supply an explicit upper bound on the size of the data.
+To guarantee termination, one must modify the type signature of a hylomorphism in order to supply an explicit recursion bound as well as other data.
 The required technique for the general case will be studied in the next chapter. 
 We will also use that technique in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
+
+In preparation,   we will now implement a simple workaround sufficient for obtaining a truncated view of an infinite data structure.
+We will  supply a "stop-gap" value and  an upper bound on the recursion depth.
+Whenever the data structure goes beyond the recursion bound, we will insert the "stop-gap" value and stop the recursion.
+
+We begin by choosing a structure functor `F`.
+Visualize the data structure obtained by "unrolling" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
+Applying the "step" function to the "seed", we get a value of type `F t`.
+Lifting the "step" function (via the functor `F`'s `fmap` method) to a function of type `F t → F (F t)` and applying again, we get a value of type `F (F t)`.
+Repeating this `n` times, we will get a data structure `p` of type `F (F (... F t)...)`.
+This is the data structure that we would like to convert to a value of type `LFix F`.
+
+To do that, the first step is to remove any values of type `t` from `p`.
+The presence of those values in `p` indicates that the data structure continues to branch out recursively in certain places.
+We would like to truncate the further recursive branching precisely at those places, replacing
+any further branches by a certain chosen value of type `LFix F`.
+We will call that value the "stop-gap" value `s : LFix F`.
+
+Once the stop-gap value is chosen, we replace all occurences of `t` in `p` by that value.
+This is done by creating a constant function `replace : t → LFix F` that replaces any value of type `t` by the constant stop-gap value.
+We lift `replace` by `F`'s `fmap` method `n` times  and obtain a function of the following type:
+
+`F (F (... F t)...) → F (F (... F (LFix F))...)`
+
+It remains now to apply the standard `fix` function, also lifted `n` times, to convert `F (F (... F (LFix F))...)` to just `LFix F`.
+This completes the truncated conversion from `GFix F` to `LFix F`, given a recursion bound `n : Natural` and a stop-gap value `s : LFix F`.
+
+To implement this conversion in Dhall, we need to rewrite the function in a more convenient form.
+As an example, set `n = 3` and write the steps outlined above as a pseudocode:
+
+```dhall
+let x : GFix F = ??? -- contains { seed : t, step : t → F t }
+let x0 = seed  -- In the real code, we will not really need to extract `seed`.
+let x1 : F t = step x0
+let x2 : F (F t) = fmap step x1
+let x3 : F (F (F t)) = fmap (fmap step) x2
+let replace : t → LFix F = λ(_ : t) → stopgap
+let y3 : F (F (F (LFix F))) = fmap (fmap (fmap replace)) x3
+let y2 : F (F (LFix F)) = fmap (fmap fix) y3
+let y1 : F (LFix F) = fmap fix y2
+let y0 : LFix F = fix y1
+```
+
+We can write the entire function body mapping `x0` to `y0` using Haskell's function composition operator (`.`) like this:
+
+`fix . fmap fix . fmap (fmap fix) . fmap (fmap (fmap replace)) . fmap (fmap step) . fmap step . step`
+
+Using the composition law of `fmap`, we rewrite this function equivalently as:
+
+`fix . fmap (fix . fmap (fix . fmap replace . step) . step) . step`
+
+Now we can compute this function iteratively:
+
+```dhall
+let replace = λ(_ : t) → ??? stopgap
+let f1 = fix . fmap replace . step
+let f2 = fix . fmap f1 . step
+let f3 = fix . fmap f2 . step
+```
+Note that the functions `f1`, `f2`, `f3` have the same type (`t → LFix F`).
+This suggests using `Natural/fold` with that function type as the accumulator type.
+We are now ready to implement the truncating conversion in Dhall:
+
+```dhall
+let truncateGFix : ∀(F : Type → Type) → Functor F → Natural → LFix F → GFix F → LFix F
+  = λ(F : Type → Type) → λ(functorF : Functor F) → λ(limit : Natural) → λ(stopgap : LFix F) → λ(g : GFix F) →
+    let unpack : ∀(t : Type) → { seed : t, step : t → F t } → LFix F
+      = λ(t : Type) → λ(p : { seed : t, step : t → F t }) →
+        let replace : t → LFix F = λ(_ : t) → stopgap
+        let update : (t → LFix F) → t → LFix F = λ(prev : t → LFix F) → λ(x : t) → fix F functorF (functorF.fmap t (LFix F) prev (p.step x))
+        let f : t → LFix F = Natural/fold limit (t → LFix F) update replace
+        in f p.seed
+    in g (LFix F) unpack
+```
+
+Below we will use this code for visualizing finite initial fragments of "infinite" data structures.
 
 ### Data constructors and pattern matching
 
@@ -9727,7 +9806,7 @@ Let us now implement a function `Stream/take` that converts `Stream a` to `List 
 That function will be used to extract the values stored in a stream, taking at most a given number of values.
 Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
 The length limit  must be specified as an additional argument.
-So, the type signature of `Stream/take` must be something like `Stream a → Natural → List a`.
+Let us choose the type signature of `Stream/take` as `Stream a → Natural → List a`.
 
 ```dhall
 let Stream/take : ∀(a : Type) → Natural → Stream a → List a
@@ -10115,9 +10194,6 @@ let example2BInf : BInfTree Text = branchBInf Text (branchBInf Text (leafBInf Te
 ```
 These finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
-To visualize values of type `BInfTree a`, let us implement a converter to finite trees.
-The converter will take a `Natural` parameter describing the maximum tree depth.
-Any branches beyond that depth will be replaced by a special "stop-gap" value (of type `a`).
 
 In addition to finite trees, the greatest fixpoint type `BInfTree a` also supports  values that can be viewed as "infinite" trees.
 todo:
@@ -10136,6 +10212,16 @@ let makeBInfTree : ∀(a : Type) → ∀(r : Type) → r → (r → FTree a r) �
   = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTree a r) → makeGFix (FTree a) r seed step
 ```
 Note that the seed type `r` may depend on the data type `a` if necessary.
+
+To test this code, it helps to visualize infinite trees by truncating them  at a given depth.
+Since `BInfTree` and `Tree2` are fixpoints of the same bifunctor (`FTree`), we can use the general function `truncateGFix` for converting greatest fixpoint values (`BInfTree a`) to least fixpoint values (`Tree2 a`).
+The recursion limit will give the maximum tree depth that we would like to extract.
+Any branches beyond that depth will be replaced by the  stop-gap value (of type `Tree2 a`).
+For simplicity, let us make that value a leaf:
+```dhall
+let truncateBInfTree = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) → λ(infTree : BInfTree a) → truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
+```
+
 
 Our first example is an infinite tree that contains no data: the tree starts with a `Branch`, and each branch is again a `Branch`.
 We can implement this tree as a generic value of type `BInfTree a` for any type `a` since we will not need to store any values.
