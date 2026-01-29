@@ -10252,10 +10252,11 @@ let naturalsInfTree : BInfTree Natural
   = let T = Pair Natural Bool
     let step : T → FTree Natural T = λ(seed : T) →
        if seed._2
-         then (FTree Natural T).Branch {
+       then (FTree Natural T).Branch {
            left = { _1 = seed._1, _2 = False }
          , right = { _1 = seed._1 + 1, _2 = True }
-         } else (FTree Natural T).Leaf seed._1
+         }
+       else (FTree Natural T).Leaf seed._1
     in makeBInfTree Natural T { _1 = 0, _2 = True } step
 ```
 
@@ -10268,7 +10269,36 @@ let _ = assert : truncateBInfTree Natural 4 123 naturalsInfTree ≡
 
 The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
-TODO: implement
+The seed type must carry the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
+For that, we use a triple such as `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
+
+```dhall
+let tumbleBInfTree : ∀(a : Type) → a → (a → a) → BInfTree a
+  = λ(a : Type) → λ(x : a) → λ(f : a → a) →
+    let T = { x : a, isLeaf : Bool, isLeafRight : Bool }
+    let step: T → FTree a T = λ(seed : T) →
+      let next = seed.isLeafRight == False
+      in if seed.isLeaf then (FTree a T).Leaf seed.x
+      else
+        if seed.isLeafRight then (FTree a T).Branch {
+           left = { x = f seed.x, isLeaf = False, isLeafRight = next }
+         , right = { x = seed.x, isLeaf = True, isLeafRight = next }
+         }
+        else (FTree a T).Branch {
+           left = { x = seed.x, isLeaf = True, isLeafRight = next }
+         , right = { x = f seed.x, isLeaf = False, isLeafRight = next }
+         }
+    in makeBInfTree a T { x = x, isLeaf = False, isLeafRight = False } step
+```
+
+To test this, supply some simple data and extract the tree up to depth 4:
+
+```dhall
+let tumbleExample = tumbleBInfTree Natural 1 (λ(x : Natural) → x * 3)
+let _ = assert : truncateBInfTree Natural 4 123 tumbleExample ≡
+  branch Natural (leaf Natural 1) (branch Natural (branch Natural (leaf Natural 9) (branch Natural (leaf Natural 123) (leaf Natural 123))) (leaf Natural 3))
+    
+```
 
 ### Example: labeled cyclic graphs
 
