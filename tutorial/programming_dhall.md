@@ -10232,9 +10232,18 @@ let emptyInfTree : ∀(a : Type) → BInfTree a
   = λ(a : Type) → makeBInfTree a {} {=} (λ(_ : {}) → (FTree a {}).Branch { left = {=}, right = {=} })
 ```
 
-TODO: implement a test
+To test this, set `a = Natural`, extract the tree up to depth 2 and supply stopgap value `123`.
+The result must be a tree with 4 leaves.
+```dhall
+let _ = assert : truncateBInfTree Natural 2 123 (emptyInfTree Natural) ≡ (
+  let t = leaf Natural 123
+  in branch Natural (branch Natural t t) (branch Natural t t)
+)
+```
 
-The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while branching further always on the right.
+The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
+
+The "seed" must carry the information about the current natural number; so 
 
 The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
