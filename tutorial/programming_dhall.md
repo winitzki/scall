@@ -32,6 +32,9 @@ The book shows many complete code examples, which have been validated by the Dha
 
 In addition, the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
 
+Many more proofs are given in ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
+This book will refer to "The Science of Functional Programming" where appropriate.
+
 _The text of this book was written and edited without using any LLMs._
 
 ## Overview of Dhall
@@ -3749,7 +3752,7 @@ The code of `fmap` must be written out in Dhall programs.
 ###### Example: a function with a typeclass constraint
 
 Implement a function `inject1` that (for any types `a` and `b` and for any functor `F`) converts a value of type `Pair a (F b)` into a value of type `F (Pair a b)`.
-Tthe type constructor `Pair` has been defined above as `Pair a b = { _1 : a, _2 : b }`.
+The type constructor `Pair` has been defined above as `Pair a b = { _1 : a, _2 : b }`.
 
 ####### Solution
 
@@ -3761,7 +3764,7 @@ let inject1_t = ∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a :
 
 The implementation is based on the idea that, given a fixed value `x : a`, we can write a function of type `b → Pair a b`.
 Then can we use the functor property of `F` and lift that function to the type `F b → F (Pair a b)`.
-This is almost all we need. The complete code is:
+The complete code is:
 ```dhall
 let inject1 : inject1_t
   = λ(F : Type → Type) → λ(functorF : Functor F) →
@@ -3775,13 +3778,13 @@ let inject1 : inject1_t
 
 The following functions need to work in the same way for any types `a` and `b` and for any functor `F`.
 
-1. Implement a function `narrow1` that converts a value of type `Pair a (F < Left : a | Right : b >)` into a value of type `F a`.
+1. Implement a function `unzip` that converts a value of type `F (Pair a b)` into a value of type `Pair (F a) (F b)`.
 
-2. Implement a function `unzip` that converts a value of type `F (Pair a b)` into a value of type `Pair (F a) (F b)`.
+2. Implement a function `widen1` that converts a value of type `F a` into a value of type  `F < Left : a | Right : b >`.
 
-3. Implement a function `widen1` that converts a value of type `F a` into a value of type  `F < Left : a | Right : b >`.
+3. Implement a function `expand` that converts a value of type `< Left : F a | Right : F b >` into a value of type  `F < Left : a | Right : b >`.
 
-4. Implement a function `expand` that converts a value of type `< Left : F a | Right : F b >` into a value of type  `F < Left : a | Right : b >`.
+4. Implement a function `narrow1` that converts a value of type `Pair a (F < Left : a | Right : b >)` into a value of type `F a`.
 
 ### Verifying the laws of functors
 
@@ -3945,13 +3948,7 @@ The typeclass for contrafunctors is defined by:
 let Contrafunctor = λ(F : Type → Type) → { cmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F b → F a }
 ```
 
-As an example, consider this simple contrafunctor `C`:
-
-
-```dhall
-let C = λ(a : Type) → a → Text
-```
-The corresponding evidence value is written as:
+As an example, a `Contrafunctor` evidence for `C` is written as:
 
 ```dhall
 let contrafunctor_C : Contrafunctor C
@@ -3999,12 +3996,12 @@ is covariant in `a` and contravariant in `b`.
 
 In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
 
-An example of a bifunctor in Haskell is  `type P a b = (a, a, b, Int)`.
+An example of a bifunctor in Haskell or Scala is  `type P a b = (a, a, b, Int)`.
 
 Dhall encodes bifunctors as functions with two curried arguments of kind `Type`:
 
 ```dhall
-let P : Type → Type → Type  -- In Haskell and Scala, this is (a, a, b, Int).
+let P : Type → Type → Type  -- In Haskell or Scala, this is (a, a, b, Int).
   = λ(a : Type) → λ(b : Type) → { x : a, y : a, z : b, t : Integer }
 ```
 
@@ -4092,7 +4089,7 @@ A functor `F` is a **pointed functor** if it has a method called `pure` with the
 This method constructs values of type `F a` from values of type `a`.
 In many cases, `pure x` is a data container of type `F a` that stores a single value `x : a`.
 
-Let us define `Pointed` as a typeclass and implement instances for some simple type constructors.
+Let us define `Pointed` as a typeclass and implement `Pointed` evidence for some simple type constructors.
 
 ```dhall
 let Pointed : (Type → Type) → Type
@@ -4109,7 +4106,8 @@ Another example of a pointed functor is `AAInt` defined earlier in this book:
 ```dhall
 let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
 
-let pointedAAInt : Pointed AAInt = { pure = λ(a : Type) → λ(x : a) → { _1 = x, _2 = x, _3 = +123 } }
+let pointedAAInt : Pointed AAInt = { pure = λ(a : Type) → λ(x : a) →
+  { _1 = x, _2 = x, _3 = +123 } }
 ```
 
 The `Integer` value `+123` was chosen arbitrarily for this example.
@@ -4123,7 +4121,7 @@ where `p` is a fixed type.
 (See the Appendix "Naturality and parametricity" for more details about the Yoneda identities.)
 
 The type signature `∀(a : Type) → a → F a` is a special case of the identity shown above if we set `p` to the unit type (in Dhall, `p = {}`).
-Then the type of functions `{} → a` is equivalent to just `a`.
+The  type of functions `{} → a` is equivalent to just `a`.
 So, the type signature `∀(a : Type) → a → F a` is equivalent to the type `F {}`.
 
 We call a value of type `F {}` a **wrapped unit** value, to indicate that a unit value is being "wrapped" by the type constructor `F`.
@@ -4153,7 +4151,7 @@ Another advantage is that `PointedU` can apply to type constructors that are not
 We define a **pointed contrafunctor** as a type constructor `C` for which we have evidence values of type `Contrafunctor C` and `PointedU C`.
 
 For example, consider the contrafunctor `C a = a → Optional r`, where `r` is a fixed type.
-We may implement that contrafunctor in Dhall as:
+We may implement that contrafunctor in Dhall by adding `r` as another type parameter:
 
 ```dhall
 let C = λ(r : Type) → λ(a : Type) → a → Optional r
@@ -4204,8 +4202,7 @@ Using the typeclass constraint, we can implement a function that provides the `j
 In Haskell, we would define `join` via `bind` as:
 
 ```haskell
--- Haskell.
-monadJoin :: Monad F => F (F a) -> F a
+monadJoin :: Monad F => F (F a) -> F a   -- Haskell.
 monadJoin ffa = bind ffa id
 ```
 In this Haskell code, `id` is an identity function of type `F a → F a`.
@@ -4249,7 +4246,7 @@ let List/concat : ∀(a : Type) → List (List a) → List a
 An equivalent function is available in  Dhall's Prelude as `List/concat`.
 
 
-The `Either` monad structure is defined via the convention that the "left" type parameter represents an error and the "right" type parameter represents the result value.
+The `Either` monad structure follows the convention that the "left" type parameter (here, `E`) represents  the type of errors and the "right" type parameter represents the type of result values.
 ```dhall
 let monadEither : ∀(E : Type) → Monad (Either E)
   = λ(E : Type) →
@@ -4261,7 +4258,7 @@ let monadEither : ∀(E : Type) → Monad (Either E)
     in { pure, bind }
 ```
 
-The `Reader` monad has an additional type parameter `E` describing the type of the fixed environment value:
+The `Reader` monad also has an additional type parameter (`E`) describing the type of the fixed environment value:
 
 ```dhall
 let Reader = λ(E : Type) → λ(A : Type) → E → A
@@ -4277,8 +4274,8 @@ let monadReader : ∀(E : Type) → Monad (Reader E)
 ```
 
 The `Writer` monad has an additional type parameter `W` describing the type of an extra output value.
-The type `W` must be monoidal for the `Writer` monad to work.
-The logic is that extra output values of type `W` are combined using the monoiad `W`'s `append`:
+The type `W` must be a monoid for the `Writer` monad to work.
+The output values of type `W` are combined using the monoid `W`'s `append`:
 
 ```dhall
 let Writer = λ(W : Type) → λ(A : Type) → { result : A, output : W }
@@ -4306,7 +4303,7 @@ let monadState : ∀(S : Type) → Monad (State S)
     in { pure, bind }
 ```
 
-The **continuation monad** has a type parameter `R` for the return type of continuation handlers:
+The **continuation monad** has an additional type parameter `R` for the return type of continuation handlers:
 
 ```dhall
 let Continuation = λ(R : Type) → λ(A : Type) → (A → R) → R
@@ -4574,7 +4571,7 @@ An example of an applicative _contrafunctor_ is the type constructor `C m a = a 
 The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
 The type `m` is assumed to be a fixed type that belongs to the `Monoid` typeclass.
 
-We can implement an `Applicative` evidence value for `C` like this:
+We can implement an `Applicative` evidence   for `C` like this:
 
 ```dhall
 let C = λ(m : Type) → λ(a : Type) → a → m
@@ -4589,7 +4586,7 @@ let applicativeC : ∀(m : Type) → Monoid m → Applicative (C m)
 ### Foldable and traversable functors
 
 The standard library function `List/fold` corresponds to the "right fold" known in other functional languages and implements a general **fold-like aggregation** on lists.
-It turns out that this operation can be generalized to many other data types.
+This operation can be generalized to many other data types.
 Type constructors that support a `fold` operation are called "foldable" functors.
 
 The type signature of `List/fold` is:
@@ -4617,7 +4614,7 @@ let FoldT = ∀(F : Type → Type) → ∀(a : Type) → F a → ∀(b : Type) �
 So, we could have defined the `Foldable` typeclass by the requirement that a function of type `FoldT F` exists.
 
 It turns out to be equivalent (but simpler) if we require a method called `toList`, with type signature `F a → List a`.
-This method should extract all data stored in a data structure of type `F a` and put that data into a list (in some fixed order).
+This method should extract all data stored in a data structure of type `F a` and put that data into a list, in some fixed order.
 Once the data is extracted, we can apply the standard `List/fold` method to that list.
 
 A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `∀(a : Type) → F a → List a`.
@@ -4629,13 +4626,13 @@ let Foldable
 ```
 The extracted values are stored in a list in a chosen, fixed order. (Different orders can be used to create different `Foldable` evidence values.)
 
-An easy example is the `List` functor itself; the `toList` method is an identity function:
+An   example is the `List` functor itself; the `toList` method is an identity function:
 
 ```dhall
 let foldableList : Foldable List = { toList = λ(a : Type) → identity (List a) }
 ```
 
-Let us look at examples of implementing a `Foldable` typeclass evidence for some simple functors.
+Let us look at examples of implementing a `Foldable` typeclass evidence for some   functors.
 In each case, we pick some order for putting the data items stored in a functor value into a list.
 We just need to take care to extract all available data items:
 ```dhall
@@ -4668,20 +4665,19 @@ let foldMap
     let listA : List a = foldableF.toList a fa
     in List/fold a listA m (λ(x : a) → λ(y : m) → monoidM.append (f x) y) monoidM.empty
 ```
-Here, we use the built-in function `List/fold` that has the following type:
+Here  we used the built-in function `List/fold` that has the following type:
 ```dhall
 let _ = List/fold : ∀(a : Type) → List a → ∀(r : Type) → ∀(cons : a → r → r) → ∀(nil : r) → r
 ```
 
 The `foldMap` function works with an arbitrary monoid type `m` and converts a data structure of type `F a` into a value of type `m` using a function of type `a → m`.
 One can generalize `foldMap` by replacing an arbitrary monoid by an arbitrary _applicative functor_, as the properties of applicative functors are somewhat similar to the properties of monoids.
-The result of this generalization is a method known as `traverse` that converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
-
+The result of this generalization is a method known as `traverse`.
+It converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
 The type signature of  `traverse` is written in Haskell like this:
 
 ```haskell
--- Haskell.
-traverse :: Applicative L => (a -> L b) -> F a -> L (F b)
+traverse :: Applicative L => (a -> L b) -> F a -> L (F b)  -- Haskell.
 ```
 It is important that this function is _parameterized_ by `L`.
 Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method must work in the same way for all types `a`, `b` and for all applicative functors `L`.
@@ -4717,7 +4713,7 @@ Our goal is to merge all the `L`-effects from those values into a single `L`-eff
 Then we restore the shape of the initially given value of type `F (L a)` inside the output value of type `L (F a)`.
 The code must preserve information as much as possible, keeping the shape of any union types or records.
 
-Typically, an implementation will enumerate all values of type `L a` stored inside `F (L a)` in a chosen order.
+Typically, an implementation will enumerate all values (of type `L a`) stored inside `F (L a)` in a chosen order.
 Then `L`'s `zip` method is applied to combine all those values into a single value of type `L (T a)`, where `T a` is a nested tuple containing some values of type `a`.
 The number of data items of type `a` inside `T a` is the same as the number of data items of type `L a` in the input value of type `F (L a)`.
 So, we can write a function that maps `T a → F a`, preserving the shape of the input value. 
@@ -4732,8 +4728,8 @@ let traversableF1 : Traversable F1 = { sequence = λ(L : Type → Type) → λ(a
 ```
 
 The second example is the functor `F2` that can contain two or three items of type `a`.
-Note how we transform `Option (L a)` into `L (Option a)` using the `Traversable` evidence for the `Optional` type.
-
+We will transform `Option (L a)` into `L (Option a)` using the `Traversable` evidence for the `Optional` type.
+Let us write that evidence value:
 ```dhall
 let traversableOptional : Traversable Optional = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(ola : Optional (L a)) →
   merge { None = applicativeFunctorL.pure (Optional a) (None a)
@@ -4761,7 +4757,7 @@ The final example is a more complicated functor `F3` that involves a union type 
 let F3 = λ(a : Type) → Either (Pair a a) { x : Bool, y : a, z : List a }
 -- F3 stores either exactly two data items, or a data item and a list.
 ```
-To implement `Traversable F3`, we need a `Traversable` instance for `List`:
+To implement `Traversable F3`, we need a `Traversable` evidence for `List`:
 
 ```dhall
 let traversableList : Traversable List = { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(lla : List (L a)) →
@@ -4787,7 +4783,7 @@ let traversableF3 : Traversable F3 = { sequence = λ(L : Type → Type) → λ(a
 }
 ```
 
-The `traverse` method can be recovered from `sequence` if we have the `Functor` evidence for `F`:
+The `traverse` method can be recovered from `sequence` if we have a `Functor` evidence for `F`:
 
 ```dhall
 let traverse : ∀(F : Type → Type) → Functor F → Traversable F → TraverseT F
@@ -4797,17 +4793,17 @@ let traverse : ∀(F : Type → Type) → Functor F → Traversable F → Traver
     in traversableF.sequence L applicativeFunctorL b flb
 ```
 
-Given a `Traversable` typeclass evidence, one can derive the `Foldable` evidence by using a constant applicative functor:
+Given a `Traversable` typeclass evidence, one can derive a `Foldable` evidence by using a constant applicative functor:
 
 ```dhall
 let foldableFromTraversable : ∀(F : Type → Type) → Functor F → Traversable F → Foldable F
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(traversableF : Traversable F) →
     { toList = λ(a : Type) → λ(fa : F a) →
-        let L = λ(_ : Type) → List a -- This is a constant functor. It is applicative:
+        let L = λ(_ : Type) → List a -- L is a constant applicative functor:
         let applicativeFunctorL = {
           fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → λ(lx : L x) → lx
-          , pure = λ(t : Type) → λ(x : t) → [] : List a
-          , zip = λ(x : Type) → λ(lx : L x) → λ(y : Type) → λ(ly : L y) → lx # ly 
+        , pure = λ(t : Type) → λ(x : t) → [] : List a
+        , zip = λ(x : Type) → λ(lx : L x) → λ(y : Type) → λ(ly : L y) → lx # ly 
         }
         let fla : F (L a) = functorF.fmap a (List a) (λ(x : a) → [ x ]) fa
         in traversableF.sequence L applicativeFunctorL a fla
@@ -4820,7 +4816,7 @@ We also remark without proof that:
 
 - The functions `foldMap`, `fold`, and `toList` are equivalent (isomorphic as types), assuming that suitable naturality laws hold.
 - The functions `traverse` and `sequence` are isomorphic as types, assuming that suitable naturality laws hold.
-- All polynomial functors are both foldable and traversable.
+- All polynomial functors are   foldable and traversable.
 
 These properties are proved in "The Science of Functional Programming".
 
@@ -4877,7 +4873,7 @@ let MonadFP = λ(F : Type → Type) → Functor F //\\ Pointed F //\\
   { bind : ∀(a : Type) → F a → ∀(b : Type) → (a → F b) → F b }
 ```
 
-As an example, let us define a `Monad` evidence value for `List` in that way:
+As an example, let us define a `Monad` evidence   for `List` in that way:
 
 ```dhall
 let monadListFP : MonadFP List =
@@ -4887,12 +4883,12 @@ let monadListFP : MonadFP List =
 
 ### Typeclass derivation
 
-For many typeclasses, it is possible to compute typeclass evidence values for more complicated types automatically from given typeclass evidence values for simpler types.
-This sort of computation is known as "typeclass derivation".
+For many typeclasses, it is possible to compute typeclass evidence values for more complicated types automatically from given   evidence values for simpler types.
+This kind of computation is known as "typeclass derivation".
 
 In Haskell and Scala, the compiler can perform sophisticated typeclass derivation _automatically_.
 In Dhall, we need to pass typeclass evidence manually to appropriate derivation functions.
-We will now look at some examples of how that works.
+We will now look at some examples of  that.
 
 The first example is the derivation of a `Monoid` typeclass evidence for a product type.
 If `Monoid` evidence values are given for types `P` and `Q`, the `Monoid` evidence value can be computed automatically for the product type `{ _1 : P, _2 : Q }`.
@@ -4934,7 +4930,7 @@ It turns out that the monoid laws will hold automatically for all `Monoid` evide
 
 The automatic typeclass derivation for pairs is available for a wide range of typeclasses (`Monoid`, `Semigroup`, `Functor`, `Contrafunctor`, `Filterable`, `Applicative`, `Monad`, and some others).
 In all those cases, the typeclass laws will also hold automatically for the newly derived evidence values.
-This is proved in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapters 8 and 13, which develop a theory of typeclasses with laws.
+This is proved in "The Science of Functional Programming", Chapters 8 and 13, which develop a theory of typeclasses with laws.
 
 There are many type combinators (other than `Pair`) that allow us to derive a new typeclass evidence automatically.
 An example is a "function type" combinator:
@@ -4943,9 +4939,9 @@ An example is a "function type" combinator:
 - If `F` is a functor and `R` is any fixed type then the type constructor `H` defined by `H a = R → F a` is again a functor.
 
 It turns out that the typeclass laws will hold automatically for typeclass evidence values computed via the "function type" combinators, for a wide range of typeclasses.
-(This is also proved in the book "The Science of Functional Programming".)
+(This is also proved in  "The Science of Functional Programming".)
 
-In later chapters of this book, we will study more systematically the typeclass derivation for a number of typeclasses and type combinators.
+In later chapters of this book, we will study systematically the possibilities of typeclass derivation for a number of typeclasses and type combinators.
 
 
 ## Leibniz equality types
@@ -4961,14 +4957,14 @@ This chapter will show how to implement Leibniz equality types in Dhall and how 
 
 ### Definition and first examples
 
-A Leibniz equality type constructor corresponding to `a ≡ b` is written as:
+A Leibniz equality type constructor corresponding to Dhall's `a ≡ b` is written as:
 
 ```dhall
 let LeibnizEqual
   : ∀(T : Type) → ∀(a : T) → ∀(b : T) → Type
   = λ(T : Type) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
 ```
-This complicated expression contains an arbitrary _dependent type_ `f` (a type that depends on a value of type `T`).
+This complicated expression contains a parameter `f` having a _dependent type_  (a type that depends on a value of type `T`).
 It is not obvious how to work with types of the form `LeibnizEqual`.
 
 To figure that out, we begin by considering an example where `T = Natural`.
@@ -10061,7 +10057,7 @@ It turns out that `scanMap` is equivalent to `scan` at the level of types, as lo
 The equivalence "at the level of types" (that is, a **type isomorphism**) means that _all possible_ implementations of `scan` (satisfying appropriate laws) are in a one-to-one correspondence to all possible implementations of `scanMap`.
 So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
 
-The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of ["The Science of Functional Programming"](https://leanpub.com/sofp).
+The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
 We will not show the full proof, as the focus of this book is on code.
 
 ### Example: infinite trees
@@ -10101,7 +10097,9 @@ let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, 
 let BInfTree = λ(a : Type) → GFix (FTree a)
 ```
 
-Define the two "finite" data constructors using the general `fixG` function:
+We used the same structure bifunctor `FTree`  to define the binary tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
+
+We can define the two "finite" data constructors using the general `fixG` function:
 
 ```dhall
 let leafBInf : ∀(a : Type) → a → BInfTree a
@@ -10110,25 +10108,46 @@ let branchBInf : ∀(a : Type) → BInfTree a → BInfTree a → BInfTree a
   = λ(a : Type) → λ(left : BInfTree a) → λ(right : BInfTree a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Branch { left = left, right = right })
 ```
 
-These data constructors can create  finite trees of type `BInfTree`:
+These data constructors can create  finite trees of type `BInfTree a`:
 
 ```dhall
 let example1BInf : BInfTree Natural = leafBInf Natural 123
 let example2BInf : BInfTree Text = branchBInf Text (branchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
 ```
-These finite trees are fully analogous to values of the least fixpoint type 
-todo: say which, look it up in code above
+These finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
-To build infinite trees, we need    more general data constructors that use  `makeGFix`.
+To visualize values of type `BInfTree a`, let us implement a converter to finite trees.
+The converter will take a `Natural` parameter describing the maximum tree depth.
+Any branches beyond that depth will be replaced by a special "stop-gap" value (of type `a`).
+
+In addition to finite trees, the greatest fixpoint type `BInfTree a` also supports  values that can be viewed as "infinite" trees.
+todo:
+let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) → GFix F
+
+To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
 This is because there are infinitely many different ways in which one can build an infinite tree.
 For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
 In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
 
+Let us adapt `makeGFix` to make it easier to create values of type `BInfTree a`:
+
+```dhall
+let makeBInfTree : ∀(a : Type) → ∀(r : Type) → r → (r → FTree a r) → BInfTree a
+  = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTree a r) → makeGFix (FTree a) r seed step
+```
+Note that the seed type `r` may depend on the data type `a` if necessary.
+
 Our first example is an infinite tree that contains no data: the tree starts with a `Branch`, and each branch is again a `Branch`.
 We can implement this tree as a generic value of type `BInfTree a` for any type `a` since we will not need to store any values.
+The "seed" needs to carry no information, so we will use a unit type for the "seed":
 
-TODO: implement
+```dhall
+let emptyInfTree : ∀(a : Type) → BInfTree a
+  = λ(a : Type) → makeBInfTree a {} {=} (λ(_ : {}) → (FTree a {}).Branch { left = {=}, right = {=} })
+```
+
+TODO: implement a test
 
 The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while branching further always on the right.
 
@@ -11072,7 +11091,7 @@ As we have seen in the "Typeclasses" chapter,
 Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
 It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
-The proofs that the laws hold are given in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 8.
+The proofs that the laws hold are given in "The Science of Functional Programming", Chapter 8.
 
 ### The monoid `Optional T`
 
@@ -11226,7 +11245,7 @@ We will now enumerate all those ways.
 The result is a set of standard combinators that create larger (contra)functors from smaller ones.
 
 All the combinators preserve functor laws; the created new functor instances are automatically lawful.
-This is proved in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 6.
+This is proved in "The Science of Functional Programming", Chapter 6.
 We will only give the Dhall code that creates the typeclass evidence values for all the combinators.
 
 ### Constant (contra)functors
@@ -11721,7 +11740,7 @@ let contrafilter
     in contrafilterableF.cmap a (Optional a) a2opt foa
 ```
 
-The functions `deflate` and `inflate` must satisfy certain laws that are detailed in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 9.
+The functions `deflate` and `inflate` must satisfy certain laws that are detailed in "The Science of Functional Programming", Chapter 9.
 That book also shows various combinators that create new `Filterable` and `Contrafilterable` instances out of previous ones, and proves that the resulting instances always obey the laws.
 Here, we will focus on implementing those combinators in Dhall.
 
@@ -11804,7 +11823,7 @@ let freeFilterable
 We may define the new functor as `G a = Optional (F a)`.
 To implement a `Filterable` evidence for `G`, we need a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-Details and proofs are in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13.
+Details and proofs are in "The Science of Functional Programming", Chapter 13.
 
 ```dhall
 let swapFilterable
@@ -11878,7 +11897,7 @@ In addition to the `Arrow` combinator that works with any filterable functors or
 If `F` is any polynomial functor (not necessarily filterable) and `G` is any filterable contrafunctor then `Arrow F (Compose Optional G)` is a filterable contrafunctor.
 This construction requires a special `swap` function with type signature `F (Optional a) → Optional (F a)` and obeying suitable laws.
 Such a function can be always implemented for any polynomial functor `F`.
-Details and proofs are in ["The Science of Functional Programming"](https://leanpub.com/sofp), Chapter 13.
+Details and proofs are in "The Science of Functional Programming", Chapter 13.
 
 ```dhall
 let filterableContrafunctorSwap
@@ -14485,7 +14504,7 @@ Similarly,  the "free pointed" functor on `F` is the functor `CoProduct Id F`.
 It is always a pointed functor, even if the functor `F` is not  pointed.
 
 To qualify as a free typeclass instance, the type constructor must satisfy certain laws that are developed in
-Chapter 13 of ["The Science of Functional Programming"](https://leanpub.com/sofp), which  we  will not write out in detail here. 
+Chapter 13 of "The Science of Functional Programming", which  we  will not write out in detail here. 
 An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined `monoidOptionalKeepX` and `monoidOptionalKeepY`.
 That construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
 But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of a free typeclass instance.
@@ -16218,7 +16237,7 @@ The form of that law is determined by the type signature of the function and doe
 That law was called a **free theorem** in the paper ["Theorems for free" by P. Wadler](https://people.mpi-sws.org/~dreyer/tor/papers/wadler.pdf).)
 
 The general formulation and proof of the parametricity theorem are beyond the scope of this book.
-For more details, see ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
+For more details, see "The Science of Functional Programming".
 In Appendix C of that book, the parametricity theorem is proved for fully parametric programs written in a subset of Dhall.
 (The relevant subset of Dhall excludes dependent type constructors or quantifiers for type-valued functions.
 For example, Leibniz equality types are not supported by the parametricity theorem, as they allow us to implement functions that do not work in the same way for all choices of type parameters.)
