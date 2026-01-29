@@ -10236,8 +10236,10 @@ To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as
 The result must be a tree with 4 leaves, all containing `x`.
 ```dhall
 let _ = assert : truncateBInfTree Text 2 "x" (emptyInfTree Text) ≡ (
-  let t = leaf Text "x"
-  in branch Text (branch Text t t) (branch Text t t)
+  let t = leaf Text "x"  --      /\
+  in branch Text         --     /  \
+    (branch Text t t)    --    /\  /\
+    (branch Text t t)    --   x x  x x
 )
 ```
 
@@ -10264,7 +10266,11 @@ To test this, extract the tree up to depth 4 and supply `123` as stopgap:
 
 ```dhall
 let _ = assert : truncateBInfTree Natural 4 123 naturalsInfTree ≡
-  branch Natural (leaf Natural 0) (branch Natural (leaf Natural 1) (branch Natural (leaf Natural 2) (branch Natural (leaf Natural 123) (leaf Natural 123))))
+  branch Natural (leaf Natural 0)           --     / \ 
+    (branch Natural (leaf Natural 1)        --    0 / \
+      (branch Natural (leaf Natural 2)      --     1 / \
+        (branch Natural (leaf Natural 123)  --      2  /\
+          (leaf Natural 123))))             --       123 123
 ```
 
 The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
@@ -10296,8 +10302,12 @@ To test this, supply some simple data and extract the tree up to depth 4:
 ```dhall
 let tumbleExample = tumbleBInfTree Natural 1 (λ(x : Natural) → x * 3)
 let _ = assert : truncateBInfTree Natural 4 123 tumbleExample ≡
-  branch Natural (leaf Natural 1) (branch Natural (branch Natural (leaf Natural 9) (branch Natural (leaf Natural 123) (leaf Natural 123))) (leaf Natural 3))
-    
+  branch Natural (leaf Natural 1)       --   /\
+    (branch Natural (branch Natural     --  1 /\
+      (leaf Natural 9) (branch Natural  --   /\ 3
+        (leaf Natural 123)              --  9 /\
+        (leaf Natural 123)))            --   /  \
+          (leaf Natural 3))             -- 123  123
 ```
 
 ### Example: labeled cyclic graphs
@@ -10372,7 +10382,8 @@ See also [this tutorial on recursion schemes](https://blog.sumtypeofway.com/post
 
 
 So far, we have motivated hylomorphisms as fold-like functions adapted to greatest fixpoint types (instead of least fixpoints).
-Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms are in fact more general: they can be used to transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
+Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in their type signature, hylomorphisms may be viewed as more general functions that transform values of an arbitrary type `t` into values of another type `r`, as long as we can supply a suitable functor `F` and some functions of types `t → F t` and `F r → r`.
+
 An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
 
 Another way of understanding hylomorphisms is to rewrite their type signature as:
@@ -10535,10 +10546,15 @@ As a result, no function with the type signature of `hylo` can be implemented in
 
 ### Depth-bounded hylomorphisms
 
-What we _can_ do is to implelment functions with type signatures similar to those of a hylomorphism,
+What we _can_ do is to implement functions with type signatures similar to those of a hylomorphism,
 but with extra arguments that explicitly ensure termination.
 
-One possibility, [shown as an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html), is to add a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value.
+In the previous chapter, we have shown how to use a recursion bound and a stop-gap value to create a "truncating hylomorphism".
+We will now implement a similar function when viewing hylomorphisms as general functions of type `t  r`.
+This implementation will not depend on the `fix` function. 
+
+The code is motivated by [an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html).
+One adds a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value of type `t → r`.
 The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
 If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 
