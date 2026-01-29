@@ -10232,18 +10232,39 @@ let emptyInfTree : ∀(a : Type) → BInfTree a
   = λ(a : Type) → makeBInfTree a {} {=} (λ(_ : {}) → (FTree a {}).Branch { left = {=}, right = {=} })
 ```
 
-To test this, set `a = Natural`, extract the tree up to depth 2 and supply stopgap value `123`.
-The result must be a tree with 4 leaves.
+To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as the stopgap value.
+The result must be a tree with 4 leaves, all containing `x`.
 ```dhall
-let _ = assert : truncateBInfTree Natural 2 123 (emptyInfTree Natural) ≡ (
-  let t = leaf Natural 123
-  in branch Natural (branch Natural t t) (branch Natural t t)
+let _ = assert : truncateBInfTree Text 2 "x" (emptyInfTree Text) ≡ (
+  let t = leaf Text "x"
+  in branch Text (branch Text t t) (branch Text t t)
 )
 ```
 
 The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
 
-The "seed" must carry the information about the current natural number; so 
+The "seed" must carry the current natural number.
+But it also must give enough information to know if we are in the right branch or in the left branch.
+We use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
+
+```dhall
+let naturalsInfTree : BInfTree Natural
+  = let T = Pair Natural Bool
+    let step : T → FTree Natural T = λ(seed : T) →
+       if seed._2
+         then (FTree Natural T).Branch {
+           left = { _1 = seed._1, _2 = False }
+         , right = { _1 = seed._1 + 1, _2 = True }
+         } else (FTree Natural T).Leaf seed._1
+    in makeBInfTree Natural T { _1 = 0, _2 = True } step
+```
+
+To test this, extract the tree up to depth 4 and supply `123` as stopgap:
+
+```dhall
+let _ = assert : truncateBInfTree Natural 4 123 naturalsInfTree ≡
+  branch Natural (leaf Natural 0) (branch Natural (leaf Natural 1) (branch Natural (leaf Natural 2) (branch Natural (leaf Natural 123) (leaf Natural 123))))
+```
 
 The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
