@@ -960,13 +960,14 @@ See [the Dhall documentation on safety guarantees](https://docs.dhall-lang.org/d
 
 The Dhall standard library (the ["Prelude"](https://prelude.dhall-lang.org)) stores code in subdirectories organized by type name.
 For instance, functions working with the `Natural` type are in the `Natural/` subdirectory, functions working with lists are in the `List/` subdirectory, and so on.
-This convention helps make the code for imports more visual:
+This convention makes the code for imports more visual:
 
 ```dhall
 let Bool/not = https://prelude.dhall-lang.org/Bool/not
 let Integer/add = https://prelude.dhall-lang.org/Integer/add
 let List/concat = https://prelude.dhall-lang.org/List/concat
 let List/concatMap = https://prelude.dhall-lang.org/List/concatMap
+let List/map = https://prelude.dhall-lang.org/List/map
 let Natural/greaterThan = https://prelude.dhall-lang.org/Natural/greaterThan
 let Natural/lessThanEqual = https://prelude.dhall-lang.org/Natural/lessThanEqual
 let Optional/default = https://prelude.dhall-lang.org/Optional/default
@@ -983,20 +984,21 @@ in ???
 ```
 Code in `file1.dhall` could also import `file2.dhall` using a relative path, for example like this: `let x = ./file2.dhall`.
 
-Keep in mind that the names such as `Integer/add` or `Dir1/file1` are just a visually helpful convention.
+Keep in mind that names such as `Integer/add` or `Dir1/file1` are just a visually helpful convention.
 The fact that both files `file1.dhall` and `file2.dhall` are located in the same subdirectory (`Dir1`) has no special significance.
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
 An import such as `let Dir1/file1 = ./Dir1/file1.dhall` might appear to suggest that `file1` is a submodule of `Dir1` in some sense.
 But actually Dhall treats all imports in the same way regardless of path; it does not have any special concept of "submodules".
-The file `./Dir1/file1.dhall` is treated as a module like any other.
+The file `./Dir1/file1.dhall` is treated as a Dhall file like any other.
 
-Names like `Dir1/file` are often used in Dhall libraries, but Dhall does not give any special treatment to such names.
+Also, names like `Dir1/file` are not treated specially.
 Dhall will neither require nor verify that `let Dir1/file1 = ...` imports a file called `file1` in a subdirectory called `Dir1`.
+Names like `Dir1/file` are no more than an often used convention in Dhall libraries.
 
-To create a hierarchical library structure of modules and submodules, the Dhall standard library uses nested records.
+To create a hierarchical library structure of modules and submodules, the Dhall library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
-Some of those values could be again records containing values from other modules (that also define their own `package.dhall` in turn).
+Some of those values are again records containing values from other modules (that also define their own `package.dhall` in turn).
 The top level of Dhall's Prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the Prelude.
 A Dhall file may import the entire Prelude and access its submodules like this:
 ```dhall
@@ -1005,7 +1007,7 @@ let x = p.Bool.not (p.Natural.greaterThan 1 2)     -- We can use any module now.
   in ???
 ```
 
-The Prelude is not treated specially by Dhall.
+The Prelude is also not treated specially by Dhall.
 It is just an ordinary import from a Web URL.
 A user's own libraries and modules may have a similar structure of nested records and may be imported as external resources in the same way.
 In this way, users can organize their Dhall configuration files and supporting functions via shared libraries and modules.
@@ -3462,7 +3464,7 @@ The type constructor for the `Eq` typeclass can be defined like this:
 let Eq = λ(t : Type) → { equal : t → t → Bool }
 ```
 
-In Dhall, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
+Among primitive types, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
 Let us write the corresponding evidence values:
 
 ```dhall
@@ -3475,7 +3477,30 @@ let eqNatural : Eq Natural = { equal = Natural/equal }
 ```
 These evidence values satisfy all the required laws.
 
-We can then derive `Eq` evidence values for record types or union types that are constructed from `Bool`, `Integer`, `Natural`, or other types for which `Eq` evidence is given.
+Unit types can be compared for equality trivially (there is only one value, and it is equal to itself).
+
+```dhall
+let eqUnit : Eq {} = { equal = λ(_ : {}) → λ(_ : {}) → True }
+```
+
+We can then derive `Eq` evidence values for record types or union types that are constructed from unit types, `Bool`, `Integer`, `Natural`, or other types for which `Eq` evidence is given.
+
+A simple example is the union type `< A | B : { x : Bool } >`.
+Let us implement an `Eq` evidence for that type:
+
+```dhall
+let Ex1 = < A | B : { b : Bool } >
+let eqEx1 : Eq Ex1 = { equal = λ(a : Ex1) → λ(b : Ex1) →
+  merge { A = merge { A = True
+                    , B = λ(_ : { b : Bool }) → False
+                    } a
+        , B = λ(x : { b : Bool }) → merge { A = False
+                                  , B = λ(y : { b : Bool }) → x.b == y.b
+                                  } a
+        } b
+}
+```
+
 To illustrate how that works in general, let us implement combinators that compute `Eq` evidence values for `Pair a b` and for `Either a b` from given `Eq` evidence for arbitrary types `a` and `b`.
 ```dhall
 let eqPair : ∀(a : Type) → Eq a → ∀(b : Type) → Eq b → Eq (Pair a b)
@@ -3529,6 +3554,101 @@ let eqUnion2 : Eq Union2 = { equal = λ(x : Union2) → λ(y : Union2) →
 }
 ```
 This operation violates the reflexivity law: values such as `Union2.Right "abc"` are not equal to themselves.
+
+### The "Ord" typeclass
+
+This typeclass defines a method `le` for determining if one value is "less or equal than" another value, in the sense of a "partial order".
+It means to require that the relation "less or equal" should have the properties of reflexivity and transitivity: 
+
+- Any value is less than equal to itself (**reflexivity**).
+- If `x` is less than or equal to `y`, and if `y` is less than or equal to `z`, then `x` is less than or equal to `z` (**transitivity**).
+
+
+Let us define the `Ord` typeclass constructor and show some examples of implementing evidence of that typeclass:
+
+```dhall
+let Ord = λ(t : Type) → { le : t → t → Bool }
+let ordUnit : Ord {} = { le = λ(_ : {}) → λ(_ : {}) → True }
+let ordNatural : Ord Natural = { le = Natural/lessThanEqual }
+let ordBool : Ord Bool = { le = λ(x : Bool) → λ(y : Bool) → if x then y else True }
+```
+
+For records and union types, an  `Ord` evidence can be defined in a number of ways.
+One can select an arbitrary priority order among the record's fields and union type's constructors.
+
+For records, one first compares the highest-priority fields; if the results are equal then one goes on to compare fields that have the next highest priority, and so on.
+To implement an example with `Pair`, let us select (arbitrarily) the first element of the pair to have the highest priority:
+```dhall
+let ordPair : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Pair a b)
+  = λ(a : Type) → λ(ordA : Ord a) → λ(b : Type) → λ(ordB : Ord b) →
+    { le = λ(x : Pair a b) → λ(y : Pair a b) →
+      ordA.le x._1 y._1 &&
+        (if ordA.le y._1 x._1 then ordB.le x._2 y._2 else True) }
+```
+
+For unions, one first checks whether one of the values has the highest-priority constructor while the other has some other constructor.
+If so, the first value is greater.
+If both values have constructors of the same priority, one proceeds to compare the values.
+
+As an example, we implement an `Ord` evidence for `Either a b`, where we (arbitrarily) select the `Left` constructor as having the higher priority.
+(Any `Left p` value is always greater than any `Right q` value.)
+```dhall
+let ordEither : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Either a b)
+  = λ(a : Type) → λ(ordA : Ord a) → λ(b : Type) → λ(ordB : Ord b) →
+    { le = λ(x : Either a b) → λ(y : Either a b) →
+      merge { Left = λ(p1 : a) →
+        merge { Left = λ(p2 : a) → ordA.le p1 p2
+              , Right = λ(_ : b) → False
+              } y
+            , Right = λ(q1 : b) →
+        merge { Left = λ(_ : a) → True
+              , Right = λ(q2 : b) → ordB.le q1 q2
+              } y
+            } x
+    }
+```
+
+In this way, we can derive `Ord` evidence values for arbitrary product and co-product types.
+
+### The "Finite" typeclass
+
+Certain types have only a finite number of values, and those values are known in advance.
+The `Finite` typeclass provides a facility for enumerating the values of such types.
+
+Examples are unit types, the `Bool` type, and union types whose values involve finite types (but no function types and no `List`, for example).
+
+The typeclass is defined via the constructor `Finite` that allows us to obtain a list of possible values of a given type:
+
+```dhall
+let Finite = λ(t : Type) → { values : List t }
+```
+
+Example evidence values are:
+
+```dhall
+let finiteUnit : Finite {} = { values = [ {=} ] }
+let finiteBool : Finite Bool = { values = [ False, True ] }
+
+let MyUnion = < One | Two >
+let finiteMyUnion : Finite MyUnion = { values = [ MyUnion.One, MyUnion.Two ] }
+```
+
+We can also derive `Finite` evidence for products and co-products.
+
+```dhall
+let finitePair : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b → Finite (Pair a b)
+  = λ(a : Type) → λ(finiteA : Finite a) → λ(b : Type) → λ(finiteB : Finite b) →
+    { values = List/concatMap a (Pair a b) (λ(x : a) → List/map b (Pair a b) (λ(y : b) → { _1 = x, _2 = y }) finiteB.values ) finiteA.values }
+```
+
+```dhall
+let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b → Finite (Either a b)
+  = λ(a : Type) → λ(finiteA : Finite a) → λ(b : Type) → λ(finiteB : Finite b) →
+    let leftValues : List (Either a b) = List/map a (Either a b) (λ(x : a) → (Either a b).Left x) finiteA.values
+    let rightValues : List (Either a b) = List/map b (Either a b) (λ(y : b) → (Either a b).Right y) finiteB.values
+    in { values = List/concat (Either a b) [ leftValues, rightValues ] }
+```
+
 
 ### Monoids and semigroups
 
@@ -9492,7 +9612,7 @@ let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : 
 
 The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
 
-### The fixpoint isomorphism
+### The fixpoint isomorphism for greatest fixpoints
 
 Because `GFix F` is a fixpoint of `T = F T`, the types `T` and `F T` are isomorphic.
 It means there exist two functions, here called `fixG : F T → T` and `unfixG : T → F T`, which are inverses of each other.
