@@ -1,9 +1,11 @@
 Features that are good to have in IDE support for Dhall:
 
 - Display typechecking and syntax errors, suggest edits
-- Collapse/expand code regions:  "let" definitions, lists, records, if/then/else
+- Collapse/expand code regions and scopes:  "let" definitions, lists, records, if/then/else
 - Go to definition of any variable, go to usages / list usages for any variable
+- c-tags support with location and type information like ghc-tags
 - Load imported files and navigate in their source code, keeping them read-only
+- Decompile cached CBOR files into Dhall source, browse them
 - Tooltip: hover on a variable to see its type, or display its type on Command-hover or otherwise
 - Type error: say where and what types were expected and what types were found instead
 - Assertion error: display full values and types that do not match
@@ -29,10 +31,10 @@ Features that are good to have in IDE support for Dhall:
 - Autoformat the Dhall code, even if it does not typecheck (but not when parsing fails)
 - Infer type for an expression and create a separate type value
 - Refactor a value from a subexpression into a local variable
+- Insert a type annotation into "let", by inferring the type
 - Inline a local variable into places where it is used, eliminating the local variable
 - Use `curryhoward` to generate code when possible; or "derive functor", etc.
 - Work with typed holes
 - Simplify arithmetic with Bool, Natural, Integer inline
 - Import from JSON / YAML, optionally with schemas
 - Convert from JSON schema to Dhall type
-

@@ -552,7 +552,21 @@ For no-argument constructors (e.g., for the constructor `Z` in the example shown
 The second argument of `merge` is a value of a union type on which the pattern matching is being done.
 
 Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
+
 It is a syntax error to write `merge { X = 0 }` without specifying a value (such as `x`) at the end.
+
+However, `merge` may be used with a record expression instead of a literal record.
+For instance, we may write `merge h x` where `h` evaluates to a suitable record:
+
+```dhall
+⊢ let x = < X >.X   in merge { X = 0 } x
+
+0
+
+⊢ let x = < X >.X   let h = { X = 0 }   in merge h x
+
+0
+```
 
 
 ### The void type
@@ -10196,8 +10210,6 @@ These finite trees are similar to values of the least fixpoint type `Tree2 Natur
 
 
 In addition to finite trees, the greatest fixpoint type `BInfTree a` also supports  values that can be viewed as "infinite" trees.
-todo:
-let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) → GFix F
 
 To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
@@ -10381,7 +10393,7 @@ The "step" function applied to a node should compute a value of type `GraphF Nod
 
 `{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }`
 
-A value of this type contains the label of the initial node and the (possibly empty) list of edges going from that node. 
+A value of this type contains the label of the initial node and the (possibly empty) list of edges starting from that node. 
 
 For the example shown above, the node labels have type `Natural` and the edge labels have type `Text`.
 Here is the "step" function for that example:
@@ -10879,8 +10891,6 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
 ```
 
 Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately.
-
-TODO:try revising this logic, accumulating both the h function and the result of applying h to seed? No. We can't just stop when the result of applying to seed stops changing. We need to accumulate a second hylomorphism that detects the max depth.
 
 
 ### Converting recursive code into hylomorphisms: the HIT algorithm
