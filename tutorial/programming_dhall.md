@@ -10312,11 +10312,115 @@ let _ = assert : truncateBInfTree Natural 4 123 tumbleExample ≡
 
 ### Example: labeled cyclic graphs
 
-TODO: refer to GG's blog post and implement here 
+One application of greatest fixpoints is to create cyclic structures that can be traversed indefinitely.
+An example was shown in  [a Stackoverflow question](https://stackoverflow.com/questions/60423705/) and involved cyclic graphs.
+The corresponding Dhall code is [available as a small library](https://github.com/Gabriella439/graph) on Github.
 
-This code is [available as a small library](https://github.com/Gabriella439/graph) on Github.
+A (possibly cyclic) directed labeled graph is a set of nodes and edges.
+For each node, there is a certain subset of edges that lead from that node to other nodes.
+There is no requirement that each edge should lead to a different node, and cycles are permitted.
+In addition, each node and each edge is labeled by a value of a certain (fixed) type.
+(One label type for nodes, and another for edges.)
 
-Also see [this Stackoverflow question](https://stackoverflow.com/questions/60423705/). 
+An example graph shown in this diagram:
+
+```
+    123            456
+   First __a1__> Second
+    \ ^\         /  / 
+  b1 \  \       /  /
+      \  \_a2__/  /
+       |         / b2
+       V        /
+      Third  <-/
+       789
+```
+The graph has three nodes: `First`, `Second`, and `Third`.
+The nodes are labeled by `Natural` values `123`, `456`, and `789`.
+There are two edges going from the `First` node: the edge labeled `a1` leads to the `Second` node, and the edge labeled `b1` leads to the `Third` node.
+There are also two edges going from the `Second` node: one (labeled `a2`) goes back to the `First` node, the other (labeled `b2`) leads to `Third`.
+No edges go from `Third`.
+
+This graph is modeled as an "infinite" tree whose subtrees endlessly repeat.
+Formally, the tree has no leaf values, and each node can branch from zero to any number of branchings.
+The example graph shown above will be represented in the tree form like this (we omit labels for brevity):
+
+```
+          First
+        /       \
+   Third         Second 
+               /      \
+          First        Third
+        /       \
+   Third         Second 
+               /      \
+          First        Third
+         /
+      ...   
+```
+
+The structure functor for that kind of tree is `F a = List a`.
+We could represent graphs as values of the greatest fixpoint of this functor.
+To represent labels for nodes and edges, we could add further type parameters to this functor and define the type of labeled graphs:
+
+```dhall
+let GraphF = λ(Node : Type) → λ(Edge : Type) → λ(a : Type) → { nodeLabel : Node, edges : List { edgeLabel : Edge, target : a } }
+let LabeledGraph = λ(Node : Type) → λ(Edge : Type) → GFix (GraphF Node Edge)
+```
+
+
+To create specific graphs, we need to choose the "seed" type and the "step" function appropriately.
+The "seed" type will be a union type that simply lists  all the nodes of the graph.
+For our example, this type is:
+
+```dhall
+let Nodes1 = < First | Second | Third >
+```
+
+The "step" function applied to a node should compute a value of type `GraphF Node Edge Nodes1`, which expands to the record type:
+
+`{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }`
+
+A value of this type contains the label of the initial node and the (possibly empty) list of edges going from that node. 
+
+For the example shown above, the node labels have type `Natural` and the edge labels have type `Text`.
+Here is the "step" function for that example:
+
+```dhall
+let step1 : Nodes1 → GraphF Natural Text Nodes1
+  = λ(init : Nodes1) →
+    merge { First = { nodeLabel = 123
+                    , edges = [ { edgeLabel = "a1", target = Nodes1.Second }
+                              , { edgeLabel = "b1", target = Nodes1.Third }
+                      ] }
+          , Second = { nodeLabel = 456
+                    , edges = [ { edgeLabel = "a2", target = Nodes1.First }
+                              , { edgeLabel = "b2", target = Nodes1.Third }
+                      ] }
+          , Third = { nodeLabel = 789, edges = [] : List { edgeLabel : Text, target : Nodes1 } }
+          } init
+```
+
+Now we are ready to define the example graph via `LabeledGraph`:
+
+```dhall
+let exampleGraph1 : LabeledGraph Natural Text
+  = makeGFix (GraphF Natural Text) Nodes1 Nodes1.First step1
+```
+
+We have specified `Nodes1.First` as the initial "seed" value.
+This is not fully satisfactory for two reasons:
+
+First, the graph does not necessarily have a designated "initial" node.
+We could choose arbitrarily  `Nodes1.First` or `Nodes1.Second` for that.
+
+Second, there may be nodes from which no edges start.
+In our example, this is the node `Third`.
+If we start from that node, we will not be able to traverse the graph.
+
+TODO: explain and implement some operations on this graph
+
+
 
 ## Translating recursive functions into Dhall
 
@@ -10377,7 +10481,7 @@ Rewrite that type by replacing the record by two curried arguments:
 
 `∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
 
-A functions with this type signature is called a **hylomorphism**.
+A function  with this type signature is called a **hylomorphism**.
 See also [this tutorial on recursion schemes](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
 
@@ -10550,13 +10654,12 @@ What we _can_ do is to implement functions with type signatures similar to those
 but with extra arguments that explicitly ensure termination.
 
 In the previous chapter, we have shown how to use a recursion bound and a stop-gap value to create a "truncating hylomorphism".
-We will now implement a similar function when viewing hylomorphisms as general functions of type `t  r`.
-This implementation will not depend on the `fix` function. 
-
-The code is motivated by [an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html).
-One adds a `Natural`-valued bound on the depth of recursion, together with a "stop-gap" value of type `t → r`.
+We will now implement a similar function when viewing hylomorphisms as general functions   of type `t → r`.
+This implementation will not depend on the `fix` function or on a stop-gap value of the least fixpoint type. 
+Instead, the stop-gap value will have a more general type (`t → r`).
 The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
 If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
+This more general approach is motivated by [an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html).
 
 To show how that works, we begin with Haskell code for the depth-bounded hylomorphism.
 Then we will translate that code to Dhall.
