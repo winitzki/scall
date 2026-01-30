@@ -3633,7 +3633,7 @@ let MyUnion = < One | Two >
 let finiteMyUnion : Finite MyUnion = { values = [ MyUnion.One, MyUnion.Two ] }
 ```
 
-We can also derive `Finite` evidence for products and co-products.
+We can also derive `Finite` evidence for products and co-products:
 
 ```dhall
 let finitePair : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b → Finite (Pair a b)
@@ -10464,7 +10464,7 @@ An example graph shown in this diagram:
       \  \_a2__/  /
        |         / b2
        V        /
-      Third  <-/
+      Third  <--
        789
 ```
 The graph has three nodes: `First`, `Second`, and `Third`.
@@ -10549,6 +10549,15 @@ We could choose arbitrarily  `Nodes1.First` or `Nodes1.Second` for that.
 Second, there may be nodes from which no edges start.
 In our example, this is the node `Third`.
 If we start from that node, we will not be able to traverse the graph.
+
+In order to be able to implement graph operations, such as to compute the sum of all numbers stored in the graph, it is not sufficient to traverse the graph along the edges.
+We need to know the entire list of graph nodes up front.
+One way of providing this information is to provide an evidence of the `Finite` typeclass for the node type.
+In our example, this will be:
+```dhall
+let finiteNodes1 : Finite Nodes1 = { values = [ Nodes1.First, Nodes1.Second, Nodes1.Third ] }
+```
+It means
 
 TODO: explain and implement some operations on this graph
 
