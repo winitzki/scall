@@ -3783,7 +3783,7 @@ For instance, the current version of Dhall cannot establish an equivalence betwe
 So, it is not possible to check the associativity law for `monoidNaturalSum`.
 
 
-### The `Functor` typeclass
+### The "Functor" typeclass
 
 In the jargon of the functional programming community, a **functor** is a type constructor `F` with an `fmap` method having the standard type signature and obeying the functor laws.
 
@@ -10543,21 +10543,33 @@ let exampleGraph1 : LabeledGraph Natural Text
 We have specified `Nodes1.First` as the initial "seed" value.
 This is not fully satisfactory for two reasons:
 
-First, the graph does not necessarily have a designated "initial" node.
-We could choose arbitrarily  `Nodes1.First` or `Nodes1.Second` for that.
+First, the graph does not necessarily have a selected "current" node.
+This is appropriate if we are traversing the graph; at each step, we will then have a currently selected node.
+But we should also be able to represent the graph "as a whole", without a selected node.
 
 Second, there may be nodes from which no edges start.
 In our example, this is the node `Third`.
 If we start from that node, we will not be able to traverse the graph.
 
-In order to be able to implement graph operations, such as to compute the sum of all numbers stored in the graph, it is not sufficient to traverse the graph along the edges.
+In order to be able to implement graph operations, such as to compute the sum of all numbers stored in the graph, it is not sufficient to traverse the graph along the edges starting from a given node.
 We need to know the entire list of graph nodes up front.
 One way of providing this information is to provide an evidence of the `Finite` typeclass for the node type.
 In our example, this will be:
 ```dhall
 let finiteNodes1 : Finite Nodes1 = { values = [ Nodes1.First, Nodes1.Second, Nodes1.Third ] }
 ```
-It means
+
+It means that the "seed" type `Nodes1` cannot remain hidden within the type `LabeledGraph`.
+Certain graph operations (that depend on the identity of each node) are possible only if we know that type.
+
+If we implement graph operations as functions of `LabeledGraph`, we will have to treat the "seed" type as a completely unknown type.
+Our ignorance of the seed type is enforced by the existential quantifier in `LabeledGraph`.
+Any code working with a value of type `LabeledGraph` will need to supply a function of type `∀(t : Type) → { seed : t, step : t → GraphF Node Edge t } → r`, where `r` is the type of the required result value.
+A function of that type cannot examine the value `seed : t` to decide which node of the graph is the current one, because the type `t` is completely unknown within the body of that function.
+
+An example of a graph operation is replacing a given node's label by another label.
+Given a graph of type `LabeledGraph Natural Text` Suppose we need to multiply the label at the `Second` node by `2` and the label at the `Third` node by `3`.
+
 
 TODO: explain and implement some operations on this graph
 
@@ -15771,8 +15783,8 @@ The `zip` method can be expressed easily via `apFreeA` :
 ```dhall
 let zipFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → FreeA F a → ∀(b : Type) → FreeA F b → FreeA F (Pair a b)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(ffa : FreeA F a) → λ(b : Type) → λ(ffb : FreeA F b) →
-    let ffbpab : FreeA F (b → Pair a b) = (functorFreeA F functorF).fmap a (b → Pair a b) (λ(x : a) → λ(y : b) → { _1 = x, _2 = y }) ffa
-    in apFreeA F functorF b (Pair a b) ffbpab ffb
+      let ffbpab : FreeA F (b → Pair a b) = (functorFreeA F functorF).fmap a (b → Pair a b) (λ(x : a) → λ(y : b) → { _1 = x, _2 = y }) ffa
+      in apFreeA F functorF b (Pair a b) ffbpab ffb
 ```
 
 We can now write an `ApplicativeFunctor` evidence for `FreeA F` with arbitrary `F` (as long as it is a functor):
@@ -15789,9 +15801,9 @@ Another required data constructor is   a function `wrapFreeA` that converts a va
 ```dhall
 let wrapFreeA : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F a → FreeA F a
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(fa : F a) →
-    let fau : FreeA F {} = pureCFreeA F functorF {} {=}
-    let fua : F ({} → a) = functorF.fmap a ({} → a) (λ(x : a) → λ(_ : {}) → x) fa
-    in apCFreeA F functorF {} fau a fua
+      let fau : FreeA F {} = pureCFreeA F functorF {} {=}
+      let fua : F ({} → a) = functorF.fmap a ({} → a) (λ(x : a) → λ(_ : {}) → x) fa
+      in apCFreeA F functorF {} fau a fua
 ```
 
 In order to finish implementing a `FreeFMTypeclassTFunctor` evidence for `FreeA`,
