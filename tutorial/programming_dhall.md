@@ -10964,7 +10964,7 @@ This functionality will be available if the functor `F` is _foldable_.
 We will require `Functor` and `Foldable` typeclass evidence for `F`
 (such evidence can be created for any polynomial functor `F`).
 
-TODO: replace this logic by simply checking that the result of toList is a non-empty list. In that case, the data structure is non-empty and contains some values of type t.
+TODO: replace this logic by simply checking that the result of toList is a non-empty list. In that case, the data structure is non-empty and contains some values of type t. use foldable for F, not for µF
 
 Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
@@ -14193,7 +14193,7 @@ let showTreeCBool = (showTreeC Bool { show = Bool/show }).show
 let _ = assert : showTreeCBool exampleTreeC ≡ "[ True, [ False, True ] ]"
 ```
 
-Now we can write the code for a `Monad` evidence:
+We can write the code for a `Monad` evidence:
 
 ```dhall
 let monadTreeC : Monad TreeC =
@@ -14230,8 +14230,61 @@ let BTreeE = λ(a : Type) → Optional (TreeC a)
 This data structure is either empty (`None`) or a binary tree with at least one leaf of type `a`.
 
 It turns out that `BTreeE` is a monad.
+Its `bind` operation  will remove leaves and sub-trees corresponding to `None`.
 
-TODO: implement
+To implement this operation more easily, we use a trick that this book calls the **Church-Yoneda identity**.
+It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic to the following  type:
+
+`∀(r : Type) → (F r → r) → G r`
+
+A proof of this identity is shown in the Appendix "Naturality and parametricity".
+
+By this identity, we may encode the type `Optional (TreeC a)` as an equivalent type written like this:
+```dhall
+let BTreeE = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → Optional r
+```
+
+We can implement data constructors directly in this encoding:
+
+```dhall
+let leafE : ∀(a : Type) → a → BTreeE a
+  = λ(a : Type) → λ(x : a) →
+    λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) →
+      Some (leaf x)
+let optionalBranch : ∀(r : Type) → (r → r → r) → Optional r → Optional r → Optional r
+  = λ(r : Type) → λ(branch : r → r → r) → λ(leftTree : Optional r) → λ(rightTree : Optional r) →
+    -- Return a "branch" only if both sub-trees are non-empty.
+    -- Otherwise return one of the sub-trees as is.
+      merge { None = rightTree
+            , Some = λ(x : r) →
+              merge { None = leftTree
+                    , Some = λ(y : r) → Some (branch x y)
+                    } rightTree
+            } leftTree
+let branchE : ∀(a : Type) → BTreeE a → BTreeE a → BTreeE a
+  = λ(a : Type) → λ(left : BTreeE a) → λ(right : BTreeE a) →
+    λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) →
+      let leftTree : Optional r = left r leaf branch
+      let rightTree : Optional r = right r leaf branch
+      in optionalBranch r branch leftTree rightTree
+```
+Here we defined a helper function (`optionalBranch`) that transforms a "branching" constructor of type `r → r → r` to a similar constructor of type `Optional r → Optional r → Optional r`.
+This transformation will remove empty sub-trees: branching will persist only if both subtrees are non-empty. 
+
+Now we write a `Monad` evidence for `BTreeE`:
+
+```dhall
+let monadBTreeE : Monad BTreeE =
+  let pure = λ(a : Type) → λ(x : a) → leafE a x
+  let bind = λ(a : Type) → λ(ta : BTreeE a) → λ(b : Type) → λ(f : a → BTreeE b) →
+    λ(r : Type) → λ(leafB : b → r) → λ(branch : r → r → r) →
+      let leafA : a → Optional r = λ(x : a) → f x r leafB branch
+      let result : Optional (Optional r)
+        = ta (Optional r) leafA (optionalBranch r branch)
+      in Optional/concat r result
+  in { pure, bind }
+```
+
 
 #### The free monad 
 
@@ -14245,7 +14298,7 @@ Tree-like monads of that kind can be implemented by a general combinator known a
 The **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
 ```haskell
-data Free F a = Pure a | Join (F (Free T a)) -- Haskell.
+data Free F a = Pure a | Join (F (Free T a))   -- Haskell.
 ```
 
 To translate this Haskell definition into Dhall, we need to use the Church encoding.
