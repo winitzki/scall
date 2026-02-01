@@ -14893,7 +14893,7 @@ let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type
   ∀(r : Type) → (a → r) → (F (M r) → r) → M r
 ```
 
-A `Monad` evidence for `TFreeMonad` can be implemented directly with this encoding:
+A `Monad` evidence for `TFreeMonad` can be implemented more easily via this encoding:
 
 ```dhall
 let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → Type) → Monad M → Monad (TFreeMonad F M)
@@ -14930,7 +14930,6 @@ let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → Com
     }
 ```
 
-TODO: show how the encoding obtained from the unrolling lemma and the CY identity can be translated into the initially written encoding (direct Church encoding) for the free monad 
 #### List-like monads
 
 The `List` and `NEL` (non-empty list) are monads representing a sequence of data items.
