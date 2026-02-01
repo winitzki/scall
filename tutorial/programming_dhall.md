@@ -2750,7 +2750,7 @@ A function for computing powers of  natural numbers can be implemented by a simp
 
 ```dhall
 let powerNatLoop : Natural → Natural → Natural
-  = λ(n : Natural) → λ(p: Natural) →
+  = λ(n : Natural) → λ(p : Natural) →
     Natural/fold p Natural (λ(prev : Natural) → prev * n) 1
 let _ = assert : powerNatLoop 2 4 ≡ 16
 let _ = assert : powerNatLoop 123 0 ≡ 1
@@ -2769,7 +2769,7 @@ For example, $n^13$ is computed by finding that $13 = 1 + 4 + 8$ and then comput
 The code uses `List/fold` that corresponds to the **right fold** operation that starts from the end of the list:
 ```dhall
 let powerNatSq : Natural → Natural → Natural
-  = λ(n : Natural) → λ(p: Natural) →
+  = λ(n : Natural) → λ(p : Natural) →
     let PairT : Type = { of_2 : Natural, of_n : Natural }
     let Accum : Type = { powers : List PairT, next : PairT }
     let update = λ(acc : Accum) → if Natural/greaterThan acc.next.of_2 p then acc
@@ -5940,7 +5940,7 @@ The required `Functor` evidence for integer-valued lists is:
 let functorListIntF : Functor ListIntF =
   { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : ListIntF a) →
       merge { Nil = (ListIntF b).Nil
-            , Cons = λ(p : { head : Integer, tail: a }) → (ListIntF b).Cons (p // { tail = f p.tail })
+            , Cons = λ(p : { head : Integer, tail : a }) → (ListIntF b).Cons (p // { tail = f p.tail })
             } fa
   }
 ```
@@ -6365,7 +6365,7 @@ The task is to compute a `Text`-valued representation of a tree, where branching
 The result will be a function `printTree` whose code needs to begin like this:
 
 ```dhall
-let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) → ???
+let printTree : TreeText → Text = λ(tree : ∀(r : Type) → (Text → r) → (r → r → r) → r) → ???
 ```
 
 The pretty-printing operation is "fold-like" because a pretty-printed tree can be aggregated from pretty-printed subtrees.
@@ -6400,7 +6400,7 @@ let printLeaf : Text → Text = λ(leaf : Text) → leaf
 
 let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
 
-let printTree : TreeText → Text = λ(tree: ∀(r : Type) → (Text → r) → (r → r → r) → r) →
+let printTree : TreeText → Text = λ(tree : ∀(r : Type) → (Text → r) → (r → r → r) → r) →
     tree Text printLeaf printBranches
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
@@ -6789,7 +6789,7 @@ data F2 a b = Name2 String | ManyLayers [ a ]
 The pattern functors `F1` and `F2` are non-recursive type constructors with two type parameters each. The Dhall code for this example is:
 
 ```dhall
-let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers : { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
@@ -7662,7 +7662,7 @@ The code should look like this:
 
 ```dhall
 let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
-  = λ(a: Type) → λ(showA : Show a) → λ(tree : PBTree a) →
+  = λ(a : Type) → λ(showA : Show a) → λ(tree : PBTree a) →
     let P : Type → Type = ???
     let q : ∀(s : Type) → F P s → P s = ???
     in tree P q
@@ -7682,7 +7682,7 @@ Implementing that function is straightforward, and we can complete the code of `
 
 ```dhall
 let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
-  = λ(a: Type) → λ(showA : Show a) → λ(tree : PBTree a) →
+  = λ(a : Type) → λ(showA : Show a) → λ(tree : PBTree a) →
     let P : Type → Type = λ(t : Type) → Show t → Text 
     let q : ∀(s : Type) → <Leaf : s | Branch : Show (Pair s s) → Text > → Show s → Text 
       = λ(s : Type) → λ(fps : <Leaf : s | Branch : Show (Pair s s) → Text >) → λ(showS : Show s) →
@@ -7810,7 +7810,7 @@ The last line uses the higher-kinded Church encoding combinator (`LFixK`) to def
 We can convert this definition to a curried form, which is more convenient in practice:
 
 ```dhall
-let ListCK = λ(a: Type) → ∀(r : Type → Type) → (∀(t : Type) → r t) → (∀(t : Type) → t → r t → r t) → r a
+let ListCK = λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → r t) → (∀(t : Type) → t → r t → r t) → r a
 ```
 Note that currying makes it necessary to duplicate the universal quantifier inside the function argument (`∀(t : Type) → ...`).
 This is due to the general type isomorphism of the form:
@@ -8039,7 +8039,7 @@ In many cases, it is possible to derive the required evidence automatically.
 We will need to add a combinator of type `P t → P (Pair t t)` as another argument in the type signature:
 ```dhall
 let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P t → P (Pair t t)) → PBTreeC P Natural
-  = λ(P : Type → Type) → λ(pNat : P Natural) → λ(pPair: (∀(t : Type) → P t → P (Pair t t))) →
+  = λ(P : Type → Type) → λ(pNat : P Natural) → λ(pPair : (∀(t : Type) → P t → P (Pair t t))) →
       branchPBC P Natural pNat (
         branchPBC P (Pair Natural Natural) (pPair Natural pNat) (
           leafPBC P (Pair (Pair Natural Natural) (Pair Natural Natural)) (pPair (Pair Natural Natural) (pPair Natural pNat)) { _1 = { _1 = 20, _2 = 30 }, _2 = { _1 = 40, _2 = 50 } } ))
@@ -9386,7 +9386,7 @@ We will use `Natural/fold` to iterate over the sequence and accumulate the resul
 At each iteration, we will unpack the existential type and compute the next iteration.
 ```dhall
 let InfSeqNat/take : Natural → InfSeqNat → List Natural
-  = λ(limit : Natural) → λ(seq: InfSeqNat) →
+  = λ(limit : Natural) → λ(seq : InfSeqNat) →
    let Accum = { list : List Natural, seq : InfSeqNat }
    let init : Accum = { list = [] : List Natural, seq = seq }
    let update : Accum → Accum = λ(prev : Accum) →
@@ -9425,9 +9425,8 @@ data Layer2 = Layer2 (F2 Layer Layer2)
 
 Define two pattern functors `F1` and `F2` by:
 
-
 ```dhall
-let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers: { left : b, right : b } >
+let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers : { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
@@ -9513,7 +9512,7 @@ Let us write a function `InfSeq/take` to extract a finite prefix from an infinit
 
 ```dhall
 let InfSeq/take : Natural → ∀(a : Type) → InfSeq a → List a
-  = λ(limit : Natural) → λ(a : Type) → λ(seq: InfSeq a) →
+  = λ(limit : Natural) → λ(a : Type) → λ(seq : InfSeq a) →
    let Accum = { list : List a, seq : InfSeq a }
    let init : Accum = { list = [] : List a, seq = seq }
    let update : Accum → Accum = λ(prev : Accum) →
@@ -10329,7 +10328,7 @@ For that, we use a triple such as `{ x : a, isLeaf : Bool, isLeafRight : Bool }`
 let tumbleBInfTree : ∀(a : Type) → a → (a → a) → BInfTree a
   = λ(a : Type) → λ(x : a) → λ(f : a → a) →
     let T = { x : a, isLeaf : Bool, isLeafRight : Bool }
-    let step: T → FTree a T = λ(seed : T) →
+    let step : T → FTree a T = λ(seed : T) →
       let next = seed.isLeafRight == False
       in if seed.isLeaf then (FTree a T).Leaf seed.x
       else
@@ -10443,8 +10442,8 @@ let step1 : Nodes1 → GraphF Natural Text Nodes1
                               , { edgeLabel = "b1", target = Nodes1.Third }
                       ] }
           , Second = { nodeLabel = 456
-                    , edges = [ { edgeLabel = "a2", target = Nodes1.First }
-                              , { edgeLabel = "b2", target = Nodes1.Third }
+                     , edges = [ { edgeLabel = "a2", target = Nodes1.First }
+                               , { edgeLabel = "b2", target = Nodes1.Third }
                       ] }
           , Third = { nodeLabel = 789, edges = [] : List { edgeLabel : Text, target : Nodes1 } }
           } init
@@ -10471,11 +10470,11 @@ Assuming that this function will be provided, we can implement a generic "step" 
 
 ```dhall
 let stepLabeledGraph : ∀(Node : Type) → ∀(Edge : Type) → (∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t) → LabeledGraph Node Edge → Optional (LabeledGraph Node Edge)
-  = λ(Node : Type) → λ(Edge : Type) → λ(decider : ∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t) → λ(graph : LabeledGraph Node Edge) →
+  = λ(Node : Type) → λ(Edge : Type) → λ(decideWalk : ∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t) → λ(graph : LabeledGraph Node Edge) →
       let unpack : ∀(t : Type) → { seed : t, step : t → GraphF Node Edge t } → Optional (LabeledGraph Node Edge)
         = λ(t : Type) → λ(r : { seed : t, step : t → GraphF Node Edge t }) →
           let outgoing : { nodeLabel : Node, edges : List { edgeLabel : Edge, target : t } } = r.step r.seed
-          let decision : Optional t = decider t outgoing.nodeLabel outgoing.edges
+          let decision : Optional t = decideWalk t outgoing.nodeLabel outgoing.edges
           let newGraph = λ(newNode : t) → makeLabeledGraph Node Edge t newNode r.step
           in Optional/map t (LabeledGraph Node Edge) newGraph decision 
       in graph (Optional (LabeledGraph Node Edge)) unpack
@@ -10486,9 +10485,9 @@ The result is to be understood as the same graph but focused on a different node
 
 The function `stepLabeledGraph` is generic in the node types and in the graph structure.
 This function does not need to know the underlying node type (`Nodes1`) or the total number of nodes.
-The "decider" function takes a type parameter `t` and must work in the same way for all `t`.
+The `decideWalk` function takes a type parameter `t` and must make its decisions in the same way for all `t`, based only on the values of the node and edge labels.
 
-Another way of expressing the "graph-walking"  operation is   via `unfixG`.
+Another way of expressing   "graph-walking"  operations is   via `unfixG`.
 Applying the method `unfixG` (defined generally for all greatest fixpoint types) to a graph, we obtain a list of edge labels and graphs that would be obtained by walking along each edge:
 
 ```dhall
@@ -10498,11 +10497,54 @@ let outgoing : { nodeLabel : Natural, edges : List { edgeLabel : Text, target : 
 The edge labels in `outgoing` can be examined to make decisions about which next node to walk to.
 The graph with the focus on that node will be then obtained as the `target` field of the corresponding edge record.
 
+The functions `stepLabeledGraph` and `unfixG` do not modify the graph; they just return different views of the same graph.
+We can also implement  functions that return a _modified_  graph: we could change the label value at the focused node, or reconfigure edges that go from that node.
+We do that by replacing the "step" function (of type `t → GraphF Node Edge t`) by another function that recomputes the results depending on specific values of node and/or edge labels.
+
+As an example of this kind of computation, consider a graph of type `LabeledGraph Bool Bool`:
+
+```dhall
+let exampleGraph2 : LabeledGraph Bool Bool
+  = makeLabeledGraph Bool Bool Nodes1 Nodes1.First (λ(init : Nodes1) →
+  merge { First = { nodeLabel = True
+                    , edges = [ { edgeLabel = True, target = Nodes1.Second }
+                              , { edgeLabel = False, target = Nodes1.Third }
+                      ] }
+        , Second = { nodeLabel = False
+                     , edges = [ { edgeLabel = True, target = Nodes1.First }
+                               , { edgeLabel = True, target = Nodes1.Third }
+                      ] }
+        , Third = { nodeLabel = True, edges = [] : List { edgeLabel : Bool, target : Nodes1 } }
+        } init)
+```
+
+Suppose that we need to  transform this graph by removing all edges labeled `False`, and by changing the node label to `False` when the list of outoing edges is empty.
+This transformation can be implemented as:
+
+```dhall
+let List/filter = https://prelude.dhall-lang.org/List/filter
+let transform1 : LabeledGraph Bool Bool → LabeledGraph Bool Bool
+  = λ(graph : LabeledGraph Bool Bool) →
+    let pack_ : ∀(t : Type) → { seed : t, step : t → GraphF Bool Bool t } → LabeledGraph Bool Bool
+      = λ(t : Type) → λ(r : { seed : t, step : t → GraphF Bool Bool t }) →
+        let newStep : t → GraphF Bool Bool t = λ(seed : t) →
+          let old : { nodeLabel : Bool, edges : List { edgeLabel : Bool, target : t } } = r.step seed
+          -- Compute the new node information.
+          in { nodeLabel = if Natural/isZero (List/length { edgeLabel : Bool, target : t } old.edges) then False else old.nodeLabel
+             , edges = List/filter { edgeLabel : Bool, target : t } (λ(p : { edgeLabel : Bool, target : t }) → p.edgeLabel) old.edges
+             }
+        in makeLabeledGraph Bool Bool t r.seed newStep
+    in graph (LabeledGraph Bool Bool) pack_
+```
+
+Transformations of this kind depend only on node labels and edge labels, and are generic in the underlying graph geometry.
+In a similar way, we can implement any node-local transformation of the graph (transforming one node's label and outgoing edges) if it is described by a function of type `∀(t : Type) → GraphF Node Edge t → GraphF Node Edge t`.
+
 Within the limitations of Dhall that require all iteration or recursion to be explicitly bounded in advance, one could build some graph algorithms based on these "graph-walking" operations.
 
 #### Node-dependent and node-independent operations
 
-We have specified `Nodes1.First` as the initial "seed" value.
+We have specified `Nodes1.First` as the initial "seed" value in `exampleGraph1`.
 This is not fully satisfactory for two reasons:
 
 First, the graph does not necessarily have a selected "current" node.
@@ -10541,6 +10583,7 @@ This  is enforced by the existential quantifier in `LabeledGraph`.
 Any code working with a value of type `LabeledGraph` will need to apply the existentially-quantified values to functions of type `∀(t : Type) → { seed : t, step : t → GraphF Node Edge t } → r`, where `r` is the type of the required result value.
 A function of that type cannot examine the value `seed : t` to decide which node of the graph is the current one, because the type `t` is completely unknown within the body of that function.
 The function must work in the same way for all types `t`.
+This corresponds to code that works with any graph, regardless of its configuration of nodes and edges, by examining only the labels   on its nodes and edges.
 
 The (node-independent) code of `stepLabeledGraph` shown above is precisely of that kind.
 But node-dependent computations cannot be expressed in this way.
@@ -10571,15 +10614,46 @@ let exampleGraph1N : LabeledGraphNodes1 Natural Text =
                       , { edgeLabel = "b1", target = Nodes1.Third }
               ] }
   , Second = { nodeLabel = 456
-            , edges = [ { edgeLabel = "a2", target = Nodes1.First }
-                      , { edgeLabel = "b2", target = Nodes1.Third }
+             , edges = [ { edgeLabel = "a2", target = Nodes1.First }
+                       , { edgeLabel = "b2", target = Nodes1.Third }
               ] }
   , Third = { nodeLabel = 789, edges = [] : List { edgeLabel : Text, target : Nodes1 } }
   }
 ```
 
-TODO: explain and implement some operations on this graph
+Given our detailed knowledge of the type `Nodes1`, we can write a function that converts `LabeledGraphNodes1` into `LabeledGraph` by hiding the information about `Nodes1`:
 
+```dhall
+let graphNodes1ToLabeledGraph : ∀(Node : Type) → ∀(Edge : Type) → LabeledGraphNodes1 Node Edge → LabeledGraph Node Edge
+  = λ(Node : Type) → λ(Edge : Type) → λ(graphNodes1 : LabeledGraphNodes1 Node Edge) →
+      let step = λ(n : Nodes1) → merge graphNodes1 n
+      in makeLabeledGraph Node Edge Nodes1 Nodes1.First step
+```
+A converse function is impossible: we cannot find out whether a given graph of type `LabeledGraph` has in fact  the three node variants `First`, `Second`, `Third`.
+
+We will now  implement a function that recomputes the node labels in the way we described earlier:
+it will  multiply  the label at the `Second` node by `2` and the label at the `Third` node by `3`.
+
+```dhall
+let transform2 : LabeledGraphNodes1 Natural Text → LabeledGraphNodes1 Natural Text
+  = λ(graph : LabeledGraphNodes1 Natural Text) →
+  { First = graph.First
+  , Second = graph.Second // { nodeLabel = 2 * graph.Second.nodeLabel }
+  , Third = graph.Third // { nodeLabel = 3 * graph.Third.nodeLabel }
+  }
+```
+
+A shorter way of writing the same code is to use Dhall's "`with`" syntax:
+
+```dhall
+let transform2 : LabeledGraphNodes1 Natural Text → LabeledGraphNodes1 Natural Text
+  = λ(graph : LabeledGraphNodes1 Natural Text) →
+  graph with Second.nodeLabel = 2 * graph.Second.nodeLabel
+    with Third.nodeLabel = 3 * graph.Third.nodeLabel
+```
+
+In a similar way, one can implement functions that reconfigure the graph in an arbitrary way, replacing edge labels and adding or removing labels.
+But the node-dependent functions must be written manually for each graph type and cannot benefit from generic graph algorithms.
 
 
 ## Translating recursive functions into Dhall
@@ -12118,7 +12192,6 @@ This combinator works because the functionality of `bind` includes the functiona
 
 Dhall's Prelude has the function `List/filter` that removes values from a list whenever the value does not satisfy a condition:
 ```dhall
-let List/filter = https://prelude.dhall-lang.org/List/filter
 let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] ≡ [ 5, 6, 7, 8 ]
 ```
 
@@ -14254,7 +14327,7 @@ Similarly to the standard `fix` method, as it allows us to derive the data const
 ```dhall
 let fixFreeMonad : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F (FreeMonad F a) → FreeMonad F a
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(a : Type) → λ(ffm : F (FreeMonad F a)) →
-    λ(r : Type) → λ(ar : a → r) → λ(frr: F r → r) →
+    λ(r : Type) → λ(ar : a → r) → λ(frr : F r → r) →
       let fm2r : FreeMonad F a → r = λ(fm : FreeMonad F a) → fm r ar frr
       let fr : F r = functorF.fmap (FreeMonad F a) r fm2r ffm
       in frr fr
