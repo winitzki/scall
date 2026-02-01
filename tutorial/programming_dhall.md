@@ -10514,7 +10514,7 @@ In our example, this is the node `Third`.
 If we start from that node, we will not be able to traverse the graph.
 
 At this point, we have to look in detail at what graph operations we could need.
-We may distinguish two kinds of computations on graphs that we call  "node-dependent" and "node-independent".
+Let us distinguish two kinds of computations on graphs that we call  "node-dependent" and "node-independent".
 
 Node-dependent computations require knowing a given node's underlying type variant (such as `Nodes1.First`) and/or the complete node type (`Nodes1`).
 An example node-dependent task is computing the sum of all numbers stored in the node labels.
@@ -10545,8 +10545,38 @@ The function must work in the same way for all types `t`.
 The (node-independent) code of `stepLabeledGraph` shown above is precisely of that kind.
 But node-dependent computations cannot be expressed in this way.
 The fixpoint type `LabeledGraph` is not suitable for node-dependent computations.
+A value  of type `LabeledGraph Node Edge` is a graph that can have any number of nodes or edges (or even be an empty graph with no nodes).
+All we know about that graph is that each node is  labeled by a value of type `Node`, and each edge is  labeled by a value of type `Edge`.
 
-Instead, one needs to represent the graph more directly by the node type and the edge-producing "step" function.
+In order to implement node-dependent operations,  one needs to represent a graph more directly, exposing its  node type and the edge-producing "step" function.
+The example shown above (`exampleGraph1`) could be described by specifying the type `Nodes1`  and the record involved in the `merge` expression within the body of `step1`.
+
+Define a record type encapsulating that information:
+
+```dhall
+let LabeledGraphNodes1 = λ(Node : Type) → λ(Edge : Type) → {
+  First : GraphF Node Edge Nodes1,
+  Second : GraphF Node Edge Nodes1,
+  Third : GraphF Node Edge Nodes1
+}
+```
+
+Values of type `LabeledGraphNodes1` are   graphs that have three nodes (`First`, `Second`, `Third`).
+We may reformulate `exampleGraph1` as a value of type `LabeledGraphNodes1`:
+
+```dhall
+let exampleGraph1N : LabeledGraphNodes1 Natural Text = 
+  { First = { nodeLabel = 123
+            , edges = [ { edgeLabel = "a1", target = Nodes1.Second }
+                      , { edgeLabel = "b1", target = Nodes1.Third }
+              ] }
+  , Second = { nodeLabel = 456
+            , edges = [ { edgeLabel = "a2", target = Nodes1.First }
+                      , { edgeLabel = "b2", target = Nodes1.Third }
+              ] }
+  , Third = { nodeLabel = 789, edges = [] : List { edgeLabel : Text, target : Nodes1 } }
+  }
+```
 
 TODO: explain and implement some operations on this graph
 
