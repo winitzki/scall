@@ -520,8 +520,7 @@ data P = X Int | Y Bool | Z    -- Haskell.
 A function `toString` that prints values of type `P` can be written in Haskell via pattern matching:
 
 ```haskell
--- Haskell
-toString :: P -> String
+toString :: P -> String    -- Haskell
 toString x = case x of
   X x -> "X " ++ show x
   Y y -> "Y " ++ show y
@@ -1145,15 +1144,43 @@ In this book, we capitalize all type constructors (such as `List`).
 Simple type parameters are usually not capitalized in Dhall libraries (`a`, `b`, etc.), but we will sometimes write capitalized type parameters (`A`, `B`, etc.).
 Values are never capitalized in this book.
 
-#### Almost no type inference
+#### Unidirectional type inference
 
-Dhall has almost no type inference.
-The only exception are the `let` bindings, such as `let x = 1 in ...`, where the type annotation for `x` may be omitted.
-Other than in `let` bindings, the types of all bound variables must be written explicitly.
+todo: explain how that works
 
-Although this makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
-In particular, Dhall requires us to write out all type parameters and all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write type annotations for _types_ (such as, `F : Type → Type`).
-This verbosity has helped the author in learning some of the more advanced concepts of functional programming.
+Dhall has a limited form of type inference known as "unidirectional".
+The type is inferred  for  expressions that involve constants or sub-expressions whose types were already inferred.
+For example, in these expressions:
+```dhall
+let x = 1
+let y = x + 1
+```
+the type of `x` is inferred as `Natural`; then the type of `y` is also inferred.
+Type annotations for `x` and `y` may be omitted.
+
+A `let` expression's right-hand side may contain only values that have been already defined, and so the types of all those values are already known.
+For this reason, type annotations can be always omitted in `let` expressions.
+
+However, type annotations must be given  when binding a function argument, such as `λ(x : Natural) → x + 1`.
+The type of the expression `x + 1` is unknown if the type of `x` is unknown.
+It is not valid in Dhall to write, say, `λ(a : Type) → λ(x : a) → x + 1`; Dhall will not infer `a = Natural` from this code.
+
+One can describe this behavior by saying that the type information goes only in the direction from bound variables towards expressions, but not in the opposite direction (from expressions to bound variables).
+The expression `x + 1` cannot be typechecked in Dhall unless `x` has a known type.
+Function arguments must be explicitly type-annotated.
+
+Type parameters are not treated specially.
+Dhall will not infer them and fill them in.
+```dhall
+let identity : ∀(a : Type) → a → a = λ(a : Type) → λ(x : a) → x
+let _ = identity 123  -- Type error: type parameter missing.
+```
+All type parameters must be written out when applying type constructors or functions with type parameters.
+A correct code would be `identity Natural 123`.
+
+Although the requirement of writing out all type parameters makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
+In particular, Dhall requires us to write out  all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write kind annotations for _types_ (such as, `F : Type → Type`) as well.
+This verbosity has actually helped the author to learn some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation. Partial functions
 
@@ -2159,7 +2186,7 @@ let _ = assert : MustBeNonzero 123   -- OK.
 
 
 A curious consequence of the limitations of Dhall's evaluator and typechecker is that one can construct a type for _evidence_ that a parameter in a function is a statically known value.
-This 
+
 
 The implementation is based on the fact that Dhall cannot perform symbolic reasoning with `Natural`  values other than in simplest cases.
 So, one can implement a constant function of type `Natural → Bool` that appears to perform nontrivial computations but actually always returns `True`.
