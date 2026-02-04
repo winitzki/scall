@@ -6966,7 +6966,7 @@ That method uses the generic `fix` function.
 We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
 For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a`.
 We can express `fixCList` via the generic `fix` function if we hold the type parameter `a` fixed and provide a suitable `Functor` instance for `FList a`.
-Holding `a` fixed means that we will need to insert `λ(a : Type)` where appropriate:
+"Holding `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
 ```dhall
 let functorFList2 : ∀(t : Type) → Functor (FList t)
   = λ(t : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
@@ -10053,7 +10053,7 @@ working with those structures in System Fω often requires an explicit upper bou
 possible iterations.
 It is impossible to implement a function that determines whether a given stream ever terminates.
 
-#### The `cons` constructor for streams. Performance issues
+#### The "cons" constructor for streams. Performance issues
 
 The `cons` operation for lists   prepends a single value to a list.
 The analogous operation for streams can be implemented as a special case of concatenating streams:
@@ -13287,7 +13287,36 @@ let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
 let CList = LFixT FList
 ```
 
-The bifunctor `FList` supports all  
+The bifunctor `FList` supports all  three `bizip*` methods:
+
+```dhall
+let bizip1 : Bizip1 FList
+  = λ(r : Type) → λ(a : Type) → λ(far : FList a r) → λ(b : Type) → λ(fbr : FList b r) →
+    merge { None = None (Pair (Pair a b) r)
+          , Some = λ(ar : Pair a r) →
+            merge { None = None (Pair (Pair a b) r)
+                  , Some = λ(br : Pair b r) →
+                      Some { _1 = { _1 = ar._1, _2 = br._1 }
+                           , _2 = ar._2 -- Arbitrarily choose ar or br.
+                           }
+                  } fbr
+          } far
+let bizip2 : Bizip2 FList
+  = λ(a : Type) → λ(s : Type) → λ(fas : FList a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FList b t) →
+    merge { None = None (Pair (Pair a b) (Pair s t))
+          , Some = λ(as : Pair a s) →
+            merge { None = None (Pair (Pair a b) (Pair s t))
+                  , Some = λ(bt : Pair b t) →
+                      Some { _1 = { _1 = as._1, _2 = bt._1 }
+                           , _2 = { _1 = as._2, _2 = bt._2 }
+                           }
+                  } fbt
+          } fas
+let bizipF : BizipF FList
+  = λ(L : Type → Type) → λ(functorL : Functor L) →
+  λ(a : Type) → λ(fala : FList a (L a)) → λ(b : Type) → λ(fblb : FList b (L b)) →
+    bizip2 a (L a) fala b (L b) fblb
+```
 
 ## Combinators for foldable and traversable functors
 
