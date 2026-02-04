@@ -9259,7 +9259,7 @@ This value stores at once an implementation of the semigroup function (`append`)
 This technique works only when Dhall's typechecker is powerful enough to validate the laws symbolically.
 We have chosen the semigroup type `Bool → Bool` in this example because Dhall is able to validate the associativity law for that type.
 
-## Encoding of greatest fixpoints (co-inductive types)
+## Encoding of greatest fixpoints
 
 ### Motivation. "Infinite" data structures
 
@@ -9267,7 +9267,7 @@ Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
 But Church encodings always give the **least fixpoints** of type equations.
 The least fixpoints give types that are also known as "inductive types".
-Another useful kind of fixpoints are **greatest fixpoints**, also known as "co-inductive types".
+Another useful kind of fixpoints are **greatest fixpoints**.
 
 In this book, we write `LFix F` for the least fixpoint and   `GFix F` for the greatest fixpoint of the type equation `T = F T`.
 Type theory denotes  the least fixpoints by  $\mu F$    and     the greatest fixpoints by  $\nu F$  (more verbosely,  $\mu x.~F~x$  and  $\nu x.~F~x$ ).
@@ -9364,7 +9364,7 @@ let makeGFix : ∀(F : Type → Type) → ∀(r : Type) → r → (r → F r) �
 
 #### Example: infinite sequences of natural numbers
 
-A simple example of a co-inductive type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values (such as `101, 102, 103, ...`).
+A simple example of a greatest fixpoint type is a data type `InfSeqNat` representing an infinite sequence of `Natural` values (such as `101, 102, 103, ...`).
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
 An intuitive picture of this data type is an infinitely nested record:
 
@@ -9512,6 +9512,9 @@ let repeatValue : ∀(a : Type) → a → InfSeq a
   = λ(a : Type) → λ(x : a) →
     makeGFix (Pair a) {} {=} (λ(_ : {}) → { _1 = x, _2 = {=} })
 ```
+
+An example of a value computed via this function is `repeatValue Bool False`.
+This corresponds to an infinite sequence `False, False, False, ...` (although of course we do not store infinitely many values in memory).
 
 Another example is a sequence obtained by applying a given function `f : a → a` repeatedly, starting from a given initial value.
 The "seed" will store the current value, similarly to how we implemented `naturals` for `InfSeqNat`.
@@ -9773,12 +9776,12 @@ For that, we need the more general constructor `makeGFix`.
 We can also apply `unfixG` to a value of type `GFix F` and obtain a value of type `F (GFix F)`.
 We can then perform pattern matching directly on that value, since `F` is typically a union type.
 
-So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern matching for co-inductive types.
+So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern matching for greatest fixpoint types.
 However, as we will see below, creating "infinite" values requires us to use `makeGFix` and to reason about the suitable choice of  the "seed" data type and the "step" function.
 
 ### Example: streams
 
-To build more intuition for working with co-inductive types, we will now implement a number of functions for a specific data type: `Stream`.
+To build more intuition for working with greatest fixpoint types, we will now implement a number of functions for a specific data type: `Stream`.
 
 We define `Stream` as the greatest fixpoint of the same pattern functor used for `List`:
 
@@ -10215,7 +10218,7 @@ We will not show the full proof, as the focus of this book is on code.
 
 ### Example: infinite trees
 
-Another example of a co-inductive type is a data structure representing infinite trees. 
+Another example of a greatest fixpoint type is a data structure representing infinite trees. 
 
 We will show the techniques required for implementing two versions of an infinite tree: a tree that has data in leaves and can be either finite or infinite; and a tree that has data in branches and is always infinite.
 Many other kinds of infinite trees can be implemented similarly with these techniques.
@@ -12692,6 +12695,17 @@ let _ = assert : CList/show Natural showNatural result ≡ "[ 1, 3, 5, ]"
 There are often several ways of implementing a `Filterable` typeclass for a given functor.
 The combinators `filterableLFix` and `filterableLFixEither` are two possibilities among many.
 
+These combinators provide a non-greedy filter for the least fixpoint types.
+For the greatest fixpoints, the "greedy" filter is the only one available.
+The reason is that a non-greedy filter cannot be guaranteed to terminate.
+
+To see why, consider an infinite sequence `False, False, False, ...`  of type `InfSeq Bool` (as shown in the chapter "Church encodings of more complicated types").
+Suppose we needed to filter sequences of type `InfSeq Bool` to keep only values equal to `True`.
+A `filter` method must return a result value of type `InfSeq Bool`, which requires us to compute at least the first element of the resulting sequence.
+But the computation of the first element of the filtered sequence requires to find the first value `True` in the input sequence.
+It is not possible to know in advance whether a given sequence of type `InfSeq Bool` contains any `True` values at any position (the value `True` could be first found after a million `False` values, say).
+The filter function will need to iterate over the entire sequence, looking for any element equal to `True`.
+This computation cannot terminate and cannot be implemented in Dhall.
 
 ## Applicative type constructors and their combinators
 
@@ -17965,7 +17979,7 @@ After renaming `t = ep`, this is the same equation we proved above.
 
 ### Church encodings of greatest fixpoints
 
-In this section, we will prove some general properties of co-inductive types such as `GFix F` defined in the chapter "Co-inductive types".
+In this section, we will prove some general properties of greatest fixpoint types such as `GFix F` defined in the chapter "Encoding of greatest fixpoints".
 In particular, we will show that `GFix F` is indeed the greatest fixpoint of the type equation `C = F C`.
 
 The properties of greatest fixpoints are also covered in the paper "Recursive types for free" by P. Wadler, except that he uses special notation for existential types.
@@ -17980,7 +17994,7 @@ let functorF : Functor Optional = { fmap = Optional/map }
 ```
 
 To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
-(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Co-inductive types".)
+(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Encoding of greatest fixpoints".)
 We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
 We will also denote the type `GFix F` simply by `G`.
 We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : t → F t }`.
@@ -18326,7 +18340,7 @@ fromCCoY (toCCoY kg)   -- Expand the definition of fromCCoY:
   ≡ fmap_K G G (unfold G unfixf) kg
 ```
 
-Statement 3 in section "Properties of co-inductive type encodings" shows that `unfold G unfixf` is an identity function of type `G → G` (denoted by `identity G`).
+Statement 3 in section "Church encodings of greatest fixpoints" shows that `unfold G unfixf` is an identity function of type `G → G` (denoted by `identity G`).
 So, we have:
 
 ```dhall
@@ -18405,7 +18419,7 @@ as long as the precondition of the law holds:
 
 `fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)`
 
-This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Properties of co-inductive types".
+This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Church encodings of greatest fixpoints".
 
 This allows us to complete the proof of item 2:
 
