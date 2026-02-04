@@ -13304,11 +13304,11 @@ let bizip1 : Bizip1 FList
 let bizip2 : Bizip2 FList
   = λ(a : Type) → λ(s : Type) → λ(fas : FList a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FList b t) →
     merge { None = None (Pair (Pair a b) (Pair s t))
-          , Some = λ(as : Pair a s) →
+            , Some = λ(pas : Pair a s) →
             merge { None = None (Pair (Pair a b) (Pair s t))
-                  , Some = λ(bt : Pair b t) →
-                      Some { _1 = { _1 = as._1, _2 = bt._1 }
-                           , _2 = { _1 = as._2, _2 = bt._2 }
+                  , Some = λ(pbt : Pair b t) →
+                      Some { _1 = { _1 = pas._1, _2 = pbt._1 }
+                           , _2 = { _1 = pas._2, _2 = pbt._2 }
                            }
                   } fbt
           } fas
@@ -13317,6 +13317,10 @@ let bizipF : BizipF FList
   λ(a : Type) → λ(fala : FList a (L a)) → λ(b : Type) → λ(fblb : FList b (L b)) →
     bizip2 a (L a) fala b (L b) fblb
 ```
+
+However, the implementation of `bizipF` must copy that of `bizip2`, so there will not be an advantage in using it.
+
+todo: fix
 
 ## Combinators for foldable and traversable functors
 
