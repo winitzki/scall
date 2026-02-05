@@ -10987,7 +10987,7 @@ This functionality will be available if the functor `F` is _foldable_.
 We will require `Functor` and `Foldable` typeclass evidence for `F`
 (such evidence can be created for any polynomial functor `F`).
 
-TODO: replace this logic by simply checking that the result of toList is a non-empty list. In that case, the data structure is non-empty and contains some values of type t. use foldable for F, not for µF
+TODO: replace this logic by simply checking that the result of toList is not empty. In that case, the data structure is non-empty and contains some values of type t. use foldable for F, not for µF
 
 Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
@@ -13082,7 +13082,7 @@ let BizipF = λ(F : Type → Type → Type) → ∀(L : Type → Type) → Funct
 
 The type signature of `bizipF` is of the form `F a s → F b t → F (Pair a b) (Pair s t)` if we set `s = L a` and `t = L b`.
 This type signature is similar to that of `bizip2` except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
-Functions `bizip2` of type `F a s → F b t → F (Pair a b) (Pair s t)` do not exist for many pattern functors `F`, such as that for non-empty lists (`F a r = Either a (Pair a r)`) and for non-empty binary trees (`F a r = Either a (Pair r r)`).
+Functions `bizip2` of type `F a s → F b t → F (Pair a b) (Pair s t)` do not exist for some pattern functors `F`, such as that for non-empty binary trees (`F a r = Either a (Pair r r)`).
 In contrast, `bizipF` can be implemented for all polynomial bifunctors `F`.
 
 
@@ -13134,6 +13134,57 @@ let applicativeGFix : ∀(F : Type → Type → Type) → Bizip2 F → F {} {} �
 TODO: code examples with List and binary trees (with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
 
 TODO: explain that "padding" corresponds to using the functor instance in bizipF to convert (a, L b) -> L (a, b)
+
+```haskell
+                            .
+                           / \
+                          /   \                   
+zip  /\       /\     =   /   /  \
+    1 /\     /\ c       /\  (2, c) (3, c)
+     2  3   a  b   (1, a) (1, b)  
+```
+
+
+todo: trees with data in branch points
+
+```haskell
+data Tree2a = Leaf | Branch a (Tree2a a) (Tree2a a)
+```
+
+An example tree of type Tree2a that contains three values "a", "b", "c"; the symbol `.` denotes an empty `Leaf` value:
+```
+         a
+        / \  
+       b   .
+      / \    
+     .   c
+        / \
+       .   .  
+```
+An example of the truncating behavior of zip for Tree2a:
+```
+     zip  a         1        =    (a, 1) 
+         / \       / \             /   \
+        b   .     2   3        (b, 2)   .   
+       / \       / \ / \        /  \ 
+      .   c     .  . .  .      .    .
+         / \
+        .   .     
+```
+
+The "truncating zip" returns a tree whose shape is the greatest lower bound of the two input shapes. This is analogous the "minimum" of the two tree shapes. (We need to keep in mind that tree shapes are a partial order, unlike list lengths.)
+
+But one can also implement a "padding" zip for Tree2a, where the value at the branching is replicated as needed to match the other tree structure:
+
+```
+     zip  a         1        =    (a, 1) 
+         / \       / \             /    \
+        b   .     2   3        (b, 2)   (a, 3)   
+       / \       / \ / \       /  \       / \
+      .   c     .  . .  .     .  (c, 2)  .   .
+         / \                       / \
+        .   .                     .   .   
+```
 
 Let us now assume that the pattern bifunctor `F` has a `bizipF` method instead of `bizip2`.
 To implement the `zip` function for the greatest fixpoint of `D a = GFix (F a)`, we need to convert a pair of values of types `D a` and `D b`
@@ -13277,18 +13328,22 @@ let bizipF
 
 TODO:run this on some examples
 
-TODO:Show that `bizip_FC` can be implemented in 2 different ways for `FList`, corresponding to the ordinary zip and to the padding zip.
-
-Another example of using the general `zip` combinator is for the list functor.
-We will use the definition of `CList` based on the bifunctor `FList` defined earlier:
-
+As another example of using the general `zip` combinator, we consider lists.
+The standard `List` functor represent lists that can store zero or more items, and the non-empty list can store one or more items.
+Since `List` is a Dhall built-in that does not involve Church encoding,
+we will instead represent lists as Church-encoded least fixpoints of the bifunctor `FList` introduced earlier:
 ```dhall
 let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
+let bifunctorFList : Bifunctor FList = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FList a b) →
+  merge { None = None (Pair c d)
+        , Some = λ(p : Pair a b) → Some { _1 = f p._1, _2 = g p._2 }
+        } fab
+}
 let CList = LFixT FList
 ```
 
-The bifunctor `FList` supports all  three `bizip*` methods:
-
+The bifunctor `FList` supports the methods `bizip1` and `bizip2`.
+We can then implement `bizipF` via `bizip2` (but this gives no advantages, and there is no other possible implementation of `bizipF` for `FList`).
 ```dhall
 let bizip1 : Bizip1 FList
   = λ(r : Type) → λ(a : Type) → λ(far : FList a r) → λ(b : Type) → λ(fbr : FList b r) →
@@ -13317,10 +13372,89 @@ let bizipF : BizipF FList
   λ(a : Type) → λ(fala : FList a (L a)) → λ(b : Type) → λ(fblb : FList b (L b)) →
     bizip2 a (L a) fala b (L b) fblb
 ```
+TODO:Show that  the ordinary zip can be implemented via bizipF.
 
-However, the implementation of `bizipF` must copy that of `bizip2`, so there will not be an advantage in using it.
 
-todo: fix
+Now we turn to   non-empty lists.
+Previously we have defined non-empty lists directly via a curried Church encoding.
+In this section, we would like to illustrate how the general `zip` construction applies to non-empty lists.
+So, let us redefine non-empty lists via a structure bifunctor `FNEL`:
+```dhall
+let FNEL = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
+let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FNEL a b) →
+  merge { Left = λ(x : a) → (FNEL c d).Left (f x)
+        , Right = λ(p : Pair a b) → (FNEL c d).Right { _1 = f p._1, _2 = g p._2 }
+        } fab
+}
+let NELF = LFixT FNEL
+```
+
+
+The bifunctor `FNEL` supports all  three `bizip*` methods:
+
+```dhall
+let bizip1 : Bizip1 FNEL
+  = λ(r : Type) → λ(a : Type) → λ(far : FNEL a r) → λ(b : Type) → λ(fbr : FNEL b r) →
+    let R = FNEL (Pair a b) r in
+    merge { Left = λ(x : a) →
+            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+                  , Right = λ(p : Pair b r) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = p._2 }
+                  } fbr
+          , Right = λ(ar : Pair a r) →
+            merge { Left = λ(y : b) → R.Right { _1 = { _1 = ar._1, _2 = y }, _2 = ar._2 }
+                  , Right = λ(br : Pair b r) → R.Right { _1 = { _1 = ar._1, _2 = br._1 }, _2 = ar._2 } -- Arbitrarily keep ar and lose br here.
+                  } fbr
+          } far
+let bizip2 : Bizip2 FNEL
+  = λ(a : Type) → λ(s : Type) → λ(fas : FNEL a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FNEL b t) →
+    let R = FNEL (Pair a b) (Pair s t) in
+    merge { Left = λ(x : a) →
+            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+                  , Right = λ(p : Pair b t) → R.Left { _1 = x, _2 = p._1 } -- Lose p._2 here.
+                  } fbt
+          , Right = λ(pas : Pair a s) →
+            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Lose pas._2 here.
+                  , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
+                  } fbt
+          } fas
+```
+Note that both `bizip1` and `bizip2` ignore certain parts of the input data.
+There are no other ways of implementing those functions.
+
+We have two possible implementations of `bizipF`: one copies the code of `bizip2` and does not ignore any input data (which will give us a "padding" `zip`).
+
+```dhall
+let bizipF_truncating : BizipF FNEL
+  = λ(L : Type → Type) → λ(functorL : Functor L) →
+  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
+    bizip2 a (L a) fala b (L b) fblb
+let bizipF_padding : BizipF FNEL
+  = λ(L : Type → Type) → λ(functorL : Functor L) →
+  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
+    let R = FNEL (Pair a b) (Pair (L a) (L b)) in
+    merge { Left = λ(x : a) →
+        merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+              , Right = λ(p : Pair b (L b)) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = { _1 = functorL.fmap b a (λ(_ : b) → x) p._2, _2 = p._2 } } -- Padding p._2 with x.
+              } fblb
+      , Right = λ(pa : Pair a (L a)) →
+        merge { Left = λ(y : b) → R.Right { _1 = { _1 = pa._1, _2 = y }, _2 = { _1 = pa._2, _2 = functorL.fmap a b (λ(_ : a) → y) pa._2 } } -- Padding pa._2 with y.
+              , Right = λ(pb : Pair b (L b)) → R.Right { _1 = { _1 = pa._1, _2 = pb._1 }, _2 = { _1 = pa._2, _2 = pb._2 } }
+              } fblb
+      } fala
+```
+todo: implement and test the two versions of zip for NELF
+
+We see that the "truncating" version of `zip` for non-empty lists is obtained via the "truncating" version of `bizipF`,
+while the "padding" version of `zip` is obtained via the "padding" version of `bizipF`.
+
+For ordinary lists (equivalent to `List`), it turns out that there is only one possibility of implementing `bizipF`, and it corresponds to the "truncating" `zip`.
+To get the "padding" `zip`, one needs to handle the case of an empty list separately.
+Zipping an empty list with any other list gives again an empty list.
+The remaining case is zipping two non-empty lists; we can convert those to the `NEL` type and then use the "padding" `zip` that is available for `NEL`.
+
+todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list.
+
+
 
 ## Combinators for foldable and traversable functors
 
