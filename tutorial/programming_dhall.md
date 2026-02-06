@@ -13199,7 +13199,7 @@ let zipViaBizip2 : ∀(F : Type → Type → Type) → Bizip2 F → ZipT (λ(c :
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
           -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
           makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
-            (λ(st : Pair s t) → bizip2 a s (p.step p.seed) b t (q.step q.seed))
+            (λ(st : Pair s t) → bizip2 a s (p.step st._1) b t (q.step st._2))
         )
       )
 ```
@@ -13284,7 +13284,7 @@ let bizipFPair : BizipF Pair
   bizip2Pair a (L a) ala b (L b) blb
 ```
 The code of `bizipF` is a simple application of `bizip2`; there are no other useful implementations.
-(An example of a "useless" impleemntation would be if we used `L`'s `fmap` to convert pairs of type `(a, L a)` to values of type `L b`: that would lose information.)
+(An example of a "useless" implementation is code that converts pairs of type `(a, L a)` to values of type `L b` via `L`'s `fmap`: that would lose information.)
 This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
 ```dhall
 let zipInfSeq : ZipT InfSeq = zipViaBizip2 Pair bizip2Pair
