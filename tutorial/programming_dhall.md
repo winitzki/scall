@@ -13299,7 +13299,17 @@ let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleZipInfSeq ≡ [
   { _1 = 3, _2 = "a" }, 
 ]
 ```
-
+Let us also verify that `zipViaBizipF` gives the same result:
+```dhall
+let zipInfSeqF = zipViaBizipF Pair bifunctorPair bizipFPair
+let example2ZipInfSeq = zipInfSeqF Natural repeatExample Text exampleRepeatList
+let _ = assert : InfSeq/take 4 (Pair Natural Text) example2ZipInfSeq ≡ [
+  { _1 = 0, _2 = "a" },
+  { _1 = 1, _2 = "b" }, 
+  { _1 = 2, _2 = "c" }, 
+  { _1 = 3, _2 = "a" }, 
+]
+```
 
 TODO: code examples with List and binary trees (with data in leaves, or with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
 
