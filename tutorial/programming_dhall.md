@@ -1146,16 +1146,14 @@ Values are never capitalized in this book.
 
 #### Unidirectional type inference
 
-todo: explain how that works
-
 Dhall has a limited form of type inference known as "unidirectional".
 The type is inferred  for  expressions that involve constants or sub-expressions whose types were already inferred.
-For example, in these expressions:
+For example, look at  these expressions:
 ```dhall
 let x = 1
 let y = x + 1
 ```
-the type of `x` is inferred as `Natural`; then the type of `y` is also inferred.
+Here the type of `x` is inferred as `Natural`; then the type of `y` is also inferred.
 Type annotations for `x` and `y` may be omitted.
 
 A `let` expression's right-hand side may contain only values that have been already defined, and so the types of all those values are already known.
@@ -1163,14 +1161,15 @@ For this reason, type annotations can be always omitted in `let` expressions.
 
 However, type annotations must be given  when binding a function argument, such as `λ(x : Natural) → x + 1`.
 The type of the expression `x + 1` is unknown if the type of `x` is unknown.
-It is not valid in Dhall to write, say, `λ(a : Type) → λ(x : a) → x + 1`; Dhall will not infer `a = Natural` from this code.
+It is not valid in Dhall to write, say, `λ(a : Type) → λ(x : a) → x + 1`; Dhall will not infer `a = Natural` from that code.
 
-One can describe this behavior by saying that the type information goes only in the direction from bound variables towards expressions, but not in the opposite direction (from expressions to bound variables).
-The expression `x + 1` cannot be typechecked in Dhall unless `x` has a known type.
-Function arguments must be explicitly type-annotated.
+One can describe this behavior by saying that the type inference is sent only "in  one direction": from bound variables towards expressions, but not  from expressions to bound variables.
+The expression `x + 1` cannot be typechecked in Dhall unless the type of the bound variable `x` is already known.
+The types of function arguments will not be inferred by examining the function body and assuming that the types must match there.
+So, function arguments must be explicitly type-annotated;
 
-Type parameters are not treated specially.
-Dhall will not infer them and fill them in.
+Also, type parameters are treated in the same way.
+Dhall will not infer them and will not fill them in automatically:
 ```dhall
 let identity : ∀(a : Type) → a → a = λ(a : Type) → λ(x : a) → x
 let _ = identity 123  -- Type error: type parameter missing.
@@ -1222,6 +1221,9 @@ At that stage, the Dhall interpreter resolves all imports and then typechecks al
 Imports must be resolved and evaluated first, in order to be able to proceed with typechecking; otherwise Dhall would not be able to determine, say, the type of `x` in `let x = ./import_file.dhall`.
 
 When no type errors are found, the interpreter goes on evaluating the program to the normal form, using the lazy evaluation strategy.
+
+To summarize, Dhall uses lazy evaluation when applying functions to arguments and in `let`-expressions.
+Strict evaluation is used for any values required to be available during type-checking: all imported values, all values in `assert` expressions, and all values that are required for computing any types.
 
 It is important to keep in mind that in almost all cases a well-typed Dhall program will give the same result whether evaluated lazily or strictly.
 
@@ -6665,7 +6667,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
     } (unfix F functorF c)
 ```
 
-For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The function `headOptional` that replaces
+For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The functions `headOptional` and `tailOptional` that replace
 Haskell's `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
 
 ```dhall
@@ -6743,7 +6745,30 @@ This is equivalent to traversing the entire data structure.
 As a result, the performance of programs may be slow when working with large Church-encoded data structures.
 However, lazy evaluation in Dhall makes Church-encoded data perform faster than expected.
 
-Timing tests show that `cons`, `headOptional`, and concatenation are actually $O(1)$ in time, while traversing the list is $O(N)$ (where $N$ is the length of the list). 
+To see how it works, consider the code of `headOptionalC`  from the previous section.
+Apply `headOptionalC`  to the Church-encoded list with three values corresponding to `[ +1, +2, +3 ]`:
+```dhall
+let example123 : ListIntC
+  = λ(r : Type) → λ(nil : r) → λ(cons : Integer → r → r) →
+    cons +1 (cons +2 (cons +3 nil))
+let headOfExample123 : Optional Integer = headOptionalC example123
+```
+When Dhall evaluates `headOptionalC example123`, the reduction steps will look like this:
+
+```dhall
+headOptionalC example123   -- Symbolic derivation.
+  = example123 (Optional Integer) (None Integer) (λ(i : Integer) → λ(_ : Optional Integer) → Some i)
+  = (λ(i : Integer) → λ(prev : Optional Integer) → Some i) +1 (...)
+  = Some +1
+```
+Here we denoted by `(...)` the (as yet unevaluated) expression corresponding to `cons +2 (cons +3 nil)`.
+Because of lazy evaluation, Dhall substitutes `i = +1` and `prev = (...)` into the function body.
+The function body ignores `prev` and returns `Some +1` as the result.
+In this way, the computation of `headOptional` takes $O(1)$ time.
+
+On the other hand, `lastOptionalC` requires to evaluate all parts of the list and will take $O(N)$ time (where $N$ is the length of the list).
+
+Timing tests confirm that `cons`, `headOptional`, and concatenation have time complexity  $O(1)$, while computing the sum of all values in a list is $O(N)$. 
 
 To verify this, we can create a long list of integers and time some operations: adding one more integer (using `cons`), computing the sum of the list, extracting that integer via `headOptional`, and concatenating that list to itself.
 
@@ -6782,12 +6807,12 @@ let sum3 : Integer = ListInt/sum longList3
 let _ = assert : sum3 ≡ Natural/toInteger (length * 2) 
 ```
 
-In Dhall, the computation time is completely dominated by  type-checking and reducing large Church-encoded data to normal forms.
-For instance, creating a Church-encoded list of `10000` elements and reducing it to the final normal form   takes about 1 minute on a fast laptop.
-Once the value is stored in the file cache, reading it takes only 1 second; computing the sum of the list takes about 0.5 seconds.
+In Dhall, the computation time is completely dominated by  type-checking and reducing large Church-encoded data to normal forms when first defining that data.
+For instance, creating a Church-encoded list of `10000` elements and reducing it to the normal form takes about 1 minute on a fast laptop.
+Once the normalized value of that list is stored in the file cache, reading it takes only 1 second; computing the sum of the list takes about 0.5 seconds.
 Computing `headOptional` or `ListInt/concat` is so quick that it is below the measurement error.
 
-The curried forms of the Church encoding have significantly smaller normal forms and  faster performance than the uncurried forms involving union types.
+The curried forms of the Church encoding have smaller normal forms and  faster performance than the uncurried forms involving union types.
 
 Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs (using a command such as `dhall freeze --all test.dhall`).
 
@@ -7083,14 +7108,14 @@ let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
 let example3 : NEL Natural = consn Natural 4 (one Natural 5)
 ```
 
-The folding function is just an identity function (this is always the case when working with Church encodings):
+The folding function is just an identity function (this is always the case   with Church encodings):
 
 ```dhall
-let foldNEL : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r
+let NEL/fold : ∀(a : Type) → NEL a → ∀(r : Type) → (a → r) → (a → r → r) → r
   = λ(a : Type) → λ(nel : NEL a) → nel
 ```
 
-To see that this is a "right fold", apply `foldNEL` to some functions `last : a → r` and `next : a → r → r` and a three-element list such as `example1`. The result
+To see that this is a "right fold", apply `NEL/fold` to some functions `last : a → r` and `next : a → r → r` and a three-element list such as `example1`. The result
 will be `next 1 (next 2 (last 3))`.
 So, the first function evaluation is at the right-most element of the list, then the result is used with the next-but-last element, and so on.
 This corresponds to the logic of a **right fold**.
@@ -7098,16 +7123,16 @@ This corresponds to the logic of a **right fold**.
 Folding with arguments `one` and `consn` gives again the initial list:
 
 ```dhall
-let test = assert : example1 ≡ foldNEL Natural example1 (NEL Natural) (one Natural) (consn Natural)
+let test = assert : example1 ≡ NEL/fold Natural example1 (NEL Natural) (one Natural) (consn Natural)
 ```
 
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
 
 ```dhall
-let concatNEL: ∀(a : Type) → NEL a → NEL a → NEL a
+let NEL/concat: ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
-        foldNEL a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
-let test = assert : concatNEL Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
+        NEL/fold a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
+let test = assert : NEL/concat Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
 ```
 
 To reverse a list, we right-fold over it and accumulate a new list by appending elements at the end.
@@ -7117,28 +7142,50 @@ For this, we will need a new constructor (`nsnoc`) that appends a given value of
 ```dhall
 let nsnoc : ∀(a : Type) → a → NEL a → NEL a
   = λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
-    foldNEL a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
+    NEL/fold a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
 let test = assert : example1 ≡ nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
 ```
 
 Now we can write the reversing function:
 
 ```dhall
-let reverseNEL : ∀(a : Type) → NEL a → NEL a =
-    λ(a : Type) → λ(nel : NEL a) → foldNEL a nel (NEL a) (one a) (nsnoc a)
-let test = assert : reverseNEL Natural example1 ≡ example2
-let test = assert : reverseNEL Natural example2 ≡ example1
+let NEL/reverse : ∀(a : Type) → NEL a → NEL a =
+    λ(a : Type) → λ(nel : NEL a) → NEL/fold a nel (NEL a) (one a) (nsnoc a)
+let test = assert : NEL/reverse Natural example1 ≡ example2
+let test = assert : NEL/reverse Natural example2 ≡ example1
 ```
 
 The reversing function allows us to program a _left_ fold: just reverse the list and apply the right fold.
 However, the resulting code works slower than the right fold.
-To see why, consider that `reverseNEL` uses `foldNEL` with an argument involving `nsnoc`, which itself also uses `foldNEL`.
-So, traversing a result of `reverseNEL` involves two nested iterations over the list (a quadratic number of operations).
+To see why, consider that `NEL/reverse` uses `NEL/fold` with an argument involving `nsnoc`, which itself also uses `NEL/fold`.
+So, traversing a result of `NEL/reverse` involves two nested iterations over the list (a quadratic number of operations).
+
+Here are some other helper functions for working  with non-empty lists.
+Note that `NEL/head` does not return an `Optional` result: the list is never empty, so its head element is always present.
+However, `NEL/tailOptional` needs to return an `Optional` type, as there is no tail for a list of length 1.
+The code is:
+```dhall
+let NEL/head : ∀(a : Type) → NEL a → a
+  = λ(a : Type) → λ(nel : NEL a) → nel a (identity a) (λ(x : a) → λ(_ : a) → x)
+let _ = assert : NEL/head Natural example1 ≡ 1
+
+let NEL/tailOptional : ∀(a : Type) → NEL a → Optional (NEL a)
+ = λ(a : Type) → λ(nel : NEL a) →
+     let Accum = { prev : a, result : Optional (NEL a) }
+     let one_ : a → Accum = λ(x : a) → { prev = x, result = None (NEL a) }
+     let more_ : a → Accum → Accum = λ(x : a) → λ(prevAcc : Accum) →
+       merge { None = { prev = x, result = Some (one a prevAcc.prev) }
+             , Some = λ(prevNEL : NEL a) → { prev = x, result = Some (consn a prevAcc.prev prevNEL) }
+             } prevAcc.result
+     in (nel Accum one_ more_).result
+let _ = assert : NEL/tailOptional Natural example1 ≡ Some (consn Natural 2 (one Natural 3))
+let _ = assert : NEL/tailOptional Natural (one Natural 1) ≡ None (NEL Natural)
+```
 
 
 ### Size and depth of generic Church-encoded data
 
-The functions `concatNEL` and `reverseNEL` shown in the previous section are specific to list-like data structures and cannot be straightforwardly generalized to other recursive types, such as trees.
+The functions `NEL/concat` and `NEL/reverse` shown in the previous section are specific to list-like data structures and cannot be straightforwardly generalized to other recursive types, such as trees.
 
 We will now consider functions that _can_ work with any Church-encoded type constructor.
 Examples are functions that compute the total size and the recursion depth of a data structure.
@@ -9515,41 +9562,8 @@ The result is a functor `InfSeq` describing infinite sequences.
 let InfSeq = λ(a : Type) → GFix (Pair a)
 ```
 
-An example of an `InfSeq a` is an infinite sequence of constant values of type `a`.
-We implement them using a unit type for "seed", similarly to how we implemented `zeros` for `InfSeqNat`:
 
-```dhall
-let repeatValue : ∀(a : Type) → a → InfSeq a
-  = λ(a : Type) → λ(x : a) →
-    makeGFix (Pair a) {} {=} (λ(_ : {}) → { _1 = x, _2 = {=} })
-```
-
-An example of a value computed via this function is `repeatValue Bool False`.
-This value corresponds to an infinite sequence `False, False, False, ...`
-
-Another example is a sequence obtained by applying a given function `f : a → a` repeatedly, starting from a given initial value.
-The "seed" will store the current value, similarly to how we implemented `naturals` for `InfSeqNat`.
-
-
-```dhall
-let repeatFunction : ∀(a : Type) → a → (a → a) → InfSeq a
-  = λ(a : Type) → λ(init : a) → λ(f : a → a) →
-    makeGFix (Pair a) a init (λ(x : a) → { _1 = x, _2 = f x })
-```
-
-We can use this function to create an infinite sequence `[True, False, True, False, ...]`:
-
-```dhall
-let repeatTrueFalse : InfSeq Bool = repeatFunction Bool True (λ(b : Bool) → Bool/not b)
-```
-
-The `InfSeq` type constructor is a functor:
-
-```dhall
-let functorInfSeq : Functor InfSeq = bifunctorGFix Pair bifunctorPair
-```
-
-Let us write a function `InfSeq/take` to extract a finite prefix from an infinite sequence, similarly to `InfSeqNat/take`.
+Let us write a helper function `InfSeq/take` to extract a finite prefix from an infinite sequence, similarly to `InfSeqNat/take`.
 
 ```dhall
 let InfSeq/take : Natural → ∀(a : Type) → InfSeq a → List a
@@ -9563,13 +9577,68 @@ let InfSeq/take : Natural → ∀(a : Type) → InfSeq a → List a
      in prev.seq Accum makeNewAccum
    in (Natural/fold limit Accum update init).list
 ```
+Now we will create some example values of type `InfSeq a`.
 
-We can now test our code:
+Our first example  is an infinite sequence of constant values of type `a`.
+We implement them using a unit type for "seed", similarly to how we implemented `zeros` for `InfSeqNat`:
 
 ```dhall
-let _ = assert : InfSeq/take 3 Bool (repeatValue Bool True)  ≡ [ True, True, True ]
-let _ = assert : InfSeq/take 6 Bool repeatTrueFalse ≡ [ True, False, True, False, True, False ]
-let _ = assert : InfSeq/take 6 Integer (functorInfSeq.fmap Bool Integer (λ(b : Bool) → if b then +1 else -1) repeatTrueFalse) ≡ [ +1, -1, +1, -1, +1, -1 ]
+let repeatValue : ∀(a : Type) → a → InfSeq a
+  = λ(a : Type) → λ(x : a) →
+    makeGFix (Pair a) {} {=} (λ(_ : {}) → { _1 = x, _2 = {=} })
+```
+
+An example of a value computed via this function is `repeatValue Bool False`.
+This value corresponds to an infinite sequence `False, False, False, ...`
+
+```dhall
+let _ = assert : InfSeq/take 3 Bool (repeatValue Bool False)  ≡ [ False, False, False ]
+```
+
+Instead of repeating just one value, we can repeat a given finite sequence of values of a type `a`.
+The "seed" type will be `NEL a`, and the current "seed" value will store the sublist of values that still remains to be repeated.
+```dhall
+let repeatList : ∀(a : Type) → NEL a → InfSeq a
+  = λ(a : Type) → λ(list : NEL a) →
+    let step : NEL a → Pair a (NEL a) = λ(nel : NEL a) →
+      let tailOrRenew : NEL a
+        = merge { None = list -- Start repeating from the beginning.
+                , Some = λ(tail : NEL a) → tail
+                } (NEL/tailOptional a nel)
+      in { _1 = NEL/head a nel, _2 = tailOrRenew }
+    in makeGFix (Pair a) (NEL a) list step
+let exampleRepeatList = repeatList Text (consn Text "a" (consn Text "b" (one Text "c")))
+let _ = assert : InfSeq/take 7 Text exampleRepeatList ≡ [ "a", "b", "c", "a", "b", "c", "a" ]
+```
+
+
+Another example is a sequence obtained by applying a given function `f : a → a` repeatedly, starting from a given initial value.
+The "seed" will store the current value, similarly to how we implemented `naturals` for `InfSeqNat`.
+
+
+```dhall
+let repeatFunction : ∀(a : Type) → a → (a → a) → InfSeq a
+  = λ(a : Type) → λ(init : a) → λ(f : a → a) →
+    makeGFix (Pair a) a init (λ(x : a) → { _1 = x, _2 = f x })
+```
+
+We can use this function to create an infinite sequence `1, 2, 6, 22, ...` where the next value is obtained from the previous one via the formula $n' = 4 n - 2$:
+
+```dhall
+let repeatExample : InfSeq Natural = repeatFunction Natural 1 (λ(n : Natural) → Natural/subtract 2 (n * 4))
+let _ = assert : InfSeq/take 4 Natural repeatExample ≡ [ 1, 2, 6, 22 ]
+```
+
+The `InfSeq` type constructor is a functor:
+
+```dhall
+let functorInfSeq : Functor InfSeq = bifunctorGFix Pair bifunctorPair
+```
+
+
+Here is a test for the functor functionality of `InfSeq`:
+```dhall
+let _ = assert : InfSeq/take 4 Bool (functorInfSeq.fmap Natural Bool Natural/even repeatExample) ≡ [ False, True, True, True ]
 ```
 
 The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
@@ -13214,9 +13283,13 @@ let bizipFPair : BizipF Pair
   = λ(L : Type → Type) → λ(_ : Functor L) → λ(a : Type) → λ(ala : Pair a (L a)) → λ(b : Type) → λ(blb : Pair b (L b)) →
   bizip2Pair a (L a) ala b (L b) blb
 ```
-The code of `bizipF` is a simple application of `bizip2`; there is no other useful implementation.
-(We could convert values of type `L a` to values of type `L b`, but that would lose information.)
+The code of `bizipF` is a simple application of `bizip2`; there are no other useful implementations.
+(An example of a "useless" impleemntation would be if we used `L`'s `fmap` to convert pairs of type `(a, L a)` to values of type `L b`: that would lose information.)
 This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
+```dhall
+let zipInfSeq : ZipT InfSeq = zipViaBizip2 Pair bizip2Pair
+```
+To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", c", ...` created via the combinators `repeatFunc` and `repeatList`.
 
 
 TODO: code examples with List and binary trees (with data in leaves, or with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
@@ -14426,13 +14499,13 @@ The given input `na : NEL a` is a function of type `∀(r : Type) → (a → r) 
 We can get a result of type `NEL b` out of that function if we assign the type parameter `r = NEL b`.
 It remains to supply arguments of types `a → NEL b` and `a → NEL b → NEL b`.
 The type `a → NEL b` is the same as the second argument of `bind`.
-To obtain a value of type `a → NEL b → NEL b`, we use the function `concatNEL` defined previously.
+To obtain a value of type `a → NEL b → NEL b`, we use the function `NEL/concat` defined previously.
 The complete code is:
 ```dhall
 let monadNEL : Monad NEL =
     let pure = λ(a : Type) → λ(x : a) → one a x
     let bind = λ(a : Type) → λ(na : NEL a) → λ(b : Type) → λ(f : a → NEL b) →
-      let anelbnelb : a → NEL b → NEL b = λ(x : a) → concatNEL b (f x)
+      let anelbnelb : a → NEL b → NEL b = λ(x : a) → NEL/concat b (f x)
       in na (NEL b) f anelbnelb
     in { pure, bind }
 ```
@@ -15272,7 +15345,7 @@ let absorbTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M (TNE
 ```
 
 The second  helper function concatenates transformed lists of type `TNEL M`.
-This function (`concatTNEL`) is implemented similarly to `concatNEL`: 
+This function (`concatTNEL`) is implemented similarly to `NEL/concat`: 
 
 
 ```dhall
@@ -15628,7 +15701,7 @@ A semigroup must support an associative `append` operation.
 A monoid is a semigroup that has in addition an `empty` operation, such that appending `empty` does not modify the value.
 
 The free semigroup constructor is the non-empty list `NEL`.
-The `append` operation is the concatenation function (`concatNEL`).
+The `append` operation is the concatenation function (`NEL/concat`).
 
 The free monoid constructor is `List`.
 The `append` operation is the concatenation of lists; the `empty` operation produces an empty list.
@@ -15655,7 +15728,7 @@ The free typeclass instance is formulated as:
 let SemigroupP = λ(t : Type) → Pair t t
 let freeFMTypeclassFreeSemigroup : FreeFMTypeclass SemigroupP FreeSemigroup
   = { evidence = λ(t : Type) → λ(pf : SemigroupP (FreeSemigroup t)) →
-      concatNEL t pf._1 pf._2
+      NEL/concat t pf._1 pf._2
   , monadFreeFM = monadNEL
   , eval = λ(p : Type) → λ(methods : SemigroupP p → p) → λ(expr : FreeSemigroup p) →
       expr p (identity p) (λ(x : p) → λ(y : p) → methods { _1 = x, _2 = y })
