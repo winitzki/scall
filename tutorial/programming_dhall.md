@@ -9622,11 +9622,11 @@ let repeatFunction : ∀(a : Type) → a → (a → a) → InfSeq a
     makeGFix (Pair a) a init (λ(x : a) → { _1 = x, _2 = f x })
 ```
 
-We can use this function to create an infinite sequence `1, 2, 6, 22, ...` where the next value is obtained from the previous one via the formula $n' = 4 n - 2$:
+We can use this function to create the sequence `0, 1, 2, 3, ...`:
 
 ```dhall
-let repeatExample : InfSeq Natural = repeatFunction Natural 1 (λ(n : Natural) → Natural/subtract 2 (n * 4))
-let _ = assert : InfSeq/take 4 Natural repeatExample ≡ [ 1, 2, 6, 22 ]
+let repeatExample : InfSeq Natural = repeatFunction Natural 0 (λ(n : Natural) → n + 1)
+let _ = assert : InfSeq/take 4 Natural repeatExample ≡ [ 0, 1, 2, 3 ]
 ```
 
 The `InfSeq` type constructor is a functor:
@@ -9636,9 +9636,9 @@ let functorInfSeq : Functor InfSeq = bifunctorGFix Pair bifunctorPair
 ```
 
 
-Here is a test for the functor functionality of `InfSeq`:
+Let us test   the functor functionality of `InfSeq`:
 ```dhall
-let _ = assert : InfSeq/take 4 Bool (functorInfSeq.fmap Natural Bool Natural/even repeatExample) ≡ [ False, True, True, True ]
+let _ = assert : InfSeq/take 4 Bool (functorInfSeq.fmap Natural Bool Natural/even repeatExample) ≡ [ True, False, True, False ]
 ```
 
 The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
@@ -13289,7 +13289,16 @@ This suggests that there is only one reasonable implementation of `zip` for `Inf
 ```dhall
 let zipInfSeq : ZipT InfSeq = zipViaBizip2 Pair bizip2Pair
 ```
-To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", c", ...` created via the combinators `repeatFunc` and `repeatList`.
+To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", "c", ...` that we created earlier.
+```dhall
+let exampleZipInfSeq = zipInfSeq Natural repeatExample Text exampleRepeatList
+let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleZipInfSeq ≡ [
+  { _1 = 0, _2 = "a" },
+  { _1 = 1, _2 = "b" }, 
+  { _1 = 2, _2 = "c" }, 
+  { _1 = 3, _2 = "a" }, 
+]
+```
 
 
 TODO: code examples with List and binary trees (with data in leaves, or with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
