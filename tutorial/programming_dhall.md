@@ -10025,7 +10025,7 @@ A simple example is an infinite stream generated from a seed value `x : r` by ap
 This is implemented by making the "step" function never return `Nil`, which will make the stream unbounded.
 
 ```dhall
-let streamFunction
+let Stream/function
  : ∀(a : Type) → ∀(seed : a) → ∀(f : a → a) → Stream a
   = λ(a : Type) → λ(seed : a) → λ(f : a → a) →
     let FA = < Cons : { head : a, tail : a } | Nil >
@@ -10036,7 +10036,7 @@ let streamFunction
 We can compute a finite prefix of this infinite stream:
 
 ```dhall
-⊢ Stream/take Natural 5 (streamFunction Natural 1 (λ(x : Natural) → x * 2))
+⊢ Stream/take Natural 5 (Stream/function Natural 1 (λ(x : Natural) → x * 2))
 
 [ 1, 2, 4, 8, 16 ]
 ```
@@ -10047,7 +10047,7 @@ The initial "seed" value is the list `[ 1, 2, 3 ]`.
 Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
 
 ```dhall
-let repeatForever : ∀(a : Type) → List a → Stream a
+let Stream/repeat : ∀(a : Type) → List a → Stream a
   = λ(a : Type) → λ(list : List a) →
     let mkStream = λ(h : { head : a, tail : List a }) →
       let step : List a → HeadTailT a = λ(prev : List a) →
@@ -10060,7 +10060,7 @@ let repeatForever : ∀(a : Type) → List a → Stream a
              , Cons = λ(h : { head : a, tail : List a }) → mkStream h
              } (headTail a list)
 
-let _ = assert : Stream/take Natural 7 (repeatForever Natural [ 1, 2, 3 ])
+let _ = assert : Stream/take Natural 7 (Stream/repeat Natural [ 1, 2, 3 ])
         ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
 ```
 
@@ -10096,9 +10096,9 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
 To test this code:
 
 ```dhall
-let example1Concat = Stream/concat Natural (repeatForever Natural [ 1, 2, 3 ]) (listToStream Natural [ 10, 20, 30 ])
+let example1Concat = Stream/concat Natural (Stream/repeat Natural [ 1, 2, 3 ]) (listToStream Natural [ 10, 20, 30 ])
 let _ = assert : Stream/take Natural 5 example1Concat ≡ [ 1, 2, 3, 1, 2 ]
-let example2Concat = Stream/concat Natural (listToStream Natural [ 10, 20, 30 ]) (repeatForever Natural [ 1, 2, 3 ])
+let example2Concat = Stream/concat Natural (listToStream Natural [ 10, 20, 30 ]) (Stream/repeat Natural [ 1, 2, 3 ])
 let _ = assert : Stream/take Natural 5 example2Concat ≡ [ 10, 20, 30, 1, 2 ]
 ```
 
@@ -10205,7 +10205,7 @@ As an example, we implement a running sum computation via `scan`:
 ```dhall
 let runningSum : Stream Natural → Stream Natural
   = λ(sn : Stream Natural) → Stream/scan Natural sn Natural 0 (λ(x : Natural) → λ(sum : Natural) → x + sum)
-let _ = assert : Stream/take Natural 7 (runningSum (repeatForever Natural [ 1, 2, 3 ]))
+let _ = assert : Stream/take Natural 7 (runningSum (Stream/repeat Natural [ 1, 2, 3 ]))
         ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 ```
 
@@ -10215,7 +10215,7 @@ The result is a function we may call `runningList`:
 ```dhall
 let runningList : ∀(a : Type) → Stream a → Stream (List a)
   = λ(a : Type) → λ(sa : Stream a) → Stream/scan a sa (List a) ([] : List a) (λ(x : a) → λ(current : List a) → current # [ x ] )
-let _ = assert : Stream/take (List Natural) 5 (runningList Natural (repeatForever Natural [ 1, 2, 3 ]))
+let _ = assert : Stream/take (List Natural) 5 (runningList Natural (Stream/repeat Natural [ 1, 2, 3 ]))
         ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
 ```
 
@@ -10241,11 +10241,11 @@ We can implement `runningSum` and `runningList` via `scanMap` like this:
 ```dhall
 let runningSum : Stream Natural → Stream Natural
   = Stream/scanMap Natural monoidNaturalSum Natural (identity Natural)  
-let _ = assert : Stream/take Natural 7 (runningSum (repeatForever Natural [ 1, 2, 3 ]))
+let _ = assert : Stream/take Natural 7 (runningSum (Stream/repeat Natural [ 1, 2, 3 ]))
         ≡ [ 1, 3, 6, 7, 9, 12, 13 ]
 let runningList : ∀(a : Type) → Stream a → Stream (List a)
   = λ(a : Type) → Stream/scanMap (List a) (monoidList a) a (pointedList.pure a)
-let _ = assert : Stream/take (List Natural) 5 (runningList Natural (repeatForever Natural [ 1, 2, 3 ]))
+let _ = assert : Stream/take (List Natural) 5 (runningList Natural (Stream/repeat Natural [ 1, 2, 3 ]))
         ≡ [ [1], [1, 2], [1, 2, 3], [1, 2, 3, 1], [1, 2, 3, 1, 2] ]
 ```
 
@@ -13177,9 +13177,26 @@ This type signature is similar to that of `bizip2` except that the type paramete
 While   `bizip2` exists only for some bifunctors `F`,
   `bizipF` can be implemented for all polynomial bifunctors `F`.
 
+For completeness, let us also mention another "bizip"-like function that we will call `bizip1`.
+The  type signature of `bizip1` is:
+
+`bizip1 : F a r → F b r → F (Pair a b) r`
+
+A Dhall definition of its type signature is:
+
+```dhall
+let Bizip1 = λ(F : Type → Type → Type) → ∀(r : Type) →
+  ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
+```
+
+This type signature is similar to that  of the standard `zip` method, except that `bizip1` acts only on the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
+
+The function `bizip1` can be implemented for any polynomial bifunctor `F`.
+
 
 Now we turn to implementing  `zip` for greatest fixpoint types.
 For a given  pattern bifunctor `F`, we will consider two cases: when `bizip2` is known, and when `bizipF` is known.
+(The method `bizip1` cannot be used to implement `zip` for greatest fixpoints.)
 
 When  `F` has a `bizip2` method, we can implement `zip` by unpacking the existential types within the greatest fixpoints in a straightforward way.
 Recall that the greatest fixpoint `D` is encoded as $D~a = \exists t.~t\times (t\to F~a~t)$.
@@ -13269,9 +13286,12 @@ In each case, we will   implement several possible `zip` methods and compare the
 For convenience, we will also define the least fixpoint type of the same pattern bifunctor.
 Then we will use the generic truncating function (`truncateGFix`) in order to examine finite parts of  the infinite structures.
 
+#### Infinite sequences
+
 The first example is the infinite sequence functor (`InfSeq`), which is the greatest fixpoint of the pattern bifunctor `Pair`.
 (In this case, the corresponding least fixpoint is void and the truncating function `truncateGFix` is not applicable.
 However, we already wrote a truncation function (`InfSeq/take`) for `InfSeq`.)
+
 
 We now implement `bizip2` and `bizipF` for `Pair`:
 
@@ -13306,6 +13326,111 @@ let zipInfSeqF = zipViaBizipF Pair bifunctorPair bizipFPair
 let exampleF = zipInfSeqF Natural repeatExample Text exampleRepeatList
 let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleF ≡ expected
 ```
+
+#### Non-empty streams
+
+The next example is the "non-empty stream".
+This is the greatest fixpoint of the non-empty list functor (`FNEL`) defined earlier.
+This data structure is different from `Stream` because `Stream` could be empty.
+It is also different from `InfSeq` because a stream might stop after a certain number of data items, while an `InfSeq` value represents a sequence that is always infinite (never  stops).
+
+Previously we have defined non-empty lists directly via a curried Church encoding.
+In this section, we would like to illustrate how the general `zip` construction applies to non-empty lists.
+So, let us redefine the non-empty stream constructor (we will call it `NES`) via a structure bifunctor `FNEL`, whose least fixpoints are  non-empty lists (`NELF`):
+```dhall
+let FNEL = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
+let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FNEL a b) →
+  merge { Left = λ(x : a) → (FNEL c d).Left (f x)
+        , Right = λ(p : Pair a b) → (FNEL c d).Right { _1 = f p._1, _2 = g p._2 }
+        } fab
+}
+let functorFNEL2 : ∀(t : Type) → Functor (FNEL t)
+  = λ(t : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FNEL t a) → bifunctorFNEL.bimap t t (identity t) a b f fa }
+let NELF = λ(a : Type) → LFix (FNEL a)
+let NES = λ(a : Type) → GFix (FNEL a)
+```
+
+For convenience, we define finite data constructors for `NELF` and `NES`, as well as a function for converting a `NELF` or a `NES` to a `List`.
+The code for all those functions can be derived from generic combinators:
+```dhall
+let oneNELF : ∀(a : Type) → a → NELF a
+  = λ(a : Type) → λ(x : a) → fix (FNEL a) (functorFNEL2 a) ((FNEL a (NELF a)).Left x)
+let consNELF : ∀(a : Type) → a → NELF a → NELF a
+  = λ(a : Type) → λ(x : a) → λ(nel : NELF a) → fix (FNEL a) (functorFNEL2 a) ((FNEL a (NELF a)).Right { _1 = x, _2 = nel })
+let NELF/toList : ∀(a : Type) → NELF a → List a
+  = λ(a : Type) → λ(nel : NELF a) →
+  let alg : FNEL a (List a) → List a = λ(p : FNEL a (List a)) →
+    merge { Left = λ(x : a) → [ x ]
+          , Right = λ(p : Pair a (List a)) → [ p._1 ] # p._2
+          } p
+  in nel (List a) alg
+let oneNES : ∀(a : Type) → a → NES a
+  = λ(a : Type) → λ(x : a) → fixG (FNEL a) (functorFNEL2 a) ((FNEL a (NES a)).Left x)
+let consNES : ∀(a : Type) → a → NES a → NES a
+  = λ(a : Type) → λ(x : a) → λ(nes : NES a) → fixG (FNEL a) (functorFNEL2 a) ((FNEL a (NES a)).Right { _1 = x, _2 = nes })
+let NES/take : Natural → ∀(a : Type) → a → NES a → List a
+  = λ(limit : Natural) → λ(a : Type) → λ(stopgap : a) → λ(nes : NES a) →
+    let nel : NELF a = truncateGFix (FNEL a) (functorFNEL2 a) limit (oneNELF a stopgap) nes
+    in NELF/toList a nel
+```
+
+The bifunctor `FNEL` supports all  three `bizip*` methods:
+
+```dhall
+let bizip1 : Bizip1 FNEL
+  = λ(r : Type) → λ(a : Type) → λ(far : FNEL a r) → λ(b : Type) → λ(fbr : FNEL b r) →
+    let R = FNEL (Pair a b) r in
+    merge { Left = λ(x : a) →
+            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+                  , Right = λ(p : Pair b r) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = p._2 }
+                  } fbr
+          , Right = λ(ar : Pair a r) →
+            merge { Left = λ(y : b) → R.Right { _1 = { _1 = ar._1, _2 = y }, _2 = ar._2 }
+                  , Right = λ(br : Pair b r) → R.Right { _1 = { _1 = ar._1, _2 = br._1 }, _2 = ar._2 } -- Arbitrarily keep ar and lose br here.
+                  } fbr
+          } far
+let bizip2 : Bizip2 FNEL
+  = λ(a : Type) → λ(s : Type) → λ(fas : FNEL a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FNEL b t) →
+    let R = FNEL (Pair a b) (Pair s t) in
+    merge { Left = λ(x : a) →
+            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+                  , Right = λ(p : Pair b t) → R.Left { _1 = x, _2 = p._1 } -- Lose p._2 here.
+                  } fbt
+          , Right = λ(pas : Pair a s) →
+            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Lose pas._2 here.
+                  , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
+                  } fbt
+          } fas
+```
+Note that both `bizip1` and `bizip2` ignore certain parts of the input data.
+There are no other ways of implementing those functions for `FNEL`.
+
+We have two possible implementations of `bizipF`: one copies the code of `bizip2`, which gives a "truncating" `zip`, the other does not ignore any input data and gives  a "padding" `zip`.
+
+```dhall
+let bizipF_truncating : BizipF FNEL
+  = λ(L : Type → Type) → λ(functorL : Functor L) →
+  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
+    bizip2 a (L a) fala b (L b) fblb
+let bizipF_padding : BizipF FNEL
+  = λ(L : Type → Type) → λ(functorL : Functor L) →
+  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
+    let R = FNEL (Pair a b) (Pair (L a) (L b)) in
+    merge { Left = λ(x : a) →
+        merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+              , Right = λ(p : Pair b (L b)) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = { _1 = functorL.fmap b a (λ(_ : b) → x) p._2, _2 = p._2 } } -- Padding p._2 with x.
+              } fblb
+      , Right = λ(pa : Pair a (L a)) →
+        merge { Left = λ(y : b) → R.Right { _1 = { _1 = pa._1, _2 = y }, _2 = { _1 = pa._2, _2 = functorL.fmap a b (λ(_ : a) → y) pa._2 } } -- Padding pa._2 with y.
+              , Right = λ(pb : Pair b (L b)) → R.Right { _1 = { _1 = pa._1, _2 = pb._1 }, _2 = { _1 = pa._2, _2 = pb._2 } }
+              } fblb
+      } fala
+```
+todo:   test the two versions of zip for NELF
+
+We see that the "truncating" version of `zip` for non-empty lists is obtained via the "truncating" version of `bizipF`,
+while the "padding" version of `zip` is obtained via the "padding" version of `bizipF`.
+
 
 TODO: code examples with List and binary trees (with data in leaves, or with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
 
@@ -13382,23 +13507,10 @@ let zip : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 
 Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` supports certain methods.
 
-In the previous section, the methods `bizip2` and `bizipF` were used to define `zip` for greatest fixpoints.
-It turns out that for least fixpoints, `bizip2` cannot be used, but another method (`bizip1`) is helpful.
-The  type signature of `bizip1` is:
+In the previous section, we used the methods `bizip2` and `bizipF`  to define `zip` for greatest fixpoints.
+It turns out that for least fixpoints, `bizip2` cannot be used, but  `bizip1`  is helpful.
 
-`bizip1 : F a r → F b r → F (Pair a b) r`
-
-A Dhall definition of its type signature is:
-
-```dhall
-let Bizip1 = λ(F : Type → Type → Type) → ∀(r : Type) →
-  ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
-```
-
-This type signature is similar to that  of the standard `zip` method, except that `bizip1` acts only on the first type parameter of `F`, keeping the second type parameter (`r`) fixed.
-
-The function `bizip1` can be implemented for any polynomial bifunctor `F`.
-Then one  define `zip` for `C` using `bizip1` by writing code directly in the Church encoding.
+One can  define `zip` for `C` using `bizip1` by writing code directly in the Church encoding.
 One trick here is to note that the Church encoding type resembles the continuation monad:
 
 `(F a r → r) → r = Continuation r (F a r)`
@@ -13537,77 +13649,10 @@ let bizipF : BizipF FList
 TODO:Show that  the ordinary zip can be implemented via bizipF.
 
 
-Now we turn to   non-empty lists.
-Previously we have defined non-empty lists directly via a curried Church encoding.
-In this section, we would like to illustrate how the general `zip` construction applies to non-empty lists.
-So, let us redefine non-empty lists via a structure bifunctor `FNEL`:
-```dhall
-let FNEL = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
-let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FNEL a b) →
-  merge { Left = λ(x : a) → (FNEL c d).Left (f x)
-        , Right = λ(p : Pair a b) → (FNEL c d).Right { _1 = f p._1, _2 = g p._2 }
-        } fab
-}
-let NELF = LFixT FNEL
-```
+Now we turn to streams that may be empty.
 
 
-The bifunctor `FNEL` supports all  three `bizip*` methods:
-
-```dhall
-let bizip1 : Bizip1 FNEL
-  = λ(r : Type) → λ(a : Type) → λ(far : FNEL a r) → λ(b : Type) → λ(fbr : FNEL b r) →
-    let R = FNEL (Pair a b) r in
-    merge { Left = λ(x : a) →
-            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-                  , Right = λ(p : Pair b r) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = p._2 }
-                  } fbr
-          , Right = λ(ar : Pair a r) →
-            merge { Left = λ(y : b) → R.Right { _1 = { _1 = ar._1, _2 = y }, _2 = ar._2 }
-                  , Right = λ(br : Pair b r) → R.Right { _1 = { _1 = ar._1, _2 = br._1 }, _2 = ar._2 } -- Arbitrarily keep ar and lose br here.
-                  } fbr
-          } far
-let bizip2 : Bizip2 FNEL
-  = λ(a : Type) → λ(s : Type) → λ(fas : FNEL a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FNEL b t) →
-    let R = FNEL (Pair a b) (Pair s t) in
-    merge { Left = λ(x : a) →
-            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-                  , Right = λ(p : Pair b t) → R.Left { _1 = x, _2 = p._1 } -- Lose p._2 here.
-                  } fbt
-          , Right = λ(pas : Pair a s) →
-            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Lose pas._2 here.
-                  , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
-                  } fbt
-          } fas
-```
-Note that both `bizip1` and `bizip2` ignore certain parts of the input data.
-There are no other ways of implementing those functions.
-
-We have two possible implementations of `bizipF`: one copies the code of `bizip2` and does not ignore any input data (which will give us a "padding" `zip`).
-
-```dhall
-let bizipF_truncating : BizipF FNEL
-  = λ(L : Type → Type) → λ(functorL : Functor L) →
-  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
-    bizip2 a (L a) fala b (L b) fblb
-let bizipF_padding : BizipF FNEL
-  = λ(L : Type → Type) → λ(functorL : Functor L) →
-  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
-    let R = FNEL (Pair a b) (Pair (L a) (L b)) in
-    merge { Left = λ(x : a) →
-        merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-              , Right = λ(p : Pair b (L b)) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = { _1 = functorL.fmap b a (λ(_ : b) → x) p._2, _2 = p._2 } } -- Padding p._2 with x.
-              } fblb
-      , Right = λ(pa : Pair a (L a)) →
-        merge { Left = λ(y : b) → R.Right { _1 = { _1 = pa._1, _2 = y }, _2 = { _1 = pa._2, _2 = functorL.fmap a b (λ(_ : a) → y) pa._2 } } -- Padding pa._2 with y.
-              , Right = λ(pb : Pair b (L b)) → R.Right { _1 = { _1 = pa._1, _2 = pb._1 }, _2 = { _1 = pa._2, _2 = pb._2 } }
-              } fblb
-      } fala
-```
-todo: implement and test the two versions of zip for NELF
-
-We see that the "truncating" version of `zip` for non-empty lists is obtained via the "truncating" version of `bizipF`,
-while the "padding" version of `zip` is obtained via the "padding" version of `bizipF`.
+todo: fix the text
 
 For ordinary lists (equivalent to `List`), it turns out that there is only one possibility of implementing `bizipF`, and it corresponds to the "truncating" `zip`.
 To get the "padding" `zip`, one needs to handle the case of an empty list separately.
