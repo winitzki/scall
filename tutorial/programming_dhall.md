@@ -13327,6 +13327,8 @@ let exampleF = zipInfSeqF Natural repeatExample Text exampleRepeatList
 let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleF ≡ expected
 ```
 
+todo: discuss biunit and define a full applicativefunctor evidence for InfSeq
+
 #### Non-empty streams
 
 The next example is the "non-empty stream".
@@ -13447,14 +13449,28 @@ let bizipF_padding : BizipF FNEL
               } fblb
       } fala
 ```
+The code of  `bizipF_padding` involves  "padding": a missing value of type `L a` is created from available values of types `a` and `L b`.
+This creates a value of type `L a` in which all data items of type `a` have the same value.
+
+The next step is to define the two `zip` functions:
+
+```dhall
+let zipNES_truncating = zipViaBizipF FNEL bifunctorFNEL bizipF_truncating
+let zipNES_padding = zipViaBizipF FNEL bifunctorFNEL bizipF_padding
+```
+
+Now  test this code by applying the two `zip` functions to non-empty streams of different length:
 
 todo:   test the two versions of zip for NELF
 
-We see that the "truncating" version of `zip` for non-empty lists is obtained via the "truncating" version of `bizipF`,
-while the "padding" version of `zip` is obtained via the "padding" version of `bizipF`.
+We see that the "truncating" version of `zip`   is indeed obtained via the "truncating" version of `bizipF`,
+and the "padding" version of `zip`   via the "padding" version of `bizipF`.
+
+todo: discuss biunit and define a full applicativefunctor evidence in two versions
 
 
-TODO: code examples with List and binary trees (with data in leaves, or with data in branches to allow for bizip2, or strictly infinite trees with data in branches)
+
+TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip2  and show pictures of trees)
 
 TODO: explain that "padding" corresponds to using the functor instance in bizipF to convert (a, L b) -> L (a, b)
 
