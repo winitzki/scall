@@ -13373,6 +13373,26 @@ let NES/take : Natural → ∀(a : Type) → a → NES a → List a
     let nel : NELF a = truncateGFix (FNEL a) (functorFNEL2 a) limit (oneNELF a stopgap) nes
     in NELF/toList a nel
 ```
+The function `NES/take` will replace the continuation of a stream by the "stopgap" value.
+
+Let us also define a data constructor for generating infinite non-empty streams from a function:
+```dhall
+let NES/function : ∀(a : Type) → a → (a → a) → NES a
+  = λ(a : Type) → λ(init : a) → λ(update : a → a) →
+    makeGFix (FNEL a) a init (λ(seed : a) → (FNEL a a).Right { _1 = seed, _2 = update seed })
+```
+
+To test this code:
+```dhall
+let nes1 = oneNES Natural 1
+let nes12 = consNES Natural 1 (oneNES Natural 2)
+let nes123 = consNES Natural 1 (consNES Natural 2 (oneNES Natural 3))
+let _ = assert : NES/take 1 Natural 0 nes123 ≡ [ 1, 0 ]
+let _ = assert : NES/take 2 Natural 0 nes123 ≡ [ 1, 2, 0 ]
+let _ = assert : NES/take 5 Natural 0 nes123 ≡ [ 1, 2, 3 ]
+let nesNat = NES/function Natural 0 (λ(n : Natural) → n + 1)
+let _ = assert : NES/take 5 Natural 0 nesNat ≡ [ 0, 1, 2, 3, 4, 0 ]
+```
 
 The bifunctor `FNEL` supports all  three `bizip*` methods:
 
@@ -13405,7 +13425,8 @@ let bizip2 : Bizip2 FNEL
 Note that both `bizip1` and `bizip2` ignore certain parts of the input data.
 There are no other ways of implementing those functions for `FNEL`.
 
-We have two possible implementations of `bizipF`: one copies the code of `bizip2`, which gives a "truncating" `zip`, the other does not ignore any input data and gives  a "padding" `zip`.
+We have two possible implementations of `bizipF`: one copies the code of `bizip2`, the other does not ignore any input data.
+We will see shortly that the first implementation  gives a "truncating" `zip` and the second   gives  a "padding" `zip`.
 
 ```dhall
 let bizipF_truncating : BizipF FNEL
@@ -13426,6 +13447,7 @@ let bizipF_padding : BizipF FNEL
               } fblb
       } fala
 ```
+
 todo:   test the two versions of zip for NELF
 
 We see that the "truncating" version of `zip` for non-empty lists is obtained via the "truncating" version of `bizipF`,
