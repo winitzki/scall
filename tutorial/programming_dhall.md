@@ -13104,28 +13104,57 @@ let arrowContrafunctorIdApplicative
        }
 ```
 
-### Universal type quantifiers
+### Types with quantifiers
 
 
-If `F` is a type constructor with two type parameters, we may impose a universal quantifier on one of the type parameters and obtain a new type constructor with just one type parameter: $$G ~ x = \forall y. ~ F ~ x ~ y$$
+If `F` is a type constructor with two type parameters, we may impose a universal quantifier or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter:
 
-In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` using the `Forall` combinator that we have defined earlier.
+ $$G ~ x = \forall y. ~ F ~ x ~ y$$
+
+ $$H ~ x = \exists y. ~ F ~ x ~ y$$
+
+In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` and `G` is defined as `λ(x : Type) → Exists (F x)`.
+Here we use  the `Forall` and `Exists` type constructors that we have defined earlier.
 
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `x` or `y`.
-Imposing a quantifier on `y` will preserve the applicative property of `F x y` with respect to `x`.
-That property means that, if the type `y` is fixed, there is an `Applicative` typeclass evidence for `F x y` with respect to `x`.
-This evidence contains values of types `F {} y` and `F a y → F b y → F (Pair a b) y`. 
-From those values, we need to compute values of types `G y` and `G a → G b → G (Pair a b)`.
+It turns out that imposing a quantifier on `y` will preserve a certain kind of applicative-like property of `F x y`.
+However, the required properties of `F` are different for `G` and for `H`.
+
+We begin with `G`.
+To derive an `Applicative` evidence for `G`, we need to have an `Applicative` evidence for `F x y` with respect to `x` alone, with the type `y` being fixed.
+This evidence contains values of types `F {} y` and `F a y → F b y → F (Pair a b) y` for all `y`.
+We will call these methods `biunit1` and `bizip1`, and encapsulate them in the typeclass called `Applicative1`:
+```dhall
+let Applicative1 = λ(F : Type → Type → Type) → {
+  bizip1 : ∀(a : Type) → ∀(x : Type) → F a x → ∀(b : Type) → F b x → F (Pair a b) x
+, biunit1 : ∀(y : Type) → F {} y
+}
+```
+
+Given an `Applicative1` evidence for `F`, we can derive an `Applicative` evidence for `G`:
 
 ```dhall
 let applicativeForall1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Applicative (λ(a : Type) → F a b)) → Applicative (λ(a : Type) → Forall (F a))
-  = λ(F : Type → Type → Type) → λ(applicativeF1 : ∀(b : Type) → Applicative (λ(a : Type) → F a b)) →
+  : ∀(F : Type → Type → Type) → Applicative1 F → Applicative (λ(a : Type) → Forall (F a))
+  = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
     let G : Type → Type = λ(a : Type) → Forall (F a)
-    in { unit = λ(c : Type) → (applicativeF1 c).unit
+    in { unit = applicative1F.biunit1
        , zip = λ(a : Type) → λ(ra : G a) → λ(b : Type) → λ(rb : G b) →
-           λ(c : Type) → (applicativeF1 c).zip a (ra c) b (rb c)
+           λ(c : Type) → applicative1F.bizip1 a c (ra c) b (rb c)
        }
+```
+
+We now turn to deriving an `Applicative` evidence for `H`.
+It does not seem to be possible to derive it in the same way as we did for `G`.
+Instead, we will require a special "applicative-like" property for `F` where the `zip` method works with both type parameters of `F` at once.
+The required type signatures are `F a x → F b y → F (Pair a b) (Pair x y)` and `F {} {}`.
+We will encapsulate these types in a typeclass called `Applicative2`, with methods called `bizip2` and `biunit`:
+
+```dhall
+let Applicative2 = λ(F : Type → Type → Type) → {
+  bizip2 : ∀(a : Type) → ∀(x : Type) → F a x → ∀(b : Type) → ∀(y : Type) → F b y → F (Pair a b) (Pair x y)
+, biunit2 : F {} {} 
+}
 ```
 
 ### Recursive types. Greatest fixpoints
@@ -13327,7 +13356,14 @@ let exampleF = zipInfSeqF Natural repeatExample Text exampleRepeatList
 let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleF ≡ expected
 ```
 
-todo: discuss biunit and define a full applicativefunctor evidence for InfSeq
+To define a full `ApplicativeFunctor` evidence for `InfSeq`, we can use the combinators `applicativeGFixViaBizip2` or `applicativeGFixViaBizipF`; the results will be the same.
+We need to supply a value of type `Pair {} {}`, and there is only one such value available.
+We conclude that there is only one `ApplicativeFunctor` evidence possible for `InfSeq`:
+
+```dhall
+let applicativeInfSeq : Applicative InfSeq
+  = applicativeGFixViaBizip2 Pair bizip2Pair { _1 = {=}, _2 = {=} }
+```
 
 #### Non-empty streams
 
@@ -13480,6 +13516,8 @@ We see that the "truncating" version of `zip`   is indeed obtained via the "trun
 and the "padding" version of `zip`   via the "padding" version of `bizipF`.
 The choice of `zip` needs to be made according to the application requirements.
 
+To obtain a full `ApplicativeFunctor` evidence for `NES`, it remains to define the `unit` value of type `NES {}`.
+We have the general combinator `biunit`
 
 todo: discuss biunit and define a full applicativefunctor evidence in two versions
 
