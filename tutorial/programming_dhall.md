@@ -13209,7 +13209,7 @@ A suitable weaker requirement is to have a method we  call    `bizipP`, with the
 let bizipP : F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b)) = ???
 ```
 Here `L` is an _arbitrary_ functor, viewed as an extra type parameter.
-Let us  define this type signature  in Dhall:
+Let us  define this type signature  in Dhall as a typeclass with a single method:
 
 ```dhall
 let BizipP = λ(F : Type → Type → Type) → {
@@ -13218,11 +13218,13 @@ let BizipP = λ(F : Type → Type → Type) → {
       F (Pair a b) (Pair (L a) (L b))
 }
 ```
-We may view `BizipP` as a typeclass with a single method.
 
 The type   of that `bizipP` can be written as `F a s → F b t → F (Pair a b) (Pair s t)` if we set `s = L a` and `t = L b`.
 This type signature is similar to that of `bizip2` from `Applicative2`, except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
 While an evidence of `Applicative2 F` exists only for some bifunctors `F`, `BizipP F` can be implemented for all polynomial bifunctors `F`.
+
+The "P" in `bizipP` stands for "padding", and we will explain   shortly that the type signature of `bizipP` is flexible enough to implement .
+
 
 Now we turn to implementing  `zip` for greatest fixpoint types.
 For a given  pattern bifunctor `F`, we will consider two cases: when we have evidence of `Applicative2 F`, and when we have  `BizipP F`.
@@ -13609,9 +13611,9 @@ TODO: use bizipP to implement ordinary zip and padding zip, run example tests
 ### Recursive types. Least fixpoints
 
 Implementing a `zip` method for the least-fixpoint type constructors turns out to require quite a bit of work.
-In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`, such as lists and trees.
+In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`.
 
-Given a pattern bifunctor `F`, we define the functor `C` such that `C a = LFix (F a)`.
+Given a pattern bifunctor `F`, we define the functor `C` by `C a = LFix (F a)`.
 ```dhall
 let F = λ(a : Type) → λ(b : Type) → ???
 let C = LFixT F
@@ -13621,12 +13623,11 @@ The type signature of `zip` for `C` must be:
 let zip : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 ```
 
-Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` supports certain methods.
+Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` has evidence of certain typeclasses.
+In the previous section, we defined the typeclasses `Applicative1`, `Applicative2`, and `BizipP` and used them to compute an `Applicative` evidence for greatest fixpoints.
+It turns out that for least fixpoints, `Applicative2` cannot be used, but both `Applicative1` and `BizipP` are needed.
 
-In the previous section, we used the methods `bizip2` and `bizipP`  to define `zip` for greatest fixpoints.
-It turns out that for least fixpoints, `bizip2` cannot be used, but  `bizip1`  is helpful.
-
-One can  define `zip` for `C` using `bizip1` by writing code directly in the Church encoding.
+First, we show how to   define `Applicative` for `C`   by writing code directly in the Church encoding.
 One trick here is to note that the Church encoding type resembles the continuation monad:
 
 `(F a r → r) → r = Continuation r (F a r)`
@@ -13634,20 +13635,21 @@ One trick here is to note that the Church encoding type resembles the continuati
 We can obtain an `Applicative` evidence for the continuation monad and then apply a `map2` function adapted to the required types.
 The code is:
 ```dhall
-let zipViaBizip1 : ∀(F : Type → Type → Type) → Bizip1 F → ZipT (LFixT F)
-  = λ(F : Type → Type → Type) → λ(bizip1 : Bizip1 F) →
+let zipViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → ZipT (LFixT F)
+  = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
     let C = LFixT F in
     λ(a : Type) → λ(fa : C a) → λ(b : Type) → λ(fb : C b) →
     λ(r : Type) →
       let CR = Continuation r  -- So, CR x = (x → r) → r.
       let functorCont : Functor CR = (applicativeContinuation r).{fmap}
       let applicativeCont : Applicative CR = applicativeFromApplicativeFunctor CR (applicativeContinuation r)
-      let transform : F a r → F b r → F (Pair a b) r = λ(far : F a r) → λ(fbr : F b r) → bizip1 r a far b fbr
+      let transform : F a r → F b r → F (Pair a b) r = λ(far : F a r) → λ(fbr : F b r) → applicative1F.bizip1 a r far b fbr
       let fabrr : CR (F (Pair a b) r) = map2ForApplicativeFunctor CR functorCont applicativeCont (F a r) (F b r) (F (Pair a b) r) transform (fa r) (fb r)
       in fabrr
 ```
 
-
+This `zip` function, however, will not be satisfactory in most cases.
+The `bizip1` method often has to lose information and does not 
 
 
 todo: fix problems with the text
