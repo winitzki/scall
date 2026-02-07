@@ -13134,7 +13134,7 @@ let Applicative1 = λ(F : Type → Type → Type) → {
 Given an `Applicative1` evidence for `F`, we can derive an `Applicative` evidence for `G`:
 
 ```dhall
-let applicativeForall1
+let applicativeForall
   : ∀(F : Type → Type → Type) → Applicative1 F → Applicative (λ(a : Type) → Forall (F a))
   = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
     let G : Type → Type = λ(a : Type) → Forall (F a)
@@ -13148,7 +13148,7 @@ We now turn to deriving an `Applicative` evidence for `H`.
 It does not seem to be possible to derive it in the same way as we did for `G`.
 Instead, we will require a special "applicative-like" property for `F` where the `zip` method works with both type parameters of `F` at once.
 The required type signatures are `F a x → F b y → F (Pair a b) (Pair x y)` and `F {} {}`.
-We will encapsulate these types in a typeclass called `Applicative2`, with methods called `bizip2` and `biunit`:
+We will encapsulate these types in a typeclass called `Applicative2`, with methods called `bizip2` and `biunit2`:
 
 ```dhall
 let Applicative2 = λ(F : Type → Type → Type) → {
@@ -13156,6 +13156,27 @@ let Applicative2 = λ(F : Type → Type → Type) → {
 , biunit2 : F {} {} 
 }
 ```
+
+Now we show the code that computes an `Applicative` evidence for `H` from an `Applicative2` evidence for `F`.
+The idea is to combine the hidden types `x`, `y` in $\exists x.~F ~a~x$ and $\exists y.~F ~b~y$  into a pair (of type `Pair x y`) and use that pair type as the hidden type $z=x\times y$ when constructing a new value of type $\exists z.~F ~(a\times b)~z$.
+
+```dhall
+let applicativeExists
+  : ∀(F : Type → Type → Type) → Applicative2 F → Applicative (λ(a : Type) → Exists (F a))
+  = λ(F : Type → Type → Type) → λ(applicative2F : Applicative2 F) →
+    let H : Type → Type = λ(a : Type) → Exists (F a)
+    in { unit = pack (F {}) {} applicative2F.biunit2
+       , zip = λ(a : Type) → λ(ra : H a) → λ(b : Type) → λ(rb : H b) →
+         ra (H (Pair a b)) (λ(s : Type) → λ(fas : F a s) →
+           rb (H (Pair a b)) (λ(t : Type) → λ(fbt : F b t) →
+             let fabst : F (Pair a b) (Pair s t) = applicative2F.bizip2 a s fas b t fbt
+             in pack (F (Pair a b)) (Pair s t) fabst
+           )
+         )
+       }
+```
+
+
 
 ### Recursive types. Greatest fixpoints
 
