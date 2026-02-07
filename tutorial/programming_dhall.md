@@ -6029,8 +6029,8 @@ The isomorphism shows that the types `C` and `F C` are equivalent (carry the sam
 
 Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generically for all pattern functors `F` and the corresponding types `C = LFix F`.
 
-The basic technique of working with a Church-encoded value `c : C` is to use `c` as a curried higher-order function.
-That function has two arguments: a type parameter `r` and a function of type `F r → r`.
+The basic technique of working with a Church-encoded value `c : C` is to apply `c` as a curried higher-order function to suitable arguments.
+A function of type `C` has two arguments: a type parameter `r` and a function of type `F r → r`.
 Given a value `c : C`, we can compute a value of another type `D` if we specify `D` as the type parameter to `c` and if we manage to provide a function of type `F D → D` as the second argument of `c`:
 ```dhall
 let d : D =
@@ -10289,9 +10289,9 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
 We will not show the full proof, as the focus of this book is on code.
 
-### Example: infinite trees
+### Example: possibly-infinite trees
 
-Another example of a greatest fixpoint type is a data structure representing infinite trees. 
+Another example of a greatest fixpoint type is a data structure representing trees that may be finite or infinite. 
 
 We will show the techniques required for implementing two versions of an infinite tree: a tree that has data in leaves and can be either finite or infinite; and a tree that has data in branches and is always infinite.
 Many other kinds of infinite trees can be implemented similarly with these techniques.
@@ -10313,7 +10313,7 @@ lazy val example1: BInfTree[Int] = BInfTree.Branch(left = () => example1, right 
 In Haskell, lazy evaluation is the default, and analogous code is written more concisely:
 
 ```haskell
-data BInfTree a = Leaf a | Branch (BInfTree a) (BInfTree a) -- Haskell.
+data BInfTree a = Leaf a | Branch (BInfTree a) (BInfTree a)   -- Haskell.
 
 example1 :: BInfTreeInt
 example1 = Branch example1 (Leaf 123)
@@ -10325,8 +10325,7 @@ To translate this into Dhall, we use the greatest fixpoint of the structure bifu
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let BInfTree = λ(a : Type) → GFix (FTree a)
 ```
-
-We used the same structure bifunctor `FTree`  to define the binary tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
+The same structure bifunctor `FTree`  defines the binary tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
 
 We can define the two "finite" data constructors using the general `fixG` function:
 
@@ -13544,9 +13543,61 @@ let applicativeNES_padding : Applicative NES
 ```
 
 
-#### Streams
+#### Ordinary streams
 
-#### Trees with data in leaves
+By "ordinary streams" we mean sequences that can be empty, or finite non-empty, or infinite.
+These streams correspond to the greatest fixpoint of the functor `FList`.
+
+#### Non-empty trees with data in leaves
+
+We now consider trees defined as the least fixpoint of the bifunctor `FTree`:
+
+```dhall
+let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
+let Tree2 = LFixT FTree
+```
+As we already discussed, the type signature of `bizip2` cannot be implemented for this bifunctor.
+So, we will implement   `zip`  via `Applicative1` and `BizipP` and test the resulting behaviors.
+
+
+```dhall
+let applicative1FTree : Applicative1 FTree
+  = { bizip1 = λ(a : Type) → λ(r : Type) → λ(far : FTree a r) → λ(b : Type) → λ(fbr : FTree b r) →
+    let R = FTree (Pair a b) r in
+    merge { Leaf = λ(x : a) →
+      merge { Leaf = λ(y : b) → R.Leaf { _1 = x, _2 = y }
+            , Branch = λ(p : { left : r, right : r }) → R.Branch p
+            } fbr
+          , Branch = λ(p : { left : r, right : r }) → R.Branch p  -- Ignore fbr.
+          } far
+    , biunit1 = λ(r : Type) → (FTree {} r).Leaf {=}
+  }
+```
+This code loses information by ignoring part of the input in case both `far` and `fbr` have `Branch` constructors.
+It is impossible to implement `bizip1` without information loss.
+
+The function `bizipP` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
+When one argument is a `Leaf` and the other is a `Branch` then we use `L`'s `fmap` to produce required values of type `Pair (L a) (L b)`.
+```dhall
+let bizipP : BizipP FTree
+  = { bizipP = λ(L : Type → Type) → λ(functorL : Functor L) → λ(a : Type) → λ(fala : FTree a (L a)) → λ(b : Type) → λ(fblb : FTree b (L b)) →
+      let R = FTree (Pair a b) (Pair (L a) (L b))
+      let la2lb : b → L a → L b = λ(y : b) → λ(la : L a) → functorL.fmap a b (λ(_ : a) → y) la
+      let lb2la : a → L b → L a = λ(x : a) → λ(lb : L b) → functorL.fmap b a (λ(_ : b) → x) lb
+      in merge {
+       Leaf = λ(x : a) → merge {
+         Leaf = λ(y : b) → R.Leaf { _1 = x, _2 = y }
+       , Branch = λ(p : { left : L b, right : L b }) → R.Branch { left = { _1 = lb2la x p.left, _2 = p.left }, right = { _1 = lb2la x p.right, _2 = p.right } }
+       } fblb
+     , Branch = λ(p : { left : L a, right : L a }) → merge {
+         Leaf = λ(y : b) → R.Branch { left = { _1 = p.left, _2 = la2lb y p.left }, right = { _1 = p.right, _2 = la2lb y p.right } }
+       , Branch = λ(q : { left : L b, right : L b }) → R.Branch { left = { _1 = p.left, _2 = q.left }, right = { _1 = p.right, _2 = q.right } }
+       } fblb
+     } fala
+  }
+```
+
+TODO:run this on some examples
 
 #### Trees with data in branch nodes
 
@@ -13649,8 +13700,28 @@ let zipViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → 
 ```
 
 This `zip` function, however, will not be satisfactory in most cases.
-The `bizip1` method often has to lose information and does not 
+The `bizip1` method often has to lose information and, in particular, may not preserve values of type `r` within `F a r`.
+In that case, the derived `zip` function will not correctly iterate over its input data.
 
+As an example, let us derive `zip` from `Applicative1` for non-empty lists.
+The functor `NELF` was defined in the previous section via the structure functor `FNEL`.
+An `Applicative1` evidence for `FNEL` was already computed as `applicative1FNEL`.
+So, we define `zip1FNEL` as:
+
+```dhall
+let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
+let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
+let zip1FNEL = zipViaApplicative1 FNEL applicative1FNEL
+let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Natural nel12345) ≡ [
+  { _1 = 1, _2 = 1 },
+  { _1 = 2, _2 = 1 },
+  { _1 = 3, _2 = 1 },
+  { _1 = 3, _2 = 2 },
+  { _1 = 3, _2 = 3 },
+  { _1 = 3, _2 = 4 },
+  { _1 = 3, _2 = 5 },
+]
+```
 
 todo: fix problems with the text
 
@@ -13666,108 +13737,9 @@ TODO:implement depth here or there
 
 TODO:write the general code for `zip`
 
-For illustration, let us implement `zip` for non-empty binary trees with data held in leaves.
-The type of such trees is derived as the least fixpoint of the bifunctor `F a r = Either a (Pair r r)`.
+ 
+TODO:Show that, for lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
 
-As we already discussed, `bizip2` does not exist for this bifunctor.
-So, we will follow the `zip` implementation via `bizip1` and `bizipP`.
-
-We are allowed to implement the function `bizip1` in any way whatsoever, as it does not need to satisfy any laws.
-For instance, we may discard arguments whenever one of the values of type `F a r` is a `Right`.
-```dhall
-let F = λ(a : Type) → λ(r : Type) → Either a (Pair r r)
-let bizip1
-  : ∀(r : Type) → ∀(a : Type) → F a r → ∀(b : Type) → F b r → F (Pair a b) r
-  = λ(r : Type) → λ(a : Type) → λ(far : Either a (Pair r r)) → λ(b : Type) → λ(fbr : Either b (Pair r r)) →
-     merge {
-       Left = λ(x : a) → merge {
-         Left = λ(y : b) → (F (Pair a b) r).Left { _1 = x, _2 = y }
-       , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
-       } fbr
-     , Right = λ(p : Pair r r) → (F (Pair a b) r).Right p
-     } far
-```
-
-The function `bizipP` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
-When one argument is a `Left` and the other is a `Right` then we use `C`'s `Functor` instance to produce required values of type `Pair (C a) (C b)`.
-A `Functor` typeclass evidence for `C` is derived via `bifunctorLFix` from a `Bifunctor` evidence for `F`.
-```dhall
-let C = λ(a : Type) → LFix (F a)
-let bifunctorF : Bifunctor F = { bimap = λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : F a b) →
-  merge {
-    Left = λ(x : a) → (F c d).Left (ac x)
-  , Right = λ(p : Pair b b) → (F c d).Right { _1 = bd p._1, _2 = bd p._2 }
-  } fab
-}
-let functorC : Functor C = bifunctorLFix F bifunctorF
-let bizipP
-  : ∀(a : Type) → F a (C a) → ∀(b : Type) → F b (C b) → F (Pair a b) (Pair (C a) (C b))
-  = λ(a : Type) → λ(faca : F a (C a)) → λ(b : Type) → λ(fbcb : F b (C b)) →
-      let ResultT = F (Pair a b) (Pair (C a) (C b))
-      let ca2cb : b → C a → C b = λ(y : b) → λ(ca : C a) → functorC.fmap a b (λ(_ : a) → y) ca
-      let cb2ca : a → C b → C a = λ(x : a) → λ(cb : C b) → functorC.fmap b a (λ(_ : b) → x) cb
-      in merge {
-       Left = λ(x : a) → merge {
-         Left = λ(y : b) → ResultT.Left { _1 = x, _2 = y }
-       , Right = λ(p : Pair (C b) (C b)) → ResultT.Right { _1 = { _1 = cb2ca x p._1, _2 = p._1 }, _2 = { _1 = cb2ca x p._2, _2 = p._2 } }
-       } fbcb
-     , Right = λ(p : Pair (C a) (C a)) → merge {
-         Left = λ(y : b) → ResultT.Right { _1 = { _1 = p._1, _2 = ca2cb y p._1 }, _2 = { _1 = p._2, _2 = ca2cb y p._2 } }
-       , Right = λ(q : Pair (C b) (C b)) → ResultT.Right { _1 = { _1 = p._1, _2 = q._1 }, _2 = { _1 = p._2, _2 = q._2 } }
-       } fbcb
-     } faca
-```
-
-TODO:run this on some examples
-
-As another example of using the general `zip` combinator, we consider lists.
-The standard `List` functor represent lists that can store zero or more items, and the non-empty list can store one or more items.
-Since `List` is a Dhall built-in that does not involve Church encoding,
-we will instead represent lists as Church-encoded least fixpoints of the bifunctor `FList` introduced earlier:
-```dhall
-let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
-let bifunctorFList : Bifunctor FList = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FList a b) →
-  merge { None = None (Pair c d)
-        , Some = λ(p : Pair a b) → Some { _1 = f p._1, _2 = g p._2 }
-        } fab
-}
-let CList = LFixT FList
-```
-
-The bifunctor `FList` supports the methods `bizip1` and `bizip2`.
-We can then implement `bizipP` via `bizip2` (but this gives no advantages, as there is no other possible implementation of `bizipP` for `FList`).
-```dhall
-let bizip1 : Bizip1 FList
-  = λ(r : Type) → λ(a : Type) → λ(far : FList a r) → λ(b : Type) → λ(fbr : FList b r) →
-    merge { None = None (Pair (Pair a b) r)
-          , Some = λ(ar : Pair a r) →
-            merge { None = None (Pair (Pair a b) r)
-                  , Some = λ(br : Pair b r) →
-                      Some { _1 = { _1 = ar._1, _2 = br._1 }
-                           , _2 = ar._2 -- Arbitrarily choose ar or br.
-                           }
-                  } fbr
-          } far
-let bizip2 : Bizip2 FList
-  = λ(a : Type) → λ(s : Type) → λ(fas : FList a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FList b t) →
-    merge { None = None (Pair (Pair a b) (Pair s t))
-            , Some = λ(pas : Pair a s) →
-            merge { None = None (Pair (Pair a b) (Pair s t))
-                  , Some = λ(pbt : Pair b t) →
-                      Some { _1 = { _1 = pas._1, _2 = pbt._1 }
-                           , _2 = { _1 = pas._2, _2 = pbt._2 }
-                           }
-                  } fbt
-          } fas
-let bizipP : BizipP FList
-  = λ(L : Type → Type) → λ(functorL : Functor L) →
-  λ(a : Type) → λ(fala : FList a (L a)) → λ(b : Type) → λ(fblb : FList b (L b)) →
-    bizip2 a (L a) fala b (L b) fblb
-```
-TODO:Show that  the ordinary zip can be implemented via bizipP.
-
-
-Now we turn to streams that may be empty.
 
 
 todo: fix the text
@@ -13777,7 +13749,7 @@ To get the "padding" `zip`, one needs to handle the case of an empty list separa
 Zipping an empty list with any other list gives again an empty list.
 The remaining case is zipping two non-empty lists; we can convert those to the `NEL` type and then use the "padding" `zip` that is available for `NEL`.
 
-todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list.
+todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list. implement this code and test it.
 
 
 
