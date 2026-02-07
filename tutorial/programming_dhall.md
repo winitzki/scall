@@ -13459,16 +13459,31 @@ let zipNES_truncating = zipViaBizipF FNEL bifunctorFNEL bizipF_truncating
 let zipNES_padding = zipViaBizipF FNEL bifunctorFNEL bizipF_padding
 ```
 
-Now  test this code by applying the two `zip` functions to non-empty streams of different length:
-
-todo:   test the two versions of zip for NELF
+Now  test this code by applying the two `zip` functions to non-empty streams, one finite and one infinite:
+```dhall
+let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_truncating Natural nesNat Natural nes123) ≡ [
+  { _1 = 0, _2 = 1 },
+  { _1 = 1, _2 = 2 },
+  { _1 = 2, _2 = 3 },
+]
+let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_padding Natural nesNat Natural nes123) ≡ [
+  { _1 = 0, _2 = 1 },
+  { _1 = 1, _2 = 2 },
+  { _1 = 2, _2 = 3 },
+  { _1 = 3, _2 = 3 },
+  { _1 = 4, _2 = 3 },
+  { _1 = 0, _2 = 0 },
+]
+```
 
 We see that the "truncating" version of `zip`   is indeed obtained via the "truncating" version of `bizipF`,
 and the "padding" version of `zip`   via the "padding" version of `bizipF`.
+The choice of `zip` needs to be made according to the application requirements.
+
 
 todo: discuss biunit and define a full applicativefunctor evidence in two versions
 
-
+#### Streams
 
 TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip2  and show pictures of trees)
 
