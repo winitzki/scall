@@ -7343,22 +7343,25 @@ let Foldable2 = λ(F : Type → Type → Type) → ∀(a : Type) → Foldable (�
 
 Two `Foldable` instances give us two `toList` functions (having types `F a b → List a` and `F a b → List b`).
 Those functions allow us to extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
-With that, it is straightforward to translate the special code for the computations in `sizeFTree` and `depthFTree` into a generic versions that work with all pattern bifunctors `F`.
+With that, it is straightforward to translate the special code for the computations in `sizeFTree` and `depthFTree` into generic versions that work with all pattern bifunctors `F`.
 The code is:
 
 ```dhall
 let Natural/listMax = https://prelude.dhall-lang.org/Natural/listMax
+let depthF
+  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(c : Type) → F c Natural → Natural
+  = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
+    let listNatural = (foldableF2 c).toList Natural p
+    in merge { None = 0
+             , Some = λ(n : Natural) → n + 1
+             } (Natural/listMax listNatural)
 let Natural/sum = https://prelude.dhall-lang.org/Natural/sum
-let sizeAndDepthF
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → { size : Natural, depth : Natural }
+let sizeF
+  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listC : List c = (foldableF1 Natural).toList c p
     let listNatural : List Natural = (foldableF2 c).toList Natural p
-    let size = List/length c listC + Natural/sum listNatural
-    let depth = merge { None = 0
-                      , Some = λ(n : Natural) → n + 1
-                      } (Natural/listMax listNatural)
-    in { size, depth }
+    in List/length c listC + Natural/sum listNatural
 ```
 
 Now we can implement the fully generic `size` and `depth` functions that work for any Church-encoded type constructor.
@@ -7367,12 +7370,12 @@ Now we can implement the fully generic `size` and `depth` functions that work fo
 let size
   : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
-   let sizeF = λ(fa : F a Natural) → (sizeAndDepthF F foldableF1 foldableF2 a fa).size
+   let sizeF = λ(fa : F a Natural) → sizeF F foldableF1 foldableF2 a fa
    in ca Natural sizeF
 let depth
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
-  = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
-    let depthF = λ(fa : F a Natural) → (sizeAndDepthF F foldableF1 foldableF2 a fa).depth
+  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
+    let depthF = λ(fa : F a Natural) → depthF F foldableF2 a fa
     in ca Natural depthF
 ```
 
@@ -7399,8 +7402,8 @@ Now we can apply the `size` and `depth` functions to the example trees and verif
 ```dhall
 let _ = assert : 2 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree2
 let _ = assert : 3 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree3
-let _ = assert : 1 ≡ depth FTree foldable1FTree foldable2FTree Natural exampleTree2
-let _ = assert : 2 ≡ depth FTree foldable1FTree foldable2FTree Natural exampleTree3
+let _ = assert : 1 ≡ depth FTree foldable2FTree Natural exampleTree2
+let _ = assert : 2 ≡ depth FTree foldable2FTree Natural exampleTree3
 ```
 
 ### Implementing Church-encoded functors
@@ -10292,23 +10295,23 @@ Many other kinds of infinite trees can be implemented similarly with these techn
 In Scala, one would write the following code to define the type of a possibly infinite binary tree with data of type `A` in leaves:
 
 ```scala
-enum BInfTree[A]:  // Scala 3.
-    case Leaf[A](a: A) extends BInfTree[A]
-    case Branch[A](left: () => BInfTree[A], right: () => BInfTree[A]) extends BInfTree[A] 
+enum InfTree2[A]:  // Scala 3.
+    case Leaf[A](a: A) extends InfTree2[A]
+    case Branch[A](left: () => InfTree2[A], right: () => InfTree2[A]) extends InfTree2[A] 
 ```
 The data in the `Branch` constructor is a pair of functions that delay the evaluation of the tree branches until the program calls those functions explicitly.
 Those functions could encapsulate some internal state ("seed") that determines that subtrees will be generated.
 Those functions could also hide a recursion inside the tree data: for example, one of the branches could be a recursive reference to the whole tree:
 ```scala
-lazy val example1: BInfTree[Int] = BInfTree.Branch(left = () => example1, right = () => BInfTree.Leaf(123))
+lazy val example1: InfTree2[Int] = InfTree2.Branch(left = () => example1, right = () => InfTree2.Leaf(123))
 ```
 
 In Haskell, lazy evaluation is the default, and analogous code is written more concisely:
 
 ```haskell
-data BInfTree a = Leaf a | Branch (BInfTree a) (BInfTree a)   -- Haskell.
+data InfTree2 a = Leaf a | Branch (InfTree2 a) (InfTree2 a)   -- Haskell.
 
-example1 :: BInfTreeInt
+example1 :: InfTree2Int
 example1 = Branch example1 (Leaf 123)
 ```
 
@@ -10323,29 +10326,28 @@ let bifunctorFTree : Bifunctor FTree
             (FTree c d).Branch { left = bd p.left, right = bd p.right }
           } fab
 }
-let BInfTree = λ(a : Type) → GFix (FTree a)
+let InfTree2 = λ(a : Type) → GFix (FTree a)
 ```
-The same structure bifunctor `FTree`  defines the binary tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
+The same structure bifunctor `FTree`  defines the finite tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
 
-We can define the two "finite" data constructors using the general `fixG` function:
+We can define the two "finite" data constructors for `InfTree2` using the general `fixG` function:
 
 ```dhall
-let leafBInf : ∀(a : Type) → a → BInfTree a
-  = λ(a : Type) → λ(leaf : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Leaf leaf)
-let branchBInf : ∀(a : Type) → BInfTree a → BInfTree a → BInfTree a
-  = λ(a : Type) → λ(left : BInfTree a) → λ(right : BInfTree a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (BInfTree a)).Branch { left = left, right = right })
+let leafBInf : ∀(a : Type) → a → InfTree2 a
+  = λ(a : Type) → λ(leaf : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (InfTree2 a)).Leaf leaf)
+let branchBInf : ∀(a : Type) → InfTree2 a → InfTree2 a → InfTree2 a
+  = λ(a : Type) → λ(left : InfTree2 a) → λ(right : InfTree2 a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (InfTree2 a)).Branch { left = left, right = right })
 ```
-
-These data constructors can create  finite trees of type `BInfTree a`:
+These data constructors can create  finite trees of type `InfTree2 a`:
 
 ```dhall
-let example1BInf : BInfTree Natural = leafBInf Natural 123
-let example2BInf : BInfTree Text = branchBInf Text (branchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
+let example1BInf : InfTree2 Natural = leafBInf Natural 123
+let example2BInf : InfTree2 Text = branchBInf Text (branchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
 ```
-These finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
+These   trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
 
-In addition to finite trees, the greatest fixpoint type `BInfTree a` also supports  values that can be viewed as "infinite" trees.
+In addition to finite trees, the greatest fixpoint type `InfTree2 a` also supports  values that can be viewed as "infinite" trees.
 
 To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
@@ -10353,37 +10355,37 @@ This is because there are infinitely many different ways in which one can build 
 For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
 In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
 
-Let us adapt `makeGFix` to make it easier to create values of type `BInfTree a`:
+Let us adapt `makeGFix` to make it easier to create values of type `InfTree2 a`:
 
 ```dhall
-let makeBInfTree : ∀(a : Type) → ∀(r : Type) → r → (r → FTree a r) → BInfTree a
+let makeInfTree2 : ∀(a : Type) → ∀(r : Type) → r → (r → FTree a r) → InfTree2 a
   = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTree a r) → makeGFix (FTree a) r seed step
 ```
 Note that the seed type `r` may depend on the data type `a` if necessary.
 
 To test this code, it helps to visualize infinite trees by truncating them  at a given depth.
-Since `BInfTree` and `Tree2` are fixpoints of the same bifunctor (`FTree`), we can use the general function `truncateGFix` for converting greatest fixpoint values (`BInfTree a`) to least fixpoint values (`Tree2 a`).
+Since `InfTree2` and `Tree2` are fixpoints of the same bifunctor (`FTree`), we can use the general function `truncateGFix` for converting greatest fixpoint values (`InfTree2 a`) to least fixpoint values (`Tree2 a`).
 The recursion limit will give the maximum tree depth that we would like to extract.
 Any branches beyond that depth will be replaced by the  stop-gap value (of type `Tree2 a`).
 For simplicity, let us make that value a leaf:
 ```dhall
-let truncateBInfTree = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) → λ(infTree : BInfTree a) → truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
+let truncateInfTree2 = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) → λ(infTree : InfTree2 a) → truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
 ```
 
 
 Our first example is an infinite tree that contains no data: the tree starts with a `Branch`, and each branch is again a `Branch`.
-We can implement this tree as a generic value of type `BInfTree a` for any type `a` since we will not need to store any values.
+We can implement this tree as a generic value of type `InfTree2 a` for any type `a` since we will not need to store any values.
 The "seed" needs to carry no information, so we will use a unit type for the "seed":
 
 ```dhall
-let emptyInfTree : ∀(a : Type) → BInfTree a
-  = λ(a : Type) → makeBInfTree a {} {=} (λ(_ : {}) → (FTree a {}).Branch { left = {=}, right = {=} })
+let emptyInfTree : ∀(a : Type) → InfTree2 a
+  = λ(a : Type) → makeInfTree2 a {} {=} (λ(_ : {}) → (FTree a {}).Branch { left = {=}, right = {=} })
 ```
 
 To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as the stopgap value.
 The result must be a tree with 4 leaves, all containing `x`.
 ```dhall
-let _ = assert : truncateBInfTree Text 2 "x" (emptyInfTree Text) ≡ (
+let _ = assert : truncateInfTree2 Text 2 "x" (emptyInfTree Text) ≡ (
   let t = leaf Text "x"  --      /\
   in branch Text         --     /  \
     (branch Text t t)    --    /\  /\
@@ -10391,14 +10393,14 @@ let _ = assert : truncateBInfTree Text 2 "x" (emptyInfTree Text) ≡ (
 )
 ```
 
-The second example is an infinite tree of type `BInfTree Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
+The second example is an infinite tree of type `InfTree2 Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
 
 The "seed" must carry the current natural number.
 But it also must give enough information to know if we are in the right branch or in the left branch.
 We use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
 
 ```dhall
-let naturalsInfTree : BInfTree Natural
+let naturalsInfTree : InfTree2 Natural
   = let T = Pair Natural Bool
     let step : T → FTree Natural T = λ(seed : T) →
        if seed._2
@@ -10407,13 +10409,13 @@ let naturalsInfTree : BInfTree Natural
          , right = { _1 = seed._1 + 1, _2 = True }
          }
        else (FTree Natural T).Leaf seed._1
-    in makeBInfTree Natural T { _1 = 0, _2 = True } step
+    in makeInfTree2 Natural T { _1 = 0, _2 = True } step
 ```
 
 To test this, extract the tree up to depth 4 and supply `123` as stopgap:
 
 ```dhall
-let _ = assert : truncateBInfTree Natural 4 123 naturalsInfTree ≡
+let _ = assert : truncateInfTree2 Natural 4 123 naturalsInfTree ≡
   branch Natural (leaf Natural 0)           --     / \ 
     (branch Natural (leaf Natural 1)        --    0 / \
       (branch Natural (leaf Natural 2)      --     1 / \
@@ -10421,13 +10423,13 @@ let _ = assert : truncateBInfTree Natural 4 123 naturalsInfTree ≡
           (leaf Natural 123))))             --       123 123
 ```
 
-The third example is an infinite tree of type `BInfTree a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
+The third example is an infinite tree of type `InfTree2 a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
 The seed type must carry the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
 For that, we use a triple such as `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
 
 ```dhall
-let tumbleBInfTree : ∀(a : Type) → a → (a → a) → BInfTree a
+let tumbleInfTree2 : ∀(a : Type) → a → (a → a) → InfTree2 a
   = λ(a : Type) → λ(x : a) → λ(f : a → a) →
     let T = { x : a, isLeaf : Bool, isLeafRight : Bool }
     let step : T → FTree a T = λ(seed : T) →
@@ -10442,14 +10444,14 @@ let tumbleBInfTree : ∀(a : Type) → a → (a → a) → BInfTree a
            left = { x = seed.x, isLeaf = True, isLeafRight = next }
          , right = { x = f seed.x, isLeaf = False, isLeafRight = next }
          }
-    in makeBInfTree a T { x = x, isLeaf = False, isLeafRight = False } step
+    in makeInfTree2 a T { x = x, isLeaf = False, isLeafRight = False } step
 ```
 
 To test this, supply some simple data and extract the tree up to depth 4:
 
 ```dhall
-let tumbleExample = tumbleBInfTree Natural 1 (λ(x : Natural) → x * 3)
-let _ = assert : truncateBInfTree Natural 4 123 tumbleExample ≡
+let tumbleExample = tumbleInfTree2 Natural 1 (λ(x : Natural) → x * 3)
+let _ = assert : truncateInfTree2 Natural 4 123 tumbleExample ≡
   branch Natural (leaf Natural 1)       --   /\
     (branch Natural (branch Natural     --  1 /\
       (leaf Natural 9) (branch Natural  --   /\ 3
