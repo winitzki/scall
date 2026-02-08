@@ -7367,12 +7367,12 @@ let sizeF
 Now we can implement the fully generic `size` and `depth` functions that work for any Church-encoded type constructor.
 
 ```dhall
-let size
+let sizeLFix
   : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
    let sizeF = λ(fa : F a Natural) → sizeF F foldableF1 foldableF2 a fa
    in ca Natural sizeF
-let depth
+let depthLFix
   : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
     let depthF = λ(fa : F a Natural) → depthF F foldableF2 a fa
@@ -7400,10 +7400,12 @@ let foldable2FTree : Foldable2 FTree
 Now we can apply the `size` and `depth` functions to the example trees and verify that the results are as expected:
 
 ```dhall
-let _ = assert : 2 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree2
-let _ = assert : 3 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree3
-let _ = assert : 1 ≡ depth FTree foldable2FTree Natural exampleTree2
-let _ = assert : 2 ≡ depth FTree foldable2FTree Natural exampleTree3
+let sizeFTreeNat = sizeLFix FTree foldable1FTree foldable2FTree Natural
+let _ = assert : sizeFTreeNat exampleTree2 ≡ 2
+let _ = assert : sizeFTreeNat exampleTree3 ≡ 3
+let depthFTreeNat = depthLFix FTree foldable2FTree Natural
+let _ = assert : depthFTreeNat exampleTree2 ≡ 1
+let _ = assert : depthFTreeNat exampleTree3 ≡ 2
 ```
 
 ### Implementing Church-encoded functors
@@ -13810,8 +13812,16 @@ The former type can be rewritten equivalently as:
 
 The standard `unfix` method allows us to transform `C a` into `F a (C a)` and `C b` into `F b (C b)`.
 Then we use the `bizipP` method, in which we set the functor parameter `L = C`.
+This gives us the required function.
 
-The "stopgap" value 
+To determine the depth limit, we can compute the minimum of the two depths of the Church-encoded values of types `C a` and `C b`.
+The function `depthLFix` can be used with any Church-encoded type constructor, as long as the pattern functor is foldable with respect to the second type parameter.
+```dhall
+let _ = depthLFix : ∀(F : Type → Type → Type) → Foldable2 F →
+∀(a : Type) → LFix (F a) → Natural
+```
+
+The "stopgap" value of type `t → r` can be supplied in any way todo: fill in
 
 In addition to `bizip1`, `bizip2`, and/or `bizipP`, we will require a function for computing the recursion depth of a value of type `C a`.
 That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `maxF2 : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
