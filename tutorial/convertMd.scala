@@ -223,6 +223,13 @@ def toDhall(preludePath: String)(markdown: Markdown) : String = {
   preludeRegex.replaceAllIn(dhallContent, m => m.matched + " " + getSha256(preludePath, m.group(1)))
 }
 
+def toLabel: Paragraph => String = {
+  case Paragraph(spans) => spans.map {
+    case Span(_, t) => t
+    case _ => ""
+  }.mkString("")
+}
+
 def toLatex: Markdown => String = {
   case Markdown.Heading(level, text) =>
     val heading = level match {
@@ -237,9 +244,11 @@ def toLatex: Markdown => String = {
     }
     // Disable book parts! But enable appendix.
     val content = toLatex(text)
+    val label = toLabel(text)
     if level == 1 then  {
       if content == "Appendixes" then "\\appendix" else ""
-    } else s"\\$heading{$content}"
+    } else if level >=2 && level <= 4 then s"\\$heading{$content}\\label{$label}"
+    else s"\\$heading{$content}"
 
   case Markdown.Paragraph(contents) => contents.map(textualToLatex).mkString("")
   case Markdown.BulletList(content) => content.map(toLatex).mkString("\\begin{itemize}\n\\item{", "}\n\\item{", "}\n\\end{itemize}")

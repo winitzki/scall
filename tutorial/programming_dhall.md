@@ -705,7 +705,7 @@ The types of `Either` and `Pair` is `Type → Type → Type`.
 As with all Dhall types, type constructor names such as `AAInt`, `Either`, or `Pair` are just type aliases.
 Dhall distinguishes types and type constructors not by assigned names but by the type expressions themselves (**structural typing**).
 
-### The  type constructor `Optional`
+### The type constructor `Optional`
 
 A  type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall like this:
 
@@ -3408,7 +3408,7 @@ As Dhall does not support implicit arguments, all typeclass evidence values must
 
 To see how this works, let us implement some well-known typeclasses in Dhall.
 
-### The  "Show" typeclass
+### The "Show" typeclass
 
 The `Show` typeclass is usually defined in Haskell as:
 
@@ -13222,8 +13222,9 @@ The type   of that `bizipP` can be written as `F a s → F b t → F (Pair a b) 
 This type signature is similar to that of `bizip2` from `Applicative2`, except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
 While an evidence of `Applicative2 F` exists only for some bifunctors `F`, `BizipP F` can be implemented for all polynomial bifunctors `F`.
 
-The "P" in `bizipP` stands for "padding", and we will explain   shortly that the type signature of `bizipP` is flexible enough to implement .
+The "P" in `bizipP` stands for "padding", and we will show below that the type signature of `bizipP` is flexible enough to implement padding behavior required for some data structures.
 
+#### Generic implementations
 
 Now we turn to implementing  `zip` for greatest fixpoint types.
 For a given  pattern bifunctor `F`, we will consider two cases: when we have evidence of `Applicative2 F`, and when we have  `BizipP F`.
@@ -13256,9 +13257,9 @@ To make an applicative functor complete, we need a   `unit` method.
 For that, we require a `biunit2 : F {} {}`  value for `F`, which is part of `Applicative2`.
 
 ```dhall
-let unitViaBiunit : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
-  = λ(F : Type → Type → Type) → λ(biunit : F {} {}) →
-    makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
+let unitViaBiunit2 : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
+  = λ(F : Type → Type → Type) → λ(biunit2 : F {} {}) →
+    makeGFix (F {}) {} {=} (λ(u : {}) → biunit2)
 ```
 
 Assuming suitable laws for `bizip2` and `biunit2`, we can now write an `Applicative` evidence for the greatest fixpoint:
@@ -13266,7 +13267,7 @@ Assuming suitable laws for `bizip2` and `biunit2`, we can now write an `Applicat
 ```dhall
 let applicativeGFixViaApplicative2 : ∀(F : Type → Type → Type) → Applicative2 F → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative2F : Applicative2 F) →
-    { unit = unitViaBiunit F applicative2F.biunit2
+    { unit = unitViaBiunit2 F applicative2F.biunit2
     , zip = zipViaBizip2 F applicative2F
     }
 ```
@@ -13305,8 +13306,8 @@ The corresponding `Applicative` evidence is implemented as:
 
 ```dhall
 let applicativeGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → BizipP F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizipP : BizipP F) → λ(biunit : F {} {}) →
-    { unit = unitViaBiunit F biunit
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizipP : BizipP F) → λ(biunit2 : F {} {}) →
+    { unit = unitViaBiunit2 F biunit2
     , zip = zipViaBizipP F bifunctorF bizipP
     }
 ```
@@ -13529,7 +13530,7 @@ and the "padding" version of `zip`   via the "padding" version of `bizipP`.
 The choice of `zip` needs to be made according to the application requirements.
 
 To obtain a full `Applicative` evidence for `NES`, it remains to define the `unit` value of type `NES {}`.
-We have the general combinator `unitViaBiunit` that can produce that value given a value of type `F {} {}`.
+We have the general combinator `unitViaBiunit2` that can produce that value given a value of type `F {} {}`.
 However, the different versions of `zip` will require different choices of that value, because otherwise the laws of applicative functors will not hold.
 The correct choice of `unit` for the truncating `zip` is an infinite sequence of unit values.
 For the padding `zip`, one needs a sequence of length 1.
@@ -13661,7 +13662,6 @@ TODO: use bizipP to implement ordinary zip and padding zip, run example tests
 
 ### Recursive types. Least fixpoints
 
-Implementing a `zip` method for the least-fixpoint type constructors turns out to require quite a bit of work.
 In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`.
 
 Given a pattern bifunctor `F`, we define the functor `C` by `C a = LFix (F a)`.
@@ -13675,11 +13675,14 @@ let zip : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 ```
 
 Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` has evidence of certain typeclasses.
-In the previous section, we defined the typeclasses `Applicative1`, `Applicative2`, and `BizipP` and used them to compute an `Applicative` evidence for greatest fixpoints.
-It turns out that for least fixpoints, `Applicative2` cannot be used, but both `Applicative1` and `BizipP` are needed.
+In the previous section, we  defined the typeclasses `Applicative1`, `Applicative2`, and `BizipP` and used them to compute an `Applicative` evidence for greatest fixpoints.
+It turns out that for least fixpoints, `Applicative2` cannot be used, but both `Applicative1` and `BizipP` are helpful.
 
-First, we show how to   define `Applicative` for `C`   by writing code directly in the Church encoding.
-One trick here is to note that the Church encoding type resembles the continuation monad:
+#### Implementation via Church encoding
+
+If we assume an `Applicative1` evidence for the structure bifunctor `F`, we can  derive an `Applicative` evidence for `C`   by writing code directly in the Church encoding.
+
+One trick  is to note that the Church encoding type resembles the continuation monad:
 
 `(F a r → r) → r = Continuation r (F a r)`
 
@@ -13699,21 +13702,30 @@ let zipViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → 
       in fabrr
 ```
 
+The corresponding `Applicative` evidence is:
+
+```dhall
+let applicativeViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → Applicative (LFixT F)
+  = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
+    { zip = zipViaApplicative1 F applicative1F
+    , unit = λ(r : Type) → λ(alg : F {} r → r) → alg (applicative1F.biunit1 r)
+    }
+```
+
 This `zip` function, however, will not be satisfactory in most cases.
 The `bizip1` method often has to lose information and, in particular, may not preserve values of type `r` within `F a r`.
 In that case, the derived `zip` function will not correctly iterate over its input data.
 
-As an example, let us derive `zip` from `Applicative1` for non-empty lists.
-The functor `NELF` was defined in the previous section via the structure functor `FNEL`.
+To see how this works, let us derive `zip` from `Applicative1` for non-empty lists and apply that `zip` to some example values.
+
+Non-empty lists are represented by the functor `NELF` defined in the previous section as the least fixpoint of the structure bifunctor `FNEL`.
 An `Applicative1` evidence for `FNEL` was already computed as `applicative1FNEL`.
 So, we define `zip1FNEL` as:
 
 ```dhall
-let nel1 = oneNELF Natural 10
+let zip1FNEL = zipViaApplicative1 FNEL applicative1FNEL
 let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
 let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
-let zip1FNEL = zipViaApplicative1 FNEL applicative1FNEL
-let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural )
 let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Natural nel12345) ≡ [
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 1 },
@@ -13724,10 +13736,31 @@ let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Nat
   { _1 = 3, _2 = 5 },
 ]
 ```
-The code iterates over the first list and then over the second list, padding the pair by repeated values.
-This is not what we expect from a `zip` function, which should join the corresponding values from the two lists.
+The code iterates over the first list and then over the second list, padding the pair by repeating the first or the last values from one or another list as required.
 
-todo: fix problems with the text
+As one can show, this `zip` method gives rise to an `Applicative` evidence that obeys the laws of applicative functors.
+The value `unit` from `Applicative` contains a one-element list, and the padding behavior works correctly:
+```dhall
+let nelUnit = (applicativeViaApplicative1 FNEL applicative1FNEL).unit
+let _ = assert : NELF/toList (Pair {} Natural) (zip1FNEL {} nelUnit Natural nel123) ≡ [
+  { _1 = {=}, _2 = 1 },
+  { _1 = {=}, _2 = 2 },
+  { _1 = {=}, _2 = 3 },
+]
+let _ = assert : NELF/toList (Pair Natural {}) (zip1FNEL Natural nel123 {} nelUnit) ≡ [
+  { _1 = 1, _2 = {=} },
+  { _1 = 2, _2 = {=} },
+  { _1 = 3, _2 = {=} },
+]
+```
+However,   we expect that a `zip` function would join the corresponding values from the two lists, not concatenate lists while padding them with the first and the last elements.
+A different implementation of `zip` can be derived if we additionally have a suitable `BizipP` evidence, as we will see next.
+
+#### Implementation via depth-bounded hylomorphisms
+
+A `BizipP` evidence gives us a function of type `F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b))`.
+It does not seem to be possible to use that function directly in the Church encoding of `C`, as we did in the previous section when using `Applicative1`.
+Instead, we will use hylomorphisms (see the chapter "Translating recursive functions into Dhall") adapted to the problem at hand.
 
 In addition to `bizip1`, `bizip2`, and/or `bizipP`, we will require a function for computing the recursion depth of a value of type `C a`.
 That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `maxF2 : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
@@ -14138,7 +14171,7 @@ let mContraFilterableConst : ∀(M : Type → Type) → ∀(t : Type) → MContr
     contrafunctorConst t /\ { inflateM = λ(a : Type) → identity (Const t a) }
 ```
 
-#### Functors and contrafunctors built using $M$ 
+#### Functors and contrafunctors built using $M$
 
 There are three examples where we can use the monad $M$ to build $M$-filterable functors or contrafunctors:
 
