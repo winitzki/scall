@@ -13556,7 +13556,7 @@ We now consider trees defined as the least fixpoint of the bifunctor `FTree`:
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let Tree2 = LFixT FTree
 ```
-As we already discussed, the type signature of `bizip2` cannot be implemented for this bifunctor.
+As we already discussed, the type signature of `bizip2` in `Applicative2` cannot be implemented for this bifunctor.
 So, we will implement   `zip`  via `Applicative1` and `BizipP` and test the resulting behaviors.
 
 
@@ -13709,9 +13709,11 @@ An `Applicative1` evidence for `FNEL` was already computed as `applicative1FNEL`
 So, we define `zip1FNEL` as:
 
 ```dhall
+let nel1 = oneNELF Natural 10
 let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
 let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
 let zip1FNEL = zipViaApplicative1 FNEL applicative1FNEL
+let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural )
 let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Natural nel12345) ≡ [
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 1 },
@@ -13722,6 +13724,8 @@ let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Nat
   { _1 = 3, _2 = 5 },
 ]
 ```
+The code iterates over the first list and then over the second list, padding the pair by repeated values.
+This is not what we expect from a `zip` function, which should join the corresponding values from the two lists.
 
 todo: fix problems with the text
 
