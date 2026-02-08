@@ -10988,15 +10988,14 @@ As a result, no function with the type signature of `hylo` can be implemented in
 
 ### Depth-bounded hylomorphisms
 
-What we _can_ do is to implement functions with type signatures similar to those of a hylomorphism,
-but with extra arguments that explicitly ensure termination.
+What we _can_ do is   implement functions with hylomorphism-like type signatures, but add extra arguments that explicitly ensure termination.
 
 In the previous chapter, we have shown how to use a recursion bound and a stop-gap value to create a "truncating hylomorphism".
-We will now implement a similar function when viewing hylomorphisms as general functions   of type `t → r`.
-This implementation will not depend on the `fix` function or on a stop-gap value of the least fixpoint type. 
+We will now use a similar technique when viewing hylomorphisms as general functions   of type `t → r`.
+The implementation will not depend on the `fix` function or on a stop-gap value of the least fixpoint type. 
 Instead, the stop-gap value will have a more general type (`t → r`).
-The stop-gap value will be used when the recursion bound is smaller than the actual recursion depth of the input data.
-If the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
+The stop-gap value will be used only if  the given recursion bound is smaller than the actual recursion depth of the input data.
+When the recursion bound is large enough, the hylomorphism's output value will be independent of the stop-gap value.
 This more general approach is motivated by [an example in an anonymous blog post](https://sassa-nf.dreamwidth.org/90732.html).
 
 To show how that works, we begin with Haskell code for the depth-bounded hylomorphism.
@@ -11050,7 +11049,7 @@ But the function itself is different at each iteration, and so `Natural/fold` wi
 
 Keeping this in mind, we will proceed in two steps:
 
-- Implement a separate function (`hylo_max_depth`) for computing the required recursion depth. We will call that function before running `hylo_Nat`.
+- Implement a separate function (`hyloMaxDepth`) for computing the required recursion depth. We will call that function before running `hylo_Nat`.
 - Modify `hylo_Nat` so that the iterations stop automatically once the maximum required recursion depth is reached.
 
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
@@ -11058,29 +11057,27 @@ We begin by implementing a function for computing the maximum required recursion
 Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application
 of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that
 `fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
-This happens when some constructors of the union type `F t` do not store any values of type `t`.
+This happens when some constructors of the union type `F t` are "empty", that is, do not store any values of type `t`.
 To detect that condition, we need to be able to check whether any values of type `t` are actually
 stored in a given data structure `p : F (F (... (F t)...))`.
 
-We begin by implementing a function `contains_t` for checking whether a value of type `F t` contains any values of type `t`.
+We begin by implementing a function `anyNonEmpty` for checking whether a value of type `F t` contains any values of type `t`.
 For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
 This functionality will be available if the functor `F` is _foldable_.
-We will require `Functor` and `Foldable` typeclass evidence for `F`
-(such evidence can be created for any polynomial functor `F`).
-
-TODO: replace this logic by simply checking that the result of toList is not empty. In that case, the data structure is non-empty and contains some values of type t. use foldable for F, not for µF
+We will require a `Foldable` typeclass evidence for `F`.
+(It  exists for any polynomial functor `F`).
 
 Suppose `p : F t` is a given value.
 As `F` is a functor, we first use `F`'s `fmap` method to replace all values of type `t` by the Boolean value `True`.
 (The Haskell code would be `fmap (\_ -> True) p`.)
-The result is a value of type `F Bool`.
-Then we use `F`'s `toList` method for performing the Boolean "or" operation over all Boolean values contained in that data structure.
-For that, we will use the Dhall library function `Bool/or` that performs the "or" operation over all Boolean values in a list.
-The resulting value will be `True` if and only if the data structure contains a `True` value.
+The result is a value of type `F Bool`, containing `True` at any place where there was a value of type `t`.
+Then we use `F`'s `toList` method to extract  all Boolean values contained in that data structure.
+To that list, we apply the Dhall library function `Bool/or` that performs the "or" operation over all Boolean values in a list.
+The resulting value will be `True` if and only if at least one value in the list is `True`.
 The Dhall code is:
 ```dhall
 let Bool/or = https://prelude.dhall-lang.org/Bool/or
-let contains_t
+let anyNonEmpty
   : ∀(F : Type → Type) → Functor F → Foldable F → ∀(t : Type) → F t → Bool
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(t : Type) → λ(p : F t) →
     let replacedByTrue : F Bool = functorF.fmap t Bool (λ(_ : t) → True) p
@@ -11095,39 +11092,53 @@ let functorFT = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → �
 let foldableFT = { toList = λ(a : Type) → λ(fa : FT a) → merge { Leaf = λ(_ : Natural) → [] : List a, Branch = λ(branch : { left : a, right : a }) → [ branch.left, branch.right ] } fa }
 ```
 
-To see that the function `contains_t` works as expected, let us test it on some values of type `FT t`:
+To see that the function `anyNonEmpty` works as expected, let us test it on some values of type `FT t`:
 ```dhall
 let _ =
   let t = Text
-  let check : FT t → Bool = contains_t FT functorFT foldableFT t
+  let check : FT t → Bool = anyNonEmpty FT functorFT foldableFT t
   let test1 : FT t = (FT t).Leaf 123   -- Does not contain values of type t.
   let test2 : FT t = (FT t).Branch { left = "a", right = "b" } -- Contains values of type t.
 in { _1 = assert : check test1 ≡ False, _2 = assert : check test2 ≡ True }
 ```
 
-The next step is to implement a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
-To achieve that, we first need to apply `fmap_F` $n$ times to the function `λ(_ : t) → True`.
-This gives a function that replaces values of type `t` by `True` at the deepest nesting level in the data structure:
+Next, let us see how we could check for the presence of values of type `t` in a data structure of type `F (F t)`.
+We can apply `F`'s `fmap` method to `anyNonEmpty F functorF foldableF`.
+The result will be a function of type `F (F t) → F Bool`.
+Applying that function to a value `p : F (F t)` gives a data structure `q : F Bool`, such that `True` values only occur in `q` at places where `p` had stored values of type `F t` containing some values of type `t`.
+To find out whether `p` has any such values, we need to extract all `Bool` values from  `q`.
+We do that with `F`'s `toList` method and then apply the function `Bool/or`.
+Let us write a helper function `anyTrueF` for this:
 
-`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...)) {- n times -} : F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n times -}`
+```dhall
+let anyTrueF : ∀(F : Type → Type) → Foldable F → F Bool → Bool
+  = λ(F : Type → Type) → λ(foldableF : Foldable F) → λ(p : F Bool) →
+    Bool/or (foldableF.toList Bool p)
+```
 
-Then we need to apply `fmap_F` $n-1$ times to the function `findTrueValues` shown above:
+Now we are ready to generalize these functions to obtain a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
+To achieve that, we first need to apply `fmap_F` $n-1$ times to the function `anyNonEmpty F foldableF t`.
+This gives a function of the following type:
 
-`fmap_F (fmap_F (... (fmap_F (λ(_ : t) → True)))...))   {-  n times  -}        : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
+`F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
+
+Then we need to apply `fmap_F` $n-1$ times to the function `anyTrueF`:
+
+`fmap (fmap (... (fmap (λ(_ : t) → True)))...))   {-  n times  -}             : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
 
 Applying that function will reduce by $1$ the number of nested layers of `F`.
 We need to keep doing this until we remove all layers of `F` and obtain a `Bool` value.
-We may describe the procedure symbolically like this:
+We may describe the procedure symbolically:
 
 ```haskell
-findTrue : F Bool → Bool = Bool/or . foldableF.toList Bool
+anyTrueF : F Bool → Bool = Bool/or . foldableF.toList Bool
 replace = λ(_ : t) → True
 
 h0 : t → Bool = replace
-h1 : F t → Bool = findTrue . fmap_F h0
-h2 : F (F t) → Bool = findTrue . fmap_F h1
-h3 : F (F (F t)) → Bool = findTrue . fmap_F h2
-hN : F (F (... (F t)...)) {- n times -} → Bool = findTrue . fmap_F hN-1
+h1 : F t → Bool = anyTrueF . fmap h0
+h2 : F (F t) → Bool = anyTrueF . fmap h1
+h3 : F (F (F t)) → Bool = anyTrueF . fmap h2
+hN : F (F (... (F t)...)) {- n times -} → Bool = anyTrueF . fmap hN-1
 ```
 
 The function `hN` will be applied to a value obtained by repeatedly applying `coalg : t → F t` to some initial value `p : t`.
@@ -11135,8 +11146,8 @@ We can describe that by:
 
 ```haskell
 c1 : t → F t = coalg
-c2 : t → F (F t) = fmap_F c1
-c3 : t → F (F (F t)) = fmap_F c2
+c2 : t → F (F t) = fmap c1
+c3 : t → F (F (F t)) = fmap c2
 ...
 ```
 
@@ -11150,14 +11161,14 @@ The loop accumulates a hylomorphism of type `t → Bool` that we use to detect t
 When no values of type `t` are present, we stop changing the accumulated value.
 The code is:
 ```dhall
-let hylo_max_depth
+let hyloMaxDepth
   : ∀(F : Type → Type) → Functor F → Foldable F → Natural → ∀(t : Type) → (t → F t) → t → Natural
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(foldableF : Foldable F) → λ(limit : Natural) → λ(t : Type) → λ(coalg : t → F t) → λ(p : t) →
     let replace : t → Bool = λ(_ : t) → True
-    let findTrue : F Bool → Bool = λ(p : F Bool) → Bool/or (foldableF.toList Bool p)
+    let anyTrueF : F Bool → Bool = λ(p : F Bool) → Bool/or (foldableF.toList Bool p)
     let Acc = { depth : Natural, hylo : t → Bool }
     let update : Acc → Acc = λ(acc : Acc) →
-      let newHylo : t → Bool = λ(x : t) → findTrue (functorF.fmap t Bool acc.hylo (coalg x))
+      let newHylo : t → Bool = λ(x : t) → anyTrueF (functorF.fmap t Bool acc.hylo (coalg x))
       let hasValuesT = acc.hylo p
       in if hasValuesT then { depth = acc.depth + 1, hylo = newHylo } else acc
     let init : Acc = { depth = 0, hylo = replace }
@@ -11170,9 +11181,9 @@ To test this code, we use the functor `FT` defined above and implement a functio
 -- Note that FT t is just < Leaf : Natural | Branch : { left : t, right : t } >
 let FNat = FT Natural
 let coalg : Natural → FT Natural = λ(n : Natural) →
-  let n-1 = Natural/subtract 1 n
+  let nMinus1 = Natural/subtract 1 n
   in if Natural/isZero n then FNat.Leaf 0
-     else FNat.Branch { left = n-1, right = n-1 }
+     else FNat.Branch { left = nMinus1, right = nMinus1 }
 let tests =
   let FFNat = FT (FT Natural)
   let FFFNat = FT (FT (FT Natural))
@@ -11185,17 +11196,17 @@ let tests =
   in "tests pass"
 ```
 The tests show that repeated application of `coalg` to `1` produces a data structure that stops changing after the second `fmap`.
-So, we expect `hylo_max_depth` to return `2` when applied to that `coalg`:
+So, we expect `hyloMaxDepth` to return `2` when applied to that `coalg`:
 ```dhall
-let _ = assert : hylo_max_depth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
+let _ = assert : hyloMaxDepth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
 ```
 
-Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (max_depth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
+Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (hyloMaxDepth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
 
 To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is calculated and applied automatically.
-We will accumulate two depth-bounded hylomorphisms: one for detecting the recursion depth and another for computing the actual result value.
+We will accumulate _two_ functions: one for detecting the recursion depth and another for computing the actual result value.
 We will keep the accumulated value unchanged once the maximum recursion depth is reached.
-The shortcut detection mechanism in `Natural/fold` will then automatically stop the iterations.
+Then the shortcut detection mechanism in `Natural/fold` will   automatically stop the iterations, so the limit value may be given as a generous upper bound.
 
 The resulting function is called `hylo_N`:
 ```dhall
@@ -11216,8 +11227,10 @@ let hylo_N : ∀(F : Type → Type) → Functor F → Foldable F →
       in result.resultHylo seed
 ```
 
-Speed tests show that `hylo_N` is somewhat faster than computing the maximum depth separately and then using `hylo_Nat`.
+Tests show that `hylo_N` is somewhat faster than computing the maximum depth separately and then using `hylo_Nat`.
 
+Note   that `hylo_N` still requires us to supply a maximum depth limit.
+However, this limit  can be a generous upper bound on the actual depth: `hylo_N` will stop iterations when the maximum depth of the input data is reached.
 
 ### Converting recursive code into hylomorphisms: the HIT algorithm
 
