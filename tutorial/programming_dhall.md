@@ -6316,7 +6316,7 @@ let Nat/fold : Nat → ∀(r : Type) → (r → r) → r → r
 
 Natural numbers and all their standard arithmetical operations (addition, multiplication and so on) can be implemented purely in terms of the Church-encoded type `Nat`.
 For speed, Dhall implements natural numbers as a built-in type `Natural`.
-Dhall substitutes native code for the built-in functions such as `Natural/fold`, `Natural/subtract`, and others.
+Dhall substitutes native code for the built-in functions such as `Natural/subtract`, `Natural/fold`, and others.
 
 ### Adding values in a list
 
@@ -7328,7 +7328,7 @@ One may notice that the implementations of `size` and `depth` are actually the s
 The only difference is the argument given as either `sizeF` or `depthF`.
 Also, the functions `sizeF` are `depthF` are quite similar.
 
-It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has `Foldable` and `Functor` typeclass evidence values with respect to _both_ type parameters.
+It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has `Foldable`  typeclass evidence values with respect to _both_ type parameters.
 Let us  see how that works.
 
 The functions `sizeF` and `depthF` have type `F a Natural → Natural` and may need to count the number of values of type `a` or iterate over all values of type `Natural` stored inside the data structure of type `F a Natural`.
@@ -7350,8 +7350,8 @@ The code is:
 let Natural/listMax = https://prelude.dhall-lang.org/Natural/listMax
 let Natural/sum = https://prelude.dhall-lang.org/Natural/sum
 let sizeAndDepthF
-  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → { size : Natural, depth : Natural }
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
+  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → { size : Natural, depth : Natural }
+  = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listC : List c = (foldableF1 Natural).toList c p
     let listNatural : List Natural = (foldableF2 c).toList Natural p
     let size = List/length c listC + Natural/sum listNatural
@@ -7365,28 +7365,21 @@ Now we can implement the fully generic `size` and `depth` functions that work fo
 
 ```dhall
 let size
-  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
-   let sizeF = λ(fa : F a Natural) → (sizeAndDepthF F bifunctorF foldableF1 foldableF2 a fa).size
+  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
+   let sizeF = λ(fa : F a Natural) → (sizeAndDepthF F foldableF1 foldableF2 a fa).size
    in ca Natural sizeF
 let depth
-  : ∀(F : Type → Type → Type) → Bifunctor F → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
-    let depthF = λ(fa : F a Natural) → (sizeAndDepthF F bifunctorF foldableF1 foldableF2 a fa).depth
+  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+  = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
+    let depthF = λ(fa : F a Natural) → (sizeAndDepthF F foldableF1 foldableF2 a fa).depth
     in ca Natural depthF
 ```
 
 Let us test this code on binary trees (`Tree2`) implemented as fixpoints of the bifunctor `FTree`.
-To use the generic `size` and `depth` functions, we just need to implement the required `Bifunctor`, `Foldable1` and `Foldable2`  evidence values:
+To use the generic `size` and `depth` functions, we just need to implement the required `Foldable1` and `Foldable2`  evidence values:
 
 ```dhall
-let bifunctorFTree : Bifunctor FTree
-  = { bimap = λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : FTree a b) →
-    merge { Leaf = λ(x : a) → (FTree c d).Leaf (ac x)
-          , Branch = λ(p : { left : b, right : b }) →
-            (FTree c d).Branch { left = bd p.left, right = bd p.right }
-          } fab
-}
 let foldable1FTree : Foldable1 FTree
   = λ(b : Type) → { toList = λ(a : Type) → λ(p : FTree a b) →
     merge { Leaf = λ(leaf : a) → [ leaf ]
@@ -7404,10 +7397,10 @@ let foldable2FTree : Foldable2 FTree
 Now we can apply the `size` and `depth` functions to the example trees and verify that the results are as expected:
 
 ```dhall
-let _ = assert : 2 ≡ size FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree2
-let _ = assert : 3 ≡ size FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree3
-let _ = assert : 1 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree2
-let _ = assert : 2 ≡ depth FTree bifunctorFTree foldable1FTree foldable2FTree Natural exampleTree3
+let _ = assert : 2 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree2
+let _ = assert : 3 ≡ size FTree foldable1FTree foldable2FTree Natural exampleTree3
+let _ = assert : 1 ≡ depth FTree foldable1FTree foldable2FTree Natural exampleTree2
+let _ = assert : 2 ≡ depth FTree foldable1FTree foldable2FTree Natural exampleTree3
 ```
 
 ### Implementing Church-encoded functors
@@ -10323,6 +10316,13 @@ To translate this into Dhall, we use the greatest fixpoint of the structure bifu
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
+let bifunctorFTree : Bifunctor FTree
+  = { bimap = λ(a : Type) → λ(c : Type) → λ(ac : a → c) → λ(b : Type) → λ(d : Type) → λ(bd : b → d) → λ(fab : FTree a b) →
+    merge { Leaf = λ(x : a) → (FTree c d).Leaf (ac x)
+          , Branch = λ(p : { left : b, right : b }) →
+            (FTree c d).Branch { left = bd p.left, right = bd p.right }
+          } fab
+}
 let BInfTree = λ(a : Type) → GFix (FTree a)
 ```
 The same structure bifunctor `FTree`  defines the binary tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
@@ -13758,9 +13758,45 @@ A different implementation of `zip` can be derived if we additionally have a sui
 
 #### Implementation via depth-bounded hylomorphisms
 
-A `BizipP` evidence gives us a function of type `F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b))`.
-It does not seem to be possible to use that function directly in the Church encoding of `C`, as we did in the previous section when using `Applicative1`.
-Instead, we will use hylomorphisms (see the chapter "Translating recursive functions into Dhall") adapted to the problem at hand.
+The task is to implement `zip` and `unit` for the functor `C` defined as the least fixpoint of a structure bifunctor `F`.
+The `zip` method should have the type `C a → C b → C (Pair a b)` or equivalently `Pair (C a) (C b) → C (Pair a b)`.
+
+A `BizipP` evidence for `F` gives us a function of type `F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b))` with an arbitrary functor parameter `L`.
+It does not seem to be possible to use that function to implement `zip` directly in the Church encoding of `C`, as we did in the previous section when using `Applicative1`.
+Instead, we will use hylomorphisms (see the chapter "Translating recursive functions into Dhall") adapted to the task at hand.
+
+A hylomorphism can be viewed as a function with a type signature of the form:
+
+`t → (t → P t) → (P r → r) → r`
+
+Here `r` and `t` are arbitrary types and `P` is an arbitrary functor.
+This function is understood as a transformation of type `t → r` with extra arguments.
+The transformation can be implemented if we are able to supply those arguments (of types `t → P t` and `P r → r`).
+
+As we have seen, Dhall's hylomorphisms must be depth-bounded  to guarantee termination.
+This means we need to supply two additional arguments: a depth limit and a stopgap value (of type `t → r`).
+
+To  express `zip` as a hylomorphism,  we set `t = Pair (C a) (C b)` and `r = C (Pair a b)`.
+The functor `P` needs to be chosen as `P x = F (Pair a b) x`.
+To find functions of types  `t → P t` and `P r → r` means to find functions of the following types:
+
+`Pair (C a) (C b) → F (Pair a b) (Pair (C a) (C b))`
+
+and
+
+`F (Pair a b) (C (Pair a b)) → C (Pair a b)`
+
+The latter is the type of the `fix` method (`F c (C c) → C c`).
+So, we can just use the standard `fix` method at that point.
+
+The former type can be rewritten equivalently as:
+
+`C a → C b → F (Pair a b) (Pair (C a) (C b))`
+
+The standard `unfix` method allows us to transform `C a` into `F a (C a)` and `C b` into `F b (C b)`.
+Then we use the `bizipP` method, in which we set the functor parameter `L = C`.
+
+The "stopgap" value 
 
 In addition to `bizip1`, `bizip2`, and/or `bizipP`, we will require a function for computing the recursion depth of a value of type `C a`.
 That function (`depth : ∀(a : Type) → C a → Natural`) can be implemented if we have a function `maxF2 : F {} Natural → Natural` that finds the maximum among all `Natural` numbers stored in a given value of type `F {} Natural`.
