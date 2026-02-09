@@ -13831,8 +13831,8 @@ In this way,  we can implement a `zip` function:
 
 ```dhall
 let Natural/min = https://prelude.dhall-lang.org/Natural/min
-let zipLFixViaApplicative1BizipP : ∀(F : Type → Type → Type) → Applicative1 F → BizipP F → Bifunctor F → Foldable2 F → ZipT (λ(c : Type) → LFix (F c))
-  = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(bifunctorF : Bifunctor F) → λ(foldable2F : Foldable2 F) →
+let zipLFixViaApplicative1BizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → ZipT (λ(c : Type) → LFix (F c))
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(foldable2F : Foldable2 F) →
     let C = λ(c : Type) → LFix (F c)
     let functorC : Functor C = bifunctorLFix F bifunctorF in
     λ(a : Type) → λ(fa : C a) → λ(b : Type) → λ(fb : C b) →
@@ -13856,7 +13856,7 @@ An `Applicative` evidence for `C` can then be defined like this:
 ```dhall
 let applicativeLFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → Applicative (λ(c : Type) → LFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(foldable2F : Foldable2 F) →
-  { zip = zipLFixViaApplicative1BizipP F applicative1F bizipPF bifunctorF foldable2F
+  { zip = zipLFixViaApplicative1BizipP F bifunctorF applicative1F bizipPF foldable2F
   , unit = (applicativeLFixViaApplicative1 F applicative1F).unit
   }
 ```
@@ -13864,9 +13864,29 @@ let applicativeLFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F �
 #### Non-empty lists
 
 To test this code, let us again look at non-empty lists.
+We already implemented two different  `BizipP` evidence values for non-empty lists (`bizipPFNEL_truncating` and `bizipPFNEL_padding`).
+We will now derive the corresponding `zip` functions and apply them to some test data.
 
- 
-TODO:Show that, for lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
+To use `zipLFixViaApplicative1BizipP`, we need to supply `Applicative1`, `Bifunctor`, `BizipP`, and `Foldable2` evidence values for `F`.
+The first three values have been defined before.
+A `Foldable2` evidence value is:
+```dhall
+let foldable2FNEL : Foldable2 FNEL = λ(a : Type) →
+  { toList = λ(b : Type) → λ(fa : FNEL a b) →
+    merge { Left = λ(x : a) → [] : List b
+          , Right = λ(p : Pair a b) → [ p._2 ]
+          } fa
+  }
+```
+
+This gives us two versions of `zip` for `NELF`:
+
+```dhall
+let zipNELF_padding = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_padding foldable2FNEL
+let zipNELF_truncating = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_truncating foldable2FNEL
+```
+
+TODO:Show that,r lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
 
 
 
