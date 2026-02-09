@@ -13885,7 +13885,7 @@ This gives us two versions of `zip` for `NELF`:
 let zipNELF_padding = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_padding foldable2FNEL
 let zipNELF_truncating = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_truncating foldable2FNEL
 ```
-However, it turns out that these two functions work in the same way.
+However, it turns out that these two functions work in the same way for non-empty lists.
 Let us see how some sample data is zipped by these functions:
 
 todo: figure out why padding and truncating are the same here
@@ -13906,12 +13906,10 @@ let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_truncating Natural 
   { _1 = 3, _2 = 5 },
 ]
 ```
+Both perform the "padding" `zip` operation.
 
-TODO:Show that,r lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
+#### Ordinary lists
 
-
-
-todo: fix the text
 
 For ordinary lists (equivalent to `List`), it turns out that there is only one possibility of implementing `bizipP`, and it corresponds to the "truncating" `zip`.
 To get the "padding" `zip`, one needs to handle the case of an empty list separately.
@@ -13919,6 +13917,17 @@ Zipping an empty list with any other list gives again an empty list.
 The remaining case is zipping two non-empty lists; we can convert those to the `NEL` type and then use the "padding" `zip` that is available for `NEL`.
 
 todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list. implement this code and test it.
+
+
+#### Non-empty trees with data in leaves
+
+#### Trees with data in branch nodes
+
+TODO:Show that,r lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
+
+
+
+todo: fix the text
 
 
 
