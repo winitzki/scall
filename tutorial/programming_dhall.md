@@ -13477,10 +13477,10 @@ let applicative12FNEL : Applicative12 FNEL
     let R = FNEL (Pair a b) (Pair s t) in
     merge { Left = λ(x : a) →
             merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-                  , Right = λ(p : Pair b t) → R.Left { _1 = x, _2 = p._1 } -- Lose p._2 here.
+                  , Right = λ(pbt : Pair b t) → R.Left { _1 = x, _2 = pbt._1 } -- Must lose pbt._2 here.
                   } fbt
           , Right = λ(pas : Pair a s) →
-            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Lose pas._2 here.
+            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Must lose pas._2 here.
                   , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
                   } fbt
           } fas
@@ -13505,7 +13505,7 @@ let bizipPFNEL_padding : BizipP FNEL
     let R = FNEL (Pair a b) (Pair (L a) (L b)) in
     merge { Left = λ(x : a) →
         merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-              , Right = λ(p : Pair b (L b)) → R.Right { _1 = { _1 = x, _2 = p._1 }, _2 = { _1 = functorL.fmap b a (λ(_ : b) → x) p._2, _2 = p._2 } } -- Padding p._2 with x.
+              , Right = λ(pb : Pair b (L b)) → R.Right { _1 = { _1 = x, _2 = pb._1 }, _2 = { _1 = functorL.fmap b a (λ(_ : b) → x) pb._2, _2 = pb._2 } } -- Padding pb._2 with x.
               } fblb
       , Right = λ(pa : Pair a (L a)) →
         merge { Left = λ(y : b) → R.Right { _1 = { _1 = pa._1, _2 = y }, _2 = { _1 = pa._2, _2 = functorL.fmap a b (λ(_ : a) → y) pa._2 } } -- Padding pa._2 with y.
@@ -13738,13 +13738,13 @@ To see how this works, let us derive `zip` from `Applicative1` for non-empty lis
 
 Non-empty lists are represented by the functor `NELF` defined in the previous section as the least fixpoint of the structure bifunctor `FNEL`.
 An `Applicative1` evidence for `FNEL` was already computed as `applicative1FNEL`.
-So, we define `zip1FNEL` as:
+So, we define `zip1NELF` as:
 
 ```dhall
-let zip1FNEL = zipViaApplicative1 FNEL applicative1FNEL
+let zip1NELF = zipViaApplicative1 FNEL applicative1FNEL
 let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
 let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
-let _ = assert : NELF/toList (Pair Natural Natural) (zip1FNEL Natural nel123 Natural nel12345) ≡ [
+let _ = assert : NELF/toList (Pair Natural Natural) (zip1NELF Natural nel123 Natural nel12345) ≡ [
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 1 },
   { _1 = 3, _2 = 1 },
@@ -13760,12 +13760,12 @@ As one can show, this `zip` method gives rise to an `Applicative` evidence that 
 The value `unit` from `Applicative` contains a one-element list, and the padding behavior works correctly:
 ```dhall
 let nelUnit = (applicativeLFixViaApplicative1 FNEL applicative1FNEL).unit
-let _ = assert : NELF/toList (Pair {} Natural) (zip1FNEL {} nelUnit Natural nel123) ≡ [
+let _ = assert : NELF/toList (Pair {} Natural) (zip1NELF {} nelUnit Natural nel123) ≡ [
   { _1 = {=}, _2 = 1 },
   { _1 = {=}, _2 = 2 },
   { _1 = {=}, _2 = 3 },
 ]
-let _ = assert : NELF/toList (Pair Natural {}) (zip1FNEL Natural nel123 {} nelUnit) ≡ [
+let _ = assert : NELF/toList (Pair Natural {}) (zip1NELF Natural nel123 {} nelUnit) ≡ [
   { _1 = 1, _2 = {=} },
   { _1 = 2, _2 = {=} },
   { _1 = 3, _2 = {=} },
@@ -13884,6 +13884,27 @@ This gives us two versions of `zip` for `NELF`:
 ```dhall
 let zipNELF_padding = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_padding foldable2FNEL
 let zipNELF_truncating = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_truncating foldable2FNEL
+```
+However, it turns out that these two functions work in the same way.
+Let us see how some sample data is zipped by these functions:
+
+todo: figure out why padding and truncating are the same here
+
+```dhall
+let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_padding Natural nel123 Natural nel12345) ≡ [
+  { _1 = 1, _2 = 1 },
+  { _1 = 2, _2 = 2 },
+  { _1 = 3, _2 = 3 },
+  { _1 = 3, _2 = 4 },
+  { _1 = 3, _2 = 5 },
+]
+let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_truncating Natural nel123 Natural nel12345) ≡ [
+  { _1 = 1, _2 = 1 },
+  { _1 = 2, _2 = 2 },
+  { _1 = 3, _2 = 3 },
+  { _1 = 3, _2 = 4 },
+  { _1 = 3, _2 = 5 },
+]
 ```
 
 TODO:Show that,r lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
