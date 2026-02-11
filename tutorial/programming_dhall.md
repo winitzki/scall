@@ -14807,7 +14807,7 @@ let flattenedListC = ListC/join Natural nestedListC
 let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
 ```
 
-#### The non-empty list
+#### Non-empty lists
 
 We have already seen the definition of the non-empty list via curried Church encoding:
 
@@ -14872,7 +14872,11 @@ let flattenedNELNatural = NEL/join Natural nestedNEL
 let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
 ```
 
-#### The binary tree
+#### Non-empty streams
+
+todo: implement like in Stream but using non-empty streams
+
+#### Non-empty binary tree
 
 Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
 We have defined this data type before as `TreeC` via curried Church encoding.
@@ -14926,7 +14930,7 @@ let flattenedTreeC : TreeC Bool = TreeC/join Bool nestedTreeC
 let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
 ```
 
-#### The possibly-empty binary tree
+#### Possibly-empty binary trees
 
 The binary tree data structure `TreeC a` cannot be empty: it contains at least one leaf with a value of type `a`.
 
