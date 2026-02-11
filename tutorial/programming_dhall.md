@@ -15133,7 +15133,7 @@ Monad transformers are a well-known technique for combining monads.
 
 In this chapter, we briefly describe what is known about monad transformers, list the required methods and show the corresponding implementations in Dhall.
 
-### Overview of monad transformers
+
 
 A monad transformer is a mapping from monads to monads.
 That is, for any monad `M` there exists a transformed monad `T M`.
