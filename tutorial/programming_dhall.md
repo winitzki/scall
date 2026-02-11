@@ -9856,7 +9856,7 @@ We can then perform pattern matching directly on that value, since `F` is typica
 So, similarly to the case of Church encodings, `fixG` provides data constructors and `unfixG` provides pattern matching for greatest fixpoint types.
 However, as we will see below, creating "infinite" values requires us to use `makeGFix` and to reason about the suitable choice of  the "seed" data type and the "step" function.
 
-### Example: streams
+### Streams
 
 To build more intuition for working with greatest fixpoint types, we will now implement a number of functions for a specific data type: `Stream`.
 
@@ -10090,14 +10090,30 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
     in makeStream a State (State.InFirst first) step
 ```
 
-To test this code:
 
+Concatenating an infinite stream (e.g., created by `Stream/repeat`) with another stream gives just the first stream.
+Concatenating a finite stream will start the second stream when the first one is finished:
 ```dhall
-let example1Concat = Stream/concat Natural (Stream/repeat Natural [ 1, 2, 3 ]) (listToStream Natural [ 10, 20, 30 ])
-let _ = assert : Stream/take Natural 5 example1Concat ≡ [ 1, 2, 3, 1, 2 ]
-let example2Concat = Stream/concat Natural (listToStream Natural [ 10, 20, 30 ]) (Stream/repeat Natural [ 1, 2, 3 ])
-let _ = assert : Stream/take Natural 5 example2Concat ≡ [ 10, 20, 30, 1, 2 ]
+let example1 = Stream/repeat Natural [ 1, 2, 3 ]  -- Repeat 1, 2, 3, 1, 2, 3, ...
+let example2 = listToStream Natural [ 10, 20, 30 ]  -- A finite stream.
+let example1Concat = Stream/concat Natural example1 example2
+let _ = assert : Stream/take Natural 7 example1Concat ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
+let example2Concat = Stream/concat Natural example2 example1
+let _ = assert : Stream/take Natural 7 example2Concat ≡ [ 10, 20, 30, 1, 2, 3, 1 ]
 ```
+
+We implemented `Stream/concat` that concatenates just two streams.
+The Prelude has the function `List/concat` (of type `List (List a) → List a`) that concatenates any number of lists in an outer list.
+It turns out that no similar function (of type `Stream (Stream a) → Stream a`) can be implemented for streams.
+The reason is that we could define a value of type `Stream (Stream a)` that corresponds to an infinite stream containing a large number of  empty streams and then a non-empty stream.
+We can visualize this situation informally as `[[], [], ..., [], [1], [], ...`.
+The function that concatenates all those streams must be able to compute the next element of the stream.
+But that requires us to traverse the sequence of streams, skipping all empty streams until a non-empty stream is found.
+This computation cannot be guaranteed to terminate, as we do not know if and when a non-empty stream will be found.
+
+The problem comes from the possibility of empty streams.
+For non-empty streams, the concatenating function can be implemented (we will do that below in the chapter "Monads and their combinators").
+
 
 #### Truncated streams
 
@@ -10286,7 +10302,7 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
 We will not show the full proof, as the focus of this book is on code.
 
-### Example: possibly-infinite trees
+### Possibly-infinite trees
 
 Another example of a greatest fixpoint type is a data structure representing trees that may be finite or infinite. 
 
@@ -10461,7 +10477,7 @@ let _ = assert : truncateInfTree2 Natural 4 123 tumbleExample ≡
           (leaf Natural 3))             -- 123  123
 ```
 
-### Example: labeled cyclic graphs
+### Labeled cyclic graphs
 
 One application of greatest fixpoints is to create cyclic structures that can be traversed indefinitely.
 An example was shown in  [a Stackoverflow question](https://stackoverflow.com/questions/60423705/) and involved cyclic graphs.
@@ -13563,7 +13579,9 @@ let applicativeNES_padding : Applicative NES
 #### Ordinary streams
 
 By "ordinary streams" we mean sequences that can be empty, or finite non-empty, or infinite.
-Streams correspond to the greatest fixpoint of the functor `FList`.
+We studied them in the section "Streams" earlier in this book.
+Such streams correspond to the greatest fixpoint of the bifunctor `FList`.
+The least fixpoint of the same bifunctor is the standard `List`.
 
 todo: implement
 
@@ -14720,9 +14738,11 @@ This monad is _not_ obtained by imposing a universal quantifier on another monad
 ### Monads with recursive types
 
 There does not seem to exist a combinator that produces a monad out of a fixpoint of an arbitrary type constructor that has some properties.
-Instead, we will look at specific known monads that have recursive types.
-Some often used monads of that kind are the list-like and the tree-like monads.
 
+The "free monad" is a recursive combinator that takes an arbitrary functor and builds a new monad out of that.
+
+We begin by looking at specific known monads that have recursive types.
+Some often used monads of that kind are the list-like and the tree-like monads.
 Examples of list-like monads are the standard `List` and the non-empty list.
 
 #### The `List` monad
@@ -14927,7 +14947,7 @@ It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic 
 
 A proof of this identity is shown in the Appendix "Naturality and parametricity".
 
-By this identity, we may encode the type `Optional (TreeC a)` as an equivalent type written like this:
+Due to this identity, we may encode the type `Optional (TreeC a)` as an equivalent type written like this:
 ```dhall
 let BTreeE = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → Optional r
 ```
@@ -14973,6 +14993,7 @@ let monadBTreeE : Monad BTreeE =
   in { pure, bind }
 ```
 
+todo: add a unit test
 
 #### The free monad 
 
@@ -14988,8 +15009,9 @@ The **free monad** on a functor `F` is the functor `Free F` recursively defined 
 ```haskell
 data Free F a = Pure a | Join (F (Free T a))   -- Haskell.
 ```
+This Haskell code actually defines the greatest fixpoint type; but the free monad must be the least fixpoint type.
 
-To translate this Haskell definition into Dhall, we need to use the Church encoding.
+To translate this definition into Dhall, we need to use the Church encoding.
 Denote temporarily by `r` the recursive type `Free F a` (where we hold the type parameter `a` fixed).
 Then we obtain the recursive definition `r = Pure a | Join (F r)`.
 Now it is straightforward to Church-encode this definition.
@@ -15063,7 +15085,7 @@ However, we need to keep in mind that the code of `FreeMonad` will work correctl
 Applying `fix`, `unfix`, or other operations will require a `Functor` evidence for `F`.
 
 As an example, let us implement a function `fixFreeMonad` that transforms `F (FreeMonad F a)` into `FreeMonad F a`.
-Similarly to the standard `fix` method, as it allows us to derive the data constructors for the free monad types.
+Similarly to the standard `fix` method, that function allows us to derive the data constructors for the free monad types.
 
 ```dhall
 let fixFreeMonad : ∀(F : Type → Type) → Functor F → ∀(a : Type) → F (FreeMonad F a) → FreeMonad F a
@@ -15079,33 +15101,55 @@ But their code could be also derived mechanically.
 The code of `frLeaf` is the same as the free monad's `pure` method.
 The code of `frBranch` could be derived by applying `fixFreeMonad` to a value of type `D (FrTree a)`.
 
+#### The infinite free monad
+
+The "infinite free monad" is the greatest fixpoint of the same pattern functor used to define the free monad:
+```dhall
+let InfFreeMonad = λ(F : Type → Type) → λ(a : Type) → GFix (λ(r : Type) → Either a (F r))
+```
+It is not a free monad in the mathematical sense, as it does not satisfy some of the laws required for free monads.
+Bit it is nevertheless a monad for any functor `F`.
+
+```dhall
+let monadInfFreeMonad : ∀(F : Type → Type) → Monad (InfFreeMonad F)
+  = λ(F : Type → Type) →
+    let pure = λ(a : Type) → λ(x : a) → ???
+    let bind = λ(a : Type) → λ(fma : InfFreeMonad F a) → λ(b : Type) → λ(f : a → InfFreeMonad F b) → ???
+    in { pure, bind }
+```
+
+todo: implement
+
 ## Monad transformers
 
 The practical aspects of programming with monads are beyond the scope of this book,
-which focuses on the technical aspects of implementation of various FP idioms in System Fω.
+which focuses on  implementation of various FP idioms in System Fω.
 
-It is known that one of the issues arising in monadic programming is the necessity to combine the effects of two or more monads in a single, "larger" monad.
-The new monad must have certain properties and satisfy certain laws.
+One of the issues arising in programming with monads is the necessity to combine the effects of two or more monads in a single, "larger" monad.
+The new monad must have certain properties and satisfy certain laws in order to be useful as a representation of combined effects of the two monads.
+
+Monad transformers are a well-known technique for combining monads. 
 "The Science of Functional Programming" lists eighteen laws of monad transformers and demonstrates the main techniques for implementing transformers for all known monads.
 
 In this chapter, we briefly describe what is known about monad transformers, list the required methods and show the corresponding implementations in Dhall.
 
 ### Overview of monad transformers
 
-Generally, a monad transformer is a mapping from monads to monads.
+A monad transformer is a mapping from monads to monads.
 That is, for any monad `M` there exists a transformed monad `T M`.
-In Dhall, a monad is a type constructor (`Type → Type`), so a monad transformer has the type signature `(Type → Type) → Type → Type`.
+In Dhall, a monad is a type constructor (`Type → Type`), so a monad transformer is of kind `(Type → Type) → Type → Type`.
 
 The definition of monad transformers uses the concept of **monad morhpisms**.
 A monad morphism between monads `M` and `N` is a function with type signature `∀(a : Type) → M a → N a` that satisfies the appropriate identity and composition laws (which we will not write out in this book).
 
 Given any transformer `T`, we may apply `T` to the identity monad.
-The result must be some monad `L`.
+The result will be some monad `L`.
 The monad `L` (the `T`-image of the identity monad) is called the "base monad" of the transformer `T`.
 
 We call `T` a "transformer for the monad `L`" when `L` is the base monad of `T`.
 A monad `M` on which `T` acts is called a "foreign" monad.
 The resulting monad `T M` is the "transformed foreign monad".
+This is a larger monad that combines the effects of `L` and `M`.
 
 There are two kinds of monad transformers that we call "complete" and "incomplete".
 
@@ -15149,7 +15193,8 @@ In other words, we define `T M = M` for all monads `M`.
 All properties of monad transformers are satisfied with this definition.
 
 Applying `T` to the identity monad, we obtain again the identity monad.
-It means that `Id` is the base monad of `T`; we say that `T` is "a transformer for the identity monad". 
+It means that `Id` is the base monad of `T`; we say that `T` is "a transformer for the identity monad".
+This transformer is complete.
 
 A somewhat unusual example of a monad transformer is the codensity monad (`Codensity F a`) when used with a type constructor `F` that is itself a monad.
 In that case, we may view the codensity type constructor as a transformer that takes any monad `F` and produces a new monad `Codensity F`.
@@ -15171,8 +15216,8 @@ it means that the base monad of this transformer is the _identity monad_.
 So, `Codensity` may be also viewed as a monad transformer for the identity monad.
 
 These examples show that the identity monad has (at least) two different, inequivalent transformers.
-However, one of these transformers (`Codensity`) is incomplete as the foreign lift cannot exist.
-The other transformer (the "no-op" one) is complete.
+However, one of these transformers (`Codensity`) is incomplete as it has no foreign lift.
+
 
 ### The `Transformer` typeclass
 
@@ -15208,11 +15253,9 @@ let blift
 
 ### Transformers for standard monads
 
-By convention, we say that `T` is a "transformer for the base monad `L`" if `T` is a monad transformer such that `T Id = L`.
-
-In practical use, a specific transformer is  treated as something closely related to  a specific base monad,
+In practical use, a specific transformer is  treated as something closely related to  a specific base monad.
 But note that the transformer typeclasses do not explicitly mention the base monad.
-So, we will need to formulate transformer combinators as functions that produce transformers, without mentioning the base monad. 
+So, we will need to formulate transformer combinators as functions that produce transformers, without knowing the base monad. 
 
 We begin by implementing standard transformers for a number of well-known monads.
 
@@ -15326,7 +15369,7 @@ let bindViaSwap : ∀(L : Type → Type) → Monad L → ∀(M : Type → Type) 
       in lmb
 ```
 
-We will not write out the required laws of `swap`; they are studied at length in "The Science of Functional Programming".
+We will not write out the required laws of `swap`; they are studied in "The Science of Functional Programming".
 We focus on the practical application of `swap`, which is to define a `Monad` evidence for a functor product of two monads in case a suitable `swap` function can be found:
 ```dhall
 let unsafeMonadCompose
@@ -15338,10 +15381,10 @@ let unsafeMonadCompose
 ```
 
 This combinator will produce the methods `pure` and `bind` with correct type signatures suitable for `Compose L M`.
-But it is not guaranteed that the resulting functions will satisfy the monad laws.
+But   the resulting functions will satisfy the monad laws only when `swap` satisfies its special laws.
 
-We called this combinator `unsafeMonadCompose` to emphasize that it will _not_ necessarily produce a correct composed monad `Compose L M` for arbitrary monads `L` and `M`.
-This combinator may be used only in certain specific cases when it is known that the resulting monad is lawful.
+We called this combinator `unsafeMonadCompose` to emphasize that it will _not_ necessarily produce a correct composed monad `Compose L M` for arbitrary monads `L` and `M` and for arbitrary `swap`.
+This combinator may be used only in specific cases when it is known that `swap` is chosen correctly and the resulting monad is lawful.
 
 #### State monad
 
@@ -15723,30 +15766,32 @@ let completeTransformerTNEL : CompleteTransformer TNEL
 Certain typeclasses support "free instances".
 A "free instance" creates a type that belongs to a typeclass out of any other type.
 
-For example, a "free monoid on `T`" creates a monoidal type out of any given type `T` in a certain way.
+For example, a "free monoid on `T`" creates a monoid out of any given type `T`.
 It turns out that the free monoid on `T` is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
 So, the free monoid is created by the type constructor `List`.
 
 Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
 
-We have already seen two examples of "free instances" (the free monad and the free pointed functor) in the chapter about monads.
-That chapter  did not emphasize that the type constructors involved in `monadFreeMonad` and `monadFreePointed` are in any way special, and did not explain the choice of the term "free".
-But we can see that the free monad  on   `F`  wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
-
+We have already seen two examples of "free instances" (the free monad and the free pointed functor) earlier in this book.
+The free monad  on   `F`  wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
 Similarly,  the "free pointed" functor on `F` is the functor `CoProduct Id F`.
 It is always a pointed functor, even if the functor `F` is not  pointed.
 
-To qualify as a free typeclass instance, the type constructor must satisfy certain laws that are developed in
-Chapter 13 of "The Science of Functional Programming", which  we  will not write out in detail here. 
-An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined `monoidOptionalKeepX` and `monoidOptionalKeepY`.
-That construction takes an arbitrary type `T` and produces the type `Optional T`, which is always a monoid.
-But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of a free typeclass instance.
+At that point, we  did not emphasize that the type constructors involved in `monadFreeMonad` and `monadFreePointed` are in any way special, and we did not explain the choice of the term "free".
+To qualify as a free typeclass instance, a type constructor must satisfy certain laws that we will not write here (those laws are explained in
+Chapter 13 of "The Science of Functional Programming").
+
+An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined the combinators `monoidOptionalKeepX` and `monoidOptionalKeepY`.
+Those combinators take an arbitrary type `T` and produce a `Monoid` evidence for the type `Optional T`.
+But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of  free typeclass instances.
 
 How can we see that?
-One of the required properties is that for any monoid `M` there must be a function of type `Optional M → M` preserving the operations of the monoid `Optional M`.
+One of the required properties is that for any monoid `M` there must be a function of type `Optional M → M` preserving the operations of both monoids.
 But the definitions of `monoidOptionalKeepX` or `monoidOptionalKeepY` do not satisfy that property.
-Both those functions lose information about one of the arguments and cannot preserve the monoid operations.
+Those functions lose information about one of the arguments and cannot preserve the monoid operations.
+The correct free monoid on `T` is `List T`.
+For any monoid `M` there is a unique function of type `List M → M` that preserves the monoid operations.
 
 Keep in mind that not all typeclasses can have free instances.
 Examples of typeclasses that do not have free instances are `Eq`, `Show`, `Comonad`, `Foldable`, and `Traversable`.
@@ -15755,8 +15800,8 @@ Examples of typeclasses that do not have free instances are `Eq`, `Show`, `Comon
 ### FM-typeclasses and their free instances
 
 
-Chapter 13 of  "The Science of Functional Programming" studies a certain   subset of typeclasses   called **FM-typeclasses**.
-Examples are  `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor`.
+Chapter 13 of  "The Science of Functional Programming" defines a certain   subset of typeclasses   called **FM-typeclasses**.
+Among the typeclasses shown in this book, examples of FM-typeclasses are  `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor`.
 It turns out that all FM-typeclasses admit "free instances".
 This chapter will show a number of examples.
 
@@ -15788,7 +15833,7 @@ The evidence value (of type `P t → t`) must satisfy the laws appropriate for t
 
 The letters "FM" is a shorthand for "functor-monad" and refer to the properties of FM-typeclasses that we will discuss shortly.
 
-In this book we will usually denote the structure functor by `P` rather than by, say, `F`, as `F` will be sometimes used to denote other functors.
+In this book we will usually denote   structure functors by `P` rather than by, say, `F`, as `F` will be sometimes used to denote other functors.
 
 
 We may write down the required type signature as:
