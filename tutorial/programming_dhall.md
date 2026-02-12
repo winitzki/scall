@@ -10184,8 +10184,10 @@ let headTail : ∀(a : Type) → List a → HeadTailT a
     merge { None = (HeadTailT a).Nil
           , Some = λ(h : a) → (HeadTailT a).Cons { head = h, tail = List/drop 1 a list }
            } (List/head a list)
-let listToStream : ∀(a : Type) → List a → Stream a
+let Stream/fromList : ∀(a : Type) → List a → Stream a
   = λ(a : Type) → λ(list : List a) → makeStream a (List a) list (headTail a)
+let exampleStream102030 : Stream Natural = Stream/fromList Natural [ 10, 20, 30 ]
+let _ = assert : Stream/take Natural 10 exampleStream102030 ≡ [ 10, 20, 30 ]
 ```
 
 #### Creating infinite streams
@@ -10212,7 +10214,7 @@ We can compute a finite prefix of this infinite stream:
 ```
 
 Another example of an infinite stream is a certain sequence repeated infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
-For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `listToStream`.
+For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `Stream/fromList`.
 The initial "seed" value is the list `[ 1, 2, 3 ]`.
 Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
 
@@ -10268,7 +10270,7 @@ Concatenating an infinite stream (e.g., created by `Stream/repeat`) with another
 Concatenating a finite stream will start the second stream when the first one is finished:
 ```dhall
 let example1 = Stream/repeat Natural [ 1, 2, 3 ]  -- Repeat 1, 2, 3, 1, 2, 3, ...
-let example2 = listToStream Natural [ 10, 20, 30 ]  -- A finite stream.
+let example2 = Stream/fromList Natural [ 10, 20, 30 ]  -- A finite stream.
 let example1Concat = Stream/concat Natural example1 example2
 let _ = assert : Stream/take Natural 7 example1Concat ≡ [ 1, 2, 3, 1, 2, 3, 1 ]
 let example2Concat = Stream/concat Natural example2 example1
@@ -10326,7 +10328,7 @@ The analogous operation for streams can be implemented as a special case of conc
 
 ```dhall
 let Stream/cons : ∀(a : Type) → a → Stream a → Stream a
- = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (listToStream a [ x ]) stream
+ = λ(a : Type) → λ(x : a) → λ(stream : Stream a) → Stream/concat a (Stream/fromList a [ x ]) stream
 ```
 
 We may use `Stream/nil` and `Stream/cons` to create finite streams, similar to how the constructors `nil` and `cons` create lists.
@@ -10462,7 +10464,7 @@ let Stream/map : ∀(a : Type) → ∀(b : Type) → (a → b) → Stream a → 
       in sa r pack_a
 let functorStream : Functor Stream = { fmap = Stream/map }
 
-let _ = assert : Stream/take Natural 5 (Stream/map Natural Natural (λ(x : Natural) → x * 10) (listToStream Natural [ 1, 2, 3 ]) ) ≡ [ 10, 20, 30 ]
+let _ = assert : Stream/take Natural 5 (Stream/map Natural Natural (λ(x : Natural) → x * 10) (Stream/fromList Natural [ 1, 2, 3 ]) ) ≡ [ 10, 20, 30 ]
 ```
 
 Note that the type signatures of `Stream/map` and `Stream/scanMap` are somewhat similar.
@@ -13807,13 +13809,31 @@ let applicative12StreamF : Applicative12 F
                       R.Cons { head = { _1 = pas.head, _2 = pbt.head }, tail = { _1 = pas.tail, _2 = pbt.tail } }
                     } fbt
             } fas
-    , biunit = (F {} {}).Nil
+    , biunit = (F {} {}).Cons { head = {=}, tail = {=} }
     }
 let bizipPStreamF : BizipP F = bizipPViaApplicative12 F applicative12StreamF
 ```
 
+Now we can implement a `zip` function and an `Applicative` evidence:
 
-todo: implement
+```dhall
+let Stream/zip = zipViaBizipP F bifunctorStreamF bizipPStreamF
+let applicativeStream : Applicative (λ(a : Type) → GFix (F a))
+  = applicativeGFixViaBizipP F bifunctorStreamF bizipPStreamF applicative12StreamF.biunit
+```
+
+To test this code, we use `Stream/take`:
+
+```dhall
+let exampleStreamNat = Stream/function Natural 0 (λ(x : Natural) → x + 1)
+let _ = assert : Stream/take (Pair Natural Natural) 5 (Stream/zip Natural exampleStream102030 Natural exampleStreamNat) ≡ [
+ { _1 = 10, _2 = 0 },
+ { _1 = 20, _2 = 1 },
+ { _1 = 30, _2 = 2 },
+]
+```
+
+This is the expected behavior of `zip`: the result is truncated to the shortest sequence.
 
 #### Non-empty trees with data in leaves
 
