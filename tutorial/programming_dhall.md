@@ -14215,10 +14215,20 @@ Now we are ready to test two implementations of `zip`: one based on `Applicative
 
 ```dhall
 let ListS/zip1 = zipLFixViaApplicative1 F applicative1StreamF
+let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip1 Natural exampleS123 Natural exampleS45) ≡ [
+  { _1 = 1, _2 = 4 },
+  { _1 = 2, _2 = 4 },
+  { _1 = 3, _2 = 4 },
+]
 let ListS/zip = zipLFixViaApplicative1BizipP F bifunctorStreamF applicative1StreamF bizipPStreamF foldable2StreamF
+let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip Natural exampleS123 Natural exampleS45) ≡ [
+  { _1 = 1, _2 = 4 },
+  { _1 = 2, _2 = 5 },
+]
 ```
+We see that `ListS/zip1` does not actually iterate over the second list; this behavior is incorrect as it fails the laws of applicative functors.
+However, `ListS/zip` behaves as expected.
 
-todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list. implement this code and test it.
 
 
 #### Non-empty trees with data in leaves
