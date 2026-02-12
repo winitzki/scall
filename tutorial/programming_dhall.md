@@ -15062,8 +15062,8 @@ let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
     bt (TreeC a) (leafC a) (branchC a)
 ```
 
-These functions are each other's inverses.
-This is proved  in the Appendix "Naturality and parametricity".
+The Appendix "Naturality and parametricity" proves that  the Church-Yoneda identity indeed gives equivalent types.
+It follows, as a particular case, that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
 
 We can implement data constructors directly for `BTreeE`:
 
