@@ -15043,16 +15043,34 @@ It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic 
 
 `∀(r : Type) → (F r → r) → G r`
 
-A proof of this identity is shown in the Appendix "Naturality and parametricity".
 
 Due to this identity, we may encode the type `Optional (TreeC a)` as an equivalent type written like this:
 ```dhall
 let BTreeE = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → Optional r
 ```
 
-We can implement data constructors directly in this encoding:
+Values of type `Optional (TreeC a)` can be converted into this encoding and back:
+```dhall
+let optTreeCToBTreeE : ∀(a : Type) → Optional (TreeC a) → BTreeE a
+  = λ(a : Type) → λ(ot : Optional (TreeC a)) →
+    λ(r : Type) → λ(ar : a → r) → λ(rrr : r → r → r) →
+      merge { None = None r
+            , Some = λ(t : TreeC a) → Some (t r ar rrr)
+            } ot
+let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
+  = λ(a : Type) → λ(bt : BTreeE a) →
+    bt (TreeC a) (leafC a) (branchC a)
+```
+
+These functions are each other's inverses.
+This is proved  in the Appendix "Naturality and parametricity".
+
+We can implement data constructors directly for `BTreeE`:
 
 ```dhall
+let emptyE : ∀(a : Type) → BTreeE a
+  = λ(a : Type) →
+    λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) → None r
 let leafE : ∀(a : Type) → a → BTreeE a
   = λ(a : Type) → λ(x : a) →
     λ(r : Type) → λ(leaf : a → r) → λ(branch : r → r → r) →
