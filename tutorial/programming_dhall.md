@@ -7079,8 +7079,7 @@ let more : ∀(a : Type) → a → NEL_F a → NEL_F a
 let exampleNEL : NEL_F Natural = more Natural 1 (more Natural 2 (last Natural 3))
 ```
 
-It is more convenient to work with non-empty lists if we define them without using union types or record types.
-This is achieved if we use the curried form of the Church encoding:
+It is more convenient to work with non-empty lists if we define them via the curried form of the Church encoding, without using union types or record types:
 
 ```dhall
 let NEL = λ(a : Type) → ∀(r : Type) → (a → r) → (a → r → r) → r
@@ -7091,7 +7090,6 @@ The constructors for `NEL` are:
 - a function (`one`) that creates a list consisting of one element
 - a function (`consn`) that prepends a given value of type `a` to a non-empty list of type `NEL a`
 
-Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
 
 ```dhall
 let one : ∀(a : Type) → a → NEL a =
@@ -7102,6 +7100,10 @@ let consn : ∀(a : Type) → a → NEL a → NEL a =
     λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
       λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) →
         arr x (prev r ar arr)
+```
+
+Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
+```dhall
 let example1 : NEL Natural = consn Natural 1 (consn Natural 2 (one Natural 3))
 let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
 let example3 : NEL Natural = consn Natural 4 (one Natural 5)
@@ -7181,6 +7183,79 @@ let _ = assert : NEL/tailOptional Natural example1 ≡ Some (consn Natural 2 (on
 let _ = assert : NEL/tailOptional Natural (one Natural 1) ≡ None (NEL Natural)
 ```
 
+#### Zipping non-empty lists: an attempt that fails
+
+Let us see if we can implement the `zip` operation on non-empty lists by using the Church encoding.
+
+The `zip` operation must have type `NEL a → NEL b → NEL (Pair a b)`.
+The code could look like this:
+
+```dhall
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+  = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
+    λ(r : Type) → λ(one_ : Pair a b → r) → λ(more_ : Pair a b → r → r) → ???
+```
+We need to compute a value of an unknown type `r`.
+Note that `nela : NEL a` and `nelb : NEL b` are functions that can produce values of any type, as long as suitable arguments can be supplied.
+For instance, `nelb` can produce a value of type `r` if we supply functions of types `b → r` and `b → r → r` as arguments.
+```dhall
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+  = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
+    λ(r : Type) → λ(one_ : Pair a b → r) → λ(more_ : Pair a b → r → r) →
+      let br : b → r = ???
+      let brr : b → r → r = ???
+      in nelb r br brr
+```
+To get those values, we could use `nela` with type parameters `b → r` and `b → r → r`.
+```dhall
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+  = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
+    λ(r : Type) → λ(one_ : Pair a b → r) → λ(more_ : Pair a b → r → r) →
+      let abr : a → b → r = ???
+      let abrbr : a → (b → r) → b → r = ???
+      let br : b → r = nela (b → r) abr abrbr
+      let abrr : a → b → r → r = ???
+      let abrbr : a → (b → r → r) → b → r →r = ???
+      let brr : b → r → r = nela (b → r → r) abrr abrrbrr
+      in nelb r br brr
+```
+It remains to implement the missing functions in some way. We guess the code, trying to avoid ignoring any input values:
+```dhall
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+  = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
+    λ(r : Type) → λ(one_ : Pair a b → r) → λ(more_ : Pair a b → r → r) →
+      let abr : a → b → r = λ(x : a) → λ(y : b) → one_ { _1 = x, _2 = y}
+      let abrbr : a → (b → r) → b → r = λ(x : a) → λ(br : b → r) → λ(y : b) →
+        more_ { _1 = x, _2 = y} (br y)
+      let br : b → r = nela (b → r) abr abrbr
+      let abrr : a → b → r → r = λ(x : a) → λ(y : b) → λ(z : r) →
+        more_ { _1 = x, _2 = y} z
+      let abrrbrr : a → (b → r → r) → b → r → r = λ(x : a) → λ(brr : b → r → r) → λ(y : b) → λ(z : r) →
+        abrr x y (brr y z)
+      let brr : b → r → r = nela (b → r → r) abrr abrrbrr
+      in nelb r br brr
+```
+
+To test the resulting code, we use a function `NEL/toList`:
+
+```dhall
+let NEL/toList : ∀(a : Type) → NEL a → List a
+  = λ(a : Type) → λ(nel : NEL a) → nel (List a) (λ(x : a ) → [ x ]) (λ(x : a) → λ(p : List a) → [ x ] # p)
+let _ = assert : NEL/toList Natural example1 ≡ [ 1, 2, 3 ]
+let examplezip1 = NEL/zip Natural example1 Natural example3
+let _ = assert : NEL/toList (Pair Natural Natural) examplezip1 ≡ [
+  { _1 = 1, _2 = 4},
+  { _1 = 2, _2 = 4},
+  { _1 = 3, _2 = 4},
+  { _1 = 1, _2 = 5},
+  { _1 = 2, _2 = 5},
+  { _1 = 3, _2 = 5},
+]
+```
+We find that the `zip` function performs a different operation than we may have expected: it is a `zip` derived from the monadic `bind` function of lists.
+This is nevertheless a lawful operation that satisfies the laws of applicative functors.
+
+Below in the chapter "Applicative type constructors and their combinators" we will see how to implement other ways of zipping non-empty lists.
 
 ### Size and depth of generic Church-encoded data
 
@@ -12811,6 +12886,16 @@ It is not possible to know in advance whether a given sequence of type `InfSeq B
 The filter function will need to iterate over the entire sequence, looking for any element equal to `True`.
 This computation cannot terminate and cannot be implemented in Dhall.
 
+
+
+
+
+
+
+
+
+
+
 ## Applicative type constructors and their combinators
 
 The familiar `zip` method for lists works by transforming a pair of lists into a list of pairs.
@@ -13582,6 +13667,10 @@ By "ordinary streams" we mean sequences that can be empty, or finite non-empty, 
 We studied them in the section "Streams" earlier in this book.
 Such streams correspond to the greatest fixpoint of the bifunctor `FList`.
 The least fixpoint of the same bifunctor is the standard `List`.
+
+We have previously defined `Stream` as the greatest fixpoint of the bifunctor `F a r = < Nil | Cons : { head : a, tail : r } >`, which is equivalent to `FList a r` as type.
+
+To implement an `Applicative` evidence for `Stream`,
 
 todo: implement
 
@@ -14873,6 +14962,9 @@ let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 
 ```
 
 #### Non-empty streams
+
+We defined non-empty streams (`NES`) as the greatest fixpoints of the same pattern functor (`FNEL`) whose least fixpoints are non-empty lists.
+The non-empty list is a monad, and the non-empty stream is a monad as well.
 
 todo: implement like in Stream but using non-empty streams
 
