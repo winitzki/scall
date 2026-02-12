@@ -44,8 +44,7 @@ This book corresponds to the [Dhall standard 23.0.0](https://github.com/dhall-la
 Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
-The syntax of Dhall is similar to that of Haskell.
-But Dhall's syntax for functions  resembles the notation of System F and System Fω.
+The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  resembles more the formal notation of System F and System Fω.
 For instance, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
 $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
@@ -68,15 +67,17 @@ such as `Natural/lessThan` or `List/map`.
 Dhall variables are immutable constant values with names, introduced via the "`let`" syntax.
 Following tradition, we will call them "variables", even though they stand for constants that cannot vary.
 
-For example, `let x = 1 in ...` defines the variable `x` that can be used in the code that follows.
-Names of variables are arbitrary identifiers, like in most programming languages.
+For example, `let x = 1 in ...` defines the variable `x`.
+The variable  `x` can be used in the code that follows after the `let` declaration.
 
-Identifiers in Dhall may contain dash and slash characters.
+
+Names of variables are identifiers, like in most programming languages.
+Identifiers may not be the same as Dhall keywords (`if`, `let`, etc.) but may contain dash and slash characters.
 Examples of valid identifiers are `List/map` and `start-here`.
 
 The slash character is often used in Dhall's standard library, providing suggestive function names such as `List/map`, `Optional/map`, etc.
 However, Dhall does not treat those names specially.
-It is not required that functions working with `List` should have names such as `List/map` or `List/length`.
+It is neither required nor checked that functions working with `List` should have names such as `List/map` or `List/length`.
 
 Identifiers with dashes can be used, for example, as record field names, as it is sometimes needed in configuration files:
 
@@ -116,7 +117,7 @@ However, the Dhall interpreter will not treat the variable `_` in any special wa
 Integers must have a sign: for example, `+1` or `-1` have type `Integer`.
 The integer values `-0` and `+0` are the same.
 
-`Natural` numbers must have no sign (for example, `123`).
+`Natural` numbers must be written without a  sign (for example, `123`).
 In particular, it is incorrect to write `1 +1` without a space, as `+1` is parsed as an integer value; one must write `1 + 1`.
 
 Values of types `Natural` and `Integer` have unbounded size.
@@ -13468,7 +13469,7 @@ Applying `bizip`  will then give us a value of type `F (Pair a b) (Pair s t)`, w
 This gives the following code of `zip`:
 
 ```dhall
-let zipViaBizip : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
+let zipGFixViaBizip : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
@@ -13498,7 +13499,7 @@ Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicativ
 let applicativeGFixViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     { unit = unitViaBiunit F applicative12F.biunit
-    , zip = zipViaBizip F applicative12F
+    , zip = zipGFixViaBizip F applicative12F
     }
 ```
 
@@ -13512,7 +13513,7 @@ The "seed" type for the greatest fixpoint will be `Pair (D a) (D b)`.
 The corresponding code is:
 
 ```dhall
-let zipViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → BizipP F → ZipT (λ(c : Type) → GFix (F c))
+let zipGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → BizipP F → ZipT (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) →
       let D = λ(c : Type) → GFix (F c) in
         λ(bizipP : BizipP F) →
@@ -13538,7 +13539,7 @@ The corresponding `Applicative` evidence is implemented as:
 let applicativeGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → BizipP F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizipP : BizipP F) → λ(biunit : F {} {}) →
     { unit = unitViaBiunit F biunit
-    , zip = zipViaBizipP F bifunctorF bizipP
+    , zip = zipGFixViaBizipP F bifunctorF bizipP
     }
 ```
 
@@ -13570,7 +13571,7 @@ The code of `bizipP` must be derived from `Applicative12`; there are no other us
 (An example of a "useless" implementation is code that converts pairs of type `(a, L a)` to values of type `L b` via `L`'s `fmap`: that would lose information.)
 This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
 ```dhall
-let zipInfSeq : ZipT InfSeq = zipViaBizip Pair applicative12Pair
+let zipInfSeq : ZipT InfSeq = zipGFixViaBizip Pair applicative12Pair
 ```
 To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", "c", ...` that we created earlier.
 ```dhall
@@ -13583,9 +13584,9 @@ let expected = [
 ]
 let _ = assert : InfSeq/take 4 (Pair Natural Text) example ≡ expected
 ```
-Let us also verify that `zipViaBizipP` gives the same result:
+Let us also verify that `zipGFixViaBizipP` gives the same result:
 ```dhall
-let zipInfSeqF = zipViaBizipP Pair bifunctorPair bizipPPair
+let zipInfSeqF = zipGFixViaBizipP Pair bifunctorPair bizipPPair
 let exampleF = zipInfSeqF Natural repeatExample Text exampleRepeatList
 let _ = assert : InfSeq/take 4 (Pair Natural Text) exampleF ≡ expected
 ```
@@ -13728,8 +13729,8 @@ This creates a value of type `L a` in which all data items of type `a` have the 
 The next step is to define the two `zip` functions:
 
 ```dhall
-let zipNES_truncating = zipViaBizipP FNEL bifunctorFNEL bizipPFNEL_truncating
-let zipNES_padding = zipViaBizipP FNEL bifunctorFNEL bizipPFNEL_padding
+let zipNES_truncating = zipGFixViaBizipP FNEL bifunctorFNEL bizipPFNEL_truncating
+let zipNES_padding = zipGFixViaBizipP FNEL bifunctorFNEL bizipPFNEL_padding
 ```
 
 Now  test this code by applying the two `zip` functions to non-empty streams, one finite and one infinite:
@@ -13817,7 +13818,7 @@ let bizipPStreamF : BizipP F = bizipPViaApplicative12 F applicative12StreamF
 Now we can implement a `zip` function and an `Applicative` evidence:
 
 ```dhall
-let Stream/zip = zipViaBizipP F bifunctorStreamF bizipPStreamF
+let Stream/zip = zipGFixViaBizipP F bifunctorStreamF bizipPStreamF
 let applicativeStream : Applicative (λ(a : Type) → GFix (F a))
   = applicativeGFixViaBizipP F bifunctorStreamF bizipPStreamF applicative12StreamF.biunit
 ```
@@ -13866,7 +13867,7 @@ It is impossible to implement `bizip1` without information loss.
 The function `bizipP` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
 When one argument is a `Leaf` and the other is a `Branch` then we use `L`'s `fmap` to produce required values of type `Pair (L a) (L b)`.
 ```dhall
-let bizipP : BizipP FTree
+let bizipPFTree : BizipP FTree
   = { bizipP = λ(L : Type → Type) → λ(functorL : Functor L) → λ(a : Type) → λ(fala : FTree a (L a)) → λ(b : Type) → λ(fblb : FTree b (L b)) →
       let R = FTree (Pair a b) (Pair (L a) (L b))
       let la2lb : b → L a → L b = λ(y : b) → λ(la : L a) → functorL.fmap a b (λ(_ : a) → y) la
@@ -14234,8 +14235,6 @@ However, `ListS/zip` behaves as expected.
 #### Non-empty trees with data in leaves
 
 #### Trees with data in branch nodes
-
-TODO:Show that,r lists,  the ordinary zip  as well as the padding zip can be implemented via bizipP.
 
 
 
