@@ -7214,7 +7214,7 @@ let _ = assert : NEL/initOptional Natural example0 ≡ None (NEL Natural)
 let _ = assert : NEL/initOptional Natural example1 ≡ Some (consn Natural 1 (one Natural 2))
 ```
 
-### Zipping non-empty lists
+### Example: Zipping non-empty lists
 
 We can now implement a standard `zip` method for non-empty lists.
 For that, we will need a function that computes the length of a non-empty list:
@@ -7263,19 +7263,25 @@ let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pa
 To test this code:
 
 ```dhall
-let _ = assert 
-:
- NEL/toList (Pair Natural Natural) (NEL/zip Natural example1 Natural example3) === [ { _1 = 1, _2 = 4 }, { _1 = 2, _2 = 5 } ]
- --(NEL/zip Natural example5 Natural example5).debug ≡ [ example0 ]
-  --[ { _1 = 1, _2 = 4 }, { _1 = 2, _2 = 5 } ]
-
+let exampleZip1 = NEL/zip Natural example1 Natural example3
+let _ = assert : NEL/toList (Pair Natural Natural) exampleZip1 ≡ [
+   { _1 = 1, _2 = 4 },
+   { _1 = 2, _2 = 5 },
+]
+let exampleZip2 = NEL/zip Natural example2 Natural example5
+let _ = assert : NEL/toList (Pair Natural Natural) exampleZip2 ≡ [
+   { _1 = 3, _2 = 1 },
+   { _1 = 2, _2 = 2 },
+   { _1 = 1, _2 = 3 },
+]
 ```
 
 
 
 #### Zipping non-empty lists via Church encoding
 
-Let us see if we can implement the `zip` operation on non-empty lists by using the Church encoding.
+The code for `zip` shown above is complicated.
+Let us see if we can implement the `zip` operation on non-empty lists more easily by using the Church encoding directly.
 
 The `zip` operation must have type `NEL a → NEL b → NEL (Pair a b)`.
 The code could look like this:
@@ -7340,7 +7346,9 @@ let _ = assert : NEL/toList (Pair Natural Natural) examplezip1 ≡ [
   { _1 = 3, _2 = 5},
 ]
 ```
-We find that the `zip` function performs a different operation than we may have expected: it is a `zip` derived from the standard monadic `bind` function of lists.
+We find that the `zip` function performs a different operation than we may have expected.
+It is a `zip` that would be derived from the standard monadic `bind` function of lists.
+This is not usually what one desires from a `zip`.
 Nevertheless, this `zip`  operation   satisfies the laws of applicative functors.
 
 Below in the chapter "Applicative type constructors and their combinators" we will see how to implement other lawful ways of zipping non-empty lists.
@@ -13354,12 +13362,12 @@ We now turn to deriving an `Applicative` evidence for `H`.
 It does not seem to be possible to derive it in the same way as we did for `G`.
 Instead, we will require a special "applicative-like" property for `F` where the `zip` method works with _both_ type parameters of `F` at once.
 The required type signatures are `F a x → F b y → F (Pair a b) (Pair x y)` and `F {} {}`.
-We will encapsulate these types in a typeclass called `Applicative12`, with methods called `bizip2` and `biunit2`:
+We will encapsulate these types in a typeclass called `Applicative12`, with methods called `bizip` and `biunit`:
 
 ```dhall
 let Applicative12 = λ(F : Type → Type → Type) → {
-  bizip2 : ∀(a : Type) → ∀(x : Type) → F a x → ∀(b : Type) → ∀(y : Type) → F b y → F (Pair a b) (Pair x y)
-, biunit2 : F {} {} 
+  bizip : ∀(a : Type) → ∀(x : Type) → F a x → ∀(b : Type) → ∀(y : Type) → F b y → F (Pair a b) (Pair x y)
+, biunit : F {} {} 
 }
 ```
 
@@ -13371,11 +13379,11 @@ let applicativeExists
   : ∀(F : Type → Type → Type) → Applicative12 F → Applicative (λ(a : Type) → Exists (F a))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     let H : Type → Type = λ(a : Type) → Exists (F a)
-    in { unit = pack (F {}) {} applicative12F.biunit2
+    in { unit = pack (F {}) {} applicative12F.biunit
        , zip = λ(a : Type) → λ(ra : H a) → λ(b : Type) → λ(rb : H b) →
          ra (H (Pair a b)) (λ(s : Type) → λ(fas : F a s) →
            rb (H (Pair a b)) (λ(t : Type) → λ(fbt : F b t) →
-             let fabst : F (Pair a b) (Pair s t) = applicative12F.bizip2 a s fas b t fbt
+             let fabst : F (Pair a b) (Pair s t) = applicative12F.bizip a s fas b t fbt
              in pack (F (Pair a b)) (Pair s t) fabst
            )
          )
@@ -13401,21 +13409,20 @@ One can derive an `Applicative` evidence for `C` by using `Applicative1`, while 
 However, it turns out that this technique is insufficient.
 For greatest fixpoints, the requirement of having `Applicative12` turns out to be too strong for some `F`.
 For example, the pattern bifunctor `F a b = Either a (Pair b b)` defines binary trees carrying data in leaves.
-But implementing `bizip2` (required for `Applicative12`) is impossible for this `F`.
+But implementing `bizip` (required for `Applicative12`) is impossible for this `F`.
 In one of the required pattern-matching cases, we would need to implement a function of type `a → Pair t t → Either (Pair a b) (Pair (Pair s t) (Pair s t))`.
 This is not possible as we cannot create values of unknown types `b` or `s` from scratch.   
 
 For least fixpoints (`C a = LFix (F a)`), the technique based on `Applicative1` gives in many cases an `Applicative` evidence for `C` that loses information and is not useful in applications (for instance, a `zip` implementation that, when applied to two sequences, does not iterate over the second sequence).
 
-A solution  is
-to impose a  requirement for `F` that is weaker than the requirement of having `Applicative1` or `Applicative12`.
-A suitable weaker requirement is to have a method we  call    `bizipP`, with the following  type signature:
+A solution is to impose a  requirement for `F` that is weaker than the requirement of having `Applicative1` or `Applicative12`.
+A suitable weaker requirement is to have a method we will call `bizipP`, having the type signature:
 
 ```dhall
 let bizipP : F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b)) = ???
 ```
 Here `L` is an _arbitrary_ functor, viewed as an extra type parameter.
-Let us  define this type signature  in Dhall as a typeclass with a single method:
+Let us  define this type signature  in Dhall as a single-method typeclass `BizipP`:
 
 ```dhall
 let BizipP = λ(F : Type → Type → Type) → {
@@ -13426,10 +13433,24 @@ let BizipP = λ(F : Type → Type → Type) → {
 ```
 
 The type   of that `bizipP` can be written as `F a s → F b t → F (Pair a b) (Pair s t)` if we set `s = L a` and `t = L b`.
-This type signature is similar to that of `bizip2` from `Applicative12`, except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
+This type signature is similar to that of `bizip` from `Applicative12`, except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
 While an evidence of `Applicative12 F` exists only for some bifunctors `F`, `BizipP F` can be implemented for all polynomial bifunctors `F`.
 
 The "P" in `bizipP` stands for "padding", and we will show below that the type signature of `bizipP` is flexible enough to implement padding behavior required for some data structures.
+
+For those bifunctors `F` that have an `Applicative12` evidence, one can derive the corresponding `BizipP` evidence automatically:
+
+```dhall
+let bizipPViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F → BizipP F
+  = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) → {
+    bizipP = λ(L : Type → Type) → λ(_ : Functor L) → λ(a : Type) → λ(fala : F a (L a)) → λ(b : Type) → λ(fblb : F b (L b)) →
+      applicative12F.bizip a (L a) fala b (L b) fblb
+  }
+```
+
+However,  the functionality of `zip` derived from this `BizipP` evidence will be the same as the functionality of `zip` derived directly from `Applicative12`.
+We will use this combinator only for cosmetic convenience (say, when we already have a function taking a `BizipP` evidence).
+In many cases it will be possible and useful to implement `BizipP` differently.
 
 #### Generic implementations
 
@@ -13440,12 +13461,12 @@ For a given  pattern bifunctor `F`, we will consider two cases: when we have evi
 When  `F` has an `Applicative12` evidence, we can implement `zip` by unpacking the existential types within the greatest fixpoints in a straightforward way.
 Recall that the greatest fixpoint `D` is encoded as $D~a = \exists t.~t\times (t\to F~a~t)$.
 If we have two values of types `D a` and `D b`, we may unpack those values and obtain values of types `F a s` and `F b t` (under universal quantifiers for `s` and `t`).
-Applying `bizip2`  will then give us a value of type `F (Pair a b) (Pair s t)`, which is sufficient for constructing a value of the fixpoint type `GFix (F (Pair a b))`.
+Applying `bizip`  will then give us a value of type `F (Pair a b) (Pair s t)`, which is sufficient for constructing a value of the fixpoint type `GFix (F (Pair a b))`.
 
 This gives the following code of `zip`:
 
 ```dhall
-let zipViaBizip2 : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
+let zipViaBizip : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
@@ -13455,27 +13476,27 @@ let zipViaBizip2 : ∀(F : Type → Type → Type) → Applicative12 F → ZipT 
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
           -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
           makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
-            (λ(st : Pair s t) → applicative12F.bizip2 a s (p.step st._1) b t (q.step st._2))
+            (λ(st : Pair s t) → applicative12F.bizip a s (p.step st._1) b t (q.step st._2))
         )
       )
 ```
 
 To make an applicative functor complete, we need a   `unit` method.
-For that, we require a `biunit2 : F {} {}`  value for `F`, which is part of `Applicative12`.
+For that, we require a `biunit : F {} {}`  value for `F`, which is part of `Applicative12`.
 
 ```dhall
-let unitViaBiunit2 : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
-  = λ(F : Type → Type → Type) → λ(biunit2 : F {} {}) →
-    makeGFix (F {}) {} {=} (λ(u : {}) → biunit2)
+let unitViaBiunit : ∀(F : Type → Type → Type) → F {} {} → GFix (F {})
+  = λ(F : Type → Type → Type) → λ(biunit : F {} {}) →
+    makeGFix (F {}) {} {=} (λ(u : {}) → biunit)
 ```
 
-Assuming suitable laws for `bizip2` and `biunit2`, we can now write an `Applicative` evidence for the greatest fixpoint:
+Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicative` evidence for the greatest fixpoint:
 
 ```dhall
 let applicativeGFixViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
-    { unit = unitViaBiunit2 F applicative12F.biunit2
-    , zip = zipViaBizip2 F applicative12F
+    { unit = unitViaBiunit F applicative12F.biunit
+    , zip = zipViaBizip F applicative12F
     }
 ```
 
@@ -13513,8 +13534,8 @@ The corresponding `Applicative` evidence is implemented as:
 
 ```dhall
 let applicativeGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → BizipP F → F {} {} → Applicative (λ(c : Type) → GFix (F c))
-  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizipP : BizipP F) → λ(biunit2 : F {} {}) →
-    { unit = unitViaBiunit2 F biunit2
+  = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(bizipP : BizipP F) → λ(biunit : F {} {}) →
+    { unit = unitViaBiunit F biunit
     , zip = zipViaBizipP F bifunctorF bizipP
     }
 ```
@@ -13537,20 +13558,17 @@ We now implement `Applicative12` and `BizipP` for `Pair`:
 ```dhall
 let unitPair = { _1 = {=}, _2 = {=} }
 let applicative12Pair : Applicative12 Pair
-  = { bizip2 = λ(a : Type) → λ(b : Type) → λ(pab : Pair a b) → λ(c : Type) → λ(d : Type) → λ(pcd : Pair c d) →
-  { _1 = { _1 = pab._1, _2 = pcd._1 }, _2 = { _1 = pab._2, _2 = pcd._2 } }
-    , biunit2 = unitPair
+  = { bizip = λ(a : Type) → λ(b : Type) → λ(pab : Pair a b) → λ(c : Type) → λ(d : Type) → λ(pcd : Pair c d) →
+      { _1 = { _1 = pab._1, _2 = pcd._1 }, _2 = { _1 = pab._2, _2 = pcd._2 } }
+    , biunit = unitPair
     }
-let bizipPPair : BizipP Pair
-  = { bizipP = λ(L : Type → Type) → λ(_ : Functor L) → λ(a : Type) → λ(ala : Pair a (L a)) → λ(b : Type) → λ(blb : Pair b (L b)) →
-  applicative12Pair.bizip2 a (L a) ala b (L b) blb
-  }
+let bizipPPair : BizipP Pair = bizipPViaApplicative12 Pair applicative12Pair
 ```
-The code of `bizipP` is a simple application of `bizip2`; there are no other useful implementations.
+The code of `bizipP` must be derived from `Applicative12`; there are no other useful implementations.
 (An example of a "useless" implementation is code that converts pairs of type `(a, L a)` to values of type `L b` via `L`'s `fmap`: that would lose information.)
 This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
 ```dhall
-let zipInfSeq : ZipT InfSeq = zipViaBizip2 Pair applicative12Pair
+let zipInfSeq : ZipT InfSeq = zipViaBizip Pair applicative12Pair
 ```
 To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", "c", ...` that we created earlier.
 ```dhall
@@ -13664,32 +13682,29 @@ let applicative1FNEL : Applicative1 FNEL
     , biunit1 = λ(y : Type) → (FNEL {} y).Left {=}
     }
 let applicative12FNEL : Applicative12 FNEL
-  = { bizip2 = λ(a : Type) → λ(s : Type) → λ(fas : FNEL a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FNEL b t) →
-    let R = FNEL (Pair a b) (Pair s t) in
-    merge { Left = λ(x : a) →
-            merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
-                  , Right = λ(pbt : Pair b t) → R.Left { _1 = x, _2 = pbt._1 } -- Must lose pbt._2 here.
-                  } fbt
-          , Right = λ(pas : Pair a s) →
-            merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Must lose pas._2 here.
-                  , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
-                  } fbt
-          } fas
-  , biunit2 = (FNEL {} {}).Right unitPair
-  }
+  = { bizip = λ(a : Type) → λ(s : Type) → λ(fas : FNEL a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FNEL b t) →
+      let R = FNEL (Pair a b) (Pair s t) in
+      merge { Left = λ(x : a) →
+              merge { Left = λ(y : b) → R.Left { _1 = x, _2 = y }
+                    , Right = λ(pbt : Pair b t) → R.Left { _1 = x, _2 = pbt._1 } -- Must lose pbt._2 here.
+                    } fbt
+            , Right = λ(pas : Pair a s) →
+              merge { Left = λ(y : b) → R.Left { _1 = pas._1, _2 = y } -- Must lose pas._2 here.
+                    , Right = λ(bt : Pair b t) → R.Right { _1 = { _1 = pas._1, _2 = bt._1 }, _2 = { _1 = pas._2, _2 = bt._2 } }
+                    } fbt
+            } fas
+    , biunit = (FNEL {} {}).Right unitPair
+    }
 ```
-Note that both `bizip1` and `bizip2` ignore certain parts of the input data.
+Note that both `bizip1` and `bizip` ignore certain parts of the input data.
 But there are no other ways of implementing those functions for `FNEL`.
 
-In contrast, we have two possible implementations of `bizipP`: one copies the code of `bizip2`, the other does not ignore any input data.
+In contrast, we have two possible implementations of `bizipP`: one copies the code of `bizip`, the other does not ignore any input data.
 We will see shortly that the first implementation  gives a "truncating" `zip` and the second   gives  a "padding" `zip`.
 
 ```dhall
 let bizipPFNEL_truncating : BizipP FNEL
-  = { bizipP = λ(L : Type → Type) → λ(functorL : Functor L) →
-  λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
-    applicative12FNEL.bizip2 a (L a) fala b (L b) fblb
-  }
+  = bizipPViaApplicative12 FNEL applicative12FNEL
 let bizipPFNEL_padding : BizipP FNEL
   = { bizipP = λ(L : Type → Type) → λ(functorL : Functor L) →
   λ(a : Type) → λ(fala : FNEL a (L a)) → λ(b : Type) → λ(fblb : FNEL b (L b)) →
@@ -13728,7 +13743,7 @@ let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_pa
   { _1 = 2, _2 = 3 },
   { _1 = 3, _2 = 3 },
   { _1 = 4, _2 = 3 },
-  { _1 = 0, _2 = 0 },
+  { _1 = 0, _2 = 0 }, -- Placeholder for further data in the stream.
 ]
 ```
 
@@ -13737,7 +13752,7 @@ and the "padding" version of `zip`   via the "padding" version of `bizipP`.
 The choice of `zip` needs to be made according to the application requirements.
 
 To obtain a full `Applicative` evidence for `NES`, it remains to define the `unit` value of type `NES {}`.
-We have the general combinator `unitViaBiunit2` that can produce that value given a value of type `F {} {}`.
+We have the general combinator `unitViaBiunit` that can produce that value given a value of type `F {} {}`.
 However, the different versions of `zip` will require different choices of that value, because otherwise the laws of applicative functors will not hold.
 The correct choice of `unit` for the truncating `zip` is an infinite sequence of unit values.
 For the padding `zip`, one needs a sequence of length 1.
@@ -13760,7 +13775,43 @@ The least fixpoint of the same bifunctor is the standard `List`.
 
 We have previously defined `Stream` as the greatest fixpoint of the bifunctor `F a r = < Nil | Cons : { head : a, tail : r } >`, which is equivalent to `FList a r` as type.
 
-To implement an `Applicative` evidence for `Stream`,
+We will now implement an `Applicative` evidence for `Stream` using the generic techniques developed in this chapter.
+The first steps are to implement `Bifunctor`, `Applicative1`, `Applicative12`, and `BizipP` evidence for the pattern bifunctor `F`.
+
+```dhall
+let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
+let bifunctorStreamF : Bifunctor F
+  = { bimap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(fac : F a c) →
+      merge { Nil = (F b d).Nil
+            , Cons = λ(p : { head : a, tail : c }) → (F b d).Cons { head = f p.head, tail = g p.tail}
+            } fac
+    }
+let applicative1StreamF : Applicative1 F
+  = { bizip1 = λ(a : Type) → λ(r : Type) → λ(far : F a r) → λ(b : Type) → λ(fbr : F b r) →
+      merge { Nil = (F (Pair a b) r).Nil
+            , Cons = λ(par : { head : a, tail : r }) →
+              merge { Nil = (F (Pair a b) r).Nil
+                    , Cons = λ(pbr : { head : b, tail : r }) →
+                      (F (Pair a b) r).Cons { head = { _1 = par.head, _2 = pbr.head }, tail = par.tail }   -- Arbitrarily choose par, not pbr.
+                    } fbr
+            } far
+    , biunit1 = λ(r : Type) → (F {} r).Nil
+    }
+let applicative12StreamF : Applicative12 F
+  = { bizip = λ(a : Type) → λ(s : Type) → λ(fas : F a s) → λ(b : Type) → λ(t : Type) → λ(fbt : F b t) →
+    let R = F (Pair a b) (Pair s t) in
+      merge { Nil = R.Nil
+            , Cons = λ(pas : { head : a, tail : s }) →
+              merge { Nil = R.Nil
+                    , Cons = λ(pbt : { head : b, tail : t }) →
+                      R.Cons { head = { _1 = pas.head, _2 = pbt.head }, tail = { _1 = pas.tail, _2 = pbt.tail } }
+                    } fbt
+            } fas
+    , biunit = (F {} {}).Nil
+    }
+let bizipPStreamF : BizipP F = bizipPViaApplicative12 F applicative12StreamF
+```
+
 
 todo: implement
 
@@ -13772,7 +13823,7 @@ We now consider trees defined as the least fixpoint of the bifunctor `FTree`:
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let Tree2 = LFixT FTree
 ```
-As we already discussed, the type signature of `bizip2` in `Applicative12` cannot be implemented for this bifunctor.
+As we already discussed, the type signature of `bizip` in `Applicative12` cannot be implemented for this bifunctor.
 So, we will implement   `zip`  via `Applicative1` and `BizipP` and test the resulting behaviors.
 
 
@@ -13817,7 +13868,7 @@ TODO:run this on some examples
 
 #### Trees with data in branch nodes
 
-TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip2  and show pictures of trees)
+TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip  and show pictures of trees)
 
 TODO: explain that "padding" corresponds to using the functor instance in bizipP to convert (a, L b) -> L (a, b)
 
