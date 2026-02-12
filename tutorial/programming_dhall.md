@@ -117,6 +117,7 @@ Integers must have a sign: for example, `+1` or `-1` have type `Integer`.
 The integer values `-0` and `+0` are the same.
 
 `Natural` numbers must have no sign (for example, `123`).
+In particular, it is incorrect to write `1 +1` without a space, as `+1` is parsed as an integer value; one must write `1 + 1`.
 
 Values of types `Natural` and `Integer` have unbounded size.
 There is no overflow.
@@ -861,7 +862,7 @@ let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${Natural/show id}]"
 
 let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
-let test = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
+let _ = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
 
 in {
   UserName,
@@ -3854,7 +3855,7 @@ To test:
 ```dhall
 let example : F Natural = { x = 1, y = 2, t = True }
 let after_fmap : F Text = fmap_F Natural Text (λ(x : Natural) → if Natural/even x then "even" else "odd") example
-let test = assert : after_fmap ≡ { x = "odd", y = "even", t = True }
+let _ = assert : after_fmap ≡ { x = "odd", y = "even", t = True }
 ```
 
 For convenience, let us define the standard type signature of `fmap` as a type constructor:
@@ -6444,7 +6445,7 @@ let printTree : TreeText → Text = λ(tree : ∀(r : Type) → (Text → r) →
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 
-let test = assert : printTree example2 ≡ "((a b) c)"
+let _ = assert : printTree example2 ≡ "((a b) c)"
 ```
 
 In a similar way, many recursive functions can be reduced to fold-like operations and then implemented for Church-encoded data non-recursively.
@@ -7103,10 +7104,19 @@ let consn : ∀(a : Type) → a → NEL a → NEL a =
 ```
 
 Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
+
+To make testing easier, let us write a function `NEL/toList`:
 ```dhall
+let NEL/toList : ∀(a : Type) → NEL a → List a
+  = λ(a : Type) → λ(nel : NEL a) → nel (List a) (λ(x : a ) → [ x ]) (λ(x : a) → λ(p : List a) → [ x ] # p)
+let example0 : NEL Natural = one Natural 0
 let example1 : NEL Natural = consn Natural 1 (consn Natural 2 (one Natural 3))
 let example2 : NEL Natural = consn Natural 3 (consn Natural 2 (one Natural 1))
 let example3 : NEL Natural = consn Natural 4 (one Natural 5)
+let _ = assert : NEL/toList Natural example0 ≡ [ 0 ]
+let _ = assert : NEL/toList Natural example1 ≡ [ 1, 2, 3 ]
+let _ = assert : NEL/toList Natural example2 ≡ [ 3, 2, 1 ]
+let _ = assert : NEL/toList Natural example3 ≡ [ 4, 5 ]
 ```
 
 The folding function is just an identity function (this is always the case   with Church encodings):
@@ -7124,7 +7134,7 @@ This corresponds to the logic of a **right fold**.
 Folding with arguments `one` and `consn` gives again the initial list:
 
 ```dhall
-let test = assert : example1 ≡ NEL/fold Natural example1 (NEL Natural) (one Natural) (consn Natural)
+let _ = assert : example1 ≡ NEL/fold Natural example1 (NEL Natural) (one Natural) (consn Natural)
 ```
 
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
@@ -7133,7 +7143,8 @@ To concatenate two lists, we right-fold the first list and substitute the second
 let NEL/concat: ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
         NEL/fold a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
-let test = assert : NEL/concat Natural example1 example3 ≡ consn Natural 1 (consn Natural 2 (consn Natural 3 (consn Natural 4 (one Natural 5))))
+let example5 = NEL/concat Natural example1 example3
+let _ = assert : NEL/toList Natural example5 ≡ [ 1, 2, 3, 4, 5 ]
 ```
 
 To reverse a list, we right-fold over it and accumulate a new list by appending elements at the end.
@@ -7144,7 +7155,7 @@ For this, we will need a new constructor (`nsnoc`) that appends a given value of
 let nsnoc : ∀(a : Type) → a → NEL a → NEL a
   = λ(a : Type) → λ(x : a) → λ(prev : NEL a) →
     NEL/fold a prev (NEL a) (λ(y : a) → consn a y (one a x)) (consn a)
-let test = assert : example1 ≡ nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
+let _ = assert : example1 ≡ nsnoc Natural 3 (nsnoc Natural 2 (one Natural 1))
 ```
 
 Now we can write the reversing function:
@@ -7152,8 +7163,8 @@ Now we can write the reversing function:
 ```dhall
 let NEL/reverse : ∀(a : Type) → NEL a → NEL a =
     λ(a : Type) → λ(nel : NEL a) → NEL/fold a nel (NEL a) (one a) (nsnoc a)
-let test = assert : NEL/reverse Natural example1 ≡ example2
-let test = assert : NEL/reverse Natural example2 ≡ example1
+let _ = assert : NEL/reverse Natural example1 ≡ example2
+let _ = assert : NEL/reverse Natural example2 ≡ example1
 ```
 
 The reversing function allows us to program a _left_ fold: just reverse the list and apply the right fold.
@@ -7162,14 +7173,18 @@ To see why, consider that `NEL/reverse` uses `NEL/fold` with an argument involvi
 So, traversing a result of `NEL/reverse` involves two nested iterations over the list (a quadratic number of operations).
 
 Here are some other helper functions for working  with non-empty lists.
-Note that `NEL/head` does not return an `Optional` result: the list is never empty, so its head element is always present.
+Note that `NEL/head` and `NEL/last` do not return an `Optional` result: the list is never empty, so the first and the last elements are always present.
 However, `NEL/tailOptional` needs to return an `Optional` type, as there is no tail for a list of length 1.
+
+While implementing these functions, we need to keep in mind that `NEL/fold` is a _right_ fold, starting from the rightmost element of the list.
 The code is:
 ```dhall
 let NEL/head : ∀(a : Type) → NEL a → a
   = λ(a : Type) → λ(nel : NEL a) → nel a (identity a) (λ(x : a) → λ(_ : a) → x)
 let _ = assert : NEL/head Natural example1 ≡ 1
-let example0 = one Natural 1
+let NEL/last : ∀(a : Type) → NEL a → a
+  = λ(a : Type) → λ(nel : NEL a) → nel a (identity a) (λ(_ : a) → λ(x : a) → x)
+let _ = assert : NEL/last Natural example1 ≡ 3
 let NEL/tailOptional : ∀(a : Type) → NEL a → Optional (NEL a)
  = λ(a : Type) → λ(nel : NEL a) →
      let Accum = { prev : a, result : Optional (NEL a) }
@@ -7178,10 +7193,85 @@ let NEL/tailOptional : ∀(a : Type) → NEL a → Optional (NEL a)
        merge { None = { prev = x, result = Some (one a prevAcc.prev) }
              , Some = λ(prevNEL : NEL a) → { prev = x, result = Some (consn a prevAcc.prev prevNEL) }
              } prevAcc.result
-     in (nel Accum one_ more_).result
+     in (NEL/fold a nel Accum one_ more_).result
 let _ = assert : NEL/tailOptional Natural example0 ≡ None (NEL Natural)
 let _ = assert : NEL/tailOptional Natural example1 ≡ Some (consn Natural 2 (one Natural 3))
 ```
+
+We can also write a function for obtaining the initial part of the list (excluding the last element).
+
+```dhall
+let NEL/initOptional : ∀(a : Type) → NEL a → Optional (NEL a)
+ = λ(a : Type) → λ(nel : NEL a) →
+   let Accum = Optional (NEL a)
+   let one_ : a → Accum = λ(x : a) → None (NEL a)
+   let more_ : a → Accum → Accum = λ(x : a) → λ(prev : Accum) →
+       merge { None = Some (one a x)
+             , Some = λ(prevNEL : NEL a) → Some (consn a x prevNEL)
+             } prev
+   in NEL/fold a nel Accum one_ more_
+let _ = assert : NEL/initOptional Natural example0 ≡ None (NEL Natural)
+let _ = assert : NEL/initOptional Natural example1 ≡ Some (consn Natural 1 (one Natural 2))
+```
+
+### Zipping non-empty lists
+
+We can now implement a standard `zip` method for non-empty lists.
+For that, we will need a function that computes the length of a non-empty list:
+
+```dhall
+let NEL/length : ∀(a : Type) → NEL a → Natural
+  = λ(a : Type) → λ(nel : NEL a) → nel Natural (λ(_ : a) → 1) (λ(_ : a) → λ(prev : Natural) → prev + 1)
+let _ = assert : NEL/length Natural example0 ≡ 1
+let _ = assert : NEL/length Natural example1 ≡ 3
+```
+
+To implement `zip`, we repeatedly apply `NEL/tailOptional` to both lists, at most as many times as the length of the shortest of the lists.
+When one of the tails becomes empty, iterations stop.
+
+```dhall
+let Natural/min = https://prelude.dhall-lang.org/Natural/min
+let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+  = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
+  let headPair = λ(left : NEL a) → λ(right : NEL b) →
+    { _1 = NEL/head a left, _2 = NEL/head b right }
+  let Tails = { tailA : NEL a, tailB : NEL b }
+  let Accum = { result : Optional (NEL (Pair a b)) } //\\ Tails
+  let getTails : NEL a → NEL b → Optional Tails
+    = λ(left : NEL a) → λ(right : NEL b) →
+      merge { None = None Tails
+            , Some = λ(tailA : NEL a) →
+              merge { None = None Tails
+                    , Some = λ(tailB : NEL b) → Some { tailA, tailB }
+                   } (NEL/tailOptional b right)
+            } (NEL/tailOptional a left)
+  let init : Accum = { result = None (NEL (Pair a b)), tailA = nela, tailB = nelb }
+  let update : Accum → Accum = λ(acc: Accum) →
+    let result : Optional (NEL (Pair a b))
+      = merge { None = Some (one (Pair a b) (headPair acc.tailA acc.tailB))
+              , Some = λ(prev : NEL (Pair a b)) → Some (nsnoc (Pair a b) (headPair acc.tailA acc.tailB) prev)
+              } acc.result
+    in merge { None = acc // { result }
+             , Some = λ(tails : Tails) → acc // { result } // tails
+             } (getTails acc.tailA acc.tailB)
+  let length = Natural/min (NEL/length a nela) (NEL/length b nelb)
+  in merge { None = one (Pair a b) (headPair nela nelb)
+           , Some = λ(result : NEL (Pair a b)) → result
+           } (Natural/fold length Accum update init).result
+```
+
+To test this code:
+
+```dhall
+let _ = assert 
+:
+ NEL/toList (Pair Natural Natural) (NEL/zip Natural example1 Natural example3) === [ { _1 = 1, _2 = 4 }, { _1 = 2, _2 = 5 } ]
+ --(NEL/zip Natural example5 Natural example5).debug ≡ [ example0 ]
+  --[ { _1 = 1, _2 = 4 }, { _1 = 2, _2 = 5 } ]
+
+```
+
+
 
 #### Zipping non-empty lists via Church encoding
 
@@ -7236,11 +7326,9 @@ let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair 
       in nelb r br brr
 ```
 
-To test the resulting code, we use a function `NEL/toList`:
+To test the resulting code:
 
 ```dhall
-let NEL/toList : ∀(a : Type) → NEL a → List a
-  = λ(a : Type) → λ(nel : NEL a) → nel (List a) (λ(x : a ) → [ x ]) (λ(x : a) → λ(p : List a) → [ x ] # p)
 let _ = assert : NEL/toList Natural example1 ≡ [ 1, 2, 3 ]
 let examplezip1 = NEL/zip Natural example1 Natural example3
 let _ = assert : NEL/toList (Pair Natural Natural) examplezip1 ≡ [
@@ -7255,7 +7343,7 @@ let _ = assert : NEL/toList (Pair Natural Natural) examplezip1 ≡ [
 We find that the `zip` function performs a different operation than we may have expected: it is a `zip` derived from the standard monadic `bind` function of lists.
 Nevertheless, this `zip`  operation   satisfies the laws of applicative functors.
 
-Below in the chapter "Applicative type constructors and their combinators" we will see how to implement other ways of zipping non-empty lists.
+Below in the chapter "Applicative type constructors and their combinators" we will see how to implement other lawful ways of zipping non-empty lists.
 
 
 
@@ -13939,7 +14027,6 @@ The stop-gap value  is used only  to fulfill the type signature of a depth-bound
 In this way,  we can implement a `zip` function:
 
 ```dhall
-let Natural/min = https://prelude.dhall-lang.org/Natural/min
 let zipLFixViaApplicative1BizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → ZipT (λ(c : Type) → LFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(foldable2F : Foldable2 F) →
     let C = λ(c : Type) → LFix (F c)
@@ -15044,7 +15131,7 @@ It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic 
 `∀(r : Type) → (F r → r) → G r`
 
 
-Due to this identity, we may encode the type `Optional (TreeC a)` as an equivalent type written like this:
+So, we may encode the type `Optional (TreeC a)`   equivalently  like this:
 ```dhall
 let BTreeE = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → Optional r
 ```
@@ -15062,8 +15149,8 @@ let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
     bt (TreeC a) (leafC a) (branchC a)
 ```
 
-The Appendix "Naturality and parametricity" proves that  the Church-Yoneda identity indeed gives equivalent types.
-It follows, as a particular case, that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
+The Appendix "Naturality and parametricity" proves in general that  the Church-Yoneda identity indeed gives isomorphic types.
+In particular, it follows that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
 
 We can implement data constructors directly for `BTreeE`:
 
