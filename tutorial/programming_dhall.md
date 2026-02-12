@@ -13968,14 +13968,14 @@ It turns out that for least fixpoints, `Applicative12` cannot be used, but both 
 
 If we assume an `Applicative1` evidence for the structure bifunctor `F`, we can  derive an `Applicative` evidence for `C`   by writing code directly in the Church encoding.
 
-One trick  is to note that the Church encoding type resembles the continuation monad:
+The trick  is to note that the Church encoding type resembles the continuation monad:
 
 `(F a r → r) → r = Continuation r (F a r)`
 
 We can obtain an `Applicative` evidence for the continuation monad and then apply a `map2` function adapted to the required types.
 The code is:
 ```dhall
-let zipViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → ZipT (LFixT F)
+let zipLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → ZipT (LFixT F)
   = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
     let C = LFixT F in
     λ(a : Type) → λ(fa : C a) → λ(b : Type) → λ(fb : C b) →
@@ -13993,7 +13993,7 @@ The corresponding `Applicative` evidence is:
 ```dhall
 let applicativeLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F → Applicative (LFixT F)
   = λ(F : Type → Type → Type) → λ(applicative1F : Applicative1 F) →
-    { zip = zipViaApplicative1 F applicative1F
+    { zip = zipLFixViaApplicative1 F applicative1F
     , unit = λ(r : Type) → λ(alg : F {} r → r) → alg (applicative1F.biunit1 r)
     }
 ```
@@ -14009,7 +14009,7 @@ An `Applicative1` evidence for `FNEL` was already computed as `applicative1FNEL`
 So, we define `zip1NELF` as:
 
 ```dhall
-let zip1NELF = zipViaApplicative1 FNEL applicative1FNEL
+let zip1NELF = zipLFixViaApplicative1 FNEL applicative1FNEL
 let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
 let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
 let _ = assert : NELF/toList (Pair Natural Natural) (zip1NELF Natural nel123 Natural nel12345) ≡ [
@@ -14110,7 +14110,7 @@ let zipLFixViaApplicative1BizipP : ∀(F : Type → Type → Type) → Bifunctor
       let AB = Pair a b
       let R = C AB
       let functorF2 = functorBifunctorF2 F bifunctorF
-      let stopgap : T → R = λ(p : T) → zipViaApplicative1 F applicative1F a p._1 b p._2
+      let stopgap : T → R = λ(p : T) → zipLFixViaApplicative1 F applicative1F a p._1 b p._2
       let alg : F AB R → R = fixT F AB (functorF2 AB)
       let coalg : T → F AB T = λ(p : T) →
         let faca : F a (C a) = unfixT F a (functorF2 a) p._1
@@ -14134,7 +14134,7 @@ To test this code, let us again look at non-empty lists.
 We already implemented two different  `BizipP` evidence values for non-empty lists (`bizipPFNEL_truncating` and `bizipPFNEL_padding`).
 We will now derive the corresponding `zip` functions and apply them to some test data.
 
-To use `zipLFixViaApplicative1BizipP`, we need to supply `Applicative1`, `Bifunctor`, `BizipP`, and `Foldable2` evidence values for `F`.
+To use `zipLFixViaApplicative1BizipP`, we need to supply `Applicative1`, `Bifunctor`, `BizipP`, and `Foldable2` evidence values for the pattern bifunctor `FNEL`.
 The first three values have been defined before.
 A `Foldable2` evidence value is:
 ```dhall
@@ -14155,7 +14155,6 @@ let zipNELF_truncating = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applica
 However, it turns out that these two functions work in the same way for non-empty lists.
 Let us see how some sample data is zipped by these functions:
 
-todo: figure out why padding and truncating are the same here
 
 ```dhall
 let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_padding Natural nel123 Natural nel12345) ≡ [
@@ -14182,6 +14181,42 @@ For ordinary lists (equivalent to `List`), it turns out that there is only one p
 To get the "padding" `zip`, one needs to handle the case of an empty list separately.
 Zipping an empty list with any other list gives again an empty list.
 The remaining case is zipping two non-empty lists; we can convert those to the `NEL` type and then use the "padding" `zip` that is available for `NEL`.
+
+Let us reuse the pattern bifunctor `F` defined in the subsection "Ordinary streams" above.
+For that, we need to redefine lists (denoted here by `ListS`) as the least fixpoint of `F`.
+We will also implement data constructors via `fixT` and a conversion to `List` for testing purposes.
+
+```dhall
+let ListS = LFixT F
+let functorStreamF2 = functorBifunctorF2 F bifunctorStreamF
+let foldable2StreamF : Foldable2 F = λ(a : Type) → { toList = λ(b : Type) → λ(fab : F a b) →
+  merge { Nil = [ ] : List b
+        , Cons = λ(p : { head : a, tail : b }) → [ p.tail ]
+        } fab
+}
+let nilS : ∀(a : Type) → ListS a
+  = λ(a : Type) → fixT F a (functorStreamF2 a) (F a (ListS a)).Nil
+let consS : ∀(a : Type) → a → ListS a → ListS a
+  = λ(a : Type) → λ(head : a) → λ(tail : ListS a) →
+  fixT F a (functorStreamF2 a) ((F a (ListS a)).Cons { head, tail })
+let ListS/toList : ∀(a : Type) → ListS a → List a
+  = λ(a : Type) → λ(list : ListS a) → list (List a) (λ(fa : F a (List a)) →
+      merge { Nil = [] : List a
+            , Cons = λ(p : { head : a, tail : List a }) → [ p.head ] # p.tail
+            } fa
+    )
+let exampleS123 = consS Natural 1 (consS Natural 2 (consS Natural 3 (nilS Natural)))
+let _ = assert : ListS/toList Natural exampleS123 ≡ [ 1, 2, 3 ]
+let exampleS45 = consS Natural 4 (consS Natural 5 (nilS Natural))
+let _ = assert : ListS/toList Natural exampleS45 ≡ [ 4, 5 ]
+```
+
+Now we are ready to test two implementations of `zip`: one based on `Applicative1` and another based on `BizipP`.
+
+```dhall
+let ListS/zip1 = zipLFixViaApplicative1 F applicative1StreamF
+let ListS/zip = zipLFixViaApplicative1BizipP F bifunctorStreamF applicative1StreamF bizipPStreamF foldable2StreamF
+```
 
 todo: explain how to implement padding zip for List: need to separate the cases of empty list and a non-empty list. implement this code and test it.
 
