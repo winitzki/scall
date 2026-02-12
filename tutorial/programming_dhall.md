@@ -7169,7 +7169,7 @@ The code is:
 let NEL/head : ∀(a : Type) → NEL a → a
   = λ(a : Type) → λ(nel : NEL a) → nel a (identity a) (λ(x : a) → λ(_ : a) → x)
 let _ = assert : NEL/head Natural example1 ≡ 1
-
+let example0 = one Natural 1
 let NEL/tailOptional : ∀(a : Type) → NEL a → Optional (NEL a)
  = λ(a : Type) → λ(nel : NEL a) →
      let Accum = { prev : a, result : Optional (NEL a) }
@@ -7179,11 +7179,11 @@ let NEL/tailOptional : ∀(a : Type) → NEL a → Optional (NEL a)
              , Some = λ(prevNEL : NEL a) → { prev = x, result = Some (consn a prevAcc.prev prevNEL) }
              } prevAcc.result
      in (nel Accum one_ more_).result
+let _ = assert : NEL/tailOptional Natural example0 ≡ None (NEL Natural)
 let _ = assert : NEL/tailOptional Natural example1 ≡ Some (consn Natural 2 (one Natural 3))
-let _ = assert : NEL/tailOptional Natural (one Natural 1) ≡ None (NEL Natural)
 ```
 
-#### Zipping non-empty lists: an attempt that fails
+#### Zipping non-empty lists via Church encoding
 
 Let us see if we can implement the `zip` operation on non-empty lists by using the Church encoding.
 
@@ -7252,10 +7252,12 @@ let _ = assert : NEL/toList (Pair Natural Natural) examplezip1 ≡ [
   { _1 = 3, _2 = 5},
 ]
 ```
-We find that the `zip` function performs a different operation than we may have expected: it is a `zip` derived from the monadic `bind` function of lists.
-This is nevertheless a lawful operation that satisfies the laws of applicative functors.
+We find that the `zip` function performs a different operation than we may have expected: it is a `zip` derived from the standard monadic `bind` function of lists.
+Nevertheless, this `zip`  operation   satisfies the laws of applicative functors.
 
 Below in the chapter "Applicative type constructors and their combinators" we will see how to implement other ways of zipping non-empty lists.
+
+
 
 ### Size and depth of generic Church-encoded data
 
