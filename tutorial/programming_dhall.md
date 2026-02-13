@@ -13646,8 +13646,7 @@ let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) →
         , Right = λ(p : Pair a b) → (FNEL c d).Right { _1 = f p._1, _2 = g p._2 }
         } fab
 }
-let functorFNEL2 : ∀(t : Type) → Functor (FNEL t)
-  = λ(t : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : FNEL t a) → bifunctorFNEL.bimap t t (identity t) a b f fa }
+let functorFNEL2 : ∀(t : Type) → Functor (FNEL t) = functorBifunctorF2 FNEL bifunctorFNEL
 let NELF = λ(a : Type) → LFix (FNEL a)
 let NES = λ(a : Type) → GFix (FNEL a)
 ```
@@ -13954,7 +13953,7 @@ let foldable2FTreeB : Foldable2 FTreeB = λ(a : Type) → { toList = λ(b : Type
 }
 ```
 
-Prepare the various applicative evidence values for `FTreeB`:
+Define the various applicative evidence values for `FTreeB`:
 
 ```dhall
 let applicative1FTreeB : Applicative1 FTreeB
@@ -13982,6 +13981,12 @@ let applicative12FTreeB : Applicative12 FTreeB
 let bizipPFTreeB : BizipP FTreeB = bizipPViaApplicative12 FTreeB applicative12FTreeB
 ```
 There is no other implementation of `BizipP FTreeB` other than via `Applicative12`.
+
+The next step is to define the greatest fixpoint   `TreeB` and to prepare the finite data constructors `noneB` and `branchB`:
+```dhall
+let TreeB = λ(a : Type) → GFix (FTreeB a)
+let noneB : ∀(a : Type) → TreeB a = λ(a : Type) → fixG (FTreeB a) (functorBifunctorF2 FTreeB bifunctorFTreeB a) (None { value : a, left : TreeB a, right : TreeB a })
+```
 
 todo: implement 
 
