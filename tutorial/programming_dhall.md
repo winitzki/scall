@@ -10478,11 +10478,10 @@ So, it is not an accident that `scanMap` can be expressed via `scan` and vice ve
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
 We will not show the full proof, as the focus of this book is on code.
 
-### Possibly-infinite trees
+### Possibly-infinite binary trees
 
 Another example of a greatest fixpoint type is a data structure representing trees that may be finite or infinite. 
-
-We will show the techniques required for implementing two versions of an infinite tree: a tree that has data in leaves and can be either finite or infinite; and a tree that has data in branches and is always infinite.
+In this section, we will implement a binary tree that stores data in leaves.
 Many other kinds of infinite trees can be implemented similarly with these techniques.
 
 In Scala, one would write the following code to define the type of a possibly infinite binary tree with data of type `A` in leaves:
@@ -10537,10 +10536,10 @@ These data constructors can create  finite trees of type `InfTree2 a`:
 let example1BInf : InfTree2 Natural = leafBInf Natural 123
 let example2BInf : InfTree2 Text = branchBInf Text (branchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
 ```
-These   trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
+These  finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
 
-In addition to finite trees, the greatest fixpoint type `InfTree2 a` also supports  values that can be viewed as "infinite" trees.
+In addition to finite trees, the greatest fixpoint type `InfTree2 a` also supports  values that can be viewed as infinite trees.
 
 To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
@@ -10566,9 +10565,11 @@ let truncateInfTree2 = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) 
 ```
 
 
-Our first example is an infinite tree that contains no data: the tree starts with a `Branch`, and each branch is again a `Branch`.
-We can implement this tree as a generic value of type `InfTree2 a` for any type `a` since we will not need to store any values.
-The "seed" needs to carry no information, so we will use a unit type for the "seed":
+Our first example is an infinite tree that keeps branching forever: the tree starts with a `Branch`, and each branch is again a `Branch`.
+Note that this tree can be viewed as empty, in the sense of being empty of data.
+It has no leaves and so cannot store any data.
+We can implement this tree as a generic value of type `InfTree2 a` for any type `a` no values of type `a` will be stored.
+The "seed" type needs to carry no information as branching decisions are always the same, so we will use a unit type:
 
 ```dhall
 let emptyInfTree : ∀(a : Type) → InfTree2 a
@@ -13469,7 +13470,7 @@ Applying `bizip`  will then give us a value of type `F (Pair a b) (Pair s t)`, w
 This gives the following code of `zip`:
 
 ```dhall
-let zipGFixViaBizip : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
+let zipGFixViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F → ZipT (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     λ(a : Type) → λ(ga : GFix (F a)) → λ(b : Type) → λ(gb : GFix (F b)) →
       -- Need a value of type GFix (F (Pair a b)).
@@ -13499,7 +13500,7 @@ Assuming suitable laws for `bizip` and `biunit`, we can now write an `Applicativ
 let applicativeGFixViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F → Applicative (λ(c : Type) → GFix (F c))
   = λ(F : Type → Type → Type) → λ(applicative12F : Applicative12 F) →
     { unit = unitViaBiunit F applicative12F.biunit
-    , zip = zipGFixViaBizip F applicative12F
+    , zip = zipGFixViaApplicative12 F applicative12F
     }
 ```
 
@@ -13571,7 +13572,7 @@ The code of `bizipP` must be derived from `Applicative12`; there are no other us
 (An example of a "useless" implementation is code that converts pairs of type `(a, L a)` to values of type `L b` via `L`'s `fmap`: that would lose information.)
 This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
 ```dhall
-let zipInfSeq : ZipT InfSeq = zipGFixViaBizip Pair applicative12Pair
+let zipInfSeq : ZipT InfSeq = zipGFixViaApplicative12 Pair applicative12Pair
 ```
 To test this code, let us apply `zipInfSeq` to the two infinite sequences `0, 1, 2, 3, ...` and `"a", "b", "c", "a", "b", "c", ...` that we created earlier.
 ```dhall
@@ -13836,33 +13837,17 @@ let _ = assert : Stream/take (Pair Natural Natural) 5 (Stream/zip Natural exampl
 
 This is the expected behavior of `zip`: the result is truncated to the shortest sequence.
 
-#### Non-empty trees with data in leaves
+#### Binary trees with data in leaves
 
-We now consider trees defined as the least fixpoint of the bifunctor `FTree`:
+We now consider possibly-infinite binary trees defined as the greatest fixpoint of the bifunctor `FTree`:
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
-let Tree2 = LFixT FTree
+let InfTree2 = λ(a : Type) → GFix (FTree a)
 ```
 As we already discussed, the type signature of `bizip` in `Applicative12` cannot be implemented for this bifunctor.
-So, we will implement   `zip`  via `Applicative1` and `BizipP` and test the resulting behaviors.
+So, we will implement   `zip`  via   `BizipP` and test the resulting behavior.
 
-
-```dhall
-let applicative1FTree : Applicative1 FTree
-  = { bizip1 = λ(a : Type) → λ(r : Type) → λ(far : FTree a r) → λ(b : Type) → λ(fbr : FTree b r) →
-    let R = FTree (Pair a b) r in
-    merge { Leaf = λ(x : a) →
-      merge { Leaf = λ(y : b) → R.Leaf { _1 = x, _2 = y }
-            , Branch = λ(p : { left : r, right : r }) → R.Branch p
-            } fbr
-          , Branch = λ(p : { left : r, right : r }) → R.Branch p  -- Ignore fbr.
-          } far
-    , biunit1 = λ(r : Type) → (FTree {} r).Leaf {=}
-  }
-```
-This code loses information by ignoring part of the input in case both `far` and `fbr` have `Branch` constructors.
-It is impossible to implement `bizip1` without information loss.
 
 The function `bizipP` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
 When one argument is a `Leaf` and the other is a `Branch` then we use `L`'s `fmap` to produce required values of type `Pair (L a) (L b)`.
@@ -13885,9 +13870,21 @@ let bizipPFTree : BizipP FTree
   }
 ```
 
+This evidence value allows us to implement this  `zip` function:
+
+```dhall
+let zipInfTree2 = zipGFixViaBizipP FTree bifunctorFTree bizipPFTree
+```
+
+To test this code:
+
+```dhall
+let _ = assert : 1 === 1
+```
+
 TODO:run this on some examples
 
-#### Trees with data in branch nodes
+#### Binary trees with data in branch nodes
 
 TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip  and show pictures of trees)
 
@@ -13906,7 +13903,7 @@ zip  /\       /\     =   /   /  \
 todo: trees with data in branch points
 
 ```haskell
-data Tree2a = Leaf | Branch a (Tree2a a) (Tree2a a)
+data Tree2a = Empty | Branch a (Tree2a a) (Tree2a a)
 ```
 
 An example tree of type Tree2a that contains three values "a", "b", "c"; the symbol `.` denotes an empty `Leaf` value:
@@ -14215,8 +14212,8 @@ let _ = assert : ListS/toList Natural exampleS45 ≡ [ 4, 5 ]
 Now we are ready to test two implementations of `zip`: one based on `Applicative1` and another based on `BizipP`.
 
 ```dhall
-let ListS/zip1 = zipLFixViaApplicative1 F applicative1StreamF
-let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip1 Natural exampleS123 Natural exampleS45) ≡ [
+let ListS/zip1_wrong = zipLFixViaApplicative1 F applicative1StreamF
+let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip1_wrong Natural exampleS123 Natural exampleS45) ≡ [
   { _1 = 1, _2 = 4 },
   { _1 = 2, _2 = 4 },
   { _1 = 3, _2 = 4 },
@@ -14227,12 +14224,29 @@ let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip Natural exampleS
   { _1 = 2, _2 = 5 },
 ]
 ```
-We see that `ListS/zip1` does not actually iterate over the second list; this behavior is incorrect as it fails the laws of applicative functors.
+We see that `ListS/zip1_wrong` does not actually iterate over the second list; this behavior is incorrect as it fails the laws of applicative functors.
 However, `ListS/zip` behaves as expected.
 
 
 
-#### Non-empty trees with data in leaves
+#### Non-empty binary trees with data in leaves
+
+
+```dhall
+let applicative1FTree : Applicative1 FTree
+  = { bizip1 = λ(a : Type) → λ(r : Type) → λ(far : FTree a r) → λ(b : Type) → λ(fbr : FTree b r) →
+    let R = FTree (Pair a b) r in
+    merge { Leaf = λ(x : a) →
+      merge { Leaf = λ(y : b) → R.Leaf { _1 = x, _2 = y }
+            , Branch = λ(p : { left : r, right : r }) → R.Branch p
+            } fbr
+          , Branch = λ(p : { left : r, right : r }) → R.Branch p  -- Ignore fbr.
+          } far
+    , biunit1 = λ(r : Type) → (FTree {} r).Leaf {=}
+  }
+```
+This code loses information by ignoring part of the input in case both `far` and `fbr` have `Branch` constructors.
+It is impossible to implement `bizip1` without information loss.
 
 #### Trees with data in branch nodes
 
