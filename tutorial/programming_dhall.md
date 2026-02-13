@@ -13904,19 +13904,18 @@ This evidence value allows us to implement this  `zip` function:
 let zipInfTree2 = zipGFixViaBizipP FTree bifunctorFTree bizipPFTree
 ```
 
-To test this code, we will zip `example2InfTree2` and `example3InfTree2` that were defined before, and use the pretty-printing function for finite trees:
+To test this code, we will zip `example2InfTree2` and `example3InfTree2` that we  defined before  and use the pretty-printing function for finite trees:
 
 ```dhall
 let exampleZipInfTree = zipInfTree2 Text example2InfTree2 Natural example3InfTree2
-let _ =
-  let P = Pair Text Natural
-  let p = λ(x : Text) → λ(y : Natural) → { _1 = x, _2 = y }
-  let l = λ(x : Text) → λ(y : Natural) → leaf P (p x y)
-  let b = branch P
-  in assert : truncateInfTree2 P 5 (p "x" 0) (exampleZipInfTree) ≡
-  b (b (l "a" 1) (l "b" 1)) (b (l "c" 2) (b (l "c" 3) (l "c" 4)))
+let PTN = Pair Text Natural
+let showPairTextNatural = { show = λ(p : PTN) →
+    "(${p._1},${Natural/show p._2})" }
+let showTreeZip = showTree2 PTN showPairTextNatural
+let examplePrinted = showTreeZip.show (truncateInfTree2 PTN 5 { _1 = "x", _2 = 123}  exampleZipInfTree)
+let _ = assert : examplePrinted ≡ "(((a,1) (b,1)) ((c,2) ((c,3) (c,4))))"
 ```
-This operation can be represented graphically like this:
+This computation can be represented graphically like this:
 
 ```
                                .
@@ -13927,8 +13926,7 @@ zip  /\      /\     =      / (c, 2)  \
    a  b      2 /\   (a, 1) (b, 1) (c, 3) (c, 4)
               3  4
 ```
-
-We see how  `zip`  performs padding of the missing branches by repeating the last leaf value found along the branch.
+This is a "padding   `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
 
 
 #### Binary trees with data in branch nodes
@@ -14309,11 +14307,8 @@ let exampleTreeN = branch Natural (branch Natural --   /\
 To verify the result, we will use a pretty-printing function for trees:
 
 ```dhall
-let showPairTextNatural = { show = λ(p : Pair Text Natural) →
-    "(${p._1},${Natural/show p._2})" }
-let showTreeZip = showTree2 (Pair Text Natural) showPairTextNatural
-let exampleZip = zipTree2A1 Text exampleTreeT Natural exampleTreeN
-let _ = assert : showTreeZip.show exampleZip
+let exampleZip1 = zipTree2A1 Text exampleTreeT Natural exampleTreeN
+let _ = assert : showTreeZip.show exampleZip1
   ≡ "((((a,1) (a,2)) (a,3)) ((((b,1) (b,2)) (b,3)) (((c,1) (c,2)) (c,3))))"
 ```
 The resulting tree looks like this:
@@ -14343,6 +14338,23 @@ let foldable2FTree : Foldable2 FTree = λ(a : Type) → { toList = λ(b : Type) 
 let zipTree2 = zipLFixViaBizipP FTree bifunctorFTree applicative1FTree bizipPFTree foldable2FTree
 let applicativeTree2 = applicativeLFixViaBizipP FTree bifunctorFTree applicative1FTree bizipPFTree foldable2FTree
 ```
+We apply `zipTree2` to the same input as before:
+
+```dhall
+let exampleZip2 = zipTree2 Text exampleTreeT Natural exampleTreeN
+let _ = assert : showTreeZip.show exampleZip2
+  ≡ "(((a,1) (a,2)) ((b,3) (c,3)))"
+```
+The resulting tree looks like this:
+```
+          /\
+        /    \
+      /\       \
+    /   \     /  \
+  a,1  a,2  b,3  c,3
+```
+This is the "padding `zip`"  behavior for   trees: it truncates the tree at the largest possible extent and pads the missing branches with the last leaf values.
+This behavior is close to what programmers would expect for a `zip` operation on binary trees.
 
 #### Binary trees with data in branch nodes
 
