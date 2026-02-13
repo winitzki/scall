@@ -13947,6 +13947,11 @@ let bifunctorFTreeB : Bifunctor FTreeB = { bimap = λ(a : Type) → λ(b : Type)
         , Some = λ(p : { value : a, left : c, right : c }) → Some { value = f p.value, left = g p.left, right = g p.right }
         } fac
 }
+let foldable2FTreeB : Foldable2 FTreeB = λ(a : Type) → { toList = λ(b : Type) → λ(fab : FTreeB a b) →
+  merge { None = [] : List b
+        , Some = λ(p : { value : a, left : b, right : b }) → [ p.left, p.right ]
+        } fab
+}
 ```
 
 todo: implement 
