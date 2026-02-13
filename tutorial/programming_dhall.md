@@ -10525,16 +10525,26 @@ The same structure bifunctor `FTree`  defines the finite tree constructor `Tree2
 We can define the two "finite" data constructors for `InfTree2` using the general `fixG` function:
 
 ```dhall
-let leafBInf : ∀(a : Type) → a → InfTree2 a
+let leafInf : ∀(a : Type) → a → InfTree2 a
   = λ(a : Type) → λ(leaf : a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (InfTree2 a)).Leaf leaf)
-let branchBInf : ∀(a : Type) → InfTree2 a → InfTree2 a → InfTree2 a
+let branchInf : ∀(a : Type) → InfTree2 a → InfTree2 a → InfTree2 a
   = λ(a : Type) → λ(left : InfTree2 a) → λ(right : InfTree2 a) → fixG (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) ((FTree a (InfTree2 a)).Branch { left = left, right = right })
 ```
 These data constructors can create  finite trees of type `InfTree2 a`:
 
 ```dhall
-let example1BInf : InfTree2 Natural = leafBInf Natural 123
-let example2BInf : InfTree2 Text = branchBInf Text (branchBInf Text (leafBInf Text "a") (leafBInf Text "b")) (leafBInf Text "c")
+let example1InfTree2 : InfTree2 Natural = leafInf Natural 123
+
+let example2InfTree2 : InfTree2 Text = branchInf Text -- .
+  (branchInf Text (leafInf Text "a")              --    / \
+   (leafInf Text "b"))                            --   /\  c
+     (leafInf Text "c")                           --  a  b
+
+let example3InfTree2 = branchInf Natural   --   .
+  (leafInf Natural 1) (branchInf Natural   --  / \
+    (leafInf Natural 2) (branchInf Natural -- 1 / \
+      (leafInf Natural 3)                  --  2  /\
+        (leafInf Natural 4)))              --    3  4
 ```
 These  finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
@@ -10561,7 +10571,8 @@ The recursion limit will give the maximum tree depth that we would like to extra
 Any branches beyond that depth will be replaced by the  stop-gap value (of type `Tree2 a`).
 For simplicity, let us make that value a leaf:
 ```dhall
-let truncateInfTree2 = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) → λ(infTree : InfTree2 a) → truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
+let truncateInfTree2 = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) → λ(infTree : InfTree2 a) →
+  truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
 ```
 
 
@@ -13876,28 +13887,37 @@ This evidence value allows us to implement this  `zip` function:
 let zipInfTree2 = zipGFixViaBizipP FTree bifunctorFTree bizipPFTree
 ```
 
-To test this code:
+To test this code, let us zip `example2InfTree2` and `example3InfTree2`:
 
 ```dhall
-let _ = assert : 1 === 1
+let exampleZipInfTree = zipInfTree2 Text example2InfTree2 Natural example3InfTree2
+let _ =
+  let P = Pair Text Natural
+  let p = λ(x : Text) → λ(y : Natural) → { _1 = x, _2 = y }
+  let l = λ(x : Text) → λ(y : Natural) → leaf P (p x y)
+  let b = branch P
+  in assert : truncateInfTree2 P 5 (p "x" 0) (exampleZipInfTree) ≡
+  b (b (l "a" 1) (l "b" 1)) (b (l "c" 2) (b (l "c" 3) (l "c" 4)))
+```
+This operation can be represented graphically like this:
+
+```
+                               .
+                             /   \
+                            /    / \
+zip  /\      /\     =      / (c, 2)  \
+    /\ c    1 /\          /\       /    \
+   a  b      2 /\   (a, 1) (b, 1) (c, 3) (c, 4)
+              3  4
 ```
 
-TODO:run this on some examples
+We see how  `zip`  performs padding of the missing branches by repeating the last leaf value found along the branch.
+
 
 #### Binary trees with data in branch nodes
 
 TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip  and show pictures of trees)
 
-TODO: explain that "padding" corresponds to using the functor instance in bizipP to convert (a, L b) -> L (a, b)
-
-```
-                            .
-                           / \
-                          /   \                   
-zip  /\       /\     =   /   /  \
-    1 /\     /\ c       /\  (2, c) (3, c)
-     2  3   a  b   (1, a) (1, b)  
-```
 
 
 todo: trees with data in branch points
@@ -14248,7 +14268,7 @@ let applicative1FTree : Applicative1 FTree
 This code loses information by ignoring part of the input in case both `far` and `fbr` have `Branch` constructors.
 It is impossible to implement `bizip1` without information loss.
 
-#### Trees with data in branch nodes
+#### Binary trees with data in branch nodes
 
 
 
