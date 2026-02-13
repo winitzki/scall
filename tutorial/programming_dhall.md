@@ -14130,7 +14130,7 @@ The stop-gap value  is used only  to fulfill the type signature of a depth-bound
 In this way,  we can implement a `zip` function:
 
 ```dhall
-let zipLFixViaApplicative1BizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → ZipT (λ(c : Type) → LFix (F c))
+let zipLFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → ZipT (λ(c : Type) → LFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(foldable2F : Foldable2 F) →
     let C = λ(c : Type) → LFix (F c)
     let functorC : Functor C = bifunctorLFix F bifunctorF in
@@ -14155,7 +14155,7 @@ An `Applicative` evidence for `C` can then be defined like this:
 ```dhall
 let applicativeLFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → Applicative1 F → BizipP F → Foldable2 F → Applicative (λ(c : Type) → LFix (F c))
   = λ(F : Type → Type → Type) → λ(bifunctorF : Bifunctor F) → λ(applicative1F : Applicative1 F) → λ(bizipPF : BizipP F) → λ(foldable2F : Foldable2 F) →
-  { zip = zipLFixViaApplicative1BizipP F bifunctorF applicative1F bizipPF foldable2F
+  { zip = zipLFixViaBizipP F bifunctorF applicative1F bizipPF foldable2F
   , unit = (applicativeLFixViaApplicative1 F applicative1F).unit
   }
 ```
@@ -14166,7 +14166,7 @@ To test this code, let us again look at non-empty lists.
 We already implemented two different  `BizipP` evidence values for non-empty lists (`bizipPFNEL_truncating` and `bizipPFNEL_padding`).
 We will now derive the corresponding `zip` functions and apply them to some test data.
 
-To use `zipLFixViaApplicative1BizipP`, we need to supply `Applicative1`, `Bifunctor`, `BizipP`, and `Foldable2` evidence values for the pattern bifunctor `FNEL`.
+To use `zipLFixViaBizipP`, we need to supply `Applicative1`, `Bifunctor`, `BizipP`, and `Foldable2` evidence values for the pattern bifunctor `FNEL`.
 The first three values have been defined before.
 A `Foldable2` evidence value is:
 ```dhall
@@ -14181,8 +14181,8 @@ let foldable2FNEL : Foldable2 FNEL = λ(a : Type) →
 This gives us two versions of `zip` for `NELF`:
 
 ```dhall
-let zipNELF_padding = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_padding foldable2FNEL
-let zipNELF_truncating = zipLFixViaApplicative1BizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_truncating foldable2FNEL
+let zipNELF_padding = zipLFixViaBizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_padding foldable2FNEL
+let zipNELF_truncating = zipLFixViaBizipP FNEL bifunctorFNEL applicative1FNEL bizipPFNEL_truncating foldable2FNEL
 ```
 However, it turns out that these two functions work in the same way for non-empty lists.
 Let us see how some sample data is zipped by these functions:
@@ -14252,7 +14252,7 @@ let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip1_wrong Natural e
   { _1 = 2, _2 = 4 },
   { _1 = 3, _2 = 4 },
 ]
-let ListS/zip = zipLFixViaApplicative1BizipP F bifunctorStreamF applicative1StreamF bizipPStreamF foldable2StreamF
+let ListS/zip = zipLFixViaBizipP F bifunctorStreamF applicative1StreamF bizipPStreamF foldable2StreamF
 let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip Natural exampleS123 Natural exampleS45) ≡ [
   { _1 = 1, _2 = 4 },
   { _1 = 2, _2 = 5 },
@@ -14333,7 +14333,16 @@ For each leaf of the first tree, the shape of the  second tree is duplicated and
 This `zip` function can be derived from the monadic `bind` method of `Tree2`.
 Usually this is not what programmers expect from a `zip` function, but nevertheless this is a lawful definition of `zip`.
 
-
+Let us now test the second version of `zip`. For that, we will need to provide a `Foldable2` evidence:
+```dhall
+let foldable2FTree : Foldable2 FTree = λ(a : Type) → { toList = λ(b : Type) → λ(t : FTree a b) →
+  merge { Leaf = λ(_ : a) → [] : List b
+        , Branch = λ(p : { left : b, right : b }) → [ p.left, p.right ]
+        } t
+}
+let zipTree2 = zipLFixViaBizipP FTree bifunctorFTree applicative1FTree bizipPFTree foldable2FTree
+let applicativeTree2 = applicativeLFixViaBizipP FTree bifunctorFTree applicative1FTree bizipPFTree foldable2FTree
+```
 
 #### Binary trees with data in branch nodes
 
