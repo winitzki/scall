@@ -13954,6 +13954,35 @@ let foldable2FTreeB : Foldable2 FTreeB = λ(a : Type) → { toList = λ(b : Type
 }
 ```
 
+Prepare the various applicative evidence values for `FTreeB`:
+
+```dhall
+let applicative1FTreeB : Applicative1 FTreeB
+  = { bizip1 = λ(a : Type) → λ(r : Type) → λ(far : FTreeB a r) → λ(b : Type) → λ(fbr : FTreeB b r) →
+      merge { None = None { value : Pair a b, left : r, right : r }
+            , Some = λ(par : { value : a, left : r, right : r }) →
+              merge { None = None { value : Pair a b, left : r, right : r }
+                    , Some = λ(pbr : { value : b, left : r, right : r }) →
+                      Some { value = { _1 = par.value, _2 = pbr.value }, left = par.left, right = pbr.right }
+                    } fbr
+            } far
+    , biunit1 = λ(r : Type) → None { value : {}, left : r, right : r }
+    }
+let applicative12FTreeB : Applicative12 FTreeB
+  = { bizip = λ(a : Type) → λ(s : Type) → λ(fas : FTreeB a s) → λ(b : Type) → λ(t : Type) → λ(fbt : FTreeB b t) →
+      merge { None = None { value : Pair a b, left : Pair s t, right : Pair s t }
+            , Some = λ(pas : { value : a, left : s, right : s }) →
+              merge {  None = None { value : Pair a b, left : Pair s t, right : Pair s t }
+                    , Some = λ(pbt : { value : b, left : t, right : t }) →
+                      Some { value = { _1 = pas.value, _2 = pbt.value }, left = { _1 = pas.left, _2 = pbt.left }, right = { _1 = pas.right, _2 = pbt.right } }
+                    } fbt
+            } fas
+    , biunit = None { value : {}, left : {}, right : {} }
+    }
+let bizipPFTreeB : BizipP FTreeB = bizipPViaApplicative12 FTreeB applicative12FTreeB
+```
+There is no other implementation of `BizipP FTreeB` other than via `Applicative12`.
+
 todo: implement 
 
 An example tree of type Tree2a that contains three values "a", "b", "c"; the symbol `.` denotes an empty `Leaf` value:
