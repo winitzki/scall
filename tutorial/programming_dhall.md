@@ -13902,6 +13902,7 @@ This evidence value allows us to implement this  `zip` function:
 
 ```dhall
 let zipInfTree2 = zipGFixViaBizipP FTree bifunctorFTree bizipPFTree
+let applicativeInfTree2 : Applicative InfTree2 = applicativeGFixViaBizipP FTree bifunctorFTree bizipPFTree ((FTree {} {}).Leaf {=})
 ```
 
 To test this code, we will zip `example2InfTree2` and `example3InfTree2` that we  defined before  and use the pretty-printing function for finite trees:
@@ -13927,16 +13928,28 @@ zip  /\      /\     =      / (c, 2)  \
               3  4
 ```
 This is a "padding   `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
-
+The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
 
 #### Binary trees with data in branch nodes
 
-
-todo: trees with data in branch points
+Trees can carry data in leaves and/or in branch points.
+The latter choice is shown in this Haskell data type:
 
 ```haskell
-data Tree2a = Empty | Branch a (Tree2a a) (Tree2a a)
+data TreeB = Empty | Branch a (TreeB a) (TreeB a)  -- Haskell.
 ```
+
+To translate this code into Dhall, we begin by defining a pattern bifunctor:
+```dhall
+let FTreeB = λ(a : Type) → λ(r : Type) → Optional { value : a, left : r, right : r }
+let bifunctorFTreeB : Bifunctor FTreeB = { bimap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(c : Type) → λ(d : Type) → λ(g : c → d) → λ(fac : FTreeB a c) →
+  merge { None = None { value : b, left : d, right : d }
+        , Some = λ(p : { value : a, left : c, right : c }) → Some { value = f p.value, left = g p.left, right = g p.right }
+        } fac
+}
+```
+
+todo: implement 
 
 An example tree of type Tree2a that contains three values "a", "b", "c"; the symbol `.` denotes an empty `Leaf` value:
 ```
@@ -14289,7 +14302,7 @@ It is impossible to implement `bizip1` without information loss.
 Let us see what behavior is produced by this when we define `zip` via `Applicative1`.
 ```dhall
 let zipTree2A1 = zipLFixViaApplicative1 FTree applicative1FTree
-let applicativeTree2A1 = applicativeLFixViaApplicative1 FTree applicative1FTree
+let applicativeTree2A1 : Applicative Tree2 = applicativeLFixViaApplicative1 FTree applicative1FTree
 ```
 
 We will apply this `zip` to two trees of different shapes:
@@ -14355,6 +14368,8 @@ The resulting tree looks like this:
 ```
 This is the "padding `zip`"  behavior for   trees: it truncates the tree at the largest possible extent and pads the missing branches with the last leaf values.
 This behavior is close to what programmers would expect for a `zip` operation on binary trees.
+The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
+
 
 #### Binary trees with data in branch nodes
 
