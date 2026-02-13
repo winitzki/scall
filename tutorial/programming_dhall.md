@@ -3442,6 +3442,12 @@ Here is an  implementation of the `Show` evidence for `Natural`:
 let showNatural : Show Natural = { show = Natural/show }
 ```
 
+For `Text`, we might just want to print the text as is:
+
+```dhall
+let showText : Show Text = { show = identity Text }
+```
+
 As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
 For that, we would write the following Haskell code:
 ```haskell
@@ -10575,6 +10581,19 @@ let truncateInfTree2 = λ(a : Type) → λ(limit : Natural) → λ(stopgap : a) 
   truncateGFix (FTree a) (functorBifunctorF2 FTree bifunctorFTree a) limit (leaf a stopgap) infTree
 ```
 
+Then we will use a pretty-printing function for finite trees, which we implement as a constructor for a `Show` evidence:
+
+```dhall
+let showTree2 : ∀(a : Type) → Show a → Show (Tree2 a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(t : Tree2 a) →
+    let showF : FTree a Text → Text = λ(f : FTree a Text) →
+      merge { Leaf = λ(x : a) → showA.show x
+            , Branch = λ(p : { left : Text, right : Text }) →
+                "(${p.left} ${p.right})"
+            } f
+    in t Text showF
+  }
+```
 
 Our first example is an infinite tree that keeps branching forever: the tree starts with a `Branch`, and each branch is again a `Branch`.
 Note that this tree can be viewed as empty, in the sense of being empty of data.
@@ -10590,12 +10609,10 @@ let emptyInfTree : ∀(a : Type) → InfTree2 a
 To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as the stopgap value.
 The result must be a tree with 4 leaves, all containing `x`.
 ```dhall
-let _ = assert : truncateInfTree2 Text 2 "x" (emptyInfTree Text) ≡ (
-  let t = leaf Text "x"  --      /\
-  in branch Text         --     /  \
-    (branch Text t t)    --    /\  /\
-    (branch Text t t)    --   x x  x x
-)
+let _ =                                         --      /\
+  let show = (showTree2 Text showText).show     --     /  \
+  in assert : show (truncateInfTree2 Text 2 "x" --    /\  /\
+    (emptyInfTree Text)) ≡ "((x x) (x x))"      --   x x  x x
 ```
 
 The second example is an infinite tree of type `InfTree2 Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
@@ -13887,7 +13904,7 @@ This evidence value allows us to implement this  `zip` function:
 let zipInfTree2 = zipGFixViaBizipP FTree bifunctorFTree bizipPFTree
 ```
 
-To test this code, let us zip `example2InfTree2` and `example3InfTree2`:
+To test this code, we will zip `example2InfTree2` and `example3InfTree2` that were defined before, and use the pretty-printing function for finite trees:
 
 ```dhall
 let exampleZipInfTree = zipInfTree2 Text example2InfTree2 Natural example3InfTree2
@@ -13915,9 +13932,6 @@ We see how  `zip`  performs padding of the missing branches by repeating the las
 
 
 #### Binary trees with data in branch nodes
-
-TODO: code examples with   binary trees (with data in leaves, or with data in branches to allow for bizip  and show pictures of trees)
-
 
 
 todo: trees with data in branch points
@@ -14251,6 +14265,13 @@ However, `ListS/zip` behaves as expected.
 
 #### Non-empty binary trees with data in leaves
 
+This type of trees is the least fixpoint of the pattern bifunctor `FTree` shown before.
+We defined `Tree2` as the least fixpoint of `FTree` with respect to the second type parameter.
+
+For least fixpoints, a `zip` function can be constructed via `Applicative1` or via `BizipP`.
+Let us test both possibilities.
+
+An `Applicative1` evidence for `FTree` is:
 
 ```dhall
 let applicative1FTree : Applicative1 FTree
@@ -14267,6 +14288,52 @@ let applicative1FTree : Applicative1 FTree
 ```
 This code loses information by ignoring part of the input in case both `far` and `fbr` have `Branch` constructors.
 It is impossible to implement `bizip1` without information loss.
+Let us see what behavior is produced by this when we define `zip` via `Applicative1`.
+```dhall
+let zipTree2A1 = zipLFixViaApplicative1 FTree applicative1FTree
+let applicativeTree2A1 = applicativeLFixViaApplicative1 FTree applicative1FTree
+```
+
+We will apply this `zip` to two trees of different shapes:
+
+```dhall
+let exampleTreeT = branch Text (leaf Text "a")    --  /\
+  (branch Text (leaf Text "b")                    -- a /\
+    (leaf Text "c"))                              --  b  c
+
+let exampleTreeN = branch Natural (branch Natural --   /\
+  (leaf Natural 1) (leaf Natural 2))              --  /\ 3
+    (leaf Natural 3)                              -- 1  2
+```
+
+To verify the result, we will use a pretty-printing function for trees:
+
+```dhall
+let showPairTextNatural = { show = λ(p : Pair Text Natural) →
+    "(${p._1},${Natural/show p._2})" }
+let showTreeZip = showTree2 (Pair Text Natural) showPairTextNatural
+let exampleZip = zipTree2A1 Text exampleTreeT Natural exampleTreeN
+let _ = assert : showTreeZip.show exampleZip
+  ≡ "((((a,1) (a,2)) (a,3)) ((((b,1) (b,2)) (b,3)) (((c,1) (c,2)) (c,3))))"
+```
+The resulting tree looks like this:
+```
+       / \
+      /    \
+     /       \
+    /          \
+   / \         / \
+  / \ a,3    /     \
+a,1  a,2   /        \
+          / \       / \
+         / \ b,3   / \ c,3 
+       b,1  b,2  c,1  c,2    
+```
+For each leaf of the first tree, the shape of the  second tree is duplicated and padded with the value of the leaf.
+This `zip` function can be derived from the monadic `bind` method of `Tree2`.
+Usually this is not what programmers expect from a `zip` function, but nevertheless this is a lawful definition of `zip`.
+
+
 
 #### Binary trees with data in branch nodes
 
