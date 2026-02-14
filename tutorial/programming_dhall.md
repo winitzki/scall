@@ -13866,7 +13866,7 @@ This is the expected behavior of `zip`: the result is truncated to the shortest 
 
 #### Binary trees with data in leaves
 
-We now consider possibly-infinite binary trees defined as the greatest fixpoint of the bifunctor `FTree`:
+We now consider possibly-infinite binary trees (`InfTree2`) that we  defined earlier as the greatest fixpoint of the bifunctor `FTree`:
 
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
@@ -13918,15 +13918,15 @@ let _ = assert : examplePrinted ≡ "(((a,1) (b,1)) ((c,2) ((c,3) (c,4))))"
 This computation can be represented graphically like this:
 
 ```
-                               .
-                             /   \
-                            /    / \
-zip  /\      /\     =      / (c, 2)  \
-    /\ c    1 /\          /\       /    \
+                              / \
+                             /    \
+                            /    /  \
+zip  /\      /\     =      / (c, 2)   \
+    /\ c    1 /\          /\        /   \
    a  b      2 /\   (a, 1) (b, 1) (c, 3) (c, 4)
               3  4
 ```
-This is a "padding   `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
+This is a "padding `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
 The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
 
 #### Binary trees with data in branch nodes
@@ -13982,29 +13982,86 @@ let bizipPFTreeB : BizipP FTreeB = bizipPViaApplicative12 FTreeB applicative12FT
 ```
 There is no other implementation of `BizipP FTreeB` other than via `Applicative12`.
 
-The next step is to define the greatest fixpoint   `TreeB` and to prepare the finite data constructors `noneB` and `branchB`:
+The next step is to define the greatest fixpoint   `TreeBI` and to prepare the finite data constructors `noneBI` and `branchBI`:
 ```dhall
-let TreeB = λ(a : Type) → GFix (FTreeB a)
-let noneB : ∀(a : Type) → TreeB a = λ(a : Type) → fixG (FTreeB a) (functorBifunctorF2 FTreeB bifunctorFTreeB a) (None { value : a, left : TreeB a, right : TreeB a })
+let TreeBI = λ(a : Type) → GFix (FTreeB a)
+let functorF2FTreeB = functorBifunctorF2 FTreeB bifunctorFTreeB
+let noneBI : ∀(a : Type) → TreeBI a
+  = λ(a : Type) → fixG (FTreeB a) (functorF2FTreeB a) (None { value : a, left : TreeBI a, right : TreeBI a })
+let branchBI : ∀(a : Type) → a → TreeBI a → TreeBI a → TreeBI a
+  = λ(a : Type) → λ(value : a) → λ(left : TreeBI a) → λ(right : TreeBI a) →
+    fixG (FTreeB a) (functorF2FTreeB a) (Some { value, left, right })
 ```
 
+The finite data constructors allows us to build some finite trees:
+
+```dhall
+let example1TreeBI : TreeBI Text         --       a
+  = branchBI Text "a"                    --      / \
+     (branchBI Text "b"                  --     b   .
+       (noneBI Text)                     --    / \
+         (branchBI Text "c"              --   .   c
+           (noneBI Text) (noneBI Text)   --      / \
+     )) (noneBI Text)                    --     .   .
+
+let example2TreeBI : TreeBI Natural        --      1
+  = branchBI Natural 1                     --     / \
+      (branchBI Natural 2                  --    2   3
+        (noneBI Natural) (noneBI Natural)) --   / \ / \
+      (branchBI Natural 3                  --  .  . .  .
+        (noneBI Natural) (noneBI Natural))
+```
+
+A constructor for infinite trees must be based on `makeGFix`:
+
+```dhall
+let makeTreeBI : ∀(a : Type) → ∀(r : Type) → r → (r → FTreeB a r) → TreeBI a
+  = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTreeB a r) → makeGFix (FTreeB a) r seed step
+```
+
+To visualize and print infinite trees, we first define the type of the corresponding finite trees (`TreeB`) and implement a function for printing finite trees.
+```dhall
+let TreeB = LFixT FTreeB
+let noneB : ∀(a : Type) → TreeB a
+  = λ(a : Type) → fix (FTreeB a) (functorF2FTreeB a) (None { value : a, left : TreeB a, right : TreeB a })
+let branchB : ∀(a : Type) → a → TreeB a → TreeB a → TreeB a
+  = λ(a : Type) → λ(value : a) → λ(left : TreeB a) → λ(right : TreeB a) →
+    fix (FTreeB a) (functorF2FTreeB a) (Some { value, left, right })
+let showTreeB : ∀(a : Type) → Show a → Show (TreeB a)
+  = λ(a : Type) → λ(showA : Show a) → { show = λ(t : TreeB a) →
+    let alg : FTreeB a Text → Text = λ(fat : FTreeB a Text) →
+      merge { None = "."
+            , Some = λ(r : { value : a, left : Text, right : Text }) →
+                "(${r.left}-${showA.show r.value}-${r.right})"
+            } fat
+    in t Text alg
+  }
+let emptyTreeB = noneB Natural
+let example1TreeB = branchB Natural 1 (branchB Natural 2 emptyTreeB emptyTreeB) emptyTreeB
+let _ = assert : (showTreeB Natural showNatural).show emptyTreeB ≡ "."
+let _ = assert : (showTreeB Natural showNatural).show example1TreeB ≡ "((.-2-.)-1-.)"
+```
+Then we use the generic truncation function (`truncateGFix`) to print a finite fragment of an infinite tree.
+We will use the empty tree as the stopgap value.
+```dhall
+let truncateTreeBI : Natural → ∀(a : Type) → TreeBI a → TreeB a
+  = λ(limit : Natural) → λ(a : Type) → λ(tree : TreeBI a) →
+    truncateGFix (FTreeB a) (functorF2FTreeB a) limit (noneB a) tree
+let printTruncatedTreeBI : Natural → ∀(a : Type) → Show a → TreeBI a → Text
+  = λ(limit : Natural) → λ(a : Type) → λ(showA : Show a) → λ(tree : TreeBI a) →
+    (showTreeB a showA).show (truncateTreeBI limit a tree)
+let _ = assert : printTruncatedTreeBI 9 Text showText example1TreeBI ≡ "((.-b-(.-c-.))-a-.)"
+let _ = assert : printTruncatedTreeBI 9 Natural showNatural example2TreeBI ≡ "((.-2-.)-1-(.-3-.))"
+```
 todo: implement 
 
-An example tree of type Tree2a that contains three values "a", "b", "c"; the symbol `.` denotes an empty `Leaf` value:
-```
-         a
-        / \  
-       b   .
-      / \    
-     .   c
-        / \
-       .   .  
-```
+
+
 An example of the truncating behavior of zip for Tree2a:
 ```
-     zip  a         1        =    (a, 1) 
+ zip      a         1        =     (a,1) 
          / \       / \             /   \
-        b   .     2   3        (b, 2)   .   
+        b   .     2   3         (b,2)   .   
        / \       / \ / \        /  \ 
       .   c     .  . .  .      .    .
          / \
@@ -14016,13 +14073,13 @@ The "truncating zip" returns a tree whose shape is the greatest lower bound of t
 But one can also implement a "padding" zip for `Tree2a`, where the value at the branching is replicated as needed to match the other tree structure:
 
 ```
-     zip  a         1        =    (a, 1) 
-         / \       / \             /    \
-        b   .     2   3        (b, 2)   (a, 3)   
-       / \       / \ / \       /  \       / \
-      .   c     .  . .  .     .  (c, 2)  .   .
-         / \                       / \
-        .   .                     .   .   
+ zip      a         1        =     (a,1) 
+         / \       / \             /   \
+        b   .     2   3        (b,2)   (a,3)   
+       / \       / \ / \       /  \     / \
+      .   c     .  . .  .     .  (c,2) .   .
+         / \                      / \
+        .   .                    .   . 
 ```
 
 
@@ -14080,9 +14137,9 @@ let applicativeLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applica
     }
 ```
 
-This `zip` function, however, will not be satisfactory in most cases.
+This `zip` function, however, will not be satisfactory in many cases.
 The `bizip1` method often has to lose information and, in particular, may not preserve values of type `r` within `F a r`.
-In that case, the derived `zip` function will not correctly iterate over its input data.
+In that case, the derived `zip` function will not   iterate over its input data as we expect.
 
 To see how this works, let us derive `zip` from `Applicative1` for non-empty lists and apply that `zip` to some example values.
 
@@ -14126,7 +14183,7 @@ A different implementation of `zip` can be derived if we additionally have a sui
 
 #### Implementation via depth-bounded hylomorphisms
 
-The task is to implement `zip` and `unit` for the functor `C` defined as the least fixpoint of a structure bifunctor `F`.
+The task is to implement `zip` and `unit` for the functor `C`, given a `BizipP` evidence for the structure bifunctor `F`.
 The `zip` method should have the type `C a → C b → C (Pair a b)` or equivalently `Pair (C a) (C b) → C (Pair a b)`.
 
 A `BizipP` evidence for `F` gives us a function of type `F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b))` with an arbitrary functor parameter `L`.
@@ -20235,6 +20292,8 @@ The script `convertMd.sh` extracts the Dhall code from the source Markdown file 
 The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
 
 All parts of typechecked code must have the form of `let` expressions.
+Because of this, all earlier  definitions are automatically available for later code.
+
 To make the typechecked code complete, the following code is appended:
 
 ```dhall
