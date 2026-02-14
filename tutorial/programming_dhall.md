@@ -13648,10 +13648,12 @@ let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) →
 }
 let functorFNEL2 : ∀(t : Type) → Functor (FNEL t) = functorBifunctorF2 FNEL bifunctorFNEL
 let NELF = λ(a : Type) → LFix (FNEL a)
+let functorNELF : Functor NELF = functorLFix FNEL (functorBifunctorF1 FNEL bifunctorFNEL)
 let NES = λ(a : Type) → GFix (FNEL a)
+let functorNES : Functor NES = functorGFix FNEL (functorBifunctorF1 FNEL bifunctorFNEL)
 ```
 
-For convenience, we define finite data constructors for `NELF` and `NES`, as well as a function for converting a `NELF` or a `NES` to a `List`.
+For convenience, we define finite data constructors for `NELF` and `NES`, as well as functions for converting a `NELF` or a `NES` to a `List`.
 The code for all those functions can be derived from generic combinators:
 ```dhall
 let oneNELF : ∀(a : Type) → a → NELF a
@@ -13695,7 +13697,7 @@ let nesNat = NES/function Natural 0 (λ(n : Natural) → n + 1)
 let _ = assert : NES/take 5 Natural 0 nesNat ≡ [ 0, 1, 2, 3, 4, 0 ]
 ```
 
-The bifunctor `FNEL` has all  three kinds of applicative-like evidence:
+The bifunctor `FNEL` has all  three versions of applicative-like evidence:
 
 ```dhall
 let applicative1FNEL : Applicative1 FNEL
@@ -13911,8 +13913,8 @@ let exampleZipInfTree = zipInfTree2 Text example2InfTree2 Natural example3InfTre
 let PTN = Pair Text Natural
 let showPairTextNatural = { show = λ(p : PTN) →
     "(${p._1},${Natural/show p._2})" }
-let showTreeZip = showTree2 PTN showPairTextNatural
-let examplePrinted = showTreeZip.show (truncateInfTree2 PTN 5 { _1 = "x", _2 = 123}  exampleZipInfTree)
+let showTree2TN = showTree2 PTN showPairTextNatural
+let examplePrinted = showTree2TN.show (truncateInfTree2 PTN 5 { _1 = "x", _2 = 123}  exampleZipInfTree)
 let _ = assert : examplePrinted ≡ "(((a,1) (b,1)) ((c,2) ((c,3) (c,4))))"
 ```
 This computation can be represented graphically like this:
@@ -14018,6 +14020,12 @@ A constructor for infinite trees must be based on `makeGFix`:
 let makeTreeBI : ∀(a : Type) → ∀(r : Type) → r → (r → FTreeB a r) → TreeBI a
   = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTreeB a r) → makeGFix (FTreeB a) r seed step
 ```
+A simple example is an infinite tree where each level is labeled by its depth:
+```dhall
+let example3TreeBI : TreeBI Natural
+  = makeTreeBI Natural Natural 0 (λ(n : Natural) → Some { value = n, left = n + 1, right = n + 1 })
+```
+
 
 To visualize and print infinite trees, we first define the type of the corresponding finite trees (`TreeB`) and implement a function for printing finite trees.
 ```dhall
@@ -14042,7 +14050,7 @@ let _ = assert : (showTreeB Natural showNatural).show emptyTreeB ≡ "."
 let _ = assert : (showTreeB Natural showNatural).show example1TreeB ≡ "((.-2-.)-1-.)"
 ```
 Then we use the generic truncation function (`truncateGFix`) to print a finite fragment of an infinite tree.
-We will use the empty tree as the stopgap value.
+The stopgap value will be the empty tree.
 ```dhall
 let truncateTreeBI : Natural → ∀(a : Type) → TreeBI a → TreeB a
   = λ(limit : Natural) → λ(a : Type) → λ(tree : TreeBI a) →
@@ -14050,14 +14058,41 @@ let truncateTreeBI : Natural → ∀(a : Type) → TreeBI a → TreeB a
 let printTruncatedTreeBI : Natural → ∀(a : Type) → Show a → TreeBI a → Text
   = λ(limit : Natural) → λ(a : Type) → λ(showA : Show a) → λ(tree : TreeBI a) →
     (showTreeB a showA).show (truncateTreeBI limit a tree)
-let _ = assert : printTruncatedTreeBI 9 Text showText example1TreeBI ≡ "((.-b-(.-c-.))-a-.)"
-let _ = assert : printTruncatedTreeBI 9 Natural showNatural example2TreeBI ≡ "((.-2-.)-1-(.-3-.))"
+let _ = assert : printTruncatedTreeBI 9 Text showText example1TreeBI
+  ≡ "((.-b-(.-c-.))-a-.)"
+let _ = assert : printTruncatedTreeBI 9 Natural showNatural example2TreeBI
+  ≡ "((.-2-.)-1-(.-3-.))"
+let _ = assert : printTruncatedTreeBI 3 Natural showNatural example3TreeBI
+  ≡ "(((.-2-.)-1-(.-2-.))-0-((.-2-.)-1-(.-2-.)))"
 ```
-todo: implement 
+The last example of a truncated tree can be printed as:
+```
+         0
+        / \
+       /   \
+      /     \
+     1       1      
+    /\       /\     
+   2  2     2  2     
+  /\  /\   /\  /\    
+ .  ..  . .  ..  .   
+```
+In this way, we can visualize finite initial fragments of infinite data structures.
 
+Let us now derive the `zip` function for `TreeBI` and test it:
 
-
-An example of the truncating behavior of zip for Tree2a:
+```dhall
+let zipTreeBI = zipGFixViaApplicative12 FTreeB applicative12FTreeB
+let applicativeTreeBI : Applicative TreeBI = applicativeGFixViaApplicative12 FTreeB applicative12FTreeB
+let example0ZipTreeBI = zipTreeBI Text (noneBI Text) Natural example2TreeBI
+let _ = assert : printTruncatedTreeBI 5 PTN showPairTextNatural example0ZipTreeBI
+  ≡ "."
+let example1ZipTreeBI = zipTreeBI Text example1TreeBI Natural example2TreeBI
+let _ = assert : printTruncatedTreeBI 5 PTN showPairTextNatural example1ZipTreeBI
+  ≡ "((.-(b,2)-.)-(a,1)-.)"
+```
+We see that zipping an empty tree with another tree gives again an empty tree.
+The second example shows that `zipTreeBI` has a truncating behavior:
 ```
  zip      a         1        =     (a,1) 
          / \       / \             /   \
@@ -14068,22 +14103,10 @@ An example of the truncating behavior of zip for Tree2a:
         .   .     
 ```
 
-The "truncating zip" returns a tree whose shape is the greatest lower bound of the two input shapes. This is analogous the "minimum" of the two tree shapes. (We need to keep in mind that tree shapes are a partial order, unlike list lengths.)
+The resulting tree's shape   is the greatest lower bound of the two input shapes.
+This is analogous the "minimum" of the two tree shapes.
+(We need to keep in mind that tree shapes are a partial order, unlike list lengths.)
 
-But one can also implement a "padding" zip for `Tree2a`, where the value at the branching is replicated as needed to match the other tree structure:
-
-```
- zip      a         1        =     (a,1) 
-         / \       / \             /   \
-        b   .     2   3        (b,2)   (a,3)   
-       / \       / \ / \       /  \     / \
-      .   c     .  . .  .     .  (c,2) .   .
-         / \                      / \
-        .   .                    .   . 
-```
-
-
-TODO: use bizipP to implement ordinary zip and padding zip, run example tests
 
 ### Recursive types. Least fixpoints
 
@@ -14417,7 +14440,7 @@ To verify the result, we will use a pretty-printing function for trees:
 
 ```dhall
 let exampleZip1 = zipTree2A1 Text exampleTreeT Natural exampleTreeN
-let _ = assert : showTreeZip.show exampleZip1
+let _ = assert : showTree2TN.show exampleZip1
   ≡ "((((a,1) (a,2)) (a,3)) ((((b,1) (b,2)) (b,3)) (((c,1) (c,2)) (c,3))))"
 ```
 The resulting tree looks like this:
@@ -14451,27 +14474,95 @@ We apply `zipTree2` to the same input as before:
 
 ```dhall
 let exampleZip2 = zipTree2 Text exampleTreeT Natural exampleTreeN
-let _ = assert : showTreeZip.show exampleZip2
+let _ = assert : showTree2TN.show exampleZip2
   ≡ "(((a,1) (a,2)) ((b,3) (c,3)))"
 ```
-The resulting tree looks like this:
+The resulting computation looks like this:
 ```
-          /\
-        /    \
-      /\       \
-    /   \     /  \
-  a,1  a,2  b,3  c,3
+zip  /\      /\    =       /\
+    a /\    /\ 3         /    \
+     b  c  1  2        /\       \
+                     /   \     /  \
+                   a,1  a,2  b,3  c,3
 ```
-This is the "padding `zip`"  behavior for   trees: it truncates the tree at the largest possible extent and pads the missing branches with the last leaf values.
-This behavior is close to what programmers would expect for a `zip` operation on binary trees.
-The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
+This is the "padding `zip`"  behavior for   trees.
+The shape of the resulting tree  is the union of the shapes of the two input trees.
+The missing branches are padded  with the last available leaf values.
+This behavior is   what programmers would expect for a `zip` operation on non-empty binary trees, as it is not possible to truncate those trees without providing some leaf values.
 
 
-#### Binary trees with data in branch nodes
+#### Finite binary trees with data in branch nodes
+
+We turn to the tree structure defined  as `TreeB` in the subsection "Binary trees with data in branch nodes" when we considered the greatest fixpoints.
+The type   `TreeB a` describes   a finite binary tree that can be empty and carries a value of type `a` at each branch node.
+
+One may derive two   implementations of `zip` for `TreeB`: one via the `Applicative1` evidence for the bifunctor `FTreeB` and another via the `BizipP`  evidence.
+We will apply these two implementations to some example trees:
+
+```dhall
+let example1TreeB =                 --      a
+  branchB Text "a"                  --     / \
+    (branchB Text "b"               --    b   .
+    (noneB Text)                    --   / \
+      (branchB Text "c"             --  .   c
+      (noneB Text) (noneB Text))    --     / \
+    ) (noneB Text)                  --    .   .
+
+let example2TreeB =                 --      1
+  branchB Natural 1                 --     / \
+  (branchB Natural 2                --    2   3
+   (noneB Natural) (noneB Natural)) --   / \ / \
+  (branchB Natural 3                --  .  . .  .
+   (noneB Natural) (noneB Natural))
+```
+
+The first implementation of `zip` is based on `Applicative1`.
+```dhall
+let zipTreeBA1 = zipLFixViaApplicative1 FTreeB applicative1FTreeB
+let example1ZipTreeB = zipTreeBA1 Text example1TreeB Natural example2TreeB
+let _ = assert : (showTreeB PTN showPairTextNatural).show example1ZipTreeB
+  ≡ "((.-(b,1)-(.-(b,3)-.))-(a,1)-((.-(b,1)-(.-(b,3)-.))-(a,3)-.))"
+```
+
+This tree is visualized as:
+```
+        (a,1)
+       /     \
+     (b,1)   (a,3)
+     / \      /   \
+    .  (b,3) (b,1) .
+       /  \   /  \
+      .    . .   (b,3)
+                 /   \
+                .     .
+```
+Note that the values `2` and `"c"` are lost; but the value `3` is used with `b`.
+The shape of the resulting tree is not a union or an intersection of the shapes of the two input trees.
+This behavior of `zip` is unlikely to be useful in applications.
+
+The second implementation of `zip` is derived from `BizipP FTreeB`, which is based on `Applicative12 FTreeB`.
+
+```dhall
+let zipTreeBP = zipLFixViaBizipP FTreeB bifunctorFTreeB applicative1FTreeB bizipPFTreeB foldable2FTreeB
+```
+To test this code:
+```dhall
+let example2ZipTreeB = zipTreeBP Text example1TreeB Natural example2TreeB
+let _ = assert : (showTreeB PTN showPairTextNatural).show example2ZipTreeB
+  ≡ "((.-(b,2)-.)-(a,1)-.)"
+```
+
+This tree is visualized as:
+```
+        (a,1)
+       /     \
+     (b,2)    .
+     /  \
+    .    .
+```
+This is a standard "truncating `zip`" behavior: the shape of the resulting tree is the intersection of the shapes of the input trees.
 
 
-
-todo: fix the text
 
 
 
@@ -14611,7 +14702,7 @@ To produce `f`, we notice that the argument of `f` has type `F (L a) (L (C a))`,
 The result is `bitraversableF.bisequence L applicativeFunctorL a (C a)` of type `F (L a) (L (C a)) → L (F a (C a))`.
 It remains to convert `L (F a (C a)) → L (C a)`.
 This conversion is a result of `L`'s `fmap` applied to a function of type `F a (C a) → C a`.
-That last function is the standard `fixT` method of the recursive type `C a`.
+That last function is the standard `fix` method of the recursive type `C a`.
 So, we can complete the code:
 
 ```dhall
@@ -15333,7 +15424,7 @@ let flattenedListC = ListC/join Natural nestedListC
 let _ = assert : showListNat flattenedListC ≡ "[ 1, 2, 3, 4, 5, 6, ]" 
 ```
 
-#### Non-empty lists
+#### Non-empty list monad
 
 We have already seen the definition of the non-empty list via curried Church encoding:
 
@@ -15398,14 +15489,43 @@ let flattenedNELNatural = NEL/join Natural nestedNEL
 let _ = assert : showNELNat flattenedNELNatural ≡ "[| 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 |]" 
 ```
 
-#### Non-empty streams
+#### Non-empty stream monad
 
-We defined non-empty streams (`NES`) as the greatest fixpoints of the same pattern functor (`FNEL`) whose least fixpoints are non-empty lists.
+We defined non-empty streams (`NES`) in the section "Non-empty streams" as the greatest fixpoints of the same pattern bifunctor (`FNEL`) whose least fixpoints are non-empty lists.
 The non-empty list is a monad, and the non-empty stream is a monad as well.
 
-todo: implement like in Stream but using non-empty streams
+A `Monad` evidence for `NES` requires us to implement `bind`.
+It is easier to implement the `join` method first, and to express `bind` via `join` and `fmap`.
+The `join` method will traverse a non-empty stream of non-empty streams.
+The resulting stream stops only if all streams are finite.
 
-#### Non-empty binary tree
+To implement the resulting stream, the seed type must be able to track the current inner stream and the rest of the streams.
+This data fits nicely into the type of `FNEL (NES a) (NES (NES a))`.
+We will use the appropriate `unfixG` function for conversions:
+```dhall
+let NES/join : ∀(a : Type) → NES (NES a) → NES a
+  = λ(a : Type) → λ(nesnes: NES (NES a)) →
+    let Seed = FNEL (NES a) (NES (NES a))
+    let init : Seed = unfixG (FNEL (NES a)) functorFNEL2 nesnes
+    let step : Seed → FNEL a Seed = λ(seed : Seed) →
+      merge { Left = λ(nesa : NES a) →
+            , Right = λ(nesanesnesa : Pair (NES a) (NES (NES a))) →
+            } seed
+    in makeGFix (FNEL a) Seed init step
+```
+
+Now we can write a `Monad` evidence for `NES`:
+
+
+```dhall
+let monadNES : Monad NES =
+  { pure = λ(a : Type) → λ(x : a) → oneNES a x
+  , bind = λ(a : Type) → λ(nesa : NES a) → λ(b : Type) → λ(f : a → NES b) →
+      NES/join b (functorNES.fmap a (NES b) f nesa)
+  }
+```
+
+#### Non-empty binary tree monad
 
 Another example of a recursive monad is a binary tree with leaves of type `a` (where `a` is a type parameter).
 We have defined this data type before as `TreeC` via curried Church encoding.
@@ -15459,7 +15579,7 @@ let flattenedTreeC : TreeC Bool = TreeC/join Bool nestedTreeC
 let _ = assert : showTreeCBool flattenedTreeC ≡ "[ [ True, True ], [ False, [ True, False ] ] ]" 
 ```
 
-#### Possibly-empty binary trees
+#### Possibly-empty binary tree monad
 
 The binary tree data structure `TreeC a` cannot be empty: it contains at least one leaf with a value of type `a`.
 
@@ -20303,7 +20423,7 @@ This becomes the last line in `generated.dhall`.
 
 The `Makefile` script will show this message and proceed to building the PDF file only if the entire book's source file was parsed correctly and if the complete Dhall code typechecked without errors.
 
-The typechecked code constitutes about 30$\%$ of the book's text.
+The typechecked code constitutes about 32$\%$ of the book's text.
 
 
 ## Appendix: GNU Free Documentation License
