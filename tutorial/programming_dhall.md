@@ -2560,8 +2560,8 @@ ack m n = ack (m - 1) (ack m (n - 1))
 This code cannot be directly translated to Dhall because of lack of recursion support.
 Nevertheless, there is [another equivalent definition](https://en.wikipedia.org/wiki/Ackermann_function#Definition:_as_iterated_1-ary_function) that does not use recursion but instead formulates Ackermann's function as an explicit bounded loop.
 
-Namely, one defines a sequence of _functions_ $A_0$, $A_1$, ... Each of these functions has type `Natural → Natural`.
-The sequence is defined by $A_0 (n) = n + 1$ and $A_m(n) = A_{m-1}^{n+1}(1)$, where one denotes $f^n$ the iterated application of $f$.
+Namely, one defines a sequence of _functions_ $A0$, $A1$, ... Each of these functions has type `Natural → Natural`.
+The sequence is defined by $A0 (n) = n + 1$ and $Am(n) = A{m-1}^{n+1}(1)$, where one denotes $f^n$ the iterated application of $f$.
 In other words, $f^n(x)$ directly corresponds to the Dhall code `Natural/fold n Natural f x`.
 The sequence of functions is also computed via `Natural/fold`.
 
@@ -13777,7 +13777,7 @@ let applicative12FNEL : Applicative12 FNEL
 Note that both `bizip1` and `bizip` ignore certain parts of the input data.
 But there are no other ways of implementing those functions for `FNEL`.
 
-In contrast, we have two possible implementations of `bizipP`: one copies the code of `bizip`, the other does not ignore any input data.
+In contrast, we have two possible implementations of `bizipP`: one copies the code of `bizip`, the other is written in a different way and does not ignore any input data.
 We will see shortly that the first implementation  gives a "truncating" `zip` and the second   gives  a "padding" `zip`.
 
 ```dhall
@@ -13825,8 +13825,8 @@ let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_pa
 ]
 ```
 
-We see that the "truncating" version of `zip`   is indeed obtained via the "truncating" version of `bizipP`,
-and the "padding" version of `zip`   via the "padding" version of `bizipP`.
+We see that the "truncating" version of `zip`   is indeed obtained via   `bizipPFNEL_truncating`,
+and the "padding" version of `zip`   via  `bizipPFNEL_padding`.
 The choice of `zip` needs to be made according to the application requirements.
 
 To obtain a full `Applicative` evidence for `NES`, it remains to define the `unit` value of type `NES {}`.
@@ -15546,22 +15546,51 @@ The resulting stream stops only if all streams are finite.
 
 To implement the resulting stream, the seed type must be able to track the current inner stream and the rest of the streams.
 This data fits nicely into the type of `FNEL (NES a) (NES (NES a))`.
-We will use the appropriate `unfixG` function for conversions:
+The `Left` variant means that only one stream is left.
+The `Right` variant means that we need to iterate over a current stream, and some more streams are still waiting.
 ```dhall
 let NES/join : ∀(a : Type) → NES (NES a) → NES a
   = λ(a : Type) → λ(nesnes: NES (NES a)) →
     let Seed = FNEL (NES a) (NES (NES a))
-    let init : Seed = unfixG (FNEL (NES a)) functorFNEL2 nesnes
+    let init : Seed = unfixG (FNEL (NES a)) (functorFNEL2 (NES a)) nesnes
     let step : Seed → FNEL a Seed = λ(seed : Seed) →
       merge { Left = λ(nesa : NES a) →
+              merge { Left = λ(x : a) → -- The entire stream is finished.
+                      (FNEL a Seed).Left x
+                    , Right = λ(p : Pair a (NES a)) →
+                      -- The last stream is not yet finished, step it.
+                      (FNEL a Seed).Right { _1 = p._1, _2 = Seed.Left p._2 }
+                    } (unfixG (FNEL a) (functorFNEL2 a) nesa)
             , Right = λ(nesanesnesa : Pair (NES a) (NES (NES a))) →
+              merge { Left = λ(x : a) → -- The current stream is finished.
+                    -- Iterate over the rest of the streams.
+                      merge { Left = λ(nes : NES a) →
+                              -- Just one stream left.
+                              (FNEL a Seed).Right { _1 = x, _2 = Seed.Left nes }
+                            , Right = λ(p : Pair (NES a) (NES (NES a))) →
+                              -- There are more streams left.
+                              (FNEL a Seed).Right { _1 = x, _2 = Seed.Right p }
+                            } (unfixG (FNEL (NES a)) (functorFNEL2 (NES a)) nesanesnesa._2)
+                    , Right = λ(p : Pair a (NES a)) →
+                      -- The current stream is not yet finished, step it.
+                      (FNEL a Seed).Right { _1 = p._1, _2 = Seed.Right { _1 = p._2, _2 = nesanesnesa._2 } }
+                    } (unfixG (FNEL a) (functorFNEL2 a) nesanesnesa._1)              
             } seed
     in makeGFix (FNEL a) Seed init step
 ```
 
-To test this code:
+To test this code, let us concatenate some finite streams (`nes12`, `nes123`) and also an infinite stream (`nesNat`):
 
-todo: add a test
+```dhall
+let nesnes1 : NES (NES Natural)
+  = consNES (NES Natural) nes12 (consNES (NES Natural) nes123 (oneNES (NES Natural) nes12))
+let nesnesJoined1 : NES Natural = NES/join Natural nesnes1
+let _ = assert : NES/take 10 Natural 123 nesnesJoined1 ≡ [ 1, 2, 1, 2, 3, 1, 2 ]
+let nesnes2 : NES (NES Natural)
+  = consNES (NES Natural) nes12 (consNES (NES Natural) nesNat (oneNES (NES Natural) nes12))
+let nesnesJoined2 : NES Natural = NES/join Natural nesnes2
+let _ = assert : NES/take 10 Natural 123 nesnesJoined2 ≡ [ 1, 2, 0, 1, 2, 3, 4, 5, 6, 7, 123 ]
+```
 
 Now we can write a `Monad` evidence for `NES`:
 
