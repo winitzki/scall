@@ -1254,15 +1254,18 @@ This is due to Dhall's specific choice of features and strict typechecking:
 - A program cannot create exceptions or other run-time errors.
 - Infinite loops are not possible; every loop must have an upper bound on the number of iterations.
 - All lists must have an upper bound on length.
+- Imports cannot be circular or provide ill-typed values.
 
 These features eliminate large classes of programmer errors that could create rogue expressions inadvertently.
-Nevertheless, two possibilities for creating rogue expressions still remain:
-- Create such a large data structure that no realistic computer could fit it in memory.
-- Start a computation that takes such a long time that no realistic user could wait for its completion.
+Nevertheless, three possibilities for creating rogue expressions still remain:
+- Trying to create a data structure so large that no realistic computer could fit it in memory.
+- Starting a computation that takes so long that no realistic user could wait for its completion.
+- Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from the device file `/dev/zero`).
 
-These situations are impossible to avoid, because (even with Dhall's restrictions) it is not possible to determine in advance the maximum memory requirements and run times of an arbitrary given program.
+These situations are impossible to avoid because (even with Dhall's restrictions) it is not possible to determine in advance the maximum memory requirements and run times of an arbitrary given program.
+It is also impossible to determine the length of an external resource in advance.
 
-Here are examples of implementing these two possibilities in Dhall:
+Here are examples of implementing these possibilities in Dhall:
 ```dhall
 let doubleText = λ(x : Text) → x ++ x
 -- It is clear that Dhall uses lazy evaluation here.
@@ -1271,6 +1274,9 @@ let petabyte : Text = Natural/fold 50 Text doubleText "x"
 
 -- A strict evaluation of `slow` would require over a thousand years!
 let slow : Natural = Natural/fold 1000000000000000000 Natural (λ(x : Natural) → Natural/subtract x 1) 1
+
+-- Import an infinite sequence of zero bytes.
+-- let zeros = /dev/zero   -- This will never stop.
 ```
 
 Triggering one of these situations will implement (an artificial example of) a **partial function** in Dhall.
@@ -1608,7 +1614,7 @@ The lack of Turing-completeness is not a significant limitation for a wide scope
 Dhall can still perform iterative or recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
 
 The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
-As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
+As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program (or a **rogue expression**) that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
 We have already seen examples of such rogue expressions.
 
 However, it is improbable that a programmer creates a rogue expression by mistake while implementing ordinary tasks in Dhall.
@@ -2539,6 +2545,45 @@ let _ = assert : powers2 100 ≡ [ 1, 2, 4, 8, 16, 32, 64 ]
 ```
 
 The next subsections will implement a number of iterative algorithms  via `Natural/fold`.
+
+#### Ackermann's function
+
+The [usual recursive definition of Ackermann's function](https://rosettacode.org/wiki/Ackermann_function#Haskell) is:
+
+```haskell
+ack :: Int -> Int -> Int   -- Haskell.
+ack 0 n = n + 1
+ack m 0 = ack (m - 1) 1
+ack m n = ack (m - 1) (ack m (n - 1))
+```
+
+This code cannot be directly translated to Dhall because of lack of recursion support.
+Nevertheless, there is [another equivalent definition](https://en.wikipedia.org/wiki/Ackermann_function#Definition:_as_iterated_1-ary_function) that does not use recursion but instead formulates Ackermann's function as an explicit bounded loop.
+
+Namely, one defines a sequence of _functions_ $A_0$, $A_1$, ... Each of these functions has type `Natural → Natural`.
+The sequence is defined by $A_0 (n) = n + 1$ and $A_m(n) = A_{m-1}^{n+1}(1)$, where one denotes $f^n$ the iterated application of $f$.
+In other words, $f^n(x)$ directly corresponds to the Dhall code `Natural/fold n Natural f x`.
+The sequence of functions is also computed via `Natural/fold`.
+
+Dhall code implementing Ackermann's function in this way (in an earlier version of Dhall) was shown [in this Hacker News post](https://news.ycombinator.com/item?id=15186988).
+Equivalent code that works with the current version of Dhall was given by G. Gonzalez [in a blog post](https://haskellforall.com/2020/01/why-dhall-advertises-absence-of-turing):
+
+```dhall
+let ackermann : Natural → Natural → Natural
+  = let increment : Natural → Natural = λ(n : Natural) → n + 1
+    let iterate : (Natural → Natural) → Natural → Natural
+      = λ(f : Natural → Natural) → λ(n : Natural) → Natural/fold (n + 1) Natural f 1
+    in λ(m : Natural) → Natural/fold m (Natural → Natural) iterate increment
+```
+
+Ackermann's  function grows extremely quickly with its arguments; for instance, $A(4, 4)$ is of the order $2^{2^{2^65536}}$, which is far too large to be directly evaluated.
+The significance of Ackermann's function for the mathematical theory of computation is that it is not a **primitive recursive function**; that is, it cannot be computed by a program containing only loops over integers.
+The implementation in Dhall uses loops over function values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
+Nevertheless, termination of this function is theoretically guaranteed (as for all Dhall functions).
+
+In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is theoretically guaranteed to terminate, but in practice will take time beyond any imaginable limit.
+It is also an example of what we will later call a **rogue expression**.
+By this we mean an expression that does not obviously include any large numbers or huge strings, and yet its evaluation cannot complete due to time or memory exhaustion.
 
 ### Factorial
 
@@ -15513,6 +15558,10 @@ let NES/join : ∀(a : Type) → NES (NES a) → NES a
             } seed
     in makeGFix (FNEL a) Seed init step
 ```
+
+To test this code:
+
+todo: add a test
 
 Now we can write a `Monad` evidence for `NES`:
 
