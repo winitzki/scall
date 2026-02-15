@@ -15804,7 +15804,7 @@ let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
       alg { _1 = left r ar alg, _2 = right r ar alg }
 ```
 
-We also need a `Show` implementation and the monadic `join` method:
+We will also need a `Show` implementation and the monadic `join` method:
 
 ```dhall
 let showFrTree : ∀(a : Type) → Show a → Show (FrTree a)
@@ -15859,15 +15859,22 @@ let InfFreeMonad = λ(F : Type → Type) → λ(a : Type) → GFix (λ(r : Type)
 It is not a free monad in the mathematical sense, as it does not satisfy some of the laws required for free monads.
 Bit it is nevertheless a monad for any functor `F`.
 
+To implement the `bind` method, we use the "seed" type that can switch between two monad types (`InfFreeMonad F a` and `InfFreeMonad F b`).
+Once we encounter a value of type `a`, we switch to `InfFreeMonad F b`.
+
 ```dhall
-let monadInfFreeMonad : ∀(F : Type → Type) → Monad (InfFreeMonad F)
-  = λ(F : Type → Type) →
-    let pure = λ(a : Type) → λ(x : a) → ???
-    let bind = λ(a : Type) → λ(fma : InfFreeMonad F a) → λ(b : Type) → λ(f : a → InfFreeMonad F b) → ???
+let monadInfFreeMonad : ∀(F : Type → Type) → Functor F → Monad (InfFreeMonad F)
+  = λ(F : Type → Type) → λ(functorF : Functor F) →
+    let pure = λ(a : Type) → λ(x : a) →
+      makeGFix (λ(r : Type) → Either a (F r)) {} {=} (λ(_ : {}) → (Either a (F {}).Left x))
+    let bind = λ(a : Type) → λ(fma : InfFreeMonad F a) → λ(b : Type) → λ(f : a → InfFreeMonad F b) →
+      let S = Either (InfFreeMonad F a) (InfFreeMonad F b)
+      let seed : S = S.Left fma
+      let step : S → Either a (F S) = λ(s : S) → 0
+      in makeGFix (λ(r : Type) → Either a (F r)) S seed step
     in { pure, bind }
 ```
 
-todo: implement
 
 ## Monad transformers
 
