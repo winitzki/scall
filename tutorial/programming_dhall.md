@@ -15802,6 +15802,7 @@ let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
   = λ(a : Type) → λ(left : FrTree a) → λ(right : FrTree a) →
     λ(r : Type) → λ(ar : a → r) → λ(alg : Pair r r → r) →
       alg { _1 = left r ar alg, _2 = right r ar alg }
+let FrTree/join = monadJoin FrTree (monadFreeMonad D)
 ```
 
 We will also need a `Show` implementation and the monadic `join` method:
@@ -15811,7 +15812,6 @@ let showFrTree : ∀(a : Type) → Show a → Show (FrTree a)
   = λ(a : Type) → λ(showA : Show a) → { show = λ(tree : FrTree a) →
     tree Text (λ(x : a) → showA.show x) (λ(branch : Pair Text Text) → "[ ${branch._1}, ${branch._2} ]")
   }
-let FrTree/join = monadJoin FrTree (monadFreeMonad D)
 ```
 
 Let us reproduce the test we wrote for `TreeC` by using `FrTree` instead:
@@ -15859,22 +15859,49 @@ let InfFreeMonad = λ(F : Type → Type) → λ(a : Type) → GFix (λ(r : Type)
 It is not a free monad in the mathematical sense, as it does not satisfy some of the laws required for free monads.
 Bit it is nevertheless a monad for any functor `F`.
 
+todo: check space before colon in exported code
+
 To implement the `bind` method, we use the "seed" type that can switch between two monad types (`InfFreeMonad F a` and `InfFreeMonad F b`).
 Once we encounter a value of type `a`, we switch to `InfFreeMonad F b`.
 
 ```dhall
 let monadInfFreeMonad : ∀(F : Type → Type) → Functor F → Monad (InfFreeMonad F)
   = λ(F : Type → Type) → λ(functorF : Functor F) →
-    let pure = λ(a : Type) → λ(x : a) →
-      makeGFix (λ(r : Type) → Either a (F r)) {} {=} (λ(_ : {}) → (Either a (F {}).Left x))
-    let bind = λ(a : Type) → λ(fma : InfFreeMonad F a) → λ(b : Type) → λ(f : a → InfFreeMonad F b) →
-      let S = Either (InfFreeMonad F a) (InfFreeMonad F b)
-      let seed : S = S.Left fma
-      let step : S → Either a (F S) = λ(s : S) → 0
-      in makeGFix (λ(r : Type) → Either a (F r)) S seed step
+    let functorP = λ(a : Type) → { fmap = λ(r : Type) → λ(s : Type) → λ(f : r → s) → λ(pa : Either a (F r)) →
+        merge { Left = λ(x : a) → (Either a (F s)).Left x
+              , Right = λ(fr : F r) → (Either a (F s)).Right (functorF.fmap r s f fr)
+              } pa
+    }
+    let M = InfFreeMonad F
+    let pure : ∀(a : Type) → a → M a
+      = λ(a : Type) → λ(x : a) →
+        makeGFix (λ(r : Type) → Either a (F r)) {} {=} (λ(_ : {}) → (Either a (F {})).Left x)
+    let bind = λ(a : Type) → λ(ma : M a) → λ(b : Type) → λ(f : a → M b) →
+      let Pa = λ(r : Type) → Either a (F r)
+      let unfixPa : M a → Pa (M a) = unfixG Pa (functorP a)
+      let Pb = λ(r : Type) → Either b (F r)
+      let unfixPb : M b → Pb (M b) = unfixG Pb (functorP b)
+      let S = Either (M a) (M b)
+      let promoteA : F (M a) → F S = functorF.fmap (M a) S S.Left
+      let promoteB : F (M b) → F S = functorF.fmap (M b) S S.Right
+      let seed : S = S.Left ma
+      let step : S → Pb S = λ(s : S) →
+        merge { Left = λ(fa : M a) →
+        -- Need to compute a value of type Either b (F S).
+                merge { Left = λ(x : a) →
+                        merge { Left = λ(y : b) → (Pb S).Left y
+                              , Right = λ(fmb: F (M b)) → (Pb S).Right (promoteB fmb)
+                              } (unfixPb (f x))
+                      , Right = λ(fma : F (M a)) → (Pb S).Right (promoteA fma)
+                      } (unfixPa fa)
+              , Right = λ(fb : M b) →
+                merge { Left = λ(y : b) → (Pb S).Left y
+                      , Right = λ(fmb : F (M b)) → (Pb S).Right (promoteB fmb)
+                      } (unfixPb fb)
+              } s
+      in makeGFix Pb S seed step
     in { pure, bind }
 ```
-
 
 ## Monad transformers
 
