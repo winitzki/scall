@@ -7636,7 +7636,7 @@ let _ = assert : depthFTreeNat exampleTree3 ≡ 2
 
 Church-encoded type constructors such as lists and trees are covariant in their type arguments.
 
-As an example, let us implement a `Functor` evidence for the type constructor `Tree` in the curried Church encoding:
+As an example, here is a `Functor` evidence for the type constructor `TreeC` defined in a curried Church encoding:
 
 ```dhall
 let TreeC = λ(a : Type) → ∀(r : Type) → (a → r) → (r → r → r) → r
@@ -7675,11 +7675,18 @@ Whenever possible, we will implement typeclass evidence values for Church-encode
 
 ### Recursive data structures containing types
 
-Dhall's built-in type constructors  `List` and `Optional` only work with **ground types** (that is, types of kind `Type`).
-Ground types are types of values.
-One can create a list of Boolean values, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
+Dhall's built-in type constructors  `List` and `Optional` only work with  ordinary values.
+For example, we can have  a list of Boolean values, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
+One can also have a list of lists of `Optional Bool`, and so on.
 But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols `Bool` and `Natural`.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
+
+To formulate this more rigorously, we say that an `Optional` or a `List` can store values whose type  has kind `Type`.
+We can have a `List t` only if the kind of `t` is `Type`.
+(Those types are called **ground types**.)
+So, we can have a `List Natural`,  `List Bool`,  a `List { a : Natural, b : Bool, c : Optional Text }`, and generally any `List t` such that `t : Type` is a valid annotation.
+But we cannot have a `List Type` or a `List (Type → Type)`, because that would be of the form `List t` with `t : Kind`.
+If that is desired, one needs to implement some custom type constructors that we will now look at.
 
 Let us begin by implementing a type-level analog of the `Optional` type.
 For that, we will use a union type that stores data of an arbitrary kind.
@@ -15696,7 +15703,7 @@ let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
 ```
 
 The Appendix "Naturality and parametricity" proves in general that  the Church-Yoneda identity indeed gives isomorphic types.
-In particular, it follows that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
+In this particular case, it means that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
 
 We can implement data constructors directly for `BTreeE`:
 
@@ -15740,6 +15747,28 @@ let monadBTreeE : Monad BTreeE =
         = ta (Optional r) leafA (optionalBranch r branch)
       in Optional/concat r result
   in { pure, bind }
+```
+
+To test this code, let us create a tree of type `BTreeE Natural` whose leaves carry values `1`, `2`, `3`, `4`.
+Then we will apply `bind` with a function that maps these numbers into different trees of type `BTreeE Text`;  we will choose some of those trees to be empty.
+
+```dhall
+let example0E : BTreeE Natural       --      /\
+  = branchE Natural (branchE Natural      --     /\ 4
+      (leafE Natural 1) (branchE Natural  --    1 /\
+        (leafE Natural 2)                 --     2  3
+          (leafE Natural 3))) (leafE Natural 4)
+let example1E : BTreeE Text = branchE Text (leafE Text "a") (leafE Text "b")
+let example2E : BTreeE Text = leafE Text "c"
+let example3E : BTreeE Text = emptyE Text
+
+let exampleFunc : Natural → BTreeE Text
+  = λ(n : Natural) → if Natural/equal n 1 then example1E
+    else if Natural/equal n 2 then example2E
+    else if Natural/equal n 3 then example3E
+    else leafE Text "invalid"
+
+let exampleResult : BTreeE Text = monadBTreeE.bind Natural example0E Text exampleFunc
 ```
 
 todo: add a unit test
