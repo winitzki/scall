@@ -2841,7 +2841,7 @@ An asymptotically faster "squaring" algorithm first precomputes the powers of `2
 The powers are computed via `Natural/fold` similarly to the code of `powers2` shown earlier. 
 Then the powers of `2` are subtracted from `p`, starting from the highest power that is still not greater than `p`.
 This finds the decomposition of `p` as a sum of powers of `2`; we then compute the product of the corresponding powers of `n`.
-For example, $n^13$ is computed by finding that $13 = 1 + 4 + 8$ and then computing $n^13 = n^1 * n^4 * n^8$.
+For example, $n^{13}$ is computed by finding that $13 = 1 + 4 + 8$ and then computing $n^{13} = n^1 \cdot  n^4 \cdot n^8$.
 The code uses `List/fold` that corresponds to the **right fold** operation that starts from the end of the list:
 ```dhall
 let powerNatSq : Natural → Natural → Natural
@@ -13191,12 +13191,13 @@ If `P` and `Q` are applicative then so is their product (`Product P Q`).
 
 ```dhall
 let applicativeProduct
-  : ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (Product P Q)
+: ∀(P : Type → Type) → Applicative P → ∀(Q : Type → Type) → Applicative Q → Applicative (Product P Q)
   = λ(P : Type → Type) → λ(applicativeP : Applicative P) → λ(Q : Type → Type) → λ(applicativeQ : Applicative Q) →
     let R = λ(a : Type) → { _1 : P a, _2 : Q a } -- Same as Product P Q a.
     in { unit = { _1 = applicativeP.unit, _2 = applicativeQ.unit }
        , zip = λ(a : Type) → λ(x : R a) → λ(b : Type) → λ(y : R b) →
-         { _1 = applicativeP.zip a x._1 b y._1, _2 = applicativeQ.zip a x._2 b y._2 }
+         { _1 = applicativeP.zip a x._1 b y._1
+         , _2 = applicativeQ.zip a x._2 b y._2 }
        }
 ```
 This works equally well for any type constructors (not necessarily covariant).
@@ -13482,9 +13483,11 @@ In this and the next subsections, we will implement `Applicative` evidence for f
 
 Suppose `F` is a bifunctor; that is,  `F a b` is covariant with respect to both `a` and `b`.
 Then we may define   recursive functors `C` and `D` by `C a = LFix (F a)` and `D a = GFix (F a)`.
-We will find that the functors `C` and `D` are applicative as long as `F` has a certain kind of `zip` method adapted for bifunctors.
 
-As it turns out, there are several possible ways of defining a `zip` method for bifunctors, and each of those possibilities has its uses.
+In this section, we will show that the functor `D` is applicative as long as `F` has   certain  `zip`-like method adapted for bifunctors.
+The more difficult case of the functor `C` will be treated in the next section.
+
+As it turns out, there are several possible ways of defining a `zip`-like method for bifunctors, and each of those possibilities has its uses.
 In the previous section, we have defined the typeclasses `Applicative1` and `Applicative12` that describe applicative-like properties for bifunctors.
 We found that `Applicative1` is useful for defining `Applicative` evidence for universally quantified types, while `Applicative12` can be used for existentially quantified types.
 The same technique extends to least fixpoints and greatest fixpoints.
@@ -13601,7 +13604,7 @@ let zipGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F → Bizip
     λ(a : Type) → λ(da : D a) → λ(b : Type) → λ(db : D b) →
       let makeFpair : Pair (D a) (D b) → F (Pair a b) (Pair (D a) (D b))
        = λ(dadb : Pair (D a) (D b)) →
-        -- Use unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F).
+  -- Use unfixG : ∀(F : Type → Type) → Functor F → GFix F → F (GFix F).
         let functorF2 : ∀(t : Type) → Functor (F t) = functorBifunctorF2 F bifunctorF
         let unfixD : ∀(t : Type) → D t → F t (D t) = λ(t : Type) → unfixG (F t) (functorF2 t) 
         -- Apply unfixD to ga and gb.
@@ -14162,7 +14165,7 @@ This is analogous the "minimum" of the two tree shapes.
 
 ### Recursive types. Least fixpoints
 
-In this section, we will show how a `zip` method can be written for type constructors defined via `LFix`.
+In this section, we will show how a `zip` method can be written for various type constructors defined via `LFix`.
 
 Given a pattern bifunctor `F`, we define the functor `C` by `C a = LFix (F a)`.
 ```dhall
@@ -14176,7 +14179,9 @@ let zip : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 
 Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` has evidence of certain typeclasses.
 In the previous section, we  defined the typeclasses `Applicative1`, `Applicative12`, and `BizipP` and used them to compute an `Applicative` evidence for greatest fixpoints.
-It turns out that for least fixpoints, `Applicative12` cannot be used, but both `Applicative1` and `BizipP` are helpful.
+It turns out that for least fixpoints, `Applicative12` cannot be used directly, so we will be using both `Applicative1` and `BizipP`.
+Sometimes it is sufficient to define `BizipP` via `Applicative12`, at other times we will need a different  implementation of `BizipP`.
+In each case, we will test the resulting `zip` method on some examples and discover what kinds of `zip` operations are possible.
 
 #### Implementation via Church encoding. Non-empty lists
 
@@ -14620,7 +14625,7 @@ This is a standard "truncating `zip`" behavior: the shape of the resulting tree 
 
 ## Combinators for foldable and traversable functors
 
-Chapter "Typeclasses" motivates and defines the typeclasses `Foldable` and `Traversable`:
+Chapter "Typeclasses"   defines the typeclasses `Foldable` and `Traversable`:
 
 ```dhall
 let Foldable = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
@@ -14630,14 +14635,13 @@ let Traversable = λ(F : Type → Type) → { sequence : ∀(L : Type → Type) 
 ```
 
 Only functors can be foldable or traversable.
-So, we will assume that a `Functor F` typeclass evidence is always available for foldable and traversable functors.
 
 Because `Foldable` typeclass evidence can be derived from `Traversable`, it is sufficient to focus on traversable functors.
 The next sections will show some constructions for traversable functors. 
 
 ### Constant functors and the identity functor
 
-Constant functors are traversable in a trivial way: they carry no data (of a parameterized type), and so the return value of type `L (F a)` is just an empty effect of `L`.
+Constant functors are traversable in a trivial way: they carry no data (of a parameterized type), and   the return value of type `L (F a)` is just an empty effect of `L`.
 
 ```dhall
 let traversableConst
@@ -14660,7 +14664,7 @@ let traversableId : Traversable Id  = { sequence = λ(L : Type → Type) → λ(
 ### Functor composition
 
 If `F` and `G` are two traversable functors then the composition `H a = F (G a)` is also traversable.
-We compute the type via the combinator called `Compose` defined earlier.
+We express `H` via the combinator called `Compose` defined earlier.
 
 The `Traversable` evidence for `Compose F G` can be constructed automatically from `Traversable` and `Functor` evidence values for `F` and `G`:
 
@@ -14909,7 +14913,7 @@ let contraliftM : ∀(M : Type → Type) → ∀(F : Type → Type) → MContraF
 ```
 
 In practical coding, it is easier to work with `contraliftM` because it is more powerful: it includes at once the functionality of `cmap` and `inflateM`.
-But when deriving general properties of $M$-filterable contrafunctors, it is simpler to work with `inflateM` as its type signature is shorter.
+But when deriving general properties of $M$-filterable contrafunctors, it is simpler to work with `inflateM` as its type   is shorter.
 For this reason, we defined the `MContraFilterable` typeclass via the method `inflateM`, and we will perform all typeclass derivations using that method.
 
 To understand why the specific type signature of `contraliftM` is useful, let us look at the code for the general $M$-filterable monad combinator:
@@ -14937,7 +14941,7 @@ This transformation is provided by `contraliftM`.
 The concept of $M$-filterable contrafunctors is not widely known or used.
 To build up intuition, we look at some relationships between  $M$-filterable contrafunctors and other, better-known typeclasses.
 
-The first observation is that when `M = Optional` we recover ordinary filterable contrafunctors.
+The first observation is that  `M = Optional`  gives the ordinary filterable contrafunctors.
 This is because a function of type `F a → F (Optional a)` is equivalent to the `inflate` method required for `ContraFilterable`.
 We may write a conversion from `MContraFilterable` to `ContraFilterable`:
 
@@ -14978,11 +14982,10 @@ let toIdContraFilterable : ∀(F : Type → Type) → Contrafunctor F → MContr
 ```
 Because of this property, we were able to formulate the simpler monadic combinator `monadArrowContraF` for arbitrary contrafunctors `F` without invoking the notion of $M$-filterable contrafunctors.
 
-In this section, we will assume that a monad `M` is given and fixed.
-Because the concepts of $M$-filterable functors and contrafunctors become trivial when `M = Id`, we will assume that `M` is not the identity monad.
-
 Let us explore some combinators that create new $M$-filterable functors and contrafunctors.
-We will not be concerned with formulating and checking the required laws. It is proved in "The Science of Functional Programming" that the combinators respect the required laws of $M$-filterable functors and contrafunctors. 
+We will not be concerned with formulating and checking the required laws.
+It is proved in "The Science of Functional Programming" that the combinators respect the required laws of $M$-filterable functors and contrafunctors.
+We will assume that a monad `M` is given and fixed.
 
 #### Constant (contra)functors
 
@@ -15060,7 +15063,7 @@ If `F` is any (contra)functor and `G` is $M$-filterable then `Compose F G` is al
 This works in the same way whether `F` and `G` are covariant or contravariant.
 Of course, the covariance of the resulting type constructor (`Compose F G`) depends on the covariance of `F` and `G`.
 We have seen a similar set of four constructions for ordinary (contra)functors and for filterable (contra)functors.
-The code for $M$-filterable (contra)functors is similar to what we had before.
+The code for $M$-filterable (contra)functor combinators is similar to what we had before.
 
 For covariant `F` and covariant `G`:
 ```dhall
@@ -15096,7 +15099,7 @@ let compositionContraMContraFilterable : ∀(M : Type → Type) → ∀(F : Type
 
 #### Product and co-product types
 
-Products and co-products of $M$-(contra)filterable functors are again $M$-(contra)filterable.
+Products and co-products of $M$-(contra)filterable functors are   $M$-(contra)filterable.
 
 Product of two $M$-filterable functors:
 
@@ -15384,7 +15387,7 @@ let monadForall : ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (
       in { pure, bind } 
 ```
 
-Another example of a monad involving a universal quantifier is called the "**composed codensity monad**" in "The Science of Functional Programming".
+Another example of a monad with a universal quantifier is called the "**composed codensity monad**" in "The Science of Functional Programming".
 The type constructor is defined by `∀(t : Type) → (a → F t) → F (M t)`, where `F` is any functor and `M` is any monad.
 The Dhall code is:
 
@@ -15401,7 +15404,6 @@ let monadComposedCodensity : ∀(F : Type → Type) → Functor F → ∀(M : Ty
         in functorF.fmap (M (M t)) (M t) (monadJoin M monadM t) fmmt : F (M t) 
     in { pure, bind } 
 ```
-
 This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not a monad with respect to `a` when `t` is a fixed type.
 
 ### Monads with recursive types
