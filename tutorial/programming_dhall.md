@@ -10375,7 +10375,7 @@ working with those structures in System Fω often requires an explicit upper bou
 possible iterations.
 It is impossible to implement a function that determines whether a given stream ever terminates.
 
-#### The "cons" constructor for streams. Performance issues
+#### The  `cons` constructor for streams. Performance issues
 
 The `cons` operation for lists   prepends a single value to a list.
 The analogous operation for streams can be implemented as a special case of concatenating streams:
@@ -10401,7 +10401,7 @@ Pattern matching operations with that type will take `O(N)` time in the Dhall in
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 When the data size is known in advance, it is better to use finite lists instead of finite streams.
 
-#### Running aggregations: "scan" and "scanMap"
+#### Running aggregations: `scan` and `scanMap`
 
 A typical task for streams is to perform **running aggregations**.
 A running aggregation extracts   new values from a source stream and updates an aggregated value  each time.
