@@ -15733,7 +15733,24 @@ let branchE : ∀(a : Type) → BTreeE a → BTreeE a → BTreeE a
       in optionalBranch r branch leftTree rightTree
 ```
 Here we defined a helper function (`optionalBranch`) that transforms a "branching" constructor of type `r → r → r` to a similar constructor of type `Optional r → Optional r → Optional r`.
-This transformation will remove empty sub-trees: branching will persist only if both subtrees are non-empty. 
+This transformation will remove empty branches or empty sub-trees, converting branches to leaves as needed.
+Because of this transformation, the data constructors will accept empty sub-trees and will automatically prune the tree as needed:
+
+```dhall
+let example1EmptySubtree = branchE Text  --   /\
+  (leafE Text "a") (emptyE Text)         --  a  .
+--  This is the same as just the leaf "a":
+let _ = assert : example1EmptySubtree ≡ leafE Text "a"
+let example2EmptySubtree = branchE Text  --   /\
+  (emptyE Text) (emptyE Text)            --  .  .
+-- This is the same as an empty tree:
+let _ = assert : example2EmptySubtree ≡ emptyE Text
+let example3EmptySubtree = branchE Text  --   /\
+  (emptyE Text) (branchE Text            --  . /\
+  (emptyE Text) (leafE Text "b"))        --   .  b
+--  This is the same as just the leaf "b":
+let _ = assert : example3EmptySubtree ≡ leafE Text "b"
+```
 
 Now we write a `Monad` evidence for `BTreeE`:
 
@@ -15753,25 +15770,31 @@ To test this code, let us create a tree of type `BTreeE Natural` whose leaves ca
 Then we will apply `bind` with a function that maps these numbers into different trees of type `BTreeE Text`;  we will choose some of those trees to be empty.
 
 ```dhall
-let example0E : BTreeE Natural       --      /\
+let example0E : BTreeE Natural            --      /\
   = branchE Natural (branchE Natural      --     /\ 4
       (leafE Natural 1) (branchE Natural  --    1 /\
         (leafE Natural 2)                 --     2  3
           (leafE Natural 3))) (leafE Natural 4)
 let example1E : BTreeE Text = branchE Text (leafE Text "a") (leafE Text "b")
-let example2E : BTreeE Text = leafE Text "c"
+let example2E : BTreeE Text = branchE Text (leafE Text "c") (leafE Text "d")
 let example3E : BTreeE Text = emptyE Text
+let example4E : BTreeE Text = leafE Text "e"
 
 let exampleFunc : Natural → BTreeE Text
   = λ(n : Natural) → if Natural/equal n 1 then example1E
     else if Natural/equal n 2 then example2E
     else if Natural/equal n 3 then example3E
-    else leafE Text "invalid"
+    else if Natural/equal n 4 then example4E
+    else leafE Text "other"
 
 let exampleResult : BTreeE Text = monadBTreeE.bind Natural example0E Text exampleFunc
+                                            --       /\
+let expectedResult : BTreeE Text =          --      /\ e
+    branchE Text (branchE Text              --     /  \
+      example1E example2E)                  --    /\  /\
+        (leafE Text "e")                    --   a b c  d
+let _ = assert : exampleResult ≡ expectedResult
 ```
-
-todo: add a unit test
 
 #### The free monad 
 
