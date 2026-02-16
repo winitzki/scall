@@ -1,6 +1,11 @@
-let Float/create = (./Type.dhall).Float/create
+let Float/create =
+      ( ./Type.dhall
+          sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
+      ).Float/create
 
-let Float/show = ./show.dhall
+let Float/show =
+      ./show.dhall
+        sha256:4cb171d3b191cb0e5c5a477e6e230da297600ff20e275c84dd79a04d531bb434
 
 let test_show = λ(x : Integer) → λ(e : Integer) → Float/show (Float/create x e)
 

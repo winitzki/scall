@@ -2,9 +2,13 @@ let Natural/lessThan =
       https://prelude.dhall-lang.org/Natural/lessThan
         sha256:3381b66749290769badf8855d8a3f4af62e8de52d1364d838a9d1e20c94fa70c
 
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let Base = T.Base
 

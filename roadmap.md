@@ -6,25 +6,29 @@
 - Implement parsing enhancements, without changing normal forms. (See below.)
 - Implement a type-checker that can modify the expression being type checked. The new expression may have some arguments inserted and some type annotations inserted, etc.
 - Implement "one-step" type inference for ∀-spines using that feature. (Not sure whether also λ-spines are required for this to work.) Modify the do-notation by using type inference.
-- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x`, distribute functions such as `List/head` over `if/then/else` when there is opportunity to simplify, or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code.
-- Automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
-- Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be).
-- Implement more features for dependent type checking. Add a "value context" to the typechecker. (See below.)
+- Implement some more beta-reducing rules. For example, `Integer/clamp (Integer/clamp x) = Integer/clamp x`, distribute functions such as `List/head` over `if/then/else` when there is opportunity to simplify, or some more rules for `Natural` number operations. I documented some possible new rules in the scall source code. For example, also `(if a then b else c).d` in case `b` and `c` are literal records, or `Integer/negate (Integer/negate x) = x`.
+- At type-checking stage, automatically insert values of the unit type `{}` when needed, similarly to the one-step type inference. Values of the type `{}` will be also inserted when their type was computed depending on previous values. Similarly, insert values of equality types.
+- Each expression has a built-in "type annotation" field that may be initially empty. Implement the beta-reducer that can use the type information. If type information is not present, certain "type-sensitive" beta-reductions will not be performed (but others will be). For example, implement the reduction `{ a = x.a } = x` when `x` is a record containing the single field `a`, and similarly with `merge`. Make sure we can symbolically validate monoid laws, state monad laws, etc., which we can't do without such reduction rules. This is low priority because those kinds of reductions are only seen under lambda and not when evaluating concrete literal values.
+- Revisit the standard library's `List` module and implement a better choice of a `List` index built-in. Maybe slicing or direct indexing? Try avoiding the explosion of normal forms.
+- Implement more features for dependent type checking. Add a "value context" to the typechecker and to the beta reducer. (See below.)
 - Enable row and column polymorphism according to [this issue](https://github.com/dhall-lang/dhall-lang/issues/1381). See if the standard tests still pass.
 - Figure out if my definition of the `freeVar` judgment is correct (do we allow only zero de Bruijn index values?).
 - Implement widening on union values. `(x : U).(V)` is valid if `V` has the type constructor of the same type as used for `x : U`.
 - Document the import system in the standard documentation (I had a branch in `winitzki/dhall-lang` about that). Or, add an "implementation note" document. Currently, the import system is less clearly documented than other parts.
-- Fully document the JSON, the YAML, and the TOML export.
+- Fully document the JSON, the YAML, and the TOML export as it is actually implemented (in Haskell).
 - Implement "lightweight bindings" for Python, Rust, Java as an exercise?
 - Implement an IntelliJ plugin for fully-featured Dhall IDE.
 - Implement more features in the VSCode plugin for Dhall and dhall-language-server.
 - Enhance the Dhall grammar for better error reporting.
-- Implement the Dhall grammar via tree-sitter or via an Earley parser.
+- Implement the Dhall grammar via tree-sitter or via an Earley parser?
+- Try normalization-by-evaluation for speedup.
 - Implement native code overrides for Dhall expressions, dynamic loading from JAR by SHA256.
 - Use `SymbolicGraph` to implement a shim for the `fastparse` parsing framework so that parsers are stack-safe. Alternatively, use `TailCalls` in the output type of the parsers. (Will that work? Probably not.)
 - Export to Scala source: the exported value must be a Scala expression that evaluates to the normal form of the Dhall value, in a Scala representation.
 - Export to JVM code and run to compute the normal form? (JIT compiler; perhaps only for literal values of ground types.)
 - Prevent explosion of normal forms; implement automatic stopping for normal form expansion under lambda or whenever they grow exponentially beyond a certain limit.
+- Implement an alternative to `merge` as a pattern-matching function utilizing both row and column subtyping as appropriate.
+- Enable `assert` for types and kinds.
 
 ## Parsing enhancements
 
@@ -33,17 +37,20 @@ The following enhancements could be implemented by changing only the parser:
 | Will parse this new syntax:             | Into this standard Dhall expression:                                                                |
 |-----------------------------------------|-----------------------------------------------------------------------------------------------------|
 | `123_456`                               | `123456` (underscores permitted and ignored within numerical values, including double or hex bytes) |
-| `match x y`                             | `merge y x`  (or some other syntax: x match y, x as in y? avoid new keywords?)                      |
+| `match x y`                             | `merge y x`  (or some other syntax: `x match y`, `x if as y`? avoid new keywords?)                  |
 | `∀(x : X)(y : Y)(z : Z) → expr`         | `∀(x : X) → ∀(y : Y) → ∀(z : Z) → expr`                                                             |
 | `λ(x : X)(y : Y)(z : Z) → expr`         | `λ(x : X) → λ(y : Y) → λ(z : Z) → expr`                                                             |
-| `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where Z is optional                                      |
+| `let f (x : X) (y : Y) : Z = expr`      | `let f = λ(x : X) → λ(y : Y) → (expr : Z)` where the type annotation (`Z`) is optional              |
+| `∀ { x : X, y : Y } → texpr`            | `∀(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in texpr`                                     |
 | `λ { x : X, y : Y } → expr`             | `λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in expr`                                      |
-| `let f { x : X, y : Y } : Z = expr`     | `let f = λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in (expr : Z)` where Z is optional    |
-| `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where A, B are optional                                   |
-| `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may need to be single-back-quoted                                         |
+| `let f { x : X, y : Y } : Z = expr`     | `let f = λ(_ : { x : X, y : Y }) → let x = _.x in let y = _.y in (expr : Z)` where `Z` is optional  |
+| `let { x = a : A, y = b : B } = c in d` | `let a : A = c.x in let b : B = c.y in d` where the type annotations (`A`, `B`) are optional        |
+| `let { x, y } = c in d`                 | `let x = c.x in let y = c.y in d`                                                                   |
+| `x ``p`` y`  at low precedence          | `p x y`  where `p` itself may still need to be single-back-quoted                                   |
 | `f a $ g b`  at low precedence          | `f a (g b)`                                                                                         |
-| `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version of the triangle)                                       |
-| `x.[a]`                                 | `List.index A a x`    (with inferred type)                                                          |
+| `x ▷ f a b`  at low precedence          | `f a b x`  (also support non-unicode version `pipe` or `pipe >` of the triangle)                    |
+| `x.[a]`                                 | `List.index A a x`    (this depends on inferring the type parameter)                                |
+| `{ f (x : X) (y : Y) = expr }`          | `{ f = λ(x : X) → λ(y : Y) → expr }`    (record field with a function type)                         |
 
 The precedence of the operator `|>`
 is higher than that of `$` but lower than that of all double back-quoted infix operators (which have all the same precedence).
@@ -52,19 +59,21 @@ The operators `|>` and all double back-quoted infix operators associate to the l
 
 The operator `$` associates to the right as in Haskell.
 
+Non-breaking space (` `) should be parsed equivalently to normal space.
+
 ## Typechecker and beta-reducer with a "value context"
 
 A "value context" `D` is a set of ordered pairs of terms.
 
 `D = { x = y, a = b, ... }`
 
-If `D` contains `x = y` then it is assumed also that `D` contains `y = x`. (Do we need this feature?)
+If `D` contains `x = y` then it is assumed also that `D` contains `y = x`. (Do we need this?)
 
 If `D` contains `x = y` and we are type-checking or beta-reducing an expression that has `x` free, we may substitute `y` instead of `x` in that expression.
 
-- If we have `λ(x : a === b) → expr` then we add the relation `a = b` to `D` while type-checking `expr`.
-- In an expression `merge r (x : X)`, suppose a handler clause has the form `ConstructorName = λ(p : P) → expr`. While type-checking `expr`, we add the relation `x = X.ConstructorName p` to `D`.
-- In an expression `if c then x else y`, we add `c = True` while typechecking `x` and `c = False` while typechecking `y`.
+- If we have `λ(x : a === b) → expr` then we add the relation `a = b` to `D` while type-checking or beta-reducing `expr`.
+- In an expression `merge r (x : X)`, suppose a handler clause has the form `ConstructorName = λ(p : P) → expr`. While type-checking or beta-reducing `expr`, we add the relation `x = X.ConstructorName p` to `D`.
+- In an expression `if c then x else y`, we add `c = True` while typechecking or beta-reducing `x` and `c = False` while typechecking or beta-reducing `y`.
 
 ## µDhall
 
@@ -79,12 +88,12 @@ Proposed features of µDhall:
 - No `Sort`, only `Type` and `Kind`, while `Kind` is not typeable.
 - Syntax: `(λ(x : X) → expr) : (∀(x : X) → expr)`.
 - Syntax: `f a b c` and `x : X` expressions.
-- Built-in symbols: `Natural`, `Natural/fold`, `Natural/isZero`, `+`, `Natural/subtract`, `Type`, `Kind`.
+- Built-in symbols: `Natural`, `Natural/fold`, `+`, `*`, `Natural/subtract`, `Type`, `Kind`.
 - Built-in `Natural` number constants (0, 1, 2, ...) with unlimited precision.
 - No `Bool`. (Can be Church-encoded.)
 - No `Integer` or any other built-in Dhall data types.
 - `let a = b in e` but no `let a : A = b in c` like in Dhall; perhaps with shortcut `let x = a let y = b in ...`.
-- Imports of files only (no http, no env vars). No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
+- Imports of files only (no http, no env vars)? No sha256, no alternative imports, no `missing`, no `as Text` etc. Imports are cached though (for referential transparency). Relative path only, from current directory (the imported expression must begin with `./`). Or perhaps no imports at all?
 - No text strings. This just complicates the implementation with escapes, multiline strings, interpolation, etc.
 - No products or co-products, records or unions. (Can be Church-encoded.)
 - No built-in `Option` or `List` type constructors. (Can be Church-encoded.)
@@ -94,16 +103,19 @@ Proposed features of µDhall:
 Implement µDhall and verify that:
 - There are no stack overflows, even with very deeply nested data.
 - There are no performance bottlenecks, even with large normal forms.
-- There is no problem with highly repetitive data or highly repetitive normal forms.
-- Avoid normal-form explosion.
+- There is no problem with highly repetitive data or highly repetitive normal forms (must mitigate the problem of explosion of normal forms).
 
 Try implementing "gas" in order to limit the run time of evaluating the beta-normal form and to reject space-leaks and time-leaks (preferably at compile time), reuse memory, share data (given that the source text is already in memory).
 
-Try various implementation ideas: HOAS, PHOAS, CBOR-based processing (?), or various abstract machines.
+Ideally the interpreter will reject a program early if it is suspicious in terms of its space or time leaks.
+
+Try various implementation ideas: HOAS, PHOAS, directly CBOR-based processing (?), or various abstract machines.
 
 Try various ideas about how to combine type-checking with evaluation in a single pass.
 
 Try various ideas about term inference / implicit parameters.
+
+Try an implementation where both HOAS and an AST (or CBOR form) are kept around at the same time.
 
 ## Implement type refinement
 
@@ -111,6 +123,7 @@ Try various ideas about term inference / implicit parameters.
 - Literal singleton types, or, more generally, types allowed to have a prescribed set of values
 - Numbers or booleans with prescribed properties (given a predicate)
 - How to implement a type that includes a proposition with a more ergonomic syntax?
+- This must be exported to JSON and YAML as ordinary values
 
 ## Implement "late binding as in OOP" for records
 

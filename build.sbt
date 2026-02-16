@@ -23,7 +23,7 @@ val anltr4_formatter = "com.khubla.antlr4formatter" % "antlr4-formatter-standalo
 val os_lib              = "com.lihaoyi"    %% "os-lib"                % "0.9.2"
 val httpRequest         = "com.lihaoyi"    %% "requests"              % "0.8.0"
 val enumeratum          = "com.beachape"   %% "enumeratum"            % "1.7.3"
-val izumi_reflect       = "dev.zio"        %% "izumi-reflect"         % "2.3.8"
+val izumi_reflect       = "dev.zio"        %% "izumi-reflect"         % "3.0.6"
 val zio_schema          = "dev.zio"        %% "zio-schema"            % "1.2.1"
 val zio_schema_deriving = "dev.zio"        %% "zio-schema-derivation" % "1.1.1"
 val kindProjector       = "org.typelevel"   % "kind-projector"        % "0.13.3" cross CrossVersion.full
@@ -114,6 +114,7 @@ lazy val nano_dhall = (project in file("nano-dhall")) // This is a POC project.
       //      scalahashing,
       //    cbor3,
       httpRequest,
+      izumi_reflect,
       os_lib % Test,
     ),
   ).dependsOn(scall_testutils % "test->compile", scall_typeclasses, fastparse_memoize)

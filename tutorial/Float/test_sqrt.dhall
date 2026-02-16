@@ -1,6 +1,10 @@
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
-let C = ./compare.dhall
+let C =
+      ./compare.dhall
+        sha256:da183a6c2829465ad3e4b2dffdbe499040458ce8ff8f16b2a665cf9cb6977637
 
 let List/map =
       https://prelude.dhall-lang.org/List/map
@@ -14,9 +18,13 @@ let List/replicate =
       https://prelude.dhall-lang.org/List/replicate
         sha256:d4250b45278f2d692302489ac3e78280acb238d27541c837ce46911ff3baa347
 
-let Float/show = ./show.dhall
+let Float/show =
+      ./show.dhall
+        sha256:4cb171d3b191cb0e5c5a477e6e230da297600ff20e275c84dd79a04d531bb434
 
-let Float/sqrt = ./sqrt.dhall
+let Float/sqrt =
+      ./sqrt.dhall
+        sha256:49a1e98f7d80ebcec73931db4480d99319928028ffa1286da197b7a54dc6b1d1
 
 let test_data =
       [ 1
@@ -76,7 +84,13 @@ let sqrt_data_squared =
       List/map
         T.Float
         T.Float
-        (λ(x : T.Float) → ./multiply.dhall x x (prec + 5))
+        ( λ(x : T.Float) →
+            ./multiply.dhall
+              sha256:a51ab0cfd7690c82b7db49b887644b6a4afda241539da7b10e040c15598eb208
+              x
+              x
+              (prec + 5)
+        )
         sqrt_data
 
 let roundoff_errors
@@ -87,8 +101,14 @@ let roundoff_errors
         ( λ(p : { _1 : Natural, _2 : T.Float }) →
             T.Float/abs
               ( ./subtract.dhall
+                  sha256:e49bf29c5be07cdf7311fbdacd8f5da7c043295722385391a23afb05f91e39e8
                   (T.Float/ofNatural 1)
-                  (./divide.dhall p._2 (T.Float/ofNatural p._1) (prec + 5))
+                  ( ./divide.dhall
+                      sha256:07d3a50e5c14319b95164881c396c18091b25a6573a798ded3aedbf176850166
+                      p._2
+                      (T.Float/ofNatural p._1)
+                      (prec + 5)
+                  )
                   (prec + 5)
               )
         )
@@ -118,7 +138,10 @@ let _ =
 
 let _ =
         assert
-      :   List/replicate (List/length Natural test_data) C.Compared C.Compared.Less
+      :   List/replicate
+            (List/length Natural test_data)
+            C.Compared
+            C.Compared.Less
         ≡ roundoff_errors_compared_to_precision
 
 let _ = assert : Float/sqrt (T.Float/create +4 +0) 4 ≡ T.Float/create +2 +0

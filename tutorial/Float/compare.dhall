@@ -30,7 +30,9 @@ let Integer/subtract =
       https://prelude.dhall-lang.org/Integer/subtract
         sha256:a34d36272fa8ae4f1ec8b56222fe8dc8a2ec55ec6538b840de0cbe207b006fda
 
-let T = ./Type.dhall
+let T =
+      ./Type.dhall
+        sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
 
 let Pair = T.Pair
 
@@ -52,7 +54,9 @@ let Float/normalize = T.Float/normalize
 
 let Base = T.Base
 
-let stop = ./reduce_growth.dhall
+let stop =
+      ./reduce_growth.dhall
+        sha256:9129f3a6766ab3cc8435482c1aa3cb84ef1a6cee80636121e2d1b377b0551ecc
 
 let Compared = < Equal | Greater | Less >
 

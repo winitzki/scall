@@ -1,4 +1,6 @@
-let N = ./numerics.dhall
+let N =
+      ./numerics.dhall
+        sha256:181ca57153831e9088c2940471fb767f94e2b352cdfab520d04789abb2b095a1
 
 let power = N.power
 

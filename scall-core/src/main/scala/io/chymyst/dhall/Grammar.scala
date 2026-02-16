@@ -178,7 +178,7 @@ object Grammar {
   ).memoize
 
   def simple_label_next_char[$: P] = P(
-    ALPHANUM | "-" | "/" | "_"
+    ALPHANUM | "-" | "/" | "_"   // Note: CharIn() does not work with the dash character '-', cannot write CharIn("-", "/", "_")!
   ).memoize
 
   /*
@@ -429,7 +429,7 @@ object Grammar {
 
   def builtin[$: P]: P[Expression] = {
     // TODO report issue: possible confusion between Builtin and Constant symbols.
-    // Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant.
+    // Builtins are parsed into Expression Builtin, but should sometimes be parsed into a Constant. Should we just merge them into one entity?
     // TODO figure out whether True and False should be moved to Builtin out of Constants. (Syntax.hs says it's "typechecking constants".)
     // Are there any situations where True and False are parsed as Builtin (e.g. prohibiting other usage) and not as a Constant? In that case there is a confusion in the standard.
     (concatKeywords(builtinSymbolNames).map(SyntaxConstants.Builtin.withName).map(ExprBuiltin)
@@ -706,7 +706,7 @@ object Grammar {
   )
 
   def IPvFuture[$: P] = P(
-    "v" ~ hexdigitAnyCase.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
+    ("v" | "V") ~ hexdigitAnyCase.rep(1) ~ "." ~ (unreserved | sub_delims | ":").rep(1)
   )
 
   def IPv6address[$: P] = P(
@@ -755,7 +755,7 @@ object Grammar {
   )
 
   def domain[$: P] = P(
-    domainlabel ~ ("." ~ domainlabel).rep ~ ".".?
+    domainlabel ~ (&("." ~ domainLabel) ~ "." ~ domainLabel).rep ~ ".".?
   )
 
   def domainlabel[$: P] = P(

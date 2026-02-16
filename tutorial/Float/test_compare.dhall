@@ -1,10 +1,15 @@
-let C = ./compare.dhall
+let C =
+      ./compare.dhall
+        sha256:da183a6c2829465ad3e4b2dffdbe499040458ce8ff8f16b2a665cf9cb6977637
 
 let Float/compare = C.Float/compare
 
 let Compared = C.Compared
 
-let Float/create = (./Type.dhall).Float/create
+let Float/create =
+      ( ./Type.dhall
+          sha256:eb9b0c4b594668945020e2dc430bc312b998f90ff2b8f6ba2a861c2836c144c5
+      ).Float/create
 
 let _ =
         assert

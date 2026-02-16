@@ -275,6 +275,8 @@ object Syntax {
 
   private def inPrecedence(exprDhallForm: String, innerPrec: Int, outerPrec: Int): String = if (innerPrec < outerPrec) s"($exprDhallForm)" else exprDhallForm
 
+  // The complication is that pretty-printer needs to be stack-safe. We cannot just recursively pretty-print nested expressions.
+  // Instead, we write them into a map of pending expressions to be pretty-printed.
   @tailrec private def dhallForm1(
     freshIndex: Int,
     pending: IndexedSeq[Either[(Int, Expression, Int), (Int, Set[Int], Map[Int, String] => String)]],
