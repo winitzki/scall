@@ -60,7 +60,7 @@ in f 10 (id Natural 20)
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
 [Dhall's  Prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
-such as `Natural/lessThan` or `List/map`.
+such as `List/map`  or  `Natural/lessThan`.
 
 ### Identifiers and variables
 
@@ -1000,8 +1000,8 @@ Names like `Dir1/file` are no more than an often used convention in Dhall librar
 To create a hierarchical library structure of modules and submodules, the Dhall library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values are again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's Prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the Prelude.
-A Dhall file may import the entire Prelude and access its submodules like this:
+The   [top level of Dhall's Prelude](https://prelude.dhall-lang.org/package.dhall)   is a record containing all modules.
+A Dhall file may import the entire Prelude and access its  modules like this:
 ```dhall
 let p = https://prelude.dhall-lang.org/package.dhall -- Takes a while to import!
 let x = p.Bool.not (p.Natural.greaterThan 1 2)     -- We can use any module now.
@@ -1179,8 +1179,8 @@ let _ = identity 123  -- Type error: type parameter missing.
 All type parameters must be written out when applying type constructors or functions with type parameters.
 A correct code would be `identity Natural 123`.
 
-Although the requirement of writing out all type parameters makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
-In particular, Dhall requires us to write out  all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write kind annotations for _types_ (such as, `F : Type → Type`) as well.
+Although the need to write out all type parameters makes Dhall programs more verbose, it also removes the "magic" from   certain idioms in functional programming.
+In particular, Dhall requires us to write out  all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to specify kind annotations for _types_ (such as, `F : Type → Type`) as well.
 This verbosity has actually helped the author to learn some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation. Partial functions
@@ -1260,7 +1260,7 @@ These features eliminate large classes of programmer errors that could create ro
 Nevertheless, three possibilities for creating rogue expressions still remain:
 - Trying to create a data structure so large that no realistic computer could fit it in memory.
 - Starting a computation that takes so long that no realistic user could wait for its completion.
-- Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from the device file `/dev/zero`).
+- Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from `/dev/zero`).
 
 These situations are impossible to avoid because (even with Dhall's restrictions) it is not possible to determine in advance the maximum memory requirements and run times of an arbitrary given program.
 It is also impossible to determine the length of an external resource in advance.
@@ -1648,7 +1648,7 @@ The `Operator` module exposes various built-in and library functions as operator
 The `DirectoryTree` module contains types and functions for working with file paths, file permissions, and directory names.
 
 The `JSON` module contains definitions that are useful for creating a custom JSON export.
-If a Dhall program creates a value of type `JSON` then the standard `dhall-to-json` and `dhall-to-yaml` utilities will apply custom logic to export that value correctly.
+If a Dhall program creates a value of type `JSON` then the standard utilities `dhall-to-json` and `dhall-to-yaml`  will apply custom logic to export that value correctly.
 
 The `DirectoryTree` and `JSON` modules are based on Church encoding, which will be explained later in this book.
 
@@ -2544,7 +2544,7 @@ let _ = assert : powers2 4 ≡ [ 1, 2, 4 ]
 let _ = assert : powers2 100 ≡ [ 1, 2, 4, 8, 16, 32, 64 ]
 ```
 
-The next subsections will implement a number of iterative algorithms  via `Natural/fold`.
+We will now implement a number of iterative algorithms  via `Natural/fold`.
 
 #### Ackermann's function
 
@@ -2559,11 +2559,10 @@ ack m n = ack (m - 1) (ack m (n - 1))
 
 This code cannot be directly translated to Dhall because of lack of recursion support.
 Nevertheless, there is [another equivalent definition](https://en.wikipedia.org/wiki/Ackermann_function#Definition:_as_iterated_1-ary_function) that does not use recursion but instead formulates Ackermann's function as an explicit bounded loop.
-
-Namely, one defines a sequence of _functions_ $A0$, $A1$, ... Each of these functions has type `Natural → Natural`.
-The sequence is defined by $A0 (n) = n + 1$ and $Am(n) = A{m-1}^{n+1}(1)$, where one denotes $f^n$ the iterated application of $f$.
+The trick is to curry Ackermann's function as $A(m)(n)$ and to consider a sequence of _functions_ $A(0)$, $A(1)$, ... Each of these functions has type `Natural → Natural`.
+We define $A(0) (n) = n + 1$ and $A(m+1)(n) = (A(m))^{n+1}(1)$, where   $f^n$ denotes the iterated application of $f$.
 In other words, $f^n(x)$ directly corresponds to the Dhall code `Natural/fold n Natural f x`.
-The sequence of functions is also computed via `Natural/fold`.
+The sequence of functions is also computed via `Natural/fold`, because the function $A(m+1)$ is expressed as a function of $A(m)$.
 
 Dhall code implementing Ackermann's function in this way (in an earlier version of Dhall) was shown [in this Hacker News post](https://news.ycombinator.com/item?id=15186988).
 Equivalent code that works with the current version of Dhall was given by G. Gonzalez [in a blog post](https://haskellforall.com/2020/01/why-dhall-advertises-absence-of-turing):
@@ -2576,12 +2575,12 @@ let ackermann : Natural → Natural → Natural
     in λ(m : Natural) → Natural/fold m (Natural → Natural) iterate increment
 ```
 
-Ackermann's  function grows extremely quickly with its arguments; for instance, $A(4, 4)$ is of the order $2^{2^{2^65536}}$, which is far too large to be directly evaluated.
+Ackermann's  function grows extremely quickly with its arguments; for instance, the value $A(4, 4)$ is of the order $2^{2^{2^{65536}}}$ and is far too large to be directly evaluated.
 The significance of Ackermann's function for the mathematical theory of computation is that it is not a **primitive recursive function**; that is, it cannot be computed by a program containing only loops over integers.
-The implementation in Dhall uses loops over function values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
-Nevertheless, termination of this function is theoretically guaranteed (as for all Dhall functions).
+The implementation in Dhall uses loops over _function_ values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
+Nevertheless, termination of the code is theoretically guaranteed (as for all Dhall functions).
 
-In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is theoretically guaranteed to terminate, but in practice will take time beyond any imaginable limit.
+In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is   guaranteed to terminate, but in practice will take time beyond any imaginable limit.
 It is also an example of what we will later call a **rogue expression**.
 By this we mean an expression that does not obviously include any large numbers or huge strings, and yet its evaluation cannot complete due to time or memory exhaustion.
 
@@ -2667,7 +2666,8 @@ The first step is to define a dependent type that will be void (with no values) 
 
 ```dhall
 let Nonzero : Natural → Type
-  = λ(y : Natural) → if Natural/isZero y then <> else {}
+  = λ(y : Natural) →
+    if Natural/isZero y then <> else {}
 ```
 This `Nonzero` is a type function that returns one or another type given a `Natural` value.
 For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
@@ -2676,13 +2676,14 @@ This definition is straightforward because types and values are treated similarl
 We will use that function to implement safe division (`safeDiv`):
 
 ```dhall
-let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) →
+  unsafeDiv x y
 ```
+A value of type `Nonzero y` is an "evidence" that `y` is nonzero.
+Every application of `safeDiv` must provide such a value, which justifies that it is safe to apply `unsafeDiv x y` within the scope of the function body.
 
-The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
-
-When we use `safeDiv` for dividing by a nonzero value, we specify a third argument of type `{}`.
-That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
+When we use `safeDiv` for dividing by a nonzero value, we must specify a third argument of type `{}`.
+That type has only one value, denoted in Dhall by `{=}` (the empty record).
 So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
 If we try dividing by zero, we will be obliged to pass a third argument of type `<>`, but there are no such values.
@@ -2712,7 +2713,8 @@ let Nonzero = λ(y : Natural) →
   then "error" ≡ "attempt to divide by zero"
   else {}
 
-let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_: Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_: Nonzero y) →
+  unsafeDiv x y
 ```
 
 When we evaluate `safeDiv 4 0 {=}`, we now get a good error message:
@@ -2831,10 +2833,11 @@ let powerNatLoop : Natural → Natural → Natural
 let _ = assert : powerNatLoop 2 4 ≡ 16
 let _ = assert : powerNatLoop 123 0 ≡ 1
 let _ = assert : powerNatLoop 123 1 ≡ 123
-let _ = assert : powerNatLoop 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
+let _ = assert : powerNatLoop 456 23
+  ≡ 14328191630110613608946564511385040497169655860668413473980416
 ```
 
-This calculation takes time linear in the power `p`.
+This code  takes time linear in the power `p` to compute $n^p$.
 However, the runtime is short enough even for computing large powers (when arguments are not larger than `10000`).
 
 An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n`, creating a list of powers `[` $n, n^2, n^4, n^8, ...$`]` by repeated squaring.
@@ -2862,7 +2865,8 @@ let powerNatSq : Natural → Natural → Natural
 let _ = assert : powerNatSq 123 0 ≡ 1
 let _ = assert : powerNatSq 123 1 ≡ 123
 let _ = assert : powerNatSq 2 8 ≡ 256
-let _ = assert : powerNatSq 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
+let _ = assert : powerNatSq 456 23
+  ≡ 14328191630110613608946564511385040497169655860668413473980416
 ```
 
 The new function will work faster than `powerNatLoop` once the input numbers become large enough.
@@ -2992,7 +2996,7 @@ let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   in Natural/fold iterations Float update init
 ```
 This code is shown only for illustration.
-The complete code of `Float/sqrt.dhall` is [a part of the `Float` package](https://winitzki.github.io/dhall/Float/sqrt.dhall).
+The complete code of `Float/sqrt.dhall` is a part of the `Float` [package](https://winitzki.github.io/dhall/Float/sqrt.dhall).
 
 ## Programming with functions
 
@@ -3737,7 +3741,8 @@ let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b →
 The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
-class Monoid m where    -- Haskell.
+-- Haskell.
+class Monoid m where
   mempty :: m
   mappend :: m -> m -> m
 ```
@@ -3799,8 +3804,7 @@ Let us implement some functions with a type parameter required to belong to the 
 Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
--- Haskell.
-reduce :: Monoid m => List m -> m
+reduce :: Monoid m => List m -> m             -- Haskell.
 reduce xs = foldr (\x -> \y -> mappend y x) mempty xs
 
 foldMap :: Monoid m => (a -> m) -> List a -> m
@@ -3891,7 +3895,6 @@ fmap f (F x y t) = F (f x) (F y) t
 In Scala, the equivalent code is:
 ```scala
 case class F[A](x: A, y: A, t: Boolean)         // Scala.
-
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] = F(f(fa.x), f(fa.y), fa.t)
 ```
 The corresponding Dhall code is:
@@ -4843,9 +4846,8 @@ It turns out to be equivalent (but simpler) if we require a method called `toLis
 This method should extract all data stored in a data structure of type `F a` and put that data into a list, in some fixed order.
 Once the data is extracted, we can apply the standard `List/fold` method to that list.
 
-A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `∀(a : Type) → F a → List a`.
-
-With this motivation, we define the `Foldable` typeclass in Dhall:
+A functor `F` is called a **foldable functor** if it has a method `toList` of   type   `∀(a : Type) → F a → List a`.
+The corresponding typeclass (`Foldable`) is defined as:
 ```dhall
 let Foldable
   = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
@@ -5164,8 +5166,6 @@ An example is a "function type" combinator:
 - If `P` is a monoid and `R` is any fixed type then the function type `Q = R → P` is again a monoid.
 - If `F` is a functor and `R` is any fixed type then the type constructor `H` defined by `H a = R → F a` is again a functor.
 
-It turns out that the typeclass laws will hold automatically for typeclass evidence values computed via the "function type" combinators, for a wide range of typeclasses.
-(This is also proved in  "The Science of Functional Programming".)
 
 In later chapters of this book, we will study systematically the possibilities of typeclass derivation for a number of typeclasses and type combinators.
 
@@ -5491,7 +5491,7 @@ Because of Dhall's limitations on polymorphism, we cannot implement a single fun
 We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
 We also cannot define a Leibniz equality type for comparing arbitrary _kinds_.
-That would require writing something like `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
+That requires writing something like `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
 while all function types are required to have a type themselves.
 
 How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
@@ -5672,9 +5672,8 @@ Can we produce an evidence value for that?
 
 Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x ≡ y`).
 There are currently no functions in Dhall that can derive any information out of such values.
-
-But Leibniz equality types and their standard combinators do allow us to perform some computations involving equality.
-In this example, we can obtain a value of type `f x ≡ g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x ≡ g y` via the "value identity" combinator.
+But Leibniz equality types and their standard combinators do allow us to compute with  equality evidence values.
+As we just saw, one can obtain a value of type `f x ≡ g x` by using the "extensionality" combinator, and   a value of type `g x ≡ g y` via the "value identity" combinator.
 It remains to use the "transitivity" combinator to establish that `f x ≡ g y`.
 
 The code that computes evidence of type `f x ≡ g y` is:
@@ -6171,7 +6170,7 @@ For `TreeText`:
 let fixTreeText : < Leaf : Text | Branch : { left : TreeText, right : TreeText } > → TreeText
   = fix TreeTextF functorTreeTextF
 ```
-Note that the union types `< Nil | Cons : { head : Integer, tail : ListInt } >` and `< Leaf : Text | Branch : { left : TreeText, right : TreeText } >` can be written more concisely as `ListIntF ListInt` and `TreeTextF TreeText`.
+Note that the union types `< Nil | Cons : { head : Integer, tail : ListInt } >` and `< Leaf : Text | Branch : { left : TreeText, right : TreeText } >` can be rewritten more concisely as `ListIntF ListInt` and `TreeTextF TreeText`.
 
 In both cases, the type signature of `fix` is a function from a two-part union type to the Church-encoded type.
 
@@ -6467,8 +6466,8 @@ We implement a fold-like operation simply by applying the value `tree` to some a
 The first argument must be the type `r` of the result value.
 Since the pretty-printing operation will return a `Text` value, we set the type parameter `r` to `Text`.
 
-Then it remains to supply two functions of types `Text → r` and `r → r → r` (where `r = Text`).
-Let us call those functions `printLeaf : Text → Text` and `printBraches : Text → Text → Text`.
+Then it remains to supply two functions of types `Text → r` and `r → r → r` (with `r = Text`).
+Let us call those functions `printLeaf : Text → Text` and `printBranches : Text → Text → Text`.
 These two functions describe how to create the text representation for a larger tree either from a leaf or from the _already computed_ text representations of two subtrees.
 
 A leaf is printed as just its `Text` value:
@@ -6480,7 +6479,7 @@ let printLeaf : Text → Text = λ(leaf : Text) → leaf
 For  branches, we add parentheses and   a space between the two subtrees:
 
 ```dhall
-let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
 ```
 
 Note that the functions `printLeaf` and `printBranches` are non-recursive.
@@ -6489,14 +6488,11 @@ The complete code of `printTree` is:
 
 ```dhall
 let printLeaf : Text → Text = λ(leaf : Text) → leaf
-
 let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
-
 let printTree : TreeText → Text = λ(tree : ∀(r : Type) → (Text → r) → (r → r → r) → r) →
     tree Text printLeaf printBranches
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
-
 let _ = assert : printTree example2 ≡ "((a b) c)"
 ```
 
@@ -6719,8 +6715,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
     } (unfix F functorF c)
 ```
 
-For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The functions `headOptional` and `tailOptional` that replace
-Haskell's `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
+For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The functions `headOptional` and `tailOptional` that replace the Haskell functions `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
 
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
@@ -6731,7 +6726,6 @@ let functorF : Functor F = {
       Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
     } fa
   }
--- Constructors.
 let cons : Integer → ListInt → ListInt
   = λ(h : Integer) → λ(t : ListInt) →
     fix F functorF ((F ListInt).Cons { head = h, tail = t})
@@ -7091,7 +7085,7 @@ let _ = assert : CList/show Natural showNatural exampleCList1345 ≡ "[ 1, 3, 4,
 
 ### Example: Concatenating and reversing non-empty lists
 
-Dhall's Prelude already has concatenation and reversal operations for lists (`List/concat` and `List/reverse`).
+Dhall's Prelude already has the functions `List/concat` and `List/reverse` for lists.
 To practice implementing those operations for a Church-encoded data type, consider _non-empty_ lists (`NEL : Type → Type`) defined recursively as:
 
 ```haskell
@@ -7192,7 +7186,7 @@ let _ = assert : example1 ≡ NEL/fold Natural example1 (NEL Natural) (one Natur
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
 
 ```dhall
-let NEL/concat: ∀(a : Type) → NEL a → NEL a → NEL a
+let NEL/concat : ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
         NEL/fold a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
 let example5 = NEL/concat Natural example1 example3
@@ -7283,7 +7277,7 @@ When one of the tails becomes empty, iterations stop.
 
 ```dhall
 let Natural/min = https://prelude.dhall-lang.org/Natural/min
-let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
   = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
   let headPair = λ(left : NEL a) → λ(right : NEL b) →
     { _1 = NEL/head a left, _2 = NEL/head b right }
@@ -7298,7 +7292,7 @@ let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pa
                    } (NEL/tailOptional b right)
             } (NEL/tailOptional a left)
   let init : Accum = { result = None (NEL (Pair a b)), tailA = nela, tailB = nelb }
-  let update : Accum → Accum = λ(acc: Accum) →
+  let update : Accum → Accum = λ(acc : Accum) →
     let result : Optional (NEL (Pair a b))
       = merge { None = Some (one (Pair a b) (headPair acc.tailA acc.tailB))
               , Some = λ(prev : NEL (Pair a b)) → Some (nsnoc (Pair a b) (headPair acc.tailA acc.tailB) prev)
@@ -7572,16 +7566,14 @@ The code is:
 
 ```dhall
 let Natural/listMax = https://prelude.dhall-lang.org/Natural/listMax
-let depthF
-  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(c : Type) → F c Natural → Natural
+let depthF : ∀(F : Type → Type → Type) → Foldable2 F → ∀(c : Type) → F c Natural → Natural
   = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listNatural = (foldableF2 c).toList Natural p
     in merge { None = 0
              , Some = λ(n : Natural) → n + 1
              } (Natural/listMax listNatural)
 let Natural/sum = https://prelude.dhall-lang.org/Natural/sum
-let sizeF
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → Natural
+let sizeF : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listC : List c = (foldableF1 Natural).toList c p
     let listNatural : List Natural = (foldableF2 c).toList Natural p
@@ -7720,7 +7712,7 @@ let _ = 123 : someType2 -- This typechecks because someType2 is Natural.
 
 We now turn to the type-level `List` analogs.
 This is more difficult because `List` requires a recursive definition.
-Note that Dhall's built-in `List` constructor does not support type symbols as list elements; the syntax `[Bool, Natural, Text]` is an error.
+Note that Dhall's built-in `List` constructor does not support type symbols as list elements; the syntax `[ Bool, Natural, Text ]` is an error.
 
 To implement type-level lists, we turn to  the Church encoding similar to what we used before, except that the stored data items will now have kind `Type`.
 
@@ -7737,7 +7729,7 @@ The resulting code is:
 
 ```dhall
 let ListT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : Type → r → r) → r
-let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) → cons Bool (cons Natural (cons Text nil))  -- Similar to [Bool, Natural, Text].
+let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) → cons Bool (cons Natural (cons Text nil))  -- Similar to [ Bool, Natural, Text ].
 ```
 The value `exampleListT` is a type-level list: it defines a list of three _type symbols_.
 
@@ -7767,7 +7759,7 @@ For that, we need to define another type-level list type; let's call it `ListTT`
 
 ```dhall
 let ListTT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : (Type → Type) → r → r) → r
-let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) → r → r) → cons Optional (cons List nil)  -- Similar to [Optional, List].
+let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) → r → r) → cons Optional (cons List nil)  -- Similar to [ Optional, List ].
 ```
 
 The constructors `ListT` and `ListTT` define lists whose elements have a hard-coded _kind_.
@@ -7860,7 +7852,7 @@ let F = λ(r : Type → Type) → λ(a : Type) → < Leaf : a | Branch : r (Pair
 The type of `F` is `(Type → Type) → (Type → Type)`.
 It is a pattern functor at the level of _type constructors_.
 
-The Church encoding formula `∀(r : Type) → (F r → r) → r` needs some changes in order to make it work at the level of type constructors:
+The Church encoding formula `∀(r : Type) → (F r → r) → r` must be changed in order to make it work at the level of type constructors:
 - Replace `r : Type` by `r : Type → Type`.
 - As `F r` is now a type constructor, replace `F r → r` by `∀(t : Type) → F r t → r t`.
 - Add a type parameter to the final output `r` at the end of the formula.
@@ -7913,7 +7905,8 @@ A value such as `examplePB1 : PBTree Natural` is a higher-order function whose t
 That type constructor will determine the output type when we apply `examplePB1`.
 Since we need to produce a `List a` out of `PBTree a`, we supply `List` as that type constructor.
 ```dhall
-let pbTreeToList : ∀(a : Type) → PBTree a → List a
+let pbTreeToList
+  : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) → tree List ???
 let _ = assert : pbTreeToList Natural examplePB1 ≡ [ 10 ]
 let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
@@ -8065,7 +8058,7 @@ let FunctorK = λ(F : (Type → Type) → Type → Type) →
   }
 ```
 
-By analogy with the generic `fix` and `unfix` functions in the ordinary Church encoding, let us define the higher-kinded versions (`fixK` and `unfixK`) of these functions:
+By analogy with the generic `fix` and `unfix` functions in the ordinary Church encoding,  define the higher-kinded versions (`fixK` and `unfixK`) of these functions:
 
 ```dhall
 let fixK : ∀(F : (Type → Type) → Type → Type) → FunctorK F → ∀(a : Type) → F (LFixK F) a → LFixK F a
@@ -8118,10 +8111,11 @@ let functorKListFK : FunctorK ListFK
               } lua
       }
     }
+
 let ListCK = LFixK ListFK
 ```
 The last line uses the higher-kinded Church encoding combinator (`LFixK`) to define the type constructor `ListCK`.
-We can convert this definition to a curried form, which is more convenient in practice:
+We can instead use an equivalent definition of `ListCK` in a curried form, which is more convenient in practical use:
 
 ```dhall
 let ListCK = λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → r t) → (∀(t : Type) → t → r t → r t) → r a
@@ -8211,7 +8205,8 @@ Then we find a higher-kinded pattern functor `Q` that is equivalent to `P` and o
 The definition of `Q` can be formalized as a function of `P` that we denote by `ToChurchK P`:
 
 ```dhall
-let ToChurchK : (Type → Type → Type) → (Type → Type) → Type → Type
+let ToChurchK
+  : (Type → Type → Type) → (Type → Type) → Type → Type
   = λ(P : Type → Type → Type) → λ(T : Type → Type) → λ(a : Type) → P a (T a)
 ```
 
@@ -8222,16 +8217,16 @@ Finally, we implement a mapping from `LFixK Q` to `LFixT P` that is generic in `
 ```dhall
 let toChurchEncodingT : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → LFixK (ToChurchK P) a → LFixT P a
   = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → λ(lq : LFixK (ToChurchK P) a) →
-    let functorlf : ∀(t : Type) → Functor (P t) = λ(t : Type) → { fmap = bifunctorP.bimap t t (identity t) }
+    let functorlf : ∀(t : Type) → Functor (P t) = λ(t : Type) →
+      { fmap = bifunctorP.bimap t t (identity t) }
     let algK : ∀(t : Type) → ToChurchK P (LFixT P) t → LFixT P t
       = λ(t : Type) → λ(lpt : P t (LFixT P t)) → fixT P t (functorlf t) lpt
     let result : LFixT P a = lq (LFixT P) algK   
     in result
 ```
-let fixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → F a (LFixT F a) → LFixT F a
 
 It appears that   to work with concrete data computations in the higher-kinded Church encoding, we have to use   the ordinary Church encoding as well.
-Certainly,  the higher-kinded Church encoding is not needed when the ordinary one is available.
+We may conclude that the higher-kinded Church encoding is not particularly useful when the ordinary one is available for the same data type.
 
 However,  nested recursive types (such as the perfect binary tree)  do not have  ordinary Church encodings and can be represented in Dhall only via higher-kinded Church encodings.
 
@@ -8611,8 +8606,8 @@ It helps to consider `a` temporarily as a fixed type and to denote temporarily `
 If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that looks in Haskell as `(a → T, T → T → T)`.
 That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
 
-Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
-The Church encoding of that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
+Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which defines the `Tree` type via the type equation `Tree a = P (Tree a)`.
+The Church encoding of `Tree` is `LFix P = ∀(r : Type) → (P r → r) → r`.
 The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations and use suggestive argument names ("leaf" and "branch"):
 
 ```dhall
@@ -9618,6 +9613,7 @@ We will call that type constructor `GF_T` and use it to define `GFix`:
 
 ```dhall
 let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F r }
+
 let GFix = λ(F : Type → Type) → Exists (GF_T F)
 ```
 
@@ -10273,7 +10269,7 @@ We can compute a finite prefix of this infinite stream:
 ```
 
 Another example of an infinite stream is a certain sequence repeated infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
-For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `Stream/fromList`.
+For that, the "seed" type can be `List Natural` and the "step" function can be similar to what we wrote in the code of `Stream/fromList`.
 The initial "seed" value is the list `[ 1, 2, 3 ]`.
 Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
 
@@ -10954,7 +10950,8 @@ let finiteNodes1 : Finite Nodes1 = { values = [ Nodes1.First, Nodes1.Second, Nod
 ```
 
 This  also means that the "seed" type (`Nodes1`) cannot remain hidden within the type `LabeledGraph`.
-Node-dependent operations are possible only if we know the type `Nodes1`; they  cannot be implemented as functions working with the type `LabeledGraph`.
+Node-dependent operations are possible only if we know the type `Nodes1`.
+Such operations   cannot be implemented via functions working with the type `LabeledGraph`.
 
 To see why, consider that the body of a function of  `LabeledGraph`   will have to treat the "seed" type as a completely unknown type parameter.
 This  is enforced by the existential quantifier in `LabeledGraph`.
@@ -10999,7 +10996,7 @@ let exampleGraph1N : LabeledGraphNodes1 Natural Text =
   }
 ```
 
-Given our detailed knowledge of the type `Nodes1`, we can write a function that converts `LabeledGraphNodes1` into `LabeledGraph` by hiding the information about `Nodes1`:
+Given our detailed knowledge of the type `Nodes1`, we can write a function that converts `LabeledGraphNodes1` into `LabeledGraph` by hiding the type `Nodes1`:
 
 ```dhall
 let graphNodes1ToLabeledGraph : ∀(Node : Type) → ∀(Edge : Type) → LabeledGraphNodes1 Node Edge → LabeledGraph Node Edge
@@ -15559,7 +15556,7 @@ The `Left` variant means that only one stream is left.
 The `Right` variant means that we need to iterate over a current stream, and some more streams are still waiting.
 ```dhall
 let NES/join : ∀(a : Type) → NES (NES a) → NES a
-  = λ(a : Type) → λ(nesnes: NES (NES a)) →
+  = λ(a : Type) → λ(nesnes : NES (NES a)) →
     let Seed = FNEL (NES a) (NES (NES a))
     let init : Seed = unfixG (FNEL (NES a)) (functorFNEL2 (NES a)) nesnes
     let step : Seed → FNEL a Seed = λ(seed : Seed) →
@@ -15944,7 +15941,7 @@ let monadInfFreeMonad : ∀(F : Type → Type) → Functor F → Monad (InfFreeM
         -- Need to compute a value of type Either b (F S).
                 merge { Left = λ(x : a) →
                         merge { Left = λ(y : b) → (Pb S).Left y
-                              , Right = λ(fmb: F (M b)) → (Pb S).Right (promoteB fmb)
+                              , Right = λ(fmb : F (M b)) → (Pb S).Right (promoteB fmb)
                               } (unfixPb (f x))
                       , Right = λ(fma : F (M a)) → (Pb S).Right (promoteA fma)
                       } (unfixPa fa)
@@ -16557,8 +16554,8 @@ This function (`concatTNEL`) is implemented similarly to `NEL/concat`:
 
 
 ```dhall
-let concatTNEL: ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
-  = λ(M: Type → Type) → λ(monadM: Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
+let concatTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
   -- Append nel1 to the end of the list nel2.
     let oneT : a → TNEL M a = λ(x : a) → λ(r : Type) →
       λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (consn x (nel2 r one consn))
