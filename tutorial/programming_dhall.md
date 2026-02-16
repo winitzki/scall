@@ -2592,7 +2592,7 @@ We need to find `A`, `s`, and `z` that permit implementing the factorial functio
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
 It is clear that the accumulator must hold both the current partial result and the iteration count.
-So, let us define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
+So, we  define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
 ```dhall
 let Accum : Type = { current : Natural, iteration : Natural }
 ```
@@ -2974,7 +2974,7 @@ We will use the following algorithm that computes successive approximations for 
 
 2. Estimate the total number of iterations $n$, where $n \ge 1$.
 
-3. Apply $n$ times the function `update` to $x0$.
+3. Apply $n$ times the function `update` to $x0$, where `update` is defined as follows:.
 
 The result is the Dhall code `Natural/fold n update x0`.
 
