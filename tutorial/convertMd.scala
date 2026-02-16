@@ -260,12 +260,22 @@ def toLatex: Markdown => String = {
   case Markdown.BlankLine => "\n"
 }
 
+val hardcodedReplacements : String => String = { (source : String) =>
+  Seq(
+    "(\\\\log)\\{(.*)\\} " -> "$1 _{$2} ",
+    "the chapter \"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "Chapter \"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "the section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
+    "the subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
+  ).foldLeft(source) { case (prev, (from, to)) => prev.replaceAll(from, to) }
+}
+
 @main
 def main(code: Boolean, preludePath: String): Unit =
   val result: Seq[Markdown] = parse(System.in, markdown(using _)).get.value
   // The syntax `using _` was suggested as a workaround in https://github.com/scala/scala3/issues/19872
 
-  val convert = if code then toDhall(preludePath) else toLatex
+  val convert = if code then toDhall(preludePath) else (toLatex andThen hardcodedReplacements)
   val sep = if code then "" else "\n"
   
   println(result.map(convert).mkString(sep))
