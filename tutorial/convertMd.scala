@@ -264,10 +264,13 @@ val hardcodedReplacements : String => String = { (source : String) =>
   Seq(
     "$x0$" -> "$x_0",
     "(\\\\log)\\{(.*)\\} " -> "$1 _{$2} ",
-    "the chapter \"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
-    "Chapter \"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
-    "the section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
-    "the subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
+    "the +chapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "[cC]hapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "the [Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "[Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "the +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
+    "the +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
+    "(\\\\label\\{)Appendix: " -> "$1",
   ).foldLeft(source) { case (prev, (from, to)) => prev.replaceAll(from, to) }
 }
 

@@ -3444,7 +3444,7 @@ The typeclass laws are an essential part of the definition of a typeclass, becau
 So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type  for the required laws.
 
 This is not a simple pair of values, because the _type_ of the second value depends on the first _value_.
-This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings for more complicated types" below.
+This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings of more complicated types" below.
 
 Most programming languages do not support dependent pairs.
 Dhall can encode their type  but provides only quite limited ways of working with dependent pairs.
@@ -5408,7 +5408,7 @@ So, a function with an extra argument of type `LeibnizEqual T x y` can be called
 
 A function with an argument of type `LeibnizUnequal T x y` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality at run time.
 
-Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
+Compare this with the way "safe division" was implemented in the chapter "Numerical algorithms".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
 The type `Nonzero y` is equivalent to the type `LeibnizUnequal Natural 0 y`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
 In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
@@ -6116,7 +6116,7 @@ The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall
 It turns out that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
 
 A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) (where those functions are called `in` and `out` instead of `fix` and `unfix`).
-A proof is also shown in "Statement 2" in the section "Church encoding of least fixpoints: Proofs" of Appendix "Naturality and parametricity" in this book.
+A proof is also shown in "Statement 2" in the section "Church encodings of least fixpoints" of Appendix "Naturality and parametricity" in this book.
 
 ### Data constructors
 
@@ -6912,7 +6912,7 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → 
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
-See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
+See the Appendix "Naturality and parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
 ### Recursive type constructors
 
@@ -7045,7 +7045,7 @@ Rather than coding those functions by hand, let us apply a general method for fi
 That method uses the generic `fix` function.
 
 
-We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
+We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Working with Church-encoded data".
 For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a`.
 We can express `fixCList` via the generic `fix` function if we hold the type parameter `a` fixed and provide a suitable `Functor` evidence for `FList a`.
 "Holding `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
@@ -9726,7 +9726,7 @@ But there are no finite data structures that contain a full copy of themselves, 
 
 ### Greatest fixpoints for mutually recursive types
 
-Recall the recursive types that we have   seen in the section "Mutually recursive types" of chapter "Church encodings for more complicated types":
+Recall the recursive types that we have   seen in the section "Mutually recursive types" of chapter "Church encodings of more complicated types":
 
 ```haskell
 data Layer = Layer (F1 Layer Layer2)   -- Haskell.
@@ -11073,7 +11073,7 @@ If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'
 `GFix F → ∀(r : Type) → (F r → r) → r`
 
 Note that this type is a function from an existential type, which is used to define `GFix F`.
-Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types"):
+Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types: the function extension rule"):
 
 ```dhall
 GFix F → Q
@@ -18655,7 +18655,7 @@ let fa2existsP : ∀(F : Type → Type) → ∀(A : Type) → F A → Exists (λ
 ```
 
 
-### Church encoding of least fixpoints
+### Church encodings of least fixpoints
 
 Here we show proofs of some technical properties of Church-encoded types.
 (This material is explained in the paper "Recursive types for free" by P. Wadler.
@@ -19153,7 +19153,7 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the section "Church encodings of least fixpoints: Proofs".)
+(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the section "Church encodings of least fixpoints".)
 
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
@@ -19518,7 +19518,7 @@ let functorF : Functor Optional = { fmap = Optional/map }
 ```
 
 To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
-(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Encoding of greatest fixpoints".)
+(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism for greatest fixpoints", chapter "Encoding of greatest fixpoints".)
 We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
 We will also denote the type `GFix F` simply by `G`.
 We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : t → F t }`.
