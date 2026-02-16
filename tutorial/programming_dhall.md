@@ -11775,12 +11775,12 @@ egyptian_div_mod a b =
 The HIT algorithm rewrites the function `e_div_mod` as a hylomorphism by finding a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
 
 - A function `coalg` of type `Int → P Int`.
-- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int → P (Int, Int)`.
+- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap`. This gives a function of type `P Int → P (Int, Int)`.
 - A function `alg` of type `P (Int, Int) → (Int, Int)`.
 
 Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
 
-To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether a recursive call to `e_div_mod` is needed.
+To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether to make a recursive call to `e_div_mod`.
 To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_mod . coalg`, we need to choose `P` such that `fmap_P` skips calling `e_div_mod` in one case but does call it in another case.
 This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
 For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
@@ -11936,7 +11936,7 @@ This is another practical motivation for studying hylomorphisms.
 ### Hylomorphisms driven by a Church-encoded template
 
 In the code for `hylo_Nat`, the total number of iterations was limited by a given natural number.
-To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
+To drive the iterations, we used the standard function `Natural/fold`.
 
 Note that `Natural` is a built-in recursive type in Dhall, and `Natural/fold` is also a built-in function.
 Could we drive iterations via the `fold` method for a different recursive type?
