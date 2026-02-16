@@ -13227,7 +13227,8 @@ let applicativeCoProductConst
 ```
 
 2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative and `P` is a functor.
-The result is an applicative functor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
+The result is an applicative functor `R` defined by `R a = Either (P a) { _1 : a, _2 : Q a }`.
+The extra `a` is important: it will not be possible to derive `Applicative` evidence for `Either (P a) (Q a)`.
 
 ```dhall
 let applicativeCoProductWithId
@@ -13480,7 +13481,6 @@ In this and the next subsections, we will implement `Applicative` evidence for f
 
 Suppose `F` is a bifunctor; that is,  `F a b` is covariant with respect to both `a` and `b`.
 Then we may define   recursive functors `C` and `D` by `C a = LFix (F a)` and `D a = GFix (F a)`.
-
 In this section, we will show that the functor `D` is applicative as long as `F` has   certain  `zip`-like method adapted for bifunctors.
 The more difficult case of the functor `C` will be treated in the next section.
 
@@ -13832,7 +13832,7 @@ let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_pa
 ]
 ```
 
-We see that the "truncating" version of `zip`   is indeed obtained via   `bizipPFNEL_truncating`,
+We see that the "truncating" version of `zip`   is indeed obtained if we define `zip` via   `bizipPFNEL_truncating`,
 and the "padding" version of `zip`   via  `bizipPFNEL_padding`.
 The choice of `zip` needs to be made according to the application requirements.
 
@@ -13980,8 +13980,8 @@ zip  /\      /\     =      / (c, 2)   \
    a  b      2 /\   (a, 1) (b, 1) (c, 3) (c, 4)
               3  4
 ```
-This is a "padding `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
-The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
+This is a "padding `zip`" behavior:  all missing branches are padded by repeating the last leaf value found before the branch.
+The resulting tree shape becomes union of the shapes of the two input trees.
 
 #### Binary trees with data in branch nodes
 
@@ -14200,8 +14200,8 @@ let zipLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F 
       let functorCont : Functor CR = (applicativeContinuation r).{fmap}
       let applicativeCont : Applicative CR = applicativeFromApplicativeFunctor CR (applicativeContinuation r)
       let transform : F a r → F b r → F (Pair a b) r = λ(far : F a r) → λ(fbr : F b r) → applicative1F.bizip1 a r far b fbr
-      let fabrr : CR (F (Pair a b) r) = map2ForApplicativeFunctor CR functorCont applicativeCont (F a r) (F b r) (F (Pair a b) r) transform (fa r) (fb r)
-      in fabrr
+      in (map2ForApplicativeFunctor CR functorCont applicativeCont (F a r) (F b r) (F (Pair a b) r) transform (fa r) (fb r)
+        ) : CR (F (Pair a b) r)
 ```
 
 The corresponding `Applicative` evidence is:
