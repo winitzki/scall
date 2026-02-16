@@ -2026,7 +2026,7 @@ Because of this and other limitations, Dhall can work productively with dependen
 
 Below in the chapter "Numerical algorithms" we will see an example of using dependent types for implementing a safe division operation.
 
-### The keyword `assert`. Equality types
+### The keyword `assert` and equality types
 
 For types other than `Bool`, `Integer`, and `Natural`, equality testing is not available as a function.
 However, values of any type may be tested for equality at typechecking time via Dhall's `assert` feature.
@@ -3901,8 +3901,7 @@ The corresponding Dhall code is:
 ```dhall
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
-let fmap_F
- : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
@@ -4487,8 +4486,7 @@ let monadReader : ∀(E : Type) → Monad (Reader E)
     let bind = λ(A : Type) → λ(oldReader : Reader E A) → λ(B : Type) → λ(f : A → Reader E B) →
          λ(e : E) →
            let a : A = oldReader e
-           let b : B = f a e
-           in b
+           in (f a e) : B
     in { pure, bind }
 ```
 
@@ -6860,7 +6858,7 @@ Computing `headOptional` or `ListInt/concat` is so quick that it is below the me
 
 The curried forms of the Church encoding have smaller normal forms and  faster performance than the uncurried forms involving union types.
 
-Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs (using a command such as `dhall freeze --all test.dhall`).
+Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs using a command such as: `dhall freeze -``-all test.dhall`.
 
 
 ## Church encodings of more complicated types
@@ -7914,7 +7912,7 @@ let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
 The next argument is a function of type `∀(t : Type) → F r t → r t`, where `F` is the pattern functor for the perfect binary tree, and `r` is already set to `List`.
 So, it remains to implement a function of type `∀(t : Type) → < Leaf : t | Branch : List (Pair t t) > → List t`.
 This function should just extract all values of type `t` into a list of type `List t`.
-Implementing that function is straightforward, and we get the final code of `pbTreeToList`:
+It is straightforward to implement that function, and we get the final code of `pbTreeToList`:
 ```dhall
 let pbTreeToList : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) →
@@ -7985,7 +7983,7 @@ We have a `Show` evidence for the type `a`, but not for an unknown type `s`.
 The solution is to rewrite the type signature of `printPBTree` in the form `∀(a : Type) → PBTree a → P a`.
 We can do this if we   choose  `P` such that `P a = Show a → Text`. 
 The required function `q` will then have the type `∀(s : Type) → < Leaf : s | Branch : Show (Pair s s) → Text > → Show s → Text`.
-Implementing that function is straightforward, and we can complete the code of `printPBTree`:
+It is straightforward to implement that function, and we can complete the code of `printPBTree`:
 
 ```dhall
 let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
@@ -9371,6 +9369,7 @@ Using this corner case in the definition of `Text/replace`, one can implement an
 let StringIsNotEmpty : Text → Type
   = λ(string : Text) → "x" ≡ Text/replace string "x" string
 let _ = assert : StringIsNotEmpty "abc"  -- OK
+
 -- let _ = assert : StringIsNotEmpty "" -- This will not compile.
 ```
 
@@ -9987,9 +9986,9 @@ To guarantee termination, one must modify the type signature of a hylomorphism i
 The required technique for the general case will be studied in the next chapter. 
 We will also use hylomorphisms in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
-In preparation,   we will now implement a simple workaround sufficient for obtaining a truncated view of an infinite data structure.
+For now,   we will  employ a simple  workaround sufficient for obtaining a truncated view of an infinite data structure.
 We will  supply a "stop-gap" value and  an upper bound on the recursion depth.
-Whenever the data structure goes beyond the recursion bound, we will insert the "stop-gap" value and stop the recursion.
+Whenever the data structure goes beyond the recursion bound,   the "stop-gap" value is inserted to stop the recursion.
 
 We begin by choosing a structure functor `F`.
 Visualize the data structure obtained by "unrolling" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
@@ -15702,7 +15701,7 @@ let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
 ```
 
 The Appendix "Naturality and parametricity" proves in general that  the Church-Yoneda identity indeed gives isomorphic types.
-In this particular case, it means that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
+In this   case, it means that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
 
 We can implement data constructors directly for `BTreeE`:
 
@@ -16473,7 +16472,7 @@ let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → 
            let fmr : F (M r) = functorF.fmap (M (M r)) (M r) (monadJoin M monadM r) fmmr
            let y : r = fmrr fmr
            in monadM.pure r y
-         let mmr : M (M r) = tma (M r) amr fmmr2mr   -- Apply tma with type M r instead of r.
+         let mmr : M (M r) = tma (M r) amr fmmr2mr  -- Apply tma with type M r.
          in monadJoin M monadM r mmr
     }
 ```
@@ -16554,7 +16553,8 @@ This function (`concatTNEL`) is implemented similarly to `NEL/concat`:
 
 
 ```dhall
-let concatTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
+let concatTNEL
+  : ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
   = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
   -- Append nel1 to the end of the list nel2.
     let oneT : a → TNEL M a = λ(x : a) → λ(r : Type) →
@@ -16616,9 +16616,9 @@ At that point, we  did not emphasize that the type constructors involved in `mon
 To qualify as a free typeclass instance, a type constructor must satisfy certain laws that we will not write here (those laws are explained in
 Chapter 13 of "The Science of Functional Programming").
 
-An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined the combinators `monoidOptionalKeepX` and `monoidOptionalKeepY`.
-Those combinators take an arbitrary type `T` and produce a `Monoid` evidence for the type `Optional T`.
-But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of  free typeclass instances.
+An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids".
+In that chapter we defined two   combinators (`monoidOptionalKeepX` and `monoidOptionalKeepY`) that take an arbitrary type `T` and produce a `Monoid` evidence for the type `Optional T`.
+However,  the resulting evidence for `Optional T`  fails to  satisfy some of the required properties of  free typeclass instances.
 
 How can we see that?
 One of the required properties is that for any monoid `M` there must be a function of type `Optional M → M` preserving the operations of both monoids.
@@ -19988,7 +19988,6 @@ The unrolled type expression for `U` also suggests that `U = G T`.
 
 It turns out that the type isomorphisms `T ≅ F U` and `U ≅ G T` may be derived rigorously; this is known as the "unrolling lemma".
 We will prove two versions of this property: for the least fixpoints and for the greatest fixpoints.
-The fixpoints need to be Church-encoded, as required in Dhall.
 
 ###### Statement 1 (unrolling lemma for least fixpoints)
 
