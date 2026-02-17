@@ -160,7 +160,7 @@ Functions in Dhall must look like `λ(x : input_type) → body`, where:
 - `input_type` is the type of the function's input argument, and
 - `body` is an expression that may use `x`; this expression computes the output value of the function.
 
-A function's type has the form `∀(x : input_type) → output_type`, where:
+A function's _type_ has the form `∀(x : input_type) → output_type`, where:
 
 - `input_type` is the type of the function's input value, and
 - `output_type` is the type of the function's output value.
@@ -170,8 +170,8 @@ The function `inc` shown above has type `∀(x : Natural) → Natural`.
 The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with their equivalent ASCII representations: `forall`, `\`, and `->`.
 In this book, we will always use the Unicode symbols.
 
-Usually, the function body is an expression that uses the bound variable `x`.
-However, the type expression `output_type` might   also depend on the input _value_ `x`.
+Usually, the function body is an expression that depends on the bound variable, such as `x`.
+However, the type expression `output_type` might   also depend on `x`.
 We will discuss such functions in more detail later.
 
 In many cases, the output type does not depend on `x`.
@@ -247,7 +247,7 @@ This code is equivalent to the shorter version:
 let multiplyBy4 = times 4
 ```
 
-The shortening pattern is that `λ(x : Natural) → times 4 x` is reduced to `λ(x : Natural) → times 4`.
+The shortening pattern is that `λ(x : Natural) → times 4 x` is reduced to `times 4`.
 More generally, `λ(x : a) → f x` is reduced to just `f` for any function `f`.
 This is known as the **eta-reduction**.
 
@@ -278,7 +278,7 @@ We will discuss functions of types in more detail later in this chapter.
 For now, we note that an argument's type may depend on a previous curried argument, which can be itself a type.
 This allows Dhall to implement a rich set of type-level features:
 
-- Functions with type parameters: for example, `λ(A : Type) → λ(x : A) → ...`
+- Functions with type parameters: for example, `λ(a : Type) → λ(x : a) → ...`
 - Type constructors, via functions of type `Type → Type` (both the input and the output is a type).
 - Type constructor parameters: for example, `λ(F : Type → Type) → λ(a : Type) → λ(x : F a) → ...`
 - Dependent types: functions whose inputs are values and outputs are types.
@@ -288,6 +288,7 @@ We will look at these features in detail later in this book.
 #### Shadowing and the syntax for de Bruijn indices
 
 De Bruijn indices are numbers that disambiguate shadowed variables in function bodies.
+This is a rarely used feature of Dhall.
 
 Consider a curried function that shadows a variable:
 
@@ -397,7 +398,7 @@ There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`
 Records with field names must be used instead.
 For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated into Dhall as the following record type: `{ _1 : Integer, _2 : Text }`.
 That record type has two fields named `_1` and `_2`.
-The two parts of the tuple may be accessed via those names and the "dot" operator:
+The two parts of the tuple may be accessed via those names and the "dot" syntax:
 
 ```dhall
 ⊢ :let tuple = { _1 = +123, _2 = "abc" }
@@ -410,7 +411,7 @@ tuple : { _1 : Integer, _2 : Text }
 ```
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
-Fields of nested record types may be accessed via the "dot" operator:
+Fields of nested record types may be accessed also via the "dot" syntax:
 
 ```dhall
 ⊢ :let a = { x = 1, y = { z = True, t = "abc" } }
