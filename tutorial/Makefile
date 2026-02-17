@@ -10,7 +10,7 @@ programming_dhall.pdf: generated.tex programming_dhall.tex
 	( makeindex programming_dhall.idx || true ; pdflatex --interaction=batchmode programming_dhall.tex || true) >& /dev/null
 	fgrep "Output written on programming_dhall.pdf" programming_dhall.log
 
-generated.tex: programming_dhall.md convertMd.sh convertMd.scala
+generated.tex: programming_dhall.md titleback.tex convertMd.sh convertMd.scala
 	bash convertMd.sh tex ../dhall-lang/Prelude
 
 generated.dhall: programming_dhall.md convertMd.sh convertMd.scala

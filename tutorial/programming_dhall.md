@@ -44,7 +44,7 @@ This book corresponds to the [Dhall standard 23.0.0](https://github.com/dhall-la
 Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
-The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  resembles more the formal notation of System F and System Fω.
+The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  is closer to the formal notation of System F and System Fω.
 For instance, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
 $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
@@ -52,7 +52,7 @@ Here is an example of a complete Dhall program:
 
 ```dhall
 let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
-let id = λ(A : Type) → λ(x : A) → x
+let id = λ(a : Type) → λ(x : a) → x
 in f 10 (id Natural 20)
   -- This is a complete program; it evaluates to 32 of type Natural.
 ```
@@ -60,7 +60,7 @@ in f 10 (id Natural 20)
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
 [Dhall's  Prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
-such as `List/map`  or  `Natural/lessThan`.
+such as `List/map`  and  `Natural/lessThan`.
 
 ### Identifiers and variables
 
@@ -511,8 +511,8 @@ So, there is no conflict between the constructors `Union1.Left` and `Union2.Left
 ### Pattern matching
 
 Pattern matching for union types is written via the `merge` keyword.
-Dhall's `merge` expressions are similar to `match/with`   in OCaml, `case/of`   in Haskell, and `match/case`   in Scala.
-One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation, as we will see.
+Dhall's `merge` expressions are like OCaml's `match/with`, Haskell's `case/of`,  and Scala's `match/case` except that  nested patterns are not supported.
+Also, each case of a `merge` expression must specify an explicit function with a full type annotation, as we will see.
 
 As an example, consider a union type defined in Haskell by:
 
@@ -553,7 +553,6 @@ For no-argument constructors (e.g., for the constructor `Z` in the example shown
 The second argument of `merge` is a value of a union type on which the pattern matching is being done.
 
 Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
-
 It is a syntax error to write `merge { X = 0 }` without specifying a value (such as `x`) at the end.
 
 However, `merge` may be used with a record expression instead of a literal record.
@@ -569,6 +568,8 @@ For instance, we may write `merge h x` where `h` evaluates to a suitable record:
 0
 ```
 
+As nested patterns are not supported, one cannot match a value of type `Optional (Optional Text)` in a single `merge` expression.
+One must write a nested `merge` for each layer of `Optional`.
 
 ### The void type
 
