@@ -3265,7 +3265,7 @@ let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) →
         let f = const a b c   in   assert : f x ≡ f y
 ```
 The Dhall interpreter will substitute the definition of `const` into that code and perform some evaluation, even though that code is under several layers of λ and arguments `a`, `b`, `c`, `x`, `y` have not yet been given.
-In this way, Dhall will be able to verify that the `assert` expression is valid.
+In this way, Dhall will be able to verify symbolically that the `assert` expression is valid.
 
 To see how this works in detail, begin by evaluating `f x` within the body of the function `const_law`.
 First, Dhall will rewrite `f x` to `const a b c x`.
@@ -3385,8 +3385,10 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 Typeclasses can be implemented in Dhall via evidence values.
 Those values are passed as additional arguments to functions that require a typeclass constraint.
 
-With that technique, one can define and use different typeclass evidence values for the same type, if that is necessary.
-This is similar to the way Scala implements typeclasses (except that Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
+With that technique, one can define and use one or more typeclass evidence values for the same type, if needed.
+This is similar to the way Scala implements typeclasses.
+However,  Scala makes evidence values into "implicit" arguments that the compiler inserts automatically.
+In Dhall, evidence values must be written out explicitly.
 
 ### Implementing typeclasses via  evidence values
 
