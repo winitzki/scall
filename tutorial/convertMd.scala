@@ -262,7 +262,7 @@ def toLatex: Markdown => String = {
 
 val hardcodedReplacements : String => String = { (source : String) =>
   Seq(
-    "$x0$" -> "$x_0",
+    "\\$x0\\$" -> "\\$x_0\\$",
     "(\\\\log)\\{(.*)\\} " -> "$1 _{$2} ",
     "the +chapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
     "[cC]hapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",

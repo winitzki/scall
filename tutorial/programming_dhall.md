@@ -2467,7 +2467,7 @@ This book will show many more examples of higher-kinded types.
 ## Numerical algorithms
 
 Dhall's `Natural` numbers have arbitrary precision but support a limited number of built-in operations.
-The Prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
+The Prelude includes functions that can add, subtract, multiply, and compare  `Natural` numbers.
 
 We will now show how to implement other numerical operations such as division and square root.
 Usually those operations are implemented via loops.
@@ -2558,12 +2558,12 @@ ack m 0 = ack (m - 1) 1
 ack m n = ack (m - 1) (ack m (n - 1))
 ```
 
-This code cannot be directly translated to Dhall because of lack of recursion support.
+This code cannot be directly translated to Dhall as recursion is not supported.
 Nevertheless, there is [another equivalent definition](https://en.wikipedia.org/wiki/Ackermann_function#Definition:_as_iterated_1-ary_function) that does not use recursion but instead formulates Ackermann's function as an explicit bounded loop.
 The trick is to curry Ackermann's function as $A(m)(n)$ and to consider a sequence of _functions_ $A(0)$, $A(1)$, ... Each of these functions has type `Natural → Natural`.
 We define $A(0) (n) = n + 1$ and $A(m+1)(n) = (A(m))^{n+1}(1)$, where   $f^n$ denotes the iterated application of $f$.
 In other words, $f^n(x)$ directly corresponds to the Dhall code `Natural/fold n Natural f x`.
-The sequence of functions is also computed via `Natural/fold`, because the function $A(m+1)$ is expressed as a function of $A(m)$.
+The sequence of functions is also computed via `Natural/fold`, because   $A(m+1)$ is expressed as a _function_ of $A(m)$.
 
 Dhall code implementing Ackermann's function in this way (in an earlier version of Dhall) was shown [in this Hacker News post](https://news.ycombinator.com/item?id=15186988).
 Equivalent code that works with the current version of Dhall was given by G. Gonzalez [in a blog post](https://haskellforall.com/2020/01/why-dhall-advertises-absence-of-turing):
@@ -2583,17 +2583,18 @@ Nevertheless, termination of the code is theoretically guaranteed (as for all Dh
 
 In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is   guaranteed to terminate, but in practice will take time beyond any imaginable limit.
 It is also an example of what we will later call a **rogue expression**.
-By this we mean an expression that does not obviously include any large numbers or huge strings, and yet its evaluation cannot complete due to time or memory exhaustion.
+By this we mean an expression like `ackermann 4 4` or `petabyte`.
+At   first sight, a rogue  expression does not contain any excessively large numbers, lists, or strings, and yet its evaluation cannot complete due to time or memory exhaustion.
 
 ### Factorial
 
 A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
-Since Dhall does not directly support recursion, we will reformulate this computation in the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
+In Dhall, we must first  reformulate `fact(n)`  in the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
 We need to find `A`, `s`, and `z` that permit implementing the factorial function in that way.
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
 It is clear that the accumulator must hold both the current partial result and the iteration count.
-So, we  define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
+So, we  define the accumulator type as a pair of two `Natural` numbers.
 ```dhall
 let Accum : Type = { current : Natural, iteration : Natural }
 ```
@@ -2611,7 +2612,6 @@ let factorial = λ(n : Natural) →
   let result : Accum = Natural/fold n Accum s init
   in result.current
 ```
-
 Let us test this code:
 
 ```dhall
@@ -2634,7 +2634,6 @@ Once that condition holds, the code will keep the accumulator value unchanged.
 The Dhall interpreter will detect that and will stop the loop early.
 ```dhall
 let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-
 -- unsafeDiv x y means x / y, but it will return x when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
   let Accum : Type = { result : Natural, sub : Natural }
@@ -2653,46 +2652,44 @@ let test4 = assert : unsafeDiv 10 0 ≡ 10 -- Invalid input.
 ```
 
 This algorithm takes time $O(x / y)$ when computing `unsafeDiv x y`.
-A faster division algorithm (the Egyptian division algorithm) will be implemented later in this book using more advanced techniques.
+A faster division algorithm (the "Egyptian division") will be implemented later in this book.
 
 #### Safe division via dependently-typed evidence
 
 The function `unsafeDiv` works but produces wrong results when dividing by zero.
 Namely, `unsafeDiv x 0` returns `x`.
-We would like to prevent using that function when the second argument is zero.
-
-To ensure that we never divide by zero, we will use a technique based on dependently-typed "evidence values".
+We would like to assure  at type-checking time  that `unsafeDiv x y` is always used with a nonzero `y`.
+To achieve that, we will use a technique based on dependently-typed "evidence values".
 
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
 ```dhall
 let Nonzero : Natural → Type
-  = λ(y : Natural) →
-    if Natural/isZero y then <> else {}
+  = λ(y : Natural) → if Natural/isZero y then <> else {}
 ```
-This `Nonzero` is a type function that returns one or another type given a `Natural` value.
+The function  `Nonzero` is an example of a **dependent type** (a type that depends on a value).
 For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
-This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
+Defining a function that returns a type  is straightforward in Dhall because types and values are described by the same syntax.
 
-We will use that function to implement safe division (`safeDiv`):
+We are now ready to write  a safe division function (`safeDiv`):
 
 ```dhall
 let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) →
   unsafeDiv x y
 ```
+Here we use `Nonzero` in the type signature of  the function `safeDiv`.
 A value of type `Nonzero y` is an "evidence" that `y` is nonzero.
 Every application of `safeDiv` must provide such a value, which justifies that it is safe to apply `unsafeDiv x y` within the scope of the function body.
 
-When we use `safeDiv` for dividing by a nonzero value, we must specify a third argument of type `{}`.
+To use `safeDiv` for dividing by a nonzero value, we must specify a third argument of type `{}`.
 That type has only one value, denoted in Dhall by `{=}` (the empty record).
 So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
-If we try dividing by zero, we will be obliged to pass a third argument of type `<>`, but there are no such values.
+If we wanted to divide  by zero using `safeDiv`, we would need  to pass a value  of type `<>` as the third argument, but there are no   values of type `<>`.
 Passing an argument of any other type will raise a type error.
 
 ```dhall
 safeDiv 4 2 {=}  -- Returns 2.
-
 safeDiv 4 0 {=}  -- Type error: wrong type of {=}.
 ```
 
@@ -2739,7 +2736,7 @@ let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
   else "error" ≡ "the argument x = ${Natural/show x} must be less than ${Natural/show limit}"
 ```
 
-Suppose we need a function that needs to constrain its natural argument to be below `100`.
+Suppose  a function   needs to constrain its `Natural` argument to be below `100`.
 Then we require an evidence argument of type `AssertLessThan x 100`:
 
 ```dhall
@@ -2757,7 +2754,6 @@ Error: Wrong type of function argument
 
 - "error" ≡ "the argument x = 200 must be less than 100"
 ```
-
 This error message clearly describes the problem.
 
 #### Limitations
@@ -2767,7 +2763,7 @@ The main limitation of this technique is that it can work only with statically k
 For instance, any usage of `safeDiv x y` will require us somehow to obtain an evidence value of type `Nonzero y` that passes typechecking before evaluation begins.
 That value serves as evidence that the number `y` is not zero.
 Values of type `Nonzero y` can be typechecked only if `y` is a statically known value of type `Natural`.
-This is so because the check `Natural/isZero y` is done at typechecking time, before `saveDiv` is evaluated.
+This is so because the check `Natural/isZero y` is done at typechecking time, before `safeDiv` is evaluated.
 
 What if we need to use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`?
 That function cannot call `safeDiv x y {=}` because the evidence value `{=}` needs to be typechecked before evaluating any code.
@@ -2791,8 +2787,8 @@ Here Dhall cannot recognize that `Nonzero y` is the unit type (`{}`) within the 
 To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
 But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
-So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
-That argument can be easily provided as `{=}` when calling that function, as long as `y` is a **statically  known value** (a value that is a known literal within the current scope).
+So, any function that uses `safeDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
+That argument can be easily provided as `{=}` when calling that function, as long as `y` is statically  known.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never attempt to divide by zero.
 
@@ -2821,7 +2817,7 @@ let _ = assert : sqrt 16 ≡ 4
 
 There are faster algorithms of computing the square root, but those algorithms require division.
 Our implementation of division already requires a slow iteration.
-So, we will not attempt to optimize the performance of this proof-of-concept code.
+So, we will not try optimizing the performance of this proof-of-concept code.
 
 ### Natural powers
 
@@ -2839,9 +2835,10 @@ let _ = assert : powerNatLoop 456 23
 ```
 
 This code  takes time linear in the power `p` to compute $n^p$.
-However, the runtime is short enough even for computing large powers (when arguments are not larger than `10000`).
+However, the runtime is short enough  when arguments are below `10000` or so.
 
-An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n`, creating a list of powers `[` $n, n^2, n^4, n^8, ...$`]` by repeated squaring.
+An asymptotically faster "squaring" algorithm first precomputes the powers of `2`, creating a list `[ 1, 2, 4, 8, ...]`.
+Then it uses repeated squaring to precompute  the list of the corresponding powers of `n`  such as `[` $n, n^2, n^4, n^8, ...$`]`.
 The powers are computed via `Natural/fold` similarly to the code of `powers2` shown earlier. 
 Then the powers of `2` are subtracted from `p`, starting from the highest power that is still not greater than `p`.
 This finds the decomposition of `p` as a sum of powers of `2`; we then compute the product of the corresponding powers of `n`.
@@ -2896,6 +2893,13 @@ let bitWidth : Natural → Natural = λ(n : Natural) →
      else acc
   let result : Accum = Natural/fold n Accum update init
   in result.bitWidth
+
+let _ = assert : bitWidth 0 ≡ 0
+let _ = assert : bitWidth 1 ≡ 1
+let _ = assert : bitWidth 2 ≡ 2
+let _ = assert : bitWidth 63 ≡ 6
+let _ = assert : bitWidth 64 ≡ 7
+let _ = assert : bitWidth 65 ≡ 7
 ```
 
 The function `bitWidth` may be generalized to compute integer-valued logarithms with a natural base.
@@ -2926,7 +2930,7 @@ Otherwise, one of `x` and `y` is larger; say, `x`. Then we define recursively `g
 
 To implement this in Dhall, we supply the larger of `x` and `y` as an upper bound on the iteration count.
 The iteration will keep the pair `x, y` sorted so that `x` is always greater or equal to `y`.
-At each step, a pair `x, y` is replaced by `x - y, y` and sorted again.
+At each step, the pair `x, y` is replaced by `x - y, y` and sorted again.
 Eventually, `y` becomes equal to `0`.
 After that, the value `x` is equal to the required value of `gcd`.
 
@@ -2953,8 +2957,8 @@ let _ = assert : gcd 5 10 ≡ 5
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [proof-of-concept code](https://winitzki.github.io/dhall/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
-Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and support arbitrary precision (in both mantissa and exponent).
+The `scall` repository contains [proof-of-concept code](https://winitzki.github.io/dhall/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide`, and so on.
+Floating-point numbers are represented by a decimal mantissa and a decimal exponent, supporting arbitrary precision (in both mantissa and exponent).
 ```dhall
 let Float/create = (./Float/Type.dhall).Float/create
 let Float/divide = ./Float/divide.dhall
@@ -2975,7 +2979,9 @@ We will use the following algorithm that computes successive approximations for 
 
 2. Estimate the total number of iterations $n$, where $n \ge 1$.
 
-3. Apply $n$ times the function `update` to $x0$, where `update` is defined as follows:.
+3. Apply $n$ times the function `update` to $x0$, where `update` is defined as follows:
+
+$$ \textrm{update}\,(x) = \frac{1}{2} (x + \frac{p}{x}) $$
 
 The result is the Dhall code `Natural/fold n update x0`.
 
