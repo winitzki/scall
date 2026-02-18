@@ -1735,11 +1735,11 @@ Types may be assigned to variables, stored in records, and passed as function pa
 
 For instance, in most languages we may define a variable of type `Bool` by writing code analogous to Dhall's `let x : Bool = True`.
 Here, we used the type `Bool` as a type annotation for the variable `x`.
-But we may also write `let y = Bool` to define a variable `y` whose value is the type symbol `Bool` itself.
-Then we will be able to use `y` in type annotations, such as `x : y`.
+But we may also write `let b = Bool` to define a variable `b` whose value is the type symbol `Bool` itself.
+Then we will be able to use `b` in type annotations, such as `let x : b = True`.
 
 Another similarity between types and values in Dhall is that type expressions themselves have a type and are type-checked. 
-For example, if we define `let y = Bool` then the type of `y` will be `Type`.
+For example, if we define `let b = Bool` then the type of `b` will be `Type`.
 
 To find out the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -1761,7 +1761,7 @@ Dhall defines functions with the `λ` syntax:
 let inc = λ(t : Natural) → t + 1
 ```
 
-The same syntax works if `t` were a type parameter (having type `Type`):
+The same syntax works when `t` has type `Type`, which makes it  a type parameter:
 
 ```dhall
 let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
@@ -1810,7 +1810,7 @@ Error: ❰Some❱ argument has the wrong type
 Nevertheless, Dhall can implement a data structure similar to an `Optional` containing a type.
 
 ```dhall
-let OptionalT = < None | Some : Type >
+let OptionalT = < NoneT | SomeT : Type >
 ```
 
 Later chapters in this book will show how to define type-level data structures such as a list of type symbols.
@@ -1821,7 +1821,7 @@ Later chapters in this book will show how to define type-level data structures s
 Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol `∀` (or equivalently the keyword `forall`) to denote _types_ of functions.
 
 - An expression of the form `λ(x : sometype1) → something2` is a function that can be applied to an argument in order to compute a result. Note that `something2` could be either a value or a type.
-- An expression of the form `∀(x : sometype1) → sometype2` is always a _function type_: in other words, an expression that can be used as a type annotation for a function. In particular, `sometype2` must be a type.
+- An expression of the form `∀(x : sometype1) → sometype2` is always a _function type_: in other words,  it can be used as a type annotation for a function. In particular, `sometype2` must be a type.
 
 Expressions of the form `∀(x : sometype1) → sometype2` may be used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 (However, it is not required that the name `x` be the same in the function and in its type.)
@@ -1851,7 +1851,7 @@ A function type of the form `A → B` can be always rewritten in an equivalent b
 The additional name (`a`) could be chosen to help the programmer remember the intent behind that argument.
 
 
-#### Example
+#### Examples
 
 To illustrate the difference between `∀` and `λ`, let us compare the Dhall expressions `λ(r : Type) → Optional r` and `∀(r : Type) → Optional r`.
 
@@ -1864,10 +1864,10 @@ The expression `∀(r : Type) → Optional r` has type `Type`.
 It is the _type of functions_ having a type parameter `r` and returning a value of type `Optional r`.
 A value of type `∀(r : Type) → Optional r` must be a function written in the form `λ(r : Type) → ...` in some way.
 The code of such a function must work for all types `r` and must produce some value of type `Optional r`, no matter what the type `r` might be.
-An example of such a function is `λ(r : Type) → None r`.
+The only possible code for such a function is `λ(r : Type) → None r`.
 
 
-#### Example: polymorphic identity function
+#### Polymorphic identity function
 
 As another example to help remember the difference between `∀` and `λ`, look at the polymorphic identity function.
 That function takes a value `x` of an arbitrary type and again returns the same value `x`:
@@ -1903,10 +1903,8 @@ let identity = λ(X : Type) → λ(x : X) → x
 let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 ```
 
-This makes Dhall code more verbose but also helps remove "magic" from the syntax, helping functional programmers to learn about more complicated types.
 
-
-#### Example: "Invalid function output"
+#### The error message "Invalid function output"
 
 An expression of the form `λ(x : type1) → body` is a function that computes the expression `body` when applied to an argument of type   `type1`.
 (The expression `body` could itself be a value or a type.)
@@ -1993,7 +1991,7 @@ A simple example of a dependent function whose type uses `f` would be:
 let g : ∀(x : Bool) → f x
   = λ(x : Bool) → if x then 123 else "abc" -- Type error: different types in the two "if" branches!
 ```
-However, Dhall cannot accept this function as valid.
+However, Dhall cannot accept this function as well-typed.
 The output type of `g` is `f x`, which depends on the input value `x`.
 But Dhall cannot accept that the two branches of the "`if`" expression have different types. 
 
@@ -2015,7 +2013,7 @@ Such "dependent records" or "dependent pairs" are directly supported in more adv
 We will show later in this book how Dhall can encode dependent pairs despite that limitation.
 
 Dhall's implementation of dependent types is limited to the simplest use cases.
-The main limitation is that Dhall cannot correctly track types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
+A major limitation is that Dhall cannot correctly track types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
 
 The following example (using the function `f` defined above) shows that Dhall does not track correctly the dependent types inside an `if` branch:
 
@@ -2052,14 +2050,12 @@ The Dhall expression `a ≡ b` is a special _type_ that depends on the values `a
 The type `a ≡ b` is different for each pair `a`, `b`.
 It is an example of a **dependent type**.
 
-Types of the form `a ≡ b` are known as **equality types** because they have the following special properties:
+Types of the form `a ≡ b` are known as **equality types** because they have   special properties depending on whether `a` is equal to `b`.
 
-The type `a ≡ b` has _no values_ (is void) if `a` and `b` have different types, or the same types but different normal forms (as Dhall expressions).
-For example, the types `1 ≡ True` and `1 ≡ 2` are void.
-(We will never be able to create any values of those types.)
+The type `a ≡ b` is void (has no values)  if `a` and `b` have different types, or the same types but different normal forms (as Dhall expressions).
+For example, the types `1 ≡ True` and `1 ≡ 2` are void; we cannot create any values of those types.
 
 If `a` and `b` evaluate to the same normal form then the type `a ≡ b` is not void.
-
 For example, the types `False ≡ False` and `123 ≡ 123` are not void.
 
 Actually, types of the form `a ≡ a` are defined to be a unit type.
@@ -2078,11 +2074,17 @@ let test1 = assert : 1 + 2 ≡ 0 + 3
 ```
 
 In this example, the two sides of the type `1 + 2 ≡ 0 + 3` are equal after reducing them to normal forms.
-The resulting type `3 ≡ 3` is non-void and has a value.
-We assigned that value to `test1`.
+The resulting type `3 ≡ 3` is non-void and has a value that we  assigned   to `test1`.
 We could pass that value to a function whose argument has type `3 ≡ 3`.
+The Dhall interpreter confirms  that `test1` indeed has type `3 ≡ 3`:
 
-It is not actually possible to print the value `test1` of type `3 ≡ 3` or to examine that value in any other way.
+```dhall
+⊢ :let test1 = assert : 1 + 2 ≡ 0 + 3
+
+test1 : 3 ≡ 3
+```
+
+It is not actually possible to print the value assigned to `test1`   or to examine that value in any  way.
 That value _exists_ (because the `assert` expression was accepted by Dhall), but that's all we know.
 
 
@@ -2117,7 +2119,7 @@ This code will fail to typecheck because, within the code of `compareTextValues`
 Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
 
-Another example: we cannot write a Dhall function that checks whether a string is empty, when that string is given as the function's parameter.
+Another example: we cannot write a Dhall function that checks whether a string parameter is an empty string.
 ```dhall
 let isStringEmpty = λ(t : Text) →
   assert : t ≡ "" -- Type error: assertion failed.
@@ -2161,9 +2163,9 @@ in f (g ...) k ???              -- Compute the final result.
 The values `f`, `g`, `k`, and `n` are statically known in this code because:
 
 - The value `k` is a direct import.
-- The value`n` is computed from a literal number (`123`) and from `k`.
+- The value `n` is computed from a literal number (`123`) and from `k`.
 - The values `f` and `g` are literal function expressions defined at the top level.
-- The bodies of the functions `f` and `g` may use `k`, `n`, and library imports. So, those functions are built up from statically  known values. 
+- The bodies of the functions `f` and `g` may use `k`, `n`, and  imports. So, those functions are built up from statically  known values. 
 
 All values at the top level of a valid Dhall program are statically known.
 Values can be non-statically known only within the scope of a function body.
@@ -2172,14 +2174,14 @@ Generally, parameters of functions are not statically known within the scope of 
 
 The concept of "statically known values" is useful for understanding the usage of `assert` expressions.
 Consider an assertion of the form `assert : x ≡ y`.
-If `x` and `y` are statically known then the Dhall typechecker will be able to validate that assertion by reducing both `x` and `y` to literal values.
+If `x` and `y` are statically known then the Dhall typechecker will   reduce both `x` and `y` to literal values and then check if those values are equal.
 Typically, that's what the programmer expects when writing an `assert` expression.
 For this reason, `assert` expressions are almost always used with statically known values.
 
 Reducing an expression to a literal value at typechecking time is possible only if that expression is a statically known value.
 
 When `x` or `y` is not statically known, the typechecker will only be able to reduce `x ≡ y` to a normal form containing some symbolic variables.
-In most cases, this is not useful because it cannot be validated.
+In most cases, this is not useful and is not what programmers intend.
 
 For example, here is an attempt to create a function `f` enforcing the condition that `f x` may be called only with nonzero `x`:
 ```dhall
@@ -2201,7 +2203,7 @@ Then one can use that type to write assertions for statically known values:
 let MustBeNonzero : Natural → Type
   = λ(x : Natural) → Natural/isZero x ≡ False
 let _ = assert : MustBeNonzero 123   -- OK.
--- let _ = assert : MustBeNonzero 0    -- This fails!
+-- let _ = assert : MustBeNonzero 0  -- This fails!
 ```
 
 
@@ -2272,9 +2274,9 @@ let StaticBool : Bool → Type = λ(x : Bool) → zeroBool x ≡ True
 let _ = assert : StaticBool False  -- OK.
 ```
 
-For `Text` values, we can create a sequence of operations that will always return an empty string, and we assert on that property.
+For `Text` values, we can create a sequence of operations that will always return an empty string.
 But the Dhall interpreter is unable to validate that property symbolically.
-So, the assertion on `StaticText x` will fail unless `x` is a statically known value:
+The assertion on `StaticText x` will hold only if `x` is   statically known:
 ```dhall
 let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
 let StaticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
@@ -2283,7 +2285,7 @@ let StaticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
 ```
 
 In this way, we have implemented assertions on statically known values of primitive types `Bool`, `Integer`, `Natural`, and `Text`.
-With more work, similar assertions may be also implemented for   lists, records, and unions built from  those primitive types.
+Similar assertions may be also implemented for   lists, records, and unions built from  those primitive types.
 
 ### Kinds and sorts
 
@@ -2311,13 +2313,8 @@ We may read the expression `p : Kind` as  "`p` is a kind".
 Other possible values of type `Kind` are "type constructor" kinds, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
 ```dhall
-⊢ :type (Type → Type) → Type
-
-Kind
-
-⊢ :type { a : Type }
-
-Kind
+let _ = ( (Type → Type) → Type ) : Kind
+let _ = { a : Natural, b : Type } : Kind
 ```
 
 An example of a type constructor is `List`, which is a built-in symbol whose kind is `Type → Type`.
@@ -2329,13 +2326,7 @@ The reason can be formulated by saying that `List` does not have kind `Type`.
 We can annotate values only by something that has kind `Type`.
 
 As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
-The type of _that_ is `Kind`:
-
-```dhall
-⊢ :type { a : Natural, b : Type }
-
-Kind
-```
+The type of _that_ is `Kind`, as we just saw.
 
 Any function that returns something containing `Type` will itself have the output type `Kind`:
 
@@ -2369,7 +2360,7 @@ The reason is that `Q` is not a simple kind; it has type `Kind → Kind`.
 There are no expressions `T` such that `T : Q` is a well-typed annotation.
 A type `T` may be annotated as `T : P` only if `P` is annotated as `P : Kind`.
 To describe such `P`, we do not say that `P` has type `Kind`.
-Instead, we use the word **sort** and say that  "the sort of `P` is `Kind`" and that `Q` has sort `Kind → Kind`.
+Instead, we use the word **sort** and say that  "the sort of `P` is `Kind`" and that the sort of `Q` is `Kind → Kind`.
 
 
 In turn, the symbol `Kind` is treated as a special value of type `Sort`.
@@ -2442,7 +2433,7 @@ For the same reason, Dhall will not accept the following function parameterized 
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
-This prevents Dhall from defining recursive kind-polymorphic type constructors. For example, Dhall cannot implement an analog of `List` that works with types of arbitrary kinds.
+This prevents Dhall from defining kind-polymorphic type constructors that work with arbitrary kinds.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
@@ -2451,7 +2442,7 @@ Nevertheless, it is perfectly possible to define a list of types of a specific k
 For instance, one can define a list of types of kind `Type`, such as `Natural`, `Bool`, and `Text`.
 Separately, one can define a list of types of kind `Type → Type`, such as `Optional` and `List`.
 Those definitions will use similar code, but it will not be possible to refactor them into special cases of a more general kind-polymorphic code.
-(This limitation does not appear to be particularly important for the practical use cases of Dhall.)
+(This limitation does not seem  to be particularly important in practical usage.)
 
 ### Higher-kinded types
 
@@ -2461,7 +2452,7 @@ In other words, those parameters have kind `Type`.
 By a **higher-kinded type** one means a type expression that involves type parameters not of kind `Type` but of kind `Type → Type`, or `Type → Type → Type`, or perhaps `(Type → Type) → Type`, and so on.
 Such type expressions can be viewed as higher-order functions on types.
 
-In Dhall, a function can have a parameter of any _kind_.
+In Dhall, a function can have  parameters of any _kind_.
 The syntax is the same for all such functions.
 One just needs to write suitable type annotations:
 ```dhall
