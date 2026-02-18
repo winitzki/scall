@@ -3043,8 +3043,8 @@ For instance, we can apply `identity` to itself and get the same function as a r
 
 #### Identity functions for types and kinds
 
-What if we wanted the identity function to be able to work on _types_ themselves?
-We expect some code like `identityT Bool ≡ Bool`.
+What if we wanted an identity function that works on _types_ themselves?
+We expect  `identityT Bool` to return `Bool`.
 
 Note that the type of `Bool` is `Type`.
 So, a simple implementation of `identityT` is:
@@ -3052,7 +3052,6 @@ So, a simple implementation of `identityT` is:
 ```dhall
 let identityT = λ(t : Type) → t
 ```
-
 This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the kind of `List` is not `Type` but `Type → Type`.
 We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors as arguments.
 For instance, it should accept arguments of kind `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
@@ -3244,7 +3243,7 @@ The type of `f` is `(Type → Type) → Type`.
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, such laws may be verified only through testing.
-Dhall's `assert` feature may be used to verify certain laws symbolically, which is equivalent to a machine-verified proof.
+Dhall's `assert` feature may be used to verify certain laws symbolically, which is equivalent to a machine-verified, rigorous proof.
 
 A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x ≡ f y` for all `x` and `y` of a suitable type.
