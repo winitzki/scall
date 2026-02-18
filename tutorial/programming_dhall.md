@@ -1611,15 +1611,16 @@ The typechecking itself is also guaranteed to complete within finite time.
 
 Dhall supports neither general recursion nor `while`-loops nor any other control flow constructions whose termination is not assured.
 Iterative computations are possible in Dhall only if the program specifies the maximum number of iterations in advance.
+A Dhall program can never enter an infinite loop.
 
 The price for these termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
-A **Turing-complete language** must support programs that do not terminate as well as programs for which it is _not known_ whether they terminate.
+A **Turing-complete language** must support programs that enter an infinite loop and never compute the expected result, as well as programs for which it is _not known_ whether they will enter an infinite loop.
 Dhall does not support such programs.
 
-But it is not clear that support for non-terminating programs is strictly necessary for practical applications.
+But it is not clear that practical applications require  supporting   programs that could potentially enter an infinite loop and fail to return a result.
 
 As this book will show, Dhall can  perform iterative and recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
-The lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage.
+The lack of Turing-completeness is not a significant limitation, as it still permits a wide scope of Dhall usage.
 
 The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
 As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program (or a **rogue expression**) that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
@@ -1640,9 +1641,9 @@ functions in the `List` subdirectory work with lists, and so on.
 Library functions for working with `Natural` and `Integer` numbers include functions such as `Natural/lessThan`, `Integer/lessThan`, and so on.
 Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
 
-All built-in Dhall functions have the corresponding standard library functions.
+All built-in Dhall functions have the corresponding   library functions exported in the Prelude.
 For example, the built-in function `Date/show` is also exported as `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
-This helps keep library modules independent of language evolution, which might add or remove built-in functions.
+In this way it is easier to keep  library modules independent on language evolution, which might add or remove built-in functions.
 
 In addition, there are  modules such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
 
@@ -1668,14 +1669,14 @@ The `DirectoryTree` and `JSON` modules are based on Church encoding, which will 
 
 "Polymorphic records" is a feature of some programming languages where, say, the record   type `{ x : Natural, y : Bool }` is considered to be a type of records having a `Natural` field `x` and a Boolean field `y` and possibly other fields that the code (in this scope) does not need to know about.
 
-A function that requires its argument to have type `{ x : Natural, y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool, z : Text }` and will ignore the value `z`.
+In a language with polymorphic records, a function that requires its argument to have type `{ x : Natural, y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool, z : Text }` and will ignore the value `z`.
 
 Other languages support subtyping of records: a record type `{ x : Natural, y : Bool, z : Text }` is considered to be a subtype of `{ x : Natural, y : Bool }`.
 
 Dhall does not supports subtyping or polymorphic records, but it does include some facilities to work with records polymorphically.
 
 A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
-The function only needs the fields `a` and `b` and should ignore any other fields.
+The function should ignore any  fields other than `a` and `b`.
 
 To implement this behavior in Dhall, use a field selection operation: any unexpected fields will be automatically removed.
 
@@ -1689,7 +1690,7 @@ in f r1.(MyTuple)  -- This is a complete program that returns 123.
 The field selection operation `r1.(MyTuple)` removes all fields other than those defined in the type `MyTuple`.
 We cannot write `f r1` because `r1` does not have the type `MyTuple`.
 Instead, we write `f r1.(MyTuple)`.
-We would need to use the field selection each time we call the function `f`.
+We   need to use the field selection each time we call the function `f`.
 
 Another often needed feature is providing default values for missing fields.
 This is implemented with Dhall's record update operation (`//`):
@@ -1715,7 +1716,7 @@ Similarly, `myTupleDefault // r` will accept records `r` of any record type and 
 
 But Dhall cannot directly describe the type of records with unknown fields.
 (There is no type that means "any record".)
-So, one cannot write a Dhall function taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
+So, one cannot write a Dhall _function_ taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
 
 Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
 
