@@ -589,9 +589,10 @@ That function computes a value of an arbitrary type `A` given a value of the voi
 let absurd : <> → ∀(A : Type) → A
   = λ(x : <>) → λ(A : Type) → merge {=} x : A
 ```
+If `v` were a value of the void type and `X` is any type then `absurd v X` would be a value of type `X`.
 
-This implementation depends on a special feature of Dhall: a `merge` expression with a type annotation.
-(The annotation `: A` in `merge {=} x : A` is for the entire `merge` expression, not for `x`.)
+The implementation of `absurd` depends on a special feature of Dhall: a `merge` expression with a type annotation.
+(The annotation "`: A`" in `merge {=} x : A` is for the entire `merge` expression, not for `x`.)
 This annotation makes the type checker accept an _empty_ `merge` expression as a value of type `A`.
 
 We need to keep in mind that the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
@@ -600,7 +601,7 @@ Nevertheless, the existence of the void type and a function of type `<> → ∀(
 The type signature of `absurd` suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
 Indeed, the type `∀(A : Type) → A` is void.
-If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
+If we could find a function `f` of that type, we would then apply `f` to the void type and compute a value `f <>` of type `<>`.
 But that is impossible, as the type `<>` has no values.
 
 So, the type `∀(A : Type) → A` can be used equally well to denote the void type.
@@ -637,7 +638,7 @@ So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` 
 let our_program = λ(TODO : ∀(A : Type) → A) →
   let x = TODO Natural in { result = x + 123 }     -- Whatever.
 ```
-We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code.
+We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code and removing the argument of the void type.
 
 ### Unit types
 
@@ -645,11 +646,11 @@ A **unit type** is a type that has only one distinct value.
 
 Dhall's empty record type `{}` is a unit type.
 The type `{}` has only one value, written as `{=}`.
-This syntax denotes a record with no fields or values.
+This syntax denotes a record with no fields (an empty record).
 
 Another way of defining a unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
-In this way, one can define unit types with different names, when convenient.
+In this way, one can define different unit types with convenient names.
 
 Another definition of a unit type is via the following function type:
 ```dhall
@@ -711,7 +712,7 @@ Dhall distinguishes types and type constructors not by assigned names but by the
 
 ### The type constructor `Optional`
 
-A  type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall like this:
+A type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall as:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
@@ -730,7 +731,7 @@ Here is an example of using Dhall's `merge` for implementing a `getOrElse` funct
 let getOrElse : ∀(a : Type) → Optional a → a → a
   = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
     merge { None = default
-          ,  Some = λ(x : a) → x
+          , Some = λ(x : a) → x
           } oa
 ```
 
@@ -791,8 +792,8 @@ When applying that function, the code must specify both type parameters (`a`, `b
 
 ```dhall
 let List/map = https://prelude.dhall-lang.org/List/map
-in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
-  -- This is a complete program that returns [2, 3, 4].
+in List/map Natural Natural (λ(x : Natural) → x + 1) [ 1, 2, 3 ]
+  -- This is a complete program that returns [ 2, 3, 4 ].
 ```
 
 A **polymorphic identity function** is written (with a long type annotation) as:
@@ -818,26 +819,25 @@ However, a `let` binding does not require a type annotation.
 So, one may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
 The type of `Pair` will be determined automatically.
 
-For complicated type signatures, it still helps to write type annotations, because Dhall will then detect some type errors earlier.
+For complicated type signatures, it still helps to write type annotations, because Dhall will then detect type errors earlier.
 
 ### Modules and imports
 
-Dhall has a simple file-based module system.
-The module system is built on the principle that each Dhall file must contain a valid program that is evaluated to a _single_ result value.
+When the Dhall interpreter reads a file with Dhall code, it accepts  only a file containing a single and well-typed expression and   evaluates that expression to a _single_ result value.
 (Programs are often written in the form `let x = ... let y = ... in ...`, but the result is still a single value.)
+This restriction allows Dhall to implement a simple file-based module system: each file is seen as a "module" that exports a single value.
+There are no special keywords to denote the exported value; it is simply the result value of the file's entire code.
 
 A file's value may be imported into another Dhall file by specifying the path to the first Dhall file.
 The second Dhall file can then directly use that value as a subexpression in any further code.
 For convenience, the imported value is usually assigned to a variable with a meaningful name.
 
-In this way, each Dhall file is seen as a "module" that exports a single value.
-There are no special keywords to denote the exported value; there is only one such value in any case.
 
 Here is an example: the first file contains a list of numbers, and the second file computes the sum of those numbers.
 
 ```dhall
 -- This file is `./first.dhall`.
-[1, 2, 3, 4]
+[ 1, 2, 3, 4 ]
 ```
 
 ```dhall
@@ -865,7 +865,7 @@ let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${Natural/show id}]"
 
 let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
-let _ = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
+let test = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
 
 in {
   UserName,
@@ -916,13 +916,13 @@ Dhall denotes imports via special syntax:
 - If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
 - A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
 
-The import paths, environment variable names, and SHA256 hash values are _not strings_.
+It is important that  environment variable names and import paths  are _not strings_.
 They are hard-coded and cannot be manipulated at run time.
 It is not possible to import a file whose name is computed by concatenating some strings.
 For instance, one cannot write   `let x = ./Dir/${filename}`  with the intention of substituting the value `filename` as part of the path to an imported file.
 
-The contents of the imported resource may be treated as plain text or as binary data, instead of treating it as Dhall code.
-This is achieved with the syntax `as Text` or `as Bytes`.
+The contents of the imported resource may be treated as plain text  instead of treating it as Dhall code.
+This is achieved with the syntax `as Text`.
 
 For example, environment variables typically contain plain text rather than Dhall code.
 So, they should be imported `as Text`:
@@ -949,7 +949,7 @@ However, `Location` values cannot be reused to perform further imports.
 
 Apart from requiring hard-coded import paths, Dhall imposes other limitations on what can be imported to help users maintain a number of security guarantees:
 
-- All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching).
+- All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching as described below).
 - All imported resources are loaded and validated at typechecking time, before any evaluation may start.
 - Circular imports are not allowed: no resource may import itself, either directly or via other imports.
 - Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
@@ -992,7 +992,7 @@ The fact that both files `file1.dhall` and `file2.dhall` are located in the same
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
 An import such as `let Dir1/file1 = ./Dir1/file1.dhall` might appear to suggest that `file1` is a submodule of `Dir1` in some sense.
-But actually Dhall treats all imports in the same way regardless of path; it does not have any special concept of "submodules".
+But actually Dhall treats all imports in the same way regardless of path; there is no concept of a "submodule".
 The file `./Dir1/file1.dhall` is treated as a Dhall file like any other.
 
 Also, names like `Dir1/file` are not treated specially.
@@ -1167,12 +1167,12 @@ However, type annotations must be given  when binding a function argument, such 
 The type of the expression `x + 1` is unknown if the type of `x` is unknown.
 It is not valid in Dhall to write, say, `λ(a : Type) → λ(x : a) → x + 1`; Dhall will not infer `a = Natural` from that code.
 
-One can describe this behavior by saying that the type inference is sent only "in  one direction": from bound variables towards expressions, but not  from expressions to bound variables.
+One can describe this behavior by saying that the type inference works only "in  one direction": from bound variables towards expressions, but not  from expressions back to bound variables.
 The expression `x + 1` cannot be typechecked in Dhall unless the type of the bound variable `x` is already known.
-The types of function arguments will not be inferred by examining the function body and assuming that the types must match there.
-So, function arguments must be explicitly type-annotated;
+The type of `x` will not be inferred by examining the function body `x + 1` and assuming that the types must match there and so `x` must have type `Natural`.
+Function arguments such as `x` must be explicitly annotated, as in `λ(x : Natural) → x + 1`.
 
-Also, type parameters are treated in the same way.
+Type parameters are treated in the same way.
 Dhall will not infer them and will not fill them in automatically:
 ```dhall
 let identity : ∀(a : Type) → a → a = λ(a : Type) → λ(x : a) → x
@@ -1181,8 +1181,8 @@ let _ = identity 123  -- Type error: type parameter missing.
 All type parameters must be written out when applying type constructors or functions with type parameters.
 A correct code would be `identity Natural 123`.
 
-Although the need to write out all type parameters makes Dhall programs more verbose, it also removes the "magic" from   certain idioms in functional programming.
-In particular, Dhall requires us to write out  all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to specify kind annotations for _types_ (such as, `F : Type → Type`) as well.
+Although the need to write out all type parameters makes Dhall programs more verbose, it also removes the "magic" from certain idioms in functional programming.
+In particular, Dhall requires us to write out all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to specify annotations for _type constructors_ (such as `F : Type → Type`) as well.
 This verbosity has actually helped the author to learn some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation. Partial functions
@@ -1227,7 +1227,7 @@ Imports must be resolved and evaluated first, in order to be able to proceed wit
 When no type errors are found, the interpreter goes on evaluating the program to the normal form, using the lazy evaluation strategy.
 
 To summarize, Dhall uses lazy evaluation when applying functions to arguments and in `let`-expressions.
-Strict evaluation is used for any values required to be available during type-checking: all imported values, all values in `assert` expressions, and all values that are required for computing any types.
+Strict evaluation is used for any values required to be available during type-checking: all imported values, all values in `assert` expressions, and also all values that are required for computing any types.
 
 It is important to keep in mind that in almost all cases a well-typed Dhall program will give the same result whether evaluated lazily or strictly.
 
@@ -1251,15 +1251,15 @@ This is due to Dhall's specific choice of features and strict typechecking:
 
 - A function call will typecheck only if all arguments have correct types.
 - A pattern-matching expression will typecheck only if it handles _all_ parts of the union type being matched.
-- All `if / then` constructions must have an `else` clause; both clauses must be values of the same type.
-- There are no "undefined" values: Dhall has no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
+- All `if / then` constructions must have an `else` clause; both clauses must be expressions of the same type.
+- There are no "undefined" values: Dhall has no analog of Haskell's "bottom",  Java's "null", or  Scala's `???`.
 - A program cannot create exceptions or other run-time errors.
 - Infinite loops are not possible; every loop must have an upper bound on the number of iterations.
 - All lists must have an upper bound on length.
 - Imports cannot be circular or provide ill-typed values.
 
 These features eliminate large classes of programmer errors that could create rogue expressions inadvertently.
-Nevertheless, three possibilities for creating rogue expressions still remain:
+Nevertheless, some possibilities for creating rogue expressions still remain:
 - Trying to create a data structure so large that no realistic computer could fit it in memory.
 - Starting a computation that takes so long that no realistic user could wait for its completion.
 - Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from `/dev/zero`).
@@ -1316,26 +1316,26 @@ add1 : ∀(x : Natural) → ∀(y : Natural) → Natural
 λ(z : Natural) → 579 + z
 ```
 
-The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Natural) → 579 + z`, while the argument `z` remains symbolic.
-The simplification occurred in the functon body under a `λ(z ...)`.
+The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Natural) → 579 + z`, while the argument `z` remained symbolic.
+The simplification occurred in the function body under a `λ(z ...)`.
 This sort of simplification is what we call "evaluation under a lambda".
 
-From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do when desining a pure System Fω interpreter.
+From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do for a pure System Fω interpreter.
 For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
 If the interpreter supports reducing under lambdas then refactoring a function's body (renaming variables, introducing new local variables, etc.) will keep the normal form unchanged.
 This enables us to refactor code at will without changing its semantic hash.
 
-However, the "normal-form-oriented programming" turns out to have some unexpected consequences.
+However, this "normal-form-oriented programming" turns out to have some unexpected consequences.
 One issue is that the normal form of some functions can grow to an extremely large size even though the code is not "obviously large".
 
-A small example comes from the implementation of floating-point numbers.
-Suppose we need to write the following helper functions:
+An example comes from the author's implementation of floating-point numbers
+where  the following helper functions were required:
 
 - Given `i : Integer`, compute a pair `(x, y)` of `Natural` numbers such that `x = i + y`. This is the function `f`.
 - Given two integers `i`, `j`, compute a pair `(x, y)` of `Natural` numbers such that `x + i = y + j`. This is the function `g`.
 - Given four integers `i`, `j`, `k`, `l`, compute a pair `(x, y)` of `Natural` numbers such that `x + i + j = y + k + l`. This is the function `h`.
 
-The code for `f`, `g`, `h` is straightforward. It is natural to define `g` through `f` and `h` through `g`:
+The code for `f`, `g`, and `h` is straightforward. It is natural to define `g` through `f` and `h` through `g`:
 ```dhall
 let Integer/positive =  https://prelude.dhall-lang.org/Integer/positive
 let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
@@ -1369,7 +1369,7 @@ The  printed form of `h` contains thousands of repetitions like this:
               then  Integer/negate ( Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate ( Integer/negate k ) ) ) ( Integer/clamp ( Integer/negate l ) ) ) )
               else  Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate l) ... Why so many???
 ```
-Why did the functions grow so much?
+Why did the function's normal form grow so much?
 
 Looking at the code of `f`, we notice that `f` uses its argument `i` three times.
 The code of `g` applies `f` to an argument `Integer/subtract a b`.
@@ -1415,7 +1415,7 @@ let Integer/subtract = λ(a : Integer) → λ(b : Integer) →
 ```
 This long normal form is repeated three times when we apply `f` to `Integer/subtract a b`.
 The body of `Integer/subtract` needs to be inlined and applied to symbolic arguments  every time it is used in `f`; no further reduction is possible.
-This gives rise to a large text of `g`.
+This gives rise to a large normal form of `g`.
 
 Finally, note that the function `Integer/subtract` uses each of its arguments (`a` and `b`) ten times.
 So, `g` repeats its arguments `30` times each.
@@ -1430,7 +1430,7 @@ let z = if p1 y then p2 y else p3 ???
 But the "normal-form-oriented programming" forces each function's code to be inlined and repeated at each call site.
 When this occurs under lambda, an exremely large normal form can be produced.
 
-Generally, the growth of normal forms happens for two reasons:
+Generally, the growth of normal forms happens in two situations:
 
 - When `let` expressions are used to define some helper functions repeatedly through other helper functions.
 - When `List/fold` is used with a literal list, or `Natural/fold` is used with a literal `Natural` value, but some other arguments are symbolic.
@@ -1443,9 +1443,9 @@ let List/index = https://prelude.dhall-lang.org/List/index
 let data = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p" ]
 let lookup : Natural → Optional Text = λ(n : Natural) → List/index n Text data
 ```
-For example, `lookup 2` returns `"c"` and `lookup 10` returns `"k"`.
+For example, `lookup 2` returns `Some "c"` and `lookup 10` returns `Some "k"`.
 At first sight this function is perfectly ordinary. However, its normal form is about 50 MB!
-The reason is the extremely repetitive inlining that `List/index` performs with its `data` argument if it is given as a literal list value.
+The reason is the extremely repetitive inlining that `List/index n Text data` performs with its `data` argument when `data` is   a literal list value but `n` is symbolic.
 
 To see what happens with `Natural/fold`, consider this code:
 
@@ -1477,12 +1477,12 @@ When all arguments are literal values and the final results are not functions, t
 
 Let us show a workaround that mitigates (but does not eliminate) the problem of exploding normal forms.
 
-The trick for mitigating the growth is based on two features of Dhall:
+The trick for slowing the growth is based on two features of Dhall:
 
-- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or `False` then the merge expression will stay unexpanded. This will get rid of the problem of expression growth, even if the code of `q` uses `x` several times.
+- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or `False` then the merge expression will stay unexpanded. This will prevent expression growth even if the code of `q` uses `x` several times.
 - Dhall cannot recognize that certain functions always return `True`. If we use such a function instead of `b` in `if b then Some x else None` then Dhall will not be able to simplify that expression into `Some x`.
 
-In this way, we can trick Dhall into avoiding a normal form expansion under lambda.
+In this way, we can trick Dhall into doing fewer  normal form expansions under lambda.
 
 Here is a generic helper function that reduces the growth of normal forms:
 ```dhall
@@ -1498,9 +1498,12 @@ let reduceGrowth
           { Some = f, None = stopgap }
           (if predicate x then Some x else None T)
 ```
-The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The `stopgap` is an arbitrary value of type `R`, as it will be never used. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. 
+The function transforms a given function of type `T → R` into another function of the same type.
+The code only inlines the argument `x : T` twice.
+The `stopgap` is an arbitrary value of type `R`, as it will never be used.
+The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. 
 
-For each input type `T`, we need to find such a `predicate` function of type `T → Bool`.
+For each input type `T`, we can find such a `predicate` function of type `T → Bool`.
 An example of a suitable constant function of type `Natural → Bool` is:
 ```dhall
 let predicateNatural : Natural → Bool = λ(x : Natural) →
@@ -1529,11 +1532,11 @@ In Dhall, several built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`)
 One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
 Those types are intended for creating strongly-typed configuration data schemas and for safely exporting data to configuration files.
 
-The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
+The built-in types `Bool`, `Integer`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
 
 - Use `Bool` values as conditions in `if` expressions or with the Boolean operations (`&&`, `||`, `==`).
-- Add, multiply, and compare `Natural` numbers.
+- Add, multiply, and compare `Natural` and `Integer`   numbers.
 - Concatenate lists and compute certain other functions on lists (`List/indexed`, `List/length`).
 - Concatenate, interpolate, and replace substrings in `Text` strings.
 
@@ -1553,17 +1556,17 @@ Those loops perform as many iterations as needed to reach a given stopping condi
 In certain cases, it is not possible to find out in advance whether the stopping condition will ever be reached.
 So, programs that contain "while" or "until" loops are not statically guaranteed to terminate.
 
-A list may be created only if the required length of the list is bounded in advance.
-It is not possible to write a program that creates a list by adding more and more elements until some condition is reached, without an upper limit set in advance.
+A list may be created in Dhall only if the required length of the list is bounded in advance.
+It is not possible to write a  Dhall program that creates a list by adding more and more elements until some condition is reached, without an upper limit set in advance.
 
 Similarly, all text strings will have a length limit known up front.
 
 Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that simulate recursive types, recursive functions, and "lazy infinite" data structures.
-Later chapters in this book will show how that can be achieved.
+Later chapters in this book will explain the required techniques.
 
 In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
 Recursive code can be translated into Dhall only if there is a termination guarantee: the total number of nested recursive calls must be bounded in advance.
-Within these limitations, Dhall supports a wide variety of iterative and recursive computations.
+Despite these limitations, Dhall supports a wide variety of iterative and recursive computations.
 
 #### No side effects
 
@@ -1578,15 +1581,14 @@ But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
 a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
-The result of evaluating a Dhall program will then depend on the contents of the external resources.
+The result of evaluating a Dhall program will then depend on the contents of the external resources at read time.
 
 However, this dependency is invisible inside Dhall code, where each import looks like a constant value.
-This is because Dhall implements one-time, cached, and read-only imports.
-Dhall reads import values similarly to the way a mathematical function reads its arguments.
-The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
-Even though the actual external resource may change during evaluation, the Dhall interpreter will ignore those changes and use only the first value obtained by reading the resource.
+This is because Dhall will cache the  imported value after first reading.
 A repeated import of the same resource will always give the same Dhall value.
+Even though the external resource may change during evaluation, the Dhall interpreter will not see  those changes: repeated imports will re-use  the  value obtained from the first import.
 It is not possible to write a Dhall program that repeatedly reads a value from a  file and reacts in some way to changes in the file's contents.
+Dhall reads import values similarly to the way a mathematical function reads its arguments.
 
 A Dhall program also cannot have a custom behavior reacting to a failure _while importing_ the external resources.
 There is only a simple mechanism providing fall-back alternative imports in case a resource is missing.
@@ -1594,9 +1596,9 @@ If a resource fails to read despite fall-backs, or fails to typecheck, or fails 
 
 Most often, imports are used to read library modules with known contents that is not expected to change.
 Dhall supports that use case with its "frozen imports" feature.
-If all imports are frozen, a Dhall program is guaranteed to give the same results each time it is evaluated.
+If all imports are frozen, a Dhall program is guaranteed to give the same result  each time it is evaluated.
 
-#### Guaranteed termination
+#### Guaranteed termination and Turing-incompleteness
 
 In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
 Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression (that is, to an expression that cannot be simplified any further).
@@ -1607,13 +1609,17 @@ It is guaranteed that the correct normal form will be computed, given enough tim
 Invalid Dhall programs will be rejected at the typechecking phase.
 The typechecking itself is also guaranteed to complete within finite time.
 
-The price for those termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
-A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.
-Dhall supports neither general recursion nor `while`-loops nor any other iterative constructions whose termination is not assured.
+Dhall supports neither general recursion nor `while`-loops nor any other control flow constructions whose termination is not assured.
 Iterative computations are possible in Dhall only if the program specifies the maximum number of iterations in advance.
 
-The lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage, as this book will show.
-Dhall can still perform iterative or recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
+The price for these termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
+A **Turing-complete language** must support programs that do not terminate as well as programs for which it is _not known_ whether they terminate.
+Dhall does not support such programs.
+
+But it is not clear that support for non-terminating programs is strictly necessary for practical applications.
+
+As this book will show, Dhall can  perform iterative and recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
+The lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage.
 
 The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
 As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program (or a **rogue expression**) that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
@@ -1634,8 +1640,9 @@ functions in the `List` subdirectory work with lists, and so on.
 Library functions for working with `Natural` and `Integer` numbers include functions such as `Natural/lessThan`, `Integer/lessThan`, and so on.
 Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
 
-All built-in Dhall functions have the corresponding standard library functions (just for the purpose of clean re-export).
+All built-in Dhall functions have the corresponding standard library functions.
 For example, the built-in function `Date/show` is also exported as `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
+This helps keep library modules independent of language evolution, which might add or remove built-in functions.
 
 In addition, there are  modules such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
 
@@ -1645,7 +1652,7 @@ To keep the language simpler, Dhall has only a small number of built-in function
 
 The `Function` module contains utility methods for working with functions, such as composing all functions in a list. 
 
-The `Operator` module exposes various built-in and library functions as operators with names such as `+`, `-`, or `!=`.
+The `Operator` module exposes various built-in operators as functions with names such as `+`, `-`, or `!=`.
 
 The `DirectoryTree` module contains types and functions for working with file paths, file permissions, and directory names.
 
