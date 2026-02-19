@@ -3471,7 +3471,7 @@ trait Show[T] {           // Scala.
 A type `T` belongs to the `Show` typeclass if we can compute a printable representation of any given value of type `T`.
 There are no laws for the method `show`.
 
-To implement this typeclass in Dhall, we first define a type that holds suitable evidence values.
+To implement this typeclass in Dhall, we first define a type constructor that holds suitable evidence values.
 In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
 
 ```dhall
@@ -3483,46 +3483,12 @@ Here is an  implementation of the `Show` evidence for `Natural`:
 ```dhall
 let showNatural : Show Natural = { show = Natural/show }
 ```
+This value is "evidence" that the type `Natural` belongs to the `Show` typeclass.
 
 For `Text`, we might just want to print the text as is:
 
 ```dhall
 let showText : Show Text = { show = identity Text }
-```
-
-As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
-For that, we would write the following Haskell code:
-```haskell
-import Data.List (intercalate)           -- Haskell.
-printWithPrefix :: Show a => String -> [a] -> String
-printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
-```
-In Scala, we would write:
-
-```scala
-def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
-  message + xs.map(showA.show).mkString(", ")
-```
-The corresponding Dhall code is:
-```dhall
-let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
-let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
-  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
-    message ++ Text/concatMapSep ", " a showA.show xs
-```
-To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
-First, we define a `Show` evidence value for that type:
-```dhall
-let UserWithId = { user : Text, id : Natural }
-let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) →
-    "user ${r.user} has id ${Natural/show r.id}"
-  }
-```
-Then we can  use `printWithPrefix` to print a list of values of that type:
-```dhall
-let users : List UserWithId = [ { user = "A", id = 1 }, { user = "B", id = 2 } ]
-let printed = printWithPrefix UserWithId showUserWithId "users: " users
-let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
 ```
 
 Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for those built-in types.
@@ -3535,16 +3501,16 @@ The `Eq` typeclass provides a method for checking if two values of a type `t` ar
 We say that a type `t` belongs to the `Eq` typeclass if there is a function `equal : t → t → Bool` that returns `True` if and only if the two arguments of type `t` are equal.
 The function `equal` must satisfy the usual laws of a equality relation: reflexivity, symmetry, transitivity, and extensional identity.
 - Reflexivity: for all `x : t` we must have `equal x x ≡ True`. It says that any value should be equal to itself.
-- Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`. It says that equality is symmetric.
+- Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`.
 - Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y ≡ True` and `equal y z ≡ True` then we must have `equal x z ≡ True`.
-- Extensional identity: for any `u : Type`, `v : Type` that both belong to the `Eq` typeclass, and for any `x : u`, `y : u` such that `equal x y ≡ True`, we must have   `equal (f x) (f y) ≡ True` for any `f : u → v`. In other words:   for any `x` and `y` that are equal, applying any function `f` will give equal results (`f x` and `f y`).
+- Extensional identity: applying any function `f` to equal values (`x` and `y`) will give equal results (`f x` and `f y`). More formally: for any `u : Type`, `v : Type` that both belong to the `Eq` typeclass, and for any `x : u`, `y : u`, `f : u → v`, if `equal x y ≡ True` then `equal (f x) (f y) ≡ True`.
 
 The type constructor for the `Eq` typeclass can be defined like this:
 ```dhall
 let Eq = λ(t : Type) → { equal : t → t → Bool }
 ```
 
-Among primitive types, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
+Among primitive types, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality in Dhall.
 Let us write the corresponding evidence values:
 
 ```dhall
@@ -3613,8 +3579,8 @@ let Record2 : Type = { n : Natural, label : Text }
 let eqRecord2: Eq Record2 = { equal = λ(x : Record2) → λ(y : Record2) → Natural/equal x.n y.n }
 ```
 
-This operation violates the extensional identity law: there are some functions `f` that give unequal results for records that are supposedly equal according to this typeclass evidence.
-That will be the case for any function that uses the `label` field of the record, for instance:
+This operation violates the extensional identity law: there are some functions `f` that will give unequal results when applied to some records that are equal according to this typeclass evidence.
+That will be the case for any function that uses the `label` field of the record `Record2`:
 ```dhall
 let f : Record2 → Text = λ(x : Record2) → x.label ++ Natural/show x.n
 ```
@@ -3638,7 +3604,7 @@ This operation violates the reflexivity law: values such as `Union2.Right "abc"`
 ### The "Ord" typeclass
 
 This typeclass defines a method `le` for determining if one value is "less or equal than" another value, in the sense of a "partial order".
-It means to require that the relation "less or equal" should have the properties of reflexivity and transitivity: 
+The relation "less or equal" should have the properties of reflexivity and transitivity: 
 
 - Any value is less than equal to itself (**reflexivity**).
 - If `x` is less than or equal to `y`, and if `y` is less than or equal to `z`, then `x` is less than or equal to `z` (**transitivity**).
@@ -3670,7 +3636,7 @@ For unions, one first checks whether one of the values has the highest-priority 
 If so, the first value is greater.
 If both values have constructors of the same priority, one proceeds to compare the values.
 
-As an example, we implement an `Ord` evidence for `Either a b`, where we (arbitrarily) select the `Left` constructor as having the higher priority.
+As an example, we implement an `Ord` evidence for `Either a b`, where we (arbitrarily) select the `Left` constructor as having a higher priority.
 (Any `Left p` value is always greater than any `Right q` value.)
 ```dhall
 let ordEither : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Either a b)
@@ -3688,14 +3654,14 @@ let ordEither : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Eit
     }
 ```
 
-In this way, we can derive `Ord` evidence values for arbitrary product and co-product types.
+In this way, one can derive `Ord` evidence values for arbitrary product and co-product types.
 
 ### The "Finite" typeclass
 
 Certain types have only a finite number of values, and those values are known in advance.
 The `Finite` typeclass provides a facility for enumerating the values of such types.
 
-Examples are unit types, the `Bool` type, and union types whose values involve finite types (but no function types and no `List`, for example).
+Examples are the void type, unit types, the `Bool` type, and union types whose values involve finite types (but not function types and not `List`, for example).
 
 The typeclass is defined via the constructor `Finite` that allows us to obtain a list of possible values of a given type:
 
@@ -3706,6 +3672,7 @@ let Finite = λ(t : Type) → { values : List t }
 Example evidence values are:
 
 ```dhall
+let finiteVoid : Finite <> = { values = [ ] : List <> }
 let finiteUnit : Finite {} = { values = [ {=} ] }
 let finiteBool : Finite Bool = { values = [ False, True ] }
 
@@ -3726,7 +3693,7 @@ let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b →
   = λ(a : Type) → λ(finiteA : Finite a) → λ(b : Type) → λ(finiteB : Finite b) →
     let leftValues : List (Either a b) = List/map a (Either a b) (λ(x : a) → (Either a b).Left x) finiteA.values
     let rightValues : List (Either a b) = List/map b (Either a b) (λ(y : b) → (Either a b).Right y) finiteB.values
-    in { values = List/concat (Either a b) [ leftValues, rightValues ] }
+    in { values = leftValues # rightValues }
 ```
 
 
@@ -3735,8 +3702,7 @@ let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b →
 The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
--- Haskell.
-class Monoid m where
+class Monoid m where        -- Haskell.
   mempty :: m
   mappend :: m -> m -> m
 ```
@@ -3754,20 +3720,21 @@ Here, the `Monoid` typeclass methods are called `empty` and `combine`.
 
 We see that an evidence value of type `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type describing those values could be written as `{ empty : m, append : m → m → m }`.
-A value of that type provides evidence that the type `m` belongs to the `Monoid` typeclass.
-
-To use the typeclass more easily, we define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
+Define a type constructor `Monoid` using this record type:
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values showing that the type `Bool` belongs to the `Monoid` typeclass.
-We also say that values of that type "provide `Monoid` typeclass evidence" for the `Bool` type.
-
-Here are examples of `Monoid` evidence for some types:
+One example is:
 ```dhall
 let monoidBool : Monoid Bool
   = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+```
+
+
+Here are   examples of `Monoid` evidence for some other types:
+```dhall
 let monoidNaturalSum : Monoid Natural
   = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
 let monoidText : Monoid Text
@@ -3777,9 +3744,9 @@ let monoidList : ∀(a : Type) → Monoid (List a)
 ```
 
 The `Monoid` evidence values shown above are not the only ones possible.
-For example, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
+For instance, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
 A `Monoid` evidence for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
-The   implementation of `Monoid` should be chosen according to the needs of a specific application.
+The implementation of `Monoid` should be chosen according to the needs of a specific application.
 
 A **semigroup** is a weaker typeclass that can be viewed as a monoid without the `empty` method.
 
@@ -3789,13 +3756,57 @@ let Semigroup = λ(m : Type) → { append : m → m → m }
 
 Any monoid is a semigroup, but not all semigroups are monoids, because no suitable `empty` method can be defined for certain types.
 
+Given a `Monoid` evidence for a type `t`, we can automatically derive a `Semigroup` evidence by just selecting the `append` method:
+
+```dhall
+let semigroupViaMonoid: ∀(t : Type) → Monoid t → Semigroup t
+  = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.{append}
+```
+
 ### Functions with typeclass constraints
 
 The main use of typeclasses is for implementing functions with a type parameter constrained to belong to a given typeclass.
 To implement such functions, we add an argument that requires a typeclass evidence value.
 
-Let us implement some functions with a type parameter required to belong to the `Monoid` typeclass.
-Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
+As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
+For that, we would write the following Haskell code:
+```haskell
+import Data.List (intercalate)           -- Haskell.
+printWithPrefix :: Show a => String -> [a] -> String
+printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
+```
+In Scala, we would write:
+
+```scala
+def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
+  message + xs.map(showA.show).mkString(", ")
+```
+The corresponding Dhall code is:
+```dhall
+let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
+let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
+    message ++ Text/concatMapSep ", " a showA.show xs
+```
+To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
+First, we define a `Show` evidence value for that type:
+```dhall
+let UserWithId = { user : Text, id : Natural }
+let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) →
+    "user ${r.user} has id ${Natural/show r.id}"
+  }
+```
+Then we can  use `printWithPrefix` to print a list of values of that type:
+```dhall
+let users : List UserWithId = [ { user = "A", id = 1 }, { user = "B", id = 2 } ]
+let printed = printWithPrefix UserWithId showUserWithId "users: " users
+let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
+```
+
+
+
+Let us now implement some functions with a type parameter required to belong to the `Monoid` typeclass.
+Consider the well-known functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
 reduce :: Monoid m => List m -> m             -- Haskell.
@@ -4330,7 +4341,7 @@ When `F` is a functor, the type `∀(a : Type) → a → F a` can be simplified 
 ∀(a : Type) → (p → a) → F a  ≅  F p
 ```
 where `p` is a fixed type.
-(See the Appendix "Naturality and parametricity" for more details about the Yoneda identities.)
+(See the Appendix "Naturality and parametricity" for details about the Yoneda identities.)
 
 The type signature `∀(a : Type) → a → F a` is a special case of the identity shown above if we set `p` to the unit type (in Dhall, `p = {}`).
 The  type of functions `{} → a` is equivalent to just `a`.
@@ -4449,7 +4460,7 @@ let monadList : Monad List =
 ```
 
 
-We can use the generic function `monadJoin` to obtain a `join` method for `List` like this:
+We can use the generic function `monadJoin` to obtain a `join` method for `List`:
 
 ```dhall
 let List/concat : ∀(a : Type) → List (List a) → List a
