@@ -3221,7 +3221,7 @@ The type of `f` is `(Type → Type) → Type`.
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, such laws may be verified only through testing.
-Dhall's `assert` feature may be used to verify certain laws symbolically, which is equivalent to a machine-verified, rigorous proof.
+Dhall's `assert` checker may be used to verify certain laws symbolically, which is equivalent to a machine-verified, rigorous proof.
 
 A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x ≡ f y` for all `x` and `y` of a suitable type.
@@ -3391,7 +3391,7 @@ Then we will look at other typeclasses more systematically.
 
 ###### Example: The `Semigroup` typeclass
 
-In mathematics, a set is called a "semigroup" if there is a binary associative operation for it.
+In mathematics, a set is called a **semigroup** if there is a binary associative operation for it.
 In the language of programming, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law.
 The law says that for all `x`, `y`, `z` of type `t`, we must have:
 
@@ -3661,9 +3661,9 @@ In this way, one can derive `Ord` evidence values for arbitrary product and co-p
 Certain types have only a finite number of values, and those values are known in advance.
 The `Finite` typeclass provides a facility for enumerating the values of such types.
 
-Examples are the void type, unit types, the `Bool` type, and union types whose values involve finite types (but not function types and not `List`, for example).
+Examples are the void type, unit types, the `Bool` type, and union types whose values involve finite types (but not function types and not `List Bool` or other lists).
 
-The typeclass is defined via the constructor `Finite` that allows us to obtain a list of possible values of a given type:
+The typeclass is defined via the constructor `Finite` that allows us to obtain a list of all possible values of a given type:
 
 ```dhall
 let Finite = λ(t : Type) → { values : List t }
@@ -3746,9 +3746,9 @@ let monoidList : ∀(a : Type) → Monoid (List a)
 The `Monoid` evidence values shown above are not the only ones possible.
 For instance, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
 A `Monoid` evidence for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
-The implementation of `Monoid` should be chosen according to the needs of a specific application.
+The choice of `Monoid` should be made according to the needs of a specific application.
 
-A **semigroup** is a weaker typeclass that can be viewed as a monoid without the `empty` method.
+The `Semigroup` typeclass  can be viewed as `Monoid`  without the `empty` method:
 
 ```dhall
 let Semigroup = λ(m : Type) → { append : m → m → m }
@@ -3838,7 +3838,7 @@ When calling those functions, the programmer will have to pass evidence values p
 
 ### Verifying the laws of monoids
 
-In some cases, Dhall's `assert` feature is able to verify typeclass laws symbolically.
+In some cases, Dhall's `assert` checker is able to verify typeclass laws symbolically.
 
 The `Monoid` typeclass has three laws: two identity laws and one associativity law.
 We can write `assert` expressions that verify those laws for any given evidence value of type `Monoid a`.
@@ -3862,7 +3862,7 @@ Those expressions will become the same only after we apply `monoidLaws` to a typ
 
 To check the laws, we will write `assert` values corresponding to each law.
 
-As an example, here is how to check the monoid laws for the evidence value `monoidBool` defined above:
+As an example, let us  check the monoid laws for the evidence value `monoidBool` defined above:
 
 ```dhall
 let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool) →
@@ -3883,9 +3883,9 @@ For type constructors, "covariant" means "has a lawful `fmap` method".
 
 Note that this definition of "covariant" does not depend on the concept of subtyping.
 One can decide whether a type constructor is covariant just by looking at its type expression.
+This works equally well in Dhall where subtyping is not supported.
 
 The intuition behind covariant functors is that they represent  "data containers" that can store some data items of a given type.
-
 We will call covariant functors just "functors" for short.
 
 A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
@@ -3917,7 +3917,7 @@ let after_fmap : F Text = fmap_F Natural Text (λ(x : Natural) → if Natural/ev
 let _ = assert : after_fmap ≡ { x = "odd", y = "even", t = True }
 ```
 
-For convenience, let us define the standard type signature of `fmap` as a type constructor:
+For convenience, let us define the   type signature of `fmap` as a type constructor:
 
 ```dhall
 let FmapT = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
@@ -3969,23 +3969,23 @@ let functorG : Functor G = { fmap = fmap_G }
 
 It turns out that the code for `fmap` can be derived mechanically from the type definition of a functor.
 The Haskell compiler will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not support any such metaprogramming facilities.
+But Dhall does not support automatic derivations.
 The code of `fmap` must be written out in Dhall programs.
 
-###### Example: a function with a typeclass constraint
+###### Example: a function with a `Functor` constraint
 
 Implement a function `inject1` that (for any types `a` and `b` and for any functor `F`) converts a value of type `Pair a (F b)` into a value of type `F (Pair a b)`.
 The type constructor `Pair` has been defined above as `Pair a b = { _1 : a, _2 : b }`.
 
 ####### Solution
 
-The type signature of the function `inject1` must include the given type constructor `F` and a functor evidence value for it:
+The type signature of the function `inject1` must include a type constructor parameter `F` and a functor evidence value for it:
 
 ```dhall
 let inject1_t = ∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → Pair a (F b) → F (Pair a b)
 ```
 
-The implementation is based on the idea that, given a fixed value `x : a`, we can write a function of type `b → Pair a b`.
+The implementation is based on the idea that, given a value `x : a`, we can write a function of type `b → Pair a b`.
 Then can we use the functor property of `F` and lift that function to the type `F b → F (Pair a b)`.
 The complete code is:
 ```dhall
@@ -4012,14 +4012,14 @@ The following functions need to work in the same way for any types `a` and `b` a
 ### Verifying the laws of functors
 
 A functor's `fmap` method must satisfy the identity and the composition laws.
-In the Haskell syntax, these laws are (informally) written as:
+In the Haskell syntax, these laws are   written as:
 
 ```haskell
  fmap id == id    -- Identity law
  fmap (f . g) == (fmap f) . (fmap g)   -- Composition law.
 ```
 
-Given a specific type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
+Given a   type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
 
 ```dhall
 let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
@@ -4068,7 +4068,7 @@ You tried to assert that this expression:
 
 Dhall's algorithm for normal forms does not recognize that the record `{ t = fa.t, x = fa.x, y = fa.y }` is the same as `fa`.
 
-To get around this limitation, write the identity law separately like this:
+Nevertheless, the identity  law can be verified separately like this:
 
 ```dhall
 let identity_law_of_F = λ(a : Type) →
@@ -4150,7 +4150,7 @@ instead, they have a `cmap` method with a type signature that flips one of the f
 We will call contravariant type constructors **contrafunctors** for short.
 
 The intuition behind contrafunctors is that they are data structures containing functions that _consume_ data items of a given type.
-The `cmap` method transforms data items into data items of another type _before_ they are consumed.
+The `cmap` method transforms data items into  another type _before_ they are consumed.
 
 A simple example of a contrafunctor is:
 
@@ -4206,7 +4206,7 @@ let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) →
   }
 ```
 
-### Bifunctors and profunctors
+### Bifunctors
 
 
 If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
@@ -4217,11 +4217,12 @@ let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
 ```
 is covariant in `a` and contravariant in `b`.
 
-In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
+In this book, we will often use  **bifunctors**.
+A bifunctor is a type constructor with two type parameters that is  covariant with respect to both of those parameters.
 
 An example of a bifunctor in Haskell or Scala is  `type P a b = (a, a, b, Int)`.
-
-Dhall encodes bifunctors as functions with two curried arguments of kind `Type`:
+To implement an analogous bifunctor in Dhall, we need to create
+ a function with two curried arguments of kind `Type` and use a record instead of a tuple:
 
 ```dhall
 let P : Type → Type → Type  -- In Haskell or Scala, this is (a, a, b, Int).
@@ -4296,15 +4297,6 @@ let functorBifunctorF2 : ∀(F : Type → Type → Type) → Bifunctor F → ∀
     { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap a a (identity a) c d f }
 ```
 
-Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of functions operating on the first type parameters.
-
-A Dhall definition of the `Profunctor` typeclass can be written as:
-
-```dhall
-let Profunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F c b → F a d }
-```
-
 
 ### Pointed functors and pointed contrafunctors
 
@@ -4312,12 +4304,11 @@ A functor `F` is a **pointed functor** if it has a method called `pure` with the
 This method constructs values of type `F a` from values of type `a`.
 In many cases, `pure x` is a data container of type `F a` that stores a single value `x : a`.
 
-Let us define `Pointed` as a typeclass and implement `Pointed` evidence for some simple type constructors.
+Let us define `Pointed` as a typeclass and implement `Pointed` evidence for some simple functors.
 
 ```dhall
 let Pointed : (Type → Type) → Type
   = λ(F : Type → Type) → { pure : ∀(a : Type) → a → F a }
-
 let pointedOptional : Pointed Optional = { pure = λ(a : Type) → λ(x : a) → Some x }
 let pointedList : Pointed List = { pure = λ(a : Type) → λ(x : a) → [ x ] }
 ```
@@ -4328,7 +4319,6 @@ Another example of a pointed functor is `AAInt` defined earlier in this book:
 
 ```dhall
 let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
-
 let pointedAAInt : Pointed AAInt = { pure = λ(a : Type) → λ(x : a) →
   { _1 = x, _2 = x, _3 = +123 } }
 ```
@@ -4416,11 +4406,10 @@ let Monad = λ(F : Type → Type) →
   }
 ```
 
-Let us show an example of how we can use this typeclass constructor.
-
-Note that the `Monad` typeclass via the `pure` and `bind` methods.
 It is well known that monads also have the `join` method, with type signature `F (F a) → F a`.
-Using the typeclass constraint, we can implement a function that provides the `join` method for any monad.
+The `join` method has a simpler type than `bind` and is useful for theoretical proofs of monad properties.
+
+Using a `Monad` typeclass constraint, we can implement a function that provides the `join` method for any monad.
 
 In Haskell, we would define `join` via `bind` as:
 
@@ -4572,7 +4561,7 @@ let lawsHoldForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(
   let test3 = assert : laws.assoc_law
   in True
 ```
-This verification is symbolic and is equivalent to a rigorous proof that the laws hold.
+This verification is symbolic and is equivalent to a rigorous proof of the laws.
 
 Dhall is able to perform a similar check for the continuation monad:
 
@@ -4584,8 +4573,8 @@ let lawsHoldForContinuationMonad = λ(R : Type) → λ(a : Type) → λ(x : a) �
   let test3 = assert : laws.assoc_law
   in True
 ```
-Although the Dhall interpreter is quite limited in symbolic reasoning with equations, the code for the `Reader` and `Continuation` monads contains only functions and function applications.
-In those cases, Dhall can perform the argument substitutions that are sufficient to verify the laws. 
+Although the Dhall interpreter is quite limited in symbolic reasoning, the code for the `Reader` and `Continuation` monads is simple enough and contains only functions and function applications.
+In those cases, Dhall can perform the argument substitutions needed to verify the laws. 
 
 
 Let us also try verifying the laws of the `State` monad:
@@ -4696,7 +4685,7 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
 ```
 
 For two non-empty lists, the padding `zip` will return a list of the length of the longest of the two lists.
-The missing elements are "padded" at the end of the list, using the last value in the shorter of the lists:
+The missing elements are "padded" at the end of the list, using the last value from the shorter of the lists:
 
 ```dhall
 let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, False, True, True ]
@@ -4711,7 +4700,7 @@ let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
   ≡ ([] : List (Pair Bool Bool))
 ```
 
-The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip` function as long as both input lists have the same lengths.
+The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip`  as long as both input lists have the same lengths.
 When one of the input lists is longer, the standard `zip` truncates the longer list; but the padding `zip` pads the shorter list instead.
 In any case, the padding `zip` (together with the `pure` function defined as `pure x = [x]` for lists) satisfies all the laws of applicative functors and, unlike the truncating `zip`, does not discard any input information.
 
@@ -4722,7 +4711,7 @@ let applicativeFunctorList : ApplicativeFunctor List
   = functorList /\ pointedList /\ { zip = paddingZip }
 ```
 
-Why cannot we use the standard `List/zip` function for implementing this?
+Why cannot we use the standard `List/zip` function for i this?
 Because the identity laws of `zip` do not hold with our `pointedList` implementation (creating a list of length `1`) and the standard `List/zip` function.
 The identity laws say that `List/zip` applied to any list `xs` and to the result of `pointedList.pure a x` must be a list of the same length as `xs`, containing all the original elements of `xs` paired with the value `x : a`.
 However,  `List/zip a p q` will truncate the result to the shortest of the lists `p` and `q`.
@@ -4744,7 +4733,8 @@ let ap : ∀(F : Type → Type) → ApplicativeFunctor F → ∀(a : Type) → �
 
 It turns out that a `zip` method can be defined for many contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
-As an example of the latter, consider the type constructor that defines the `Monoid` typeclass:
+As an example of the latter, consider the type constructor   `Monoid` defined earlier.
+Here we view it not in the sense of the typeclass but just as a type constructor:
 
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
@@ -4765,7 +4755,7 @@ This is an example of a "combinator" that derives new `Monoid` types out of prev
 
 In later chapters, we will explore systematically the possible combinators for `Monoid` and other typeclasses.
 For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
-An evidence value for the `PointedU` typeclass is:
+Here is an  evidence value showing that `Monoid` belongs to  the `PointedU` typeclass:
 
 ```dhall
 let pointedMonoid : PointedU Monoid =
@@ -4773,7 +4763,7 @@ let pointedMonoid : PointedU Monoid =
   let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
   in { unit = { empty, append } }
 ```
-So, we may say that `Monoid` is applicative (although not a functor).
+So, we may say that `Monoid` type constructor is applicative (although not a functor).
 To express that property, let us define the `Applicative` typeclass independently of `Functor`:
 
 ```dhall
@@ -4795,7 +4785,7 @@ Now we can implement an `Applicative` typeclass evidence for `Monoid`:
 ```dhall
 let applicativeMonoid : Applicative Monoid = pointedMonoid /\ { zip = monoidZip }
 ```
-This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, including contravariant ones ("contrafunctors").
+This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, not necessarily with functors.
 
 An example of an applicative _contrafunctor_ is the type constructor `C m a = a → m`.
 The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
@@ -4865,18 +4855,16 @@ let foldableList : Foldable List = { toList = λ(a : Type) → identity (List a)
 
 Let us look at examples of implementing a `Foldable` typeclass evidence for some   functors.
 In each case, we pick some order for putting the data items stored in a functor value into a list.
-We just need to take care to extract all available data items:
+We just need to take care to extract all available data:
 ```dhall
 let F1 = λ(a : Type) → { data : a, count : Natural }
 -- F1 stores just one data item of type `a`.
 let foldableF1 : Foldable F1 = { toList = λ(a : Type) → λ(c : F1 a) → [ c.data ] }
-
 let F2 = λ(a : Type) → { p : a, q : a, r : Optional a }
 -- F2 can store either two or three data items.
 let foldableF2 : Foldable F2 = { toList = λ(a : Type) → λ(c : F2 a) →
    [ c.p, c.q ] # merge { None = [] : List a,  Some = λ(x : a) → [ x ] } c.r
 }
-
 let F3 = λ(a : Type) → < Left : Pair a a | Right : { x : Bool, y : a, z : List a } >
 -- F3 stores either exactly two data items, or a data item and a list.
 let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
@@ -4905,7 +4893,7 @@ The `foldMap` function works with an arbitrary monoid type `m` and converts a da
 One can generalize `foldMap` by replacing an arbitrary monoid by an arbitrary _applicative functor_, as the properties of applicative functors are somewhat similar to the properties of monoids.
 The result of this generalization is a method known as `traverse`.
 It converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
-The type signature of  `traverse` is written in Haskell like this:
+The type signature of  `traverse` is written in Haskell as:
 
 ```haskell
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)  -- Haskell.
@@ -5175,7 +5163,7 @@ In later chapters of this book, we will study systematically the possibilities o
 
 ## Leibniz equality types
 
-Dhall's `assert` feature is a static check that some expressions are equal.
+Dhall's `assert` feature provides a static check that some expressions are equal.
 The syntax is `assert : a ≡ b`, where the expression `a ≡ b` denotes a _type_ that has a value only if `a` equals `b`.
 That feature can be viewed as syntax sugar for a technique known as "Leibniz equality types".
 
@@ -5262,7 +5250,7 @@ To summarize, Leibniz equality types have the following properties:
 
 ### Leibniz equality and `assert` expressions
 
-The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at typechecking time.
+The `assert` checker in Dhall validates that two values should be equal (have the same normal forms) at typechecking time.
 The expression `assert : x ≡ y` will be accepted only if `x` and `y` have the same type and the same normal forms.
 
 It turns out that Dhall's `assert` feature can be implemented via the Leibniz equality.
@@ -5273,7 +5261,7 @@ If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted b
 We can write that constraint as a type annotation (which will be validated at typechecking time) in the form `refl T x : LeibnizEqual T x y`.
 That type annotation will be accepted only when `x` equals `y` at typechecking time.
 
-As an example, here is how to assert that `123` equals `100 + 20 + 3`:
+As an example, let us assert that `123` equals `100 + 20 + 3`:
 ```dhall
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
@@ -5440,7 +5428,7 @@ Dhall can validate such conditions only if `n` is a known literal (known "static
 
 ### Leibniz equality at type level
 
-Dhall's `assert` feature is limited to values; it does not work for types or kinds.
+Dhall's `assert` checker is limited to values; it does not work for types or kinds.
 The expression `assert : Natural ≡ Natural` (and even just the type `Natural ≡ Natural`) is rejected by Dhall.
 
 One can define a form of a Leibniz equality type for comparing types instead of values:
@@ -8284,7 +8272,7 @@ In order to extract any concrete values from   `example2`, we will need to suppl
 How do we choose the typeclass parameter `P`?
 We will have to choose it in a different way for each computation that we need to perform with values of type `ListCKC P a`.
 
-Here is how we would use the typeclass parameter to implement       a `Show` evidence for `ListCKC`.
+For example,   to implement       a `Show` evidence for `ListCKC` we use `P = Show`.
 
 ```dhall
 let showListCKC : ∀(a : Type) → Show a → Show (∀(P : Type → Type) → P a → ListCKC P a)
@@ -9204,7 +9192,7 @@ let unsimplifyDependentPair
 ```
 
 These functions are mutual inverses.
-One direction of the isomorphism can be verified using Dhall's `assert` feature, because the proof goes by a straightforward substitution of the terms:
+One direction of the isomorphism can be verified using Dhall's `assert` checker, because the proof goes by a straightforward substitution of the terms:
 
 ```dhall
 let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →

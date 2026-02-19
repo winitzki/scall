@@ -271,8 +271,21 @@ val hardcodedReplacements : String => String = { (source : String) =>
     "the +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
     "the +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
     "(\\\\label\\{)Appendix: " -> "$1",
+    "'s" -> "\\\\textsf{'}s",
+    "O'" -> "O\\\\textsf{'}",
+    "s'" -> "s\\\\textsf{'}",
+    //"``" -> "\\\\textsf{``}",
+    "“" -> "\\textsf{``}",
+    //"''" -> "\\\\textsf{''}",
+    "”" -> "\\\\textsf{''}",
+    //"\\\\textsf\\{'\\}'" -> "\\\\textsf{''}",
+    //"\"([a-zA-Z])" -> "\\\\textsf{``}$1",
+    // "([a-zA-Z])\"" -> "$\\\\textsf{``}",
   ).foldLeft(source) { case (prev, (from, to)) => prev.replaceAll(from, to) }
 }
+
+
+
 
 @main
 def main(code: Boolean, preludePath: String): Unit =
