@@ -2981,7 +2981,7 @@ We will use the following algorithm that computes successive approximations for 
 
 3. Apply $n$ times the function `update` to $x0$, where `update` is defined as follows:
 
-$$ \textrm{update}\,(x) = \frac{1}{2} (x + \frac{p}{x}) $$
+$$ \textrm{update}\,(x) = \frac{1}{2} \,(x + \frac{p}{x}) $$
 
 The result is the Dhall code `Natural/fold n update x0`.
 
@@ -3016,14 +3016,7 @@ let identity : ∀(a : Type) → a → a
   = λ(a : Type) → λ(x : a) → x
 ```
 
-This function simply returns its argument:
-
-```dhall
-⊢ identity Natural 123
-
-123
-```
-
+This function simply returns its argument.
 We may apply `identity` to a value of any type, say, to a function value:
 
 ```dhall
@@ -3114,28 +3107,14 @@ This error message still needs some explanation.
 We must keep in mind that any function's input type and output type must be types that can be used in type annotations.
 
 Examples of types that can be used in annotations are: `Natural`, `List Bool`, `Type`, `Type → Type`, and `Kind`.
-Indeed, we can use each of those types to annotate some expressions:
+Indeed, we can use each of those types in annotations:
 
 ```dhall
-⊢ 0 : Natural
-
-0
-
-⊢ [ True ] : List Bool
-
-[ True ]
-
-⊢ Text : Type
-
-Text
-
-⊢ List : Type → Type
-
-List
-
-⊢ Type → Type : Kind
-
-Type → Type
+let _ =   0 : Natural
+let _ =   [ True ] : List Bool
+let _ =   Text : Type
+let _ =   List : Type → Type
+let _ =   Type → Type : Kind
 ```
 
 So, it is valid to write `λ(x : List Bool) → ...` or `λ(x : Type) → ...` and so on.
@@ -3158,8 +3137,7 @@ This would be the case if we applied `identityX` like this:
 identityX (Type → Type) List  -- ???
 ```
 Then the type annotations `k : Kind` and `t : k` would both match.
-However, it will not be valid in that case to write `x : t`, that is, `x : List`,
-because `List` is a type _constructor_.
+But it would be a type error   to write `x : t`, that is, `x : List`, because `List` is a type _constructor_.
 
 So, the error is that `t` is not guaranteed to be a type of kind `Type`.
 Dhall indicates such situations by the error message "Invalid function input".
@@ -3315,7 +3293,8 @@ The Dhall interpreter  does not substitute any specific values of `xx` or `yy`, 
 The `assert` verifies that both sides are equal "symbolically"; that is, they must be _syntactically_ equal as unevaluated code expressions with free variables.
 This check is equivalent to a rigorous mathematical proof that the law holds.
 
-To see more examples, let us verify the laws of function composition:
+To see more examples, let us verify the laws of function composition.
+There are two identity laws, an associativity law, and a "constant function law":
 
 ```dhall
 let composeBackward
@@ -3396,39 +3375,45 @@ Let us first clarify the terminology used with typeclasses, beginning with a def
 
 ###### Definition
 
-A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy (for all `t : Type`).
+A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy.
+We say that a type `t` "belongs to the typeclass" if there exists a value of type `P t` that satisfies the typeclass laws.
 That value of type `P t` is called a **typeclass evidence** for the membership of `t` in the typeclass.
-One says that a type `t` "has an instance" of the typeclass if we are able to compute an evidence value of type `P t`.
+One also says that a type `t` "has an instance" of the typeclass if we are able to compute a law-abiding evidence value of type `P t`.
 
-In languages such as Haskell and Scala, typeclass evidence values are implicit, making it easier for programmers to use typeclass membership.
+In languages such as Haskell and Scala, the compiler substitutes typeclass evidence values automatically, making it easier for programmers to use typeclass membership.
 In Dhall, typeclasses are implemented by passing evidence values as explicit arguments to functions.
-For this reason, this book prefers to talk about evidence values rather than "typeclass instances".
+For this reason, this book prefers to talk about evidence values rather than typeclass instances.
 
 We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. $\square$
 
 To illustrate this definition, let us give an example using the `Semigroup` typeclass.
-Below we will look at other typeclasses more systematically.
+Then we will look at other typeclasses more systematically.
 
 ###### Example: The `Semigroup` typeclass
 
 In mathematics, a set is called a "semigroup" if there is a binary associative operation for it.
-In the language of types, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
+In the language of programming, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law.
+The law says that for all `x`, `y`, `z` of type `t`, we must have:
 
 `append x (append y z) = append (append x y) z`
 
-To express this property as a typeclass, we introduce a type constructor called `Semigroup`:
+To formulate semigroups as a typeclass, we introduce a type constructor called `Semigroup`:
 
 ```dhall
 let Semigroup = λ(t : Type) → { append : t → t → t }
 ```
 For example, `Natural` is a type that can belong to the `Semigroup` typeclass.
 A `Semigroup` typeclass evidence value for the type `Natural` is a value of type `Semigroup Natural` that satisfies the associativity law.
-
-Here are some examples of `Semigroup` evidence values:
 ```dhall
-let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
-let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ ", " ++ y }
-let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = composeForward Bool Bool Bool }
+let semigroupNatural : Semigroup Natural
+  = { append = λ(x : Natural) → λ(y : Natural) → x * y }
+```
+Here are some other examples of `Semigroup` evidence values:
+```dhall
+let semigroupText : Semigroup Text
+  = { append = λ(x : Text) → λ(y : Text) → x ++ ", " ++ y }
+let semigroupBoolToBool : Semigroup (Bool → Bool)
+  = { append = composeForward Bool Bool Bool }
 ```
 
 The types `Natural`, `Text`, and `Bool → Bool` belong to the  `Semigroup` typeclass because the associativity law holds for their evidence values.
@@ -3455,9 +3440,9 @@ This is not a simple pair of values, because the _type_ of the second value depe
 This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings of more complicated types" below.
 
 Most programming languages do not support dependent pairs.
-Dhall can encode their type  but provides only quite limited ways of working with dependent pairs.
+Dhall can encode their type  but provides only quite limited ways of working with them.
 
-For this reason, one usually makes the pragmatic decision to represent typeclass instances only via evidence values (of type `P t`) and omit the equality type  altogether, relying on the programmer to validate the laws (e.g., by writing a proof by hand).
+For this reason, one usually makes the pragmatic decision to represent typeclass membership only via evidence values (of type `P t`) and omit the equality type  altogether, relying on the programmer to validate the laws (e.g., by testing).
 
 Below we will construct evidence values and only occasionally perform a symbolic validation of the laws.
 
@@ -3484,6 +3469,7 @@ trait Show[T] {           // Scala.
 ```
 
 A type `T` belongs to the `Show` typeclass if we can compute a printable representation of any given value of type `T`.
+There are no laws for the method `show`.
 
 To implement this typeclass in Dhall, we first define a type that holds suitable evidence values.
 In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
@@ -3539,7 +3525,7 @@ let printed = printWithPrefix UserWithId showUserWithId "users: " users
 let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
 ```
 
-Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for the built-in types.
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for those built-in types.
 The function `printWithPrefix` could then be used with lists of types `List Natural`, `List Double`, etc.
 
 ###  The "Eq" typeclass
