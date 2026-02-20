@@ -4899,7 +4899,7 @@ The type signature of  `traverse` is written in Haskell as:
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)  -- Haskell.
 ```
 It is important that this function is _parameterized_ by `L`.
-Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method must work in the same way for all types `a`, `b` and for all applicative functors `L`.
+Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method   works in the same way for all types `a`, `b` and for all applicative functors `L`.
 
 Rewriting this type signature in Dhall as a type `TraverseT` and making `F` an explicit type parameter, we get:
 
@@ -4965,7 +4965,8 @@ let traversableF2 : Traversable F2 = { sequence = λ(L : Type → Type) → λ(a
     let laa : L (Pair a a) = applicativeFunctorL.zip a fla.p a fla.q
     let loa : L (Optional a) = traversableOptional.sequence L applicativeFunctorL a fla.r
     let Taaoa = Pair (Pair a a) (Optional a)
-    let laaoa : L Taaoa = applicativeFunctorL.zip (Pair a a) laa (Optional a) loa
+    let laaoa : L Taaoa
+      = applicativeFunctorL.zip (Pair a a) laa (Optional a) loa
     in applicativeFunctorL.fmap Taaoa (F2 a) (λ(s : Taaoa) → { p = s._1._1, q = s._1._2, r = s._2 }) laaoa
 }
 ```
@@ -4995,8 +4996,10 @@ let traversableF3 : Traversable F3 = { sequence = λ(L : Type → Type) → λ(a
             let lpaa : L (Pair a a) = applicativeFunctorL.zip a p._1 a p._2
             in applicativeFunctorL.fmap (Pair a a) (F3 a) (F3 a).Left lpaa
         , Right = λ(q : { x : Bool, y : L a, z : List (L a) }) →
-            let lla : L (List a) = traversableList.sequence L applicativeFunctorL a q.z
-            let lpala : L (Pair a (List a)) = applicativeFunctorL.zip a q.y (List a) lla
+            let lla : L (List a)
+              = traversableList.sequence L applicativeFunctorL a q.z
+            let lpala : L (Pair a (List a))
+              = applicativeFunctorL.zip a q.y (List a) lla
             in applicativeFunctorL.fmap (Pair a (List a)) (F3 a) (λ(pair : Pair a (List a)) → (F3 a).Right { x = q.x, y = pair._1, z = pair._2 }) lpala
   } fla
 }
