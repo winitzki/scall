@@ -4874,7 +4874,7 @@ let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
 }
 ```
 
-Another formulation of the "foldable" property is via the function often called `foldMap` with type signature `(a → m) → F a → m`.
+Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a → m) → F a → m`.
 This function assumes `m` to have a `Monoid` typeclass evidence and can be implemented for any `Foldable` functor:
 
 ```dhall
