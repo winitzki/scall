@@ -5212,11 +5212,10 @@ let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(p : f 0) → p
 ```
 
 Can we  implement a function of type `LeibnizEqNat 0 1`?
-The code would need to return a function of type `f 0 → f 1` given an `f : Natural → Type`.
+The code would need to return a function of type `f 0 → f 1` given any `f : Natural → Type`.
 Because `f` is a parameter, nothing is known about the types `f 0` and `f 1`.
 These two types will be computed by the function `f` that converts natural numbers into types in an arbitrary and unknown way.
-So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
-It is impossible to implement such a function.
+So, a function of type `f 0 → f 1` is a function between two completely arbitrary types, which is impossible to implement.
 
 To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `unit_if_zero`:
 ```dhall
@@ -5231,7 +5230,7 @@ Dhall does not allow us to write such code.
 
 These conclusions can be generalized from `Natural` to an arbitrary type `T`.
 For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
-That value is often called `refl` (meaning **reflexivity**, i.e., the property that any value `t` is always equal to itself):
+That value is often called `refl` (referring to **reflexivity**, i.e., the property that any value `t` is always equal to itself):
 
 ```dhall
 let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
@@ -5242,14 +5241,10 @@ But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y`
 More precisely, this will happen for any `x` and `y` such that the Dhall typechecker   thinks that `f x` and `f y` are different types.
 
 Keep in mind that the Dhall typechecker will not always detect semantic equality in situations where the expressions are syntactically different but actually equal after evaluation.
-For example, the expressions  `y * 2` and `y + y` will always evaluate to the same natural number.
-But the Dhall typechecker will not accept that `y * 2 ≡ y + y` when `y` is a parameter whose value is not yet known.
+For example, the expressions  `y * 2` and `y + y` will always evaluate to the same natural number when any literal value is substituted for `y`.
+But when `y` is a parameter whose value is not yet known, the Dhall typechecker will not accept that `y * 2 ≡ y + y`.
 As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
 
-To summarize, Leibniz equality types have the following properties:
-
-- One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
-- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x y`.
 
 ### Leibniz equality and `assert` expressions
 
@@ -5261,19 +5256,19 @@ To explain that, let us show how a Leibniz equality type may be used to write co
 
 If `x` and `y` are equal then `f x` and `f y` are the same type for any function `f : T → Type`.
 If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having the type `LeibnizEqual T x y`.
-We can write that constraint as a type annotation (which will be validated at typechecking time) in the form `refl T x : LeibnizEqual T x y`.
-That type annotation will be accepted only when `x` equals `y` at typechecking time.
+We can write that condition as a type annotation `refl T x : LeibnizEqual T x y`.
+Dhall will accept that type annotation   only when `x` equals `y` at typechecking time.
 
 As an example, let us assert that `123` equals `100 + 20 + 3`:
 ```dhall
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
 This code is fully analogous to `let _ = assert : 123 ≡ 100 + 20 + 3`.
-However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and it is impossible to avoid that repetition).
+However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and we cannot entirely avoid that repetition).
 It is shorter and more convenient to write  `let _ = assert : 123 ≡ 100 + 20 + 3`.
 
-The similarity between Leibniz equality types and Dhall's built-in equality types goes further:
-Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x ≡ y`.
+The similarity between Leibniz equality types and Dhall's built-in equality types goes further.
+Namely, one can convert  values of type `LeibnizEqual T x y` directly into values of type `x ≡ y`.
 Indeed, `LeibnizEqual T x y` is a function that takes an `f : T → Type` and a value of type `f x`, returning a value of type `f y`.
 If we need to get a value of type `x ≡ y`, we need to define `f` such that the type `f y` is `x ≡ y`.
 Here is an example of defining such a function when `T = Natural`:
@@ -5295,13 +5290,12 @@ let toAssertType
     in leq f (assert : x ≡ x)
 ```
 With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 ≡ 1`.
-
-In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
+We have reproduced Dhall's `assert` functionality.
 
 Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
 We can write `assert : "abc" ≡ "abc"` for string values, even though Dhall does not allow us to implement a function for comparing two strings at run time.
 
-Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
+Let us also write a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the same equality:
 
 ```dhall
 let exampleString = "ab"
@@ -5310,9 +5304,9 @@ let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 
 We have seen that the Leibniz equality type can be converted to `assert` values.
 However, `assert` values currently cannot be converted back to Leibniz equality values.
-Dhall implements `a ≡ b` and `assert` as special expression types that cannot be manipulated in any way, other than typechecked.
+Dhall implements `assert`  as a special expression type that cannot be manipulated in any way, other than typechecked.
 
-Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall features are insufficient.
+Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall `assert` is insufficient.
 
 ### Leibniz inequality types
 
@@ -5323,7 +5317,7 @@ This property (a "logical negation" of `a ≡ b`) can be encoded as the type `(a
 
 To see why, consider the function type `T → <>` for any type `T`.
 
-Indeed,  if `T` is non-void then we could not possibly have any functions of type `T → <>`.
+Indeed,  if `T` were non-void then we could not possibly have any functions of type `T → <>`.
 If we had such a function, we would apply it to some value of type `T` and obtain a value of the void type, which is impossible.
 So, the type `T → <>` must be void.
 
@@ -5358,7 +5352,7 @@ But we will not actually call that function; we just need to write code that typ
 That code needs to call `k` with some arguments, such that the output type is void (Dhall's `<>`).
 The curried function `k` has arguments of type `Natural → Type` and `f 1`, while the final output value has type `f 0`.
 So, let us choose `f` such that `f 0 = <>`.
-It remains to choose `f` such that `f 1` is not void, so that we could call `k` with all curried arguments.
+It remains to choose `f` such that `f 1` is not void, so that we could apply `k` to  arguments.
 For simplicity, let us choose `f 1 = {}` (Dhall's unit type).
 This allows us to complete the code:
 
@@ -5373,17 +5367,17 @@ Similar code would be written for `LeibnizUnequal T a b` when `T` is a union typ
 Then we would apply `k` to a function `f` defined via a suitable `merge` expression instead of `if/then/else`.
 
 We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` at _run time_ via `Bool`-valued functions or via `merge` expressions.
-This is a stronger requirement than just being able to find out whether two values of type `T` are equal.
+This is a stronger requirement than just being able to assert that two values of type `T` are equal.
 Dhall does not support `Bool`-valued comparisons for types such as `Double` or `Text`.
 So, it is impossible to write Dhall code with type `LeibnizUnequal Text "abc" "def"` or `LeibnizUnequal Double 0.1 0.2`.
 (However, it is possible to implement values of equality types such as `LeibnizEqual Text "abc" "abc"` and `LeibnizEqual Double 0.1 0.1`, as we have already seen.)
 
 The existence of types whose values cannot be compared at run time is not due to a limitation of Dhall.
 Even though comparisons for strings or for `Double` numbers could be implemented in another revision of Dhall,
-there are types that cannot be efficiently compared at run time.
+there exist types whose values cannot be efficiently compared at run time.
 A simple example is the function type `T = Natural → Bool`.
 Two functions of that type are `x = λ(n : Natural) → Natural/isZero (Natural/subtract 10000 n)` and `y = λ(_ : Natural) → True`.
-Could we figure out at run time whether these two functions are equal?
+Is it possible to figure out at run time whether these two functions are equal?
 Both `x n` and `y n` evaluate to `True` for all `n` up to `10000`.
 We need to set `n = 10001` or larger in order to see the difference between `x n` and `y n`.
 In general, we cannot be sure that two functions of type `T` are equal unless we try _all_ possible natural numbers as function arguments; but that would take infinite time.
