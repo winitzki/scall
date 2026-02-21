@@ -5705,13 +5705,13 @@ Given functions `f : T → U → V` and `g : T → U → V` and evidence values 
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive types are the built-in `Natural` and `List` types.
-However, the Church encoding technique provides a wide range of user-defined recursive types and recursive functions in Dhall.
+The Church encoding technique gives the user a way of defining custom recursive types  in Dhall.
 
 Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
-This book summarizes the technique and goes into much more technical detail.
+This and the following chapters summarize that technique and go into much more technical detail.
 (What the Dhall documentation calls a "recursion scheme" is more appropriately called a "pattern functor" in this book.)
 
-In languages that do directly support recursive types, one defines types such as lists or trees via "type equations".
+In languages that do directly support recursive types, one defines those types via "type equations".
 That is, one writes definitions of the form `T = F T` where `F T` is some type expression using the type `T` that is being defined.
 
 For example, suppose `T` is the type of lists with integer values.
@@ -5721,19 +5721,19 @@ A recursive definition of `T` in Haskell could look like this:
 data T = Nil | Cons Int T     -- Haskell.
 ```
 
-This definition of `T` has the form of a "recursive type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by:
+This definition of `T` has the form of a "type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by:
 
 ```haskell
 type F a = Nil | Cons Int a     -- Haskell.
 ```
 
 The type constructor `F` is called the **pattern functor** for the definition of `T`.
-The type `T` is called a **fixpoint** of `F`.
+The type `T` is called a **fixpoint** of `F` (applying `F` to `T` gives again `T`).
 
 Each recursive type definition can be rewritten in this form, using a suitable pattern functor.
 The pattern functor `F` describes all the places where the recursive definition of `T` uses the type `T` itself.
 
-Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is _non-recursive_.
+Dhall does not support any recursion, but it will accept the definition of `F` because it is _non-recursive_.
 The definition of `F` is written in Dhall as:
 
 ```dhall
@@ -5763,7 +5763,7 @@ Then the type `C` will be equivalent to the type `T` that one defines by `T = F 
 
 It is _far from obvious_ that the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `T = F T`.
-A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in an Appendix of this book.
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in   Appendix "Naturality and parametricity" of this book.
 Here we will focus on the practical uses of Church encoding.
 
 ### First examples of recursive types
@@ -5846,14 +5846,12 @@ let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 
 The general properties of the Church encoding always enforce that `C` is a solution of the type equation `C = K C`.
 This remains true even when `K` does not depend on its type parameter.
-Then we have `K C = { x : Text, y : Bool }` independently of `C`.
-It follows that the type equation `C = K C` is the same as the type equation `C = { x : Text, y : Bool }`.
-This is a non-recursive type equation that has only one solution, namely, `C = { x : Text, y : Bool }`.
+Then we will have `K C = { x : Text, y : Bool }` independently of `C`, and  the type equation `C = K C` will be the same as the type equation `C = { x : Text, y : Bool }`.
+This non-recursive  type equation obviously has only one solution, namely, `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 (Here we assume that `p` is a fixed type that does not depend on `r`.)
-Church encodings of that form do not produce recursive types.
-These encodings are useful for showing how certain types can be represented equivalently via higher-order functions.
+Church encodings of that form  are useful for showing how certain types can be represented equivalently via higher-order functions.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
@@ -5866,7 +5864,6 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
 Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
-
 The Yoneda identities can be proved by assuming suitable naturality laws.
 See   Appendix "Naturality and parametricity" for more details.
 
