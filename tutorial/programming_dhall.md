@@ -5428,7 +5428,7 @@ Dhall can validate such conditions only if `n` is a known literal (known "static
 Dhall's `assert` checker is limited to values; it does not work for types or kinds.
 The expression `assert : Natural ≡ Natural` (and even just the type `Natural ≡ Natural`) is rejected by Dhall.
 
-One can define a form of a Leibniz equality type for comparing types instead of values:
+One can define a Leibniz equality type for comparing types instead of values:
 
 ```dhall
 let LeibnizEqualT =
@@ -5450,7 +5450,7 @@ let LeibnizTypeCast : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q
 This function is a **type cast** because it reassigns the types without actually changing the values.
 
 
-A more general form of a type-cast is to transform values of type `F P` into type `F Q` (for any type constructor `F`):
+A more general form of a type cast is to transform values of type `F P` into type `F Q` (for any type constructor `F`):
 ```dhall
 let LeibnizTypeCastF : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → ∀(F : Type → Type) → F P → F Q
   = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev
@@ -5528,7 +5528,7 @@ So, we view `refl` as the "reflexivity combinator".
 The symmetry property is that if `x` equals `y` then also `y` equals `x`.
 Translated into the language of equality types, it means that for any value of type `LeibnizEqual T x y` we should be able to construct a value of type `LeibnizEqual T y x`.
 
-So, the symmetry combinator is a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
+So, we expect the symmetry combinator to be a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
 How can we implement that function?
 ```dhall
 let symmetryLeibnizEqual
@@ -5559,7 +5559,7 @@ let symmetryLeibnizEqual
 #### Transitivity
 
 The transitivity property is that if `x` equals `y` and `y` equals `z` then also `x` equals `z`.
-In the language of equality types, it means we should expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
+In the language of equality types, it means we   expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
 How can we implement that?
 ```dhall
 let transitivityLeibnizEqual
@@ -5591,7 +5591,7 @@ let transitivityLeibnizEqual
 #### Value identity
 
 If we know that `x` equals `y`, we also know that `f x` equals `f y` for any function `f`.
-This is translated into the following combinator:
+We expect this to be translated into a combinator like this:
 
 ```dhall
 let identityLeibnizEqual
@@ -5600,7 +5600,7 @@ let identityLeibnizEqual
     λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual U (f x) (f y)
 ```
 
-We derive the code for this combinator using the same technique: find a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
+We derive the code for this combinator by finding  a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
 That last type should be the same as `g y`.
 We achieve that by defining `g t = LeibnizEqual U (f x) (f t)`.
 Then a suitable value `h : g x` is obtained with `refl`.
@@ -5660,7 +5660,7 @@ Can we produce an evidence value for that?
 
 Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x ≡ y`).
 There are currently no functions in Dhall that can derive any information out of such values.
-But Leibniz equality types and their standard combinators do allow us to compute with  equality evidence values.
+But Leibniz equality types and their   combinators do allow us to compute with  equality evidence values.
 As we just saw, one can obtain a value of type `f x ≡ g x` by using the "extensionality" combinator, and   a value of type `g x ≡ g y` via the "value identity" combinator.
 It remains to use the "transitivity" combinator to establish that `f x ≡ g y`.
 
@@ -5678,6 +5678,7 @@ We conclude this section with a few more illustrations of symbolic reasoning wit
 
 ###### Example
 Given a function `f : T → U → V` and evidence values of types `a ≡ b` and `c ≡ d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c ≡ f b d`.
+Use Leibniz equality types instead of Dhall's `x ≡ y` types.
 
 ####### Solution
 
