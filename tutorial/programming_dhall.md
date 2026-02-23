@@ -5963,7 +5963,7 @@ We can also replace functions from a record type by curried functions.
 In this way, we obtain an equivalent definition of `TreeText` that is easier to work with:
 
 ```dhall
-let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+let TreeTextC = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
 These examples show how any pattern functor containing  products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
@@ -6563,7 +6563,7 @@ let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDe
 ```
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, etc.
 
-For the calculation of the sum of all numbers in a tree, `leafSum` should return just the number stored in a leaf, and `branchSum` should return the sum of the two numbers in the branches.
+For computing the sum of all numbers in a tree, `leafSum` should return just the number stored in a leaf, and `branchSum` should return the sum of the two numbers in the branches.
 (During evaluation, those two numbers will be equal to the recursively computed sums over the two sub-trees.)
 So, we write:
 ```dhall
@@ -6572,8 +6572,8 @@ let branchSum : Natural → Natural → Natural = λ(left : Natural) → λ(righ
 let treeSum : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafSum branchSum
 ```
 
-For the calculation of the total number of data items, we count each leaf as one item.
-The number of items in the two branches needs to be added together.
+For computing the total number of data items, we count each leaf as one item.
+The already-computed item counts for the two branches need to be added up.
 
 ```dhall
 let leafCount : Natural → Natural = λ(leaf : Natural) → 1
@@ -6581,7 +6581,7 @@ let branchCount : Natural → Natural → Natural = λ(left : Natural) → λ(ri
 let treeCount : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafCount branchCount
 ```
 
-For the calculation of the depth, each leaf contributes 0 while each branch contributes 1 plus the maximum of the depths of the two subtrees.
+For computing the depth, each leaf contributes 0 while each branch contributes 1 plus the maximum of the already-computed depths of the two subtrees.
 ```dhall
 let Natural/max = https://prelude.dhall-lang.org/Natural/max
 let leafDepth : Natural → Natural = λ(leaf : Natural) → 0
@@ -6589,7 +6589,7 @@ let branchDepth : Natural → Natural → Natural = λ(left : Natural) → λ(ri
 let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDepth branchDepth
 ```
 
-To test this code, let us implement the constructors and create some `TreeNat` values.
+To test this code, let us implement data constructors and create some `TreeNat` values.
 ```dhall
 let leafTreeNat : Natural → TreeNat = λ(n : Natural) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → leaf n
 let branchTreeNat : TreeNat → TreeNat → TreeNat = λ(left : TreeNat) → λ(right : TreeNat) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → branch (left r leaf branch) (right r leaf branch)
@@ -6611,12 +6611,11 @@ let _ = assert : treeDepth tree123 ≡ 2
 
 ### Pattern matching
 
-When working with recursive types in ordinary functional languages, one often uses pattern matching.
+When working with recursive types in   functional languages, one often uses pattern matching.
 For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
 
 ```haskell
--- Haskell.
-data TreeInt = Leaf Int | Branch TreeInt TreeInt
+data TreeInt = Leaf Int | Branch TreeInt TreeInt     -- Haskell.
 
 isSingleLeaf :: TreeInt -> Bool
 isSingleLeaf t = case t of
@@ -6636,14 +6635,11 @@ tailMaybe []     = Nothing
 tailMaybe (x:xs) = Just xs
 ```
 
-The Dhall translations of `TreeInt` and `ListInt` are Church-encoded types:
+ Dhall translations of `TreeInt` and `ListInt` are Church-encoded types:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
-let TreeInt = ∀(r : Type) → (F r → r) → r
-```
-and
-```dhall
+let TreeInt = LFix F
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
@@ -6738,8 +6734,7 @@ let lastOptionalC : ListIntC → Optional Integer
       merge { None = Some i, Some = λ(prev : Integer) → Some prev } o
       )
 ```
-
-In such simple cases, it is easier to write the pattern-matching functions by hand.
+In   simple cases, it is easier to write the pattern-matching functions by hand.
 
 ### Performance of Church encodings
 
@@ -6825,6 +6820,7 @@ Once the normalized value of that list is stored in the file cache, reading it t
 Computing `headOptional` or `ListInt/concat` is so quick that it is below the measurement error.
 
 The curried forms of the Church encoding have smaller normal forms and  faster performance than the uncurried forms involving union types.
+However, reading the normal forms from the file cache appears to be quite slow.
 
 Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs using a command such as: `dhall freeze -``-all test.dhall`.
 
