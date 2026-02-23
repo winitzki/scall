@@ -6877,10 +6877,10 @@ See the Appendix "Naturality and parametricity" for a proof that the Church enco
 
 ### Recursive type constructors
 
-Typically, a recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
-To describe such type equations, the pattern functor `F` must have more type parameters.
+Typically, a recursive definition of a type constructor is not of the form `T ≅ F T` but has extra type parameters:  `T a ≅ F (T a) a`, or `T a b ≅ F (T a b) a b`, etc.
+We will be able to describe such definitions if we   add more type parameters to the pattern functor `F`.
 
-For example, consider this Haskell definition of a binary tree with leaves of type `a`:
+Consider this Haskell code for a binary tree with leaves of type `a`:
 
 ```haskell
 data Tree a = Leaf a | Branch (Tree a) (Tree a)   -- Haskell.
@@ -6892,7 +6892,7 @@ The corresponding pattern functor `F` is:
 data F a r = Leaf a | Branch r r   -- Haskell.
 ```
 
-The Dhall code for `F` looks like this:
+The corresponding Dhall code for `F` looks like this:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) →
@@ -6917,7 +6917,7 @@ let LFixT : (Type → Type → Type) → Type → Type
 ```
 Then the last definition of `Tree` is equivalently written as `let Tree = LFixT F`.
 
-To see that this is the same Church encoding as before, we can express `LFixT` through `LFix`:
+To see that this is similar to the Church encoding we used before, we can express `LFixT` through `LFix`:
 
 ```dhall
 let LFixT : (Type → Type → Type) → Type → Type
@@ -6929,7 +6929,7 @@ In the chapter "Working with Church-encoded data", we defined the general `fix` 
 let _ = fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
 let _ = unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 ```
-These functions are each other's inverses, showing that the types `LFix F` and `F (LFix F)` are isomorphic.
+These functions are each other's inverses, showing an isomorphism between the types `LFix F` and `F (LFix F)`.
 The code of those functions is general and works for every pattern functor `F`.
 
 Similarly, there exist general isomorphisms `fixT` and `unfixT` for type constructor fixpoints.
@@ -6977,17 +6977,20 @@ We can also rewrite `TreeAB` via `LFix` as:
 let TreeAB = λ(a : Type) → λ(b : Type) → LFix (F a b)
 ```
 
-### Example: Church-encoded list
+### Example: Church-encoded lists
 
 The `List` functor is a built-in type in Dhall.
-As a pedagogical example, let us now implement an equivalent type constructor via the Church encoding.
+Nevertheless, let us now implement an equivalent type constructor via the Church encoding.
+This will serve as preparation for encoding other recursive types, such as non-empty lists and trees, for which Dhall has no built-in constructors.
 
 The recursive type equation for `List` has the form (in Haskell-like syntax):
 
-`List a = Nil | Cons a (List a)`
+```haskell
+List a = Nil | Cons a (List a)
+```
 
 The right-hand side is equivalent to the Dhall type `Optional (Pair a (List a))`.
-So, we can represent the type equation for `List` in the form `List a = FList a (List a)` if we define `FList` by:
+So, the type equation for `List` will be written as `List a = FList a (List a)` if we define `FList` by:
 
 ```dhall
 let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
@@ -7002,37 +7005,38 @@ let CList = LFixT FList
 ```
 
 To create values of type `CList x` (where `x` is a specific type), we will implement helper functions `nilCList` and `consCList`.
-Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
+Rather than coding those functions by hand, let us apply a general method for deriving data constructors of a Church-encoded fixpoint type.
 That method uses the generic `fix` function.
 
 
 We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Working with Church-encoded data".
 For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a`.
 We can express `fixCList` via the generic `fix` function if we hold the type parameter `a` fixed and provide a suitable `Functor` evidence for `FList a`.
-"Holding `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
+"Holding the parameter `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
 ```dhall
 let functorFList2 : ∀(t : Type) → Functor (FList t)
   = λ(t : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
     Optional/map (Pair t a) (Pair t b) (λ(p : Pair t a) → p // { _2 = f p._2 }) }
-let fixCList
-  : ∀(a : Type) → FList a (CList a) → CList a
+let fixCList : ∀(a : Type) → FList a (CList a) → CList a
   = λ(a : Type) → fix (FList a) (functorFList2 a)
 ```
 
-Now we derive the specific constructor functions `nilCList` and `consCList` from the code of `fixCList`:
+Now we derive the data constructor functions `nilCList` and `consCList` from the code of `fixCList`.
+The first data constructor is found if we apply `fixCList` to a `None ...` value;
+the second by applying `fixCList`   to a `Some ...` value:
 
 ```dhall
-let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
+let nilCList : ∀(a : Type) → CList a = λ(a : Type) →
+  fixCList a (None (Pair a (CList a)))
 let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
 ```
 
 Another useful function is `CList/show`.
-We will implement it in a simple way that leaves a trailing comma in the text output.
+To simplify its code, we will leave a trailing comma in the text output.
 ```dhall
 let CList/show : ∀(a : Type) → Show a → CList a → Text
   = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
-    let printFList
-      : FList a Text → Text
+    let printFList : FList a Text → Text
       = λ(flist : FList a Text) → Optional/default Text "" (Optional/map (Pair a Text) Text (λ(p : Pair a Text) → "${showA.show p._1}, ${p._2}") flist)
     in "[ ${clist Text printFList}]"
 ```
@@ -7109,8 +7113,7 @@ let consn : ∀(a : Type) → a → NEL a → NEL a =
       λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) →
         arr x (prev r ar arr)
 ```
-
-Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
+We can now build non-empty lists via code like `consn Natural 1 (consn Natural 2 (one Natural 3))`.
 
 To make testing easier, let us write a function `NEL/toList`:
 ```dhall
@@ -7223,7 +7226,7 @@ let _ = assert : NEL/initOptional Natural example1 ≡ Some (consn Natural 1 (on
 
 ### Example: Zipping non-empty lists
 
-We can now implement a standard `zip` method for non-empty lists.
+Let us now implement a standard `zip` method for non-empty lists.
 For that, we will need a function that computes the length of a non-empty list:
 
 ```dhall
@@ -7407,12 +7410,12 @@ let size : ∀(a : Type) → ∀(ca : C a) → Natural
 ```
 
 A data structure of type `F a Natural` will typically store some values of type `a` and some values of type `Natural`.
-The function `sizeF` should count the number of data items (of type `a`) stored in a value of type `F a Natural`.
-The values of type `Natural` stored inside `F` represent the sizes of recursively nested data structures of type `C a`.
-The sizes of those nested data structures have been already computed at the time when the function `sizeF` is being called.
-(This is how the Church encoding implements working with recursive structures.)
+The function call `sizeF q` should count the number of data items (of type `a`) stored in a value `q : F a Natural`.
+The values of type `Natural` stored inside `q` represent the  sizes of recursively nested data structures of type `C a`.
+The sizes of those nested data structures have been already computed by previous calls to `sizeF`.
+This is how Church encoding implements working with recursive structures.
 
-So, for a given value `fa : f a Natural`, the result of `sizeF fa` needs to be equal to the number of values of type `a` stored in `fa` plus the sum of all natural numbers stored in `fa`.
+So, for a given value `q : f a Natural`, the result of `sizeF q` needs to be equal to the number of values of type `a` stored in `q` plus the sum of all natural numbers stored in `q`.
 It is clear that the function `sizeF` will need to be different for each pattern functor `F`.
 
 For example, non-empty lists (`NEL`) are described by the pattern functor `F` such that `F a r = < One : a | Cons : { head : a, tail : r } >`.
@@ -7420,11 +7423,11 @@ The corresponding function `sizeF_NEL` is:
 
 ```dhall
 let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail : Natural } > → Natural
-  = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail : Natural } >) →
+  = λ(a : Type) → λ(q : < One : a | Cons : { head : a, tail : Natural } >) →
     merge {
       One = λ(x : a) → 1,
       Cons = λ(x : { head : a, tail : Natural }) → 1 + x.tail,
-    } fa
+    } q
 ```
 
 Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right : r } >`.
@@ -7433,11 +7436,11 @@ Let us define that functor and the corresponding function `sizeF`:
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let sizeFTree : ∀(a : Type) → FTree a Natural → Natural
-  = λ(a : Type) → λ(fa : FTree a Natural) →
+  = λ(a : Type) → λ(q : FTree a Natural) →
     merge {
       Leaf = λ(x : a) → 1,
       Branch = λ(x : { left : Natural, right : Natural }) → x.left + x.right,
-    } fa
+    } q
 ```
 
 Having realized that `sizeF` needs to be defined separately for each pattern functor `F`, we now implement `size` as a function of `F` and of `sizeF`.
@@ -7480,8 +7483,8 @@ let depth : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(depthF : �
     ca Natural (depthF a)
 ```
 
-For the correct calculation of depth of a value `p : F a Natural`, the value `depthF p` should equal `1` plus the maximum of all values of type `Natural` that are stored in the data structure `p`.
-If no such values are present, `depthF p` returns `0`.
+For the correct calculation of depth of a value `q : F a Natural`, the value `depthF q` should equal `1` plus the maximum of all values of type `Natural` that are stored in the data structure `q`.
+If no such values are present, `depthF q` should returns `0`.
 
 For non-empty lists (and also for the standard lists), the `depthF` function is the same as `sizeF` because the recursion depth is equal to the length of the list.
 
@@ -7489,11 +7492,10 @@ For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
 let depthFTree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right : Natural } > → Natural
-  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
-    merge {
-      Leaf = λ(x : a) → 0,
-      Branch = λ(x : { left : Natural, right : Natural }) → 1 + Natural/max x.left x.right,
-    } fa
+  = λ(a : Type) → λ(q : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
+    merge { Leaf = λ(x : a) → 0
+          , Branch = λ(x : { left : Natural, right : Natural }) → 1 + Natural/max x.left x.right,
+          } q
 ```
 
 To test:
@@ -7505,23 +7507,22 @@ let _ = assert : 2 ≡ depth FTree Natural depthFTree exampleTree3
 
 One may notice that the implementations of `size` and `depth` are actually the same code.
 The only difference is the argument given as either `sizeF` or `depthF`.
-Also, the functions `sizeF` are `depthF` are quite similar.
+The functions `sizeF` are `depthF` are also quite similar.
 
-It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has `Foldable`  typeclass evidence values with respect to _both_ type parameters.
+It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern bifunctor `F` has `Foldable`  typeclass evidence values with respect to _each_ type parameter.
 Let us  see how that works.
 
 The functions `sizeF` and `depthF` have type `F a Natural → Natural` and may need to count the number of values of type `a` or iterate over all values of type `Natural` stored inside the data structure of type `F a Natural`.
 
-If `F x y` is a foldable functor with respect to both `x` and `y`, it means that we can iterate over all values of type `x` and separately over all values of type `y` stored in `F x y`.
+If `F x y` is a foldable bifunctor with respect to both `x` and `y`, it means that we can iterate over all values of type `x` and separately over all values of type `y` stored in `F x y`.
 For convenience, let us define the types of the `Foldable` evidence corresponding to the two functors obtained from the bifunctor `F` by fixing one of its type parameters:
 
 ```dhall
 let Foldable1 = λ(F : Type → Type → Type) → ∀(b : Type) → Foldable (λ(a : Type) → F a b)
 let Foldable2 = λ(F : Type → Type → Type) → ∀(a : Type) → Foldable (λ(b : Type) → F a b)
 ```
-
-Two `Foldable` evidence values give us two `toList` functions (having types `F a b → List a` and `F a b → List b`).
-Those functions allow us to extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
+These  `Foldable` evidence values give us two `toList` functions (with types `F a b → List a` and `F a b → List b`).
+Those functions can extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
 With that, it is straightforward to translate the special code for the computations in `sizeFTree` and `depthFTree` into generic versions that work with all pattern bifunctors `F`.
 The code is:
 
@@ -7544,13 +7545,11 @@ let sizeF : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → 
 Now we can implement the fully generic `size` and `depth` functions that work for any Church-encoded type constructor.
 
 ```dhall
-let sizeLFix
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+let sizeLFix : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
    let sizeF = λ(fa : F a Natural) → sizeF F foldableF1 foldableF2 a fa
    in ca Natural sizeF
-let depthLFix
-  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+let depthLFix : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
     let depthF = λ(fa : F a Natural) → depthF F foldableF2 a fa
     in ca Natural depthF
@@ -7606,7 +7605,7 @@ All other arguments are just copied over.
 
 We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a pattern functor `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
-This can be done if `F` is a covariant bifunctor with a known `Bifunctor` evidence.
+This can be done when `F` has a known `Bifunctor` evidence.
 
 Here is a  function that transforms an arbitrary bifunctor `F` into a `Functor` evidence for the type constructor `LFix (F a)`:
 
@@ -7630,13 +7629,13 @@ Whenever possible, we will implement typeclass evidence values for Church-encode
 
 Dhall's built-in type constructors  `List` and `Optional` only work with  ordinary values.
 For example, we can have  a list of Boolean values, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
-One can also have a list of lists of `Optional Bool`, and so on.
+One can also have a list of lists of `Optional Bool` values, and so on.
 But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols `Bool` and `Natural`.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
 
 To formulate this more rigorously, we say that an `Optional` or a `List` can store values whose type  has kind `Type`.
 We can have a `List t` only if the kind of `t` is `Type`.
-(Those types are called **ground types**.)
+(Those types `t` are called **ground types**.)
 So, we can have a `List Natural`,  `List Bool`,  a `List { a : Natural, b : Bool, c : Optional Text }`, and generally any `List t` such that `t : Type` is a valid annotation.
 But we cannot have a `List Type` or a `List (Type → Type)`, because that would be of the form `List t` with `t : Kind`.
 If that is desired, one needs to implement some custom type constructors that we will now look at.
@@ -7665,15 +7664,16 @@ let OptionalK/default
           , Some = λ(t : k) → t
           } opt
 let OptionalT/default = OptionalK/default Type
-let someType1 = OptionalT/default Bool example1 -- someType1 is Bool
-let someType2 = OptionalT/default Bool example2 -- someType2 is Natural
-let _ = True : someType1 -- This typechecks because someType1 is Bool.
-let _ = 123 : someType2 -- This typechecks because someType2 is Natural.
+let someType1 = OptionalT/default Bool example1    -- someType1 is Bool.
+let someType2 = OptionalT/default Bool example2    -- someType2 is Natural.
+let _ = True : someType1   -- This typechecks because someType1 is Bool.
+let _ = 123 : someType2    -- This typechecks because someType2 is Natural.
 ```
 
 We now turn to the type-level `List` analogs.
 This is more difficult because `List` requires a recursive definition.
-Note that Dhall's built-in `List` constructor does not support type symbols as list elements; the syntax `[ Bool, Natural, Text ]` is an error.
+Note that Dhall's built-in `List` constructor does not support type symbols as list elements.
+As we already saw, the syntax `[ Bool, Natural, Text ]` is an error.
 
 To implement type-level lists, we turn to  the Church encoding similar to what we used before, except that the stored data items will now have kind `Type`.
 
@@ -7695,8 +7695,8 @@ let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) 
 The value `exampleListT` is a type-level list: it defines a list of three _type symbols_.
 
 
-To illustrate working with a type-level list, let us write a function that extracts the head from a list.
-The result will be an `OptionalT` value.
+To illustrate working with a type-level list, let us write a function that extracts the first element from a list (if that   element exists).
+The result will be an `OptionalT` type-level structure.
 
 ```dhall
 let headOptionalT : ListT → OptionalT
@@ -7709,14 +7709,14 @@ To extract the type out of an `OptionalT`, we need to provide a default type and
 The head of the list `exampleListT` is the type `Bool`.
 To verify that, we write a type annotation for a `Bool` value:
 ```dhall
-let someBool = headOptionalT exampleListT -- This OptionalT.`Some` Bool.
+let someBool = headOptionalT exampleListT     -- This OptionalT.`Some` Bool.
 let shouldBeBoolType = OptionalT/default {} someBool
 let _ = False : shouldBeBoolType
 ```
 
 The type-level list `ListT` is hard-coded to store symbols of kind `Type`.
-We cannot use it to store, say, type _constructors_ (such as `Optional`).
-For that, we need to define another type-level list type; let's call it `ListTT`.
+We cannot use it to store, say, _type constructors_ (such as `Optional`).
+For that, we need to define another type-level list constructor; let's call it `ListTT`.
 
 ```dhall
 let ListTT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : (Type → Type) → r → r) → r
@@ -7724,8 +7724,8 @@ let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) �
 ```
 
 The constructors `ListT` and `ListTT` define lists whose elements have a hard-coded _kind_.
-To see how we could generalize to arbitrary kinds, compare the Church encoding of `ListInt` with that of a generic list.
-The difference is that the hard-coded `Integer` type is replaced by a type parameter:
+To see if we could generalize to arbitrary kinds, compare the Church encoding of `ListInt` with that of a generic list.
+The difference is that the hard-coded `Integer` type is replaced by an extra type parameter:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -7738,10 +7738,9 @@ let ListT = ∀(r : Kind) → r → (Type → r → r) → r
 let ListTGeneric = λ(k : Kind) → ∀(r : Kind) → r → (k → r → r) → r
   -- Type error: `Sort` does not have a type
 ```
-
 The error says that `ListTGeneric` cannot be typed.
 To understand why, let us look at the type of `ListT`.
-We can verify that the type constructor `ListT` has itself the type `Sort`:
+We can verify using a type annotation that the type constructor `ListT` has itself the type `Sort`:
 ```dhall
 let _ = ListT : Sort
 ```
@@ -7779,9 +7778,9 @@ The code will typecheck only when there are as many `Branch` levels as the nesti
 
 The definition of `PBTree` is recursive because it uses `PBTree` itself.
 To define this data structure in Dhall, we need to use a Church encoding.
-But it turns out that   the Church encoding techniques shown so far will not work.
-The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` as the type parameter of `PBTree`.
-The Church encoding (`LFix`) only supports recursive definitions where extra type parameters are held fixed.
+But it turns out that the Church encoding based on `LFix` will not work here.
+The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` instead of `a` as the type parameter of `PBTree`.
+The Church encoding (`LFix`) only supports recursive definitions where extra type parameters remain unchanged.
 
 Recursive definitions of type constructors whose   type parameters change in recursive usages are called **nested types**, indicating that a nontrivial type expression is "nested" under the type constructor that we are defining.
 
@@ -7794,7 +7793,7 @@ We can then denote `List a = T` and rewrite the recursive definition of `List a`
 The Church encoding technique shown in previous sections will give us an equivalent type implemented in Dhall.
 
 Coming back to the perfect binary tree, we find that we _cannot_ temporarily fix `a`, set `T = PBTree a`, and rewrite the recursive definition of `PBTree` as `T = F T` with some `F`.
-Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a))` requires us to change the nested type parameter from `a` to `(a, a)` in the recursive use of `PBTree`.
+Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a))` requires us to change the   type parameter from `a` to `(a, a)` in the recursive use of `PBTree`.
 Because of that change, the type equation for `PBTree` is not of the form `PBTree a = F (PBTree a)` with any functor `F`.
 
 The pattern functor `F` needs to be able to apply `PBTree` to different type parameters.
@@ -7815,13 +7814,14 @@ It is a pattern functor at the level of _type constructors_.
 
 The Church encoding formula `∀(r : Type) → (F r → r) → r` must be changed in order to make it work at the level of type constructors:
 - Replace `r : Type` by `r : Type → Type`.
-- As `F r` is now a type constructor, replace `F r → r` by `∀(t : Type) → F r t → r t`.
+- As `F r` is now a type constructor, replace the function type `F r → r` by the  function type `∀(t : Type) → F r t → r t` having an extra type parameter `t`.
 - Add a type parameter to the final output `r` at the end of the formula.
 
 The resulting type formula is:
 
 ```dhall
-let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
+  ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
 This is the general Church encoding at the level of type constructors.
 We call this the **higher-kinded Church encoding**.
@@ -7849,7 +7849,7 @@ let examplePB2 : PBTree Natural = branchPB Natural (branchPB (Pair Natural Natur
 ```
 
 When defining `examplePB2`, we used the nested record syntax, and we had to write out the nested `Pair` types explicitly.
-The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records and types.
+The type definition of `PBTree` guarantees that we will not make any mistakes in the structure of those nested records.
 
 Let us now write a function that extracts all values stored in a perfect tree to a list,
 a function that determines the tree's depth, and a function that prints a tree.
@@ -7866,13 +7866,12 @@ A value such as `examplePB1 : PBTree Natural` is a higher-order function whose t
 That type constructor will determine the output type when we apply `examplePB1`.
 Since we need to produce a `List a` out of `PBTree a`, we supply `List` as that type constructor.
 ```dhall
-let pbTreeToList
-  : ∀(a : Type) → PBTree a → List a
+let pbTreeToList : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) → tree List ???
 let _ = assert : pbTreeToList Natural examplePB1 ≡ [ 10 ]
 let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
 ```
-The next argument is a function of type `∀(t : Type) → F r t → r t`, where `F` is the pattern functor for the perfect binary tree, and `r` is already set to `List`.
+The next argument is a function of type `∀(t : Type) → F r t → r t`, where `F` is the pattern bifunctor for the perfect binary tree, and `r` is already set to `List`.
 So, it remains to implement a function of type `∀(t : Type) → < Leaf : t | Branch : List (Pair t t) > → List t`.
 This function should just extract all values of type `t` into a list of type `List t`.
 It is straightforward to implement that function, and we get the final code of `pbTreeToList`:
@@ -7905,7 +7904,7 @@ let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
 ```
 The type parameter `P` in the function call `tree P q` must be a type constructor.
 How should we choose it? Note that the result type of `tree P q` will be `P a`.
-So, we have to choose `P` as a constant functor such that `P a = Natural` for all `a`.
+So, let us choose `P` as a constant functor such that `P a = Natural` for all `a`.
 
 The parameter `q` will then have type `∀(t : Type) → < Leaf : t | Branch : Natural > → Natural`.
 This function should compute the depth of the tree, assuming that the depth for branches has been already computed.
@@ -7915,16 +7914,17 @@ The complete code with tests is:
 let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
   = λ(a : Type) → λ(tree : PBTree a) →
     let P : Type → Type = λ(_ : Type) → Natural
-    let q : ∀(t : Type) → F P t → P t = λ(t : Type) → λ(p : < Leaf : t | Branch : Natural >) →
-      merge { Leaf = λ(_ : t) → 0
-            , Branch = λ(depth : Natural) → depth + 1
-            } p
+    let q : ∀(t : Type) → F P t → P t
+      = λ(t : Type) → λ(p : < Leaf : t | Branch : Natural >) →
+        merge { Leaf = λ(_ : t) → 0
+              , Branch = λ(depth : Natural) → depth + 1
+              } p
     in tree P q
 let _ = assert : pbTreeDepth Natural examplePB1 ≡ 0
 let _ = assert : pbTreeDepth Natural examplePB2 ≡ 2
 ```
 
-Finally, a more complicated example where we need to print a perfect tree of type `PBTree a`.
+Finally, consider a more complicated example where we need to print a perfect tree of type `PBTree a`.
 We expect to be able to convert a tree to a `Text` string if we have  a  `Show` evidence for the type `a`.
 The code should look like this:
 
@@ -7979,22 +7979,23 @@ In the next section, we will study that kind of Church encoding in more detail.
 The ordinary Church encoding involves a type expression of the form  `∀(r : Type) →...`, where the universal quantifier is applied to a type parameter (`r : Type`).
 
 A Church encoding "at the level of type constructors" applies the universal quantifier   to a _type constructor_ as a parameter (`∀(r : Type → Type) → ...`).
-We will call it a **higher-kinded Church encoding** because its formula requires a higher-kinded type.
-As we found in the previous section, a  higher-kinded  Church encoding is needed  to represent perfect trees, because the ordinary Church encoding cannot work for such data types.
+We called it a **higher-kinded Church encoding** as its formula requires a higher-kinded type.
+As we found in the previous section, a  higher-kinded  Church encoding is needed  to represent perfect trees, because the ordinary Church encoding does not work for such data types.
 
-Let us recall the motivation for the higher-kinded Church encoding.
+Let us re-examine the derivation of the higher-kinded Church encoding, looking to generalize it to arbitrary data types.
 
 The ordinary Church encoding begins with a type equations of the form `T = F T` and then proceeds to write the type formula `C = ∀(r : Type) → (F r → r) → r`.
 
-To do a similar thing for higher kinds, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
+To obtain a similar type formula for higher kinds, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
 
 The Church encoding for ordinary types involves the function  type `F r → r`.
 The corresponding mapping at the level of type constructors must be written in Dhall as the type `∀(t : Type) → F r t → r t`, with an extra type parameter `t`.
 
 Then the Church encoding formula becomes:
 
-`C a = ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a`
-
+```haskell
+C a = ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+```
 We can rewrite this formula as a general combinator (`LFixK`) that creates a fixpoint type constructor out of any given pattern functor `F`:
 
 ```dhall
@@ -8047,14 +8048,16 @@ This will illustrate the complications and the limitations of the higher-kinded 
 
 A recursive type equation defining the `List` functor can be written as:
 
-`T a = Optional (Pair a (T a))`
+```haskell
+T a = Optional (Pair a (T a))
+```
 
 We rewrite this equation in the form `T a = F T a` with the pattern functor `F` defined by:
 
-`F T a = Optional (Pair a (T a))`
-
+```haskell
+F T a = Optional (Pair a (T a))
+```
 Then we define a list functor as `ListCK = LFixK ListFK`.
-
 The corresponding Dhall code (including a `FunctorK` evidence for `ListFK`) looks like this:
 
 ```dhall
@@ -8142,7 +8145,7 @@ It turns out to be far from straightforward to add the numbers in a list using t
 
 Another attempt at computing the sum of numbers in a list of type `ListCK Natural` is by first implementing a generic conversion function of type `∀(a : Type) → ListCK a → F a` for a some  functor `F`. 
 After that,  we set `a` to a concrete type (say, `a = Natural`) in that function.
-The type constructor `F` must be chosen such that `F Natural` carries enough information to obtain the required result.
+The type constructor `F` must be chosen such that the type `F Natural` carries enough information to obtain the required result.
 
 Let us see what properties `F` should have if we want to compute the sum of values in a `ListCK Natural`:
 ```dhall
@@ -8166,8 +8169,7 @@ Then we find a higher-kinded pattern functor `Q` that is equivalent to `P` and o
 The definition of `Q` can be formalized as a function of `P` that we denote by `ToChurchK P`:
 
 ```dhall
-let ToChurchK
-  : (Type → Type → Type) → (Type → Type) → Type → Type
+let ToChurchK : (Type → Type → Type) → (Type → Type) → Type → Type
   = λ(P : Type → Type → Type) → λ(T : Type → Type) → λ(a : Type) → P a (T a)
 ```
 
@@ -8209,8 +8211,8 @@ let LFixKC = λ(F : (Type → Type) → Type → Type) → λ(P : Type → Type)
 ```
 
 This   book calls `LFixKC`  a "typeclass-constrained higher-kinded Church encoding".
-The resulting  type constructor  `G = LFixKC F P`  describes a recursive data structure of type `G a` holding data only of types `a` for which a typeclass evidence (of type `P a`) is available.
-The functions that process this data (that is, functions of type `∀(t : Type) → P t → F r t → r t`) will also receive a typeclass evidence for the type `t`.
+The resulting  type constructor  `G = LFixKC F P`  corresponds to a recursive data structure of type `G a` holding data only of types `a` for which a typeclass evidence (of type `P a`) is available.
+The functions that process this data (which will need to be functions of type `∀(t : Type) → P t → F r t → r t`) will also receive a typeclass evidence for the type `t`.
 
 
 The additional power of the new encoding is that it can work with arbitrary typeclasses.
@@ -8240,7 +8242,7 @@ Indeed, the type of `example2` is `∀(P : Type → Type) → P Natural → List
 In order to extract any concrete values from   `example2`, we will need to supply some `P` and an evidence value of type `P Natural`.
 
 How do we choose the typeclass parameter `P`?
-We will have to choose it in a different way for each computation that we need to perform with values of type `ListCKC P a`.
+We will have to choose it in a different way for each required computation.
 
 For example,   to implement       a `Show` evidence for `ListCKC` we use `P = Show`.
 
@@ -8257,13 +8259,14 @@ To print the data in   a list of type `ListCKC P Natural`, we need to supply a `
 Let us  verify that `example2` indeed corresponds to the list `[ 1, 2, 3 ]`:
 
 ```dhall
-let _ = assert : (showListCKC Natural showNatural).show example2 ≡ "[ 1, 2, 3, ]"
+let _ = assert : (showListCKC Natural showNatural).show example2
+  ≡ "[ 1, 2, 3, ]"
 ```
 
-To aggregate the data in that list, we need to choose    some typeclass that supports aggregation, and to supply    evidence that `Natural` belongs to that typeclass.
-If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum` that adds the numbers (we have already defined `monoidNaturalSum` earlier in this book).
+To aggregate the data in that list, we need to choose    some typeclass that supports aggregation  and to supply    evidence that `Natural` belongs to that typeclass.
+If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum`  that we have already defined earlier in this book.
 We set the typeclass parameter `P = Monoid` and apply the Church-encoded value to suitable arguments.
-Instead of summation, we will just perform aggregation with respect to the monoidal type, similarly to the `reduce` method for lists (with the type signature `reduce : ∀(a : Type) → Monoid a → List a → a`).
+To achieve summation, we will just perform aggregation with respect to the monoidal type, similarly to the `reduce` method for lists (with the type signature `reduce : ∀(a : Type) → Monoid a → List a → a`).
 ```dhall
 let Id : Type → Type = λ(a : Type) → a
 let reduceListCKC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → ListCKC P a) → a
@@ -8279,7 +8282,7 @@ let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
 
 The code in `example2` is a   higher-order function with five complicated parameters; some parameters include type quantifiers inside their types.
 For each computation, `example2` may need to use a different typeclass parameter.
-All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
+All this work is necessary just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
 
 
 This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
@@ -8305,7 +8308,7 @@ The value `examplePBC1` represents a tree that consists of a single leaf (a tree
 When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)` for an arbitrary type `t`; but we only have evidence of type `P t`.
 
 In many cases, it is possible to derive the required evidence automatically.
-(For example, a pair of two monoids is again a monoid. We may call such typeclass "pair-preserving".)
+(For example, a pair of two monoids is again a monoid. We may call such typeclasses "pair-preserving".)
 We will need to add a combinator of type `P t → P (Pair t t)` as another argument in the type signature:
 ```dhall
 let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P t → P (Pair t t)) → PBTreeC P Natural
@@ -8393,7 +8396,7 @@ let _ =
 
 This code is somewhat simpler than the code in the section "Nested recursive types: Perfect trees" that needed to use the continuation monad as the type `R`.
 
-We see that concrete computations with the higher-kinded Church encoding give flexibilty but require guessing some nontrivial choices of type constructors that can be only justified after the code is written and tested.
+We see that concrete computations with the higher-kinded Church encoding give flexibilty but require guessing and  choices of type constructors that can be only justified after the code is written and tested.
 
 #### Functor properties
 
@@ -8405,7 +8408,7 @@ But this is not the case with the higher-kinded Church encoding.
 The type parameter `a` enters   as an argument of `r`,
 but `r` is itself a type parameter of kind `Type → Type`.
 It  is an arbitrary type constructor that is not known to be a functor.
-This prevents us from implementing `fmap` in a simple way.
+This prevents us from implementing `fmap` in a straightforward way.
 
 Another attempt at  implementing `fmap` is by applying a value of type `ListCK a` to the type constructor parameter `r` chosen as a constant functor:   `r a = ListCK b`.
 This  fails for the same reason as our failure with `sumListCK`: the argument `consT` of type `∀(t : Type) → t → ListCK b → ListCK b` cannot be provided.
@@ -8413,18 +8416,22 @@ This  fails for the same reason as our failure with `sumListCK`: the argument `c
 How should we choose `r` to overcome these problems?
 Let us look at the required type signature of `fmap`:
 
-`fmap : ∀(a : Type) → ∀(b : Type) → (f : a → b) → ListCK a → ListCK b`
-
-We may be able to implement this type signature if we rewrite it in the form  `∀(a : Type) → ListCK a → F1 a` with a suitable functor `F1`.
+```haskell
+fmap : ∀(a : Type) → ∀(b : Type) → (f : a → b) → ListCK a → ListCK b
+```
+We may be able to implement this `fmap` method   if we rewrite its type signature as `∀(a : Type) → ListCK a → F1 a` with a suitable functor `F1`.
 Then the code will apply a value of type `ListCK a` by setting the type constructor parameter `r = F1`.
 
 Indeed, after reordering some curried arguments in `fmap`, we find an equivalent signature:
 
-`fmap : ∀(a : Type) → ListCK a → F1 a`
-
+```haskell
+fmap : ∀(a : Type) → ListCK a → F1 a
+```
 where the helper functor `F1` is defined by:
 
-`F1 a = ∀(b : Type) → ∀(f : a → b) → ListCK b`
+```haskell
+F1 a = ∀(b : Type) → ∀(f : a → b) → ListCK b
+```
 
 The corresponding Dhall code is:
 
@@ -8442,7 +8449,9 @@ let fmapListCK : FmapListCK = λ(a : Type) → λ(list : ListCK a) →
     = λ(t : Type) → λ(x : t) → λ(f1t : ∀(b : Type) → ∀(f : t → b) → ListCK b) →
       λ(b : Type) → λ(f : t → b) → consCK b (f x) (f1t b f) 
   in list F1 nilT consT
-let functorListCK : Functor ListCK = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(la : ListCK a) → fmapListCK a la b f }
+let functorListCK : Functor ListCK
+  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(la : ListCK a) → fmapListCK a la b f
+    }
 ```
 
 This technique can be generalized to  all higher-kinded Church-encoded type constructors.
@@ -8493,7 +8502,7 @@ data LExp t where                      -- Haskell.
 This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
 The language guarantees statically that operations are applied to arguments of  correct types.
 For instance, `LNot x` will typecheck only when `x` is a boolean expression such as `LBool True`.
-The compiler will report a type error if we  write something like `LNot (LInt 123)`.
+The Haskell compiler will report a type error if we  write something like `LNot (LInt 123)`.
 
 
 The definition of `LExp t` is _not_ parametrically polymorphic in `t`.
@@ -8601,32 +8610,32 @@ We will replace Haskell's `Int` type by Dhall's `Integer`, and a recursive GADT 
 
 The first step is to consider the product type of all defined constructors:
 
-`(Text → P Integer, Bool → P Integer → P Text)`
+```haskell
+(Text → P Integer, Bool → P Integer → P Text)
+```
 
 It will be useful to uncurry all constructor arguments temporarily:
 
-`(Text → P Integer, (Bool, P Integer) → P Text)`
+```haskell
+(Text → P Integer, (Bool, P Integer) → P Text)
+```
 
 
 The next step is to rewrite this type as a  mapping of the form `F P → P`.
 In this way, we will derive the pattern functor `F` for this recursive type,
 which is the first step towards a Church encoding.
 
-Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
-
-The mapping between `F P` and `P` is a mapping between _type constructors_ and  must be written in Dhall as the function type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
+Note that `P` is a type constructor (as `P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
+So, the mapping between `F P` and `P` is a mapping between _type constructors_ and  must be written in Dhall as the function type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P` and then to `t`.
-
-The application `F P` should give us   a new type constructor.
-It remains to figure out how to write a suitable `F`.
-Then we will use the Church encoding   at the level of type constructors, similarly to what we did   in the previous sections.
+But  finding  a suitable `F` turns out to be problematic.
 
 As the  definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for each allowed `t`.
 In the example at hand, `P t` can have values only when `t = Integer` or `t = Text`.
 So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Integer → P Integer` and `F P Text → P Text`.
 
 The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all   constructors.
-Let us write them side by side:
+Write them side by side:
 
 - Product of constructors: `(Text → P Integer, (Bool, P Integer) → P Text)`
 - Mapping type `F P → P`: `(F P Integer → P Integer, F P Text → P Text)`.
@@ -8647,7 +8656,7 @@ let P = λ(a : Type) →
   ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
 
-Looking at our specific requirements, we find that we must rewrite the mapping type `∀(t : Type) → F r t → r t` first as a tuple type `(F r Integer → r Integer, F r Text → r Text)` because the type parameter `t` may only be either `Integer` or `Text`.
+Looking at our specific requirements, we find that we must first rewrite the type `∀(t : Type) → F r t → r t`   as a tuple type `(F r Integer → r Integer, F r Text → r Text)` because the type parameter `t` may only be either `Integer` or `Text`.
 
 After currying, we obtain the following definition:
 ```dhall
@@ -8661,7 +8670,7 @@ let P = λ(a : Type) →
 ```
 This is the final form of the Church encoding of `P`.
 
-Note that we _cannot_ obtain this type formula by applying `LFixK` to `F`.
+Note that we _cannot_ obtain this type formula by applying `LFixK` to some `F`.
 The reason is that `F` is not parametrically polymorphic and itself would need to be defined as a GADT, which is not supported directly in Dhall.
 
 Let us add names to the type signature of `P`, making the correspondence with the long-syntax Haskell definition more apparent:
@@ -8748,8 +8757,7 @@ let exampleLExp2 : LExp Bool = LNot (LIsZero (LAdd (LInt +10) (LInt -10)))
 
 Let us now implement (in Dhall) an interpreter for this toy language.
 
-Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by non-recursive code  that uses Church-encoded data.
-In the Church encoding, recursion is replaced by applications of the higher-order functions.
+Note that the Haskell code for the interpreter is recursive; but in Dhall, we use Church encoding and replace recursive code by code that works with higher-order functions.
 The Dhall code for the interpreter will be non-recursive and will just apply a value of type `LExp t` to suitable arguments.
 
 The first of those arguments is the type constructor parameter `r : Type → Type`.
