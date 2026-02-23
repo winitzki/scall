@@ -271,7 +271,7 @@ val hardcodedReplacements : String => String = { (source : String) =>
     "the +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
     "the +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
     "(\\\\label\\{)Appendix: " -> "$1",
-   // "'s" -> "\\\\textsf{'}s",
+   // "'s" -> "\\\\textsf{'}s", // Leads to junk before page 0 of the book.
    // "O'" -> "O\\\\textsf{'}",
    // "s'" -> "s\\\\textsf{'}",
     //"``" -> "\\\\textsf{``}",

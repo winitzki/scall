@@ -4330,7 +4330,7 @@ When `F` is a functor, the type `∀(a : Type) → a → F a` can be simplified 
 ```dhall
 ∀(a : Type) → (p → a) → F a  ≅  F p
 ```
-where `p` is a fixed type.
+where `p` is a fixed type and the symbol `≅` denotes type equivalence.
 (See the Appendix "Naturality and parametricity" for details about the Yoneda identities.)
 
 The type signature `∀(a : Type) → a → F a` is a special case of the identity shown above if we set `p` to the unit type (in Dhall, `p = {}`).
@@ -5914,10 +5914,10 @@ As a result, we obtain the following encoding of the `Either` type:
 
 `Either a b  ≅  ∀(r : Type) → (a → r) → (b → r) → r`
 
-These derivations show that the curried function types and the universal type quantifier are sufficient to Church-encode many other types.
-The record types and the  union types are defined in Dhall as built-ins for convenience; but the same expressive power is already available once we have the universal quantifier and the function types.
+These derivations show that   curried function types and the universal type quantifier are sufficient to Church-encode many other types used in functional programming practice.
+The record types and the  union types are defined in Dhall as built-ins for convenience; but the same expressive power is already available once the language has the universal quantifier and  function types.
 
-Let us also summarize the standard type identities we have used in these derivations:
+Let us also summarize the standard type identities   used in these derivations:
 
 - Function from the unit type: `{} → r  ≅  r`
 - Function from the void type: `<> → r  ≅  {}`
@@ -5930,9 +5930,9 @@ Using the standard type   identities shown in the previous section, we can rewri
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
 So, the type `ListIntF r → r`, written in full as:
-
-`< Nil | Cons : { head : Integer, tail : r } > → r`
-
+```dhall
+< Nil | Cons : { head : Integer, tail : r } > → r -- Symbolic derivation.
+```
 is equivalent to a pair of functions of types `{ head : Integer, tail : r } → r` and  `< Nil > → r`.
 
 The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
@@ -5940,14 +5940,14 @@ The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to jus
 The second type equivalence is that a function from a record type is equivalent to a curried function.
 For instance, the type
 `{ head : Integer, tail : r } → r`
-is equivalent to `Integer → r → r`.
+is equivalent to the type  `Integer → r → r`.
 
 Using these type equivalences, we may rewrite the type `ListInt` in the **curried form** as:
 
 ```dhall
 let ListIntC = ∀(r : Type) → r → (Integer → r → r) → r
 ```
-This type is isomorphic to the previous definition of `ListInt`, but now the code does not involve union types or record types any more.
+This type is isomorphic to the previous definition of `ListInt`, but now the code no longer involves union types or record types.
 Working with curried functions often gives shorter code than working with union types and record types.
 
 As an example, let us rewrite the type `TreeText` defined above in the curried form.
@@ -5958,26 +5958,34 @@ let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r 
 let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
 ```
 
-Since `TreeTextF r` is a union type with two parts, the type of functions `FT r → r` can be replaced by a pair of functions.
+Since `TreeTextF r` is a union type with two parts, we can replace the type of functions `TreeTextF r → r`  by a pair of functions.
 We can also replace functions from a record type by curried functions.
-Then we obtain an equivalent definition of `TreeText` that is easier to work with:
+In this way, we obtain an equivalent definition of `TreeText` that is easier to work with:
 
 ```dhall
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-These examples show how any type constructor `F` defined via products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+These examples show how any pattern functor containing  products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
 This is what we call the **curried form** of the Church encoding.
 
-Another example of a curried form is the Church encoding of natural numbers.
+The curried Church encoding is also known as the **Boehm-Berarducci encoding**.
+[This discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) gives more details,  although it does not show explicitly  the connection with the general Church encoding.
+
+#### Curried Church encoding of natural numbers
+
+Another example of a curried form is the Church encoding of the `Natural` type.
 The non-curried form is `∀(r : Type) → (Optional r → r) → r`. The function type `Optional r → r` is equivalent to the pair of `r` and `r → r`.
-So, the curried form is `∀(r : Type) → r → (r → r) → r`.
+So, the curried form of the Church encoding for `Natural` is `∀(r : Type) → r → (r → r) → r`.
+
+This encoding of natural numbers is usually shown in tutorials on the Church encoding.
+However, this is merely a special case of the general construction (`∀(r : Type) → (F r → r) → r`) involving an arbitrary pattern functor `F`.
 
 The curried form is often convenient for practical programming with Church-encoded values.
-However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
+In the next chapters, we will use the curried Church encodings when we write code to illustrate and test various computations.
 
-The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
-[This discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) gives more details.
+The form `∀(r : Type) → (F r → r) → r` is convenient for studying and proving the general properties of Church encodings -- properties that hold for all pattern functors `F`.
+
 
 ## Working with Church-encoded data
 
@@ -5993,27 +6001,35 @@ let x
 ```
 
 Working with data encoded in this way is not straightforward.
-It takes some effort to find  convenient ways of working with those types.
+It takes some effort to find  convenient ways of writing code involving those types.
 
-Our next steps are to figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
+In this chapter, we will   figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
 
-For simplicity, we work with a Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a pattern functor `F`.
+We will be working with  Church-encoded types of the form `C = ∀(r : Type) → (F r → r) → r` defined via a pattern functor `F`.
 Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
 
 An important requirement is that the pattern functor `F` should be a _covariant_ type constructor.
 If this is not so, the Church encoding will not work as expected.
-
 We will assume that `F` has a known and lawful `fmap` method, encapsulated by a `Functor` typeclass evidence.
-So, all Dhall code below assumes a given set of definitions of this form:
+
+
+Dhall's type system is powerful enough to be able to express the Church encoding  generically, as a function of an arbitrary pattern functor.
+We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
+
 
 ```dhall
-let F : Type → Type = ???
-let functorF : Functor F = ???
+let LFix : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
 ```
 
-The required `Functor` evidence for integer-valued lists is:
+Instead  of the definition `C = ∀(r : Type) → (F r → r) → r`, we will write more concisely: `C = LFix F`.
+
+
+Let us write  the required pattern functors  for integer-valued lists and text-valued trees are:
 
 ```dhall
+let ListIntF = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = LFix ListIntF
 let functorListIntF : Functor ListIntF =
   { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : ListIntF a) →
       merge { Nil = (ListIntF b).Nil
@@ -6024,12 +6040,7 @@ let functorListIntF : Functor ListIntF =
 
 ```dhall
 let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
-```
-The required code for the text-valued trees is:
-
-```dhall
-let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = LFix TreeTextF
 let functorTreeTextF : Functor TreeTextF =
   { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : TreeTextF a) →
       merge { Leaf = λ(t : Text) → (TreeTextF b).Leaf t
@@ -6039,34 +6050,17 @@ let functorTreeTextF : Functor TreeTextF =
 ```
 
 
-### Generic forms of Church encoding
-
-Dhall's type system is powerful enough to be able to express the Church encoding  generically, as a function of an arbitrary pattern functor.
-We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
-
-For simple types:
-
-```dhall
-let LFix : (Type → Type) → Type
-  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
-```
-
-Instead  of the definition `C = ∀(r : Type) → (F r → r) → r`, we will write more concisely: `C = LFix F`.
-
-Later in this book, we will work in Church encoding generically whenever possible.
-We will assume that `F` and a `Functor` evidence for `F` are given, and we will implement various functions in terms of `F`.
-
-
 ### Isomorphism `C ≅ F C` via the functions `fix` and `unfix`
 
-The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C = F C`.
+The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C ≅ F C`.
 A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
-Those two functions implement an isomorphism between `C` and `F C`.
-The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data), which is one way of understanding why `C` is a solution of the type equation `C = F C`.
+We say that those two functions implement an **isomorphism** between `C` and `F C`, which we denote using the symbol `≅` in `C ≅ F C`.
+The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data).
+In this sense we say that  `C` is a solution of   `C ≅ F C`.
 
 Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generically for all pattern functors `F` and the corresponding types `C = LFix F`.
 
-The basic technique of working with a Church-encoded value `c : C` is to apply `c` as a curried higher-order function to suitable arguments.
+The basic technique of working with a Church-encoded value `c : C` is to apply `c` (which is a curried higher-order function) to suitable arguments.
 A function of type `C` has two arguments: a type parameter `r` and a function of type `F r → r`.
 Given a value `c : C`, we can compute a value of another type `D` if we specify `D` as the type parameter to `c` and if we manage to provide a function of type `F D → D` as the second argument of `c`:
 ```dhall
@@ -6076,14 +6070,13 @@ let d : D =
 ```
 
 We will use this technique to implement `fix` and `unfix`.
-The code will be parameterized by an arbitrary functor `F`.
+The code will take an arbitrary functor `F` as a parameter.
 For clarity, we split the code into smaller chunks annotated by their types:
 
 ```dhall
 let fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) →
-    let C = LFix F
-    in
+    let C = LFix F in
       λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
         let c2r : C → r = λ(c : C) → c r frr
         let fmap_c2r : F C → F r = functorF.fmap C r c2r
@@ -6099,10 +6092,9 @@ let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
 
-It turns out that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
-
-A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) (where those functions are called `in` and `out` instead of `fix` and `unfix`).
-A proof is also shown in "Statement 2" in the section "Church encodings of least fixpoints" of Appendix "Naturality and parametricity" in this book.
+It turns out that `fix` and `unfix` are indeed inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt), where those functions are called `in` and `out` instead of `fix` and `unfix`.
+A proof is also given in the section "Church encodings of least fixpoints" of Appendix "Naturality and parametricity" in this book.
 
 ### Data constructors
 
@@ -6111,26 +6103,21 @@ Sometimes this function is also called `build`, as in Dhall's `Natural/build` an
 We will call it `fix` to remind us of "fixpoints".
 
 To see how this works, note that the type `F C` is almost always a union type.
-A function from a union type is equivalent (as a type) to a tuple of simpler functions.
+Some constructors of that union type will use `C` and others will not.
 For example, 
-a function of type `Either a b → r` is equivalent to a pair of functions of types `a → r` and `b → r`.
-We can write this equivalence as:
+the type `F C` could a union with three constructors such as `< F1 : Natural | F2 : C | F3 : Pair Bool C >`.
+A function from a union type is equivalent (as a type) to a tuple of simpler functions.
+In this example, there will be three  functions that we could name `f1 : Natural → C`, `f2 : C → C`, and `f3 : Pair Bool C → C`.
+The function `fix : F C → C` is equivalent to three data constructors  for which we can choose convenient names (`f1`, `f2`, `f3` in this example).
+These data constructors provide three ways in which we can create values of type `C`.
 
-`Either a b → r  ≅  Pair (a → r) (b → r)`
+The code of `f1`, `f2`, `f3` can be derived from the code of `fix` if we apply `fix` to values of type `F C` created via the specific constructors (`F1`, `F2`, `F3`).
 
-The type `Option a` is equivalent to `Either {} a`.
-So, a function of type `Option a → r` is equivalent to a pair of functions of types `{} → r` and `a → r`.
-Because the unit type `{}` has only a single value (denoted by `{=}`), the type `{} → r` is equivalent to just `r`.
-So, we may rewrite `Option a → r` equivalently as a pair of `r` and `a → r`.
-
-These examples show that we may always rewrite   function types `F C → C` as a tuple of simpler functions whose arguments are not union types.
-Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor to which we may assign a name for convenience.
-In this way, we will replace a single function `fix` by a number of named constructors that help create values of type `C` more easily.
-
-The code for the constructors can be derived mechanically from the general code of `fix`.
+Generalizing to an arbitrary `F`, we find that a single function `fix` is equivalent to a number of data constructors that help create values of type `C` more easily.
+The code for those data constructors can be derived mechanically from the general code of `fix`.
 But in some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
 
-To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
+To illustrate these techniques, consider two examples: `ListInt` and `TreeText`.
 
 Begin with the uncurried Church encodings of those types:
 ```dhall
@@ -6138,7 +6125,8 @@ let ListInt = ∀(r : Type) → (< Nil | Cons : { head : Integer, tail : r } > �
 let TreeText = ∀(r : Type) → (< Leaf : Text | Branch : { left : r, right : r } > → r) → r
 ```
 
-Let us first see how we could derive the data constructors (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors).
+Let us first see how we could derive the data constructors, which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors.
+
 We begin by writing the types of the `fix` functions specific to each data type.
 
 For `ListInt`:
@@ -6164,7 +6152,7 @@ In both cases, the type signature of `fix` is a function from a two-part union t
 Generally, a function from a two-part union type is equivalent to a pair of functions from the parts of the type.
 For example, a function `f : < A : a | B : b > → c` is equivalent to a pair of functions  `g : a → c` and `h : b → c`.
 The functions `g` and `h`  may be extracted from `f` by applying `f` to arguments created via `< A : a | B : b >.A x` and `< A : a | B : b >.B y`, where `x : a` and `y : b` are arbitrary argument values.
-The functions `g` and `h` are "specialized" for the two possible variants of the argument of `f`. 
+In this sense, the functions `g` and `h` are "specialized" for the two possible variants of the argument of `f`. 
 
 Now we use this technique to convert the `fix` functions to a pair of more specialized data constructor functions for the types `ListInt` and `TreeText`.
 
@@ -6199,7 +6187,7 @@ Values of type `TreeText` can be now created like this:
 let example2 : TreeText = branch (branch (leaf "a") (leaf "b")) (leaf "c")
 ```
 
-After showing how we could use the `fix` function explicitly, let us pass to the curried Church encodings and look at how we could write data constructors by hand.
+After showing how we could use the `fix` function explicitly, let us pass to the curried Church encodings and  write the analogous data constructors by hand.
 
 We redefine `ListInt` and `TreeText` in the curried form (we will not be using the old definitions any more):
 
@@ -6207,13 +6195,11 @@ We redefine `ListInt` and `TreeText` in the curried form (we will not be using t
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
-
-From this, we can simply read off the types of the constructor functions (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors):
+Now we can    set the type parameter `r` to `ListInt` or `TreeText` respectively and read off the types of the constructor functions (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors):
 
 ```dhall
 let nil : ListInt = ???
 let cons : Integer → ListInt → ListInt = ???
-
 let leaf : Text → TreeText = ???
 let branch : TreeText → TreeText → TreeText = ???
 ```
@@ -6234,7 +6220,6 @@ let nil : ListInt
 let cons : Integer → ListInt → ListInt
    = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
      a2 n (c r a1 a2)
-
 let leaf : Text → TreeText
    = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
      a1 t
@@ -6246,13 +6231,13 @@ let branch : TreeText → TreeText → TreeText
 Now we can create values of Church-encoded types by writing nested constructor calls:
 
 ```dhall
--- The list similar to [+123, -456, +789]:
+-- The list with elements +123, -456, +789:
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 
-{-             /\
-   The tree   /\ c    :
-             a  b
--}
+--             /\
+-- The tree   /\ c    :
+--           a  b
+--
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 ```
 
@@ -6281,7 +6266,7 @@ let foldRight
     p r init update
 ```
 
-The code can be made even shorter:
+The code can be made even shorter by **eta-reduction**:
 
 ```dhall
 let foldRight
@@ -6304,7 +6289,7 @@ Note that `foldRight` and `flip_foldRight` are  non-recursive functions.
 In this way, the Church encoding enables "fold-like" operations to be implemented without recursion.
 
 For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
-In practice, it is easier to "inline" that identity function: that is, to use the data type `C` itself as the "fold"-like function.
+In practice, it is easier to inline that identity function: that is, to use the data type `C` itself as the "fold"-like function.
 
 Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, `zip`, and `traverse`.
 In most FP languages, those operations are implemented via recursive code.
@@ -6317,19 +6302,14 @@ Let us look at some examples of how this is done.
 
 ### Applying a function many times
 
-An example of a simple recursive type is the type of natural numbers (often denoted "`Nat`").
+A simple recursive type is the type of natural numbers (often denoted "`Nat`").
 The type `Nat` is the least fixpoint of the type equation `Nat = F Nat` with `F = Optional`.
-So, the Church encoding of `Nat` is the type `∀(r : Type) → (Optional r → r) → r`.
-
-It is more convenient to use the curried form of the Church encoding.
-The function type `Optional r → r` is isomorphic to the pair `(r, r → r)`.
-If we curry the function type `(Optional r → r) → r`, we obtain `r → (r → r) → r`.
-In this way, we derive the Church encoding of `Nat` as it is often shown in tutorials:
+We have seen its curried  Church encoding:
 ```dhall
 let Nat = ∀(r : Type) → r → (r → r) → r
 ```
 
-Values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
+Specific values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
 Because the type `r` is arbitrary, the only way such a function could work is by applying `f` to the value `x`, then applying `f` to the result, etc., repeating this procedure a certain number of times.
 An example is:
 ```dhall
