@@ -6848,8 +6848,7 @@ We need two pattern functors (`F1` and `F2`) to describe this definition. In ter
 data Layer = Layer (F1 Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
-
-We will achieve this formulation if we define `F1` and `F2` by:
+This formulation will be correct if we define `F1` and `F2` by:
 
 ```haskell
 -- Haskell.
