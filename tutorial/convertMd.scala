@@ -264,12 +264,12 @@ val hardcodedReplacements : String => String = { (source : String) =>
   Seq(
     "\\$x0\\$" -> "\\$x_0\\$",
     "(\\\\log)\\{(.*)\\} " -> "$1 _{$2} ",
-    "the +chapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "[tT]he +chapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
     "[cC]hapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
-    "the [Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "[tT]he [Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
     "[Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
-    "the +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
-    "the +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
+    "[tT]he +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
+    "[tT]he +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
     "(\\\\label\\{)Appendix: " -> "$1",
    // "'s" -> "\\\\textsf{'}s", // Leads to junk before page 0 of the book.
    // "O'" -> "O\\\\textsf{'}",

@@ -11022,24 +11022,25 @@ The function `Stream/take` that extracts at most a given number of values from t
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 (The size limit guarantees termination.)
 
-We will now generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
+Our goal is to generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
 The result will be a `fold`-like function whose recursion depth is limited in advance.
-That limitation will ensure that all computations terminate, as Dhall requires.
+But we need to begin by looking at `fold`-like functions without a recursion limit.
+
 
 The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary pattern functors.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
-
-`fold : LFix F → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+fold : LFix F → ∀(r : Type) → (F r → r) → r
+```
 By a **fold-like aggregation** we mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
 The general type signature of a fold-like aggregation is `P → ∀(r : Type) → (F r → r) → r`.
 
 The implementation of `fold` will be different for each data structure `P`.
 If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `LFix F` is the same as `∀(r : Type) → (F r → r) → r`.
 If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'s `fold` would be:
-
-`GFix F → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+GFix F → ∀(r : Type) → (F r → r) → r
+```
 Note that this type is a function from an existential type, which is used to define `GFix F`.
 Function types of that kind are equivalent to simpler function types (see the section "The function extension rule for existential types"):
 
@@ -11051,13 +11052,13 @@ GFix F → Q
 
 We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T F t = { seed : t, step : t → F t }` as appropriate for streams.
 Then we obtain the type signature:
-
-`∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
+```
 Rewrite that type by replacing the record by two curried arguments:
-
-`∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+```
 A function  with this type signature is called a **hylomorphism**.
 See also [this tutorial on recursion schemes](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
@@ -11068,9 +11069,9 @@ Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in thei
 An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
 
 Another way of understanding hylomorphisms is to rewrite their type signature as:
-
-`GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
-
+```haskell
+GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F
+```
 This looks like a conversion from the greatest fixpoint to the least fixpoint of the same pattern functor.
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
 
@@ -11093,8 +11094,7 @@ This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [B. Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
--- Haskell.
-hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
+hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r     -- Haskell.
 hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
@@ -11110,8 +11110,7 @@ The type constructor `f` will be the pattern functor for `TreeText`.
 Our Haskell definitions for `TreeText`, its pattern functor `F`, and the `fmap` method for `F` are:
 
 ```haskell
--- Haskell.
-data TreeText = Leaf String | Branch TreeText TreeText
+data TreeText = Leaf String | Branch TreeText TreeText      -- Haskell.
 
 data F r = FLeaf String | FBranch r r
 
@@ -11124,8 +11123,7 @@ The type `TreeText` is the least fixpoint of `F` and has the standard methods `f
 Haskell implementations of `fix` and `unfix` are little more than identity functions that reassign types:
 
 ```haskell
--- Haskell.
-fix :: F TreeText -> TreeText
+fix :: F TreeText -> TreeText         -- Haskell.
 fix FLeaf t -> Leaf t
 fix FBranch x y -> Branch x y
 
@@ -11143,8 +11141,7 @@ We are using this artificial example only for understanding how the recursion ca
 Choose some input value `t0` of type `TreeText`:
 
 ```haskell
--- Haskell.
-t0 :: TreeText
+t0 :: TreeText                    -- Haskell.
 t0 = Branch (Leaf "a") (Leaf "b")
 ```
 
@@ -11207,30 +11204,28 @@ The recursion will terminate if, after some recursion depth, the expression `fma
 We will then have `fmap (fmap (... (fmap f)...)) c == c`.
 At this point, the result `c` will be returned and no more recursive calls to `h` will be made.
 
-The type of `c` will be `f (f (... (f t)))`.
-It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
-These repeated applications create a data structure of a deeply nested type: `f (f (... (f t)))`.
-At a certain recursion depth, that data structure will no longer contain any values of type `t`.
+The value `c` is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
+The type of `c` will be deeply nested, of the form `f (f (... (f t)...))`.
+After a certain recursion depth, the data structure `c` of that type will no longer contain any values of type `t`.
 So, applying a nested `fmap (fmap (... (fmap f)...)` to that data structure will not need to transform any data
 and will be an identity function.
 
 We find that a hylomorphism's recursive code will terminate
-only if the data structure of type `f (f (... (f t)))`
+only if the data structure of type `f (f (... (f t)...))`
 generated out of the initial "seed" value (`t0`) will no longer contain values of type `t`
 after a finite number of recursion steps.
 
 The hylomorphism's argument has type `GFix F`.
-However, it is impossible to assure up front that a given data structure of type `GFix F`
-in fact has only a finite recursion depth.
-So, the termination of the hylomorphism is in general not guaranteed.
+However, it is impossible to ensure  that a given data structure of type `GFix F` has only a finite recursion depth.
+This is another way to see that the termination of the hylomorphism is generally not guaranteed.
 As a result, no function with the type signature of `hylo` can be implemented in Dhall.
 
 ### Depth-bounded hylomorphisms
 
-What we _can_ do is   implement functions with hylomorphism-like type signatures, but add extra arguments that explicitly ensure termination.
+What we _can_ do is   implement functions with hylomorphism-like type signatures and some extra arguments added to ensure termination.
 
 In the previous chapter, we have shown how to use a recursion bound and a stop-gap value to create a "truncating hylomorphism".
-We will now use a similar technique when viewing hylomorphisms as general functions   of type `t → r`.
+We will now use a similar technique but adapted to viewing hylomorphisms as general functions   of type `t → r`.
 The implementation will not depend on the `fix` function or on a stop-gap value of the least fixpoint type. 
 Instead, the stop-gap value will have a more general type (`t → r`).
 The stop-gap value will be used only if  the given recursion bound is smaller than the actual recursion depth of the input data.
@@ -11294,11 +11289,11 @@ Keeping this in mind, we will proceed in two steps:
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
 
 Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application
-of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that
-`fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
+of `coalg` to `x` produces a value `c : F (F (... (F t)...))` such that
+`fmap_F (fmap_F (... (fmap_F f)...)) c` leaves `c` unchanged and does not actually call `f`.
 This happens when some constructors of the union type `F t` are "empty", that is, do not store any values of type `t`.
 To detect that condition, we need to be able to check whether any values of type `t` are actually
-stored in a given data structure `p : F (F (... (F t)...))`.
+stored in a given data structure `c : F (F (... (F t)...))`.
 
 We begin by implementing a function `anyNonEmpty` for checking whether a value of type `F t` contains any values of type `t`.
 For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
@@ -11358,13 +11353,13 @@ let anyTrueF : ∀(F : Type → Type) → Foldable F → F Bool → Bool
 Now we are ready to generalize these functions to obtain a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
 To achieve that, we first need to apply `fmap_F` $n-1$ times to the function `anyNonEmpty F foldableF t`.
 This gives a function of the following type:
-
-`F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
-
+```haskell
+F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n-1 times -}
+```
 Then we need to apply `fmap_F` $n-1$ times to the function `anyTrueF`:
-
-`fmap (fmap (... (fmap (λ(_ : t) → True)))...))   {-  n times  -}             : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
-
+```haskell
+fmap (fmap (... (fmap (λ(_ : t) → True)))...))   {-  n times  -}                : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}
+```
 Applying that function will reduce by $1$ the number of nested layers of `F`.
 We need to keep doing this until we remove all layers of `F` and obtain a `Bool` value.
 We may describe the procedure symbolically:
@@ -11391,7 +11386,7 @@ c3 : t → F (F (F t)) = fmap c2
 ```
 
 Now we notice that the composition `hN . cN` is equivalent to the code of a depth-bounded hylomorphism   `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
-After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...))` and then back into a `Bool` value via `hN`.
+After `N` iterations, we will have transformed a  value `p : t` via `cN` into a value of type `F (F (... (F t)...))` and then back into a `Bool` value via `hN`.
 
 The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
 For that, we will of course need an absolute upper bound on possible `N`.
@@ -11440,7 +11435,7 @@ So, we expect `hyloMaxDepth` to return `2` when applied to that `coalg`:
 let _ = assert : hyloMaxDepth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
 ```
 
-Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (hyloMaxDepth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
+We can now call `hylo_Nat F functorF limit t x coalg r alg stopgap` replacing `limit` by `hyloMaxDepth F functorF foldableF limit coalg t`.
 
 To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is calculated and applied automatically.
 We will accumulate _two_ functions: one for detecting the recursion depth and another for computing the actual result value.
@@ -11481,9 +11476,7 @@ The HIT algorithm works only for recursive code of a certain restricted form:
 
 - The function must have a single top-level pattern matching expression that splits the code into several branches. Each pattern-matching branch of the code may contain zero or more recursive calls.
 - For each pattern-matching branch, the number of  recursive calls must be known _statically_ (at compile time). The number of recursive calls  cannot depend on any conditions evaluated within the branch. In particular, the result value of one recursive call cannot determine whether another recursive call will be necessary within the code of this branch.
-- Recursive calls are not nested: the argument of one recursive call cannot depend on the return value of another recursive call.
-
-However, a tail-recursive form of the code is _not_ required for the HIT algorithm to work.
+- Recursive calls are not nested: the argument of one recursive call does not depend on the return value of another recursive call.
 
 Code of that form can be described by this Haskell skeleton:
 
@@ -11521,6 +11514,8 @@ If the code of `f` contains several such branches with no recursive calls, we ma
 Other branches (`C1`, `C2`, etc.) _do_ require one or more recursive calls to `f`.
 The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `arg_1_1`, `arg_1_2`, `arg_2_1`, etc.
 Once the recursive calls are completed, the post-processing functions (`post_1`, `post_2`, etc.) are used to compute the final results.
+
+Note that the code is _not_ required to be tail-recursive.
 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
 
@@ -11687,7 +11682,6 @@ To improve the asymptotic complexity of the code, it would be best to start with
 
 Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
 Such techniques are beyond the scope of this book.
-We view hylomorphisms only as a vehicle for converting recursive code to a form that Dhall will accept.
 
 
 
@@ -11712,7 +11706,6 @@ We have two options:
 - Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
 
 A   general procedure for converting recursive code to hylomorphisms is the HIT algorithm explained in a previous section.
-The HIT procedure applies to a wide range of recursive functions including the Egyptian division algorithm.
 We will now follow that procedure for the code of `egyptian_div_mod` shown above.
 
 A first problem is that
@@ -11782,7 +11775,7 @@ The result of that call will be a value of type `P (Int, Int)`.
 So, the type parameter `x` in `P x` will be actually set to `(Int, Int)` when `fmap_P` is applied.
 In addition, `postprocess2` needs to have the value of `b`.
 
-We conclude that it is sufficient to use `P2 (x, Int)` in the definition of the union type.
+We conclude that it is sufficient to use `P2 (x, Int)` in   the union type.
 
 This consideration shows that `P` can be defined as the Haskell code `data P x = P1 Int | P2 (x, Int)` or the Dhall equivalent:
 
@@ -11836,7 +11829,7 @@ let alg : Natural → P Result → Result
 
 It remains to implement the function `coalg` whose Haskell type signature is `Int → P Int`.
 That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
-Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
+Second, in case the calculation  uses a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
 
 A Haskell implementation of `coalg` is:
 ```haskell
@@ -11898,8 +11891,8 @@ The following test takes just a few seconds (when using Dhall version 1.42.2 or 
 ```
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
-This is another practical motivation for studying hylomorphisms.
+In most cases,  those hylomorphisms can be realized in Dhall by choosing appropriate upper limits and stop-gap values so that the hylomorphism may be replaced by `hylo_Nat` or `hylo_N`.
+This is another  motivation for studying hylomorphisms.
 
 ### Hylomorphisms driven by a Church-encoded template
 
