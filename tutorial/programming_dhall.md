@@ -2574,9 +2574,12 @@ let ackermann : Natural → Natural → Natural
     let iterate : (Natural → Natural) → Natural → Natural
       = λ(f : Natural → Natural) → λ(n : Natural) → Natural/fold (n + 1) Natural f 1
     in λ(m : Natural) → Natural/fold m (Natural → Natural) iterate increment
+let _ = assert : ackermann 2 2 ≡ 7
+let _ = assert : ackermann 3 3 ≡ 61
+let _ = assert : ackermann 4 0 ≡ 13
 ```
 
-Ackermann's  function grows extremely quickly with its arguments; for instance, the value $A(4, 4)$ is of the order $2^{2^{2^{65536}}}$ and is far too large to be directly evaluated.
+Ackermann's  function grows extremely quickly with its arguments; for instance, the value $A(4, 4)$ is   $2^{2^{2^{65536}}}-3$ and is far too large to be directly evaluated.
 The significance of Ackermann's function for the mathematical theory of computation is that it is not a **primitive recursive function**; that is, it cannot be computed by a program containing only loops over integers.
 The implementation in Dhall uses loops over _function_ values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
 Nevertheless, termination of the code is theoretically guaranteed (as for all Dhall functions).
@@ -6708,9 +6711,9 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) ≡ Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) ≡ Some (cons +123 nil)
 ```
 
-### Pattern matching in the curried Church encoding
+#### Pattern matching in the curried Church encoding
 
-The previous section shows  a general technique for pattern matching that works with  any Church-encoded type.
+We just saw    a general technique for pattern matching that works with  any Church-encoded type.
 When using the curried form of the Church encoding, it is sometimes more convenient to implement pattern matching functions by hand, especially if there are only a few specific needs.
 Let us show how to implement `headOptional` and `lastOptional` directly for  `ListInt` in the curried Church encoding.
 
@@ -9311,7 +9314,7 @@ let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
 This method works whenever the refinement condition can be expressed via `Bool` values.
 This is not always the case in Dhall; for instance, we cannot write a function of type `Text → Bool` that checks whether the input string is empty.
 
-Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library [`dhall-text-utils`](https://github.com/kukimik/dhall-text-utils).
+Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library `dhall-text-utils` by [M. Kukieła](https://github.com/kukimik/dhall-text-utils).
 The main technique in that library is to create functions returning special `Text` values (such as the empty string or the string `"x"`) instead of functions returning `Bool`.
 Then one can use `assert` expressions to verify that a `Text` value satisfies various conditions.
 
@@ -9517,7 +9520,6 @@ We have chosen the semigroup type `Bool → Bool` in this example because Dhall 
 Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
 But Church encodings always give the **least fixpoints** of type equations.
-The least fixpoints give types that are also known as "inductive types".
 Another useful kind of fixpoints are **greatest fixpoints**.
 
 In this book, we write `LFix F` for the least fixpoint and   `GFix F` for the greatest fixpoint of the type equation `T = F T`.
@@ -9529,7 +9531,7 @@ This intuition can be made rigorous, but the required derivations are beyond the
 
 Least fixpoints of polynomial functors are always  _finite_ data structures.
 One can always traverse all data stored in such structures by using a finite number of operations.
-One can also extract all stored data into a list; so, least fixpoints of polynomial functors are always `Foldable`.
+One can also extract all stored data into a list: the least fixpoint of  a polynomial functor is  always `Foldable`.
 
 Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration (such as infinite lists or infinite trees).
 A traversal of all data items stored in those data structures might not  terminate.
@@ -9539,8 +9541,8 @@ Those data types are used only in ways that do not involve a full traversal of a
 In practice, the data is not stored in memory but is computed on demand during traversal.
 It is still helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
-To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same pattern functor, consider the pattern functor `F` for the data type `List Text`.
-The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
+To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same   functor, consider the pattern functor `F` for the data type `List Text`.
+A Dhall definition for `F` is:
 
 ```dhall
 let F = ∀(r : Type) → < Nil | Cons : { head : Text, tail : r } >
@@ -9551,10 +9553,10 @@ The type `List Text` is the least fixpoint of `T = F T`.
 A data structure of type `List Text` always stores a finite number of `Text` strings, although the list's length is not bounded in advance.
 
 The greatest fixpoint `GFix F` is a potentially infinite stream of `Text` values.
-The stream could terminate after a finite number of strings, but it could also go on indefinitely.
+The stream could stop after a finite number of strings or could go on indefinitely.
 
 Of course, we cannot implement infinite streams by literally storing an infinite number of `Text` values in memory.
-Instead, we create an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
+Instead, we create an initial value of some type `r` (the "seed") and a function that computes the next string and the next seed (the "step" function).
 In the present example, that function will have type `r → < Nil | Cons { head : Text, tail : r } >`.
 When that function is applied to a value of type `r`, the function will either return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new "seed" value of type `r`.
 
@@ -9567,14 +9569,13 @@ That code _can_ extract "seed" values of type `r` and pass those values around b
 This restriction is enforced by the type quantifier:
 To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
 That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
-
 We will now show in detail how this is implemented.
 
 ### Encoding of greatest fixpoints via existential types
 
 The greatest fixpoint of `T = F T`  is  implemented  as a pair of values of types `r` and `r → F r`.
 To hide the type `r` from outside code, we impose an existential quantifier on `r`.
-The type theory  notation for this encoding is $\mu F = \exists r.~r\times (r\to F~r)$. 
+The type theory  notation for this encoding is $\nu F = \exists r.~r\times (r\to F~r)$. 
 
 The corresponding Dhall code uses the type constructor `Exists`   defined in a previous section.
 To use `Exists`, we need to supply a type constructor that creates the type expression  $r\times (r\to F~r)$ from the type parameter `r`.
@@ -9582,7 +9583,6 @@ We will call that type constructor `GF_T` and use it to define `GFix`:
 
 ```dhall
 let GF_T = λ(F : Type → Type) → λ(r : Type) → { seed : r, step : r → F r }
-
 let GFix = λ(F : Type → Type) → Exists (GF_T F)
 ```
 
@@ -9620,8 +9620,9 @@ A simple example of a greatest fixpoint type is a data type `InfSeqNat` represen
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
 An intuitive picture of this data type is an infinitely nested record:
 
-`{ _1 = 101, _2 = { _1 = 102, _2 = { _1 = 103, _2 = ... } } }`
-
+```haskell
+{ _1 = 101, _2 = { _1 = 102, _2 = { _1 = 103, _2 = ... } } }
+```
 Of course, it is impossible to   represent  this data structure literally.
 In Dhall, we use the encoding via the `GFix` constructor:
 
@@ -9641,19 +9642,20 @@ The seed type `r` is encapsulated within the data structure and is not visible f
 To create values of   type `InfSeqNat`, we need to choose a specific "seed" type and then to provide an initial "seed" value and a "step" function.
 The "seed" type must carry sufficient information for computing the next values at every step.
 
-Let us look at two example values of the type `InfSeqNat`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
-We will see that the "seed" type needs to be chosen appropriately in each case.
+Let us look at two example values of the type `InfSeqNat` that represent infinite sequences: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
+We will see that the "seed" type needs to be chosen  differently in each case.
 
 To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the `Natural` value in the pair.
-This requires no information to be stored in the "seed"; so we can choose a unit type as the "seed" type.
+This requires no information to be stored in the "seed"; for simplicity, we   choose a unit type as the "seed" type.
 The code is:
 
 ```dhall
-let zeros : InfSeqNat = makeGFix (Pair Natural) {} {=} (λ(_ : {}) → { _1 = 0, _2 = {=} })
+let zeros : InfSeqNat = makeGFix (Pair Natural) {} {=}
+  (λ(_ : {}) → { _1 = 0, _2 = {=} })
 ```
 
 To create an `InfSeqNat` value representing `0, 1, 2, 3, ...`, we need to be able to produce the next `Natural` value at each step.
-Let us use the "seed" to store that value.
+So, the "seed" type must  store that value.
 The "step" function will then be able to increment the seed value.
 
 ```dhall
@@ -9702,14 +9704,14 @@ data Layer = Layer (F1 Layer Layer2)   -- Haskell.
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-Define two pattern functors `F1` and `F2` by:
+In Dhall, define two pattern functors `F1` and `F2` by:
 
 ```dhall
 let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers : { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
-Then Dhall types `Layer` and `Layer2` can be defined like this:
+Then the types `Layer` and `Layer2` can be defined like this:
 
 ```dhall
 let Layer = Exists (λ(a : Type) → Exists (λ(b : Type) →
@@ -9721,12 +9723,12 @@ let Layer2 = Exists (λ(a : Type) → Exists (λ(b : Type) →
 We will prove in the Appendix "Naturality and parametricity" that these type formulas actually encode the mutually recursive greatest fixpoints.
 It is clear how to generalize these formulas to more than two mutually recursive types.
 
-For the rest of this chapter, we will focus on the simpler case of a single recursively defined type.
+For the rest of this chapter, we will focus on the simpler case of a single type defined as a  greatest fixpoint.
 
 ### Greatest fixpoints for type constructors
 
 Similarly to the least fixpoints for type constructors, we start with a pattern bifunctor `F` and define a type constructor `G` by applying an existential quantifier to the second type parameter of `F`.
-So, `G a` is equal to `GFix (F a)`.
+So, we define `G a` as `GFix (F a)`.
 
 The resulting type constructor `G` will have a single type parameter and will be a functor.
 Here is a function that computes a `Functor` evidence for `G`:
@@ -9745,7 +9747,7 @@ let bifunctorGFix
 ```
 
 Note that the `fmap` method does not attempt to traverse the greatest fixpoint data structure to transform all its data, as that may  possibly require infinite time.
-Instead, `fmap` creates a new data structure that will evaluate and transform the data on demand.
+Instead, `fmap` creates a new greatest fixpoint data structure that will evaluate and transform the data on demand.
 
 #### Example: infinite sequence functor
 
@@ -9835,7 +9837,7 @@ Let us test   the functor functionality of `InfSeq`:
 let _ = assert : InfSeq/take 4 Bool (functorInfSeq.fmap Natural Bool Natural/even repeatExample) ≡ [ True, False, True, False ]
 ```
 
-The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
+The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that transforms each data item on demand.
 
 ### The fixpoint isomorphism for greatest fixpoints
 
@@ -9889,14 +9891,12 @@ Then we will apply the functor `F`'s `fmap` to that function, which will give us
 -- Here t = ??? is a fixed type, and fmap_F is known.
 let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 ```
-
 Finally, we apply the function `fk` to `(p.step p.seed)`, which is a value of type `F t`.
 The result has type `F (GFix F)` as required.
 
 Note that the function `f` depends only on the pattern functor `F` and not on the specific value `g`.
-So, it will be convenient to implement `f` separately; we will call it `packF`.
+Let us write the code of `f` separately; we will call it `packF`.
 
-The complete Dhall code is:
 
 ```dhall
 let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
@@ -9923,7 +9923,7 @@ let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
 
 #### Converting from the least fixpoint to the greatest fixpoint
 
-For the same structure functor `F`, we may define the least fixpoint type (`LFix F`) and the greatest fixpoint type (`GFix F`).
+Given a structure functor `F`, we may define the least fixpoint type (`LFix F`) and the greatest fixpoint type (`GFix F`).
 These types are usually not the same, and the greatest fixpoint type is usually "larger" than the least fixpoint type.
 
 A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
@@ -9952,7 +9952,7 @@ If it were possible to implement a terminating hylomorphism, we would be able to
 A  program "creating a value of the void type" means, in practice, a program that never terminates.
 This is an illustration of the fact that hylomorphisms cannot be guaranteed to terminate.
 
-To guarantee termination, one must modify the type signature of a hylomorphism in order to supply an explicit recursion bound as well as other data.
+To guarantee termination, one must modify the type signature of a hylomorphism, adding an explicit recursion bound as well as other data.
 The required technique for the general case will be studied in the next chapter. 
 We will also use hylomorphisms in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
@@ -9960,8 +9960,8 @@ For now,   we will  employ a simple  workaround sufficient for obtaining a trunc
 We will  supply a "stop-gap" value and  an upper bound on the recursion depth.
 Whenever the data structure goes beyond the recursion bound,   the "stop-gap" value is inserted to stop the recursion.
 
-We begin by choosing a structure functor `F`.
-Visualize the data structure obtained by "unrolling" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
+Suppose a structure functor `F` is given.
+Visualize the data structure obtained by "unpacking" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
 Applying the "step" function to the "seed", we get a value of type `F t`.
 Lifting the "step" function (via the functor `F`'s `fmap` method) to a function of type `F t → F (F t)` and applying again, we get a value of type `F (F t)`.
 Repeating this `n` times, we will get a data structure `p` of type `F (F (... F t)...)`.
@@ -9969,16 +9969,16 @@ This is the data structure that we would like to convert to a value of type `LFi
 
 To do that, the first step is to remove any values of type `t` from `p`.
 The presence of those values in `p` indicates that the data structure continues to branch out recursively in certain places.
-We would like to truncate the further recursive branching precisely at those places, replacing
+We would like to truncate the  recursive branching precisely at those places, replacing
 any further branches by a certain chosen value of type `LFix F`.
 We will call that value the "stop-gap" value `s : LFix F`.
 
 Once the stop-gap value is chosen, we replace all occurences of `t` in `p` by that value.
 This is done by creating a constant function `replace : t → LFix F` that replaces any value of type `t` by the constant stop-gap value.
 We lift `replace` by `F`'s `fmap` method `n` times  and obtain a function of the following type:
-
-`F (F (... F t)...) → F (F (... F (LFix F))...)`
-
+```haskell
+F (F (... F t)...) → F (F (... F (LFix F))...)
+```
 It remains now to apply the standard `fix` function, also lifted `n` times, to convert `F (F (... F (LFix F))...)` to just `LFix F`.
 This completes the truncated conversion from `GFix F` to `LFix F`, given a recursion bound `n : Natural` and a stop-gap value `s : LFix F`.
 
@@ -9999,13 +9999,13 @@ let y0 : LFix F = fix y1
 ```
 
 We can write the entire function body mapping `x0` to `y0` using Haskell's function composition operator (`.`) like this:
-
-`fix . fmap fix . fmap (fmap fix) . fmap (fmap (fmap replace)) . fmap (fmap step) . fmap step . step`
-
+```haskell
+fix . fmap fix . fmap (fmap fix) . fmap (fmap (fmap replace)) . fmap (fmap step) . fmap step . step
+```
 Using the composition law of `fmap`, we rewrite this function equivalently as:
-
-`fix . fmap (fix . fmap (fix . fmap replace . step) . step) . step`
-
+```haskell
+fix . fmap (fix . fmap (fix . fmap replace . step) . step) . step
+```
 Now we can compute this function iteratively:
 
 ```dhall
@@ -10157,7 +10157,7 @@ Let us now implement a function `Stream/take` that converts `Stream a` to `List 
 That function   extracts the values stored in a stream, taking at most a given number of values.
 Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
 The length limit  must be specified as an additional argument.
-Let us choose the type signature of `Stream/take` as `Stream a → Natural → List a`.
+We will choose the type signature of `Stream/take` to be `Natural → Stream a → List a`.
 
 ```dhall
 let Stream/take : ∀(a : Type) → Natural → Stream a → List a
@@ -10177,8 +10177,7 @@ let Stream/take : ∀(a : Type) → Natural → Stream a → List a
 
 #### Creating finite streams
 
-Let us now see how to create stream values.
-We begin with finite streams.
+To see how to create stream values, begin with finite streams.
 
 To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
 We still need to supply a "seed" value, even though we will never use it.
@@ -10197,7 +10196,7 @@ We need a "seed" value that has enough information for the "step" function to pr
 So, it appears natural to use the list `[1, 2, 3]` itself (of type `List Natural`) as the "seed" value.
 The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
 
-Let us we implement a general function of type `List a → Stream a` that converts a finite list into a finite stream.
+We now implement a general function of type `List a → Stream a`   converting a finite list into a finite stream.
 We will need a helper function `headTail` that computes the head and the tail of a `List` if it is non-empty.
 
 ```dhall
@@ -10218,7 +10217,7 @@ let _ = assert : Stream/take Natural 10 exampleStream102030 ≡ [ 10, 20, 30 ]
 
 Creating an infinite stream involves deciding how the next data item should be computed.
 A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r` repeatedly.
-This is implemented by making the "step" function never return `Nil`, which will make the stream unbounded.
+This is implemented by making the "step" function never return `Nil`, which will make the stream infinite.
 
 ```dhall
 let Stream/function
@@ -10239,8 +10238,8 @@ We can compute a finite prefix of this infinite stream:
 
 Another example of an infinite stream is a certain sequence repeated infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
 For that, the "seed" type can be `List Natural` and the "step" function can be similar to what we wrote in the code of `Stream/fromList`.
-The initial "seed" value is the list `[ 1, 2, 3 ]`.
-Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
+The initial "seed" value is the given list, such as `[ 1, 2, 3 ]`.
+Whenever the "seed" value becomes an empty list, it is reset to the initial list.
 
 ```dhall
 let Stream/repeat : ∀(a : Type) → List a → Stream a
@@ -10268,7 +10267,7 @@ Let us now implement an analogous function (`Stream/concat`) for concatenating s
 The function  will take two streams and will return a new stream that works by first letting the first stream run.
 If the first stream finishes, the second stream will start; otherwise the first stream will continue running forever.
 
-We can implement this behavior by choosing the seed type of the new stream as a union type that shows which stream is now running. 
+We can implement this behavior by choosing the seed type of the new stream as a union type (`State`) that shows which stream is now running. 
 
 ```dhall
 let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
@@ -10291,7 +10290,7 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
 
 
 Concatenating an infinite stream (e.g., created by `Stream/repeat`) with another stream gives just the first stream.
-Concatenating a finite stream will start the second stream when the first one is finished:
+If the first stream is finite, the    second stream will start when the first one is finished:
 ```dhall
 let example1 = Stream/repeat Natural [ 1, 2, 3 ]  -- Repeat 1, 2, 3, 1, 2, 3, ...
 let example2 = Stream/fromList Natural [ 10, 20, 30 ]  -- A finite stream.
@@ -10302,16 +10301,16 @@ let _ = assert : Stream/take Natural 7 example2Concat ≡ [ 10, 20, 30, 1, 2, 3,
 ```
 
 We implemented `Stream/concat` that concatenates just two streams.
-The Prelude has the function `List/concat` (of type `List (List a) → List a`) that concatenates any number of lists in an outer list.
+The Prelude has the function `List/concat` (of type `List (List a) → List a`) that concatenates any number of lists.
 It turns out that no similar function (of type `Stream (Stream a) → Stream a`) can be implemented for streams.
-The reason is that we could define a value of type `Stream (Stream a)` that corresponds to an infinite stream containing a large number of  empty streams and then a non-empty stream.
+The reason is that we could define a value of type `Stream (Stream a)` that corresponds to an infinite stream that begins with a large number of  empty streams and then perhaps contains a non-empty stream.
 We can visualize this situation informally as `[[], [], ..., [], [1], [], ...`.
 The function that concatenates all those streams must be able to compute the next element of the stream.
 But that requires us to traverse the sequence of streams, skipping all empty streams until a non-empty stream is found.
-This computation cannot be guaranteed to terminate, as we do not know if and when a non-empty stream will be found.
+This computation cannot be guaranteed to terminate, as we do not know in advance if and when a non-empty stream will be found.
 
-The problem comes from the possibility of empty streams.
-For non-empty streams, the concatenating function can be implemented (we will do that below in the chapter "Monads and their combinators").
+The problem comes from the necessity to skip an unknown number of empty streams.
+If all streams are statically guaranteed to be non-empty, the concatenating function can be implemented (we will do that below in the chapter "Monads and their combinators").
 
 
 #### Truncated streams
@@ -10319,8 +10318,8 @@ For non-empty streams, the concatenating function can be implemented (we will do
 We can stop a given stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
 
 ```dhall
-let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
- = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
+let Stream/truncate : Natural → ∀(a : Type) → Stream a → Stream a
+ = λ(n : Natural) → λ(a : Type) → λ(stream : Stream a) →
    let State = { remaining : Natural, stream : Stream a }    -- Internal state of the new stream.
    let StepT = < Nil | Cons : { head : a, tail : State } >
    let step : State → StepT = λ(state : State) →
@@ -10339,11 +10338,11 @@ So, `Stream/truncate` is a `O(1)` operation.
 Just like `Stream/take`, the function `Stream/truncate` requires an explicit bound on the size of the
 output list. 
 We cannot write a function that stops extracting data from a given stream at the data item that satisfies some condition (say, after the first `Natural` number that is equal to zero).
+It is also impossible to implement a function that determines whether a given stream   terminates.
 
 Streams represent conceptually "infinite" structures, and
 working with those structures in System Fω often requires an explicit upper bound on the number of
 possible iterations.
-It is impossible to implement a function that determines whether a given stream ever terminates.
 
 #### The  `cons` constructor for streams. Performance issues
 
@@ -10360,13 +10359,13 @@ What is the performance of operations on those finite streams?
 
 Since streams may be infinite, no operation on a stream could ever require traversing the entire data structure.
 At most, an operation may step the stream once.
-So, all stream operations like pattern matching or concatenating are not iterative and, _at first sight_, take `O(1)` time.
+So, all stream operations like pattern matching or concatenating are not iterative and, _at first sight_, take $O(1)$  time.
 
 However, streams are higher-order functions operating with complicated types.
 We need to consider the complexity of code that represents a stream.
 For instance, the `Stream/cons` operation creates a new stream whose seed type is a union of two stream types.
-So, if we use the `Stream/cons` constructor many times, we will obtain a stream with a "large" seed type (a deeply nested union type).
-Pattern matching operations with that type will take `O(N)` time in the Dhall interpreter.
+So, if we use the `Stream/cons` constructor $n$ times, we will obtain a stream with a "large" seed type (a deeply nested union type).
+Pattern matching   with that type will take $O(n)$ time in the Dhall interpreter.
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 When the data size is known in advance, it is better to use finite lists instead of finite streams.
@@ -10375,7 +10374,7 @@ When the data size is known in advance, it is better to use finite lists instead
 
 A typical task for streams is to perform **running aggregations**.
 A running aggregation extracts   new values from a source stream and updates an aggregated value  each time.
-This results in a new stream of aggregated values computed after consuming each value from the source stream.
+This results in a new stream of aggregated values computed on demand.
 So, running aggregations may be viewed as transformations of type `Stream a → Stream b`.
 Each value in the result stream may depend in some way on the previously seen values in the source stream.
 
@@ -10385,9 +10384,9 @@ For example, the running sum transforms the stream `[1, 2, 3, 4, 5, ...]` into `
 
 A general function for running aggregations is called `scan`.
 Its type signature is quite similar to that of `fold`:
-
-`scan : ∀(a : Type) → Stream a → ∀(b : Type) → b → (a → b → b) → Stream b`
-
+```haskell
+scan : ∀(a : Type) → Stream a → ∀(b : Type) → b → (a → b → b) → Stream b
+```
 Here `b` is the type of the aggregated value.
 The argument of type `a → b → b` takes the next value of type `a`, the previous aggregated value of type `b`, and computes the next aggregated value of type `b`.
 The argument of type `b` is the initial aggregated value.
@@ -10499,13 +10498,13 @@ The equivalence "at the level of types" (that is, a **type isomorphism**) means 
 So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
 
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
-We will not show the full proof, as the focus of this book is on code.
+We will not show the   proof here, as the focus of this book is on code.
 
 ### Possibly-infinite binary trees
 
 Another example of a greatest fixpoint type is a data structure representing trees that may be finite or infinite. 
 In this section, we will implement a binary tree that stores data in leaves.
-Many other kinds of infinite trees can be implemented similarly with these techniques.
+Many other kinds of infinite trees can be implemented   with these techniques.
 
 In Scala, one would write the following code to define the type of a possibly infinite binary tree with data of type `A` in leaves:
 
@@ -10516,7 +10515,7 @@ enum InfTree2[A]:  // Scala 3.
 ```
 The data in the `Branch` constructor is a pair of functions that delay the evaluation of the tree branches until the program calls those functions explicitly.
 Those functions could encapsulate some internal state ("seed") that determines that subtrees will be generated.
-Those functions could also hide a recursion inside the tree data: for example, one of the branches could be a recursive reference to the whole tree:
+Those functions could also hide a recursion inside the tree data; for example, one of the branches could be a recursive reference to the whole tree:
 ```scala
 lazy val example1: InfTree2[Int] = InfTree2.Branch(left = () => example1, right = () => InfTree2.Leaf(123))
 ```
@@ -10543,6 +10542,7 @@ let bifunctorFTree : Bifunctor FTree
 }
 let InfTree2 = λ(a : Type) → GFix (FTree a)
 ```
+
 The same structure bifunctor `FTree`  defines the finite tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
 
 We can define the two "finite" data constructors for `InfTree2` using the general `fixG` function:
@@ -10572,13 +10572,13 @@ let example3InfTree2 = branchInf Natural   --   .
 These  finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
 
-In addition to finite trees, the greatest fixpoint type `InfTree2 a` also supports  values that can be viewed as infinite trees.
+In addition to finite trees,  `InfTree2` also supports  values that correspond to infinite trees.
 
 To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
 This is because there are infinitely many different ways in which one can build an infinite tree.
 For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
-In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
+In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any given point.
 
 Let us adapt `makeGFix` to make it easier to create values of type `InfTree2 a`:
 
@@ -10615,7 +10615,7 @@ let showTree2 : ∀(a : Type) → Show a → Show (Tree2 a)
 Our first example is an infinite tree that keeps branching forever: the tree starts with a `Branch`, and each branch is again a `Branch`.
 Note that this tree can be viewed as empty, in the sense of being empty of data.
 It has no leaves and so cannot store any data.
-We can implement this tree as a generic value of type `InfTree2 a` for any type `a` no values of type `a` will be stored.
+We can implement this tree as a generic value of type `InfTree2 a` for any type `a`, since no values of type `a` will be actually stored.
 The "seed" type needs to carry no information as branching decisions are always the same, so we will use a unit type:
 
 ```dhall
@@ -10624,7 +10624,7 @@ let emptyInfTree : ∀(a : Type) → InfTree2 a
 ```
 
 To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as the stopgap value.
-The result must be a tree with 4 leaves, all containing `x`.
+We expect the result to be a tree with 4 leaves, all containing `"x"`.
 ```dhall
 let _ =                                         --      /\
   let show = (showTree2 Text showText).show     --     /  \
@@ -10632,11 +10632,11 @@ let _ =                                         --      /\
     (emptyInfTree Text)) ≡ "((x x) (x x))"      --   x x  x x
 ```
 
-The second example is an infinite tree of type `InfTree2 Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
+The second example is an infinite tree of type `InfTree2 Natural` with left branches that contain leaves with consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
 
 The "seed" must carry the current natural number.
-But it also must give enough information to know if we are in the right branch or in the left branch.
-We use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
+But the "step" function  must also know if we are in the right branch or in the left branch.
+So, we use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
 
 ```dhall
 let naturalsInfTree : InfTree2 Natural
@@ -10654,18 +10654,18 @@ let naturalsInfTree : InfTree2 Natural
 To test this, extract the tree up to depth 4 and supply `123` as stopgap:
 
 ```dhall
-let _ = assert : truncateInfTree2 Natural 4 123 naturalsInfTree ≡
-  branch Natural (leaf Natural 0)           --     / \ 
-    (branch Natural (leaf Natural 1)        --    0 / \
-      (branch Natural (leaf Natural 2)      --     1 / \
-        (branch Natural (leaf Natural 123)  --      2  /\
-          (leaf Natural 123))))             --       123 123
+let _ = assert : truncateInfTree2 Natural 4 123 naturalsInfTree ≡   -- .
+  branch Natural (leaf Natural 0)                              --     / \ 
+    (branch Natural (leaf Natural 1)                           --    0 / \
+      (branch Natural (leaf Natural 2)                         --     1 / \
+        (branch Natural (leaf Natural 123)                     --      2  /\
+          (leaf Natural 123))))                                --       123 123
 ```
 
 The third example is an infinite tree of type `InfTree2 a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
-The seed type must carry the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
-For that, we use a triple such as `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
+The seed type must store the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
+To store that data, we use the record type `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
 
 ```dhall
 let tumbleInfTree2 : ∀(a : Type) → a → (a → a) → InfTree2 a
@@ -10691,12 +10691,12 @@ To test this, supply some simple data and extract the tree up to depth 4:
 ```dhall
 let tumbleExample = tumbleInfTree2 Natural 1 (λ(x : Natural) → x * 3)
 let _ = assert : truncateInfTree2 Natural 4 123 tumbleExample ≡
-  branch Natural (leaf Natural 1)       --   /\
-    (branch Natural (branch Natural     --  1 /\
-      (leaf Natural 9) (branch Natural  --   /\ 3
-        (leaf Natural 123)              --  9 /\
-        (leaf Natural 123)))            --   /  \
-          (leaf Natural 3))             -- 123  123
+  branch Natural (leaf Natural 1)                           --   /\
+    (branch Natural (branch Natural                         --  1 /\
+      (leaf Natural 9) (branch Natural                      --   /\ 3
+        (leaf Natural 123)                                  --  9 /\
+        (leaf Natural 123)))                                --   /  \
+          (leaf Natural 3))                                 -- 123  123
 ```
 
 ### Labeled cyclic graphs
@@ -10769,9 +10769,9 @@ let Nodes1 = < First | Second | Third >
 ```
 
 The "step" function applied to a node should compute a value of type `GraphF Node Edge Nodes1`, which expands to the record type:
-
-`{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }`
-
+```haskell
+{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }
+```
 A value of this type contains the label of the initial node and the (possibly empty) list of edges starting from that node. 
 
 For the example shown above, the node labels have type `Natural` and the edge labels have type `Text`.
@@ -10803,9 +10803,9 @@ The value `exampleGraph1` represents a graph as shown in the picture above, with
 A basic operation for a labeled graph is to walk from the currently selected node to another node along some edge.
 We need to specify how the next edge is to be selected.
 This selection can be decided   by a function of the following type:
-
-`∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t`
-
+```haskell
+∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t
+```
 This function takes into account the current node's label and the available edge labels and returns a `Some t` value that specifies which of the `target` nodes to walk to.
 If this function returns a `None t`, it means that we  cannot (or decided  not to) walk to a next node.
 
@@ -10831,7 +10831,7 @@ This function does not need to know the underlying node type (`Nodes1`) or the t
 The `decideWalk` function takes a type parameter `t` and must make its decisions in the same way for all `t`, based only on the values of the node and edge labels.
 
 Another way of expressing   "graph-walking"  operations is   via `unfixG`.
-Applying the method `unfixG` (defined generally for all greatest fixpoint types) to a graph, we obtain a list of edge labels and graphs that would be obtained by walking along each edge:
+Applying the method `unfixG` (defined generally for all greatest fixpoint types) to a graph, we obtain a list of edge labels and graphs that would be obtained by walking from the focused node along each edge:
 
 ```dhall
 let outgoing : { nodeLabel : Natural, edges : List { edgeLabel : Text, target : LabeledGraph Natural Text } }
@@ -10861,7 +10861,7 @@ let exampleGraph2 : LabeledGraph Bool Bool
         } init)
 ```
 
-Suppose that we need to  transform this graph by removing all edges labeled `False`, and by changing the node label to `False` when the list of outoing edges is empty.
+Suppose that we need to  transform this graph by removing all edges labeled `False`, and by changing the node label to `False` when the list of outgoing edges is empty.
 This transformation can be implemented as:
 
 ```dhall
@@ -10890,13 +10890,13 @@ Within the limitations of Dhall that require all iteration or recursion to be ex
 We have specified `Nodes1.First` as the initial "seed" value in `exampleGraph1`.
 This is not fully satisfactory for two reasons:
 
-First, the graph does not necessarily have a selected "current" node.
+First, the application at hand may not support the concept that the graph has a selected "current" node.
 This is appropriate if we are traversing the graph; at each step, we will then have a currently selected node.
-But we should also be able to represent the graph "as a whole", without a selected node.
+But for some computations we need  to represent the graph "as a whole", without a selected node.
 
 Second, there may be nodes from which no edges start.
 In our example, this is the node `Third`.
-If we start from that node, we will not be able to traverse the graph.
+If we start from that node, we will not be able to traverse the graph because we cannot  walk to any other node.
 
 At this point, we have to look in detail at what graph operations we could need.
 Let us distinguish two kinds of computations on graphs that we call  "node-dependent" and "node-independent".
@@ -10937,8 +10937,7 @@ All we know about that graph is that each node is  labeled by a value of type `N
 
 In order to implement node-dependent operations,  one needs to represent a graph more directly, exposing its  node type and the edge-producing "step" function.
 The example shown above (`exampleGraph1`) could be described by specifying the type `Nodes1`  and the record involved in the `merge` expression within the body of `step1`.
-
-Define a record type encapsulating that information:
+To see how that could work, let us define a record type encapsulating that information:
 
 ```dhall
 let LabeledGraphNodes1 = λ(Node : Type) → λ(Edge : Type) → {
@@ -10992,8 +10991,8 @@ A shorter way of writing the same code is to use Dhall's "`with`" syntax:
 ```dhall
 let transform2 : LabeledGraphNodes1 Natural Text → LabeledGraphNodes1 Natural Text
   = λ(graph : LabeledGraphNodes1 Natural Text) →
-  graph with Second.nodeLabel = 2 * graph.Second.nodeLabel
-    with Third.nodeLabel = 3 * graph.Third.nodeLabel
+      graph with Second.nodeLabel = 2 * graph.Second.nodeLabel
+        with Third.nodeLabel = 3 * graph.Third.nodeLabel
 ```
 
 In a similar way, one can implement functions that reconfigure the graph in an arbitrary way, replacing edge labels and adding or removing labels.
