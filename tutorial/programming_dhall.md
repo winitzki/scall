@@ -8936,7 +8936,7 @@ We will now study the constructor functions `Exists` and `pack` in more detail.
 To work with existential types more conveniently, we implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
 
-The expression `Exists P` creates the type corresponding to the Church encoding of the type $\exists t.~P~t$.
+The expression `Exists P` creates a Church encoding of the type $\exists t.~P~t$.
 The argument of `Exists` is a _type constructor_ such as `P`.
 
 ```dhall
@@ -8956,7 +8956,7 @@ let pack : ∀(P : Type → Type) → ∀(t : Type) → P t → Exists P
 
 The function `unpack` implements functions of type `Exists P → r`, where `r` is some arbitrary result type.
 So, `unpack` needs to be able to convert a value of type `P t` into a value of type `r` regardless of the actual type `t` encapsulated inside `Exists P`.
-To achieve that, one of the arguments of `unpack` is a function of type `∀(t : Type) → P t → r`.
+One of the arguments of `unpack` is a function of type `∀(t : Type) → P t → r`.
 The other arguments of `unpack` are the type constructor `P`, a value of type `Exists P`, and the result type `r`.
 
 ```dhall
@@ -8974,13 +8974,13 @@ let unpack1 : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t :
 ```
 We find that `unpack1 P` is just the identity function of type `Exists P → Exists P`.
 So, we could apply values of type `Exists P` directly as functions, instead of using `unpack`.
-Sometimes, it will be more illuminating to use `unpack` explicitly.
+Sometimes it will be more illuminating to use `unpack` explicitly.
 
-#### Functions of existential types: the function extension rule
+#### The function extension rule for existential types
 
 The fact that `unpack` is equivalent to an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type expression.
 
-To see how, let us consider `P` as fixed and specialize the type of `unpack` to `P`.
+To see this more easily, let us consider `P` as fixed and specialize the type of `unpack` to `P`.
 We will denote the resulting function by `unpackP`:
 
 ```dhall
@@ -8995,10 +8995,10 @@ One can prove rigorously that there is an isomorphism between the types `Exists 
 We call this isomorphism the **function extension rule** for existential types.
 
 The function `unpackP` shown above gives one direction of the isomorphism.
-The other direction is the function we call `outE`:
+The other direction is the function we call `outEP`:
 
 ```dhall
-let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outEP : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     let ep : Exists P = pack P t pt
     in consume ep
@@ -9007,10 +9007,10 @@ We will prove in the appendix "Naturality and parametricity" that the functions 
 
 Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
-For convenience, we may implement a generic version of `outE` where the type constructor `P` is not fixed:
+For convenience, let us implement a generic version of `outEP` where the type constructor `P` is not fixed:
 
 ```dhall
-let outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outE : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(P : Type → Type) → λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     consume (pack P t pt)
 ```
@@ -9030,7 +9030,7 @@ We could define a type constructor `Forall` similarly, to create universally qua
 let Forall : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → P r
 ```
-These definitions allow us to write types more concisely, e.g., `Exists P` and `Forall P`.
+These definitions help to write types more concisely, e.g., `Exists P` and `Forall P`.
 
 Despite this superficial similarity, existentially quantified types have a significantly different behavior from universally quantified ones.
 
@@ -9052,19 +9052,20 @@ let idText : Text → Text = identity Text
 
 When constructing `idText`, we chose  the type `Text` as the type parameter.
 After that, the chosen type `Text` is exposed and visible to the outside code, because that type is part of the type signature of `idText`.
-The outside code needs to adapt to that type so that the types match.
+The outside code needs to adapt to that type so that all types match.
 
 When constructing a value `ep : Exists P`, we also need to choose a specific type as `t` (say, `t = Text` or another type).
-But the chosen type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.
+But the chosen type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t`.
 
 It is actually not hidden that `ep` _has_ a type   `t` inside.
-The hidden information is the actual type `t` used while constructing `ep`.
+The hidden information is the specific type `t` used while constructing `ep`.
 Let us clarify how that works.
 
 Code that uses `ep` must use `unpack` with an argument function `unpack_ : ∀(t : Type) → P t → r`.
 We must implement `unpack_` ourselves.
 Often, `P t` will be a data type that stores some values of type `t`.
-Because the code of `unpack_` receives `t` and `P t` as arguments, we will be able to extract some values of type `t` and to pass those values around (while computing the result value of some type `r`).
+Note that the code of `unpack_` receives `t` and `P t` as arguments.
+So, even though the type `t` is unknown, the function `unpack_` may extract some values of type `t` and  pass those values around (while computing the result value of some type `r`).
 For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
@@ -9078,7 +9079,7 @@ Let us first clarify what it means for something to be covariant with respect to
 Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y` and for any function `f : x → y`, we can compute a function of type `F x → F y`.
 The new function needs to satisfy certain laws (the "functor laws").
 
-Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q` and a mapping from `P` to `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q`.
+Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q` and a mapping from `P` to `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q` that obey suitable laws.
 Because `P` and `Q` are type constructors, a mapping from `P` to `Q` means a function of type `∀(a : Type) → P a → Q a`.
 Let us implement the corresponding transformations:
 ```dhall
@@ -9122,8 +9123,7 @@ DependentPair X P  ≅  ∀(R : Type) → (∀(x : X) → P x → R) → R
 So, `DependentPair` is encoded as a type-level function parameterized by an arbitrary type `X` and an arbitrary dependent function of type `X → Type`:
 
 ```dhall
-let DependentPair
-  : ∀(X : Type) → (X → Type) → Type
+let DependentPair : ∀(X : Type) → (X → Type) → Type
   = λ(X : Type) → λ(P : X → Type) →
     ∀(R : Type) → (∀(x : X) → P x → R) → R
 ```
@@ -9139,7 +9139,7 @@ let makeDependentPair
 
 
 Dependent pairs can be used to encode values that satisfy some equations.
-Examples are shown in the  section  "Refinement types and singleton types".
+Examples will be  shown in the next sections.
 
 As preparation, we will now study some general properties of dependent pairs.
 
@@ -9183,7 +9183,7 @@ let ??? = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(long : Dep
   assert : long ≡ unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
 ```
 does not work in Dhall.
-The proof requires a symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
+The proof requires   symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
 
 #### Extracting the first part of a dependent pair
 
@@ -9257,7 +9257,7 @@ let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 (assert : NaturalLessEqual
 This usage is repetitive: we need to write the number `8` twice.
 Could we avoid this repetition?
 
-It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at typechecking time, before the function `makeNaturalLessEqual10` is applied to any arguments.
+It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at typechecking time before the function `makeNaturalLessEqual10` is applied to any arguments.
 
 One way of reducing the code duplication is to notice that the output of the predicate `NaturalLessEqual10Predicate 8` is the equality type `0 ≡ 0` whenever   $x \le 10$.
 So, we could define the value `assert : 0 ≡ 0` in advance and use it like this:
@@ -9268,10 +9268,9 @@ let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
 
-To make this code shorter still, we could simplify `NaturalLessEqual10Predicate`:
-Instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
-We can use an `if/then/else` expression that returns the unit or the void types according to the value of `x`.
-Then the definition and the usage become simpler while the functionality remains the same.
+To make this code shorter still, we could simplify `NaturalLessEqual10Predicate`.
+It is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (`{}`) for $x \le 10$ and a void type (`<>`) for $x > 10$.
+Then the definition and the usage will become simpler while the functionality will remain the same.
 Let us use more descriptive names for the new code:
 ```dhall
 let `If N <= 10` : Natural → Type
@@ -9313,7 +9312,7 @@ This method works whenever the refinement condition can be expressed via `Bool` 
 This is not always the case in Dhall; for instance, we cannot write a function of type `Text → Bool` that checks whether the input string is empty.
 
 Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library [`dhall-text-utils`](https://github.com/kukimik/dhall-text-utils).
-The main technique in that library is to create functions returning special `Text` values (such as the empty string, or the string `"x"`) instead of functions returning `Bool`.
+The main technique in that library is to create functions returning special `Text` values (such as the empty string or the string `"x"`) instead of functions returning `Bool`.
 Then one can use `assert` expressions to verify that a `Text` value satisfies various conditions.
 
 As an example, suppose we need to assert that a given string is _non-empty_.
@@ -9321,7 +9320,7 @@ This is not as straightforward as asserting that a string is empty (for that, we
 To implement a non-empty assertion, we use the built-in Dhall function `Text/replace` in a special way.
 The trick is to replace the entire input string by the fixed string `"x"`.
 The built-in function `Text/replace x y z` is defined such that if `x` is empty then no replacement will be done.
-We can see how that works in this example:
+Let us verify this behavior using the Dhall interpreter:
 ```dhall
 ⊢ Text/replace "abcde" "x" "abcde"
 
@@ -9331,8 +9330,8 @@ We can see how that works in this example:
 
 ""
 ```
-So, `Text/replace x y x` will return `y` if `x` is non-empty.
-But when `x` is an empty string then `Text/replace x y x` will return `x` unchanged; that is, it will return an empty string.
+For any strings `x` and `y`, the function call `Text/replace x y x` will return `y` if `x` is non-empty.
+But when `x` is an empty string then `Text/replace x y x` will return the third argument unchanged; that is, it will return an empty string.
 
 Using this corner case in the definition of `Text/replace`, one can implement an assertion for non-empty strings:
 
@@ -9410,7 +9409,7 @@ let Text_equals_abc = λ(text : Text) → (text ≡ "abc")
 let Text_abc : Type = DependentPair Text Text_equals_abc
 let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" ≡ "abc")
 ```
-We can extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+We can extract the `Text`-valued part of `x` and verify that it   equals  the string `"abc"`:
 
 ```dhall
 let _ = assert : dependentPairFirstValue Text Text_equals_abc x ≡ "abc"
@@ -9495,16 +9494,16 @@ let semigroup_law_t : ∀(t : Type) → Semigroup t → Type
 ```
 This definition allows us to write an evidence for the semigroup law as a value of type `semigroup_law_t t ev`.
 
-Now we can implement the type `SemigroupLawful` via a dependent pair that contains a `Semigroup` typeclass evidence and also an evidence that the semigroup law holds:
+Now we can implement the type `LawfulSemigroup` via a dependent pair that contains a `Semigroup` typeclass evidence and also an evidence that the semigroup law holds:
 
 ```dhall
-let SemigroupLawful = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
+let LawfulSemigroup = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
 ```
-A value of type `SemigroupLawful` can be produced like this:
+A value of type `LawfulSemigroup` can be produced like this:
 ```dhall
 let T = Bool → Bool
 let associativityLawForT = λ(x : T) → λ(y : T) → λ(z : T) → assert : semigroup_law T semigroupBoolToBool x y z
-let instanceBoolToBool : SemigroupLawful T = makeDependentPair (Semigroup T) semigroupBoolToBool (semigroup_law_t T) associativityLawForT
+let instanceBoolToBool : LawfulSemigroup T = makeDependentPair (Semigroup T) semigroupBoolToBool (semigroup_law_t T) associativityLawForT
 ```
 This value stores at once an implementation of the semigroup function (`append`) and an evidence value proving that `append` satisfies the associativity law.
 
@@ -11043,7 +11042,7 @@ If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'
 `GFix F → ∀(r : Type) → (F r → r) → r`
 
 Note that this type is a function from an existential type, which is used to define `GFix F`.
-Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types: the function extension rule"):
+Function types of that kind are equivalent to simpler function types (see the section "The function extension rule for existential types"):
 
 ```dhall
 GFix F → Q
@@ -17292,10 +17291,10 @@ let applicativeFunctorFMTypeclassT : ∀(F : Type → Type) → ApplicativeFMTyp
     let ap : ∀(a : Type) → ∀(b : Type) → F (b → a) → F b → F a
       = λ(a : Type) → λ(b : Type) → λ(fba : F (b → a)) → λ(fb : F b) →
         let ExistsU = Exists (λ(b : Type) → { seed : F b, step : F (b → a) })
-      -- Use outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+      -- Use outE : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
         let existsU2fa : ExistsU → F a
           = λ(u : ExistsU) → evidence a (< Pure : a | Ap : ExistsU >.Ap u)
-        in outEG (P a) (F a) existsU2fa b { seed = fb, step = fba }
+        in outE (P a) (F a) existsU2fa b { seed = fb, step = fba }
     let pure : ∀(a : Type) → a → F a = λ(a : Type) → λ(x : a) → evidence a ((ApplicativeFunctorP F a).Pure x)
     let fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → ap b a (pure (a → b) f)
     let zip = λ(a : Type) → λ(fa : F a) → λ(b : Type) → λ(fb : F b) →
