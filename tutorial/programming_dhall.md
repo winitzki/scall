@@ -4564,7 +4564,6 @@ let lawsHoldForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(
   let test3 = assert : laws.assoc_law
   in True
 ```
-This verification is symbolic and is equivalent to a rigorous proof of the laws.
 
 Dhall is able to perform a similar check for the continuation monad:
 
@@ -4578,6 +4577,7 @@ let lawsHoldForContinuationMonad = λ(R : Type) → λ(a : Type) → λ(x : a) �
 ```
 Although the Dhall interpreter is quite limited in symbolic reasoning, the code for the `Reader` and `Continuation` monads is simple enough and contains only functions and function applications.
 In those cases, Dhall can perform the argument substitutions needed to verify the laws. 
+This verification is symbolic and is equivalent to a rigorous proof of the laws.
 
 
 Let us also try verifying the laws of the `State` monad:
@@ -5436,7 +5436,6 @@ One can define a Leibniz equality type for comparing types instead of values:
 ```dhall
 let LeibnizEqualT =
   λ(T : Kind) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
-
 let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
 ```
 
@@ -19459,8 +19458,7 @@ let functorF : Functor Optional = { fmap = Optional/map }
 To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
 (The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism for greatest fixpoints", chapter "Encoding of greatest fixpoints".)
 We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
-We will also denote the type `GFix F` simply by `G`.
-We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : t → F t }`.
+We will also denote the type `GFix F` simply by `G` and curry   the type signatures, eliminating the record type `{ seed : t, step : t → F t }`.
 
 Here is a summary of the resulting definitions:
 
@@ -19504,31 +19502,30 @@ Instead, this statement claims a weaker property: for any function `h : G → S`
 Apply Wadler's "surjective pairing rule" to the type `GFix F` and obtain the following property:
 
 For any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
-
-`h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
-
+```haskell
+h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))
+```
 Now we pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
 Then we will obtain directly the equation we need for the extensional surjectivity of `unfold`.
 
 ###### Statement 2
 
 Given any type `R` and any function `rfr : R → F R`, define the function `r2g` by:
-
-`let r2g : R → G = λ(x : R) → unfold R rfr x`
-
+```haskell
+let r2g : R → G = λ(x : R) → unfold R rfr x
+```
 or more concisely:
-
-`let r2g : R → G = unfold R rfr`
-
+```haskell
+let r2g : R → G = unfold R rfr
+```
 Then the function `r2g` satisfies the following law: for any `r : R`,
-
-`unfixf (r2g r) ≡ functorF.fmap R G r2g (rfr r)`
-
+```haskell
+unfixf (r2g r) ≡ functorF.fmap R G r2g (rfr r)
+```
 or equivalently:
-
-`unfixf (unfold R rfr r) ≡ functorF.fmap R G (unfold R rfr) (rfr r)`
-
-
+```haskell
+unfixf (unfold R rfr r) ≡ functorF.fmap R G (unfold R rfr) (rfr r)
+```
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 
@@ -19540,7 +19537,7 @@ Begin with the expression `unfixf (unfold R rfr r)`:
 
 ```dhall
 -- Symbolic derivation.
-unfixf (unfold R rfr r)              -- Use definition of unfixf:
+unfixf (unfold R rfr r)             -- Use definition of unfixf:
  ≡ unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
  ≡ unfoldF R rfr r                 -- Use definition of unfoldF:
  ≡ functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
@@ -19560,13 +19557,13 @@ The construction in Statement 2 may be used with `R = G` and `rfr = unfixf`.
 Then the corresponding function `r2g` will be an identity function of type `G → G`,
 as long as `unfold` satisfies its relational naturality law.
 We can write that property as:
-
-`unfold G unfixf ≡ identity G`
-
+```haskell
+unfold G unfixf ≡ identity G
+```
 In other words, for any value `g : G` we will have:
-
-`g ≡ unfold G unfixf g`
-
+```haskell
+g ≡ unfold G unfixf g
+```
 
 ####### Proof
 
@@ -19578,30 +19575,29 @@ If `unfixf (unfold R cR x) ≡ functorF.fmap R G (unfold R cR) (cR x)` for all `
 
 The precondition holds by Statement 2.
 So, we have for all `y : R`:
-
-`unfold R cR y ≡ unfold G unfixf (unfold R cR y) ≡ v (unfold R cR y)`
-
+```haskell
+unfold R cR y ≡ unfold G unfixf (unfold R cR y) ≡ v (unfold R cR y)
+```
 This is close to what we need: this equation says `k == v k` for `k = unfold R cR y`.
 But we need to show `g ≡ v g` for arbitrary `g : G`.
 
 To get around this difficulty, we use Statement 1 with `h = identity G` and get:
-
-`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
-
+```haskell
+g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)
+```
 Now substitute what we already derived:
-
-`unfold R cR y ≡ v (unfold R cR y)`
-
+```haskell
+unfold R cR y ≡ v (unfold R cR y)
+```
 and get:
-
-`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
-
+```haskell
+g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
+```
  Again use Statement 1, this time with `h = v` and `g = unfold R cR y`, to get:
 
 ```dhall
 -- Symbolic derivation.
-g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
-  ≡ v g
+g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))  ≡  v g
 ```
 
 So, we obtain `g ≡ v g` as required.
@@ -19615,16 +19611,15 @@ For a fixed functor `F`, the functions `fixf : F G → G` and `unfixf : G → F 
 
 We need to prove two directions of the isomorphism round-trip:
 
-(1) For any `g : G` we will have `fixf (unfixf g) ≡ g`
+(1) For any `g : G` we will have `fixf (unfixf g) ≡ g`.
 
-(2) For any `fg : F G` we will have `unfixf (fixf fg) ≡ fg`
+(2) For any `fg : F G` we will have `unfixf (fixf fg) ≡ fg`.
 
 To prove item (1), we write out the left-hand side of its equation:
 
 ```dhall
 -- Symbolic derivation. Expect this to equal just `g`.
-fixf (unfixf g)
-  ≡ unfold (F G) fmap_unfixf (unfixf g)
+fixf (unfixf g)  ≡   unfold (F G) fmap_unfixf (unfixf g)
 ```
 
 Then we use the relational naturality law of `unfold` with `R = G`, `S = F G`, `f = unfixf`, `cR = unfixf`, and `cS = fmap_unfixf`.
@@ -19633,14 +19628,14 @@ The precondition of the relational naturality law becomes:
 if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y ≡ unfold S cS (f y)` for all `y : R`.
 
 Substituting the definitions of `cR` and `cS`, we get:
-
-`fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x)`
-
-This condition holds by definition of `fmap_unfixf`.
-So, the conclusion of the law also holds: for all `g : G`,
-
-`unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)`
-
+```haskell
+fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x)
+```
+This   holds by definition of `fmap_unfixf`.
+So, the precondition of the law holds, and then the conclusion of the law also holds: for all `g : G`,
+```haskell
+unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)
+```
 The right-hand side is the same as the expression we got after expanding `fixf` in `fixf (unfixf g)`.
 So, we continue our derivation:
 
@@ -19666,18 +19661,18 @@ unfixf (fixf fg)   -- Use the definition of unfixf:
 ```
 
 At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simplify the last line to:
-
-`functorF.fmap (F G) G fixf (fmap_unfixf fg)`
-
+```haskell
+functorF.fmap (F G) G fixf (fmap_unfixf fg)
+```
 The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
 By `fmap`'s composition law, we have `fmap fixf . fmap unfixf ≡ fmap (fixf . unfixf)`.
 We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
 Applying `functorF.fmap` to an identity function of type `G → G` gives an identity function of type `F G → F G`.
 So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
-
-`functorF.fmap (F G) G fixf (fmap_unfixf fg) ≡ fg`
-
-This is what remained to be proved for item (2). $\square$
+```haskell
+functorF.fmap (F G) G fixf (fmap_unfixf fg) ≡ fg
+```
+This is what remained to be proved for item (2).
 
 ###### Statement 5
 
@@ -19690,19 +19685,20 @@ Let `f : R → G` be any function that satisfies the $F$-coalgebra morphism law.
 We need to show that `f` is then equal to `r2g` (which is defined as `unfold R rfr`).
 
 The $F$-coalgebra morphism law of `f` says that, for any `x : R`,
-
-`unfixf (f x) ≡ functorF.fmap R G f (rfr x)`
-
+```haskell
+unfixf (f x) ≡ functorF.fmap R G f (rfr x)
+```
 This equation is the same as the precondition of the relational naturality law of `unfold` with `S = G`, `cR = rfr`, and `cS = unfixf`.
 So, the conclusion of that law holds: for any `x : R`,
-
-`unfold R rfr x ≡ unfold G unfixf (f x)`
+```haskell
+unfold R rfr x ≡ unfold G unfixf (f x)
+```
 
 By Statement 3, we have `g ≡ unfold G unfixf g` for any `g : G`.
 Use that property for `g = f x` and obtain:
-
-`unfold R rfr x ≡ unfold G unfixf g ≡ g ≡ f x`
-
+```haskell
+unfold R rfr x ≡ unfold G unfixf g ≡ g ≡ f x
+```
 The left-hand side is exactly the function `r2g` from Statement 2.
 So, we have proved that `r2g x ≡ f x`. The function `f` is the same as `r2g`.
 
@@ -19712,7 +19708,7 @@ So, we have proved that `r2g x ≡ f x`. The function `f` is the same as `r2g`.
 The following identity holds for all covariant functors `F` and `K`:
 
 ```dhall
--- Mathematical notation:  K (GFix F) ≅ ∃ A. (K A) × (A → F A)
+-- Mathematical notation:  K (νF) ≅ ∃ A. (K A) × (A → F A)
 K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
@@ -19721,8 +19717,8 @@ We call this identity the **Church-co-Yoneda identity**.
 
 For that identity to hold, we need the following requirements:
 
-- both `F` and `K` must be lawful covariant functors (with `Functor` typeclass evidence values satisfying the functor laws)
-- parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions
+- Both `F` and `K` must be lawful functors (with `Functor` typeclass evidence values satisfying the functor laws).
+- Parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions.
 
 Denote for brevity:
 
@@ -19741,24 +19737,22 @@ let CCoY = ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
 ```
 
 To prove the Church-co-Yoneda identity, we begin by implementing the two directions of the isomorphism:
-
-`fromCCoY : CCoY → K G`
-
-and
-
-`toCCoy : K G → CCoY`
+```haskell
+fromCCoY : CCoY → K G
+toCCoy : K G → CCoY
+```
 
 The function type `CCoY → K G` can be simplified using the function extension rule for existential types (see section "The function extension rule for existential types"):
-
-`CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
-
+```haskell
+CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G
+```
 Then we notice the similarity between the last type and the type of `unfold`:
-
-`unfold : ∀(T : Type) → (T → F T) → T → G`
-
+```haskell
+unfold : ∀(T : Type) → (T → F T) → T → G
+```
 The difference is only in a replacement of `T → G` by `K T → K G`.
 We can implement that replacement via `fmap_K`.
-Now we can write the code for the function `fromCCoY` as:
+Now we can write the code for the function `fromCCoY`:
 
 ```dhall
 let fromCCoY : CCoY → K G
@@ -19768,7 +19762,7 @@ let fromCCoY : CCoY → K G
     )
 ```
 
-Let us define a type alias (`PackKTo`) for a type expression that we will be using often:
+Let us define a type alias (`PackKTo`) for a type expression that we will often use:
 
 ```dhall
 let PackKTo = λ(A : Type) → ∀(T : Type) → (T → F T) → K T → A
@@ -19786,9 +19780,9 @@ let toCCoY : K G → ∀(R : Type) → (PackKTo R) → R
 It remains to show that `fromCCoY` and `toCCoY` are inverses to each other.
 We need to prove the two directions of the isomorphism round-trip:
 
-(1) For any `kg : K G` we have `kg ≡ fromCCoY (toCCoY kg)`
+(1) For any `kg : K G` we will have `kg ≡ fromCCoY (toCCoY kg)`.
 
-(2) For any `c : CCoY` we have `c ≡ toCCoY (fromCCoY c)`
+(2) For any `c : CCoY` we will have `c ≡ toCCoY (fromCCoY c)`.
 
 To prove item (1):
 
@@ -19836,16 +19830,16 @@ At this point, we need to use some laws that hold due to parametricity assumptio
 
 The first required law is the naturality law for values `c : CCoY`.
 That law says that for any types `Q`, `S`, for any function `f : Q → S`, for any value `q : ∀(T : Type) → (T → F T) → K T → Q`:
-
-`f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))`
-
+```haskell
+f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
+```
 Apply that law to the last expression, setting `Q = K G`, `S = R`, `f = p G unfixf`, and
 `q = λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)`.
 Then we get:
 
 ```dhall
 -- Symbolic derivation.
-p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)
+p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT))
   ≡ f (c Q q)
   ≡ c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
   ≡ c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
@@ -19854,14 +19848,14 @@ p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold 
 The next step is to simplify the subexpression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
 For that, we use the strong dinaturality law for values `p : PackKTo R`.
 That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
-
-`fmap_F T U h (cT x) ≡ cU (h x)` for all `x : T`,
-
+```haskell
+fmap_F T U h (cT x) ≡ cU (h x)` for all `x : T
+```
 then the conclusion holds:
-
-`p T cT kt ≡ p U cU (fmap_K T U h kt)`
-
-We need to set the parameters in the law to match the right-hand side of the last equation:
+```haskell
+p T cT kt ≡ p U cU (fmap_K T U h kt)
+```
+Set the parameters in the law to match the right-hand side of the last equation:
 
 
 ```dhall
@@ -19880,9 +19874,9 @@ p G unfixf (fmap_K T G (unfold T cT) kt)
   ≡ p T cT kt
 ```
 as long as the precondition of the law holds:
-
-`fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)`
-
+```haskell
+fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)
+```
 This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Church encodings of greatest fixpoints".
 
 This allows us to complete the proof of item 2:
@@ -20029,6 +20023,7 @@ Types `T` and `U` are defined as solutions of two simultaneous equations.
 Solutions may be defined as least fixpoints or as greatest fixpoints of those equations, depending on what is necessary for the application code.
 
 In this section, we will prove the Church encoding formulas for the least and the greatest fixpoints.
+
 The least fixpoints are given by the following encodings:
 
 ```dhall
@@ -20065,9 +20060,9 @@ We will use the Church-Yoneda identity for the least fixpoints and the Church-co
 
 Begin by considering the left-hand side of the identity for the least fixpoints.
 Denote for brevity by `N x` the least fixpoint of `J x y` with respect to `y`:
-
-`N x = LFix (λ(y : Type) → J x y)`
-
+```haskell
+N x = LFix (λ(y : Type) → J x y)
+```
 Then the nested fixpoint can be written as:
 
 ```dhall
@@ -20117,9 +20112,9 @@ LFix (λ(x : Type) → N x)
 
 We use a similar argument for the greatest fixpoints.
 Denote for brevity by `N x` the greatest fixpoint of `J x y` with respect to `y`:
-
-`N x = GFix (λ(y : Type) → J x y) = GFix (J x)`
-
+```haskell
+N x = GFix (λ(y : Type) → J x y) = GFix (J x)
+```
 Then the nested fixpoint can be written as:
 
 ```dhall
@@ -20204,8 +20199,8 @@ U = GFix (λ(y : Type) → G T y)
 ```
 
 We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equations.
-We notice that the last equation expresses `U` via `T`.
-It will be convenient to write that expression as `U = H T` where the functor `H` is defined by:
+Note that the last equation expresses `U` via `T`.
+It will be convenient to write that expression as `U = H T` where we define  `H`  by:
 
 ```dhall
 let H = λ(x : Type) → GFix (λ(y : Type) → G x y)
@@ -20281,9 +20276,9 @@ let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 ```
 
 The Church-co-Yoneda identity says that, for any functors `P` and `Q`,
-
-`P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })`
-
+```haskell
+P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })
+```
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = { seed : x, step : x → F x a }` and `Q a = G x a`.
 With these definitions, `P` and `Q` are covariant functors.
 Then we may use the Church-co-Yoneda identity to obtain:
@@ -20342,7 +20337,6 @@ namely, `T` has the form `T = ∀x( ... F x (∀y ...))`.
 Our goal is to derive the type formula we started with:
 
 ```dhall
--- For the least fixpoints:
 let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 ```
 This formula is simpler because all type quantifiers are outside.
@@ -20357,9 +20351,9 @@ let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 ```
 
 The Church-Yoneda identity says that, for any functors `P` and `Q`:
-
-`P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y`
-
+```haskell
+P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y
+```
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = (F x a → x) → x` and `Q a = G x a`.
 Defined in that way, both `P` and `Q` are covariant functors.
 Then we may apply the Church-Yoneda identity to obtain:
@@ -20383,10 +20377,8 @@ This concludes the proof for the least fixpoints.
 ### Summary of type equivalence identities
 
 Here are some of the type identities we have proved in this Appendix.
-
 All those identities hold under assumptions of parametricity.
-
-We show the identities both in the Dhall syntax and in a standard mathematical notation.
+We write the identities both in the Dhall syntax and in a   mathematical notation.
 
 Function extension rule (for any type constructor `P`):
 
@@ -20401,8 +20393,7 @@ The "nested fixpoint lemma" (for any covariant bifunctor `J`):
 LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
 GFix(λ(x : Type) → GFix(λ(y : Type) → J x y))  ≅  GFix(λ(x : Type) → J x x)
 ```
-$$ \mu x.~\mu y.~J~x~y \cong \mu x.~J~x~x $$
-$$ \nu x.~\nu y.~J~x~y \cong \nu x.~J~x~x $$
+$$ \mu x.~\mu y.~J~x~y \cong \mu x.~J~x~x  \qquad , \qquad \nu x.~\nu y.~J~x~y \cong \nu x.~J~x~x $$
 
 Yoneda identity (for a covariant functor `Q`):
 
@@ -20428,9 +20419,9 @@ $$ \forall x.~(P~x \to x)\to x \cong \mu x.~P~x $$
 Existence of least fixpoints:
 
 ```dhall
-LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
+LFix F  ≅  <>  {- if and only if: -} F <>  ≅  <>
 ```
-$$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
+$$ \forall x.~(F~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  F ~0 \cong 0 $$
 
 Church encodings of mutually recursive least fixpoints (for covariant bifunctors `F`, `G`):
 
@@ -20490,7 +20481,6 @@ $$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
 
 The "unrolling" lemma: if `T` is a fixpoint of `T = F (G T)` then `T ≅ F U` where `U` is a fixpoint of `U = G (F U)`.
 This holds for both least fixpoints and greatest fixpoints.
-
 $$ \mu x.~F~ (G~ x) \cong F (\mu y.~G~(F y)) $$
 $$ \nu x.~F~ (G~ x) \cong F (\nu y.~G~(F y)) $$
 
@@ -20504,16 +20494,15 @@ This code defines and uses common types such as `Either` and `Pair`, combinators
 The typechecked code includes example calculations and validations, asserting that all result values are as expected.
 
 The second kind of examples are purely illustrative code fragments that are, as a rule, not valid when taken literally as Dhall programs, because they are incomplete or contain invalid Dhall symbols such as `???` or `≅`.
-These code fragments show steps in derivations or equations that are written out.
-They are not intended as executable Dhall code.
+These code fragments show steps in derivations or equations and are not intended as executable Dhall code.
 
-The script `convertMd.sh` extracts the Dhall code from the source Markdown file and removes the purely illustrative examples from the extracted code.
+The script `convertMd.sh` extracts the Dhall code from the source Markdown file but detects and omits all purely illustrative fragments from the extracted code.
 The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
 
 All parts of typechecked code must have the form of `let` expressions.
 Because of this, all earlier  definitions are automatically available for later code.
 
-To make the typechecked code complete, the following code is appended:
+To make the typechecked code complete, the following line is appended:
 
 ```dhall
 in "Example code from the book was evaluated successfully."
