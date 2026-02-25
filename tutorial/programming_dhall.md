@@ -15916,7 +15916,7 @@ A monad transformer is a mapping from monads to monads.
 That is, for any monad `M` there exists a transformed monad `T M`.
 In Dhall, a monad is a type constructor (`Type → Type`), so a monad transformer is of kind `(Type → Type) → Type → Type`.
 
-The definition of monad transformers uses the concept of **monad morhpisms**.
+The definition of monad transformers uses the concept of **monad morphisms**.
 A monad morphism between monads `M` and `N` is a function with type signature `∀(a : Type) → M a → N a` that satisfies the appropriate identity and composition laws (which we will not write out in this book).
 
 Given any transformer `T`, we may apply `T` to the identity monad.
@@ -15933,7 +15933,7 @@ There are two kinds of monad transformers that we call "complete" and "incomplet
 A **complete monad transformer** `T` satisfies the following properties:
 
 - For any monad `M`, there exists a monad morphism between `M` and `T M`. This monad morphism is called a "foreign lift" and is denoted by `flift`. Its type signature is `flift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M a → T M a`. The foreign lift has the monad `M` as a type parameter; in other words, `flift` works in the same way for all monads `M`.
-- For any monads `M`, `N` and any monad morphism `g : ∀(a : Type) → M a → N a` there is a monad morphism `h : ∀(a : Type) → T M a → T N a` between the monads `T M` and `T N`. The mapping from `g` to `h` is known as the "foreign runner" (`frun`) and must satisfy the functor laws of identity and composition.
+- For any monads `M`, `N` and any monad morphism `g : ∀(a : Type) → M a → N a` there is a monad morphism `h : ∀(a : Type) → T M a → T N a` between the monads `T M` and `T N`. The mapping from `g` to `h` is known as the "foreign runner" (`frun`). It  must satisfy the functor laws of identity and composition.
  
 
 In some Haskell and Scala libraries, the foreign runner function is called `hoist`.
@@ -15941,9 +15941,7 @@ This book  will call it a "foreign runner"  (`frun`), following "The Science of 
 
 It follows that, for any monad `M` there is a monad morphism from `L` to `T M`.
 This morphism is called the "base lift" and is computed as `blift = frun pure` using the `pure` method of the monad `M`.
-The type signature of the base lift is:
-
-`blift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → L a → T M a` 
+Below we will show how to implement the base lift for a given complete transformer.
 
 An **incomplete monad transformer** has the foreign lift method but no foreign runner or base lift.
 
@@ -16004,7 +16002,7 @@ To define a complete monad transformer as a typeclass, one needs the following:
 - An implementation of the foreign lift.
 - An implementation of the foreign runner.
 
-For an incomplete monad transformer, the foreign runner is missing.
+For an incomplete monad transformer, the foreign runner will be missing.
 
 Let us define both kinds of monad transformers as typeclasses:
 
@@ -16022,8 +16020,7 @@ The type signature of `frun` does not require `Monad` evidence for `N` because i
 A definition of `blift` for complete transformers can then be written via typeclass constraints:
 
 ```dhall
-let blift
-  : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
+let blift : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
   = λ(T : (Type → Type) → Type → Type) → λ(completeTransformerT : CompleteTransformer T) → λ(M : Type → Type) → λ(monadM : Monad M) → 
     completeTransformerT.frun Id monadIdentity M monadM.pure
 ```
@@ -16034,7 +16031,7 @@ In practical use, a specific transformer is  treated as something closely relate
 But note that the transformer typeclasses do not explicitly mention the base monad.
 So, we will need to formulate transformer combinators as functions that produce transformers, without knowing the base monad. 
 
-We begin by implementing standard transformers for a number of well-known monads.
+We begin by implementing   transformers for a number of well-known monads.
 
 #### Identity monad
 
@@ -16056,7 +16053,7 @@ let completeTransformerTIdentity : CompleteTransformer TIdentity =
 The transformers for the `Optional`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
 The transformer for `Optional` works as `T M a = M (Optional a)`, and similarly for the `Either`, and `Writer` monads. 
 
-All those transformers are complete. We can implement evidence values of `CompleteTransformer` typeclass for them.
+All those transformers are complete. We will now implement evidence values of `CompleteTransformer` typeclass for them.
 
 For the `Optional` monad:
 ```dhall
@@ -16165,10 +16162,8 @@ This combinator may be used only in specific cases when it is known that `swap` 
 
 #### State monad
 
-The **state monad** is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
+The **state monad** is the functor `State S a = S → Pair S a`, where `S` is a fixed type.
 The corresponding transformer is given by `T S M a = S → M (Pair S a)`.
-
-Let us implement this in Dhall:
 
 ```dhall
 let TState : Type → (Type → Type) → Type → Type
@@ -16213,7 +16208,7 @@ let TSearch = λ(T : (Type → Type) → Type → Type) → λ(R : Type) → λ(
 ```
 
 These type expressions are not covariant in the foreign monad `M`, which means that foreign runners are impossible to implement.
-Base lifts are also not implementable.
+Base lifts are also do not exist.
 We only need to implement `monadTM` and `flift` methods.
 
 In each case, we use the known `Monad` evidence for the base monad.
@@ -16251,7 +16246,7 @@ let incompleteTransformerTSearch : ∀(T : (Type → Type) → Type → Type) �
 
 The transformer for a product of given monads is the product of their transformers.
 We require two arguments of type `CompleteTransformer` and obtain a new `CompleteTransformer` for the product type.
-
+This is quite similar to how the product of two monads is again a monad.
 ```dhall
 let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) → CompleteTransformer T1 → ∀(T2 : (Type → Type) → Type → Type) → CompleteTransformer T2 → CompleteTransformer (λ(M : Type → Type) → Product (T1 M) (T2 M))
   = λ(T1 : (Type → Type) → Type → Type) → λ(t1 : CompleteTransformer T1) → λ(T2 : (Type → Type) → Type → Type) → λ(t2 : CompleteTransformer T2) →
@@ -16349,7 +16344,6 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
   = λ(T : Type → (Type → Type) → Type → Type) → λ(transformerT : ∀(a : Type) → CompleteTransformer (T a)) →
     { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →  -- need a Monad evidence for λ(b : Type) → ∀a. T a M b
       monadForall (λ(a : Type) → T a M) (λ(a : Type) → (transformerT a).monadTM M monadM)
-      -- ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
     , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       λ(t : Type) → (transformerT t).flift M monadM a ma
     , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
@@ -16361,9 +16355,8 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
 
 #### Free monads
 
+Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data is stored on leaves.
 The free monad on a functor `F` can be defined recursively as `L a = Either a (F (L a))`.
-Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data in leaves has type `a` .
-
 The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (Either a (F (T M a)))`.
 Note that the foreign monad `M` is applied on the outside, but recursion makes it appear also inside the transformed type.
 
@@ -16390,7 +16383,7 @@ For instance, one cannot use currying to make the code more convenient: we can c
 The Church-Yoneda identity (proved in Appendix "Naturality and parametricity") allows us to rewrite such types via modified Church encodings:
 
 ```dhall
-M (FreeMonad (Compose F M) a)  ≅  ∀(r : Type) → (Either a (F (M r)) → r) → M r
+M (FreeMonad (Compose F M) a) ≅ ∀(r : Type) → (Either a (F (M r)) → r) → M r
 ```
 The difference is that the usual `LFix` has the form `∀(r : Type) → ... → r`, while the Church-Yoneda identity gives us a type of the form `∀(r : Type) → ... → M r`.
 It is then straightforward to apply currying to this type if desired.
@@ -16441,21 +16434,21 @@ let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → Com
 #### List-like monads
 
 The `List` and `NEL` (non-empty list) are monads representing a sequence of data items.
-We have already seen how to use the Church encoding for implementing  these type constructors. 
+We have already seen how to use the Church encoding for   these type constructors. 
 In a similar way, we implement transformers for these monads.
 
 The recursive definitions of the transformers `TList` and `TNEL` can be written as:
-
-`TList M a = M (Optional { head : a, tail : TList M a })`
-
-`TNEL M a = M (Either a { head : a, tail : TNEL M a })`
+```haskell
+TList M a = M (Optional { head : a, tail : TList M a })
+TNEL M a = M (Either a { head : a, tail : TNEL M a })
+```
 
 Similarly to what we did with free monads, we will use the unrolling lemma and the Church-Yoneda identity in order to obtain more convenient Church encodings for `TList` and `TNEL`.
 
 For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
 For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M V }`.
 (Both `U` and `V` depend on the fixed `a`.)
-This leads us to the code:
+This leads us to the following code:
 
 ```dhall
 let TList = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → r → (a → M r → r) → M r
@@ -16493,11 +16486,11 @@ let absorbTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M (TNE
 ```
 
 The second  helper function concatenates transformed lists of type `TNEL M`.
-This function (`concatTNEL`) is implemented similarly to `NEL/concat`: 
+This function (`TNEL/concat`) is implemented similarly to `NEL/concat`: 
 
 
 ```dhall
-let concatTNEL
+let TNEL/concat
   : ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
   = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
   -- Append nel1 to the end of the list nel2.
@@ -16519,7 +16512,7 @@ let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
   { pure = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (one x)
   , bind = λ(a : Type) → λ(tma : TNEL M a) → λ(b : Type) → λ(f : a → TNEL M b) →
       let atmb : a → M (TNEL M b) → TNEL M b = λ(x : a) → λ(mtmb : M (TNEL M b)) →
-        concatTNEL M monadM b (f x) (absorbTNEL M monadM b mtmb)
+        TNEL/concat M monadM b (f x) (absorbTNEL M monadM b mtmb)
       in absorbTNEL M monadM b (tma (TNEL M b) f atmb)
   }
 ```
@@ -16542,14 +16535,14 @@ let completeTransformerTNEL : CompleteTransformer TNEL
 ## Free typeclass instances
 
 Certain typeclasses support "free instances".
-A "free instance" creates a type that belongs to a typeclass out of any other type.
+A "free instance" is a type constructor that always creates a type  belonging to the typeclass.
 
-For example, a "free monoid on `T`" creates a monoid out of any given type `T`.
+For example, a "free monoid on `T`" is a type constructor that creates a monoid out of any given type `T`.
 It turns out that the free monoid on `T` is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
-So, the free monoid is created by the type constructor `List`.
+So, the free monoid is   the type constructor `List`.
 
-Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
+Other "free typeclass" constructors work similarly: they take a given type and wrap it in a suitable way such that the result always belongs to the   typeclass.
 
 We have already seen two examples of "free instances" (the free monad and the free pointed functor) earlier in this book.
 The free monad  on   `F`  wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
@@ -16585,7 +16578,7 @@ This chapter will show a number of examples.
 
 Typeclasses may describe either the properties of ordinary types (e.g., `Semigroup`, `Monoid`, `Eq`) or the properties of type constructors (e.g., `Functor`, `Monad`).
 While the general idea of a free typeclass instance applies to both kinds of typeclasses, 
-the required properties involve functions with quite different type signatures.
+the required properties involve functions with   different type signatures.
 
 We begin by looking at typeclasses for ordinary types.
 
@@ -16623,9 +16616,9 @@ We will not specify laws as part of the typeclass definition: the limited suppor
 We will need to define the property of "preserving the FM-typeclass operations".
 This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same FM-typeclass.
 We say that `f` "preserves the FM-typeclass operations" if the following law holds: For any `x : P u`,
-
-`fmTypeclassV (functorP.fmap u v f x) = f (fmTypeclassU x)`
-
+```haskell
+fmTypeclassV (functorP.fmap u v f x) = f (fmTypeclassU x)
+```
 where `fmTypeclassU : P u → u` and `fmTypeclassV : P v → v` are evidence values for types `u`, `v`. 
 
 This law expresses the structural property of `f`: any operation of the FM-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
@@ -16646,10 +16639,10 @@ let FreeFMTypeclass = λ(P : Type → Type) → λ(FreeFM : Type → Type) →
   }
 ```
 
-The free FM-typeclass instance `FreeFM t` belongs to the FM-typeclass even if `t` does not.
+The free FM-typeclass instance `FreeFM t` belongs to the FM-typeclass even if the type `t` does not.
 
-For any   type `u` that belongs to the FM-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
-The   conversion function (called `runP`) may be implemented generally, given an evidence value of `FreeFMTypeclass`:
+For any type `u` that belongs to the FM-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
+The conversion function (called `runP`) may be implemented generally, given an evidence value of `FreeFMTypeclass`:
 
 ```dhall
 let runP : ∀(P : Type → Type) → ∀(FreeFM : Type → Type) → FreeFMTypeclass P FreeFM → ∀(t : Type) → FreeFM t → ∀(u : Type) → FMTypeclass P u → (t → u) → u
@@ -16658,18 +16651,13 @@ let runP : ∀(P : Type → Type) → ∀(FreeFM : Type → Type) → FreeFMType
     in freeFMT.eval u pTu freeU
 ```
 
-The "FM" in the name "FM-typeclass" remind us that the definition of the typeclass involves a  functor (`P`) and a monad (`FreeFM`).
+The "FM" in the name "FM-typeclass" reminds us that the definition of the typeclass involves a  functor (`P`) and a monad (`FreeFM`).
 
 The monad property of `FreeFM` is mainly helpful for formulating the laws of an FM-typeclass in the language of category theory.
 In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a functor algebra of the functor $P$.
 The typeclass laws  turn out to be equivalent to `t` being a **monad algebra** of the monad `FreeFM`.
-
-To summarize, we could describe an FM-typeclass with laws  as a set of all types `t` that are $F$-functor algebras and at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$.
+We could then describe an "FM-typeclass with laws"  as a subcategory of all `t` that are $F$-functor algebras and at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$.
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
-
-Instead of the name "FM-typeclasses" one could use a longer name, such as "functor-monad-algebraic typeclasses", to express more concretely the required categorical properties.
-This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
-We will be using the shorter name "FM-typeclasses".
 
 It is _not_ known how to construct a free FM-typeclass in general for an arbitrary structure functor and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
@@ -16677,7 +16665,7 @@ In the following subsections, we will write down the definitions of some free ty
 When an FM-typeclass has no laws, the free FM-typeclass constructor _can_ be formulated in general for an arbitrary structure functor $P$.
 It   turns out to be just the free monad on $P$.
 This FM-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
-Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any  extra laws.
+Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any   laws.
 
 Here is an implementation of `FreeFMTypeclass` via `FreeMonad` that works for an arbitrary FM-typeclass _without_ laws:
 
@@ -16739,8 +16727,7 @@ let functorPTC2 : Functor PTC2 = { fmap = λ(a : Type) → λ(b : Type) → λ(f
           } fa
   }
 ```
-
-The typeclass evidence for `Natural` then looks like this:
+A `TC2` typeclass evidence for `Natural` then looks like this:
 
 ```dhall
 let tc2Natural : FMTypeclass PTC2 Natural = λ(pt : PTC2 Natural) →
@@ -16806,9 +16793,9 @@ let _ = assert : result2 ≡ 299
 
 The typeclass methods of type constructor typeclasses (such as `Functor` and `Monad`) typically have their own type parameters.
 For example, the `fmap` method of `Functor` has two type parameters:
-
-`fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b`
-
+```haskell
+fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
 Structure functors `P` for type constructor FM-typeclasses must have kind `(Type → Type) → Type → Type`.
 Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the FM-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
 
@@ -16818,24 +16805,26 @@ let FMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(T : Type →
 
 A free FM-typeclass instance creates  a new type constructor (`FreeFMTypeclassT F`) out of any given type constructor `F`, such that `FreeFMTypeclassT F` belongs to the FM-typeclass.
 
-For typeclasses whose members are functors with additional methods, such as (`Pointed`, `Monad`, or `ApplicativeFunctor`), one often  assumes that `F` is a functor.
+For typeclasses whose members are functors with additional methods, such as `Pointed`, `Monad`, or `ApplicativeFunctor`, one often  assumes that `F` is a functor.
 This makes it simpler to construct a free typeclass instance.
 Examples of such constructions are the free pointed functor, the free filterable functor, the free monad, and the free applicative functor.
-The following subsections will implement these constructions in more detail.
+The following subsections will implement these constructions in full detail.
 For now, let us just write down the required types for the free pointed and the free filterable functors:
 
 ```dhall
 let FreePointed = λ(F : Type → Type) → λ(a : Type) → Either a (F a)
+
 let FreeFilterable = λ(F : Type → Type) → λ(a : Type) → F (Optional a)
 ```
 Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFilterable` will be again functors and will support the required methods for the pointed and the filterable functor typeclasses.
 
-Let us now formulate the free FM-typeclass for type constructors as the typeclass `FreeFMTypeclassT`.
-We will drop the monad evidence requirement from that typeclass:
+Let us now formulate the free FM-typeclass instance for type constructors as the typeclass `FreeFMTypeclassT`.
+We will drop the monad evidence requirement from that typeclass.
 Implementing monads at the level of type constructors is technically difficult but brings no practical advantages.
 The formulation of typeclass laws via monad algebras helps in theoretical derivations but cannot be directly used in code.
-We will just add the monad's `pure` method, as it is necessary for creating values of a free typeclass out of base functor's values.
+Instead, we  will  add the monad's `pure` method, as it is necessary for creating values of a free typeclass out of base functor's values.
 
+The resulting formulation of `FreeFMTypeclassT` is:
 ```dhall
 let FreeFMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT : (Type → Type) → Type → Type) →
   { evidence : ∀(T : Type → Type) → FMTypeclassT P (FreeFMT T)
@@ -16844,7 +16833,7 @@ let FreeFMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT 
   }
 ```
 
-The code of `FreeFMTypeclassT` evidence values for `FreePointed`, `FreeFilterable`, and other functor typeclasses will be shown later in this chapter.
+Later in this chapter we will compute `FreeFMTypeclassT` evidence values for functor typeclasses such as `FreePointed`, `FreeFilterable`, and others.
 
 ### Free semigroup and free monoid
 
@@ -16864,14 +16853,11 @@ let FreeSemigroup = NEL
 let FreeMonoid = List
 ```
 
-We will be able to show that the type constructors `FreeSemigroup` and `FreeMonoid` belong to the typeclass  `FreeFMTypeclass` if we define the structure functors `P` appropriately.
+To show that the type constructors `FreeSemigroup` and `FreeMonoid` belong to the typeclass  `FreeFMTypeclass`, the first step is to   define the structure functors `P` appropriately.
 
 For the semigroup, the `append` operation has type `t → t → t`.
 We need to rewrite this type equivalently in the form `P t → t` using a suitable structure functor `P`.
-Note that we can uncurry the function type `t → t → t`, producing an equivalent type:
-
-`t → t → t  ≅  Pair t t → t`
-
+Note that we can uncurry the function type `t → t → t`, producing an equivalent type `Pair t t → t`.
 So, we define `P t = Pair t t` as the structure functor for `Semigroup`.
 The free typeclass instance is formulated as:
 
@@ -16886,7 +16872,7 @@ let freeFMTypeclassFreeSemigroup : FreeFMTypeclass SemigroupP FreeSemigroup
   }
 ```
 
-For the free monoid, we define the structure functor as `P t = Optional (Pair t t)`.
+For the free monoid,   the structure functor is `P t = Optional (Pair t t)`.
 Then the function type `P t → t` is equivalent to a pair of values of types `t` and `Pair t t → t`.
 These correspond to the methods `empty` and `append` of a monoid.
 
@@ -16932,7 +16918,7 @@ let PointedP : (Type → Type) → Type → Type
 
 We may view `PointedP` as a map from functors to functors that always returns the identity functor (a "constant map", so to speak).
 
-The corresponding free FM-typeclass evidence is here:
+The corresponding free FM-typeclass evidence is:
 
 ```dhall
 let freeFMTypeclassTFreePointed : FreeFMTypeclassT PointedP FreePointed
@@ -16997,11 +16983,10 @@ Now we will reformulate it as a free FM-typeclass constructor.
 The first step is to formulate the monad's methods as a single value of type `∀(a : Type) → P M a → M a`.
 Instead of using `pure` and `bind`, it is easier to use `pure` and `join` as the monad's methods.
 The types of these methods are:
-
-`pure : ∀(a : Type) → a → M a`
-
-`join : ∀(a : Type) → M (M a) → M a`
-
+```haskell
+pure : ∀(a : Type) → a → M a
+join : ∀(a : Type) → M (M a) → M a
+```
 These two methods do not cover the functionality of `fmap`, but we will use a `Functor` evidence of `F` to derive the free monad on `F`.
 
 If we choose `P M a` as a union type `Either a (M (M a))`, the type `P M a → M a` will be equivalent to the pair of function types `a → M a` and `M (M a) → M a`.
@@ -17052,14 +17037,23 @@ Currying the arguments of types `a → b` and `F a` within `FmapT` into a record
 let FmapTCurried = λ(F : Type → Type) → ∀(a : Type) → ∀(t : Type) → { step : t → a, seed : F t } → F a
 ```
 
-We can "pack" the type `t` into the record if we use the existential quantifier:
-A function type of the form `∀(t : Type) → F t → c` is equivalent to the function type `Exists F → c` (here `F` is any type constructor.
+We can "pack" the type `t` into the record if we use the existential quantifier.
+From the **function extension rule**
+(the section "The function extension rule for existential types") we know that a function type of the form `∀(t : Type) → K t → c` is equivalent to the function type `Exists K → c` (here `K` is any type constructor).
+In our case, we have a function type `∀(t : Type) → { step : t → a, seed : F t } → F a`.
+To use the function extension rule, set `K t = { step : t → a, seed : F t }` and `c = F a`.
+This gives the type equivalence:
+```dhall
+∀(t : Type) → { step : t → a, seed : F t } → F a  ≅  Exists K → F a
+```
 
+It remains to restore the type parameters `F` and `a` that we temporarily held fixed.
 For convenience, let us define a suitable type constructor `H` separately:
 ```dhall
 let H = λ(F : Type → Type) → λ(a : Type) → λ(t : Type) → { step : t → a, seed : F t }
 ```
-Using this `H`, we rewrite `FmapTCurried` equivalently as:
+Then we have `K t = H F a t`.
+Using  `H`, we rewrite `FmapTCurried` equivalently as:
 
 ```dhall
 let FmapTE = λ(F : Type → Type) → ∀(a : Type) → Exists (H F a) → F a
@@ -19752,7 +19746,7 @@ and
 
 `toCCoy : K G → CCoY`
 
-The function type `CCoY → K G` can be simplified using the function extension rule for existential types:
+The function type `CCoY → K G` can be simplified using the function extension rule for existential types (see section "The function extension rule for existential types"):
 
 `CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
 
