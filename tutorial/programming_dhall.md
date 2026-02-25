@@ -18679,13 +18679,14 @@ By assumption, the value `c : C` satisfies the strong dinaturality law:
 
 
 ```dhall
-∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) → -- Symbolic derivation.
+ -- Symbolic derivation. Strong dinaturality law of c:
+∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
 -- If p and q are f-related then f (c a p) ≡ c b q
    ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
      f (c a p) ≡ c b q
 ```
-The last equation needs to match the equation we need to prove:
-
+The last equation needs to match the equation we need to prove.
+For that, we choose the parameters in a suitable way:
 ```dhall
 -- Symbolic derivation. We need to match this equation:
   frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr
