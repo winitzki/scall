@@ -268,6 +268,7 @@ val hardcodedReplacements : String => String = { (source : String) =>
     "[cC]hapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
     "[tT]he [Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
     "[Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "[sS]ection \"([^\"]+)\"" -> "Section \\\\ref{$1}",
     "[tT]he +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
     "[tT]he +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
     "(\\\\label\\{)Appendix: " -> "$1",

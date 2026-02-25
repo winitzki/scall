@@ -18660,7 +18660,7 @@ Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and sub
 fix F functorF (unfix F functorF c) R frr ≡ ???
 ```
 
-We define temporary symbols `fmap_fix` and `c2r` for brevity, and rewrite the definitions of `fix` and `unfix` as:
+Rewrite the definitions of `fix` and `unfix` as:
 
 ```dhall
 -- Symbolic derivation. Define for brevity:
@@ -18843,7 +18843,7 @@ Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C)
 Suppose a function `f : C → R` is given and satisfies the $F$-algebra morphism law.
 We need to prove that, for any `c : C`, the following holds:
 ```haskell
-f c ≡ c2r c ≡ c R frr
+f c ≡ c R frr
 ```
 Values `c : C` satisfy the strong dinaturality law:
 
@@ -18899,11 +18899,11 @@ To explain the property of "preserving the fixpoint isomorphisms" in detail, con
 - Any `fc : F C` is mapped by the function `fmap_F c2r` into some `fr : F R`.
 - The property of "preserving the fixpoint isomorphisms" means that `c2r` should map `c` into `r` and the corresponding `fc` into the corresponding `fr`. In other words, `fr ≡ unfix_R r` if and only if `fc ≡ unfix_C c`.
 
-It means that the following equations must hold:
+It means that the following   must hold:
 
-(1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)`.
+(1) For any `fc c : F C` we must have `fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)`.
 
-(2) For any `c : C`: `unfix_R (c2r c) ≡ fmap_F c2r (unfix_C c)`.
+(2) For any `c : C` we must have `unfix_R (c2r c) ≡ fmap_F c2r (unfix_C c)`.
 
 We claim that these equations will hold for the function `c2r` defined by `c2r = λ(c : C) → c R fix_R`, and that there is only one such function.
 
@@ -18968,7 +18968,7 @@ For this part of the proof, we do not need to use the functor property of `F`.
 
 An alternative encoding of a recursive type is known as the **Mendler encoding**.
 We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
-The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types.
+The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types in System Fω.
 
 ```dhall
 let MFix : (Type → Type) → Type
@@ -18977,8 +18977,8 @@ let MFix : (Type → Type) → Type
 When `F` is a covariant functor, the type `∀(s : Type) → (s → r) → F s → r` is isomorphic to just `F r → r` (by the contravariant Yoneda identity).
 Then the Mendler encoding is isomorphic to the Church encoding of the least fixpoint of `F`.
 
-When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
-We will show the "free functor" construction later in this book.
+When `F` is not a functor, the Mendler encoding gives the least fixpoint of the free functor on `F`.
+
 
 As an example, let us implement the `List` functor using the Mendler encoding.
 ```dhall
@@ -19029,7 +19029,7 @@ let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
 
 ### The Church-Yoneda identity
 
-The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Church encoding formula (`LFix F = ∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The standard Yoneda identities do not apply to types of that form.
 
 There is a generalized identity (without a widely accepted name) that combines both forms of types:
@@ -19037,17 +19037,13 @@ There is a generalized identity (without a widely accepted name) that combines b
 ```dhall
 ∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
 ```
-Here `F` and `G` are arbitrary covariant functors, and `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`.
-
+Here `F` and `G` are arbitrary covariant functors, and `LFix F` is the Church-encoded least fixpoint of `F`.
 It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law**.
 
 This book calls this the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities.
-
 The Church-Yoneda identity is mentioned as "proposition 1" in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 of the paper by T. Uustalu.
 
-In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
-
-Here is a proof of the Church-Yoneda identity that assumes that the parametricity theorem holds for all values.
+We will now show a proof of the Church-Yoneda identity under assumptions of parametricity.
 
 To make the proof shorter, let us define the "Church-Yoneda" type constructor, which we will denote by `CY`:
 ```dhall
@@ -19071,17 +19067,19 @@ let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G
           let c2r : C → R = λ(c : C) → c R frr
           in functorG.fmap C R c2r gc
 ```
-For brevity, we will write `C` instead of `LFix F` to denote that Church-encoded recursive type.
+For brevity, we will write `C` instead of `LFix F`.
 
 It remains to prove the two directions of the isomorphism roundtrip (applying `fromCY` after `toCY`, or applying `toCY` after `fromCY`):
 
 (1) For any `gc : G C`, we need to show that:
-
-`fromCY F functorF G (toCY F G functorG gc) ≡ gc`
+```haskell
+fromCY F functorF G (toCY F G functorG gc) ≡ gc
+```
 
 (2) For any `cy : CY F G`, we need to show that:
-
-`toCY F G functorG (fromCY F functorF G cy) ≡ cy`
+```haskell
+toCY F G functorG (fromCY F functorF G cy) ≡ cy
+```
 
 To prove item (1), we begin by substituting the definitions of `fromCY` and `toCY` into the left-hand side:
 
@@ -19149,9 +19147,9 @@ Compare the last expression in our derivation with this law and read off the req
 ```
 This will finish the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -19176,7 +19174,7 @@ let packP : ∀(T : Type) → P T → ExistsP
   = λ(T : Type) → λ(pt : P T) →
       λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt
 ```
-and
+
 ```dhall
 let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → ExistsP → R
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : ExistsP) →
@@ -19300,33 +19298,33 @@ This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP`, `packP`, and `unpackP` shown before.
 
-We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
+We will now show that the functions `unpackP R` and `outEP R` defined in section "The function extension rule for existential types" are inverses of each other (when the type `R` is kept fixed).
 This will prove the **function extension rule** for existential types,
 which claims an isomorphism between types `ExistsP → R` and `∀(T : Type) → P T → R`.
-The functions `unpackP R` and `outE R` are the two directions of the isomorphism.
+The functions `unpackP R` and `outEP R` are the two directions of the isomorphism.
 
-Begin the proof by recalling the definitions of `unpackP` and `outE`:
+Begin the proof by recalling the definitions of `unpackP` and `outEP`:
 
 ```dhall
 let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → Exists P → R
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
     ep R unpack_
 
-let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
+let outEP : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
   = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pt : P T) →
     let ep : Exists P = pack P T pt
     in consume ep
 ```
 
-To verify that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
+To verify that the functions `unpackP R` and `outEP R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
 
-The first direction is when we apply `unpackP R` and then `outE R`.
-Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outE R`:
+The first direction is when we apply `unpackP R` and then `outEP R`.
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outEP R`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k)                 -- Use the definition of unpackP:
-  ≡  outE R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outE:
+outEP R (unpackP R k)                    -- Use the definition of unpackP:
+  ≡  outEP R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outEP:
   ≡  λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
@@ -19337,7 +19335,7 @@ The result should be equal to `k T pt`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k) T pt
+outEP R (unpackP R k) T pt
   ≡  (λ(ep : ExistsP) → ep R k) (packP T)
   ≡  (packP T) R k  -- Use the definition of packP:
   ≡  (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
@@ -19346,14 +19344,14 @@ outE R (unpackP R k) T pt
 
 This proves the first direction of the isomorphism.
 
-The other direction is when we first apply `outE` and then `unpackP`.
-It will be more convenient to denote the fixed type by `S` in this derivation (because we will need to apply the naturality law of `ep`, and the type parameter denoted by `R` is already used in that law).
+The other direction is when we first apply `outEP` and then `unpackP`.
+It will be more convenient to denote the fixed type by `S` in this derivation (because we will need to apply the naturality law of `ep`, and a type parameter denoted by `R` is already used in that law).
 
-Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `unpackP S`:
+Take an arbitrary value `consume : ExistsP → S` and first apply `outEP S` to it, then apply `unpackP S`:
 
 ```dhall
 -- Symbolic derivation.
-unpackP S (outE S consume)
+unpackP S (outEP S consume)
   ≡  unpackP S (λ(T : Type) → λ(pt : P T) → consume (packP T))
   ≡  λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
@@ -19361,11 +19359,11 @@ unpackP S (outE S consume)
 The result is a function of type `ExistsP → S`.
 We need to show that this function is equal to `consume`.
 
-Apply that function to an arbitrary value `ep : ExistsP`:
+Apply that function to an arbitrary value `ep : ExistsP` and get:
 
 ```dhall
 -- Symbolic derivation.
-unpackP S (outE S consume) ep
+unpackP S (outEP S consume) ep
   ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
@@ -19397,11 +19395,10 @@ ep ExistsP packP  ≡  ep
 ```
 
 It follows that `consume (ep ExistsP packP) ≡ consume ep`.
-
 Then we get:
-
-`consume ep  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
-
+```haskell
+consume ep  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
+```
 This concludes the proof.
 
 ### Existential types: Wadler's "surjective pairing rule"
@@ -19409,10 +19406,11 @@ This concludes the proof.
 The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
 
 For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`, the following equation holds:
+```haskell
+h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))
+```
 
-`h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))`
-
-Proof: After setting `h = consume`, this equation is the same as the last line in the proof in the previous section.
+To prove this, we just  notice that the equation above is the same as the last line in the proof in the previous section except for renaming `h = consume`.
 
 This property allows us to express a function application `h ep` through an application of `h` to a value explicitly constructed via `packP`.
 
@@ -19432,15 +19430,14 @@ ExistsP      -- Wadler's existential type ∃X. P X
 packP X y    -- Wadler's constructor: (X, y)
 t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) → w}) : W
 ```
-
 With this notation, consider Wadler's "surjective pairing rule", which he writes as:
-
-`h t == case t of {(X, y) → h(X, y)}`
-
+```haskell
+h t == case t of {(X, y) → h(X, y)}
+```
 This is translated into Dhall as:
-
-`h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
-
+```haskell
+h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))
+```
 After renaming `t = ep`, this is the same equation we proved above.
 
 ### Church encodings of greatest fixpoints
@@ -19491,11 +19488,12 @@ if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y
 ###### Statement 1 (extensional surjectivity of `unfold`)
 
 For any value `g : G`, for any type `S`, for any function `h : G → S`, we will have:
-
-`h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))`
+```haskell
+h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))
+```
 
 The name "extensional surjectivity" is used here to make it clear that we are not proving the ordinary surjectivity for `unfold`.
-The ordinary meaning of surjectivity for `unfold` would hold if any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
+The ordinary meaning of surjectivity for `unfold` would be that any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
 We are not able to prove that here.
 
 Instead, this statement claims a weaker property: for any function `h : G → S`, the function application `h g` can be computed if we know how to compute the function application `h (unfold R cR x)` for arbitrary types `R` and arbitrary values `cR : R → F R` and `x : R`.
