@@ -8089,7 +8089,6 @@ let ListCK = λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → r t)
 ```
 Note that currying makes it necessary to duplicate the universal quantifier inside the function argument (`∀(t : Type) → ...`).
 This is due to the general type isomorphism of the form:
-
 $$ \forall t. ~ a \times b \cong (\forall t. ~ a) \times (\forall t.~b )  $$
 
 Let us implement   data constructors for `ListCK` and create some sample values:
@@ -13353,7 +13352,6 @@ let arrowContrafunctorIdApplicative
 
 
 If `F` is a type constructor with two type parameters, we may impose a universal quantifier or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter:
-
  $$G ~ x = \forall y. ~ F ~ x ~ y \qquad , \qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` and `G` is defined as `λ(x : Type) → Exists (F x)`.
@@ -17072,7 +17070,6 @@ It turns out that the free functor construction is given by the same code:
 let FreeFunctor = FunctorP
 ```
 The mathematical notation for this type is:
-
 $$ \textrm{FreeFunctor}~F~a = \exists t.~(t\to a)\times F ~t $$
 
 Here is the corresponding `Functor` typeclass evidence:
@@ -17125,7 +17122,6 @@ After that, we may apply another free construction that requires its base type c
 What if we take a type constructor `F` that is already a functor and compute `FreeFunctor F`?
 It turns out that the resulting functor is equivalent to `F`.
 This happens due to one of the **co-Yoneda identities**:
-
 $$  \exists t.~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
 
 We will prove the co-Yoneda identities in the Appendix "Naturality and parametricity".
@@ -17151,7 +17147,6 @@ let FreeContrafunctor = ContrafunctorP
 
 
 The mathematical notation for this type is:
-
 $$ \textrm{FreeContrafunctor}~F~a = \exists t.~(a\to t)\times F ~t $$
 
 Here is the corresponding `Contrafunctor` typeclass evidence:
@@ -17193,7 +17188,6 @@ let freeFMTypeclassTFreeContrafunctor : FreeFMTypeclassT ContrafunctorP FreeCont
 
 If we take a type constructor `F` that is already a contrafunctor and compute `FreeContrafunctor F`, the result will be equivalent to `F`.
 This can be shown via the contravariant co-Yoneda identity:
-
 $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
 
 
@@ -17212,18 +17206,14 @@ We will replace `zip` by an equivalent method `ap`, whose type signature is `ap 
 It remains to uncurry and to rewrite the type signatures of `pure` and `ap` together in a single method signature of the form `P F t → F t`. 
 
 Let us write a mathematical formulation of the required type signatures, making sure that the final output type is `F a`:
-
 $$ \textrm{pure} : \forall a. ~ a \to F~ a $$ 
-
 $$ \textrm{ap} : \forall a. ~\forall b.~ F~ (b \to a) \to F ~b \to F ~a $$ 
 
 As `b` is a type parameter that does not appear in the final output type `F a`, we need to hide it under an existential quantifier.
 The result is:
-
 $$ \textrm{pure}\times\textrm{ap} : \forall a. ~ ( a + \exists b.~ (F~ (b \to a)) \times (F ~b) ) \to F ~a  $$
 
 This has the form $P ~F~a\to F~a$ if we choose the structure functor $P$ as:
-
 $$ P ~ F ~a =  a + \exists b.~ (F~ (b \to a)) \times (F ~b) $$
 
 The corresponding Dhall code is:
@@ -17276,10 +17266,8 @@ let applicativeFunctorFMTypeclassT : ∀(F : Type → Type) → ApplicativeFMTyp
 #### Defining the free applicative functor
 
 For the free applicative functor, we use the definition from [Capriotti and Kaposi (2014)](https://arxiv.org/pdf/1403.0749).
-
 To make the formulas shorter, let us assume that `F` is a fixed functor.
 Then the free applicative functor on `F` is defined in mathematical notation by:
-
 $$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
 
 This definition is recursive; `FAF` is defined using itself.
@@ -17287,10 +17275,9 @@ This definition is recursive; `FAF` is defined using itself.
 Note the difference between the type  expression $\exists b.~(\textrm{FAF}~b) \times(F~(b\to a))$ and the similar expression  $\exists b.~ (F~ (b \to a)) \times (F ~b)$ found in the structure functor $P$.
 The difference is that $F~(b\to a)$ involves the fixed functor `F` rather than the free applicative functor.
 This difference is crucial for the correct working of this construction.
-It is  far from obvious that this is correct, and the paper by Capriotti and Kaposi spent a while on the proof.
+It is  far from obvious that this is correct; the cited paper shows a  proof.
 We will just take their definition and implement it in Dhall.
 It is a recursive definition of the form `FAF a = Q FAF a`, where `Q` is a pattern functor (at the level of type constructors) written as:
-
 $$ Q ~ T~ a = a + \exists b.~(T~b) \times(F~(b\to a))  $$
 
 The Dhall code for `Q` needs to take `F` as an additional argument.
@@ -17526,7 +17513,7 @@ This program evaluates to `226981000`:
 226981000
 ```
 
-We usually say that we have defined a "variable" `x`, although `x` is actually a constant and can never change within the program that follows.
+We usually say that we have defined a "variable" `x`, although `x` is actually a constant and will never change within its scope.
 
 #### Alternative syntax
 
@@ -17679,7 +17666,7 @@ This kind of syntax is not often used in mathematics; usually, mathematical func
 
 Some programming languages allow functions that return other functions; then the syntax becomes something like `f(x)(y)(z)`. In this expression, `f` is a function such that `f(x)` is again a function, which can be applied to `y` and then gives another function that can be applied to `z`.
 
-In Dhall, parentheses are written only when needed to separate subexpressions. One can write `f(x)(y)(z)` in Dhall, but it will be easier to write `f x y z`.
+In Dhall, parentheses are written only when needed to separate subexpressions. One can write `f(x)(y)(z)` in Dhall, but it is easier to write `f x y z`.
 
 In Dhall, the function `Natural/subtract x y` takes one argument `x` and returns another function, which takes another argument `y` and then returns `y - x` if both `x` and `y` are natural numbers.
 
@@ -17697,9 +17684,9 @@ The Dhall syntax for that function looks like this:
 λ(n : Natural) → 10 + n * 30
 ```
 
-We may read that as "here's a function that takes a value of type Natural substitutes that value instead of `n` into the expression `10 + n * 30`".
+We may read that as "here's a function that takes a value of type `Natural` substitutes that value instead of `n` into the expression `10 + n * 30`".
 
-This function is a value; this text is a Dhall program that evaluates to that function. There is nothing more to simplify in that expression:
+This function is a value, and there is nothing more to simplify in that value:
 
 ```dhall
 ⊢ λ(n : Natural) → 10 + n * 30
@@ -17719,7 +17706,7 @@ let f = λ(n : Natural) → 10 + n * 30
 in f 2
 ```
 
-This program defines `f` as a function and then applies the function `f` to the value `2`. The resulting program is evaluated to `70`.
+This program assignes a function value to `f`   and then applies the function `f` to the value `2`. The resulting program is evaluated to `70`.
 
 - We should be able to write a function that substitutes any part of any expression.
 
@@ -17732,7 +17719,7 @@ We should be able to do that in the same way: We just begin a new function havin
   let f = λ(n : Natural) → p + n * 30
   in f 2   -- Line indentations are _not_ significant in Dhall.
 ```
-This is a function that can be applied to `10` and then evaluates to`70`.
+This is a function that can be applied to `10` and then evaluates to `70`.
 
 How can we write code that applies such a function to an argument `10`? There are two ways now:
 
@@ -17875,11 +17862,10 @@ let r = λ(g : Natural → Natural) →
 ```
 
 The function we assigned to `r` has a function `g` as its argument and returns another function: `λ(p : Natural) → g p + 123`.
-Such functions `r` are called "higher-order" functions.
 
 Generally, functions that return other functions as their result values, and/or take other functions as arguments, are called **higher-order functions**.
 
-So, all curried functions are higher-order functions.
+So, the function `r` shown above is a higher-order function. All curried functions are also higher-order functions.
 
 ### Step 3: Function types
 
@@ -17960,7 +17946,6 @@ This function is similar to a curried function. It can be used with two curried 
 ```
 
 Functions with type parameters are known in some programming languages as **generic functions** or **polymorphic functions**.
-
 For instance, the function `id` shown above may be called  the "polymorphic identity function".
 
 Polymorphic functions can work with values of any type, as long as that type is given as the type argument.
