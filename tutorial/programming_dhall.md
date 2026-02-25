@@ -3762,7 +3762,7 @@ Any monoid is a semigroup, but not all semigroups are monoids, because no suitab
 Given a `Monoid` evidence for a type `t`, we can automatically derive a `Semigroup` evidence by just selecting the `append` method:
 
 ```dhall
-let semigroupViaMonoid: ∀(t : Type) → Monoid t → Semigroup t
+let semigroupViaMonoid : ∀(t : Type) → Monoid t → Semigroup t
   = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.{append}
 ```
 
@@ -14728,7 +14728,7 @@ So, it is not possible to compute the final value of type `L (F a)`.
 ## Monads and their combinators
 
 In the chapter "Typeclasses" we have seen some examples of specific monads such as `Reader`, `Writer`, and `State`.
-We will now look at general combinators that create new monads.
+We will now implement a number of general combinators that create new monads.
 
 ### Constant functors and the identity functor
 
@@ -14768,7 +14768,7 @@ let monadProduct : ∀(F : Type → Type) → Monad F → ∀(G : Type → Type)
     in { pure, bind }
 ```
 
-### Co-product types
+### Co-product types: free pointed monads
 
 In general, a co-product of two monads is not a monad.
 But there is one exception: when one of the monads is the identity monad.
@@ -15127,7 +15127,7 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
 Just as for the ordinary filterable (contra)functors, we can implement four constructions for $M$-filterable (contra)functors.
 
 Suppose  `F` is a type constructor with two type parameters, and we are imposing a universal or an existential quantifier on the second type parameter.
-Then we will get new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+Then we will get new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y \qquad , \qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 Imposing a quantifier on `y` preserves the $M$-filterable properties of `F x y` with respect to `x` (while `y` is held fixed).
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
@@ -15275,7 +15275,10 @@ let filterableLFixEither
 -- Need a function of type C (M a) → C a.
 -- Define P such that LFix P = C (M a).
           let P = F (M a)
-          let functorFa : Functor (F a) = { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
+          let functorFa : Functor (F a) =
+            { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) →
+                bifunctorF.bimap a a (identity a) x y f
+            }
           in λ(c : LFix P) → c (C a) (λ(q : P (C a)) → merge {
             Left = λ(fa : F a (C a)) → fix (F a) functorFa fa
           , Right = λ(ca : C a) → ca
@@ -15288,7 +15291,7 @@ let filterableLFixEither
 Suppose a type constructor has a monad's methods with respect to one type parameter while the other type parameter is held fixed.
 It turns out we can then apply a universal quantifier to the fixed type parameter and obtain a new monad.
 
-As an example, take the continuation monad `Continuation R a = (a → R) → R` and replace the type parameter `R` by the type expression `F t`, where `F` is some type constructor and `t` is a new type parameter.
+As an example, take the continuation monad (`Continuation R a = (a → R) → R`) and replace the type parameter `R` by the type expression `F t`, where `F` is some type constructor and `t` is a new type parameter.
 Then apply the universal quantifier to `t`.
 The result is the type constructor we denote by `Codensity F a`:
 
@@ -15311,7 +15314,7 @@ let monadCodensity : ∀(F : Type → Type) → Monad (Codensity F)
     in { pure, bind } 
 ```
 
-We can generalize this idea to a combinator that imposes a universal quantifier on an extra type parameter in a given monad.
+In general, one may impose a universal quantifier on an extra type parameter in a given monad.
 If `M a b` is a monad with respect to `b` for fixed `a` then `N b = ∀(a : Type) → M a b` is a monad with respect to the free type parameter `b`: 
 
 ```dhall
@@ -15345,17 +15348,17 @@ let monadComposedCodensity : ∀(F : Type → Type) → Functor F → ∀(M : Ty
         in functorF.fmap (M (M t)) (M t) (monadJoin M monadM t) fmmt : F (M t) 
     in { pure, bind } 
 ```
-This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not a monad with respect to `a` when `t` is a fixed type.
+This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not necessarily a monad with respect to `a` when `t` is a fixed type.
 
 ### Monads with recursive types
 
-There does not seem to exist a combinator that produces a monad out of a fixpoint of an arbitrary type constructor that has some properties.
 
-The "free monad" is a recursive combinator that takes an arbitrary functor and builds a new monad out of that.
-
-We begin by looking at specific known monads that have recursive types.
+Here we will look at specific known monads that have recursive types.
 Some often used monads of that kind are the list-like and the tree-like monads.
 Examples of list-like monads are the standard `List` and the non-empty list.
+
+An example of a tree-like monad is the "free monad".
+It  is a recursive combinator that takes an arbitrary functor and builds a new monad.
 
 #### The `List` monad
 
@@ -15445,12 +15448,8 @@ let exampleNEL1345 : NEL Natural = toNEL Natural [ 1, 3, 4 ] 5
 let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]"
 ```
 
-Let us implement a `Monad` evidence for `NEL`.
-
-It is in any case not obvious how to implement the `bind` method for a given type constructor.
-Not all type constructors are monads; for those type constructors, an implementation of `bind` that satisfies the laws is impossible.
-
-With `NEL`, one finds  that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
+We now turn to finding  a `Monad` evidence for `NEL`.
+It turns out   that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
 So, we need to use a different approach.
 
 The type of `bind` is `NEL a → (a → NEL b) → NEL b`.
@@ -15621,9 +15620,11 @@ It turns out that `BTreeE` is a monad.
 Its `bind` operation  will remove leaves and sub-trees corresponding to `None`.
 
 To implement this operation more easily, we use a trick that this book calls the **Church-Yoneda identity**.
-It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic to the following  type:
+It says that, for any functors `F` and `G`, there is the following type equivalence (isomorphism):
 
-`∀(r : Type) → (F r → r) → G r`
+```haskell
+G (LFix F)  ≅  ∀(r : Type) → (F r → r) → G r
+```
 
 
 So, we may encode the type `Optional (TreeC a)`   equivalently  like this:
@@ -15740,13 +15741,14 @@ let _ = assert : exampleResult ≡ expectedResult
 
 #### The free monad 
 
-The binary tree is an example of a "tree-like" monad, that is, a monad whose data structure has the shape of a tree.
-Other examples of tree-like monads are trees that branch in three instead of in two sub-trees, or trees with more complicated branching shape, with extra data on each branch point, and so on. 
+Tree-like data structures can have different shapes.
+Data can be stored on leaves and/or on branch points; branchings can be in two, in three, or in a variable number of subtrees.
 
-In many cases, the choice of branching can be described by a functor `F`.
-The binary tree corresponds to choosing `F a = Pair a a`.
-Tree-like monads of that kind can be implemented by a general combinator known as the "free monad".
+There is a general combinator known as the "free monad" that describes a specific kind of tree-like structures where
+data is only stored on leaves while the choice of branching is described by a functor `F`.
+For instance, the binary tree (`Tree2`) corresponds to choosing `F a = Pair a a` as the branching functor.
 
+Here is a formal definition:
 The **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
 ```haskell
@@ -15762,7 +15764,7 @@ We just curry the function type to make the implementation easier:
 ```dhall
 let FreeMonad : ∀(F : Type → Type) → Type → Type
   = λ(F : Type → Type) → λ(a : Type) →
-    ∀(r : Type) → (a → r) → (F r → r) → r
+      ∀(r : Type) → (a → r) → (F r → r) → r
 ```
 
 To implement a monad's methods for `FreeMonad F`, we write:
@@ -15799,7 +15801,7 @@ let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
 let FrTree/join = monadJoin FrTree (monadFreeMonad D)
 ```
 
-We will also need a `Show` implementation and the monadic `join` method:
+We will also need a `Show` evidence for `FrTree`:
 
 ```dhall
 let showFrTree : ∀(a : Type) → Show a → Show (FrTree a)
@@ -15851,9 +15853,7 @@ The "infinite free monad" is the greatest fixpoint of the same pattern functor u
 let InfFreeMonad = λ(F : Type → Type) → λ(a : Type) → GFix (λ(r : Type) → Either a (F r))
 ```
 It is not a free monad in the mathematical sense, as it does not satisfy some of the laws required for free monads.
-Bit it is nevertheless a monad for any functor `F`.
-
-todo: check space before colon in exported code
+But it is nevertheless a monad for any functor `F`.
 
 To implement the `bind` method, we use the "seed" type that can switch between two monad types (`InfFreeMonad F a` and `InfFreeMonad F b`).
 Once we encounter a value of type `a`, we switch to `InfFreeMonad F b`.
