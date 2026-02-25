@@ -6878,7 +6878,7 @@ But that difference is crucial.
 
 See the Appendix "Naturality and parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
-### Recursive type constructors
+### Recursive Church-encoded type constructors
 
 Typically, a recursive definition of a type constructor is not of the form `T ≅ F T` but has extra type parameters:  `T a ≅ F (T a) a`, or `T a b ≅ F (T a b) a b`, etc.
 We will be able to describe such definitions if we   add more type parameters to the pattern functor `F`.
@@ -11931,9 +11931,9 @@ As long as the pattern functor `F` is applicative, we will be able to implement 
 ## Combinators for monoids
 
 A type is a monoid if there are methods called `empty` and `append` that satisfy appropriate laws.
-As we have seen in the "Typeclasses" chapter,
-Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
-It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
+As we have seen in the chapter "Typeclasses",
+Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values   to have a `Monoid` typeclass evidence.
+It turns out that there exist general combinators that produce `Monoid` evidence for larger types built from smaller ones.
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
 The proofs that the laws hold are given in "The Science of Functional Programming", Chapter 8.
 
@@ -11968,7 +11968,7 @@ let monoidOptionalKeepY : ∀(T : Type) → Monoid (Optional T)
                   }
 ```
 
-### Function monoid
+### The function monoid
 
 For any type `T`, the function type `T → T` is a monoid.
 Its `empty` value is an identity function.
@@ -11987,7 +11987,8 @@ let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
 The unit type (`{}`) is a monoid whose operations always return the value `{=}`.
 
 ```dhall
-let monoidUnit : Monoid {} = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} }
+let monoidUnit : Monoid {}
+  = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} }
 ```
 
 ### Product of monoids
@@ -12028,7 +12029,7 @@ let monoidEitherLeft
     }
 ```
 
-The other choice is when the `empty` method returns `Right monoidQ.empty`.
+The other choice is when the `empty` method returns `Right monoidQ.empty`:
 ```dhall
 let monoidEitherRight
   : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Either P Q)
@@ -12051,7 +12052,7 @@ let monoidEitherRight
 ### Functions with monoidal output types
 
 If `P` is _any_ type and `Q` is a monoidal type then the function type `P → Q` is a monoid.
-We implement this property as a combinator function:
+We implement this property as a combinator:
 ```dhall
 let monoidFunc
   : ∀(P : Type) → ∀(Q : Type) → Monoid Q → Monoid (P → Q)
@@ -12085,8 +12086,7 @@ An example of a non-commutative monoid is the `Optional` monoid shown earlier in
 ## Combinators for functors and contrafunctors
 
 Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall (without using dependent types).
-We will now enumerate all those ways.
-The result is a set of standard combinators that create larger (contra)functors from smaller ones.
+We will now enumerate all those ways and obtain a set of standard combinators that create larger (contra)functors from smaller ones.
 
 All the combinators preserve functor laws; the created new functor evidence values are automatically lawful.
 This is proved in "The Science of Functional Programming", Chapter 6.
@@ -12289,13 +12289,13 @@ let contrafunctorCoProduct
 The function-type functor `H a = F a → G a` is covariant if `F` is contravariant and `G` is covariant.
 Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
 
-For convenience, we define the `Arrow` combinator:
+For convenience, we define the `Arrow` constructor:
 ```dhall
 let Arrow : (Type → Type) → (Type → Type) → (Type → Type)
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F a → G a
 ```
 
-We can automatically construct the evidence values for the cases we just described:
+We can  derive the evidence values for the cases we just described:
 
 ```dhall
 let contrafunctorFunctorArrow
@@ -12363,7 +12363,7 @@ let functorForall1
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
 We omit that code.
 
-In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evidence for `G`:
+If `F a b` is contravariant in `a`, we can derive a `Contrafunctor` evidence for `G`:
 
 ```dhall
 let contrafunctorForall1
@@ -12422,7 +12422,7 @@ Here we will show the Dhall code for those combinators.
 
 A least-fixpoint type constructor is defined via a pattern functor that must be a type constructor with _two_ type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter becomes bound.
-(See the section "Recursive type constructors" in the chapter "Church encodings of more complicated types".)
+(See the section "Recursive Church-encoded type constructors" in the chapter "Church encodings of more complicated types".)
 
 Suppose `F` is a given pattern functor with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
@@ -12438,7 +12438,7 @@ We will now show code that takes a `Functor` evidence for `F a b` with respect t
 
 To simplify the code, we will begin by noting that both `LFix P` and `GFix P` are covariant with respect to the type constructor `P`.
 So, for any two type constructors `P` and `Q`, we can transform `LFix P → LFix Q` and `GFix P → GFix Q` given a function of type `∀(a : Type) → P a → Q a`.
-Let us write these transformations here for later use:
+Let us write these transformations  for later use:
 ```dhall
 let mapLFix
   : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
