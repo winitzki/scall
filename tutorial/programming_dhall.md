@@ -13176,7 +13176,7 @@ let applicativeCoProductConst
 
 2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative and `P` is a functor.
 The result is an applicative functor `R` defined by `R a = Either (P a) { _1 : a, _2 : Q a }`.
-The extra `a` is important: it will not be possible to derive `Applicative` evidence for `Either (P a) (Q a)`.
+The extra `_1 : a` is important: it is impossible to derive `Applicative` evidence for `Either (P a) (Q a)` when `P` and `Q` are arbitrary applicative functors.
 
 ```dhall
 let applicativeCoProductWithId
@@ -13354,9 +13354,7 @@ let arrowContrafunctorIdApplicative
 
 If `F` is a type constructor with two type parameters, we may impose a universal quantifier or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter:
 
- $$G ~ x = \forall y. ~ F ~ x ~ y$$
-
- $$H ~ x = \exists y. ~ F ~ x ~ y$$
+ $$G ~ x = \forall y. ~ F ~ x ~ y \qquad , \qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` and `G` is defined as `λ(x : Type) → Exists (F x)`.
 Here we use  the `Forall` and `Exists` type constructors that we have defined earlier.
