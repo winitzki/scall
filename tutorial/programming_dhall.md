@@ -12544,18 +12544,16 @@ Dhall's Prelude has the function `List/filter` that removes values from a list w
 let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] ≡ [ 5, 6, 7, 8 ]
 ```
 
-The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
+The notion of a **filterable functor** comes from generalizing this `filter` function to type constructors other than `List`.
 
-It turns out to be more convenient to define `filter` through another function called `deflate`.
-
-We define a **filterable functor** `F` as a (covariant) functor with and additional method called `deflate`, which has the following type signature:
-
-`deflate : F (Optional a) → F a`
-
+It turns out to be more convenient to define `filter` through another function called `deflate`, which has the following type signature:
+```haskell
+deflate : F (Optional a) → F a
+```
 A **filterable contrafunctor** `C` has a method called `inflate`, with the following type signature:
-
-`inflate : C a → C (Optional a)`
-
+```haskell
+inflate : C a → C (Optional a)
+```
 We can now define the corresponding typeclasses:
 ```dhall
 let Filterable = λ(F : Type → Type) → Functor F //\\ { deflate : ∀(a : Type) → F (Optional a) → F a }
@@ -12564,8 +12562,7 @@ let ContraFilterable = λ(F : Type → Type) → Contrafunctor F //\\ { inflate 
 
 Using the `deflate` method from a `Filterable` evidence, we may implement a `filter` function like this:
 ```dhall
-let filter
-  : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
+let filter : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
     let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
     let foa : F (Optional a) = filterableF.fmap a (Optional a) a2opt fa
@@ -12574,8 +12571,7 @@ let filter
 
 Similarly, we may implement a `contrafilter` function for a filterable contrafunctor like this:
 ```dhall
-let contrafilter
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
+let contrafilter : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
     let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
     let foa : F (Optional a) = contrafilterableF.inflate a fa
@@ -12604,8 +12600,7 @@ If `F` is a filterable functor and `G` is any functor (_not necessarily_ filtera
 We may implement a `Filterable` evidence like this:
 
 ```dhall
-let filterableFunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)
+let filterableFunctorFunctorCompose : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) }
 ```
@@ -12625,22 +12620,19 @@ For the first case, we just saw the code for a `Filterable` evidence.
 Here is the corresponding code for the remaining three cases:
 
 ```dhall
-let filterableContrafunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)
+let filterableContrafunctorFunctorCompose : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) }
 ```
 
 ```dhall
-let filterableFunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)
+let filterableFunctorContrafunctorCompose : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) }
 ```
 
 ```dhall
-let filterableContrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)
+let filterableContrafunctorContrafunctorCompose : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) }
 ```
@@ -12668,8 +12660,7 @@ Such a function can be always implemented for any polynomial functor `F`.
 Details and proofs are in "The Science of Functional Programming", Chapter 13.
 
 ```dhall
-let swapFilterable
-  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)
+let swapFilterable : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) →
      functorFunctorCompose Optional functorOptional F functorF /\  { deflate = λ(a : Type) →
 -- Need a function of type Optional (F (Optional a)) → Optional (F a).
@@ -12688,7 +12679,7 @@ let filterableFunctorProduct
     functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
-2) The product of two filterable contrafunctors is again a filterable contrafunctor:
+2) The product of two filterable contrafunctors is   a filterable contrafunctor:
 ```dhall
 let filterableContrafunctorProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
@@ -12753,7 +12744,7 @@ let filterableContrafunctorSwap
 ### Universal and existential type quantifiers
 
 If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
-This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y \qquad ,\qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 Imposing a quantifier on `y` will preserve the filterable properties of `F x y` with respect to `x` (while the type parameter `y` is held fixed).
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
@@ -12809,8 +12800,7 @@ let filterableExists1
 
 4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $H$ is a filterable contrafunctor.
 ```dhall
-let contrafilterableExists1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+let contrafilterableExists1 : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
     let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     in (contrafunctorExists1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
@@ -12833,8 +12823,7 @@ Then we need to consider four cases:
 1) If `F a b` is covariant and filterable with respect to `a` then so is `C a`.
 
 ```dhall
-let filterableLFix
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
+let filterableLFix : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
   = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
 -- Need a function of type C (Optional a) → C a. Use mapLFix for that.
@@ -12849,8 +12838,7 @@ let filterableLFix
 2) If `F a b` is covariant and filterable with respect to `a` then so is `D a`.
 
 ```dhall
-let filterableGFix
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
+let filterableGFix : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
   = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
 -- Need a function of type D (Optional a) → D a. Use mapGFix for that.
@@ -12927,8 +12915,7 @@ let deflateFList
 ```
 Adding a `Functor` evidence, we may write the `Filterable` typeclass evidence for the type constructor `F a b` with `b` fixed:
 ```dhall
-let filterableFList1
-  : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
+let filterableFList1 : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
   = λ(b : Type) → {
       deflate = λ(a : Type) → deflateFList a b
     , fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → Optional/map (Pair x b) (Pair y b) (λ(xb : Pair x b) → xb // { _1 = f xb._1 })
