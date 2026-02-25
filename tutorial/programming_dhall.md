@@ -18016,13 +18016,13 @@ This form of the function type syntax shows how Dhall treats types and values in
 
 #### Functions from types to types
 
-Functions with type parameters follow from the principle that we should be able to a function argument by a type.
+Functions with type parameters follow from the principle that we should be able to replace types in a type annotation by a new function argument.
 The result is that we obtain a function whose first argument is a type parameter.
 
 We may apply the same principle also to the returned value of a function.
-So, now we would like to replace the returned value of a function by a type.
+So, now we would like to replace a type in a type annotation by the returned value of a new function.
 
-The result is a function that _returns a type_.
+The result is that we need to have a function that _returns a type_.
 
 The argument of such a function could be either a value parameter or a type parameter.
 If it is a type parameter, we obtain a function from types to types.
@@ -18052,7 +18052,6 @@ We say that the symbol `Natural` has kind `Type`.
 Types that have values (`Natural`, `Bool`, `List Bool`, etc.) have kind `Type`.
 
 The symbol `List` has kind `Type → Type`, indicating that `List` is a function that maps types to types.
-
 Dhall has another built-in symbol of the same kind: `Optional`.
 
 Note that `List` and `Optional` are not just any functions that map types to types.
@@ -18087,20 +18086,36 @@ So, we see that `Natural → Natural` has kind `Type`.
 The syntax for type annotations is the same for values (`123 : Natural`) and for types (`Natural : Type`).
 
 What is the type of `Type` itself? In Dhall, that type is denoted by the built-in symbol `Kind`, and it is called a **sort**.
+So, we say that `Type` has sort `Kind`, and we write the type annotation `Type : Kind`.
 
-Other types of sort `Kind` are `Type → Type` or `Type → Type → Type` and other type-level functions.
+Other types of sort `Kind` are `Type → Type`, `Type → Type → Type`, and other type-level functions.
+So, we   write the annotations `(Type → Type) : Kind` and so on.
 
 What is the type of `Kind`? In Dhall, it is called `Sort`.
 Another example of a type of sort `Sort` is `Kind → Kind`.
+We   write `Kind : Sort`, `(Kind → Kind) : Sort`, and so on.
 
 #### Type universes
 
-The principle that everything should have a type means that we have an infinite sequence of type symbols.
+The principle that everything should have a type means that `Sort` should also have a type.
+Then one has three options in language design:
+
+- Decide that `Sort` has type `Sort` and accept the annotation `Sort : Sort`.
+- Introduce another type, say, `Sort2` and write `Sort : Sort2`.
+- Decide that `Sort` does not have a type.
+
+The first option turns out to lead to a contradiction in the type system.
+If a language chooses that option, there will be some expressions that are well-typed but never terminate.
+(Equivalently, such a language can compute a value of the void type.)
+
+The second option means that we will have an infinite sequence of type symbols: `Sort2`, `Sort3`, and so on to infinity.
 This is an inconvenient feature of programming languages that take the typing principle to its limit.
 Such languages (Agda, Idris, Lean, etc.) need to support an infinite sequence of type symbols, each denoting the type of the previous one: `Type0` has type `Type1`; `Type1` has type `Type2`; `Type2` has type `Type3` and so on.
 Those type symbols are called **type universes**.
+The problem with type universes is that there is no a reasonable practical need for infinitely many different type universes; and yet the language forces the programmer to consider them and to write code supporting them.
 
-The Dhall language makes a decision to cut the infinite sequence of type universes after `Sort`.
+
+The Dhall language chooses the third option and cuts the infinite sequence of type universes after `Sort`.
 So, in Dhall the symbol `Sort` does _not_ itself has a type.
 If `Sort` used in situations where its type were needed (for example, as the type of a function argument or a function return value) then Dhall indicates a type error and does not accept the program.
 
@@ -18110,17 +18125,15 @@ In practice, the restriction to three type universes is not a significant limita
 One consequence of that limitation is Dhall's inability to implement a kind-parametric list as a user-defined data type.
 Dhall programs can implement user-defined data structures of the following shapes:
 
-- Lists of values such as `[ 1, 2, 3]`; that is, lists of values of a specific type.
-- lists of simple types such as `[ Natural, Natural → Natural, Bool ]` (a "type-level" list). Each type in that list has kind `Type`.
-- Lists of types that all belong to a given specific kind. For example, the list `[ Option, List, Option ]` where each type has kind `Type → Type`.
+- Lists of values such as `[ 1, 2, 3 ]`; that is, lists of values of a specific type.
+- Lists of simple types such as `[ Natural, Natural → Natural, Bool ]` (a "type-level" list). Each type in that list has kind `Type`.
+- Lists of types that all belong to a given specific kind other than `Type`. For example, the list `[ Option, List, Option ]` where each type has kind `Type → Type`.
+
+In a language that supports infinitely many type universes, one can implement a fully "universe-polymorphic" list; that is, a list of types belonging to an arbitrary type universe.
 
 But Dhall cannot implement a kind-polymorphic list parameterized by an arbitrary kind.
 
 In practice, the need for such data structures appears to be rare.
-
-In a language that supports infinitely many type universes, one can implement a fully "universe-polymorphic" list; that is, a list of types belonging to an arbitrary type universe.
-
-The problem with type universes is that there isn't a reasonable practical need for infinitely many different type universes; and yet the language forces the programmer to consider them and to write code supporting them.
 
 
 ## Appendix: Naturality and parametricity
