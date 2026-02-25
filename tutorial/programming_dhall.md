@@ -44,7 +44,7 @@ This book corresponds to the [Dhall standard 23.0.0](https://github.com/dhall-la
 Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
-The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  resembles more the formal notation of System F and System Fω.
+The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  is closer to the formal notation of System F and System Fω.
 For instance, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
 $ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
@@ -52,7 +52,7 @@ Here is an example of a complete Dhall program:
 
 ```dhall
 let f = λ(x : Natural) → λ(y : Natural) → x + y + 2
-let id = λ(A : Type) → λ(x : A) → x
+let id = λ(a : Type) → λ(x : a) → x
 in f 10 (id Natural 20)
   -- This is a complete program; it evaluates to 32 of type Natural.
 ```
@@ -60,7 +60,7 @@ in f 10 (id Natural 20)
 See the [Dhall cheat sheet](https://docs.dhall-lang.org/howtos/Cheatsheet.html) for more examples of basic Dhall usage.
 
 [Dhall's  Prelude](https://prelude.dhall-lang.org/) defines a number of general-purpose functions
-such as `Natural/lessThan` or `List/map`.
+such as `List/map`  and  `Natural/lessThan`.
 
 ### Identifiers and variables
 
@@ -160,7 +160,7 @@ Functions in Dhall must look like `λ(x : input_type) → body`, where:
 - `input_type` is the type of the function's input argument, and
 - `body` is an expression that may use `x`; this expression computes the output value of the function.
 
-A function's type has the form `∀(x : input_type) → output_type`, where:
+A function's _type_ has the form `∀(x : input_type) → output_type`, where:
 
 - `input_type` is the type of the function's input value, and
 - `output_type` is the type of the function's output value.
@@ -170,8 +170,8 @@ The function `inc` shown above has type `∀(x : Natural) → Natural`.
 The Unicode symbols `∀`, `λ`, and `→` may be used interchangeably with their equivalent ASCII representations: `forall`, `\`, and `->`.
 In this book, we will always use the Unicode symbols.
 
-Usually, the function body is an expression that uses the bound variable `x`.
-However, the type expression `output_type` might   also depend on the input _value_ `x`.
+Usually, the function body is an expression that depends on the bound variable, such as `x`.
+However, the type expression `output_type` might   also depend on `x`.
 We will discuss such functions in more detail later.
 
 In many cases, the output type does not depend on `x`.
@@ -247,7 +247,7 @@ This code is equivalent to the shorter version:
 let multiplyBy4 = times 4
 ```
 
-The shortening pattern is that `λ(x : Natural) → times 4 x` is reduced to `λ(x : Natural) → times 4`.
+The shortening pattern is that `λ(x : Natural) → times 4 x` is reduced to `times 4`.
 More generally, `λ(x : a) → f x` is reduced to just `f` for any function `f`.
 This is known as the **eta-reduction**.
 
@@ -278,7 +278,7 @@ We will discuss functions of types in more detail later in this chapter.
 For now, we note that an argument's type may depend on a previous curried argument, which can be itself a type.
 This allows Dhall to implement a rich set of type-level features:
 
-- Functions with type parameters: for example, `λ(A : Type) → λ(x : A) → ...`
+- Functions with type parameters: for example, `λ(a : Type) → λ(x : a) → ...`
 - Type constructors, via functions of type `Type → Type` (both the input and the output is a type).
 - Type constructor parameters: for example, `λ(F : Type → Type) → λ(a : Type) → λ(x : F a) → ...`
 - Dependent types: functions whose inputs are values and outputs are types.
@@ -288,6 +288,7 @@ We will look at these features in detail later in this book.
 #### Shadowing and the syntax for de Bruijn indices
 
 De Bruijn indices are numbers that disambiguate shadowed variables in function bodies.
+This is a rarely used feature of Dhall.
 
 Consider a curried function that shadows a variable:
 
@@ -397,7 +398,7 @@ There are no built-in tuple types, such as Haskell's and Scala's `(Int, String)`
 Records with field names must be used instead.
 For instance, the (Haskell / Scala) tuple type `(Int, String)` may be translated into Dhall as the following record type: `{ _1 : Integer, _2 : Text }`.
 That record type has two fields named `_1` and `_2`.
-The two parts of the tuple may be accessed via those names and the "dot" operator:
+The two parts of the tuple may be accessed via those names and the "dot" syntax:
 
 ```dhall
 ⊢ :let tuple = { _1 = +123, _2 = "abc" }
@@ -410,7 +411,7 @@ tuple : { _1 : Integer, _2 : Text }
 ```
 
 Records can be nested: the record value `{ x = 1, y = { z = True, t = "abc" } }` has type `{ x : Natural, y : { z : Bool, t : Text } }`.
-Fields of nested record types may be accessed via the "dot" operator:
+Fields of nested record types may be accessed also via the "dot" syntax:
 
 ```dhall
 ⊢ :let a = { x = 1, y = { z = True, t = "abc" } }
@@ -511,8 +512,8 @@ So, there is no conflict between the constructors `Union1.Left` and `Union2.Left
 ### Pattern matching
 
 Pattern matching for union types is written via the `merge` keyword.
-Dhall's `merge` expressions are similar to `match/with`   in OCaml, `case/of`   in Haskell, and `match/case`   in Scala.
-One difference is that each case of a `merge` expression must specify an explicit function with a full type annotation, as we will see.
+Dhall's `merge` expressions are like OCaml's `match/with`, Haskell's `case/of`,  and Scala's `match/case` except that  nested patterns are not supported.
+Also, each case of a `merge` expression must specify an explicit function with a full type annotation, as we will see.
 
 As an example, consider a union type defined in Haskell by:
 
@@ -553,7 +554,6 @@ For no-argument constructors (e.g., for the constructor `Z` in the example shown
 The second argument of `merge` is a value of a union type on which the pattern matching is being done.
 
 Note that `merge` in Dhall is a special keyword, not a function, although its syntax (e.g., `merge { X = 0 } x`) looks like that of a curried function with two arguments.
-
 It is a syntax error to write `merge { X = 0 }` without specifying a value (such as `x`) at the end.
 
 However, `merge` may be used with a record expression instead of a literal record.
@@ -569,6 +569,8 @@ For instance, we may write `merge h x` where `h` evaluates to a suitable record:
 0
 ```
 
+As nested patterns are not supported, one cannot match a value of type `Optional (Optional Text)` in a single `merge` expression.
+One must write a nested `merge` for each layer of `Optional`.
 
 ### The void type
 
@@ -587,9 +589,10 @@ That function computes a value of an arbitrary type `A` given a value of the voi
 let absurd : <> → ∀(A : Type) → A
   = λ(x : <>) → λ(A : Type) → merge {=} x : A
 ```
+If `v` were a value of the void type and `X` is any type then `absurd v X` would be a value of type `X`.
 
-This implementation depends on a special feature of Dhall: a `merge` expression with a type annotation.
-(The annotation `: A` in `merge {=} x : A` is for the entire `merge` expression, not for `x`.)
+The implementation of `absurd` depends on a special feature of Dhall: a `merge` expression with a type annotation.
+(The annotation "`: A`" in `merge {=} x : A` is for the entire `merge` expression, not for `x`.)
 This annotation makes the type checker accept an _empty_ `merge` expression as a value of type `A`.
 
 We need to keep in mind that the function `absurd` can never be actually applied to an argument value in any program, because one cannot construct any values of type `<>`.
@@ -598,7 +601,7 @@ Nevertheless, the existence of the void type and a function of type `<> → ∀(
 The type signature of `absurd` suggests a type equivalence between `<>` and the function type `∀(A : Type) → A`.
 
 Indeed, the type `∀(A : Type) → A` is void.
-If we could have some expression `x` of that type, we would have then apply `x` to the void type and compute a value `x <>` of type `<>`.
+If we could find a function `f` of that type, we would then apply `f` to the void type and compute a value `f <>` of type `<>`.
 But that is impossible, as the type `<>` has no values.
 
 So, the type `∀(A : Type) → A` can be used equally well to denote the void type.
@@ -635,7 +638,7 @@ So, we may directly require `TODO` as an argument of type `∀(A : Type) → A` 
 let our_program = λ(TODO : ∀(A : Type) → A) →
   let x = TODO Natural in { result = x + 123 }     -- Whatever.
 ```
-We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code.
+We will be able to evaluate `our_program` only after replacing all `TODO` placeholders with suitable code and removing the argument of the void type.
 
 ### Unit types
 
@@ -643,11 +646,11 @@ A **unit type** is a type that has only one distinct value.
 
 Dhall's empty record type `{}` is a unit type.
 The type `{}` has only one value, written as `{=}`.
-This syntax denotes a record with no fields or values.
+This syntax denotes a record with no fields (an empty record).
 
 Another way of defining a unit type is via a union type with a single constructor, for example: `< One >` (or with any other name instead of "One").
 The type `< One >` has a single distinct value, denoted in Dhall by `< One >.One`.
-In this way, one can define unit types with different names, when convenient.
+In this way, one can define different unit types with convenient names.
 
 Another definition of a unit type is via the following function type:
 ```dhall
@@ -709,7 +712,7 @@ Dhall distinguishes types and type constructors not by assigned names but by the
 
 ### The type constructor `Optional`
 
-A  type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall like this:
+A type similar to Haskell's `Maybe` and Scala's `Option` could be defined in Dhall as:
 
 ```dhall
 let MyOptional = λ(a : Type) → < MyNone | MySome : a >
@@ -728,7 +731,7 @@ Here is an example of using Dhall's `merge` for implementing a `getOrElse` funct
 let getOrElse : ∀(a : Type) → Optional a → a → a
   = λ(a : Type) → λ(oa : Optional a) → λ(default : a) →
     merge { None = default
-          ,  Some = λ(x : a) → x
+          , Some = λ(x : a) → x
           } oa
 ```
 
@@ -789,8 +792,8 @@ When applying that function, the code must specify both type parameters (`a`, `b
 
 ```dhall
 let List/map = https://prelude.dhall-lang.org/List/map
-in List/map Natural Natural (λ(x : Natural) → x + 1) [1, 2, 3]
-  -- This is a complete program that returns [2, 3, 4].
+in List/map Natural Natural (λ(x : Natural) → x + 1) [ 1, 2, 3 ]
+  -- This is a complete program that returns [ 2, 3, 4 ].
 ```
 
 A **polymorphic identity function** is written (with a long type annotation) as:
@@ -816,26 +819,25 @@ However, a `let` binding does not require a type annotation.
 So, one may just write `let Pair = λ(a : Type) → λ(b : Type) → { _1 : a, _2 : b }`.
 The type of `Pair` will be determined automatically.
 
-For complicated type signatures, it still helps to write type annotations, because Dhall will then detect some type errors earlier.
+For complicated type signatures, it still helps to write type annotations, because Dhall will then detect type errors earlier.
 
 ### Modules and imports
 
-Dhall has a simple file-based module system.
-The module system is built on the principle that each Dhall file must contain a valid program that is evaluated to a _single_ result value.
+When the Dhall interpreter reads a file with Dhall code, it accepts  only a file containing a single and well-typed expression and   evaluates that expression to a _single_ result value.
 (Programs are often written in the form `let x = ... let y = ... in ...`, but the result is still a single value.)
+This restriction allows Dhall to implement a simple file-based module system: each file is seen as a "module" that exports a single value.
+There are no special keywords to denote the exported value; it is simply the result value of the file's entire code.
 
 A file's value may be imported into another Dhall file by specifying the path to the first Dhall file.
-The second Dhall file can then directly use that value as a sub-expression in any further code.
+The second Dhall file can then directly use that value as a subexpression in any further code.
 For convenience, the imported value is usually assigned to a variable with a meaningful name.
 
-In this way, each Dhall file is seen as a "module" that exports a single value.
-There are no special keywords to denote the exported value; there is only one such value in any case.
 
 Here is an example: the first file contains a list of numbers, and the second file computes the sum of those numbers.
 
 ```dhall
 -- This file is `./first.dhall`.
-[1, 2, 3, 4]
+[ 1, 2, 3, 4 ]
 ```
 
 ```dhall
@@ -863,7 +865,7 @@ let UserId = Natural
 let printUser = λ(name : UserName) → λ(id : UserId) → "User: ${name}[${Natural/show id}]"
 
 let validate : Bool = ./NeedToValidate.dhall -- Import that value from another module.
-let _ = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
+let test = assert : validate ≡ True   -- Cannot import this module unless `validate` is `True`.
 
 in {
   UserName,
@@ -914,13 +916,13 @@ Dhall denotes imports via special syntax:
 - If a Dhall value begins with `http://` or `https://`, it is an import from a Web URL.
 - A Dhall value of the form `env:XYZ` is an import from a shell environment variable `XYZ` (in Bash, this would be `$XYZ`). It is important to use no spaces around the `:` character, because `env : XYZ` means a value `env` of type `XYZ`.
 
-The import paths, environment variable names, and SHA256 hash values are _not strings_.
+It is important that  environment variable names and import paths  are _not strings_.
 They are hard-coded and cannot be manipulated at run time.
 It is not possible to import a file whose name is computed by concatenating some strings.
 For instance, one cannot write   `let x = ./Dir/${filename}`  with the intention of substituting the value `filename` as part of the path to an imported file.
 
-The contents of the imported resource may be treated as plain text or as binary data, instead of treating it as Dhall code.
-This is achieved with the syntax `as Text` or `as Bytes`.
+The contents of the imported resource may be treated as plain text  instead of treating it as Dhall code.
+This is achieved with the syntax `as Text`.
 
 For example, environment variables typically contain plain text rather than Dhall code.
 So, they should be imported `as Text`:
@@ -947,7 +949,7 @@ However, `Location` values cannot be reused to perform further imports.
 
 Apart from requiring hard-coded import paths, Dhall imposes other limitations on what can be imported to help users maintain a number of security guarantees:
 
-- All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching).
+- All imported modules are required to be valid (must pass typechecking and optionally SHA256 hash matching as described below).
 - All imported resources are loaded and validated at typechecking time, before any evaluation may start.
 - Circular imports are not allowed: no resource may import itself, either directly or via other imports.
 - Imported values are referentially transparent: a repeated import of the same external resource is guaranteed to give the same value (if the import is successful).
@@ -990,7 +992,7 @@ The fact that both files `file1.dhall` and `file2.dhall` are located in the same
 Any file can import any other file, as long as an import path (absolute or relative) is given.
 
 An import such as `let Dir1/file1 = ./Dir1/file1.dhall` might appear to suggest that `file1` is a submodule of `Dir1` in some sense.
-But actually Dhall treats all imports in the same way regardless of path; it does not have any special concept of "submodules".
+But actually Dhall treats all imports in the same way regardless of path; there is no concept of a "submodule".
 The file `./Dir1/file1.dhall` is treated as a Dhall file like any other.
 
 Also, names like `Dir1/file` are not treated specially.
@@ -1000,8 +1002,8 @@ Names like `Dir1/file` are no more than an often used convention in Dhall librar
 To create a hierarchical library structure of modules and submodules, the Dhall library uses nested records.
 Each module has a top-level file called `package.dhall` that defines a record with all values from that module.
 Some of those values are again records containing values from other modules (that also define their own `package.dhall` in turn).
-The top level of Dhall's Prelude is a file called `[package.dhall](https://prelude.dhall-lang.org/package.dhall)` that contains a record with all modules in the Prelude.
-A Dhall file may import the entire Prelude and access its submodules like this:
+The   [top level of Dhall's Prelude](https://prelude.dhall-lang.org/package.dhall)   is a record containing all modules.
+A Dhall file may import the entire Prelude and access its  modules like this:
 ```dhall
 let p = https://prelude.dhall-lang.org/package.dhall -- Takes a while to import!
 let x = p.Bool.not (p.Natural.greaterThan 1 2)     -- We can use any module now.
@@ -1149,7 +1151,7 @@ Values are never capitalized in this book.
 #### Unidirectional type inference
 
 Dhall has a limited form of type inference known as "unidirectional".
-The type is inferred  for  expressions that involve constants or sub-expressions whose types were already inferred.
+The type is inferred  for  expressions that involve constants or subexpressions whose types were already inferred.
 For example, look at  these expressions:
 ```dhall
 let x = 1
@@ -1165,12 +1167,12 @@ However, type annotations must be given  when binding a function argument, such 
 The type of the expression `x + 1` is unknown if the type of `x` is unknown.
 It is not valid in Dhall to write, say, `λ(a : Type) → λ(x : a) → x + 1`; Dhall will not infer `a = Natural` from that code.
 
-One can describe this behavior by saying that the type inference is sent only "in  one direction": from bound variables towards expressions, but not  from expressions to bound variables.
+One can describe this behavior by saying that the type inference works only "in  one direction": from bound variables towards expressions, but not  from expressions back to bound variables.
 The expression `x + 1` cannot be typechecked in Dhall unless the type of the bound variable `x` is already known.
-The types of function arguments will not be inferred by examining the function body and assuming that the types must match there.
-So, function arguments must be explicitly type-annotated;
+The type of `x` will not be inferred by examining the function body `x + 1` and assuming that the types must match there and so `x` must have type `Natural`.
+Function arguments such as `x` must be explicitly annotated, as in `λ(x : Natural) → x + 1`.
 
-Also, type parameters are treated in the same way.
+Type parameters are treated in the same way.
 Dhall will not infer them and will not fill them in automatically:
 ```dhall
 let identity : ∀(a : Type) → a → a = λ(a : Type) → λ(x : a) → x
@@ -1179,14 +1181,14 @@ let _ = identity 123  -- Type error: type parameter missing.
 All type parameters must be written out when applying type constructors or functions with type parameters.
 A correct code would be `identity Natural 123`.
 
-Although the requirement of writing out all type parameters makes Dhall programs more verbose, it also removes the "magic" from the syntax of certain idioms in functional programming.
-In particular, Dhall requires us to write out  all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to write kind annotations for _types_ (such as, `F : Type → Type`) as well.
+Although the need to write out all type parameters makes Dhall programs more verbose, it also removes the "magic" from certain idioms in functional programming.
+In particular, Dhall requires us to write out all type quantifiers, to choose carefully between `∀(x : A)` and `λ(x : A)`, and to specify annotations for _type constructors_ (such as `F : Type → Type`) as well.
 This verbosity has actually helped the author to learn some of the more advanced concepts of functional programming.
 
 #### Strict and lazy evaluation. Partial functions
 
-In a programming language, the **strict evaluation** strategy means that all sub-expressions in a program are evaluated even if they are not used to compute the final result of the program.
-The **lazy evaluation** strategy means that sub-expressions are evaluated only if they are needed for computing the program's final result.
+In a programming language, the **strict evaluation** strategy means that all subexpressions in a program are evaluated even if they are not used to compute the final result of the program.
+The **lazy evaluation** strategy means that subexpressions are evaluated only if they are needed for computing the program's final result.
 
 In this sense, the Dhall interpreter uses lazy evaluation in most cases.
 For example, it will be quick to run Dhall programs similar to this:
@@ -1219,19 +1221,19 @@ in ???
 ```
 
 Dhall's typechecking stage is analogous to the compile-time stage in compiled programming languages.
-At that stage, the Dhall interpreter resolves all imports and then typechecks all sub-expressions in the program, whether they are used or not.
+At that stage, the Dhall interpreter resolves all imports and then typechecks all subexpressions in the program, whether they are used or not.
 Imports must be resolved and evaluated first, in order to be able to proceed with typechecking; otherwise Dhall would not be able to determine, say, the type of `x` in `let x = ./import_file.dhall`.
 
 When no type errors are found, the interpreter goes on evaluating the program to the normal form, using the lazy evaluation strategy.
 
 To summarize, Dhall uses lazy evaluation when applying functions to arguments and in `let`-expressions.
-Strict evaluation is used for any values required to be available during type-checking: all imported values, all values in `assert` expressions, and all values that are required for computing any types.
+Strict evaluation is used for any values required to be available during type-checking: all imported values, all values in `assert` expressions, and also all values that are required for computing any types.
 
 It is important to keep in mind that in almost all cases a well-typed Dhall program will give the same result whether evaluated lazily or strictly.
 
 The lazy and strict evaluation strategies give different results only if:
-- a sub-expression creates a side effect whose execution may influence the result value; or
-- a  "rogue" sub-expression _cannot_ be evaluated because it will either crash the program or enter an infinite loop.
+- a subexpression creates a side effect whose execution may influence the result value; or
+- a  "rogue" subexpression _cannot_ be evaluated because it will either crash the program or enter an infinite loop.
 
 To implement the first case, we would need to create a Dhall expression containing a side effect.
 The only side effect in Dhall is importing an external resource.
@@ -1249,18 +1251,18 @@ This is due to Dhall's specific choice of features and strict typechecking:
 
 - A function call will typecheck only if all arguments have correct types.
 - A pattern-matching expression will typecheck only if it handles _all_ parts of the union type being matched.
-- All `if / then` constructions must have an `else` clause; both clauses must be values of the same type.
-- There are no "undefined" values: Dhall has no analog of Haskell's "bottom" or of Java's "null" or of Scala's `???`.
+- All `if / then` constructions must have an `else` clause; both clauses must be expressions of the same type.
+- There are no "undefined" values: Dhall has no analog of Haskell's "bottom",  Java's "null", or  Scala's `???`.
 - A program cannot create exceptions or other run-time errors.
 - Infinite loops are not possible; every loop must have an upper bound on the number of iterations.
 - All lists must have an upper bound on length.
 - Imports cannot be circular or provide ill-typed values.
 
 These features eliminate large classes of programmer errors that could create rogue expressions inadvertently.
-Nevertheless, three possibilities for creating rogue expressions still remain:
+Nevertheless, some possibilities for creating rogue expressions still remain:
 - Trying to create a data structure so large that no realistic computer could fit it in memory.
 - Starting a computation that takes so long that no realistic user could wait for its completion.
-- Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from the device file `/dev/zero`).
+- Trying to import an extremely large external resource (e.g., from a Web server that keeps generating  space characters forever, or from `/dev/zero`).
 
 These situations are impossible to avoid because (even with Dhall's restrictions) it is not possible to determine in advance the maximum memory requirements and run times of an arbitrary given program.
 It is also impossible to determine the length of an external resource in advance.
@@ -1314,26 +1316,26 @@ add1 : ∀(x : Natural) → ∀(y : Natural) → Natural
 λ(z : Natural) → 579 + z
 ```
 
-The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Natural) → 579 + z`, while the argument `z` remains symbolic.
-The simplification occurred in the functon body under a `λ(z ...)`.
+The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Natural) → 579 + z`, while the argument `z` remained symbolic.
+The simplification occurred in the function body under a `λ(z ...)`.
 This sort of simplification is what we call "evaluation under a lambda".
 
-From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do when desining a pure System Fω interpreter.
+From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do for a pure System Fω interpreter.
 For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
 If the interpreter supports reducing under lambdas then refactoring a function's body (renaming variables, introducing new local variables, etc.) will keep the normal form unchanged.
 This enables us to refactor code at will without changing its semantic hash.
 
-However, the "normal-form-oriented programming" turns out to have some unexpected consequences.
+However, this "normal-form-oriented programming" turns out to have some unexpected consequences.
 One issue is that the normal form of some functions can grow to an extremely large size even though the code is not "obviously large".
 
-A small example comes from the implementation of floating-point numbers.
-Suppose we need to write the following helper functions:
+An example comes from the author's implementation of floating-point numbers
+where  the following helper functions were required:
 
 - Given `i : Integer`, compute a pair `(x, y)` of `Natural` numbers such that `x = i + y`. This is the function `f`.
 - Given two integers `i`, `j`, compute a pair `(x, y)` of `Natural` numbers such that `x + i = y + j`. This is the function `g`.
 - Given four integers `i`, `j`, `k`, `l`, compute a pair `(x, y)` of `Natural` numbers such that `x + i + j = y + k + l`. This is the function `h`.
 
-The code for `f`, `g`, `h` is straightforward. It is natural to define `g` through `f` and `h` through `g`:
+The code for `f`, `g`, and `h` is straightforward. It is natural to define `g` through `f` and `h` through `g`:
 ```dhall
 let Integer/positive =  https://prelude.dhall-lang.org/Integer/positive
 let Integer/abs = https://prelude.dhall-lang.org/Integer/abs
@@ -1367,7 +1369,7 @@ The  printed form of `h` contains thousands of repetitions like this:
               then  Integer/negate ( Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate ( Integer/negate k ) ) ) ( Integer/clamp ( Integer/negate l ) ) ) )
               else  Natural/toInteger ( Natural/subtract ( Integer/clamp ( Integer/negate l) ... Why so many???
 ```
-Why did the functions grow so much?
+Why did the function's normal form grow so much?
 
 Looking at the code of `f`, we notice that `f` uses its argument `i` three times.
 The code of `g` applies `f` to an argument `Integer/subtract a b`.
@@ -1413,7 +1415,7 @@ let Integer/subtract = λ(a : Integer) → λ(b : Integer) →
 ```
 This long normal form is repeated three times when we apply `f` to `Integer/subtract a b`.
 The body of `Integer/subtract` needs to be inlined and applied to symbolic arguments  every time it is used in `f`; no further reduction is possible.
-This gives rise to a large text of `g`.
+This gives rise to a large normal form of `g`.
 
 Finally, note that the function `Integer/subtract` uses each of its arguments (`a` and `b`) ten times.
 So, `g` repeats its arguments `30` times each.
@@ -1428,7 +1430,7 @@ let z = if p1 y then p2 y else p3 ???
 But the "normal-form-oriented programming" forces each function's code to be inlined and repeated at each call site.
 When this occurs under lambda, an exremely large normal form can be produced.
 
-Generally, the growth of normal forms happens for two reasons:
+Generally, the growth of normal forms happens in two situations:
 
 - When `let` expressions are used to define some helper functions repeatedly through other helper functions.
 - When `List/fold` is used with a literal list, or `Natural/fold` is used with a literal `Natural` value, but some other arguments are symbolic.
@@ -1441,9 +1443,9 @@ let List/index = https://prelude.dhall-lang.org/List/index
 let data = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p" ]
 let lookup : Natural → Optional Text = λ(n : Natural) → List/index n Text data
 ```
-For example, `lookup 2` returns `"c"` and `lookup 10` returns `"k"`.
+For example, `lookup 2` returns `Some "c"` and `lookup 10` returns `Some "k"`.
 At first sight this function is perfectly ordinary. However, its normal form is about 50 MB!
-The reason is the extremely repetitive inlining that `List/index` performs with its `data` argument if it is given as a literal list value.
+The reason is the extremely repetitive inlining that `List/index n Text data` performs with its `data` argument when `data` is   a literal list value but `n` is symbolic.
 
 To see what happens with `Natural/fold`, consider this code:
 
@@ -1475,12 +1477,12 @@ When all arguments are literal values and the final results are not functions, t
 
 Let us show a workaround that mitigates (but does not eliminate) the problem of exploding normal forms.
 
-The trick for mitigating the growth is based on two features of Dhall:
+The trick for slowing the growth is based on two features of Dhall:
 
-- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or `False` then the merge expression will stay unexpanded. This will get rid of the problem of expression growth, even if the code of `q` uses `x` several times.
+- A merge expression will not expand under lambdas if Dhall is unable to make a static decision about a union type. For example, `merge { None = p, Some = q } (if b then Some x else None)` will substitute `x` into `q` only if `b` is a **statically known value**. When Dhall cannot statically decide if `b` is `True` or `False` then the merge expression will stay unexpanded. This will prevent expression growth even if the code of `q` uses `x` several times.
 - Dhall cannot recognize that certain functions always return `True`. If we use such a function instead of `b` in `if b then Some x else None` then Dhall will not be able to simplify that expression into `Some x`.
 
-In this way, we can trick Dhall into avoiding a normal form expansion under lambda.
+In this way, we can trick Dhall into doing fewer  normal form expansions under lambda.
 
 Here is a generic helper function that reduces the growth of normal forms:
 ```dhall
@@ -1496,9 +1498,12 @@ let reduceGrowth
           { Some = f, None = stopgap }
           (if predicate x then Some x else None T)
 ```
-The function transforms a given function of type `T → R` into another function of the same type. The code only inlines `x` twice. The `stopgap` is an arbitrary value of type `R`, as it will be never used. The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. 
+The function transforms a given function of type `T → R` into another function of the same type.
+The code only inlines the argument `x : T` twice.
+The `stopgap` is an arbitrary value of type `R`, as it will never be used.
+The body of `f` may use `x` multiple times, but Dhall will not inline `x` within the `merge` expression as long as `predicate` is a function that Dhall cannot simplify statically. The predicate must be a function of type `T → Bool` that actually always returns `True` but such that Dhall cannot recognize it as a constant function. 
 
-For each input type `T`, we need to find such a `predicate` function of type `T → Bool`.
+For each input type `T`, we can find such a `predicate` function of type `T → Bool`.
 An example of a suitable constant function of type `Natural → Bool` is:
 ```dhall
 let predicateNatural : Natural → Bool = λ(x : Natural) →
@@ -1527,11 +1532,11 @@ In Dhall, several built-in types (`Double`, `Bytes`, `Date`, `Time`, `TimeZone`)
 One can specify literal values of those types, and the only operation available for them is printing their values as `Text` strings.
 Those types are intended for creating strongly-typed configuration data schemas and for safely exporting data to configuration files.
 
-The built-in types `Bool`, `List`, `Natural`, and `Text` support more operations.
+The built-in types `Bool`, `Integer`, `List`, `Natural`, and `Text` support more operations.
 In addition to specifying literal values of those types and printing them to `Text`, a Dhall program can:
 
 - Use `Bool` values as conditions in `if` expressions or with the Boolean operations (`&&`, `||`, `==`).
-- Add, multiply, and compare `Natural` numbers.
+- Add, multiply, and compare `Natural` and `Integer`   numbers.
 - Concatenate lists and compute certain other functions on lists (`List/indexed`, `List/length`).
 - Concatenate, interpolate, and replace substrings in `Text` strings.
 
@@ -1551,17 +1556,17 @@ Those loops perform as many iterations as needed to reach a given stopping condi
 In certain cases, it is not possible to find out in advance whether the stopping condition will ever be reached.
 So, programs that contain "while" or "until" loops are not statically guaranteed to terminate.
 
-A list may be created only if the required length of the list is bounded in advance.
-It is not possible to write a program that creates a list by adding more and more elements until some condition is reached, without an upper limit set in advance.
+A list may be created in Dhall only if the required length of the list is bounded in advance.
+It is not possible to write a  Dhall program that creates a list by adding more and more elements until some condition is reached, without an upper limit set in advance.
 
 Similarly, all text strings will have a length limit known up front.
 
 Although Dhall does not support recursion directly, one can use certain tricks (the Church encoding and existential types) to write non-recursive definitions that simulate recursive types, recursive functions, and "lazy infinite" data structures.
-Later chapters in this book will show how that can be achieved.
+Later chapters in this book will explain the required techniques.
 
 In practice, this means Dhall programs are limited to working with finite data structures and fold-like iterative functions on them.
 Recursive code can be translated into Dhall only if there is a termination guarantee: the total number of nested recursive calls must be bounded in advance.
-Within these limitations, Dhall supports a wide variety of iterative and recursive computations.
+Despite these limitations, Dhall supports a wide variety of iterative and recursive computations.
 
 #### No side effects
 
@@ -1576,15 +1581,14 @@ But that happens outside the Dhall program.
 
 The only feature of Dhall that is in some way similar to a side effect is the "import" feature:
 a Dhall program can read Dhall values from external resources (files, Web URLs, and environment variables).
-The result of evaluating a Dhall program will then depend on the contents of the external resources.
+The result of evaluating a Dhall program will then depend on the contents of the external resources at read time.
 
 However, this dependency is invisible inside Dhall code, where each import looks like a constant value.
-This is because Dhall implements one-time, cached, and read-only imports.
-Dhall reads import values similarly to the way a mathematical function reads its arguments.
-The paths to external resources must be hard-coded; they are not strings and cannot be computed at run time.
-Even though the actual external resource may change during evaluation, the Dhall interpreter will ignore those changes and use only the first value obtained by reading the resource.
+This is because Dhall will cache the  imported value after first reading.
 A repeated import of the same resource will always give the same Dhall value.
+Even though the external resource may change during evaluation, the Dhall interpreter will not see  those changes: repeated imports will re-use  the  value obtained from the first import.
 It is not possible to write a Dhall program that repeatedly reads a value from a  file and reacts in some way to changes in the file's contents.
+Dhall reads import values similarly to the way a mathematical function reads its arguments.
 
 A Dhall program also cannot have a custom behavior reacting to a failure _while importing_ the external resources.
 There is only a simple mechanism providing fall-back alternative imports in case a resource is missing.
@@ -1592,9 +1596,9 @@ If a resource fails to read despite fall-backs, or fails to typecheck, or fails 
 
 Most often, imports are used to read library modules with known contents that is not expected to change.
 Dhall supports that use case with its "frozen imports" feature.
-If all imports are frozen, a Dhall program is guaranteed to give the same results each time it is evaluated.
+If all imports are frozen, a Dhall program is guaranteed to give the same result  each time it is evaluated.
 
-#### Guaranteed termination
+#### Guaranteed termination and Turing-incompleteness
 
 In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
 Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression (that is, to an expression that cannot be simplified any further).
@@ -1605,13 +1609,18 @@ It is guaranteed that the correct normal form will be computed, given enough tim
 Invalid Dhall programs will be rejected at the typechecking phase.
 The typechecking itself is also guaranteed to complete within finite time.
 
-The price for those termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
-A Turing-complete language must support programs that do not terminate as well as programs for which it is not known whether they terminate.
-Dhall supports neither general recursion nor `while`-loops nor any other iterative constructions whose termination is not assured.
+Dhall supports neither general recursion nor `while`-loops nor any other control flow constructions whose termination is not assured.
 Iterative computations are possible in Dhall only if the program specifies the maximum number of iterations in advance.
+A Dhall program can never enter an infinite loop.
 
-The lack of Turing-completeness is not a significant limitation for a wide scope of Dhall usage, as this book will show.
-Dhall can still perform iterative or recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
+The price for these termination and safety guarantees is that the Dhall language is _not_ Turing-complete.
+A **Turing-complete language** must support programs that enter an infinite loop and never compute the expected result, as well as programs for which it is _not known_ whether they will enter an infinite loop.
+Dhall does not support such programs.
+
+But it is not clear that practical applications require  supporting   programs that could potentially enter an infinite loop and fail to return a result.
+
+As this book will show, Dhall can  perform iterative and recursive processing of numerical data, lists, trees, or other user-defined recursive data structures.
+The lack of Turing-completeness is not a significant limitation, as it still permits a wide scope of Dhall usage.
 
 The termination guarantee does _not_ mean that Dhall programs could never exhaust the memory or could never take too long to evaluate.
 As Dhall supports arbitrary-precision integers, it is possible to write a "rogue" Dhall program (or a **rogue expression**) that runs a loop with an extremely large number of iterations, or  creates a  data structure consuming   petabytes of memory.
@@ -1632,8 +1641,9 @@ functions in the `List` subdirectory work with lists, and so on.
 Library functions for working with `Natural` and `Integer` numbers include functions such as `Natural/lessThan`, `Integer/lessThan`, and so on.
 Functions for working with lists include `List/map`, `List/filter`, and other utility functions.
 
-All built-in Dhall functions have the corresponding standard library functions (just for the purpose of clean re-export).
+All built-in Dhall functions have the corresponding   library functions exported in the Prelude.
 For example, the built-in function `Date/show` is also exported as `https://prelude.dhall-lang.org/Date/show` (which just calls the built-in function).
+In this way it is easier to keep  library modules independent on language evolution, which might add or remove built-in functions.
 
 In addition, there are  modules such as `Function` and `Operator` that do not correspond to a specific type but are collections of general-purpose utilities.
 
@@ -1643,12 +1653,12 @@ To keep the language simpler, Dhall has only a small number of built-in function
 
 The `Function` module contains utility methods for working with functions, such as composing all functions in a list. 
 
-The `Operator` module exposes various built-in and library functions as operators with names such as `+`, `-`, or `!=`.
+The `Operator` module exposes various built-in operators as functions with names such as `+`, `-`, or `!=`.
 
 The `DirectoryTree` module contains types and functions for working with file paths, file permissions, and directory names.
 
 The `JSON` module contains definitions that are useful for creating a custom JSON export.
-If a Dhall program creates a value of type `JSON` then the standard `dhall-to-json` and `dhall-to-yaml` utilities will apply custom logic to export that value correctly.
+If a Dhall program creates a value of type `JSON` then the standard utilities `dhall-to-json` and `dhall-to-yaml`  will apply custom logic to export that value correctly.
 
 The `DirectoryTree` and `JSON` modules are based on Church encoding, which will be explained later in this book.
 
@@ -1659,14 +1669,14 @@ The `DirectoryTree` and `JSON` modules are based on Church encoding, which will 
 
 "Polymorphic records" is a feature of some programming languages where, say, the record   type `{ x : Natural, y : Bool }` is considered to be a type of records having a `Natural` field `x` and a Boolean field `y` and possibly other fields that the code (in this scope) does not need to know about.
 
-A function that requires its argument to have type `{ x : Natural, y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool, z : Text }` and will ignore the value `z`.
+In a language with polymorphic records, a function that requires its argument to have type `{ x : Natural, y : Bool }` will then also accept an argument of type `{ x : Natural, y : Bool, z : Text }` and will ignore the value `z`.
 
 Other languages support subtyping of records: a record type `{ x : Natural, y : Bool, z : Text }` is considered to be a subtype of `{ x : Natural, y : Bool }`.
 
 Dhall does not supports subtyping or polymorphic records, but it does include some facilities to work with records polymorphically.
 
 A typical use case for polymorphic records is when a function requires an argument of a record type `{ a : A, b : B }`, but we would like that function to accept records with more fields, for example, of type `{ a : A, b : B, c : C, d : D }`.
-The function only needs the fields `a` and `b` and should ignore any other fields.
+The function should ignore any  fields other than `a` and `b`.
 
 To implement this behavior in Dhall, use a field selection operation: any unexpected fields will be automatically removed.
 
@@ -1680,7 +1690,7 @@ in f r1.(MyTuple)  -- This is a complete program that returns 123.
 The field selection operation `r1.(MyTuple)` removes all fields other than those defined in the type `MyTuple`.
 We cannot write `f r1` because `r1` does not have the type `MyTuple`.
 Instead, we write `f r1.(MyTuple)`.
-We would need to use the field selection each time we call the function `f`.
+We   need to use the field selection each time we call the function `f`.
 
 Another often needed feature is providing default values for missing fields.
 This is implemented with Dhall's record update operation (`//`):
@@ -1706,7 +1716,7 @@ Similarly, `myTupleDefault // r` will accept records `r` of any record type and 
 
 But Dhall cannot directly describe the type of records with unknown fields.
 (There is no type that means "any record".)
-So, one cannot write a Dhall function taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
+So, one cannot write a Dhall _function_ taking an arbitrary record `r` and returning `r.(MyTuple)` or `myTupleDefault // r`.
 
 Dhall programs must write expressions such as `myTupleDefault // r` or `r.(MyTuple)` at each place (at call site) where record polymorphism is required.
 
@@ -1725,11 +1735,11 @@ Types may be assigned to variables, stored in records, and passed as function pa
 
 For instance, in most languages we may define a variable of type `Bool` by writing code analogous to Dhall's `let x : Bool = True`.
 Here, we used the type `Bool` as a type annotation for the variable `x`.
-But we may also write `let y = Bool` to define a variable `y` whose value is the type symbol `Bool` itself.
-Then we will be able to use `y` in type annotations, such as `x : y`.
+But we may also write `let b = Bool` to define a variable `b` whose value is the type symbol `Bool` itself.
+Then we will be able to use `b` in type annotations, such as `let x : b = True`.
 
 Another similarity between types and values in Dhall is that type expressions themselves have a type and are type-checked. 
-For example, if we define `let y = Bool` then the type of `y` will be `Type`.
+For example, if we define `let b = Bool` then the type of `b` will be `Type`.
 
 To find out the type of an expression, one can write `:type` in the Dhall interpreter:
 
@@ -1751,7 +1761,7 @@ Dhall defines functions with the `λ` syntax:
 let inc = λ(t : Natural) → t + 1
 ```
 
-The same syntax works if `t` were a type parameter (having type `Type`):
+The same syntax works when `t` has type `Type`, which makes it  a type parameter:
 
 ```dhall
 let f = λ(t : Type) → λ(x : t) → { first = x, second = x }
@@ -1800,7 +1810,7 @@ Error: ❰Some❱ argument has the wrong type
 Nevertheless, Dhall can implement a data structure similar to an `Optional` containing a type.
 
 ```dhall
-let OptionalT = < None | Some : Type >
+let OptionalT = < NoneT | SomeT : Type >
 ```
 
 Later chapters in this book will show how to define type-level data structures such as a list of type symbols.
@@ -1811,7 +1821,7 @@ Later chapters in this book will show how to define type-level data structures s
 Dhall uses the symbol `λ` (or equivalently the backslash `\`) to denote functions and the symbol `∀` (or equivalently the keyword `forall`) to denote _types_ of functions.
 
 - An expression of the form `λ(x : sometype1) → something2` is a function that can be applied to an argument in order to compute a result. Note that `something2` could be either a value or a type.
-- An expression of the form `∀(x : sometype1) → sometype2` is always a _function type_: in other words, an expression that can be used as a type annotation for a function. In particular, `sometype2` must be a type.
+- An expression of the form `∀(x : sometype1) → sometype2` is always a _function type_: in other words,  it can be used as a type annotation for a function. In particular, `sometype2` must be a type.
 
 Expressions of the form `∀(x : sometype1) → sometype2` may be used as type annotations for functions of the form `λ(x : sometype1) → something2`.
 (However, it is not required that the name `x` be the same in the function and in its type.)
@@ -1841,7 +1851,7 @@ A function type of the form `A → B` can be always rewritten in an equivalent b
 The additional name (`a`) could be chosen to help the programmer remember the intent behind that argument.
 
 
-#### Example
+#### Examples
 
 To illustrate the difference between `∀` and `λ`, let us compare the Dhall expressions `λ(r : Type) → Optional r` and `∀(r : Type) → Optional r`.
 
@@ -1854,10 +1864,10 @@ The expression `∀(r : Type) → Optional r` has type `Type`.
 It is the _type of functions_ having a type parameter `r` and returning a value of type `Optional r`.
 A value of type `∀(r : Type) → Optional r` must be a function written in the form `λ(r : Type) → ...` in some way.
 The code of such a function must work for all types `r` and must produce some value of type `Optional r`, no matter what the type `r` might be.
-An example of such a function is `λ(r : Type) → None r`.
+The only possible code for such a function is `λ(r : Type) → None r`.
 
 
-#### Example: polymorphic identity function
+#### Polymorphic identity function
 
 As another example to help remember the difference between `∀` and `λ`, look at the polymorphic identity function.
 That function takes a value `x` of an arbitrary type and again returns the same value `x`:
@@ -1893,10 +1903,8 @@ let identity = λ(X : Type) → λ(x : X) → x
 let x = identity Natural 123  -- Writing just `identity 123` is a type error.
 ```
 
-This makes Dhall code more verbose but also helps remove "magic" from the syntax, helping functional programmers to learn about more complicated types.
 
-
-#### Example: "Invalid function output"
+#### The error message "Invalid function output"
 
 An expression of the form `λ(x : type1) → body` is a function that computes the expression `body` when applied to an argument of type   `type1`.
 (The expression `body` could itself be a value or a type.)
@@ -1983,7 +1991,7 @@ A simple example of a dependent function whose type uses `f` would be:
 let g : ∀(x : Bool) → f x
   = λ(x : Bool) → if x then 123 else "abc" -- Type error: different types in the two "if" branches!
 ```
-However, Dhall cannot accept this function as valid.
+However, Dhall cannot accept this function as well-typed.
 The output type of `g` is `f x`, which depends on the input value `x`.
 But Dhall cannot accept that the two branches of the "`if`" expression have different types. 
 
@@ -2005,7 +2013,7 @@ Such "dependent records" or "dependent pairs" are directly supported in more adv
 We will show later in this book how Dhall can encode dependent pairs despite that limitation.
 
 Dhall's implementation of dependent types is limited to the simplest use cases.
-The main limitation is that Dhall cannot correctly track types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
+A major limitation is that Dhall cannot correctly track types that depend on values in `if/then/else` expressions or in pattern-matching expressions.
 
 The following example (using the function `f` defined above) shows that Dhall does not track correctly the dependent types inside an `if` branch:
 
@@ -2026,7 +2034,7 @@ Because of this and other limitations, Dhall can work productively with dependen
 
 Below in the chapter "Numerical algorithms" we will see an example of using dependent types for implementing a safe division operation.
 
-### The keyword `assert`. Equality types
+### The keyword `assert` and equality types
 
 For types other than `Bool`, `Integer`, and `Natural`, equality testing is not available as a function.
 However, values of any type may be tested for equality at typechecking time via Dhall's `assert` feature.
@@ -2042,14 +2050,12 @@ The Dhall expression `a ≡ b` is a special _type_ that depends on the values `a
 The type `a ≡ b` is different for each pair `a`, `b`.
 It is an example of a **dependent type**.
 
-Types of the form `a ≡ b` are known as **equality types** because they have the following special properties:
+Types of the form `a ≡ b` are known as **equality types** because they have   special properties depending on whether `a` is equal to `b`.
 
-The type `a ≡ b` has _no values_ (is void) if `a` and `b` have different types, or the same types but different normal forms (as Dhall expressions).
-For example, the types `1 ≡ True` and `1 ≡ 2` are void.
-(We will never be able to create any values of those types.)
+The type `a ≡ b` is void (has no values)  if `a` and `b` have different types, or the same types but different normal forms (as Dhall expressions).
+For example, the types `1 ≡ True` and `1 ≡ 2` are void; we cannot create any values of those types.
 
 If `a` and `b` evaluate to the same normal form then the type `a ≡ b` is not void.
-
 For example, the types `False ≡ False` and `123 ≡ 123` are not void.
 
 Actually, types of the form `a ≡ a` are defined to be a unit type.
@@ -2068,11 +2074,17 @@ let test1 = assert : 1 + 2 ≡ 0 + 3
 ```
 
 In this example, the two sides of the type `1 + 2 ≡ 0 + 3` are equal after reducing them to normal forms.
-The resulting type `3 ≡ 3` is non-void and has a value.
-We assigned that value to `test1`.
+The resulting type `3 ≡ 3` is non-void and has a value that we  assigned   to `test1`.
 We could pass that value to a function whose argument has type `3 ≡ 3`.
+The Dhall interpreter confirms  that `test1` indeed has type `3 ≡ 3`:
 
-It is not actually possible to print the value `test1` of type `3 ≡ 3` or to examine that value in any other way.
+```dhall
+⊢ :let test1 = assert : 1 + 2 ≡ 0 + 3
+
+test1 : 3 ≡ 3
+```
+
+It is not actually possible to print the value assigned to `test1`   or to examine that value in any  way.
 That value _exists_ (because the `assert` expression was accepted by Dhall), but that's all we know.
 
 
@@ -2107,7 +2119,7 @@ This code will fail to typecheck because, within the code of `compareTextValues`
 Because this code fails to typecheck, we cannot use it to implement a function returning `False` when two text strings are not equal.
 
 
-Another example: we cannot write a Dhall function that checks whether a string is empty, when that string is given as the function's parameter.
+Another example: we cannot write a Dhall function that checks whether a string parameter is an empty string.
 ```dhall
 let isStringEmpty = λ(t : Text) →
   assert : t ≡ "" -- Type error: assertion failed.
@@ -2151,9 +2163,9 @@ in f (g ...) k ???              -- Compute the final result.
 The values `f`, `g`, `k`, and `n` are statically known in this code because:
 
 - The value `k` is a direct import.
-- The value`n` is computed from a literal number (`123`) and from `k`.
+- The value `n` is computed from a literal number (`123`) and from `k`.
 - The values `f` and `g` are literal function expressions defined at the top level.
-- The bodies of the functions `f` and `g` may use `k`, `n`, and library imports. So, those functions are built up from statically  known values. 
+- The bodies of the functions `f` and `g` may use `k`, `n`, and  imports. So, those functions are built up from statically  known values. 
 
 All values at the top level of a valid Dhall program are statically known.
 Values can be non-statically known only within the scope of a function body.
@@ -2162,14 +2174,14 @@ Generally, parameters of functions are not statically known within the scope of 
 
 The concept of "statically known values" is useful for understanding the usage of `assert` expressions.
 Consider an assertion of the form `assert : x ≡ y`.
-If `x` and `y` are statically known then the Dhall typechecker will be able to validate that assertion by reducing both `x` and `y` to literal values.
+If `x` and `y` are statically known then the Dhall typechecker will   reduce both `x` and `y` to literal values and then check if those values are equal.
 Typically, that's what the programmer expects when writing an `assert` expression.
 For this reason, `assert` expressions are almost always used with statically known values.
 
 Reducing an expression to a literal value at typechecking time is possible only if that expression is a statically known value.
 
 When `x` or `y` is not statically known, the typechecker will only be able to reduce `x ≡ y` to a normal form containing some symbolic variables.
-In most cases, this is not useful because it cannot be validated.
+In most cases, this is not useful and is not what programmers intend.
 
 For example, here is an attempt to create a function `f` enforcing the condition that `f x` may be called only with nonzero `x`:
 ```dhall
@@ -2191,7 +2203,7 @@ Then one can use that type to write assertions for statically known values:
 let MustBeNonzero : Natural → Type
   = λ(x : Natural) → Natural/isZero x ≡ False
 let _ = assert : MustBeNonzero 123   -- OK.
--- let _ = assert : MustBeNonzero 0    -- This fails!
+-- let _ = assert : MustBeNonzero 0  -- This fails!
 ```
 
 
@@ -2262,9 +2274,9 @@ let StaticBool : Bool → Type = λ(x : Bool) → zeroBool x ≡ True
 let _ = assert : StaticBool False  -- OK.
 ```
 
-For `Text` values, we can create a sequence of operations that will always return an empty string, and we assert on that property.
+For `Text` values, we can create a sequence of operations that will always return an empty string.
 But the Dhall interpreter is unable to validate that property symbolically.
-So, the assertion on `StaticText x` will fail unless `x` is a statically known value:
+The assertion on `StaticText x` will hold only if `x` is   statically known:
 ```dhall
 let emptyText : Text → Text = λ(x : Text) → Text/replace x "" (x ++ x)
 let StaticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
@@ -2273,7 +2285,7 @@ let StaticText : Text → Type = λ(x : Text) → emptyText x ≡ ""
 ```
 
 In this way, we have implemented assertions on statically known values of primitive types `Bool`, `Integer`, `Natural`, and `Text`.
-With more work, similar assertions may be also implemented for   lists, records, and unions built from  those primitive types.
+Similar assertions may be also implemented for   lists, records, and unions built from  those primitive types.
 
 ### Kinds and sorts
 
@@ -2301,13 +2313,8 @@ We may read the expression `p : Kind` as  "`p` is a kind".
 Other possible values of type `Kind` are "type constructor" kinds, such as `Type → Type`, as well as other type expressions involving the symbol `Type`.
 
 ```dhall
-⊢ :type (Type → Type) → Type
-
-Kind
-
-⊢ :type { a : Type }
-
-Kind
+let _ = ( (Type → Type) → Type ) : Kind
+let _ = { a : Natural, b : Type } : Kind
 ```
 
 An example of a type constructor is `List`, which is a built-in symbol whose kind is `Type → Type`.
@@ -2319,13 +2326,7 @@ The reason can be formulated by saying that `List` does not have kind `Type`.
 We can annotate values only by something that has kind `Type`.
 
 As we have just seen, the type of `{ a = 1, b = Bool }` is the record type written in Dhall as `{ a : Natural, b : Type }`.
-The type of _that_ is `Kind`:
-
-```dhall
-⊢ :type { a : Natural, b : Type }
-
-Kind
-```
+The type of _that_ is `Kind`, as we just saw.
 
 Any function that returns something containing `Type` will itself have the output type `Kind`:
 
@@ -2359,7 +2360,7 @@ The reason is that `Q` is not a simple kind; it has type `Kind → Kind`.
 There are no expressions `T` such that `T : Q` is a well-typed annotation.
 A type `T` may be annotated as `T : P` only if `P` is annotated as `P : Kind`.
 To describe such `P`, we do not say that `P` has type `Kind`.
-Instead, we use the word **sort** and say that  "the sort of `P` is `Kind`" and that `Q` has sort `Kind → Kind`.
+Instead, we use the word **sort** and say that  "the sort of `P` is `Kind`" and that the sort of `Q` is `Kind → Kind`.
 
 
 In turn, the symbol `Kind` is treated as a special value of type `Sort`.
@@ -2432,7 +2433,7 @@ For the same reason, Dhall will not accept the following function parameterized 
 
 Error: ❰Sort❱ has no type, kind, or sort
 ```
-This prevents Dhall from defining recursive kind-polymorphic type constructors. For example, Dhall cannot implement an analog of `List` that works with types of arbitrary kinds.
+This prevents Dhall from defining kind-polymorphic type constructors that work with arbitrary kinds.
 
 There was at one time an effort to change Dhall and to make `Kind` values more similar to `Type` values, so that one could have more freedom with functions with `Kind` parameters.
 But that effort was abandoned after it was discovered that it would [break the consistency of Dhall's type system](https://github.com/dhall-lang/dhall-haskell/pull/563#issuecomment-426474106).
@@ -2441,7 +2442,7 @@ Nevertheless, it is perfectly possible to define a list of types of a specific k
 For instance, one can define a list of types of kind `Type`, such as `Natural`, `Bool`, and `Text`.
 Separately, one can define a list of types of kind `Type → Type`, such as `Optional` and `List`.
 Those definitions will use similar code, but it will not be possible to refactor them into special cases of a more general kind-polymorphic code.
-(This limitation does not appear to be particularly important for the practical use cases of Dhall.)
+(This limitation does not seem  to be particularly important in practical usage.)
 
 ### Higher-kinded types
 
@@ -2451,7 +2452,7 @@ In other words, those parameters have kind `Type`.
 By a **higher-kinded type** one means a type expression that involves type parameters not of kind `Type` but of kind `Type → Type`, or `Type → Type → Type`, or perhaps `(Type → Type) → Type`, and so on.
 Such type expressions can be viewed as higher-order functions on types.
 
-In Dhall, a function can have a parameter of any _kind_.
+In Dhall, a function can have  parameters of any _kind_.
 The syntax is the same for all such functions.
 One just needs to write suitable type annotations:
 ```dhall
@@ -2466,7 +2467,7 @@ This book will show many more examples of higher-kinded types.
 ## Numerical algorithms
 
 Dhall's `Natural` numbers have arbitrary precision but support a limited number of built-in operations.
-The Prelude includes functions that can add, subtract, multiply, compare, and test `Natural` numbers for being even or odd.
+The Prelude includes functions that can add, subtract, multiply, and compare  `Natural` numbers.
 
 We will now show how to implement other numerical operations such as division and square root.
 Usually those operations are implemented via loops.
@@ -2544,7 +2545,7 @@ let _ = assert : powers2 4 ≡ [ 1, 2, 4 ]
 let _ = assert : powers2 100 ≡ [ 1, 2, 4, 8, 16, 32, 64 ]
 ```
 
-The next subsections will implement a number of iterative algorithms  via `Natural/fold`.
+We will now implement a number of iterative algorithms  via `Natural/fold`.
 
 #### Ackermann's function
 
@@ -2557,13 +2558,12 @@ ack m 0 = ack (m - 1) 1
 ack m n = ack (m - 1) (ack m (n - 1))
 ```
 
-This code cannot be directly translated to Dhall because of lack of recursion support.
+This code cannot be directly translated to Dhall as recursion is not supported.
 Nevertheless, there is [another equivalent definition](https://en.wikipedia.org/wiki/Ackermann_function#Definition:_as_iterated_1-ary_function) that does not use recursion but instead formulates Ackermann's function as an explicit bounded loop.
-
-Namely, one defines a sequence of _functions_ $A0$, $A1$, ... Each of these functions has type `Natural → Natural`.
-The sequence is defined by $A0 (n) = n + 1$ and $Am(n) = A{m-1}^{n+1}(1)$, where one denotes $f^n$ the iterated application of $f$.
+The trick is to curry Ackermann's function as $A(m)(n)$ and to consider a sequence of _functions_ $A(0)$, $A(1)$, ... Each of these functions has type `Natural → Natural`.
+We define $A(0) (n) = n + 1$ and $A(m+1)(n) = (A(m))^{n+1}(1)$, where   $f^n$ denotes the iterated application of $f$.
 In other words, $f^n(x)$ directly corresponds to the Dhall code `Natural/fold n Natural f x`.
-The sequence of functions is also computed via `Natural/fold`.
+The sequence of functions is also computed via `Natural/fold`, because   $A(m+1)$ is expressed as a _function_ of $A(m)$.
 
 Dhall code implementing Ackermann's function in this way (in an earlier version of Dhall) was shown [in this Hacker News post](https://news.ycombinator.com/item?id=15186988).
 Equivalent code that works with the current version of Dhall was given by G. Gonzalez [in a blog post](https://haskellforall.com/2020/01/why-dhall-advertises-absence-of-turing):
@@ -2574,26 +2574,30 @@ let ackermann : Natural → Natural → Natural
     let iterate : (Natural → Natural) → Natural → Natural
       = λ(f : Natural → Natural) → λ(n : Natural) → Natural/fold (n + 1) Natural f 1
     in λ(m : Natural) → Natural/fold m (Natural → Natural) iterate increment
+let _ = assert : ackermann 2 2 ≡ 7
+let _ = assert : ackermann 3 3 ≡ 61
+let _ = assert : ackermann 4 0 ≡ 13
 ```
 
-Ackermann's  function grows extremely quickly with its arguments; for instance, $A(4, 4)$ is of the order $2^{2^{2^65536}}$, which is far too large to be directly evaluated.
+Ackermann's  function grows extremely quickly with its arguments; for instance, the value $A(4, 4)$ is   $2^{2^{2^{65536}}}-3$ and is far too large to be directly evaluated.
 The significance of Ackermann's function for the mathematical theory of computation is that it is not a **primitive recursive function**; that is, it cannot be computed by a program containing only loops over integers.
-The implementation in Dhall uses loops over function values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
-Nevertheless, termination of this function is theoretically guaranteed (as for all Dhall functions).
+The implementation in Dhall uses loops over _function_ values (of type `Natural → Natural`), which escapes the specific limitations of primitive recursive functions.
+Nevertheless, termination of the code is theoretically guaranteed (as for all Dhall functions).
 
-In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is theoretically guaranteed to terminate, but in practice will take time beyond any imaginable limit.
+In the context of Dhall, the significance of Ackermann's function is to show a short example of "pathological" Dhall code whose evaluation is   guaranteed to terminate, but in practice will take time beyond any imaginable limit.
 It is also an example of what we will later call a **rogue expression**.
-By this we mean an expression that does not obviously include any large numbers or huge strings, and yet its evaluation cannot complete due to time or memory exhaustion.
+By this we mean an expression like `ackermann 4 4` or `petabyte`.
+At   first sight, a rogue  expression does not contain any excessively large numbers, lists, or strings, and yet its evaluation cannot complete due to time or memory exhaustion.
 
 ### Factorial
 
 A simple way of implementing the factorial function in a language that directly supports recursion is to write code like `fact (n) = n * fact (n - 1)`.
-Since Dhall does not directly support recursion, we will reformulate this computation in the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
+In Dhall, we must first  reformulate `fact(n)`  in the form `s(s(...(s(z))...))` with some initial value `z : A` and some function `s : A → A`, where `s` is applied `n` times.
 We need to find `A`, `s`, and `z` that permit implementing the factorial function in that way.
 
 We expect to iterate over `1, 2, ..., n` while computing the factorial.
 It is clear that the accumulator must hold both the current partial result and the iteration count.
-So, let us define the accumulator type as a pair `{ current : Natural, iteration : Natural }`.
+So, we  define the accumulator type as a pair of two `Natural` numbers.
 ```dhall
 let Accum : Type = { current : Natural, iteration : Natural }
 ```
@@ -2611,7 +2615,6 @@ let factorial = λ(n : Natural) →
   let result : Accum = Natural/fold n Accum s init
   in result.current
 ```
-
 Let us test this code:
 
 ```dhall
@@ -2634,7 +2637,6 @@ Once that condition holds, the code will keep the accumulator value unchanged.
 The Dhall interpreter will detect that and will stop the loop early.
 ```dhall
 let Natural/lessThan = https://prelude.dhall-lang.org/Natural/lessThan
-
 -- unsafeDiv x y means x / y, but it will return x when y = 0.
 let unsafeDiv : Natural → Natural → Natural =
   let Accum : Type = { result : Natural, sub : Natural }
@@ -2653,15 +2655,14 @@ let test4 = assert : unsafeDiv 10 0 ≡ 10 -- Invalid input.
 ```
 
 This algorithm takes time $O(x / y)$ when computing `unsafeDiv x y`.
-A faster division algorithm (the Egyptian division algorithm) will be implemented later in this book using more advanced techniques.
+A faster division algorithm (the "Egyptian division") will be implemented later in this book.
 
 #### Safe division via dependently-typed evidence
 
 The function `unsafeDiv` works but produces wrong results when dividing by zero.
 Namely, `unsafeDiv x 0` returns `x`.
-We would like to prevent using that function when the second argument is zero.
-
-To ensure that we never divide by zero, we will use a technique based on dependently-typed "evidence values".
+We would like to assure  at type-checking time  that `unsafeDiv x y` is always used with a nonzero `y`.
+To achieve that, we will use a technique based on dependently-typed "evidence values".
 
 The first step is to define a dependent type that will be void (with no values) if a given natural number is zero:
 
@@ -2669,28 +2670,29 @@ The first step is to define a dependent type that will be void (with no values) 
 let Nonzero : Natural → Type
   = λ(y : Natural) → if Natural/isZero y then <> else {}
 ```
-This `Nonzero` is a type function that returns one or another type given a `Natural` value.
+The function  `Nonzero` is an example of a **dependent type** (a type that depends on a value).
 For example, `Nonzero 0` returns the void type `<>`, but `Nonzero 10` returns the unit type `{}`.
-This definition is straightforward because types and values are treated similarly in Dhall, so it is easy to define a function that returns a type.
+Defining a function that returns a type  is straightforward in Dhall because types and values are described by the same syntax.
 
-We will use that function to implement safe division (`safeDiv`):
+We are now ready to write  a safe division function (`safeDiv`):
 
 ```dhall
-let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_ : Nonzero y) →
+  unsafeDiv x y
 ```
+Here we use `Nonzero` in the type signature of  the function `safeDiv`.
+A value of type `Nonzero y` is an "evidence" that `y` is nonzero.
+Every application of `safeDiv` must provide such a value, which justifies that it is safe to apply `unsafeDiv x y` within the scope of the function body.
 
-The required value of type `Nonzero y` is an "evidence" that the first argument (`y`) is nonzero.
-
-When we use `safeDiv` for dividing by a nonzero value, we specify a third argument of type `{}`.
-That argument can have only one value, namely, the empty record, denoted in Dhall by `{=}`.
+To use `safeDiv` for dividing by a nonzero value, we must specify a third argument of type `{}`.
+That type has only one value, denoted in Dhall by `{=}` (the empty record).
 So, instead of `unsafeDiv 5 2` we now write `safeDiv 5 2 {=}`.
 
-If we try dividing by zero, we will be obliged to pass a third argument of type `<>`, but there are no such values.
+If we wanted to divide  by zero using `safeDiv`, we would need  to pass a value  of type `<>` as the third argument, but there are no   values of type `<>`.
 Passing an argument of any other type will raise a type error.
 
 ```dhall
 safeDiv 4 2 {=}  -- Returns 2.
-
 safeDiv 4 0 {=}  -- Type error: wrong type of {=}.
 ```
 
@@ -2712,7 +2714,8 @@ let Nonzero = λ(y : Natural) →
   then "error" ≡ "attempt to divide by zero"
   else {}
 
-let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_: Nonzero y) → unsafeDiv x y
+let safeDiv = λ(x : Natural) → λ(y : Natural) → λ(_: Nonzero y) →
+  unsafeDiv x y
 ```
 
 When we evaluate `safeDiv 4 0 {=}`, we now get a good error message:
@@ -2736,7 +2739,7 @@ let AssertLessThan = λ(x : Natural) → λ(limit : Natural) →
   else "error" ≡ "the argument x = ${Natural/show x} must be less than ${Natural/show limit}"
 ```
 
-Suppose we need a function that needs to constrain its natural argument to be below `100`.
+Suppose  a function   needs to constrain its `Natural` argument to be below `100`.
 Then we require an evidence argument of type `AssertLessThan x 100`:
 
 ```dhall
@@ -2754,7 +2757,6 @@ Error: Wrong type of function argument
 
 - "error" ≡ "the argument x = 200 must be less than 100"
 ```
-
 This error message clearly describes the problem.
 
 #### Limitations
@@ -2764,7 +2766,7 @@ The main limitation of this technique is that it can work only with statically k
 For instance, any usage of `safeDiv x y` will require us somehow to obtain an evidence value of type `Nonzero y` that passes typechecking before evaluation begins.
 That value serves as evidence that the number `y` is not zero.
 Values of type `Nonzero y` can be typechecked only if `y` is a statically known value of type `Natural`.
-This is so because the check `Natural/isZero y` is done at typechecking time, before `saveDiv` is evaluated.
+This is so because the check `Natural/isZero y` is done at typechecking time, before `safeDiv` is evaluated.
 
 What if we need to use `safeDiv` inside a function that takes an argument `y : Natural` and then calls `safeDiv x y`?
 That function cannot call `safeDiv x y {=}` because the evidence value `{=}` needs to be typechecked before evaluating any code.
@@ -2788,8 +2790,8 @@ Here Dhall cannot recognize that `Nonzero y` is the unit type (`{}`) within the 
 To recognize that, the interpreter would need to deduce that the condition under `if` is the same as the condition defined in `Nonzero`.
 But Dhall's typechecking is insufficiently powerful to handle dependent types in such generality.
 
-So, any function that uses `saveDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
-That argument can be easily provided as `{=}` when calling that function, as long as `y` is a **statically  known value** (a value that is a known literal within the current scope).
+So, any function that uses `safeDiv` for dividing by an unknown value `y` will also require an additional evidence argument of type `Nonzero y`.
+That argument can be easily provided as `{=}` when calling that function, as long as `y` is statically  known.
 
 The advantage of using this technique is that we will guarantee, at typechecking time, that programs will never attempt to divide by zero.
 
@@ -2818,7 +2820,7 @@ let _ = assert : sqrt 16 ≡ 4
 
 There are faster algorithms of computing the square root, but those algorithms require division.
 Our implementation of division already requires a slow iteration.
-So, we will not attempt to optimize the performance of this proof-of-concept code.
+So, we will not try optimizing the performance of this proof-of-concept code.
 
 ### Natural powers
 
@@ -2831,13 +2833,15 @@ let powerNatLoop : Natural → Natural → Natural
 let _ = assert : powerNatLoop 2 4 ≡ 16
 let _ = assert : powerNatLoop 123 0 ≡ 1
 let _ = assert : powerNatLoop 123 1 ≡ 123
-let _ = assert : powerNatLoop 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
+let _ = assert : powerNatLoop 456 23
+  ≡ 14328191630110613608946564511385040497169655860668413473980416
 ```
 
-This calculation takes time linear in the power `p`.
-However, the runtime is short enough even for computing large powers (when arguments are not larger than `10000`).
+This code  takes time linear in the power `p` to compute $n^p$.
+However, the runtime is short enough  when arguments are below `10000` or so.
 
-An asymptotically faster "squaring" algorithm first precomputes the powers of `2` (creating a list of `1`, `2`, `4`, `8`, etc.) and the corresponding powers of `n`, creating a list of powers `[` $n, n^2, n^4, n^8, ...$`]` by repeated squaring.
+An asymptotically faster "squaring" algorithm first precomputes the powers of `2`, creating a list `[ 1, 2, 4, 8, ...]`.
+Then it uses repeated squaring to precompute  the list of the corresponding powers of `n`  such as `[` $n, n^2, n^4, n^8, ...$`]`.
 The powers are computed via `Natural/fold` similarly to the code of `powers2` shown earlier. 
 Then the powers of `2` are subtracted from `p`, starting from the highest power that is still not greater than `p`.
 This finds the decomposition of `p` as a sum of powers of `2`; we then compute the product of the corresponding powers of `n`.
@@ -2862,7 +2866,8 @@ let powerNatSq : Natural → Natural → Natural
 let _ = assert : powerNatSq 123 0 ≡ 1
 let _ = assert : powerNatSq 123 1 ≡ 123
 let _ = assert : powerNatSq 2 8 ≡ 256
-let _ = assert : powerNatSq 123 456 ≡ 99250068772098856700831462057469632637295940819886900519816298881382867104749399077921128661426144638055424236936271872492800352741649902118143819672601569998100120790496759517636465445895625741609866209900500198407153244604778968016963028050310261417615914468729918240685487878617645976939063464357986165711730976399478507649228686341466967167910126653342134942744851463899927487092486610977146112763567101672645953132196481439339873017088140414661271198500333255713096142335151414630651683065518784081203678487703002802082091236603519026256880624499681781387227574035484831271515683123742149095569260463609655977700938844580611931246495166208695540313698140011638027322566252689780838136351828795314272162111222231170901715612355701347552371530013693855379834865667060014643302459100429783653966913783002290784283455628283355470529932956051484477129333881159930212758687602795088579230431661696010232187390436601614145603241902386663442520160735566561
+let _ = assert : powerNatSq 456 23
+  ≡ 14328191630110613608946564511385040497169655860668413473980416
 ```
 
 The new function will work faster than `powerNatLoop` once the input numbers become large enough.
@@ -2891,6 +2896,13 @@ let bitWidth : Natural → Natural = λ(n : Natural) →
      else acc
   let result : Accum = Natural/fold n Accum update init
   in result.bitWidth
+
+let _ = assert : bitWidth 0 ≡ 0
+let _ = assert : bitWidth 1 ≡ 1
+let _ = assert : bitWidth 2 ≡ 2
+let _ = assert : bitWidth 63 ≡ 6
+let _ = assert : bitWidth 64 ≡ 7
+let _ = assert : bitWidth 65 ≡ 7
 ```
 
 The function `bitWidth` may be generalized to compute integer-valued logarithms with a natural base.
@@ -2921,7 +2933,7 @@ Otherwise, one of `x` and `y` is larger; say, `x`. Then we define recursively `g
 
 To implement this in Dhall, we supply the larger of `x` and `y` as an upper bound on the iteration count.
 The iteration will keep the pair `x, y` sorted so that `x` is always greater or equal to `y`.
-At each step, a pair `x, y` is replaced by `x - y, y` and sorted again.
+At each step, the pair `x, y` is replaced by `x - y, y` and sorted again.
 Eventually, `y` becomes equal to `0`.
 After that, the value `x` is equal to the required value of `gcd`.
 
@@ -2948,8 +2960,8 @@ let _ = assert : gcd 5 10 ≡ 5
 
 The built-in Dhall type `Double` does not support any numerical operations.
 However, one can use values of type `Natural` to implement floating-point arithmetic.
-The `scall` repository contains [proof-of-concept code](https://winitzki.github.io/dhall/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide` and so on.
-Floating-point numbers are represented by a decimal mantissa and a decimal exponent, and support arbitrary precision (in both mantissa and exponent).
+The `scall` repository contains [proof-of-concept code](https://winitzki.github.io/dhall/Float/) implementing some floating-point operations: `Float/create`, `Float/show`, `Float/compare`, `Float/add`, `Float/subtract`, `Float/multiply`, `Float/divide`, and so on.
+Floating-point numbers are represented by a decimal mantissa and a decimal exponent, supporting arbitrary precision (in both mantissa and exponent).
 ```dhall
 let Float/create = (./Float/Type.dhall).Float/create
 let Float/divide = ./Float/divide.dhall
@@ -2970,7 +2982,9 @@ We will use the following algorithm that computes successive approximations for 
 
 2. Estimate the total number of iterations $n$, where $n \ge 1$.
 
-3. Apply $n$ times the function `update` to $x0$.
+3. Apply $n$ times the function `update` to $x0$, where `update` is defined as follows:
+
+$$ \textrm{update}\,(x) = \frac{1}{2} \,(x + \frac{p}{x}) $$
 
 The result is the Dhall code `Natural/fold n update x0`.
 
@@ -2983,7 +2997,7 @@ The initial approximation is defined as follows:
 
 The initial value is chosen such that the number of correct decimal digits doubles after each update.
 The first iteration gives 2 correct digits, the second 4 digits, the third 8 digits, etc.
-The total number of iterations is set to $n = 1 + \log N$ (the logarithm here is in base 2).
+The total number of iterations is set to $n = 1 + \log{2} N$ (the logarithm here is in base 2).
 ```dhall
 let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   let iterations = 1 + (./numerics.dhall).log 2 prec
@@ -2992,7 +3006,7 @@ let Float/sqrt = λ(p : Float) → λ(prec : Natural) →
   in Natural/fold iterations Float update init
 ```
 This code is shown only for illustration.
-The complete code of `Float/sqrt.dhall` is [a part of the `Float` package](https://winitzki.github.io/dhall/Float/sqrt.dhall).
+The complete code of `Float/sqrt.dhall` is a part of the `Float` [package](https://winitzki.github.io/dhall/Float/sqrt.dhall).
 
 ## Programming with functions
 
@@ -3005,14 +3019,7 @@ let identity : ∀(a : Type) → a → a
   = λ(a : Type) → λ(x : a) → x
 ```
 
-This function simply returns its argument:
-
-```dhall
-⊢ identity Natural 123
-
-123
-```
-
+This function simply returns its argument.
 We may apply `identity` to a value of any type, say, to a function value:
 
 ```dhall
@@ -3032,8 +3039,8 @@ For instance, we can apply `identity` to itself and get the same function as a r
 
 #### Identity functions for types and kinds
 
-What if we wanted the identity function to be able to work on _types_ themselves?
-We expect some code like `identityT Bool ≡ Bool`.
+What if we wanted an identity function that works on _types_ themselves?
+We expect  `identityT Bool` to return `Bool`.
 
 Note that the type of `Bool` is `Type`.
 So, a simple implementation of `identityT` is:
@@ -3041,7 +3048,6 @@ So, a simple implementation of `identityT` is:
 ```dhall
 let identityT = λ(t : Type) → t
 ```
-
 This function will work on simple types (such as `Bool`) but not on type constructors such as `List`, because the kind of `List` is not `Type` but `Type → Type`.
 We would like to make `identityT` sufficiently polymorphic so that it could accept arbitrary type constructors as arguments.
 For instance, it should accept arguments of kind `Type`, or `Type → Type`, or `Type → Type → Type`, or `(Type → Type) → Type`, and so on.
@@ -3104,28 +3110,14 @@ This error message still needs some explanation.
 We must keep in mind that any function's input type and output type must be types that can be used in type annotations.
 
 Examples of types that can be used in annotations are: `Natural`, `List Bool`, `Type`, `Type → Type`, and `Kind`.
-Indeed, we can use each of those types to annotate some expressions:
+Indeed, we can use each of those types in annotations:
 
 ```dhall
-⊢ 0 : Natural
-
-0
-
-⊢ [ True ] : List Bool
-
-[ True ]
-
-⊢ Text : Type
-
-Text
-
-⊢ List : Type → Type
-
-List
-
-⊢ Type → Type : Kind
-
-Type → Type
+let _ =   0 : Natural
+let _ =   [ True ] : List Bool
+let _ =   Text : Type
+let _ =   List : Type → Type
+let _ =   Type → Type : Kind
 ```
 
 So, it is valid to write `λ(x : List Bool) → ...` or `λ(x : Type) → ...` and so on.
@@ -3148,8 +3140,7 @@ This would be the case if we applied `identityX` like this:
 identityX (Type → Type) List  -- ???
 ```
 Then the type annotations `k : Kind` and `t : k` would both match.
-However, it will not be valid in that case to write `x : t`, that is, `x : List`,
-because `List` is a type _constructor_.
+But it would be a type error   to write `x : t`, that is, `x : List`, because `List` is a type _constructor_.
 
 So, the error is that `t` is not guaranteed to be a type of kind `Type`.
 Dhall indicates such situations by the error message "Invalid function input".
@@ -3233,7 +3224,7 @@ The type of `f` is `(Type → Type) → Type`.
 
 The function combinators from the previous subsection obey a number of algebraic laws.
 In most programming languages, such laws may be verified only through testing.
-Dhall's `assert` feature may be used to verify certain laws symbolically, which is equivalent to a machine-verified proof.
+Dhall's `assert` checker may be used to verify certain laws symbolically, which is equivalent to a machine-verified, rigorous proof.
 
 A simple example of a law is the basic property of any constant function: the function's output is independent of its input.
 We can formulate that law by saying that a constant function `f` should satisfy the equation `f x ≡ f y` for all `x` and `y` of a suitable type.
@@ -3255,7 +3246,7 @@ let const_law = λ(a : Type) → λ(b : Type) → λ(c : b) →
         let f = const a b c   in   assert : f x ≡ f y
 ```
 The Dhall interpreter will substitute the definition of `const` into that code and perform some evaluation, even though that code is under several layers of λ and arguments `a`, `b`, `c`, `x`, `y` have not yet been given.
-In this way, Dhall will be able to verify that the `assert` expression is valid.
+In this way, Dhall will be able to verify symbolically that the `assert` expression is valid.
 
 To see how this works in detail, begin by evaluating `f x` within the body of the function `const_law`.
 First, Dhall will rewrite `f x` to `const a b c x`.
@@ -3305,7 +3296,8 @@ The Dhall interpreter  does not substitute any specific values of `xx` or `yy`, 
 The `assert` verifies that both sides are equal "symbolically"; that is, they must be _syntactically_ equal as unevaluated code expressions with free variables.
 This check is equivalent to a rigorous mathematical proof that the law holds.
 
-To see more examples, let us verify the laws of function composition:
+To see more examples, let us verify the laws of function composition.
+There are two identity laws, an associativity law, and a "constant function law":
 
 ```dhall
 let composeBackward
@@ -3375,8 +3367,10 @@ let fCoProduct : ∀(a : Type) → ∀(b : Type) → (a → b) → ∀(c : Type)
 Typeclasses can be implemented in Dhall via evidence values.
 Those values are passed as additional arguments to functions that require a typeclass constraint.
 
-With that technique, one can define and use different typeclass evidence values for the same type, if that is necessary.
-This is similar to the way Scala implements typeclasses (except that Scala makes evidence values into "implicit" arguments that the compiler inserts automatically).
+With that technique, one can define and use one or more typeclass evidence values for the same type, if needed.
+This is similar to the way Scala implements typeclasses.
+However,  Scala makes evidence values into "implicit" arguments that the compiler inserts automatically.
+In Dhall, evidence values must be written out explicitly.
 
 ### Implementing typeclasses via  evidence values
 
@@ -3384,40 +3378,45 @@ Let us first clarify the terminology used with typeclasses, beginning with a def
 
 ###### Definition
 
-A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy (for all `t : Type`).
-A **typeclass instance** for a type `t` is a value of type `P t` that satisfies those laws.
-That value is also called a **typeclass evidence** for the membership of `t` in the typeclass.
-We say that a type `t` "has an instance" of the typeclass if we are able to compute an evidence value of type `P t`.
+A **typeclass** is a type constructor `P : Type → Type` together with some equations ("typeclass laws") that values of type `P t` must satisfy.
+We say that a type `t` "belongs to the typeclass" if there exists a value of type `P t` that satisfies the typeclass laws.
+That value of type `P t` is called a **typeclass evidence** for the membership of `t` in the typeclass.
+One also says that a type `t` "has an instance" of the typeclass if we are able to compute a law-abiding evidence value of type `P t`.
 
-In languages such as Haskell and Scala, typeclass evidence values are implicit, making it easier for programmers to use typeclass membership.
+In languages such as Haskell and Scala, the compiler substitutes typeclass evidence values automatically, making it easier for programmers to use typeclass membership.
 In Dhall, typeclasses are implemented by passing evidence values as explicit arguments to functions.
-For this reason, this book prefers to talk about evidence values rather than "typeclass instances".
+For this reason, this book prefers to talk about evidence values rather than typeclass instances.
 
 We say that a function having an argument of type `t` "imposes a **typeclass constraint** on `t`" if that function has another argument of type `P t` (the evidence value) and assumes that the evidence value will satisfy the typeclass laws. $\square$
 
 To illustrate this definition, let us give an example using the `Semigroup` typeclass.
-Below we will look at other typeclasses more systematically.
+Then we will look at other typeclasses more systematically.
 
 ###### Example: The `Semigroup` typeclass
 
-In mathematics, a set is called a "semigroup" if there is a binary associative operation for it.
-In the language of types, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law: for all `x`, `y`, `z` of type `t`, we must have:
+In mathematics, a set is called a **semigroup** if there is a binary associative operation for it.
+In the language of programming, a type `t` is a semigroup if there is a function `append : t → t → t` satisfying the associativity law.
+The law says that for all `x`, `y`, `z` of type `t`, we must have:
 
 `append x (append y z) = append (append x y) z`
 
-To express this property as a typeclass, we introduce a type constructor called `Semigroup`:
+To formulate semigroups as a typeclass, we introduce a type constructor called `Semigroup`:
 
 ```dhall
 let Semigroup = λ(t : Type) → { append : t → t → t }
 ```
 For example, `Natural` is a type that can belong to the `Semigroup` typeclass.
 A `Semigroup` typeclass evidence value for the type `Natural` is a value of type `Semigroup Natural` that satisfies the associativity law.
-
-Here are some examples of `Semigroup` evidence values:
 ```dhall
-let semigroupNatural : Semigroup Natural = { append = λ(x : Natural) → λ(y : Natural) → x * y }
-let semigroupText : Semigroup Text = { append = λ(x : Text) → λ(y : Text) → x ++ ", " ++ y }
-let semigroupBoolToBool : Semigroup (Bool → Bool) = { append = composeForward Bool Bool Bool }
+let semigroupNatural : Semigroup Natural
+  = { append = λ(x : Natural) → λ(y : Natural) → x * y }
+```
+Here are some other examples of `Semigroup` evidence values:
+```dhall
+let semigroupText : Semigroup Text
+  = { append = λ(x : Text) → λ(y : Text) → x ++ ", " ++ y }
+let semigroupBoolToBool : Semigroup (Bool → Bool)
+  = { append = composeForward Bool Bool Bool }
 ```
 
 The types `Natural`, `Text`, and `Bool → Bool` belong to the  `Semigroup` typeclass because the associativity law holds for their evidence values.
@@ -3441,12 +3440,12 @@ The typeclass laws are an essential part of the definition of a typeclass, becau
 So, a more rigorous definition of "typeclass instance for `t`" is a _pair_ consisting of an evidence value `ev : P t` together with a value of the equality type  for the required laws.
 
 This is not a simple pair of values, because the _type_ of the second value depends on the first _value_.
-This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings for more complicated types" below.
+This sort of type is called a **dependent pair**, and we will study it in the chapter "Church encodings of more complicated types" below.
 
 Most programming languages do not support dependent pairs.
-Dhall can encode their type  but provides only quite limited ways of working with dependent pairs.
+Dhall can encode their type  but provides only quite limited ways of working with them.
 
-For this reason, one usually makes the pragmatic decision to represent typeclass instances only via evidence values (of type `P t`) and omit the equality type  altogether, relying on the programmer to validate the laws (e.g., by writing a proof by hand).
+For this reason, one usually makes the pragmatic decision to represent typeclass membership only via evidence values (of type `P t`) and omit the equality type  altogether, relying on the programmer to validate the laws (e.g., by testing).
 
 Below we will construct evidence values and only occasionally perform a symbolic validation of the laws.
 
@@ -3473,8 +3472,9 @@ trait Show[T] {           // Scala.
 ```
 
 A type `T` belongs to the `Show` typeclass if we can compute a printable representation of any given value of type `T`.
+There are no laws for the method `show`.
 
-To implement this typeclass in Dhall, we first define a type that holds suitable evidence values.
+To implement this typeclass in Dhall, we first define a type constructor that holds suitable evidence values.
 In the case of the `Show` typeclass, an evidence value for a type `t` is just a function of type `t → Text`.
 
 ```dhall
@@ -3486,6 +3486,7 @@ Here is an  implementation of the `Show` evidence for `Natural`:
 ```dhall
 let showNatural : Show Natural = { show = Natural/show }
 ```
+This value is "evidence" that the type `Natural` belongs to the `Show` typeclass.
 
 For `Text`, we might just want to print the text as is:
 
@@ -3493,41 +3494,7 @@ For `Text`, we might just want to print the text as is:
 let showText : Show Text = { show = identity Text }
 ```
 
-As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
-For that, we would write the following Haskell code:
-```haskell
-import Data.List (intercalate)           -- Haskell.
-printWithPrefix :: Show a => String -> [a] -> String
-printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
-```
-In Scala, we would write:
-
-```scala
-def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
-  message + xs.map(showA.show).mkString(", ")
-```
-The corresponding Dhall code is:
-```dhall
-let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
-let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
-  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
-    message ++ Text/concatMapSep ", " a showA.show xs
-```
-To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
-First, we define a `Show` evidence value for that type:
-```dhall
-let UserWithId = { user : Text, id : Natural }
-let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) →
-    "user ${r.user} has id ${Natural/show r.id}" }
-```
-Then we can  use `printWithPrefix` to print a list of values of that type:
-```dhall
-let users : List UserWithId = [ { user = "A", id = 1 }, { user = "B", id = 2 } ]
-let printed = printWithPrefix UserWithId showUserWithId "users: " users
-let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
-```
-
-Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for the built-in types.
+Using Dhall's built-in functions `Natural/show`, `Double/show`, etc., we can define `Show`   evidence values for those built-in types.
 The function `printWithPrefix` could then be used with lists of types `List Natural`, `List Double`, etc.
 
 ###  The "Eq" typeclass
@@ -3537,16 +3504,16 @@ The `Eq` typeclass provides a method for checking if two values of a type `t` ar
 We say that a type `t` belongs to the `Eq` typeclass if there is a function `equal : t → t → Bool` that returns `True` if and only if the two arguments of type `t` are equal.
 The function `equal` must satisfy the usual laws of a equality relation: reflexivity, symmetry, transitivity, and extensional identity.
 - Reflexivity: for all `x : t` we must have `equal x x ≡ True`. It says that any value should be equal to itself.
-- Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`. It says that equality is symmetric.
+- Symmetry: for all `x : t` and `y : t` we must have `equal x y ≡ equal y x`.
 - Transitivity: for all `x : t`, `y : t`, and `z : t`, if `equal x y ≡ True` and `equal y z ≡ True` then we must have `equal x z ≡ True`.
-- Extensional identity: for any `u : Type`, `v : Type` that both belong to the `Eq` typeclass, and for any `x : u`, `y : u` such that `equal x y ≡ True`, we must have   `equal (f x) (f y) ≡ True` for any `f : u → v`. In other words:   for any `x` and `y` that are equal, applying any function `f` will give equal results (`f x` and `f y`).
+- Extensional identity: applying any function `f` to equal values (`x` and `y`) will give equal results (`f x` and `f y`). More formally: for any `u : Type`, `v : Type` that both belong to the `Eq` typeclass, and for any `x : u`, `y : u`, `f : u → v`, if `equal x y ≡ True` then `equal (f x) (f y) ≡ True`.
 
 The type constructor for the `Eq` typeclass can be defined like this:
 ```dhall
 let Eq = λ(t : Type) → { equal : t → t → Bool }
 ```
 
-Among primitive types, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality.
+Among primitive types, only values of type `Bool`, `Integer`, and `Natural` can be compared for equality in Dhall.
 Let us write the corresponding evidence values:
 
 ```dhall
@@ -3615,8 +3582,8 @@ let Record2 : Type = { n : Natural, label : Text }
 let eqRecord2: Eq Record2 = { equal = λ(x : Record2) → λ(y : Record2) → Natural/equal x.n y.n }
 ```
 
-This operation violates the extensional identity law: there are some functions `f` that give unequal results for records that are supposedly equal according to this typeclass evidence.
-That will be the case for any function that uses the `label` field of the record, for instance:
+This operation violates the extensional identity law: there are some functions `f` that will give unequal results when applied to some records that are equal according to this typeclass evidence.
+That will be the case for any function that uses the `label` field of the record `Record2`:
 ```dhall
 let f : Record2 → Text = λ(x : Record2) → x.label ++ Natural/show x.n
 ```
@@ -3640,7 +3607,7 @@ This operation violates the reflexivity law: values such as `Union2.Right "abc"`
 ### The "Ord" typeclass
 
 This typeclass defines a method `le` for determining if one value is "less or equal than" another value, in the sense of a "partial order".
-It means to require that the relation "less or equal" should have the properties of reflexivity and transitivity: 
+The relation "less or equal" should have the properties of reflexivity and transitivity: 
 
 - Any value is less than equal to itself (**reflexivity**).
 - If `x` is less than or equal to `y`, and if `y` is less than or equal to `z`, then `x` is less than or equal to `z` (**transitivity**).
@@ -3672,7 +3639,7 @@ For unions, one first checks whether one of the values has the highest-priority 
 If so, the first value is greater.
 If both values have constructors of the same priority, one proceeds to compare the values.
 
-As an example, we implement an `Ord` evidence for `Either a b`, where we (arbitrarily) select the `Left` constructor as having the higher priority.
+As an example, we implement an `Ord` evidence for `Either a b`, where we (arbitrarily) select the `Left` constructor as having a higher priority.
 (Any `Left p` value is always greater than any `Right q` value.)
 ```dhall
 let ordEither : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Either a b)
@@ -3690,16 +3657,16 @@ let ordEither : ∀(a : Type) → Ord a → ∀(b : Type) → Ord b → Ord (Eit
     }
 ```
 
-In this way, we can derive `Ord` evidence values for arbitrary product and co-product types.
+In this way, one can derive `Ord` evidence values for arbitrary product and co-product types.
 
 ### The "Finite" typeclass
 
 Certain types have only a finite number of values, and those values are known in advance.
 The `Finite` typeclass provides a facility for enumerating the values of such types.
 
-Examples are unit types, the `Bool` type, and union types whose values involve finite types (but no function types and no `List`, for example).
+Examples are the void type, unit types, the `Bool` type, and union types whose values involve finite types (but not function types and not `List Bool` or other lists).
 
-The typeclass is defined via the constructor `Finite` that allows us to obtain a list of possible values of a given type:
+The typeclass is defined via the constructor `Finite` that allows us to obtain a list of all possible values of a given type:
 
 ```dhall
 let Finite = λ(t : Type) → { values : List t }
@@ -3708,6 +3675,7 @@ let Finite = λ(t : Type) → { values : List t }
 Example evidence values are:
 
 ```dhall
+let finiteVoid : Finite <> = { values = [ ] : List <> }
 let finiteUnit : Finite {} = { values = [ {=} ] }
 let finiteBool : Finite Bool = { values = [ False, True ] }
 
@@ -3728,7 +3696,7 @@ let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b →
   = λ(a : Type) → λ(finiteA : Finite a) → λ(b : Type) → λ(finiteB : Finite b) →
     let leftValues : List (Either a b) = List/map a (Either a b) (λ(x : a) → (Either a b).Left x) finiteA.values
     let rightValues : List (Either a b) = List/map b (Either a b) (λ(y : b) → (Either a b).Right y) finiteB.values
-    in { values = List/concat (Either a b) [ leftValues, rightValues ] }
+    in { values = leftValues # rightValues }
 ```
 
 
@@ -3737,7 +3705,7 @@ let finiteEither : ∀(a : Type) → Finite a → ∀(b : Type) → Finite b →
 The `Monoid` typeclass is usually defined in Haskell as:
 
 ```haskell
-class Monoid m where    -- Haskell.
+class Monoid m where        -- Haskell.
   mempty :: m
   mappend :: m -> m -> m
 ```
@@ -3755,20 +3723,21 @@ Here, the `Monoid` typeclass methods are called `empty` and `combine`.
 
 We see that an evidence value of type `Monoid m` needs to contain a value of type `m` and a function of type `m → m → m`.
 A Dhall record type describing those values could be written as `{ empty : m, append : m → m → m }`.
-A value of that type provides evidence that the type `m` belongs to the `Monoid` typeclass.
-
-To use the typeclass more easily, we define a type constructor `Monoid` such that the above record type is obtained as `Monoid m`:
+Define a type constructor `Monoid` using this record type:
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
 ```
 With this definition, `Monoid Bool` is the type `{ mempty : Bool, append : Bool → Bool → Bool }`.
 Values of that type are evidence values showing that the type `Bool` belongs to the `Monoid` typeclass.
-We also say that values of that type "provide `Monoid` typeclass evidence" for the `Bool` type.
-
-Here are examples of `Monoid` evidence for some types:
+One example is:
 ```dhall
 let monoidBool : Monoid Bool
   = { empty = True, append = λ(x : Bool) → λ(y : Bool) → x && y }
+```
+
+
+Here are   examples of `Monoid` evidence for some other types:
+```dhall
 let monoidNaturalSum : Monoid Natural
   = { empty = 0, append = λ(x : Natural) → λ(y : Natural) → x + y }
 let monoidText : Monoid Text
@@ -3778,11 +3747,11 @@ let monoidList : ∀(a : Type) → Monoid (List a)
 ```
 
 The `Monoid` evidence values shown above are not the only ones possible.
-For example, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
+For instance, one could implement a `Monoid` evidence for `Bool` using the "or" operation (`||`) instead of the "and" operation (`&&`).
 A `Monoid` evidence for `Natural` could use the multiplication (`*`) instead of the addition (`+`).
-The   implementation of `Monoid` should be chosen according to the needs of a specific application.
+The choice of `Monoid` should be made according to the needs of a specific application.
 
-A **semigroup** is a weaker typeclass that can be viewed as a monoid without the `empty` method.
+The `Semigroup` typeclass  can be viewed as `Monoid`  without the `empty` method:
 
 ```dhall
 let Semigroup = λ(m : Type) → { append : m → m → m }
@@ -3790,17 +3759,60 @@ let Semigroup = λ(m : Type) → { append : m → m → m }
 
 Any monoid is a semigroup, but not all semigroups are monoids, because no suitable `empty` method can be defined for certain types.
 
+Given a `Monoid` evidence for a type `t`, we can automatically derive a `Semigroup` evidence by just selecting the `append` method:
+
+```dhall
+let semigroupViaMonoid : ∀(t : Type) → Monoid t → Semigroup t
+  = λ(t : Type) → λ(monoidT : Monoid t) → monoidT.{append}
+```
+
 ### Functions with typeclass constraints
 
 The main use of typeclasses is for implementing functions with a type parameter constrained to belong to a given typeclass.
 To implement such functions, we add an argument that requires a typeclass evidence value.
 
-Let us implement some functions with a type parameter required to belong to the `Monoid` typeclass.
-Examples are the standard functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
+As an example of a function with a type parameter and a `Show` typeclass constraint, consider a function that prints a list of values together with some other message.
+For that, we would write the following Haskell code:
+```haskell
+import Data.List (intercalate)           -- Haskell.
+printWithPrefix :: Show a => String -> [a] -> String
+printWithPrefix message xs = message ++ intercalate ", " (fmap show xs)
+```
+In Scala, we would write:
+
+```scala
+def printWithPrefix[A](message: String, xs: Seq[A])(implicit showA: Show[A]): String =
+  message + xs.map(showA.show).mkString(", ")
+```
+The corresponding Dhall code is:
+```dhall
+let Text/concatMapSep = https://prelude.dhall-lang.org/Text/concatMapSep
+let printWithPrefix : ∀(a : Type) → Show a → Text → List a → Text
+  = λ(a : Type) → λ(showA : Show a) → λ(message : Text) → λ(xs : List a) →
+    message ++ Text/concatMapSep ", " a showA.show xs
+```
+To test this code, let us print a list containing values of a record type `{ user : Text, id : Natural }`.
+First, we define a `Show` evidence value for that type:
+```dhall
+let UserWithId = { user : Text, id : Natural }
+let showUserWithId : Show UserWithId = { show = λ(r : UserWithId) →
+    "user ${r.user} has id ${Natural/show r.id}"
+  }
+```
+Then we can  use `printWithPrefix` to print a list of values of that type:
+```dhall
+let users : List UserWithId = [ { user = "A", id = 1 }, { user = "B", id = 2 } ]
+let printed = printWithPrefix UserWithId showUserWithId "users: " users
+let _ = assert : printed ≡ "users: user A has id 1, user B has id 2"
+```
+
+
+
+Let us now implement some functions with a type parameter required to belong to the `Monoid` typeclass.
+Consider the well-known functions `reduce` and `foldMap` for `List`, written in the Haskell syntax as:
 
 ```haskell
--- Haskell.
-reduce :: Monoid m => List m -> m
+reduce :: Monoid m => List m -> m             -- Haskell.
 reduce xs = foldr (\x -> \y -> mappend y x) mempty xs
 
 foldMap :: Monoid m => (a -> m) -> List a -> m
@@ -3829,7 +3841,7 @@ When calling those functions, the programmer will have to pass evidence values p
 
 ### Verifying the laws of monoids
 
-In some cases, Dhall's `assert` feature is able to verify typeclass laws symbolically.
+In some cases, Dhall's `assert` checker is able to verify typeclass laws symbolically.
 
 The `Monoid` typeclass has three laws: two identity laws and one associativity law.
 We can write `assert` expressions that verify those laws for any given evidence value of type `Monoid a`.
@@ -3853,7 +3865,7 @@ Those expressions will become the same only after we apply `monoidLaws` to a typ
 
 To check the laws, we will write `assert` values corresponding to each law.
 
-As an example, here is how to check the monoid laws for the evidence value `monoidBool` defined above:
+As an example, let us  check the monoid laws for the evidence value `monoidBool` defined above:
 
 ```dhall
 let check_monoidBool_left_id_law = λ(x : Bool) → λ(y : Bool) → λ(z : Bool) →
@@ -3874,9 +3886,9 @@ For type constructors, "covariant" means "has a lawful `fmap` method".
 
 Note that this definition of "covariant" does not depend on the concept of subtyping.
 One can decide whether a type constructor is covariant just by looking at its type expression.
+This works equally well in Dhall where subtyping is not supported.
 
 The intuition behind covariant functors is that they represent  "data containers" that can store some data items of a given type.
-
 We will call covariant functors just "functors" for short.
 
 A simple example of a functor is a record with two values of type `A` and a value of a fixed type `Bool`.
@@ -3891,15 +3903,13 @@ fmap f (F x y t) = F (f x) (F y) t
 In Scala, the equivalent code is:
 ```scala
 case class F[A](x: A, y: A, t: Boolean)         // Scala.
-
 def fmap[A, B](f: A => B)(fa: F[A]): F[B] = F(f(fa.x), f(fa.y), fa.t)
 ```
 The corresponding Dhall code is:
 ```dhall
 let F : Type → Type
   = λ(a : Type) → { x : a, y : a, t : Bool }
-let fmap_F
- : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+let fmap_F : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
   = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : F a) →
     { x = f fa.x, y = f fa.y, t = fa.t }
 ```
@@ -3910,7 +3920,7 @@ let after_fmap : F Text = fmap_F Natural Text (λ(x : Natural) → if Natural/ev
 let _ = assert : after_fmap ≡ { x = "odd", y = "even", t = True }
 ```
 
-For convenience, let us define the standard type signature of `fmap` as a type constructor:
+For convenience, let us define the   type signature of `fmap` as a type constructor:
 
 ```dhall
 let FmapT = λ(F : Type → Type) → ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
@@ -3962,23 +3972,23 @@ let functorG : Functor G = { fmap = fmap_G }
 
 It turns out that the code for `fmap` can be derived mechanically from the type definition of a functor.
 The Haskell compiler will do that if the programmer just writes `deriving Functor` after the definition.
-But Dhall does not support any such metaprogramming facilities.
+But Dhall does not support automatic derivations.
 The code of `fmap` must be written out in Dhall programs.
 
-###### Example: a function with a typeclass constraint
+###### Example: a function with a `Functor` constraint
 
 Implement a function `inject1` that (for any types `a` and `b` and for any functor `F`) converts a value of type `Pair a (F b)` into a value of type `F (Pair a b)`.
 The type constructor `Pair` has been defined above as `Pair a b = { _1 : a, _2 : b }`.
 
 ####### Solution
 
-The type signature of the function `inject1` must include the given type constructor `F` and a functor evidence value for it:
+The type signature of the function `inject1` must include a type constructor parameter `F` and a functor evidence value for it:
 
 ```dhall
 let inject1_t = ∀(F : Type → Type) → ∀(functorF : Functor F) → ∀(a : Type) → ∀(b : Type) → Pair a (F b) → F (Pair a b)
 ```
 
-The implementation is based on the idea that, given a fixed value `x : a`, we can write a function of type `b → Pair a b`.
+The implementation is based on the idea that, given a value `x : a`, we can write a function of type `b → Pair a b`.
 Then can we use the functor property of `F` and lift that function to the type `F b → F (Pair a b)`.
 The complete code is:
 ```dhall
@@ -4005,14 +4015,14 @@ The following functions need to work in the same way for any types `a` and `b` a
 ### Verifying the laws of functors
 
 A functor's `fmap` method must satisfy the identity and the composition laws.
-In the Haskell syntax, these laws are (informally) written as:
+In the Haskell syntax, these laws are   written as:
 
 ```haskell
  fmap id == id    -- Identity law
  fmap (f . g) == (fmap f) . (fmap g)   -- Composition law.
 ```
 
-Given a specific type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
+Given a   type constructor `F` and its `Functor` typeclass evidence, the following function will set up the equality types for `F`'s functor laws:
 
 ```dhall
 let functorLaws = λ(F : Type → Type) → λ(functor_F : Functor F) →
@@ -4048,7 +4058,6 @@ The composition law is verified successfully.
 However, the `identity_law` fails:
 
 ```dhall
-
 You tried to assert that this expression:
 
 ↳ λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
@@ -4062,11 +4071,12 @@ You tried to assert that this expression:
 
 Dhall's algorithm for normal forms does not recognize that the record `{ t = fa.t, x = fa.x, y = fa.y }` is the same as `fa`.
 
-To get around this limitation, write the identity law separately like this:
+Nevertheless, the identity  law can be verified separately like this:
 
 ```dhall
 let identity_law_of_F = λ(a : Type) →
-    let id_F = λ(fa : { t : Bool, x : a, y : a }) → { t = fa.t, x = fa.x, y = fa.y }
+    let id_F = λ(fa : { t : Bool, x : a, y : a }) →
+      { t = fa.t, x = fa.x, y = fa.y }
     in assert : functorF.fmap a a (identity a) ≡ id_F
 ```
 
@@ -4143,7 +4153,7 @@ instead, they have a `cmap` method with a type signature that flips one of the f
 We will call contravariant type constructors **contrafunctors** for short.
 
 The intuition behind contrafunctors is that they are data structures containing functions that _consume_ data items of a given type.
-The `cmap` method transforms data items into data items of another type _before_ they are consumed.
+The `cmap` method transforms data items into  another type _before_ they are consumed.
 
 A simple example of a contrafunctor is:
 
@@ -4199,7 +4209,7 @@ let contrafunctor_laws_of_C = λ(a : Type) → λ(b : Type) → λ(c : Type) →
   }
 ```
 
-### Bifunctors and profunctors
+### Bifunctors
 
 
 If a type constructor has several type parameters, it can be covariant with respect to some of those type parameters and contravariant with respect to others.
@@ -4210,11 +4220,12 @@ let F = λ(a : Type) → λ(b : Type) → < Left : a | Right : b → Text >
 ```
 is covariant in `a` and contravariant in `b`.
 
-In this book, we will need **bifunctors** (type constructors covariant in two type parameters) and **profunctors** (type constructors contravariant in the first type parameter and covariant in the second).
+In this book, we will often use  **bifunctors**.
+A bifunctor is a type constructor with two type parameters that is  covariant with respect to both of those parameters.
 
 An example of a bifunctor in Haskell or Scala is  `type P a b = (a, a, b, Int)`.
-
-Dhall encodes bifunctors as functions with two curried arguments of kind `Type`:
+To implement an analogous bifunctor in Dhall, we need to create
+ a function with two curried arguments of kind `Type` and use a record instead of a tuple:
 
 ```dhall
 let P : Type → Type → Type  -- In Haskell or Scala, this is (a, a, b, Int).
@@ -4289,15 +4300,6 @@ let functorBifunctorF2 : ∀(F : Type → Type → Type) → Bifunctor F → ∀
     { fmap = λ(c : Type) → λ(d : Type) → λ(f : c → d) → bifunctorF.bimap a a (identity a) c d f }
 ```
 
-Profunctors have an `xmap` method that is similar to `bimap` except for the reversed direction of functions operating on the first type parameters.
-
-A Dhall definition of the `Profunctor` typeclass can be written as:
-
-```dhall
-let Profunctor : (Type → Type → Type) → Type
-  = λ(F : Type → Type → Type) → { xmap : ∀(a : Type) → ∀(c : Type) → (a → c) → ∀(b : Type) → ∀(d : Type) → (b → d) → F c b → F a d }
-```
-
 
 ### Pointed functors and pointed contrafunctors
 
@@ -4305,12 +4307,11 @@ A functor `F` is a **pointed functor** if it has a method called `pure` with the
 This method constructs values of type `F a` from values of type `a`.
 In many cases, `pure x` is a data container of type `F a` that stores a single value `x : a`.
 
-Let us define `Pointed` as a typeclass and implement `Pointed` evidence for some simple type constructors.
+Let us define `Pointed` as a typeclass and implement `Pointed` evidence for some simple functors.
 
 ```dhall
 let Pointed : (Type → Type) → Type
   = λ(F : Type → Type) → { pure : ∀(a : Type) → a → F a }
-
 let pointedOptional : Pointed Optional = { pure = λ(a : Type) → λ(x : a) → Some x }
 let pointedList : Pointed List = { pure = λ(a : Type) → λ(x : a) → [ x ] }
 ```
@@ -4321,7 +4322,6 @@ Another example of a pointed functor is `AAInt` defined earlier in this book:
 
 ```dhall
 let AAInt = λ(a : Type) → { _1 : a, _2 : a, _3 : Integer }
-
 let pointedAAInt : Pointed AAInt = { pure = λ(a : Type) → λ(x : a) →
   { _1 = x, _2 = x, _3 = +123 } }
 ```
@@ -4333,8 +4333,8 @@ When `F` is a functor, the type `∀(a : Type) → a → F a` can be simplified 
 ```dhall
 ∀(a : Type) → (p → a) → F a  ≅  F p
 ```
-where `p` is a fixed type.
-(See the Appendix "Naturality and parametricity" for more details about the Yoneda identities.)
+where `p` is a fixed type and the symbol `≅` denotes type equivalence.
+(See the Appendix "Naturality and parametricity" for details about the Yoneda identities.)
 
 The type signature `∀(a : Type) → a → F a` is a special case of the identity shown above if we set `p` to the unit type (in Dhall, `p = {}`).
 The  type of functions `{} → a` is equivalent to just `a`.
@@ -4409,11 +4409,10 @@ let Monad = λ(F : Type → Type) →
   }
 ```
 
-Let us show an example of how we can use this typeclass constructor.
-
-Note that the `Monad` typeclass via the `pure` and `bind` methods.
 It is well known that monads also have the `join` method, with type signature `F (F a) → F a`.
-Using the typeclass constraint, we can implement a function that provides the `join` method for any monad.
+The `join` method has a simpler type than `bind` and is useful for theoretical proofs of monad properties.
+
+Using a `Monad` typeclass constraint, we can implement a function that provides the `join` method for any monad.
 
 In Haskell, we would define `join` via `bind` as:
 
@@ -4453,7 +4452,7 @@ let monadList : Monad List =
 ```
 
 
-We can use the generic function `monadJoin` to obtain a `join` method for `List` like this:
+We can use the generic function `monadJoin` to obtain a `join` method for `List`:
 
 ```dhall
 let List/concat : ∀(a : Type) → List (List a) → List a
@@ -4484,8 +4483,7 @@ let monadReader : ∀(E : Type) → Monad (Reader E)
     let bind = λ(A : Type) → λ(oldReader : Reader E A) → λ(B : Type) → λ(f : A → Reader E B) →
          λ(e : E) →
            let a : A = oldReader e
-           let b : B = f a e
-           in b
+           in (f a e) : B
     in { pure, bind }
 ```
 
@@ -4566,7 +4564,6 @@ let lawsHoldForReaderMonad = λ(E : Type) → λ(a : Type) → λ(x : a) → λ(
   let test3 = assert : laws.assoc_law
   in True
 ```
-This verification is symbolic and is equivalent to a rigorous proof that the laws hold.
 
 Dhall is able to perform a similar check for the continuation monad:
 
@@ -4578,8 +4575,9 @@ let lawsHoldForContinuationMonad = λ(R : Type) → λ(a : Type) → λ(x : a) �
   let test3 = assert : laws.assoc_law
   in True
 ```
-Although the Dhall interpreter is quite limited in symbolic reasoning with equations, the code for the `Reader` and `Continuation` monads contains only functions and function applications.
-In those cases, Dhall can perform the argument substitutions that are sufficient to verify the laws. 
+Although the Dhall interpreter is quite limited in symbolic reasoning, the code for the `Reader` and `Continuation` monads is simple enough and contains only functions and function applications.
+In those cases, Dhall can perform the argument substitutions needed to verify the laws. 
+This verification is symbolic and is equivalent to a rigorous proof of the laws.
 
 
 Let us also try verifying the laws of the `State` monad:
@@ -4690,7 +4688,7 @@ let paddingZip : ∀(a : Type) → List a → ∀(b : Type) → List b → List 
 ```
 
 For two non-empty lists, the padding `zip` will return a list of the length of the longest of the two lists.
-The missing elements are "padded" at the end of the list, using the last value in the shorter of the lists:
+The missing elements are "padded" at the end of the list, using the last value from the shorter of the lists:
 
 ```dhall
 let test1 = assert : paddingZip Natural [ 10, 20, 30 ] Bool [ True, False, False, True, True ]
@@ -4705,7 +4703,7 @@ let test2 = assert : paddingZip Bool [ True, False ] Bool ([] : List Bool)
   ≡ ([] : List (Pair Bool Bool))
 ```
 
-The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip` function as long as both input lists have the same lengths.
+The padding  `zip` function may be unfamiliar but behaves the same as the standard `List/zip`  as long as both input lists have the same lengths.
 When one of the input lists is longer, the standard `zip` truncates the longer list; but the padding `zip` pads the shorter list instead.
 In any case, the padding `zip` (together with the `pure` function defined as `pure x = [x]` for lists) satisfies all the laws of applicative functors and, unlike the truncating `zip`, does not discard any input information.
 
@@ -4716,7 +4714,7 @@ let applicativeFunctorList : ApplicativeFunctor List
   = functorList /\ pointedList /\ { zip = paddingZip }
 ```
 
-Why cannot we use the standard `List/zip` function for implementing this?
+Why cannot we use the standard `List/zip` function for i this?
 Because the identity laws of `zip` do not hold with our `pointedList` implementation (creating a list of length `1`) and the standard `List/zip` function.
 The identity laws say that `List/zip` applied to any list `xs` and to the result of `pointedList.pure a x` must be a list of the same length as `xs`, containing all the original elements of `xs` paired with the value `x : a`.
 However,  `List/zip a p q` will truncate the result to the shortest of the lists `p` and `q`.
@@ -4738,7 +4736,8 @@ let ap : ∀(F : Type → Type) → ApplicativeFunctor F → ∀(a : Type) → �
 
 It turns out that a `zip` method can be defined for many contravariant functors, and even for some type constructors that are neither covariant nor contravariant.
 
-As an example of the latter, consider the type constructor that defines the `Monoid` typeclass:
+As an example of the latter, consider the type constructor   `Monoid` defined earlier.
+Here we view it not in the sense of the typeclass but just as a type constructor:
 
 ```dhall
 let Monoid = λ(m : Type) → { empty : m, append : m → m → m }
@@ -4759,7 +4758,7 @@ This is an example of a "combinator" that derives new `Monoid` types out of prev
 
 In later chapters, we will explore systematically the possible combinators for `Monoid` and other typeclasses.
 For now, let us just remark that the `Monoid` type constructor is pointed and has a `zip` method.
-An evidence value for the `PointedU` typeclass is:
+Here is an  evidence value showing that `Monoid` belongs to  the `PointedU` typeclass:
 
 ```dhall
 let pointedMonoid : PointedU Monoid =
@@ -4767,7 +4766,7 @@ let pointedMonoid : PointedU Monoid =
   let append : {} → {} → {} = λ(_ : {}) → λ(_ : {}) → {=}
   in { unit = { empty, append } }
 ```
-So, we may say that `Monoid` is applicative (although not a functor).
+So, we may say that `Monoid` type constructor is applicative (although not a functor).
 To express that property, let us define the `Applicative` typeclass independently of `Functor`:
 
 ```dhall
@@ -4789,7 +4788,7 @@ Now we can implement an `Applicative` typeclass evidence for `Monoid`:
 ```dhall
 let applicativeMonoid : Applicative Monoid = pointedMonoid /\ { zip = monoidZip }
 ```
-This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, including contravariant ones ("contrafunctors").
+This example illustrates that the definition of the `Applicative` typeclass can be used with all type constructors, not necessarily with functors.
 
 An example of an applicative _contrafunctor_ is the type constructor `C m a = a → m`.
 The type `C m a` is viewed as a contrafunctor `C m` applied to the type parameter `a`.
@@ -4843,9 +4842,8 @@ It turns out to be equivalent (but simpler) if we require a method called `toLis
 This method should extract all data stored in a data structure of type `F a` and put that data into a list, in some fixed order.
 Once the data is extracted, we can apply the standard `List/fold` method to that list.
 
-A functor `F` is called a **foldable functor** if it supports a method `toList` with the type signature `∀(a : Type) → F a → List a`.
-
-With this motivation, we define the `Foldable` typeclass in Dhall:
+A functor `F` is called a **foldable functor** if it has a method `toList` of   type   `∀(a : Type) → F a → List a`.
+The corresponding typeclass (`Foldable`) is defined as:
 ```dhall
 let Foldable
   = λ(F : Type → Type) → { toList : ∀(a : Type) → F a → List a }
@@ -4860,18 +4858,16 @@ let foldableList : Foldable List = { toList = λ(a : Type) → identity (List a)
 
 Let us look at examples of implementing a `Foldable` typeclass evidence for some   functors.
 In each case, we pick some order for putting the data items stored in a functor value into a list.
-We just need to take care to extract all available data items:
+We just need to take care to extract all available data:
 ```dhall
 let F1 = λ(a : Type) → { data : a, count : Natural }
 -- F1 stores just one data item of type `a`.
 let foldableF1 : Foldable F1 = { toList = λ(a : Type) → λ(c : F1 a) → [ c.data ] }
-
 let F2 = λ(a : Type) → { p : a, q : a, r : Optional a }
 -- F2 can store either two or three data items.
 let foldableF2 : Foldable F2 = { toList = λ(a : Type) → λ(c : F2 a) →
    [ c.p, c.q ] # merge { None = [] : List a,  Some = λ(x : a) → [ x ] } c.r
 }
-
 let F3 = λ(a : Type) → < Left : Pair a a | Right : { x : Bool, y : a, z : List a } >
 -- F3 stores either exactly two data items, or a data item and a list.
 let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
@@ -4881,7 +4877,7 @@ let foldableF3 : Foldable F3 = { toList = λ(a : Type) → λ(c : F3 a) →
 }
 ```
 
-Another formulation of the "foldable" property is via the function often called `foldMap` with type signature `(a → m) → F a → m`.
+Another formulation of the "foldable" property is via the function often called `foldMap`, with type signature `(a → m) → F a → m`.
 This function assumes `m` to have a `Monoid` typeclass evidence and can be implemented for any `Foldable` functor:
 
 ```dhall
@@ -4900,13 +4896,13 @@ The `foldMap` function works with an arbitrary monoid type `m` and converts a da
 One can generalize `foldMap` by replacing an arbitrary monoid by an arbitrary _applicative functor_, as the properties of applicative functors are somewhat similar to the properties of monoids.
 The result of this generalization is a method known as `traverse`.
 It converts a data structure of type `F a` into a value of type `L (F b)` using a function of type `a → L b`.
-The type signature of  `traverse` is written in Haskell like this:
+The type signature of  `traverse` is written in Haskell as:
 
 ```haskell
 traverse :: Applicative L => (a -> L b) -> F a -> L (F b)  -- Haskell.
 ```
 It is important that this function is _parameterized_ by `L`.
-Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method must work in the same way for all types `a`, `b` and for all applicative functors `L`.
+Just as `foldMap` works in the same way for all monoids `m` and all types `a`, the `traverse` method   works in the same way for all types `a`, `b` and for all applicative functors `L`.
 
 Rewriting this type signature in Dhall as a type `TraverseT` and making `F` an explicit type parameter, we get:
 
@@ -4972,7 +4968,8 @@ let traversableF2 : Traversable F2 = { sequence = λ(L : Type → Type) → λ(a
     let laa : L (Pair a a) = applicativeFunctorL.zip a fla.p a fla.q
     let loa : L (Optional a) = traversableOptional.sequence L applicativeFunctorL a fla.r
     let Taaoa = Pair (Pair a a) (Optional a)
-    let laaoa : L Taaoa = applicativeFunctorL.zip (Pair a a) laa (Optional a) loa
+    let laaoa : L Taaoa
+      = applicativeFunctorL.zip (Pair a a) laa (Optional a) loa
     in applicativeFunctorL.fmap Taaoa (F2 a) (λ(s : Taaoa) → { p = s._1._1, q = s._1._2, r = s._2 }) laaoa
 }
 ```
@@ -5002,8 +4999,10 @@ let traversableF3 : Traversable F3 = { sequence = λ(L : Type → Type) → λ(a
             let lpaa : L (Pair a a) = applicativeFunctorL.zip a p._1 a p._2
             in applicativeFunctorL.fmap (Pair a a) (F3 a) (F3 a).Left lpaa
         , Right = λ(q : { x : Bool, y : L a, z : List (L a) }) →
-            let lla : L (List a) = traversableList.sequence L applicativeFunctorL a q.z
-            let lpala : L (Pair a (List a)) = applicativeFunctorL.zip a q.y (List a) lla
+            let lla : L (List a)
+              = traversableList.sequence L applicativeFunctorL a q.z
+            let lpala : L (Pair a (List a))
+              = applicativeFunctorL.zip a q.y (List a) lla
             in applicativeFunctorL.fmap (Pair a (List a)) (F3 a) (λ(pair : Pair a (List a)) → (F3 a).Right { x = q.x, y = pair._1, z = pair._2 }) lpala
   } fla
 }
@@ -5164,15 +5163,13 @@ An example is a "function type" combinator:
 - If `P` is a monoid and `R` is any fixed type then the function type `Q = R → P` is again a monoid.
 - If `F` is a functor and `R` is any fixed type then the type constructor `H` defined by `H a = R → F a` is again a functor.
 
-It turns out that the typeclass laws will hold automatically for typeclass evidence values computed via the "function type" combinators, for a wide range of typeclasses.
-(This is also proved in  "The Science of Functional Programming".)
 
 In later chapters of this book, we will study systematically the possibilities of typeclass derivation for a number of typeclasses and type combinators.
 
 
 ## Leibniz equality types
 
-Dhall's `assert` feature is a static check that some expressions are equal.
+Dhall's `assert` feature provides a static check that some expressions are equal.
 The syntax is `assert : a ≡ b`, where the expression `a ≡ b` denotes a _type_ that has a value only if `a` equals `b`.
 That feature can be viewed as syntax sugar for a technique known as "Leibniz equality types".
 
@@ -5218,11 +5215,10 @@ let _ : LeibnizEqNat 0 0 = λ(f : Natural → Type) → λ(p : f 0) → p
 ```
 
 Can we  implement a function of type `LeibnizEqNat 0 1`?
-The code would need to return a function of type `f 0 → f 1` given an `f : Natural → Type`.
+The code would need to return a function of type `f 0 → f 1` given any `f : Natural → Type`.
 Because `f` is a parameter, nothing is known about the types `f 0` and `f 1`.
 These two types will be computed by the function `f` that converts natural numbers into types in an arbitrary and unknown way.
-So, a function of type `f 0 → f 1` is a function between two completely arbitrary types.
-It is impossible to implement such a function.
+So, a function of type `f 0 → f 1` is a function between two completely arbitrary types, which is impossible to implement.
 
 To see the problem more concretely, let us choose a function `f` such that `f 0` is the unit type `{}` and `f 1` is the void type `<>`. We call that function `unit_if_zero`:
 ```dhall
@@ -5237,7 +5233,7 @@ Dhall does not allow us to write such code.
 
 These conclusions can be generalized from `Natural` to an arbitrary type `T`.
 For any `t : T`, we can implement a (unique) value of type `LeibnizEqual T t t`.
-That value is often called `refl` (meaning **reflexivity**, i.e., the property that any value `t` is always equal to itself):
+That value is often called `refl` (referring to **reflexivity**, i.e., the property that any value `t` is always equal to itself):
 
 ```dhall
 let refl : ∀(T : Type) → ∀(t : T) → LeibnizEqual T t t
@@ -5248,18 +5244,14 @@ But we cannot implement any values of type `LeibnizEqual T x y` when `x` and `y`
 More precisely, this will happen for any `x` and `y` such that the Dhall typechecker   thinks that `f x` and `f y` are different types.
 
 Keep in mind that the Dhall typechecker will not always detect semantic equality in situations where the expressions are syntactically different but actually equal after evaluation.
-For example, the expressions  `y * 2` and `y + y` will always evaluate to the same natural number.
-But the Dhall typechecker will not accept that `y * 2 ≡ y + y` when `y` is a parameter whose value is not yet known.
+For example, the expressions  `y * 2` and `y + y` will always evaluate to the same natural number when any literal value is substituted for `y`.
+But when `y` is a parameter whose value is not yet known, the Dhall typechecker will not accept that `y * 2 ≡ y + y`.
 As an example, we will not be able to create values of type `λ(y : Natural) → LeibnizEqual Natural (y * 2) (y + y)`.
 
-To summarize, Leibniz equality types have the following properties:
-
-- One can implement values `refl T x` of type `LeibnizEqual T x x` for any value `x : T`.
-- If values `x : T` and `y : T` have different normal forms in Dhall, one cannot implement values of type `LeibnizEqual T x y`.
 
 ### Leibniz equality and `assert` expressions
 
-The `assert` feature in Dhall imposes a constraint that two values should be equal (have the same normal forms) at typechecking time.
+The `assert` checker in Dhall validates that two values should be equal (have the same normal forms) at typechecking time.
 The expression `assert : x ≡ y` will be accepted only if `x` and `y` have the same type and the same normal forms.
 
 It turns out that Dhall's `assert` feature can be implemented via the Leibniz equality.
@@ -5267,19 +5259,19 @@ To explain that, let us show how a Leibniz equality type may be used to write co
 
 If `x` and `y` are equal then `f x` and `f y` are the same type for any function `f : T → Type`.
 If so, the value `refl T x` of type `LeibnizEqual T x x` will be also accepted by Dhall as having the type `LeibnizEqual T x y`.
-We can write that constraint as a type annotation (which will be validated at typechecking time) in the form `refl T x : LeibnizEqual T x y`.
-That type annotation will be accepted only when `x` equals `y` at typechecking time.
+We can write that condition as a type annotation `refl T x : LeibnizEqual T x y`.
+Dhall will accept that type annotation   only when `x` equals `y` at typechecking time.
 
-As an example, here is how to assert that `123` equals `100 + 20 + 3`:
+As an example, let us assert that `123` equals `100 + 20 + 3`:
 ```dhall
 let _ = refl Natural 123 : LeibnizEqual Natural 123 (100 + 20 + 3)
 ```
 This code is fully analogous to `let _ = assert : 123 ≡ 100 + 20 + 3`.
-However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and it is impossible to avoid that repetition).
+However, the code written via `LeibnizEqual` is longer, since we have to repeat the value `123` and the type `Natural` (and we cannot entirely avoid that repetition).
 It is shorter and more convenient to write  `let _ = assert : 123 ≡ 100 + 20 + 3`.
 
-The similarity between Leibniz equality types and Dhall's built-in equality types goes further:
-Given a value of type `LeibnizEqual T x y`, one can compute a value of type `x ≡ y`.
+The similarity between Leibniz equality types and Dhall's built-in equality types goes further.
+Namely, one can convert  values of type `LeibnizEqual T x y` directly into values of type `x ≡ y`.
 Indeed, `LeibnizEqual T x y` is a function that takes an `f : T → Type` and a value of type `f x`, returning a value of type `f y`.
 If we need to get a value of type `x ≡ y`, we need to define `f` such that the type `f y` is `x ≡ y`.
 Here is an example of defining such a function when `T = Natural`:
@@ -5301,13 +5293,12 @@ let toAssertType
     in leq f (assert : x ≡ x)
 ```
 With this definition, `toAssertType Natural 1 1 (refl Natural 1)` is exactly the same Dhall value as `assert : 1 ≡ 1`.
-
-In this way, Leibniz equality types reproduce Dhall's `assert` functionality.
+We have reproduced Dhall's `assert` functionality.
 
 Note that `assert` verifies static (compile-time) equality even on values that Dhall cannot compare at run time.
 We can write `assert : "abc" ≡ "abc"` for string values, even though Dhall does not allow us to implement a function for comparing two strings at run time.
 
-Similarly, we can implement a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the equality statically:
+Let us also write a value of the Leibniz equality type `LeibnizEqual Text "abc" "abc"` to verify the same equality:
 
 ```dhall
 let exampleString = "ab"
@@ -5316,9 +5307,9 @@ let _ = refl Text "abc" : LeibnizEqual Text "${exampleString}c" "abc"
 
 We have seen that the Leibniz equality type can be converted to `assert` values.
 However, `assert` values currently cannot be converted back to Leibniz equality values.
-Dhall implements `a ≡ b` and `assert` as special expression types that cannot be manipulated in any way, other than typechecked.
+Dhall implements `assert`  as a special expression type that cannot be manipulated in any way, other than typechecked.
 
-Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall features are insufficient.
+Because Leibniz equality types are more general and more powerful than Dhall's `assert` feature, one might need sometimes to use the Leibniz equality types in case the built-in Dhall `assert` is insufficient.
 
 ### Leibniz inequality types
 
@@ -5329,7 +5320,7 @@ This property (a "logical negation" of `a ≡ b`) can be encoded as the type `(a
 
 To see why, consider the function type `T → <>` for any type `T`.
 
-Indeed,  if `T` is non-void then we could not possibly have any functions of type `T → <>`.
+Indeed,  if `T` were non-void then we could not possibly have any functions of type `T → <>`.
 If we had such a function, we would apply it to some value of type `T` and obtain a value of the void type, which is impossible.
 So, the type `T → <>` must be void.
 
@@ -5364,7 +5355,7 @@ But we will not actually call that function; we just need to write code that typ
 That code needs to call `k` with some arguments, such that the output type is void (Dhall's `<>`).
 The curried function `k` has arguments of type `Natural → Type` and `f 1`, while the final output value has type `f 0`.
 So, let us choose `f` such that `f 0 = <>`.
-It remains to choose `f` such that `f 1` is not void, so that we could call `k` with all curried arguments.
+It remains to choose `f` such that `f 1` is not void, so that we could apply `k` to  arguments.
 For simplicity, let us choose `f 1 = {}` (Dhall's unit type).
 This allows us to complete the code:
 
@@ -5379,17 +5370,17 @@ Similar code would be written for `LeibnizUnequal T a b` when `T` is a union typ
 Then we would apply `k` to a function `f` defined via a suitable `merge` expression instead of `if/then/else`.
 
 We note that this sort of code for `LeibnizUnequal T a b` is possible only if we are able to distinguish values of type `T` at _run time_ via `Bool`-valued functions or via `merge` expressions.
-This is a stronger requirement than just being able to find out whether two values of type `T` are equal.
+This is a stronger requirement than just being able to assert that two values of type `T` are equal.
 Dhall does not support `Bool`-valued comparisons for types such as `Double` or `Text`.
 So, it is impossible to write Dhall code with type `LeibnizUnequal Text "abc" "def"` or `LeibnizUnequal Double 0.1 0.2`.
 (However, it is possible to implement values of equality types such as `LeibnizEqual Text "abc" "abc"` and `LeibnizEqual Double 0.1 0.1`, as we have already seen.)
 
 The existence of types whose values cannot be compared at run time is not due to a limitation of Dhall.
 Even though comparisons for strings or for `Double` numbers could be implemented in another revision of Dhall,
-there are types that cannot be efficiently compared at run time.
+there exist types whose values cannot be efficiently compared at run time.
 A simple example is the function type `T = Natural → Bool`.
 Two functions of that type are `x = λ(n : Natural) → Natural/isZero (Natural/subtract 10000 n)` and `y = λ(_ : Natural) → True`.
-Could we figure out at run time whether these two functions are equal?
+Is it possible to figure out at run time whether these two functions are equal?
 Both `x n` and `y n` evaluate to `True` for all `n` up to `10000`.
 We need to set `n = 10001` or larger in order to see the difference between `x n` and `y n`.
 In general, we cannot be sure that two functions of type `T` are equal unless we try _all_ possible natural numbers as function arguments; but that would take infinite time.
@@ -5408,7 +5399,7 @@ So, a function with an extra argument of type `LeibnizEqual T x y` can be called
 
 A function with an argument of type `LeibnizUnequal T x y` can be called only if `x` and `y` have _unequal_ normal forms, provided that Dhall is able to compare values of type `T` for equality at run time.
 
-Compare this with the way "safe division" was implemented in the chapter "Arithmetic with `Natural` numbers".
+Compare this with the way "safe division" was implemented in the chapter "Numerical algorithms".
 In that chapter, we added an extra evidence argument of type `Nonzero y` to the function `unsafeDiv`.
 The type `Nonzero y` is equivalent to the type `LeibnizUnequal Natural 0 y`. Both types are void when `y` is zero; both types have a single distinct value when `y` is nonzero.
 In this way, we see that Leibniz equality types generalize the types of the form of `Nonzero y` to more complicated values and conditions.
@@ -5437,15 +5428,14 @@ Dhall can validate such conditions only if `n` is a known literal (known "static
 
 ### Leibniz equality at type level
 
-Dhall's `assert` feature is limited to values; it does not work for types or kinds.
+Dhall's `assert` checker is limited to values; it does not work for types or kinds.
 The expression `assert : Natural ≡ Natural` (and even just the type `Natural ≡ Natural`) is rejected by Dhall.
 
-One can define a form of a Leibniz equality type for comparing types instead of values:
+One can define a Leibniz equality type for comparing types instead of values:
 
 ```dhall
 let LeibnizEqualT =
   λ(T : Kind) → λ(a : T) → λ(b : T) → ∀(f : T → Type) → f a → f b
-
 let reflT = λ(T : Kind) → λ(a : T) → λ(f : T → Type) → λ(p : f a) → p
 ```
 
@@ -5462,7 +5452,7 @@ let LeibnizTypeCast : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q
 This function is a **type cast** because it reassigns the types without actually changing the values.
 
 
-A more general form of a type-cast is to transform values of type `F P` into type `F Q` (for any type constructor `F`):
+A more general form of a type cast is to transform values of type `F P` into type `F Q` (for any type constructor `F`):
 ```dhall
 let LeibnizTypeCastF : ∀(P : Type) → ∀(Q : Type) → LeibnizEqualT Type P Q → ∀(F : Type → Type) → F P → F Q
   = λ(P : Type) → λ(Q : Type) → λ(ev : LeibnizEqualT Type P Q) → ev
@@ -5491,7 +5481,7 @@ Because of Dhall's limitations on polymorphism, we cannot implement a single fun
 We need to use `LeibnizEqual` with `refl` when comparing values and `LeibnizEqualT` with `reflT` when comparing types.
 
 We also cannot define a Leibniz equality type for comparing arbitrary _kinds_.
-That would require writing something like `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
+That requires writing something like `λ(T : Sort) → λ(a : T) → ...`, but Dhall rejects this code because `Sort` does not have a type,
 while all function types are required to have a type themselves.
 
 How can we verify that, say, `Type` is equal to `Type` but not to `Type → Type`?
@@ -5540,7 +5530,7 @@ So, we view `refl` as the "reflexivity combinator".
 The symmetry property is that if `x` equals `y` then also `y` equals `x`.
 Translated into the language of equality types, it means that for any value of type `LeibnizEqual T x y` we should be able to construct a value of type `LeibnizEqual T y x`.
 
-So, the symmetry combinator is a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
+So, we expect the symmetry combinator to be a function with the type signature `LeibnizEqual T x y → LeibnizEqual T y x`, for all `T : Type`, `x : T`, and `y : T`.
 How can we implement that function?
 ```dhall
 let symmetryLeibnizEqual
@@ -5571,7 +5561,7 @@ let symmetryLeibnizEqual
 #### Transitivity
 
 The transitivity property is that if `x` equals `y` and `y` equals `z` then also `x` equals `z`.
-In the language of equality types, it means we should expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
+In the language of equality types, it means we   expect to have a combinator with the type signature `LeibnizEqual T x y → LeibnizEqual T y z → LeibnizEqual T x z`, for all `T : Type`, `x : T`, `y : T`, and `z : T`.
 How can we implement that?
 ```dhall
 let transitivityLeibnizEqual
@@ -5603,7 +5593,7 @@ let transitivityLeibnizEqual
 #### Value identity
 
 If we know that `x` equals `y`, we also know that `f x` equals `f y` for any function `f`.
-This is translated into the following combinator:
+We expect this to be translated into a combinator like this:
 
 ```dhall
 let identityLeibnizEqual
@@ -5612,7 +5602,7 @@ let identityLeibnizEqual
     λ(x_eq_y : LeibnizEqual T x y) → ??? : LeibnizEqual U (f x) (f y)
 ```
 
-We derive the code for this combinator using the same technique: find a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
+We derive the code for this combinator by finding  a suitable type constructor `g : T → Type` and a value `h : g x` such that evaluating `x_eq_y g h` will give a value of the required output type `LeibnizEqual U (f x) (f y)`.
 That last type should be the same as `g y`.
 We achieve that by defining `g t = LeibnizEqual U (f x) (f t)`.
 Then a suitable value `h : g x` is obtained with `refl`.
@@ -5672,9 +5662,8 @@ Can we produce an evidence value for that?
 
 Dhall cannot manipulate values of its built-in equality types (values of the form `assert : x ≡ y`).
 There are currently no functions in Dhall that can derive any information out of such values.
-
-But Leibniz equality types and their standard combinators do allow us to perform some computations involving equality.
-In this example, we can obtain a value of type `f x ≡ g x` by using the "function extensionality" combinator, and we can obtain a value of type `g x ≡ g y` via the "value identity" combinator.
+But Leibniz equality types and their   combinators do allow us to compute with  equality evidence values.
+As we just saw, one can obtain a value of type `f x ≡ g x` by using the "extensionality" combinator, and   a value of type `g x ≡ g y` via the "value identity" combinator.
 It remains to use the "transitivity" combinator to establish that `f x ≡ g y`.
 
 The code that computes evidence of type `f x ≡ g y` is:
@@ -5691,6 +5680,7 @@ We conclude this section with a few more illustrations of symbolic reasoning wit
 
 ###### Example
 Given a function `f : T → U → V` and evidence values of types `a ≡ b` and `c ≡ d`, where `a : T`, `b : T`, `c : U`, `d : U`, derive an evidence value for `f a c ≡ f b d`.
+Use Leibniz equality types instead of Dhall's `x ≡ y` types.
 
 ####### Solution
 
@@ -5717,13 +5707,13 @@ Given functions `f : T → U → V` and `g : T → U → V` and evidence values 
 
 Dhall does not directly support defining recursive types or recursive functions.
 The only supported recursive types are the built-in `Natural` and `List` types.
-However, the Church encoding technique provides a wide range of user-defined recursive types and recursive functions in Dhall.
+The Church encoding technique gives the user a way of defining custom recursive types  in Dhall.
 
 Dhall's documentation contains a [beginner's tutorial on Church encoding](https://docs.dhall-lang.org/howtos/How-to-translate-recursive-code-to-Dhall.html).
-This book summarizes the technique and goes into much more technical detail.
+This and the following chapters summarize that technique and go into much more technical detail.
 (What the Dhall documentation calls a "recursion scheme" is more appropriately called a "pattern functor" in this book.)
 
-In languages that do directly support recursive types, one defines types such as lists or trees via "type equations".
+In languages that do directly support recursive types, one defines those types via "type equations".
 That is, one writes definitions of the form `T = F T` where `F T` is some type expression using the type `T` that is being defined.
 
 For example, suppose `T` is the type of lists with integer values.
@@ -5733,19 +5723,19 @@ A recursive definition of `T` in Haskell could look like this:
 data T = Nil | Cons Int T     -- Haskell.
 ```
 
-This definition of `T` has the form of a "recursive type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by:
+This definition of `T` has the form of a "type equation", `T = F T`, where `F` is a (non-recursive) type constructor defined by:
 
 ```haskell
 type F a = Nil | Cons Int a     -- Haskell.
 ```
 
 The type constructor `F` is called the **pattern functor** for the definition of `T`.
-The type `T` is called a **fixpoint** of `F`.
+The type `T` is called a **fixpoint** of `F` (applying `F` to `T` gives again `T`).
 
 Each recursive type definition can be rewritten in this form, using a suitable pattern functor.
 The pattern functor `F` describes all the places where the recursive definition of `T` uses the type `T` itself.
 
-Dhall does not accept recursive type equations, but it will accept the definition of `F` because it is _non-recursive_.
+Dhall does not support any recursion, but it will accept the definition of `F` because it is _non-recursive_.
 The definition of `F` is written in Dhall as:
 
 ```dhall
@@ -5775,7 +5765,7 @@ Then the type `C` will be equivalent to the type `T` that one defines by `T = F 
 
 It is _far from obvious_ that the type `C = ∀(r : Type) → (F r → r) → r` is equivalent to a type `T` defined recursively by `T = F T`.
 More precisely, the type `C` is the "least fixpoint" of the type equation `T = F T`.
-A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in an Appendix of this book.
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) by P. Wadler, and also in   Appendix "Naturality and parametricity" of this book.
 Here we will focus on the practical uses of Church encoding.
 
 ### First examples of recursive types
@@ -5858,14 +5848,12 @@ let C = ∀(r : Type) → ({ x : Text, y : Bool } → r) → r
 
 The general properties of the Church encoding always enforce that `C` is a solution of the type equation `C = K C`.
 This remains true even when `K` does not depend on its type parameter.
-Then we have `K C = { x : Text, y : Bool }` independently of `C`.
-It follows that the type equation `C = K C` is the same as the type equation `C = { x : Text, y : Bool }`.
-This is a non-recursive type equation that has only one solution, namely, `C = { x : Text, y : Bool }`.
+Then we will have `K C = { x : Text, y : Bool }` independently of `C`, and  the type equation `C = K C` will be the same as the type equation `C = { x : Text, y : Bool }`.
+This non-recursive  type equation obviously has only one solution, namely, `C = { x : Text, y : Bool }`.
 
 More generally, the type `∀(r : Type) → (p → r) → r` is equivalent to just `p`, because it is the Church encoding of the type equation `T = p`.
 (Here we assume that `p` is a fixed type that does not depend on `r`.)
-Church encodings of that form do not produce recursive types.
-These encodings are useful for showing how certain types can be represented equivalently via higher-order functions.
+Church encodings of that form  are useful for showing how certain types can be represented equivalently via higher-order functions.
 
 In this book, we will write type equivalences using the symbol `≅` (which is not a valid Dhall symbol) like this:
 
@@ -5878,7 +5866,6 @@ This type equivalence is a special case of one of the **Yoneda identities**:
 ∀(r : Type) → (p → r) → G r  ≅  G p
 ```
 Here `G` must be a covariant type constructor and `p` must a fixed type (not depending on `r`).
-
 The Yoneda identities can be proved by assuming suitable naturality laws.
 See   Appendix "Naturality and parametricity" for more details.
 
@@ -5929,10 +5916,10 @@ As a result, we obtain the following encoding of the `Either` type:
 
 `Either a b  ≅  ∀(r : Type) → (a → r) → (b → r) → r`
 
-These derivations show that the curried function types and the universal type quantifier are sufficient to Church-encode many other types.
-The record types and the  union types are defined in Dhall as built-ins for convenience; but the same expressive power is already available once we have the universal quantifier and the function types.
+These derivations show that   curried function types and the universal type quantifier are sufficient to Church-encode many other types used in functional programming practice.
+The record types and the  union types are defined in Dhall as built-ins for convenience; but the same expressive power is already available once the language has the universal quantifier and  function types.
 
-Let us also summarize the standard type identities we have used in these derivations:
+Let us also summarize the standard type identities   used in these derivations:
 
 - Function from the unit type: `{} → r  ≅  r`
 - Function from the void type: `<> → r  ≅  {}`
@@ -5945,9 +5932,9 @@ Using the standard type   identities shown in the previous section, we can rewri
 
 The first type equivalence is that a function from a union type is equivalent to a product of functions.
 So, the type `ListIntF r → r`, written in full as:
-
-`< Nil | Cons : { head : Integer, tail : r } > → r`
-
+```dhall
+< Nil | Cons : { head : Integer, tail : r } > → r -- Symbolic derivation.
+```
 is equivalent to a pair of functions of types `{ head : Integer, tail : r } → r` and  `< Nil > → r`.
 
 The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to just `r`.
@@ -5955,14 +5942,14 @@ The type `< Nil >` is a named unit type, so `< Nil > → r` is equivalent to jus
 The second type equivalence is that a function from a record type is equivalent to a curried function.
 For instance, the type
 `{ head : Integer, tail : r } → r`
-is equivalent to `Integer → r → r`.
+is equivalent to the type  `Integer → r → r`.
 
 Using these type equivalences, we may rewrite the type `ListInt` in the **curried form** as:
 
 ```dhall
 let ListIntC = ∀(r : Type) → r → (Integer → r → r) → r
 ```
-This type is isomorphic to the previous definition of `ListInt`, but now the code does not involve union types or record types any more.
+This type is isomorphic to the previous definition of `ListInt`, but now the code no longer involves union types or record types.
 Working with curried functions often gives shorter code than working with union types and record types.
 
 As an example, let us rewrite the type `TreeText` defined above in the curried form.
@@ -5973,26 +5960,34 @@ let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r 
 let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
 ```
 
-Since `TreeTextF r` is a union type with two parts, the type of functions `FT r → r` can be replaced by a pair of functions.
+Since `TreeTextF r` is a union type with two parts, we can replace the type of functions `TreeTextF r → r`  by a pair of functions.
 We can also replace functions from a record type by curried functions.
-Then we obtain an equivalent definition of `TreeText` that is easier to work with:
+In this way, we obtain an equivalent definition of `TreeText` that is easier to work with:
 
 ```dhall
-let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
+let TreeTextC = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
 
-These examples show how any type constructor `F` defined via products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
+These examples show how any pattern functor containing  products (records) and co-products (union types) gives rise to a Church encoding that can be rewritten purely via curried functions, without using any records or union types.
 This is what we call the **curried form** of the Church encoding.
 
-Another example of a curried form is the Church encoding of natural numbers.
+The curried Church encoding is also known as the **Boehm-Berarducci encoding**.
+[This discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) gives more details,  although it does not show explicitly  the connection with the general Church encoding.
+
+#### Curried Church encoding of natural numbers
+
+Another example of a curried form is the Church encoding of the `Natural` type.
 The non-curried form is `∀(r : Type) → (Optional r → r) → r`. The function type `Optional r → r` is equivalent to the pair of `r` and `r → r`.
-So, the curried form is `∀(r : Type) → r → (r → r) → r`.
+So, the curried form of the Church encoding for `Natural` is `∀(r : Type) → r → (r → r) → r`.
+
+This encoding of natural numbers is usually shown in tutorials on the Church encoding.
+However, this is merely a special case of the general construction (`∀(r : Type) → (F r → r) → r`) involving an arbitrary pattern functor `F`.
 
 The curried form is often convenient for practical programming with Church-encoded values.
-However, the form `∀(r : Type) → (F r → r) → r` is more suitable for studying and proving the general properties of Church encodings.
+In the next chapters, we will use the curried Church encodings when we write code to illustrate and test various computations.
 
-The curried form of the Church encoding is also known as the **Boehm-Berarducci encoding**.
-[This discussion by O. Kiselyov](https://okmij.org/ftp/tagless-final/course/Boehm-Berarducci.html) gives more details.
+The form `∀(r : Type) → (F r → r) → r` is convenient for studying and proving the general properties of Church encodings -- properties that hold for all pattern functors `F`.
+
 
 ## Working with Church-encoded data
 
@@ -6008,27 +6003,35 @@ let x
 ```
 
 Working with data encoded in this way is not straightforward.
-It takes some effort to find  convenient ways of working with those types.
+It takes some effort to find  convenient ways of writing code involving those types.
 
-Our next steps are to figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
+In this chapter, we will   figure out how to implement constructors for Church-encoded data, how to perform aggregations (or "folds"), and how to do pattern matching on that data.
 
-For simplicity, we work with a Church-encoded type `C = ∀(r : Type) → (F r → r) → r` defined via a pattern functor `F`.
+We will be working with  Church-encoded types of the form `C = ∀(r : Type) → (F r → r) → r` defined via a pattern functor `F`.
 Later we will see that the same techniques work for Church-encoded type constructors and other more complicated types.
 
 An important requirement is that the pattern functor `F` should be a _covariant_ type constructor.
 If this is not so, the Church encoding will not work as expected.
-
 We will assume that `F` has a known and lawful `fmap` method, encapsulated by a `Functor` typeclass evidence.
-So, all Dhall code below assumes a given set of definitions of this form:
+
+
+Dhall's type system is powerful enough to be able to express the Church encoding  generically, as a function of an arbitrary pattern functor.
+We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
+
 
 ```dhall
-let F : Type → Type = ???
-let functorF : Functor F = ???
+let LFix : (Type → Type) → Type
+  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
 ```
 
-The required `Functor` evidence for integer-valued lists is:
+Instead  of the definition `C = ∀(r : Type) → (F r → r) → r`, we will write more concisely: `C = LFix F`.
+
+
+Let us write  the required pattern functors  for integer-valued lists and text-valued trees are:
 
 ```dhall
+let ListIntF = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
+let ListInt = LFix ListIntF
 let functorListIntF : Functor ListIntF =
   { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : ListIntF a) →
       merge { Nil = (ListIntF b).Nil
@@ -6039,12 +6042,7 @@ let functorListIntF : Functor ListIntF =
 
 ```dhall
 let TreeTextF = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
-let TreeText = ∀(r : Type) → (TreeTextF r → r) → r
-```
-The required code for the text-valued trees is:
-
-```dhall
-let FT = λ(r : Type) → < Leaf : Text | Branch : { left : r, right : r } >
+let TreeText = LFix TreeTextF
 let functorTreeTextF : Functor TreeTextF =
   { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(fa : TreeTextF a) →
       merge { Leaf = λ(t : Text) → (TreeTextF b).Leaf t
@@ -6054,34 +6052,17 @@ let functorTreeTextF : Functor TreeTextF =
 ```
 
 
-### Generic forms of Church encoding
-
-Dhall's type system is powerful enough to be able to express the Church encoding  generically, as a function of an arbitrary pattern functor.
-We will denote that function by `LFix`, following P. Wadler's paper "Recursive types for free".
-
-For simple types:
-
-```dhall
-let LFix : (Type → Type) → Type
-  = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r
-```
-
-Instead  of the definition `C = ∀(r : Type) → (F r → r) → r`, we will write more concisely: `C = LFix F`.
-
-Later in this book, we will work in Church encoding generically whenever possible.
-We will assume that `F` and a `Functor` evidence for `F` are given, and we will implement various functions in terms of `F`.
-
-
 ### Isomorphism `C ≅ F C` via the functions `fix` and `unfix`
 
-The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C = F C`.
+The Church-encoded type `C = LFix F` is a fixpoint of the type equation `C ≅ F C`.
 A fixpoint means there exist two functions, `fix : F C → C` and `unfix : C → F C`, that are inverses of each other.
-Those two functions implement an isomorphism between `C` and `F C`.
-The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data), which is one way of understanding why `C` is a solution of the type equation `C = F C`.
+We say that those two functions implement an **isomorphism** between `C` and `F C`, which we denote using the symbol `≅` in `C ≅ F C`.
+The isomorphism shows that the types `C` and `F C` are equivalent (carry the same data).
+In this sense we say that  `C` is a solution of   `C ≅ F C`.
 
 Because this isomorphism is a general property of all Church encodings, we can write the code for `fix` and `unfix` generically for all pattern functors `F` and the corresponding types `C = LFix F`.
 
-The basic technique of working with a Church-encoded value `c : C` is to apply `c` as a curried higher-order function to suitable arguments.
+The basic technique of working with a Church-encoded value `c : C` is to apply `c` (which is a curried higher-order function) to suitable arguments.
 A function of type `C` has two arguments: a type parameter `r` and a function of type `F r → r`.
 Given a value `c : C`, we can compute a value of another type `D` if we specify `D` as the type parameter to `c` and if we manage to provide a function of type `F D → D` as the second argument of `c`:
 ```dhall
@@ -6091,14 +6072,13 @@ let d : D =
 ```
 
 We will use this technique to implement `fix` and `unfix`.
-The code will be parameterized by an arbitrary functor `F`.
+The code will take an arbitrary functor `F` as a parameter.
 For clarity, we split the code into smaller chunks annotated by their types:
 
 ```dhall
 let fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
   = λ(F : Type → Type) → λ(functorF : Functor F) →
-    let C = LFix F
-    in
+    let C = LFix F in
       λ(fc : F C) → λ(r : Type) → λ(frr : F r → r) →
         let c2r : C → r = λ(c : C) → c r frr
         let fmap_c2r : F C → F r = functorF.fmap C r c2r
@@ -6114,10 +6094,9 @@ let unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 
 The definitions of `fix` and `unfix` are non-recursive and are accepted by Dhall.
 
-It turns out that `fix` and `unfix` are inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
-
-A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt) (where those functions are called `in` and `out` instead of `fix` and `unfix`).
-A proof is also shown in "Statement 2" in the section "Church encoding of least fixpoints: Proofs" of Appendix "Naturality and parametricity" in this book.
+It turns out that `fix` and `unfix` are indeed inverses of each other, as long as `F` is a lawful covariant functor and the parametricity assumptions hold (which is always the case in Dhall).
+A mathematical proof of that property is given in the paper ["Recursive types for free"](https://homepages.inf.ed.ac.uk/wadler/papers/free-rectypes/free-rectypes.txt), where those functions are called `in` and `out` instead of `fix` and `unfix`.
+A proof is also given in the section "Church encodings of least fixpoints" of Appendix "Naturality and parametricity" in this book.
 
 ### Data constructors
 
@@ -6126,26 +6105,21 @@ Sometimes this function is also called `build`, as in Dhall's `Natural/build` an
 We will call it `fix` to remind us of "fixpoints".
 
 To see how this works, note that the type `F C` is almost always a union type.
-A function from a union type is equivalent (as a type) to a tuple of simpler functions.
+Some constructors of that union type will use `C` and others will not.
 For example, 
-a function of type `Either a b → r` is equivalent to a pair of functions of types `a → r` and `b → r`.
-We can write this equivalence as:
+the type `F C` could a union with three constructors such as `< F1 : Natural | F2 : C | F3 : Pair Bool C >`.
+A function from a union type is equivalent (as a type) to a tuple of simpler functions.
+In this example, there will be three  functions that we could name `f1 : Natural → C`, `f2 : C → C`, and `f3 : Pair Bool C → C`.
+The function `fix : F C → C` is equivalent to three data constructors  for which we can choose convenient names (`f1`, `f2`, `f3` in this example).
+These data constructors provide three ways in which we can create values of type `C`.
 
-`Either a b → r  ≅  Pair (a → r) (b → r)`
+The code of `f1`, `f2`, `f3` can be derived from the code of `fix` if we apply `fix` to values of type `F C` created via the specific constructors (`F1`, `F2`, `F3`).
 
-The type `Option a` is equivalent to `Either {} a`.
-So, a function of type `Option a → r` is equivalent to a pair of functions of types `{} → r` and `a → r`.
-Because the unit type `{}` has only a single value (denoted by `{=}`), the type `{} → r` is equivalent to just `r`.
-So, we may rewrite `Option a → r` equivalently as a pair of `r` and `a → r`.
-
-These examples show that we may always rewrite   function types `F C → C` as a tuple of simpler functions whose arguments are not union types.
-Each of the simpler functions (in Dhall, we will denote them by `F1 C → C`, `F2 C → C`, etc.) is a specific constructor to which we may assign a name for convenience.
-In this way, we will replace a single function `fix` by a number of named constructors that help create values of type `C` more easily.
-
-The code for the constructors can be derived mechanically from the general code of `fix`.
+Generalizing to an arbitrary `F`, we find that a single function `fix` is equivalent to a number of data constructors that help create values of type `C` more easily.
+The code for those data constructors can be derived mechanically from the general code of `fix`.
 But in some cases it is easier to write the constructors manually, guided by the curried form of the Church encoding.
 
-To illustrate this technique, consider two examples: `ListInt` and `TreeText`.
+To illustrate these techniques, consider two examples: `ListInt` and `TreeText`.
 
 Begin with the uncurried Church encodings of those types:
 ```dhall
@@ -6153,7 +6127,8 @@ let ListInt = ∀(r : Type) → (< Nil | Cons : { head : Integer, tail : r } > �
 let TreeText = ∀(r : Type) → (< Leaf : Text | Branch : { left : r, right : r } > → r) → r
 ```
 
-Let us first see how we could derive the data constructors (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors).
+Let us first see how we could derive the data constructors, which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors.
+
 We begin by writing the types of the `fix` functions specific to each data type.
 
 For `ListInt`:
@@ -6171,7 +6146,7 @@ For `TreeText`:
 let fixTreeText : < Leaf : Text | Branch : { left : TreeText, right : TreeText } > → TreeText
   = fix TreeTextF functorTreeTextF
 ```
-Note that the union types `< Nil | Cons : { head : Integer, tail : ListInt } >` and `< Leaf : Text | Branch : { left : TreeText, right : TreeText } >` can be written more concisely as `ListIntF ListInt` and `TreeTextF TreeText`.
+Note that the union types `< Nil | Cons : { head : Integer, tail : ListInt } >` and `< Leaf : Text | Branch : { left : TreeText, right : TreeText } >` can be rewritten more concisely as `ListIntF ListInt` and `TreeTextF TreeText`.
 
 In both cases, the type signature of `fix` is a function from a two-part union type to the Church-encoded type.
 
@@ -6179,7 +6154,7 @@ In both cases, the type signature of `fix` is a function from a two-part union t
 Generally, a function from a two-part union type is equivalent to a pair of functions from the parts of the type.
 For example, a function `f : < A : a | B : b > → c` is equivalent to a pair of functions  `g : a → c` and `h : b → c`.
 The functions `g` and `h`  may be extracted from `f` by applying `f` to arguments created via `< A : a | B : b >.A x` and `< A : a | B : b >.B y`, where `x : a` and `y : b` are arbitrary argument values.
-The functions `g` and `h` are "specialized" for the two possible variants of the argument of `f`. 
+In this sense, the functions `g` and `h` are "specialized" for the two possible variants of the argument of `f`. 
 
 Now we use this technique to convert the `fix` functions to a pair of more specialized data constructor functions for the types `ListInt` and `TreeText`.
 
@@ -6214,7 +6189,7 @@ Values of type `TreeText` can be now created like this:
 let example2 : TreeText = branch (branch (leaf "a") (leaf "b")) (leaf "c")
 ```
 
-After showing how we could use the `fix` function explicitly, let us pass to the curried Church encodings and look at how we could write data constructors by hand.
+After showing how we could use the `fix` function explicitly, let us pass to the curried Church encodings and  write the analogous data constructors by hand.
 
 We redefine `ListInt` and `TreeText` in the curried form (we will not be using the old definitions any more):
 
@@ -6222,13 +6197,11 @@ We redefine `ListInt` and `TreeText` in the curried form (we will not be using t
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
 let TreeText = ∀(r : Type) → (Text → r) → (r → r → r) → r
 ```
-
-From this, we can simply read off the types of the constructor functions (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors):
+Now we can    set the type parameter `r` to `ListInt` or `TreeText` respectively and read off the types of the constructor functions (which we will call `nil`, `cons`, `leaf`, and `branch` according to the often used names of those constructors):
 
 ```dhall
 let nil : ListInt = ???
 let cons : Integer → ListInt → ListInt = ???
-
 let leaf : Text → TreeText = ???
 let branch : TreeText → TreeText → TreeText = ???
 ```
@@ -6249,7 +6222,6 @@ let nil : ListInt
 let cons : Integer → ListInt → ListInt
    = λ(n : Integer) → λ(c : ListInt) → λ(r : Type) → λ(a1 : r) → λ(a2 : Integer → r → r) →
      a2 n (c r a1 a2)
-
 let leaf : Text → TreeText
    = λ(t : Text) → λ(r : Type) → λ(a1 : Text → r) → λ(a2 : r → r → r) →
      a1 t
@@ -6261,13 +6233,13 @@ let branch : TreeText → TreeText → TreeText
 Now we can create values of Church-encoded types by writing nested constructor calls:
 
 ```dhall
--- The list similar to [+123, -456, +789]:
+-- The list with elements +123, -456, +789:
 let example1 : ListInt = cons +123 (cons -456 (cons +789 nil))
 
-{-             /\
-   The tree   /\ c    :
-             a  b
--}
+--             /\
+-- The tree   /\ c    :
+--           a  b
+--
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
 ```
 
@@ -6296,7 +6268,7 @@ let foldRight
     p r init update
 ```
 
-The code can be made even shorter:
+The code can be made even shorter by **eta-reduction**:
 
 ```dhall
 let foldRight
@@ -6319,7 +6291,7 @@ Note that `foldRight` and `flip_foldRight` are  non-recursive functions.
 In this way, the Church encoding enables "fold-like" operations to be implemented without recursion.
 
 For an arbitrary Church-encoded data type `C`, the "fold" function is the identity function of type `C → C` with first two arguments flipped.
-In practice, it is easier to "inline" that identity function: that is, to use the data type `C` itself as the "fold"-like function.
+In practice, it is easier to inline that identity function: that is, to use the data type `C` itself as the "fold"-like function.
 
 Recursive data types such as lists and trees support certain useful operations such as `map`, `concat`, `filter`, `zip`, and `traverse`.
 In most FP languages, those operations are implemented via recursive code.
@@ -6332,19 +6304,14 @@ Let us look at some examples of how this is done.
 
 ### Applying a function many times
 
-An example of a simple recursive type is the type of natural numbers (often denoted "`Nat`").
+A simple recursive type is the type of natural numbers (often denoted "`Nat`").
 The type `Nat` is the least fixpoint of the type equation `Nat = F Nat` with `F = Optional`.
-So, the Church encoding of `Nat` is the type `∀(r : Type) → (Optional r → r) → r`.
-
-It is more convenient to use the curried form of the Church encoding.
-The function type `Optional r → r` is isomorphic to the pair `(r, r → r)`.
-If we curry the function type `(Optional r → r) → r`, we obtain `r → (r → r) → r`.
-In this way, we derive the Church encoding of `Nat` as it is often shown in tutorials:
+We have seen its curried  Church encoding:
 ```dhall
 let Nat = ∀(r : Type) → r → (r → r) → r
 ```
 
-Values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
+Specific values of type `Nat` must be functions of the form `λ(r : Type) → λ(x : r) → λ(f : r → r) → ???`.
 Because the type `r` is arbitrary, the only way such a function could work is by applying `f` to the value `x`, then applying `f` to the result, etc., repeating this procedure a certain number of times.
 An example is:
 ```dhall
@@ -6467,8 +6434,8 @@ We implement a fold-like operation simply by applying the value `tree` to some a
 The first argument must be the type `r` of the result value.
 Since the pretty-printing operation will return a `Text` value, we set the type parameter `r` to `Text`.
 
-Then it remains to supply two functions of types `Text → r` and `r → r → r` (where `r = Text`).
-Let us call those functions `printLeaf : Text → Text` and `printBraches : Text → Text → Text`.
+Then it remains to supply two functions of types `Text → r` and `r → r → r` (with `r = Text`).
+Let us call those functions `printLeaf : Text → Text` and `printBranches : Text → Text → Text`.
 These two functions describe how to create the text representation for a larger tree either from a leaf or from the _already computed_ text representations of two subtrees.
 
 A leaf is printed as just its `Text` value:
@@ -6480,7 +6447,7 @@ let printLeaf : Text → Text = λ(leaf : Text) → leaf
 For  branches, we add parentheses and   a space between the two subtrees:
 
 ```dhall
-let printBraches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
+let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
 ```
 
 Note that the functions `printLeaf` and `printBranches` are non-recursive.
@@ -6489,14 +6456,11 @@ The complete code of `printTree` is:
 
 ```dhall
 let printLeaf : Text → Text = λ(leaf : Text) → leaf
-
 let printBranches : Text → Text → Text = λ(left : Text) → λ(right : Text) → "(${left} ${right})"
-
 let printTree : TreeText → Text = λ(tree : ∀(r : Type) → (Text → r) → (r → r → r) → r) →
     tree Text printLeaf printBranches
 
 let example2 : TreeText = branch ( branch (leaf "a") (leaf "b") ) (leaf "c")
-
 let _ = assert : printTree example2 ≡ "((a b) c)"
 ```
 
@@ -6601,7 +6565,7 @@ let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDe
 ```
 The difference is only in the definitions of the functions `leafSum`, `branchSum`, etc.
 
-For the calculation of the sum of all numbers in a tree, `leafSum` should return just the number stored in a leaf, and `branchSum` should return the sum of the two numbers in the branches.
+For computing the sum of all numbers in a tree, `leafSum` should return just the number stored in a leaf, and `branchSum` should return the sum of the two numbers in the branches.
 (During evaluation, those two numbers will be equal to the recursively computed sums over the two sub-trees.)
 So, we write:
 ```dhall
@@ -6610,8 +6574,8 @@ let branchSum : Natural → Natural → Natural = λ(left : Natural) → λ(righ
 let treeSum : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafSum branchSum
 ```
 
-For the calculation of the total number of data items, we count each leaf as one item.
-The number of items in the two branches needs to be added together.
+For computing the total number of data items, we count each leaf as one item.
+The already-computed item counts for the two branches need to be added up.
 
 ```dhall
 let leafCount : Natural → Natural = λ(leaf : Natural) → 1
@@ -6619,7 +6583,7 @@ let branchCount : Natural → Natural → Natural = λ(left : Natural) → λ(ri
 let treeCount : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafCount branchCount
 ```
 
-For the calculation of the depth, each leaf contributes 0 while each branch contributes 1 plus the maximum of the depths of the two subtrees.
+For computing the depth, each leaf contributes 0 while each branch contributes 1 plus the maximum of the already-computed depths of the two subtrees.
 ```dhall
 let Natural/max = https://prelude.dhall-lang.org/Natural/max
 let leafDepth : Natural → Natural = λ(leaf : Natural) → 0
@@ -6627,7 +6591,7 @@ let branchDepth : Natural → Natural → Natural = λ(left : Natural) → λ(ri
 let treeDepth : TreeNat → Natural = λ(tree : TreeNat) → tree Natural leafDepth branchDepth
 ```
 
-To test this code, let us implement the constructors and create some `TreeNat` values.
+To test this code, let us implement data constructors and create some `TreeNat` values.
 ```dhall
 let leafTreeNat : Natural → TreeNat = λ(n : Natural) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → leaf n
 let branchTreeNat : TreeNat → TreeNat → TreeNat = λ(left : TreeNat) → λ(right : TreeNat) → λ(r : Type) → λ(leaf : Natural → r) → λ(branch : r → r → r) → branch (left r leaf branch) (right r leaf branch)
@@ -6649,12 +6613,11 @@ let _ = assert : treeDepth tree123 ≡ 2
 
 ### Pattern matching
 
-When working with recursive types in ordinary functional languages, one often uses pattern matching.
+When working with recursive types in   functional languages, one often uses pattern matching.
 For example, here is a simple Haskell function that detects whether a given tree is a single leaf:
 
 ```haskell
--- Haskell.
-data TreeInt = Leaf Int | Branch TreeInt TreeInt
+data TreeInt = Leaf Int | Branch TreeInt TreeInt     -- Haskell.
 
 isSingleLeaf :: TreeInt -> Bool
 isSingleLeaf t = case t of
@@ -6674,14 +6637,11 @@ tailMaybe []     = Nothing
 tailMaybe (x:xs) = Just xs
 ```
 
-The Dhall translations of `TreeInt` and `ListInt` are Church-encoded types:
+ Dhall translations of `TreeInt` and `ListInt` are Church-encoded types:
 
 ```dhall
 let F = λ(r : Type) → < Leaf : Integer | Branch : { left : r, right : r } >
-let TreeInt = ∀(r : Type) → (F r → r) → r
-```
-and
-```dhall
+let TreeInt = LFix F
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
 let ListInt = ∀(r : Type) → (F r → r) → r
 ```
@@ -6719,8 +6679,7 @@ let isSingleLeaf : TreeInt → Bool = λ(c : TreeInt) →
     } (unfix F functorF c)
 ```
 
-For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The functions `headOptional` and `tailOptional` that replace
-Haskell's `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
+For `C = ListInt`, the type `F C` is the union type `< Nil | Cons : { head : Integer, tail : ListInt } >`. The functions `headOptional` and `tailOptional` that replace the Haskell functions `headMaybe` and `tailMaybe` are rewritten in Dhall like this:
 
 ```dhall
 let F = λ(r : Type) → < Nil | Cons : { head : Integer, tail : r } >
@@ -6731,7 +6690,6 @@ let functorF : Functor F = {
       Cons = λ(pair : { head : Integer, tail : a }) → (F b).Cons (pair // { tail = f pair.tail })
     } fa
   }
--- Constructors.
 let cons : Integer → ListInt → ListInt
   = λ(h : Integer) → λ(t : ListInt) →
     fix F functorF ((F ListInt).Cons { head = h, tail = t})
@@ -6752,9 +6710,9 @@ let _ = assert : headOptional (cons -456 (cons +123 nil)) ≡ Some -456
 let _ = assert : tailOptional (cons -456 (cons +123 nil)) ≡ Some (cons +123 nil)
 ```
 
-### Pattern matching in the curried Church encoding
+#### Pattern matching in the curried Church encoding
 
-The previous section shows  a general technique for pattern matching that works with  any Church-encoded type.
+We just saw    a general technique for pattern matching that works with  any Church-encoded type.
 When using the curried form of the Church encoding, it is sometimes more convenient to implement pattern matching functions by hand, especially if there are only a few specific needs.
 Let us show how to implement `headOptional` and `lastOptional` directly for  `ListInt` in the curried Church encoding.
 
@@ -6778,8 +6736,7 @@ let lastOptionalC : ListIntC → Optional Integer
       merge { None = Some i, Some = λ(prev : Integer) → Some prev } o
       )
 ```
-
-In such simple cases, it is easier to write the pattern-matching functions by hand.
+In   simple cases, it is easier to write the pattern-matching functions by hand.
 
 ### Performance of Church encodings
 
@@ -6865,8 +6822,9 @@ Once the normalized value of that list is stored in the file cache, reading it t
 Computing `headOptional` or `ListInt/concat` is so quick that it is below the measurement error.
 
 The curried forms of the Church encoding have smaller normal forms and  faster performance than the uncurried forms involving union types.
+However, reading the normal forms from the file cache appears to be quite slow.
 
-Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs (using a command such as `dhall freeze --all test.dhall`).
+Because of the slow parsing and normal form generation, timing tests need to begin by preparing all test data in the cache and using them as frozen inputs using a command such as: `dhall freeze -``-all test.dhall`.
 
 
 ## Church encodings of more complicated types
@@ -6892,8 +6850,7 @@ We need two pattern functors (`F1` and `F2`) to describe this definition. In ter
 data Layer = Layer (F1 Layer Layer2)
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
-
-We will achieve this formulation if we define `F1` and `F2` by:
+This formulation will be correct if we define `F1` and `F2` by:
 
 ```haskell
 -- Haskell.
@@ -6918,14 +6875,14 @@ let Layer2 = ∀(a : Type) → ∀(b : Type) → (F1 a b → a) → (F2 a b → 
 The definitions appear very similar, except for the output types of the functions.
 But that difference is crucial.
 
-See the Appendix "Naturality and Parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
+See the Appendix "Naturality and parametricity" for a proof that the Church encodings of that form indeed represent mutually recursive types.
 
-### Recursive type constructors
+### Recursive Church-encoded type constructors
 
-Typically, a recursive definition of a type constructor is not of the form `T = F T` but of the form `T a = F (T a) a`, or `T a b = F (T a b) a b`, etc., with extra type parameters.
-To describe such type equations, the pattern functor `F` must have more type parameters.
+Typically, a recursive definition of a type constructor is not of the form `T ≅ F T` but has extra type parameters:  `T a ≅ F (T a) a`, or `T a b ≅ F (T a b) a b`, etc.
+We will be able to describe such definitions if we   add more type parameters to the pattern functor `F`.
 
-For example, consider this Haskell definition of a binary tree with leaves of type `a`:
+Consider this Haskell code for a binary tree with leaves of type `a`:
 
 ```haskell
 data Tree a = Leaf a | Branch (Tree a) (Tree a)   -- Haskell.
@@ -6937,7 +6894,7 @@ The corresponding pattern functor `F` is:
 data F a r = Leaf a | Branch r r   -- Haskell.
 ```
 
-The Dhall code for `F` looks like this:
+The corresponding Dhall code for `F` looks like this:
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) →
@@ -6962,7 +6919,7 @@ let LFixT : (Type → Type → Type) → Type → Type
 ```
 Then the last definition of `Tree` is equivalently written as `let Tree = LFixT F`.
 
-To see that this is the same Church encoding as before, we can express `LFixT` through `LFix`:
+To see that this is similar to the Church encoding we used before, we can express `LFixT` through `LFix`:
 
 ```dhall
 let LFixT : (Type → Type → Type) → Type → Type
@@ -6974,7 +6931,7 @@ In the chapter "Working with Church-encoded data", we defined the general `fix` 
 let _ = fix : ∀(F : Type → Type) → Functor F → F (LFix F) → LFix F
 let _ = unfix : ∀(F : Type → Type) → Functor F → LFix F → F (LFix F)
 ```
-These functions are each other's inverses, showing that the types `LFix F` and `F (LFix F)` are isomorphic.
+These functions are each other's inverses, showing an isomorphism between the types `LFix F` and `F (LFix F)`.
 The code of those functions is general and works for every pattern functor `F`.
 
 Similarly, there exist general isomorphisms `fixT` and `unfixT` for type constructor fixpoints.
@@ -7022,17 +6979,20 @@ We can also rewrite `TreeAB` via `LFix` as:
 let TreeAB = λ(a : Type) → λ(b : Type) → LFix (F a b)
 ```
 
-### Example: Church-encoded list
+### Example: Church-encoded lists
 
 The `List` functor is a built-in type in Dhall.
-As a pedagogical example, let us now implement an equivalent type constructor via the Church encoding.
+Nevertheless, let us now implement an equivalent type constructor via the Church encoding.
+This will serve as preparation for encoding other recursive types, such as non-empty lists and trees, for which Dhall has no built-in constructors.
 
 The recursive type equation for `List` has the form (in Haskell-like syntax):
 
-`List a = Nil | Cons a (List a)`
+```haskell
+List a = Nil | Cons a (List a)
+```
 
 The right-hand side is equivalent to the Dhall type `Optional (Pair a (List a))`.
-So, we can represent the type equation for `List` in the form `List a = FList a (List a)` if we define `FList` by:
+So, the type equation for `List` will be written as `List a = FList a (List a)` if we define `FList` by:
 
 ```dhall
 let FList = λ(a : Type) → λ(r : Type) → Optional (Pair a r)
@@ -7047,37 +7007,38 @@ let CList = LFixT FList
 ```
 
 To create values of type `CList x` (where `x` is a specific type), we will implement helper functions `nilCList` and `consCList`.
-Rather than coding those functions by hand, let us apply a general method for finding the constructors of a Church-encoded fixpoint type.
+Rather than coding those functions by hand, let us apply a general method for deriving data constructors of a Church-encoded fixpoint type.
 That method uses the generic `fix` function.
 
 
-We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Church encodings for recursive types".
+We have seen the implementation of `fix : F C → C` for a simple fixpoint type `C` in the chapter "Working with Church-encoded data".
 For the type constructor `CList`, the corresponding function `fixCList` has the type signature `FList a (CList a) → CList a`.
-We can express `fixCList` via the generic `fix` function if we hold the type parameter `a` fixed and provide a suitable `Functor` instance for `FList a`.
-"Holding `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
+We can express `fixCList` via the generic `fix` function if we hold the type parameter `a` fixed and provide a suitable `Functor` evidence for `FList a`.
+"Holding the parameter `a` fixed" means that we will need to insert `∀(a : Type)` and `λ(a : Type)` where appropriate:
 ```dhall
 let functorFList2 : ∀(t : Type) → Functor (FList t)
   = λ(t : Type) → { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) →
     Optional/map (Pair t a) (Pair t b) (λ(p : Pair t a) → p // { _2 = f p._2 }) }
-let fixCList
-  : ∀(a : Type) → FList a (CList a) → CList a
+let fixCList : ∀(a : Type) → FList a (CList a) → CList a
   = λ(a : Type) → fix (FList a) (functorFList2 a)
 ```
 
-Now we derive the specific constructor functions `nilCList` and `consCList` from the code of `fixCList`:
+Now we derive the data constructor functions `nilCList` and `consCList` from the code of `fixCList`.
+The first data constructor is found if we apply `fixCList` to a `None ...` value;
+the second by applying `fixCList`   to a `Some ...` value:
 
 ```dhall
-let nilCList : ∀(a : Type) → CList a = λ(a : Type) → fixCList a (None (Pair a (CList a)))
+let nilCList : ∀(a : Type) → CList a = λ(a : Type) →
+  fixCList a (None (Pair a (CList a)))
 let consCList : ∀(a : Type) → a → CList a → CList a = λ(a : Type) → λ(head : a) → λ(tail : CList a) → fixCList a (Some { _1 = head, _2 = tail })
 ```
 
 Another useful function is `CList/show`.
-We will implement it in a simple way that leaves a trailing comma in the text output.
+To simplify its code, we will leave a trailing comma in the text output.
 ```dhall
 let CList/show : ∀(a : Type) → Show a → CList a → Text
   = λ(a : Type) → λ(showA : Show a) → λ(clist : CList a) →
-    let printFList
-      : FList a Text → Text
+    let printFList : FList a Text → Text
       = λ(flist : FList a Text) → Optional/default Text "" (Optional/map (Pair a Text) Text (λ(p : Pair a Text) → "${showA.show p._1}, ${p._2}") flist)
     in "[ ${clist Text printFList}]"
 ```
@@ -7091,7 +7052,7 @@ let _ = assert : CList/show Natural showNatural exampleCList1345 ≡ "[ 1, 3, 4,
 
 ### Example: Concatenating and reversing non-empty lists
 
-Dhall's Prelude already has concatenation and reversal operations for lists (`List/concat` and `List/reverse`).
+Dhall's Prelude already has the functions `List/concat` and `List/reverse` for lists.
 To practice implementing those operations for a Church-encoded data type, consider _non-empty_ lists (`NEL : Type → Type`) defined recursively as:
 
 ```haskell
@@ -7154,8 +7115,7 @@ let consn : ∀(a : Type) → a → NEL a → NEL a =
       λ(r : Type) → λ(ar : a → r) → λ(arr : a → r → r) →
         arr x (prev r ar arr)
 ```
-
-Non-empty lists can be now built as `consn Natural 1 (consn Natural 2 (one Natural 3))`, and so on.
+We can now build non-empty lists via code like `consn Natural 1 (consn Natural 2 (one Natural 3))`.
 
 To make testing easier, let us write a function `NEL/toList`:
 ```dhall
@@ -7192,7 +7152,7 @@ let _ = assert : example1 ≡ NEL/fold Natural example1 (NEL Natural) (one Natur
 To concatenate two lists, we right-fold the first list and substitute the second list instead of the right-most element:
 
 ```dhall
-let NEL/concat: ∀(a : Type) → NEL a → NEL a → NEL a
+let NEL/concat : ∀(a : Type) → NEL a → NEL a → NEL a
   = λ(a : Type) → λ(nel1 : NEL a) → λ(nel2 : NEL a) →
         NEL/fold a nel1 (NEL a) (λ(x : a) → consn a x nel2) (consn a)
 let example5 = NEL/concat Natural example1 example3
@@ -7268,7 +7228,7 @@ let _ = assert : NEL/initOptional Natural example1 ≡ Some (consn Natural 1 (on
 
 ### Example: Zipping non-empty lists
 
-We can now implement a standard `zip` method for non-empty lists.
+Let us now implement a standard `zip` method for non-empty lists.
 For that, we will need a function that computes the length of a non-empty list:
 
 ```dhall
@@ -7283,7 +7243,7 @@ When one of the tails becomes empty, iterations stop.
 
 ```dhall
 let Natural/min = https://prelude.dhall-lang.org/Natural/min
-let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
+let NEL/zip : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pair a b)
   = λ(a : Type) → λ(nela : NEL a) → λ(b : Type) → λ(nelb : NEL b) →
   let headPair = λ(left : NEL a) → λ(right : NEL b) →
     { _1 = NEL/head a left, _2 = NEL/head b right }
@@ -7298,7 +7258,7 @@ let NEL/zip -- : ∀(a : Type) → NEL a → ∀(b : Type) → NEL b → NEL (Pa
                    } (NEL/tailOptional b right)
             } (NEL/tailOptional a left)
   let init : Accum = { result = None (NEL (Pair a b)), tailA = nela, tailB = nelb }
-  let update : Accum → Accum = λ(acc: Accum) →
+  let update : Accum → Accum = λ(acc : Accum) →
     let result : Optional (NEL (Pair a b))
       = merge { None = Some (one (Pair a b) (headPair acc.tailA acc.tailB))
               , Some = λ(prev : NEL (Pair a b)) → Some (nsnoc (Pair a b) (headPair acc.tailA acc.tailB) prev)
@@ -7452,12 +7412,12 @@ let size : ∀(a : Type) → ∀(ca : C a) → Natural
 ```
 
 A data structure of type `F a Natural` will typically store some values of type `a` and some values of type `Natural`.
-The function `sizeF` should count the number of data items (of type `a`) stored in a value of type `F a Natural`.
-The values of type `Natural` stored inside `F` represent the sizes of recursively nested data structures of type `C a`.
-The sizes of those nested data structures have been already computed at the time when the function `sizeF` is being called.
-(This is how the Church encoding implements working with recursive structures.)
+The function call `sizeF q` should count the number of data items (of type `a`) stored in a value `q : F a Natural`.
+The values of type `Natural` stored inside `q` represent the  sizes of recursively nested data structures of type `C a`.
+The sizes of those nested data structures have been already computed by previous calls to `sizeF`.
+This is how Church encoding implements working with recursive structures.
 
-So, for a given value `fa : f a Natural`, the result of `sizeF fa` needs to be equal to the number of values of type `a` stored in `fa` plus the sum of all natural numbers stored in `fa`.
+So, for a given value `q : f a Natural`, the result of `sizeF q` needs to be equal to the number of values of type `a` stored in `q` plus the sum of all natural numbers stored in `q`.
 It is clear that the function `sizeF` will need to be different for each pattern functor `F`.
 
 For example, non-empty lists (`NEL`) are described by the pattern functor `F` such that `F a r = < One : a | Cons : { head : a, tail : r } >`.
@@ -7465,11 +7425,11 @@ The corresponding function `sizeF_NEL` is:
 
 ```dhall
 let sizeF_NEL : ∀(a : Type) → < One : a | Cons : { head : a, tail : Natural } > → Natural
-  = λ(a : Type) → λ(fa : < One : a | Cons : { head : a, tail : Natural } >) →
+  = λ(a : Type) → λ(q : < One : a | Cons : { head : a, tail : Natural } >) →
     merge {
       One = λ(x : a) → 1,
       Cons = λ(x : { head : a, tail : Natural }) → 1 + x.tail,
-    } fa
+    } q
 ```
 
 Binary trees (with leaf values of an arbitrary type `a`) are described by the pattern functor `FTree a r = < Leaf : a | Branch : { left : r, right : r } >`.
@@ -7478,11 +7438,11 @@ Let us define that functor and the corresponding function `sizeF`:
 ```dhall
 let FTree = λ(a : Type) → λ(r : Type) → < Leaf : a | Branch : { left : r, right : r } >
 let sizeFTree : ∀(a : Type) → FTree a Natural → Natural
-  = λ(a : Type) → λ(fa : FTree a Natural) →
+  = λ(a : Type) → λ(q : FTree a Natural) →
     merge {
       Leaf = λ(x : a) → 1,
       Branch = λ(x : { left : Natural, right : Natural }) → x.left + x.right,
-    } fa
+    } q
 ```
 
 Having realized that `sizeF` needs to be defined separately for each pattern functor `F`, we now implement `size` as a function of `F` and of `sizeF`.
@@ -7525,8 +7485,8 @@ let depth : ∀(F : Type → Type → Type) → ∀(a : Type) → ∀(depthF : �
     ca Natural (depthF a)
 ```
 
-For the correct calculation of depth of a value `p : F a Natural`, the value `depthF p` should equal `1` plus the maximum of all values of type `Natural` that are stored in the data structure `p`.
-If no such values are present, `depthF p` returns `0`.
+For the correct calculation of depth of a value `q : F a Natural`, the value `depthF q` should equal `1` plus the maximum of all values of type `Natural` that are stored in the data structure `q`.
+If no such values are present, `depthF q` should returns `0`.
 
 For non-empty lists (and also for the standard lists), the `depthF` function is the same as `sizeF` because the recursion depth is equal to the length of the list.
 
@@ -7534,11 +7494,10 @@ For binary trees, the corresponding `depthF` is defined by:
 
 ```dhall
 let depthFTree : ∀(a : Type) → < Leaf : a | Branch : { left : Natural, right : Natural } > → Natural
-  = λ(a : Type) → λ(fa : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
-    merge {
-      Leaf = λ(x : a) → 0,
-      Branch = λ(x : { left : Natural, right : Natural }) → 1 + Natural/max x.left x.right,
-    } fa
+  = λ(a : Type) → λ(q : < Leaf : a | Branch : { left : Natural, right : Natural } >) →
+    merge { Leaf = λ(x : a) → 0
+          , Branch = λ(x : { left : Natural, right : Natural }) → 1 + Natural/max x.left x.right,
+          } q
 ```
 
 To test:
@@ -7550,38 +7509,35 @@ let _ = assert : 2 ≡ depth FTree Natural depthFTree exampleTree3
 
 One may notice that the implementations of `size` and `depth` are actually the same code.
 The only difference is the argument given as either `sizeF` or `depthF`.
-Also, the functions `sizeF` are `depthF` are quite similar.
+The functions `sizeF` are `depthF` are also quite similar.
 
-It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern functor `F` has `Foldable`  typeclass evidence values with respect to _both_ type parameters.
+It turns out that we can implement the functions `sizeF` and `depthF` for arbitrary recursive types, as long as the pattern bifunctor `F` has `Foldable`  typeclass evidence values with respect to _each_ type parameter.
 Let us  see how that works.
 
 The functions `sizeF` and `depthF` have type `F a Natural → Natural` and may need to count the number of values of type `a` or iterate over all values of type `Natural` stored inside the data structure of type `F a Natural`.
 
-If `F x y` is a foldable functor with respect to both `x` and `y`, it means that we can iterate over all values of type `x` and separately over all values of type `y` stored in `F x y`.
-For convenience, let us define the types of the `Foldable` instances corresponding to the two functors obtained from the bifunctor `F` by fixing one of its type parameters:
+If `F x y` is a foldable bifunctor with respect to both `x` and `y`, it means that we can iterate over all values of type `x` and separately over all values of type `y` stored in `F x y`.
+For convenience, let us define the types of the `Foldable` evidence corresponding to the two functors obtained from the bifunctor `F` by fixing one of its type parameters:
 
 ```dhall
 let Foldable1 = λ(F : Type → Type → Type) → ∀(b : Type) → Foldable (λ(a : Type) → F a b)
 let Foldable2 = λ(F : Type → Type → Type) → ∀(a : Type) → Foldable (λ(b : Type) → F a b)
 ```
-
-Two `Foldable` instances give us two `toList` functions (having types `F a b → List a` and `F a b → List b`).
-Those functions allow us to extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
+These  `Foldable` evidence values give us two `toList` functions (with types `F a b → List a` and `F a b → List b`).
+Those functions can extract two lists (of types `List a` and `List Natural`) from a value of type `F a Natural`.
 With that, it is straightforward to translate the special code for the computations in `sizeFTree` and `depthFTree` into generic versions that work with all pattern bifunctors `F`.
 The code is:
 
 ```dhall
 let Natural/listMax = https://prelude.dhall-lang.org/Natural/listMax
-let depthF
-  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(c : Type) → F c Natural → Natural
+let depthF : ∀(F : Type → Type → Type) → Foldable2 F → ∀(c : Type) → F c Natural → Natural
   = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listNatural = (foldableF2 c).toList Natural p
     in merge { None = 0
              , Some = λ(n : Natural) → n + 1
              } (Natural/listMax listNatural)
 let Natural/sum = https://prelude.dhall-lang.org/Natural/sum
-let sizeF
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → Natural
+let sizeF : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(c : Type) → F c Natural → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(c : Type) → λ(p : F c Natural) →
     let listC : List c = (foldableF1 Natural).toList c p
     let listNatural : List Natural = (foldableF2 c).toList Natural p
@@ -7591,13 +7547,11 @@ let sizeF
 Now we can implement the fully generic `size` and `depth` functions that work for any Church-encoded type constructor.
 
 ```dhall
-let sizeLFix
-  : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+let sizeLFix : ∀(F : Type → Type → Type) → Foldable1 F → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF1 : Foldable1 F) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
    let sizeF = λ(fa : F a Natural) → sizeF F foldableF1 foldableF2 a fa
    in ca Natural sizeF
-let depthLFix
-  : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
+let depthLFix : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
   = λ(F : Type → Type → Type) → λ(foldableF2 : Foldable2 F) → λ(a : Type) → λ(ca : LFix (F a)) →
     let depthF = λ(fa : F a Natural) → depthF F foldableF2 a fa
     in ca Natural depthF
@@ -7653,7 +7607,7 @@ All other arguments are just copied over.
 
 We can generalize this code to the Church encoding of an arbitrary recursive type constructor with a pattern functor `F`.
 We need to convert a function argument of type `F b r → r` to one of type `F a r → r`.
-This can be done if `F` is a covariant bifunctor with a known `Bifunctor` evidence.
+This can be done when `F` has a known `Bifunctor` evidence.
 
 Here is a  function that transforms an arbitrary bifunctor `F` into a `Functor` evidence for the type constructor `LFix (F a)`:
 
@@ -7677,13 +7631,13 @@ Whenever possible, we will implement typeclass evidence values for Church-encode
 
 Dhall's built-in type constructors  `List` and `Optional` only work with  ordinary values.
 For example, we can have  a list of Boolean values, such as `[ False, True ]`, or an `Optional` value storing a number, such as `Some 123`.
-One can also have a list of lists of `Optional Bool`, and so on.
+One can also have a list of lists of `Optional Bool` values, and so on.
 But it is a type error in Dhall to write `[ Bool, Natural ]` with the intention of creating a list of type symbols `Bool` and `Natural`.
 One also cannot write `Some Text` with the intention of creating an `Optional` value storing the `Text` type symbol.
 
 To formulate this more rigorously, we say that an `Optional` or a `List` can store values whose type  has kind `Type`.
 We can have a `List t` only if the kind of `t` is `Type`.
-(Those types are called **ground types**.)
+(Those types `t` are called **ground types**.)
 So, we can have a `List Natural`,  `List Bool`,  a `List { a : Natural, b : Bool, c : Optional Text }`, and generally any `List t` such that `t : Type` is a valid annotation.
 But we cannot have a `List Type` or a `List (Type → Type)`, because that would be of the form `List t` with `t : Kind`.
 If that is desired, one needs to implement some custom type constructors that we will now look at.
@@ -7712,15 +7666,16 @@ let OptionalK/default
           , Some = λ(t : k) → t
           } opt
 let OptionalT/default = OptionalK/default Type
-let someType1 = OptionalT/default Bool example1 -- someType1 is Bool
-let someType2 = OptionalT/default Bool example2 -- someType2 is Natural
-let _ = True : someType1 -- This typechecks because someType1 is Bool.
-let _ = 123 : someType2 -- This typechecks because someType2 is Natural.
+let someType1 = OptionalT/default Bool example1    -- someType1 is Bool.
+let someType2 = OptionalT/default Bool example2    -- someType2 is Natural.
+let _ = True : someType1   -- This typechecks because someType1 is Bool.
+let _ = 123 : someType2    -- This typechecks because someType2 is Natural.
 ```
 
 We now turn to the type-level `List` analogs.
 This is more difficult because `List` requires a recursive definition.
-Note that Dhall's built-in `List` constructor does not support type symbols as list elements; the syntax `[Bool, Natural, Text]` is an error.
+Note that Dhall's built-in `List` constructor does not support type symbols as list elements.
+As we already saw, the syntax `[ Bool, Natural, Text ]` is an error.
 
 To implement type-level lists, we turn to  the Church encoding similar to what we used before, except that the stored data items will now have kind `Type`.
 
@@ -7737,13 +7692,13 @@ The resulting code is:
 
 ```dhall
 let ListT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : Type → r → r) → r
-let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) → cons Bool (cons Natural (cons Text nil))  -- Similar to [Bool, Natural, Text].
+let exampleListT = λ(r : Kind) → λ(nil : r) → λ(cons : Type → r → r) → cons Bool (cons Natural (cons Text nil))  -- Similar to [ Bool, Natural, Text ].
 ```
 The value `exampleListT` is a type-level list: it defines a list of three _type symbols_.
 
 
-To illustrate working with a type-level list, let us write a function that extracts the head from a list.
-The result will be an `OptionalT` value.
+To illustrate working with a type-level list, let us write a function that extracts the first element from a list (if that   element exists).
+The result will be an `OptionalT` type-level structure.
 
 ```dhall
 let headOptionalT : ListT → OptionalT
@@ -7756,23 +7711,23 @@ To extract the type out of an `OptionalT`, we need to provide a default type and
 The head of the list `exampleListT` is the type `Bool`.
 To verify that, we write a type annotation for a `Bool` value:
 ```dhall
-let someBool = headOptionalT exampleListT -- This OptionalT.`Some` Bool.
+let someBool = headOptionalT exampleListT     -- This OptionalT.`Some` Bool.
 let shouldBeBoolType = OptionalT/default {} someBool
 let _ = False : shouldBeBoolType
 ```
 
 The type-level list `ListT` is hard-coded to store symbols of kind `Type`.
-We cannot use it to store, say, type _constructors_ (such as `Optional`).
-For that, we need to define another type-level list type; let's call it `ListTT`.
+We cannot use it to store, say, _type constructors_ (such as `Optional`).
+For that, we need to define another type-level list constructor; let's call it `ListTT`.
 
 ```dhall
 let ListTT = ∀(r : Kind) → ∀(nil : r) → ∀(cons : (Type → Type) → r → r) → r
-let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) → r → r) → cons Optional (cons List nil)  -- Similar to [Optional, List].
+let exampleListTT = λ(r : Kind) → λ(nil : r) → λ(cons : (Type → Type) → r → r) → cons Optional (cons List nil)  -- Similar to [ Optional, List ].
 ```
 
 The constructors `ListT` and `ListTT` define lists whose elements have a hard-coded _kind_.
-To see how we could generalize to arbitrary kinds, compare the Church encoding of `ListInt` with that of a generic list.
-The difference is that the hard-coded `Integer` type is replaced by a type parameter:
+To see if we could generalize to arbitrary kinds, compare the Church encoding of `ListInt` with that of a generic list.
+The difference is that the hard-coded `Integer` type is replaced by an extra type parameter:
 
 ```dhall
 let ListInt = ∀(r : Type) → r → (Integer → r → r) → r
@@ -7785,10 +7740,9 @@ let ListT = ∀(r : Kind) → r → (Type → r → r) → r
 let ListTGeneric = λ(k : Kind) → ∀(r : Kind) → r → (k → r → r) → r
   -- Type error: `Sort` does not have a type
 ```
-
 The error says that `ListTGeneric` cannot be typed.
 To understand why, let us look at the type of `ListT`.
-We can verify that the type constructor `ListT` has itself the type `Sort`:
+We can verify using a type annotation that the type constructor `ListT` has itself the type `Sort`:
 ```dhall
 let _ = ListT : Sort
 ```
@@ -7826,9 +7780,9 @@ The code will typecheck only when there are as many `Branch` levels as the nesti
 
 The definition of `PBTree` is recursive because it uses `PBTree` itself.
 To define this data structure in Dhall, we need to use a Church encoding.
-But it turns out that   the Church encoding techniques shown so far will not work.
-The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` as the type parameter of `PBTree`.
-The Church encoding (`LFix`) only supports recursive definitions where extra type parameters are held fixed.
+But it turns out that the Church encoding based on `LFix` will not work here.
+The reason is that the recursive use of `PBTree` in `Branch (PBTree (a, a))` substitutes the pair type `(a, a)` instead of `a` as the type parameter of `PBTree`.
+The Church encoding (`LFix`) only supports recursive definitions where extra type parameters remain unchanged.
 
 Recursive definitions of type constructors whose   type parameters change in recursive usages are called **nested types**, indicating that a nontrivial type expression is "nested" under the type constructor that we are defining.
 
@@ -7841,7 +7795,7 @@ We can then denote `List a = T` and rewrite the recursive definition of `List a`
 The Church encoding technique shown in previous sections will give us an equivalent type implemented in Dhall.
 
 Coming back to the perfect binary tree, we find that we _cannot_ temporarily fix `a`, set `T = PBTree a`, and rewrite the recursive definition of `PBTree` as `T = F T` with some `F`.
-Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a))` requires us to change the nested type parameter from `a` to `(a, a)` in the recursive use of `PBTree`.
+Thee reason is that the type equation `PBTree a = Leaf a | Branch (PBTree (a, a))` requires us to change the   type parameter from `a` to `(a, a)` in the recursive use of `PBTree`.
 Because of that change, the type equation for `PBTree` is not of the form `PBTree a = F (PBTree a)` with any functor `F`.
 
 The pattern functor `F` needs to be able to apply `PBTree` to different type parameters.
@@ -7860,15 +7814,16 @@ let F = λ(r : Type → Type) → λ(a : Type) → < Leaf : a | Branch : r (Pair
 The type of `F` is `(Type → Type) → (Type → Type)`.
 It is a pattern functor at the level of _type constructors_.
 
-The Church encoding formula `∀(r : Type) → (F r → r) → r` needs some changes in order to make it work at the level of type constructors:
+The Church encoding formula `∀(r : Type) → (F r → r) → r` must be changed in order to make it work at the level of type constructors:
 - Replace `r : Type` by `r : Type → Type`.
-- As `F r` is now a type constructor, replace `F r → r` by `∀(t : Type) → F r t → r t`.
+- As `F r` is now a type constructor, replace the function type `F r → r` by the  function type `∀(t : Type) → F r t → r t` having an extra type parameter `t`.
 - Add a type parameter to the final output `r` at the end of the formula.
 
 The resulting type formula is:
 
 ```dhall
-let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+let LFixK = λ(F : (Type → Type) → Type → Type) → λ(a : Type) →
+  ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
 This is the general Church encoding at the level of type constructors.
 We call this the **higher-kinded Church encoding**.
@@ -7896,7 +7851,7 @@ let examplePB2 : PBTree Natural = branchPB Natural (branchPB (Pair Natural Natur
 ```
 
 When defining `examplePB2`, we used the nested record syntax, and we had to write out the nested `Pair` types explicitly.
-The type definition of `PBTree` guarantees that we will not forget by mistake to define all necessary values in those nested records and types.
+The type definition of `PBTree` guarantees that we will not make any mistakes in the structure of those nested records.
 
 Let us now write a function that extracts all values stored in a perfect tree to a list,
 a function that determines the tree's depth, and a function that prints a tree.
@@ -7918,10 +7873,10 @@ let pbTreeToList : ∀(a : Type) → PBTree a → List a
 let _ = assert : pbTreeToList Natural examplePB1 ≡ [ 10 ]
 let _ = assert : pbTreeToList Natural examplePB2 ≡ [ 20, 30, 40, 50 ]
 ```
-The next argument is a function of type `∀(t : Type) → F r t → r t`, where `F` is the pattern functor for the perfect binary tree, and `r` is already set to `List`.
+The next argument is a function of type `∀(t : Type) → F r t → r t`, where `F` is the pattern bifunctor for the perfect binary tree, and `r` is already set to `List`.
 So, it remains to implement a function of type `∀(t : Type) → < Leaf : t | Branch : List (Pair t t) > → List t`.
 This function should just extract all values of type `t` into a list of type `List t`.
-Implementing that function is straightforward, and we get the final code of `pbTreeToList`:
+It is straightforward to implement that function, and we get the final code of `pbTreeToList`:
 ```dhall
 let pbTreeToList : ∀(a : Type) → PBTree a → List a
   = λ(a : Type) → λ(tree : PBTree a) →
@@ -7951,7 +7906,7 @@ let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
 ```
 The type parameter `P` in the function call `tree P q` must be a type constructor.
 How should we choose it? Note that the result type of `tree P q` will be `P a`.
-So, we have to choose `P` as a constant functor such that `P a = Natural` for all `a`.
+So, let us choose `P` as a constant functor such that `P a = Natural` for all `a`.
 
 The parameter `q` will then have type `∀(t : Type) → < Leaf : t | Branch : Natural > → Natural`.
 This function should compute the depth of the tree, assuming that the depth for branches has been already computed.
@@ -7961,16 +7916,17 @@ The complete code with tests is:
 let pbTreeDepth : ∀(a : Type) → PBTree a → Natural
   = λ(a : Type) → λ(tree : PBTree a) →
     let P : Type → Type = λ(_ : Type) → Natural
-    let q : ∀(t : Type) → F P t → P t = λ(t : Type) → λ(p : < Leaf : t | Branch : Natural >) →
-      merge { Leaf = λ(_ : t) → 0
-            , Branch = λ(depth : Natural) → depth + 1
-            } p
+    let q : ∀(t : Type) → F P t → P t
+      = λ(t : Type) → λ(p : < Leaf : t | Branch : Natural >) →
+        merge { Leaf = λ(_ : t) → 0
+              , Branch = λ(depth : Natural) → depth + 1
+              } p
     in tree P q
 let _ = assert : pbTreeDepth Natural examplePB1 ≡ 0
 let _ = assert : pbTreeDepth Natural examplePB2 ≡ 2
 ```
 
-Finally, a more complicated example where we need to print a perfect tree of type `PBTree a`.
+Finally, consider a more complicated example where we need to print a perfect tree of type `PBTree a`.
 We expect to be able to convert a tree to a `Text` string if we have  a  `Show` evidence for the type `a`.
 The code should look like this:
 
@@ -7992,7 +7948,7 @@ We have a `Show` evidence for the type `a`, but not for an unknown type `s`.
 The solution is to rewrite the type signature of `printPBTree` in the form `∀(a : Type) → PBTree a → P a`.
 We can do this if we   choose  `P` such that `P a = Show a → Text`. 
 The required function `q` will then have the type `∀(s : Type) → < Leaf : s | Branch : Show (Pair s s) → Text > → Show s → Text`.
-Implementing that function is straightforward, and we can complete the code of `printPBTree`:
+It is straightforward to implement that function, and we can complete the code of `printPBTree`:
 
 ```dhall
 let printPBTree : ∀(a : Type) → Show a → PBTree a → Text
@@ -8025,22 +7981,23 @@ In the next section, we will study that kind of Church encoding in more detail.
 The ordinary Church encoding involves a type expression of the form  `∀(r : Type) →...`, where the universal quantifier is applied to a type parameter (`r : Type`).
 
 A Church encoding "at the level of type constructors" applies the universal quantifier   to a _type constructor_ as a parameter (`∀(r : Type → Type) → ...`).
-We will call it a **higher-kinded Church encoding** because its formula requires a higher-kinded type.
-As we found in the previous section, a  higher-kinded  Church encoding is needed  to represent perfect trees, because the ordinary Church encoding cannot work for such data types.
+We called it a **higher-kinded Church encoding** as its formula requires a higher-kinded type.
+As we found in the previous section, a  higher-kinded  Church encoding is needed  to represent perfect trees, because the ordinary Church encoding does not work for such data types.
 
-Let us recall the motivation for the higher-kinded Church encoding.
+Let us re-examine the derivation of the higher-kinded Church encoding, looking to generalize it to arbitrary data types.
 
 The ordinary Church encoding begins with a type equations of the form `T = F T` and then proceeds to write the type formula `C = ∀(r : Type) → (F r → r) → r`.
 
-To do a similar thing for higher kinds, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
+To obtain a similar type formula for higher kinds, we write a recursive definition of a functor `T` in the form `T a = (F T) a`, where `F : (Type → Type) → Type → Type` is a suitable higher-kinded pattern functor.
 
 The Church encoding for ordinary types involves the function  type `F r → r`.
 The corresponding mapping at the level of type constructors must be written in Dhall as the type `∀(t : Type) → F r t → r t`, with an extra type parameter `t`.
 
 Then the Church encoding formula becomes:
 
-`C a = ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a`
-
+```haskell
+C a = ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
+```
 We can rewrite this formula as a general combinator (`LFixK`) that creates a fixpoint type constructor out of any given pattern functor `F`:
 
 ```dhall
@@ -8065,7 +8022,7 @@ let FunctorK = λ(F : (Type → Type) → Type → Type) →
   }
 ```
 
-By analogy with the generic `fix` and `unfix` functions in the ordinary Church encoding, let us define the higher-kinded versions (`fixK` and `unfixK`) of these functions:
+By analogy with the generic `fix` and `unfix` functions in the ordinary Church encoding,  define the higher-kinded versions (`fixK` and `unfixK`) of these functions:
 
 ```dhall
 let fixK : ∀(F : (Type → Type) → Type → Type) → FunctorK F → ∀(a : Type) → F (LFixK F) a → LFixK F a
@@ -8093,14 +8050,16 @@ This will illustrate the complications and the limitations of the higher-kinded 
 
 A recursive type equation defining the `List` functor can be written as:
 
-`T a = Optional (Pair a (T a))`
+```haskell
+T a = Optional (Pair a (T a))
+```
 
 We rewrite this equation in the form `T a = F T a` with the pattern functor `F` defined by:
 
-`F T a = Optional (Pair a (T a))`
-
+```haskell
+F T a = Optional (Pair a (T a))
+```
 Then we define a list functor as `ListCK = LFixK ListFK`.
-
 The corresponding Dhall code (including a `FunctorK` evidence for `ListFK`) looks like this:
 
 ```dhall
@@ -8118,17 +8077,17 @@ let functorKListFK : FunctorK ListFK
               } lua
       }
     }
+
 let ListCK = LFixK ListFK
 ```
 The last line uses the higher-kinded Church encoding combinator (`LFixK`) to define the type constructor `ListCK`.
-We can convert this definition to a curried form, which is more convenient in practice:
+We can instead use an equivalent definition of `ListCK` in a curried form, which is more convenient in practical use:
 
 ```dhall
 let ListCK = λ(a : Type) → ∀(r : Type → Type) → (∀(t : Type) → r t) → (∀(t : Type) → t → r t → r t) → r a
 ```
 Note that currying makes it necessary to duplicate the universal quantifier inside the function argument (`∀(t : Type) → ...`).
 This is due to the general type isomorphism of the form:
-
 $$ \forall t. ~ a \times b \cong (\forall t. ~ a) \times (\forall t.~b )  $$
 
 Let us implement   data constructors for `ListCK` and create some sample values:
@@ -8187,7 +8146,7 @@ It turns out to be far from straightforward to add the numbers in a list using t
 
 Another attempt at computing the sum of numbers in a list of type `ListCK Natural` is by first implementing a generic conversion function of type `∀(a : Type) → ListCK a → F a` for a some  functor `F`. 
 After that,  we set `a` to a concrete type (say, `a = Natural`) in that function.
-The type constructor `F` must be chosen such that `F Natural` carries enough information to obtain the required result.
+The type constructor `F` must be chosen such that the type `F Natural` carries enough information to obtain the required result.
 
 Let us see what properties `F` should have if we want to compute the sum of values in a `ListCK Natural`:
 ```dhall
@@ -8222,16 +8181,16 @@ Finally, we implement a mapping from `LFixK Q` to `LFixT P` that is generic in `
 ```dhall
 let toChurchEncodingT : ∀(P : Type → Type → Type) → Bifunctor P → ∀(a : Type) → LFixK (ToChurchK P) a → LFixT P a
   = λ(P : Type → Type → Type) → λ(bifunctorP : Bifunctor P) → λ(a : Type) → λ(lq : LFixK (ToChurchK P) a) →
-    let functorlf : ∀(t : Type) → Functor (P t) = λ(t : Type) → { fmap = bifunctorP.bimap t t (identity t) }
+    let functorlf : ∀(t : Type) → Functor (P t) = λ(t : Type) →
+      { fmap = bifunctorP.bimap t t (identity t) }
     let algK : ∀(t : Type) → ToChurchK P (LFixT P) t → LFixT P t
       = λ(t : Type) → λ(lpt : P t (LFixT P t)) → fixT P t (functorlf t) lpt
     let result : LFixT P a = lq (LFixT P) algK   
     in result
 ```
-let fixT : ∀(F : Type → Type → Type) → ∀(a : Type) → Functor (F a) → F a (LFixT F a) → LFixT F a
 
 It appears that   to work with concrete data computations in the higher-kinded Church encoding, we have to use   the ordinary Church encoding as well.
-Certainly,  the higher-kinded Church encoding is not needed when the ordinary one is available.
+We may conclude that the higher-kinded Church encoding is not particularly useful when the ordinary one is available for the same data type.
 
 However,  nested recursive types (such as the perfect binary tree)  do not have  ordinary Church encodings and can be represented in Dhall only via higher-kinded Church encodings.
 
@@ -8253,8 +8212,8 @@ let LFixKC = λ(F : (Type → Type) → Type → Type) → λ(P : Type → Type)
 ```
 
 This   book calls `LFixKC`  a "typeclass-constrained higher-kinded Church encoding".
-The resulting  type constructor  `G = LFixKC F P`  describes a recursive data structure of type `G a` holding data only of types `a` for which a typeclass evidence (of type `P a`) is available.
-The functions that process this data (that is, functions of type `∀(t : Type) → P t → F r t → r t`) will also receive a typeclass evidence for the type `t`.
+The resulting  type constructor  `G = LFixKC F P`  corresponds to a recursive data structure of type `G a` holding data only of types `a` for which a typeclass evidence (of type `P a`) is available.
+The functions that process this data (which will need to be functions of type `∀(t : Type) → P t → F r t → r t`) will also receive a typeclass evidence for the type `t`.
 
 
 The additional power of the new encoding is that it can work with arbitrary typeclasses.
@@ -8284,9 +8243,9 @@ Indeed, the type of `example2` is `∀(P : Type → Type) → P Natural → List
 In order to extract any concrete values from   `example2`, we will need to supply some `P` and an evidence value of type `P Natural`.
 
 How do we choose the typeclass parameter `P`?
-We will have to choose it in a different way for each computation that we need to perform with values of type `ListCKC P a`.
+We will have to choose it in a different way for each required computation.
 
-Here is how we would use the typeclass parameter to implement       a `Show` evidence for `ListCKC`.
+For example,   to implement       a `Show` evidence for `ListCKC` we use `P = Show`.
 
 ```dhall
 let showListCKC : ∀(a : Type) → Show a → Show (∀(P : Type → Type) → P a → ListCKC P a)
@@ -8301,13 +8260,14 @@ To print the data in   a list of type `ListCKC P Natural`, we need to supply a `
 Let us  verify that `example2` indeed corresponds to the list `[ 1, 2, 3 ]`:
 
 ```dhall
-let _ = assert : (showListCKC Natural showNatural).show example2 ≡ "[ 1, 2, 3, ]"
+let _ = assert : (showListCKC Natural showNatural).show example2
+  ≡ "[ 1, 2, 3, ]"
 ```
 
-To aggregate the data in that list, we need to choose    some typeclass that supports aggregation, and to supply    evidence that `Natural` belongs to that typeclass.
-If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum` that adds the numbers (we have already defined `monoidNaturalSum` earlier in this book).
+To aggregate the data in that list, we need to choose    some typeclass that supports aggregation  and to supply    evidence that `Natural` belongs to that typeclass.
+If we just need to add the numbers, we may choose `Monoid` as the typeclass and use the standard evidence `monoidNaturalSum`  that we have already defined earlier in this book.
 We set the typeclass parameter `P = Monoid` and apply the Church-encoded value to suitable arguments.
-Instead of summation, we will just perform aggregation with respect to the monoidal type, similarly to the `reduce` method for lists (with the type signature `reduce : ∀(a : Type) → Monoid a → List a → a`).
+To achieve summation, we will just perform aggregation with respect to the monoidal type, similarly to the `reduce` method for lists (with the type signature `reduce : ∀(a : Type) → Monoid a → List a → a`).
 ```dhall
 let Id : Type → Type = λ(a : Type) → a
 let reduceListCKC : ∀(a : Type) → Monoid a → (∀(P : Type → Type) → P a → ListCKC P a) → a
@@ -8323,7 +8283,7 @@ let _ = assert : reduceListCKC Natural monoidNaturalSum example2 ≡ 6
 
 The code in `example2` is a   higher-order function with five complicated parameters; some parameters include type quantifiers inside their types.
 For each computation, `example2` may need to use a different typeclass parameter.
-All this is needed just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
+All this work is necessary just for representing a list `[ 1, 2, 3 ]` and for doing computations with the data in that list.
 
 
 This  heavy price is justified only when the ordinary Church encoding is insufficient and the higher-kinded Church encoding is actually required to represent the data structures we are working with.
@@ -8349,7 +8309,7 @@ The value `examplePBC1` represents a tree that consists of a single leaf (a tree
 When trying to build a perfect tree value that has nonzero depth, we run into a difficulty: the code needs an evidence of typeclass `P` for a pair of type `Pair t t`, that is, an evidence value of type `P (Pair t t)` for an arbitrary type `t`; but we only have evidence of type `P t`.
 
 In many cases, it is possible to derive the required evidence automatically.
-(For example, a pair of two monoids is again a monoid. We may call such typeclass "pair-preserving".)
+(For example, a pair of two monoids is again a monoid. We may call such typeclasses "pair-preserving".)
 We will need to add a combinator of type `P t → P (Pair t t)` as another argument in the type signature:
 ```dhall
 let examplePBC2 : ∀(P : Type → Type) → P Natural → (∀(t : Type) → P t → P (Pair t t)) → PBTreeC P Natural
@@ -8437,7 +8397,7 @@ let _ =
 
 This code is somewhat simpler than the code in the section "Nested recursive types: Perfect trees" that needed to use the continuation monad as the type `R`.
 
-We see that concrete computations with the higher-kinded Church encoding give flexibilty but require guessing some nontrivial choices of type constructors that can be only justified after the code is written and tested.
+We see that concrete computations with the higher-kinded Church encoding give flexibilty but require guessing and  choices of type constructors that can be only justified after the code is written and tested.
 
 #### Functor properties
 
@@ -8449,7 +8409,7 @@ But this is not the case with the higher-kinded Church encoding.
 The type parameter `a` enters   as an argument of `r`,
 but `r` is itself a type parameter of kind `Type → Type`.
 It  is an arbitrary type constructor that is not known to be a functor.
-This prevents us from implementing `fmap` in a simple way.
+This prevents us from implementing `fmap` in a straightforward way.
 
 Another attempt at  implementing `fmap` is by applying a value of type `ListCK a` to the type constructor parameter `r` chosen as a constant functor:   `r a = ListCK b`.
 This  fails for the same reason as our failure with `sumListCK`: the argument `consT` of type `∀(t : Type) → t → ListCK b → ListCK b` cannot be provided.
@@ -8457,18 +8417,22 @@ This  fails for the same reason as our failure with `sumListCK`: the argument `c
 How should we choose `r` to overcome these problems?
 Let us look at the required type signature of `fmap`:
 
-`fmap : ∀(a : Type) → ∀(b : Type) → (f : a → b) → ListCK a → ListCK b`
-
-We may be able to implement this type signature if we rewrite it in the form  `∀(a : Type) → ListCK a → F1 a` with a suitable functor `F1`.
+```haskell
+fmap : ∀(a : Type) → ∀(b : Type) → (f : a → b) → ListCK a → ListCK b
+```
+We may be able to implement this `fmap` method   if we rewrite its type signature as `∀(a : Type) → ListCK a → F1 a` with a suitable functor `F1`.
 Then the code will apply a value of type `ListCK a` by setting the type constructor parameter `r = F1`.
 
 Indeed, after reordering some curried arguments in `fmap`, we find an equivalent signature:
 
-`fmap : ∀(a : Type) → ListCK a → F1 a`
-
+```haskell
+fmap : ∀(a : Type) → ListCK a → F1 a
+```
 where the helper functor `F1` is defined by:
 
-`F1 a = ∀(b : Type) → ∀(f : a → b) → ListCK b`
+```haskell
+F1 a = ∀(b : Type) → ∀(f : a → b) → ListCK b
+```
 
 The corresponding Dhall code is:
 
@@ -8486,7 +8450,9 @@ let fmapListCK : FmapListCK = λ(a : Type) → λ(list : ListCK a) →
     = λ(t : Type) → λ(x : t) → λ(f1t : ∀(b : Type) → ∀(f : t → b) → ListCK b) →
       λ(b : Type) → λ(f : t → b) → consCK b (f x) (f1t b f) 
   in list F1 nilT consT
-let functorListCK : Functor ListCK = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(la : ListCK a) → fmapListCK a la b f }
+let functorListCK : Functor ListCK
+  = { fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → λ(la : ListCK a) → fmapListCK a la b f
+    }
 ```
 
 This technique can be generalized to  all higher-kinded Church-encoded type constructors.
@@ -8537,7 +8503,7 @@ data LExp t where                      -- Haskell.
 This example represents the abstract syntax tree for a toy language whose expressions can have boolean or integer type.
 The language guarantees statically that operations are applied to arguments of  correct types.
 For instance, `LNot x` will typecheck only when `x` is a boolean expression such as `LBool True`.
-The compiler will report a type error if we  write something like `LNot (LInt 123)`.
+The Haskell compiler will report a type error if we  write something like `LNot (LInt 123)`.
 
 
 The definition of `LExp t` is _not_ parametrically polymorphic in `t`.
@@ -8611,8 +8577,8 @@ It helps to consider `a` temporarily as a fixed type and to denote temporarily `
 If we consider the product type of the entire set of constructors in the "long syntax", we will obtain the type that looks in Haskell as `(a → T, T → T → T)`.
 That type can be rewritten isomorphically in the form `P T → T`, where `P` is a functor defined by `P t = Leaf a | Branch t t`.
 
-Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which stands for `Tree a = P (Tree a)` and defines the `Tree` data type.
-The Church encoding of that type is `LFix P = ∀(r : Type) → (P r → r) → r`.
+Notice that `P` is exactly the pattern functor of the recursive definition `T = P T`, which defines the `Tree` type via the type equation `Tree a = P (Tree a)`.
+The Church encoding of `Tree` is `LFix P = ∀(r : Type) → (P r → r) → r`.
 The curried Church encoding is closer to the long syntax if we write it using Dhall's long type annotations and use suggestive argument names ("leaf" and "branch"):
 
 ```dhall
@@ -8645,32 +8611,32 @@ We will replace Haskell's `Int` type by Dhall's `Integer`, and a recursive GADT 
 
 The first step is to consider the product type of all defined constructors:
 
-`(Text → P Integer, Bool → P Integer → P Text)`
+```haskell
+(Text → P Integer, Bool → P Integer → P Text)
+```
 
 It will be useful to uncurry all constructor arguments temporarily:
 
-`(Text → P Integer, (Bool, P Integer) → P Text)`
+```haskell
+(Text → P Integer, (Bool, P Integer) → P Text)
+```
 
 
 The next step is to rewrite this type as a  mapping of the form `F P → P`.
 In this way, we will derive the pattern functor `F` for this recursive type,
 which is the first step towards a Church encoding.
 
-Note that `P` is a type _constructor_ (`P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
-
-The mapping between `F P` and `P` is a mapping between _type constructors_ and  must be written in Dhall as the function type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
+Note that `P` is a type constructor (as `P : Type → Type`), so `F` must have the kind `(Type → Type) → Type → Type`.
+So, the mapping between `F P` and `P` is a mapping between _type constructors_ and  must be written in Dhall as the function type `∀(t : Type) → F P t → P t` (with an extra type parameter `t`).
 Here `F P t` is the application of `F` to `P` and then to `t`.
-
-The application `F P` should give us   a new type constructor.
-It remains to figure out how to write a suitable `F`.
-Then we will use the Church encoding   at the level of type constructors, similarly to what we did   in the previous sections.
+But  finding  a suitable `F` turns out to be problematic.
 
 As the  definition of `P` is non-parametric and only certain types `t` are possible in `P t`, the type `∀(t : Type) → F P t → P t` means just the product of all function types `F P t → P t` for each allowed `t`.
 In the example at hand, `P t` can have values only when `t = Integer` or `t = Text`.
 So, the infinite product type `∀(t : Type) → F P t → P t` reduces to the product of just two function types: `F P Integer → P Integer` and `F P Text → P Text`.
 
 The pattern functor `F` must be defined in such a way that `∀(t : Type) → F P t → P t`  equals the product type of all   constructors.
-Let us write them side by side:
+Write them side by side:
 
 - Product of constructors: `(Text → P Integer, (Bool, P Integer) → P Text)`
 - Mapping type `F P → P`: `(F P Integer → P Integer, F P Text → P Text)`.
@@ -8691,7 +8657,7 @@ let P = λ(a : Type) →
   ∀(r : Type → Type) → (∀(t : Type) → F r t → r t) → r a
 ```
 
-Looking at our specific requirements, we find that we must rewrite the mapping type `∀(t : Type) → F r t → r t` first as a tuple type `(F r Integer → r Integer, F r Text → r Text)` because the type parameter `t` may only be either `Integer` or `Text`.
+Looking at our specific requirements, we find that we must first rewrite the type `∀(t : Type) → F r t → r t`   as a tuple type `(F r Integer → r Integer, F r Text → r Text)` because the type parameter `t` may only be either `Integer` or `Text`.
 
 After currying, we obtain the following definition:
 ```dhall
@@ -8705,7 +8671,7 @@ let P = λ(a : Type) →
 ```
 This is the final form of the Church encoding of `P`.
 
-Note that we _cannot_ obtain this type formula by applying `LFixK` to `F`.
+Note that we _cannot_ obtain this type formula by applying `LFixK` to some `F`.
 The reason is that `F` is not parametrically polymorphic and itself would need to be defined as a GADT, which is not supported directly in Dhall.
 
 Let us add names to the type signature of `P`, making the correspondence with the long-syntax Haskell definition more apparent:
@@ -8792,8 +8758,7 @@ let exampleLExp2 : LExp Bool = LNot (LIsZero (LAdd (LInt +10) (LInt -10)))
 
 Let us now implement (in Dhall) an interpreter for this toy language.
 
-Note that the Haskell code for the interpreter is recursive; in Dhall, we replace recursive code by non-recursive code  that uses Church-encoded data.
-In the Church encoding, recursion is replaced by applications of the higher-order functions.
+Note that the Haskell code for the interpreter is recursive; but in Dhall, we use Church encoding and replace recursive code by code that works with higher-order functions.
 The Dhall code for the interpreter will be non-recursive and will just apply a value of type `LExp t` to suitable arguments.
 
 The first of those arguments is the type constructor parameter `r : Type → Type`.
@@ -8972,7 +8937,7 @@ We will now study the constructor functions `Exists` and `pack` in more detail.
 To work with existential types more conveniently, we implement generic functions for creating existentially quantified types and for producing and consuming values of those types.
 The three functions are called `Exists`, `pack`, and `unpack`.
 
-The expression `Exists P` creates the type corresponding to the Church encoding of the type $\exists t.~P~t$.
+The expression `Exists P` creates a Church encoding of the type $\exists t.~P~t$.
 The argument of `Exists` is a _type constructor_ such as `P`.
 
 ```dhall
@@ -8992,7 +8957,7 @@ let pack : ∀(P : Type → Type) → ∀(t : Type) → P t → Exists P
 
 The function `unpack` implements functions of type `Exists P → r`, where `r` is some arbitrary result type.
 So, `unpack` needs to be able to convert a value of type `P t` into a value of type `r` regardless of the actual type `t` encapsulated inside `Exists P`.
-To achieve that, one of the arguments of `unpack` is a function of type `∀(t : Type) → P t → r`.
+One of the arguments of `unpack` is a function of type `∀(t : Type) → P t → r`.
 The other arguments of `unpack` are the type constructor `P`, a value of type `Exists P`, and the result type `r`.
 
 ```dhall
@@ -9010,13 +8975,13 @@ let unpack1 : ∀(P : Type → Type) → Exists P → ∀(r : Type) → (∀(t :
 ```
 We find that `unpack1 P` is just the identity function of type `Exists P → Exists P`.
 So, we could apply values of type `Exists P` directly as functions, instead of using `unpack`.
-Sometimes, it will be more illuminating to use `unpack` explicitly.
+Sometimes it will be more illuminating to use `unpack` explicitly.
 
-#### Functions of existential types: the function extension rule
+#### The function extension rule for existential types
 
 The fact that `unpack` is equivalent to an identity function allows us to simplify the function type `Exists P → q`, where `q` is some fixed type expression.
 
-To see how, let us consider `P` as fixed and specialize the type of `unpack` to `P`.
+To see this more easily, let us consider `P` as fixed and specialize the type of `unpack` to `P`.
 We will denote the resulting function by `unpackP`:
 
 ```dhall
@@ -9031,10 +8996,10 @@ One can prove rigorously that there is an isomorphism between the types `Exists 
 We call this isomorphism the **function extension rule** for existential types.
 
 The function `unpackP` shown above gives one direction of the isomorphism.
-The other direction is the function we call `outE`:
+The other direction is the function we call `outEP`:
 
 ```dhall
-let outE : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outEP : ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     let ep : Exists P = pack P t pt
     in consume ep
@@ -9043,10 +9008,10 @@ We will prove in the appendix "Naturality and parametricity" that the functions 
 
 Because of this isomorphism, we may always use the simpler type `∀(t : Type) → P t → r` instead of the more complicated type `Exists P → r`.
 
-For convenience, we may implement a generic version of `outE` where the type constructor `P` is not fixed:
+For convenience, let us implement a generic version of `outEP` where the type constructor `P` is not fixed:
 
 ```dhall
-let outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+let outE : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
   = λ(P : Type → Type) → λ(r : Type) → λ(consume : Exists P → r) → λ(t : Type) → λ(pt : P t) →
     consume (pack P t pt)
 ```
@@ -9066,7 +9031,7 @@ We could define a type constructor `Forall` similarly, to create universally qua
 let Forall : (Type → Type) → Type
   = λ(P : Type → Type) → ∀(r : Type) → P r
 ```
-These definitions allow us to write types more concisely, e.g., `Exists P` and `Forall P`.
+These definitions help to write types more concisely, e.g., `Exists P` and `Forall P`.
 
 Despite this superficial similarity, existentially quantified types have a significantly different behavior from universally quantified ones.
 
@@ -9088,19 +9053,20 @@ let idText : Text → Text = identity Text
 
 When constructing `idText`, we chose  the type `Text` as the type parameter.
 After that, the chosen type `Text` is exposed and visible to the outside code, because that type is part of the type signature of `idText`.
-The outside code needs to adapt to that type so that the types match.
+The outside code needs to adapt to that type so that all types match.
 
 When constructing a value `ep : Exists P`, we also need to choose a specific type as `t` (say, `t = Text` or another type).
-But the chosen type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t` anymore.
+But the chosen type is then hidden inside `ep`, because the externally visible type of `ep` is `Exists P` and does not contain `t`.
 
 It is actually not hidden that `ep` _has_ a type   `t` inside.
-The hidden information is the actual type `t` used while constructing `ep`.
+The hidden information is the specific type `t` used while constructing `ep`.
 Let us clarify how that works.
 
 Code that uses `ep` must use `unpack` with an argument function `unpack_ : ∀(t : Type) → P t → r`.
 We must implement `unpack_` ourselves.
 Often, `P t` will be a data type that stores some values of type `t`.
-Because the code of `unpack_` receives `t` and `P t` as arguments, we will be able to extract some values of type `t` and to pass those values around (while computing the result value of some type `r`).
+Note that the code of `unpack_` receives `t` and `P t` as arguments.
+So, even though the type `t` is unknown, the function `unpack_` may extract some values of type `t` and  pass those values around (while computing the result value of some type `r`).
 For instance, a value `x` of type `t` can be further substituted into a function of type `∀(t : Type) → ∀(x : t) → ...` because that function can accept an argument `x` of any type.
 But all such functions are constrained to work _in the same way_ for all types `t`.
 Such functions will not be able to identify specific types `t` or make decisions based on specific values `x : t`.
@@ -9114,7 +9080,7 @@ Let us first clarify what it means for something to be covariant with respect to
 Covariance of `F x` with respect to a type parameter `x` means that, for any two types `x` and `y` and for any function `f : x → y`, we can compute a function of type `F x → F y`.
 The new function needs to satisfy certain laws (the "functor laws").
 
-Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q` and a mapping from `P` to `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q`.
+Similarly, covariance of `Exists` and `Forall` with respect to the type constructor parameter `P` means that, for any two type constructors `P` and `Q` and a mapping from `P` to `Q`, we can compute functions of types `Exists P → Exists Q` and `Forall P → Forall Q` that obey suitable laws.
 Because `P` and `Q` are type constructors, a mapping from `P` to `Q` means a function of type `∀(a : Type) → P a → Q a`.
 Let us implement the corresponding transformations:
 ```dhall
@@ -9158,8 +9124,7 @@ DependentPair X P  ≅  ∀(R : Type) → (∀(x : X) → P x → R) → R
 So, `DependentPair` is encoded as a type-level function parameterized by an arbitrary type `X` and an arbitrary dependent function of type `X → Type`:
 
 ```dhall
-let DependentPair
-  : ∀(X : Type) → (X → Type) → Type
+let DependentPair : ∀(X : Type) → (X → Type) → Type
   = λ(X : Type) → λ(P : X → Type) →
     ∀(R : Type) → (∀(x : X) → P x → R) → R
 ```
@@ -9175,7 +9140,7 @@ let makeDependentPair
 
 
 Dependent pairs can be used to encode values that satisfy some equations.
-Examples are shown in the  section  "Refinement types and singleton types".
+Examples will be  shown in the next sections.
 
 As preparation, we will now study some general properties of dependent pairs.
 
@@ -9206,7 +9171,7 @@ let unsimplifyDependentPair
 ```
 
 These functions are mutual inverses.
-One direction of the isomorphism can be verified using Dhall's `assert` feature, because the proof goes by a straightforward substitution of the terms:
+One direction of the isomorphism can be verified using Dhall's `assert` checker, because the proof goes by a straightforward substitution of the terms:
 
 ```dhall
 let _ = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(short : ∀(x : X) → P x → Q) →
@@ -9219,7 +9184,7 @@ let ??? = λ(X : Type) → λ(P : X → Type) → λ(Q : Type) → λ(long : Dep
   assert : long ≡ unsimplifyDependentPair X P Q (simplifyDependentPair X P Q long)
 ```
 does not work in Dhall.
-The proof requires a symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
+The proof requires   symbolic reasoning with dependently-typed parametricity that is beyond the scope of this book.
 
 #### Extracting the first part of a dependent pair
 
@@ -9293,7 +9258,7 @@ let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 (assert : NaturalLessEqual
 This usage is repetitive: we need to write the number `8` twice.
 Could we avoid this repetition?
 
-It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at typechecking time, before the function `makeNaturalLessEqual10` is applied to any arguments.
+It is not possible to move the `assert` code into the function `makeNaturalLessEqual10`, because `assert` expressions are validated at typechecking time before the function `makeNaturalLessEqual10` is applied to any arguments.
 
 One way of reducing the code duplication is to notice that the output of the predicate `NaturalLessEqual10Predicate 8` is the equality type `0 ≡ 0` whenever   $x \le 10$.
 So, we could define the value `assert : 0 ≡ 0` in advance and use it like this:
@@ -9304,10 +9269,9 @@ let x : NaturalLessEqual10 = makeNaturalLessEqual10 8 NaturalLessEqualAssert
 ```
 
 
-To make this code shorter still, we could simplify `NaturalLessEqual10Predicate`:
-Instead of returning an equality type, it is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (in Dhall, `{}`) for $x \le 10$ and a void type (in Dhall, `<>`) for $x > 10$.
-We can use an `if/then/else` expression that returns the unit or the void types according to the value of `x`.
-Then the definition and the usage become simpler while the functionality remains the same.
+To make this code shorter still, we could simplify `NaturalLessEqual10Predicate`.
+It is sufficient if `NaturalLessEqual10Predicate x` returns a unit type (`{}`) for $x \le 10$ and a void type (`<>`) for $x > 10$.
+Then the definition and the usage will become simpler while the functionality will remain the same.
 Let us use more descriptive names for the new code:
 ```dhall
 let `If N <= 10` : Natural → Type
@@ -9348,8 +9312,8 @@ let getUnrefined = λ(T : Type) → λ(cond : T → Bool) →
 This method works whenever the refinement condition can be expressed via `Bool` values.
 This is not always the case in Dhall; for instance, we cannot write a function of type `Text → Bool` that checks whether the input string is empty.
 
-Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library [`dhall-text-utils`](https://github.com/kukimik/dhall-text-utils).
-The main technique in that library is to create functions returning special `Text` values (such as the empty string, or the string `"x"`) instead of functions returning `Bool`.
+Nevertheless, a wide range of refinement types on `Text` can be implemented using functions from the library `dhall-text-utils` by [M. Kukieła](https://github.com/kukimik/dhall-text-utils).
+The main technique in that library is to create functions returning special `Text` values (such as the empty string or the string `"x"`) instead of functions returning `Bool`.
 Then one can use `assert` expressions to verify that a `Text` value satisfies various conditions.
 
 As an example, suppose we need to assert that a given string is _non-empty_.
@@ -9357,7 +9321,7 @@ This is not as straightforward as asserting that a string is empty (for that, we
 To implement a non-empty assertion, we use the built-in Dhall function `Text/replace` in a special way.
 The trick is to replace the entire input string by the fixed string `"x"`.
 The built-in function `Text/replace x y z` is defined such that if `x` is empty then no replacement will be done.
-We can see how that works in this example:
+Let us verify this behavior using the Dhall interpreter:
 ```dhall
 ⊢ Text/replace "abcde" "x" "abcde"
 
@@ -9367,8 +9331,8 @@ We can see how that works in this example:
 
 ""
 ```
-So, `Text/replace x y x` will return `y` if `x` is non-empty.
-But when `x` is an empty string then `Text/replace x y x` will return `x` unchanged; that is, it will return an empty string.
+For any strings `x` and `y`, the function call `Text/replace x y x` will return `y` if `x` is non-empty.
+But when `x` is an empty string then `Text/replace x y x` will return the third argument unchanged; that is, it will return an empty string.
 
 Using this corner case in the definition of `Text/replace`, one can implement an assertion for non-empty strings:
 
@@ -9376,6 +9340,7 @@ Using this corner case in the definition of `Text/replace`, one can implement an
 let StringIsNotEmpty : Text → Type
   = λ(string : Text) → "x" ≡ Text/replace string "x" string
 let _ = assert : StringIsNotEmpty "abc"  -- OK
+
 -- let _ = assert : StringIsNotEmpty "" -- This will not compile.
 ```
 
@@ -9445,7 +9410,7 @@ let Text_equals_abc = λ(text : Text) → (text ≡ "abc")
 let Text_abc : Type = DependentPair Text Text_equals_abc
 let x : Text_abc = makeDependentPair Text "abc" Text_equals_abc (assert : "abc" ≡ "abc")
 ```
-We can extract the `Text`-valued part of `x` and verify that it is equal to the string `"abc"`:
+We can extract the `Text`-valued part of `x` and verify that it   equals  the string `"abc"`:
 
 ```dhall
 let _ = assert : dependentPairFirstValue Text Text_equals_abc x ≡ "abc"
@@ -9530,16 +9495,16 @@ let semigroup_law_t : ∀(t : Type) → Semigroup t → Type
 ```
 This definition allows us to write an evidence for the semigroup law as a value of type `semigroup_law_t t ev`.
 
-Now we can implement the type `SemigroupLawful` via a dependent pair that contains a `Semigroup` typeclass evidence and also an evidence that the semigroup law holds:
+Now we can implement the type `LawfulSemigroup` via a dependent pair that contains a `Semigroup` typeclass evidence and also an evidence that the semigroup law holds:
 
 ```dhall
-let SemigroupLawful = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
+let LawfulSemigroup = λ(t : Type) → DependentPair (Semigroup t) (λ(ev : Semigroup t) → semigroup_law_t t ev)
 ```
-A value of type `SemigroupLawful` can be produced like this:
+A value of type `LawfulSemigroup` can be produced like this:
 ```dhall
 let T = Bool → Bool
 let associativityLawForT = λ(x : T) → λ(y : T) → λ(z : T) → assert : semigroup_law T semigroupBoolToBool x y z
-let instanceBoolToBool : SemigroupLawful T = makeDependentPair (Semigroup T) semigroupBoolToBool (semigroup_law_t T) associativityLawForT
+let instanceBoolToBool : LawfulSemigroup T = makeDependentPair (Semigroup T) semigroupBoolToBool (semigroup_law_t T) associativityLawForT
 ```
 This value stores at once an implementation of the semigroup function (`append`) and an evidence value proving that `append` satisfies the associativity law.
 
@@ -9553,7 +9518,6 @@ We have chosen the semigroup type `Bool → Bool` in this example because Dhall 
 Recursive types are usually specified via type equations of the form `T = F T`.
 So far, we have used the Church encoding technique for representing such recursive types in Dhall.
 But Church encodings always give the **least fixpoints** of type equations.
-The least fixpoints give types that are also known as "inductive types".
 Another useful kind of fixpoints are **greatest fixpoints**.
 
 In this book, we write `LFix F` for the least fixpoint and   `GFix F` for the greatest fixpoint of the type equation `T = F T`.
@@ -9565,7 +9529,7 @@ This intuition can be made rigorous, but the required derivations are beyond the
 
 Least fixpoints of polynomial functors are always  _finite_ data structures.
 One can always traverse all data stored in such structures by using a finite number of operations.
-One can also extract all stored data into a list; so, least fixpoints of polynomial functors are always `Foldable`.
+One can also extract all stored data into a list: the least fixpoint of  a polynomial functor is  always `Foldable`.
 
 Greatest fixpoints are, as a rule, lazily evaluated data structures that support infinite iteration (such as infinite lists or infinite trees).
 A traversal of all data items stored in those data structures might not  terminate.
@@ -9575,8 +9539,8 @@ Those data types are used only in ways that do not involve a full traversal of a
 In practice, the data is not stored in memory but is computed on demand during traversal.
 It is still helpful to imagine that those data structures are "infinite", even though the amount of data actually stored in memory is of course always finite.
 
-To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same pattern functor, consider the pattern functor `F` for the data type `List Text`.
-The mathematical notation for `F` is `F r = 1 + Text × r`, and a Dhall definition is:
+To illustrate the contrast  between the least fixpoints and the greatest fixpoints for the same   functor, consider the pattern functor `F` for the data type `List Text`.
+A Dhall definition for `F` is:
 
 ```dhall
 let F = ∀(r : Type) → < Nil | Cons : { head : Text, tail : r } >
@@ -9587,10 +9551,10 @@ The type `List Text` is the least fixpoint of `T = F T`.
 A data structure of type `List Text` always stores a finite number of `Text` strings, although the list's length is not bounded in advance.
 
 The greatest fixpoint `GFix F` is a potentially infinite stream of `Text` values.
-The stream could terminate after a finite number of strings, but it could also go on indefinitely.
+The stream could stop after a finite number of strings or could go on indefinitely.
 
 Of course, we cannot implement infinite streams by literally storing an infinite number of `Text` values in memory.
-Instead, we create an initial value of some type `r` (the "seed") and a function that computes the next string on demand (the "step").
+Instead, we create an initial value of some type `r` (the "seed") and a function that computes the next string and the next seed (the "step" function).
 In the present example, that function will have type `r → < Nil | Cons { head : Text, tail : r } >`.
 When that function is applied to a value of type `r`, the function will either return `Nil` (i.e., decide to stop the stream) or to return a `Text` string together with a new "seed" value of type `r`.
 
@@ -9603,14 +9567,13 @@ That code _can_ extract "seed" values of type `r` and pass those values around b
 This restriction is enforced by the type quantifier:
 To operate on a stream, we will have to write code of the form `λ(r : Type) → ...`.
 That code will have to work in the same way for all types `r` and will not be able to inspect those types or values of those types.
-
 We will now show in detail how this is implemented.
 
 ### Encoding of greatest fixpoints via existential types
 
 The greatest fixpoint of `T = F T`  is  implemented  as a pair of values of types `r` and `r → F r`.
 To hide the type `r` from outside code, we impose an existential quantifier on `r`.
-The type theory  notation for this encoding is $\mu F = \exists r.~r\times (r\to F~r)$. 
+The type theory  notation for this encoding is $\nu F = \exists r.~r\times (r\to F~r)$. 
 
 The corresponding Dhall code uses the type constructor `Exists`   defined in a previous section.
 To use `Exists`, we need to supply a type constructor that creates the type expression  $r\times (r\to F~r)$ from the type parameter `r`.
@@ -9655,8 +9618,9 @@ A simple example of a greatest fixpoint type is a data type `InfSeqNat` represen
 This data type is the greatest fixpoint of the type equation `T = Pair Natural T`.
 An intuitive picture of this data type is an infinitely nested record:
 
-`{ _1 = 101, _2 = { _1 = 102, _2 = { _1 = 103, _2 = ... } } }`
-
+```haskell
+{ _1 = 101, _2 = { _1 = 102, _2 = { _1 = 103, _2 = ... } } }
+```
 Of course, it is impossible to   represent  this data structure literally.
 In Dhall, we use the encoding via the `GFix` constructor:
 
@@ -9676,19 +9640,20 @@ The seed type `r` is encapsulated within the data structure and is not visible f
 To create values of   type `InfSeqNat`, we need to choose a specific "seed" type and then to provide an initial "seed" value and a "step" function.
 The "seed" type must carry sufficient information for computing the next values at every step.
 
-Let us look at two example values of the type `InfSeqNat`: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
-We will see that the "seed" type needs to be chosen appropriately in each case.
+Let us look at two example values of the type `InfSeqNat` that represent infinite sequences: a sequence containing infinitely many zeros, and a sequence containing all `Natural` numbers (`0, 1, 2, 3, ...`).
+We will see that the "seed" type needs to be chosen  differently in each case.
 
 To create a sequence containing infinitely many zeros, we need a "step" function that always returns `0` as the `Natural` value in the pair.
-This requires no information to be stored in the "seed"; so we can choose a unit type as the "seed" type.
+This requires no information to be stored in the "seed"; for simplicity, we   choose a unit type as the "seed" type.
 The code is:
 
 ```dhall
-let zeros : InfSeqNat = makeGFix (Pair Natural) {} {=} (λ(_ : {}) → { _1 = 0, _2 = {=} })
+let zeros : InfSeqNat = makeGFix (Pair Natural) {} {=}
+  (λ(_ : {}) → { _1 = 0, _2 = {=} })
 ```
 
 To create an `InfSeqNat` value representing `0, 1, 2, 3, ...`, we need to be able to produce the next `Natural` value at each step.
-Let us use the "seed" to store that value.
+So, the "seed" type must  store that value.
 The "step" function will then be able to increment the seed value.
 
 ```dhall
@@ -9730,21 +9695,21 @@ But there are no finite data structures that contain a full copy of themselves, 
 
 ### Greatest fixpoints for mutually recursive types
 
-Recall the recursive types that we have   seen in the section "Mutually recursive types" of chapter "Church encodings for more complicated types":
+Recall the recursive types that we have   seen in the section "Mutually recursive types" of chapter "Church encodings of more complicated types":
 
 ```haskell
 data Layer = Layer (F1 Layer Layer2)   -- Haskell.
 data Layer2 = Layer2 (F2 Layer Layer2)
 ```
 
-Define two pattern functors `F1` and `F2` by:
+In Dhall, define two pattern functors `F1` and `F2` by:
 
 ```dhall
 let F1 = λ(a : Type) → λ(b : Type) → < Name : Text | OneLayer : b | TwoLayers : { left : b, right : b } >
 let F2 = λ(a : Type) → λ(b : Type) → < Name2 : Text | ManyLayers : List a >
 ```
 
-Then Dhall types `Layer` and `Layer2` can be defined like this:
+Then the types `Layer` and `Layer2` can be defined like this:
 
 ```dhall
 let Layer = Exists (λ(a : Type) → Exists (λ(b : Type) →
@@ -9756,12 +9721,12 @@ let Layer2 = Exists (λ(a : Type) → Exists (λ(b : Type) →
 We will prove in the Appendix "Naturality and parametricity" that these type formulas actually encode the mutually recursive greatest fixpoints.
 It is clear how to generalize these formulas to more than two mutually recursive types.
 
-For the rest of this chapter, we will focus on the simpler case of a single recursively defined type.
+For the rest of this chapter, we will focus on the simpler case of a single type defined as a  greatest fixpoint.
 
 ### Greatest fixpoints for type constructors
 
 Similarly to the least fixpoints for type constructors, we start with a pattern bifunctor `F` and define a type constructor `G` by applying an existential quantifier to the second type parameter of `F`.
-So, `G a` is equal to `GFix (F a)`.
+So, we define `G a` as `GFix (F a)`.
 
 The resulting type constructor `G` will have a single type parameter and will be a functor.
 Here is a function that computes a `Functor` evidence for `G`:
@@ -9780,7 +9745,7 @@ let bifunctorGFix
 ```
 
 Note that the `fmap` method does not attempt to traverse the greatest fixpoint data structure to transform all its data, as that may  possibly require infinite time.
-Instead, `fmap` creates a new data structure that will evaluate and transform the data on demand.
+Instead, `fmap` creates a new greatest fixpoint data structure that will evaluate and transform the data on demand.
 
 #### Example: infinite sequence functor
 
@@ -9870,7 +9835,7 @@ Let us test   the functor functionality of `InfSeq`:
 let _ = assert : InfSeq/take 4 Bool (functorInfSeq.fmap Natural Bool Natural/even repeatExample) ≡ [ True, False, True, False ]
 ```
 
-The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that will transform each data item on demand.
+The `fmap` method does not traverse the infinite sequence (it cannot!) but instead produces a new infinite sequence that transforms each data item on demand.
 
 ### The fixpoint isomorphism for greatest fixpoints
 
@@ -9924,14 +9889,12 @@ Then we will apply the functor `F`'s `fmap` to that function, which will give us
 -- Here t = ??? is a fixed type, and fmap_F is known.
 let fk : F t → F (GFix F) = fmap_F t (GFix F) k
 ```
-
 Finally, we apply the function `fk` to `(p.step p.seed)`, which is a value of type `F t`.
 The result has type `F (GFix F)` as required.
 
 Note that the function `f` depends only on the pattern functor `F` and not on the specific value `g`.
-So, it will be convenient to implement `f` separately; we will call it `packF`.
+Let us write the code of `f` separately; we will call it `packF`.
 
-The complete Dhall code is:
 
 ```dhall
 let packF : ∀(F : Type → Type) → Functor F → ∀(t : Type) → { seed : t, step : t → F t } → F (GFix F)
@@ -9958,7 +9921,7 @@ let fixG : ∀(F : Type → Type) → Functor F → F (GFix F) → GFix F
 
 #### Converting from the least fixpoint to the greatest fixpoint
 
-For the same structure functor `F`, we may define the least fixpoint type (`LFix F`) and the greatest fixpoint type (`GFix F`).
+Given a structure functor `F`, we may define the least fixpoint type (`LFix F`) and the greatest fixpoint type (`GFix F`).
 These types are usually not the same, and the greatest fixpoint type is usually "larger" than the least fixpoint type.
 
 A value of a greatest fixpoint type can be created from a given value of the corresponding least fixpoint type.
@@ -9987,16 +9950,16 @@ If it were possible to implement a terminating hylomorphism, we would be able to
 A  program "creating a value of the void type" means, in practice, a program that never terminates.
 This is an illustration of the fact that hylomorphisms cannot be guaranteed to terminate.
 
-To guarantee termination, one must modify the type signature of a hylomorphism in order to supply an explicit recursion bound as well as other data.
+To guarantee termination, one must modify the type signature of a hylomorphism, adding an explicit recursion bound as well as other data.
 The required technique for the general case will be studied in the next chapter. 
 We will also use hylomorphisms in chapter "Applicative type constructors and their combinators" when we implement applicative functor operations for least fixpoints.
 
-In preparation,   we will now implement a simple workaround sufficient for obtaining a truncated view of an infinite data structure.
+For now,   we will  employ a simple  workaround sufficient for obtaining a truncated view of an infinite data structure.
 We will  supply a "stop-gap" value and  an upper bound on the recursion depth.
-Whenever the data structure goes beyond the recursion bound, we will insert the "stop-gap" value and stop the recursion.
+Whenever the data structure goes beyond the recursion bound,   the stop-gap value is inserted to stop the recursion.
 
-We begin by choosing a structure functor `F`.
-Visualize the data structure obtained by "unrolling" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
+Suppose a structure functor `F` is given.
+Visualize the data structure obtained by "unpacking" a value of type `GFix F`, which contains a record of type `{ seed : t, step : t → F t }`.
 Applying the "step" function to the "seed", we get a value of type `F t`.
 Lifting the "step" function (via the functor `F`'s `fmap` method) to a function of type `F t → F (F t)` and applying again, we get a value of type `F (F t)`.
 Repeating this `n` times, we will get a data structure `p` of type `F (F (... F t)...)`.
@@ -10004,16 +9967,16 @@ This is the data structure that we would like to convert to a value of type `LFi
 
 To do that, the first step is to remove any values of type `t` from `p`.
 The presence of those values in `p` indicates that the data structure continues to branch out recursively in certain places.
-We would like to truncate the further recursive branching precisely at those places, replacing
+We would like to truncate the  recursive branching precisely at those places, replacing
 any further branches by a certain chosen value of type `LFix F`.
-We will call that value the "stop-gap" value `s : LFix F`.
+We will call that value the stop-gap value `s : LFix F`.
 
 Once the stop-gap value is chosen, we replace all occurences of `t` in `p` by that value.
 This is done by creating a constant function `replace : t → LFix F` that replaces any value of type `t` by the constant stop-gap value.
 We lift `replace` by `F`'s `fmap` method `n` times  and obtain a function of the following type:
-
-`F (F (... F t)...) → F (F (... F (LFix F))...)`
-
+```haskell
+F (F (... F t)...) → F (F (... F (LFix F))...)
+```
 It remains now to apply the standard `fix` function, also lifted `n` times, to convert `F (F (... F (LFix F))...)` to just `LFix F`.
 This completes the truncated conversion from `GFix F` to `LFix F`, given a recursion bound `n : Natural` and a stop-gap value `s : LFix F`.
 
@@ -10034,13 +9997,13 @@ let y0 : LFix F = fix y1
 ```
 
 We can write the entire function body mapping `x0` to `y0` using Haskell's function composition operator (`.`) like this:
-
-`fix . fmap fix . fmap (fmap fix) . fmap (fmap (fmap replace)) . fmap (fmap step) . fmap step . step`
-
+```haskell
+fix . fmap fix . fmap (fmap fix) . fmap (fmap (fmap replace)) . fmap (fmap step) . fmap step . step
+```
 Using the composition law of `fmap`, we rewrite this function equivalently as:
-
-`fix . fmap (fix . fmap (fix . fmap replace . step) . step) . step`
-
+```haskell
+fix . fmap (fix . fmap (fix . fmap replace . step) . step) . step
+```
 Now we can compute this function iteratively:
 
 ```dhall
@@ -10192,7 +10155,7 @@ Let us now implement a function `Stream/take` that converts `Stream a` to `List 
 That function   extracts the values stored in a stream, taking at most a given number of values.
 Since streams may be infinite, it is impossible to convert a `Stream` to a `List` without limiting the length of the resulting list.
 The length limit  must be specified as an additional argument.
-Let us choose the type signature of `Stream/take` as `Stream a → Natural → List a`.
+We will choose the type signature of `Stream/take` to be `Natural → Stream a → List a`.
 
 ```dhall
 let Stream/take : ∀(a : Type) → Natural → Stream a → List a
@@ -10212,8 +10175,7 @@ let Stream/take : ∀(a : Type) → Natural → Stream a → List a
 
 #### Creating finite streams
 
-Let us now see how to create stream values.
-We begin with finite streams.
+To see how to create stream values, begin with finite streams.
 
 To create an empty stream, we specify a "step" function that immediately returns `Nil` and ignores its argument.
 We still need to supply a "seed" value, even though we will never use it.
@@ -10232,7 +10194,7 @@ We need a "seed" value that has enough information for the "step" function to pr
 So, it appears natural to use the list `[1, 2, 3]` itself (of type `List Natural`) as the "seed" value.
 The "step" function will compute the tail of the list and stop the stream when the list becomes empty.
 
-Let us we implement a general function of type `List a → Stream a` that converts a finite list into a finite stream.
+We now implement a general function of type `List a → Stream a`   converting a finite list into a finite stream.
 We will need a helper function `headTail` that computes the head and the tail of a `List` if it is non-empty.
 
 ```dhall
@@ -10253,7 +10215,7 @@ let _ = assert : Stream/take Natural 10 exampleStream102030 ≡ [ 10, 20, 30 ]
 
 Creating an infinite stream involves deciding how the next data item should be computed.
 A simple example is an infinite stream generated from a seed value `x : r` by applying a function `f : r → r` repeatedly.
-This is implemented by making the "step" function never return `Nil`, which will make the stream unbounded.
+This is implemented by making the "step" function never return `Nil`, which will make the stream infinite.
 
 ```dhall
 let Stream/function
@@ -10273,9 +10235,9 @@ We can compute a finite prefix of this infinite stream:
 ```
 
 Another example of an infinite stream is a certain sequence repeated infinitely many times: for example, `1, 2, 3, 1, 2, 3, 1, `...
-For that, the "seed" type can be `List Natural` and the "step" function can be similar to that in the code of `Stream/fromList`.
-The initial "seed" value is the list `[ 1, 2, 3 ]`.
-Whenever the "seed" value becomes an empty list, it is reset to the initial list `[ 1, 2, 3 ]`.
+For that, the "seed" type can be `List Natural` and the "step" function can be similar to what we wrote in the code of `Stream/fromList`.
+The initial "seed" value is the given list, such as `[ 1, 2, 3 ]`.
+Whenever the "seed" value becomes an empty list, it is reset to the initial list.
 
 ```dhall
 let Stream/repeat : ∀(a : Type) → List a → Stream a
@@ -10303,7 +10265,7 @@ Let us now implement an analogous function (`Stream/concat`) for concatenating s
 The function  will take two streams and will return a new stream that works by first letting the first stream run.
 If the first stream finishes, the second stream will start; otherwise the first stream will continue running forever.
 
-We can implement this behavior by choosing the seed type of the new stream as a union type that shows which stream is now running. 
+We can implement this behavior by choosing the seed type of the new stream as a union type (`State`) that shows which stream is now running. 
 
 ```dhall
 let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
@@ -10326,7 +10288,7 @@ let Stream/concat : ∀(a : Type) → Stream a → Stream a → Stream a
 
 
 Concatenating an infinite stream (e.g., created by `Stream/repeat`) with another stream gives just the first stream.
-Concatenating a finite stream will start the second stream when the first one is finished:
+If the first stream is finite, the    second stream will start when the first one is finished:
 ```dhall
 let example1 = Stream/repeat Natural [ 1, 2, 3 ]  -- Repeat 1, 2, 3, 1, 2, 3, ...
 let example2 = Stream/fromList Natural [ 10, 20, 30 ]  -- A finite stream.
@@ -10337,16 +10299,16 @@ let _ = assert : Stream/take Natural 7 example2Concat ≡ [ 10, 20, 30, 1, 2, 3,
 ```
 
 We implemented `Stream/concat` that concatenates just two streams.
-The Prelude has the function `List/concat` (of type `List (List a) → List a`) that concatenates any number of lists in an outer list.
+The Prelude has the function `List/concat` (of type `List (List a) → List a`) that concatenates any number of lists.
 It turns out that no similar function (of type `Stream (Stream a) → Stream a`) can be implemented for streams.
-The reason is that we could define a value of type `Stream (Stream a)` that corresponds to an infinite stream containing a large number of  empty streams and then a non-empty stream.
+The reason is that we could define a value of type `Stream (Stream a)` that corresponds to an infinite stream that begins with a large number of  empty streams and then perhaps contains a non-empty stream.
 We can visualize this situation informally as `[[], [], ..., [], [1], [], ...`.
 The function that concatenates all those streams must be able to compute the next element of the stream.
 But that requires us to traverse the sequence of streams, skipping all empty streams until a non-empty stream is found.
-This computation cannot be guaranteed to terminate, as we do not know if and when a non-empty stream will be found.
+This computation cannot be guaranteed to terminate, as we do not know in advance if and when a non-empty stream will be found.
 
-The problem comes from the possibility of empty streams.
-For non-empty streams, the concatenating function can be implemented (we will do that below in the chapter "Monads and their combinators").
+The problem comes from the necessity to skip an unknown number of empty streams.
+If all streams are statically guaranteed to be non-empty, the concatenating function can be implemented (we will do that below in the chapter "Monads and their combinators").
 
 
 #### Truncated streams
@@ -10354,8 +10316,8 @@ For non-empty streams, the concatenating function can be implemented (we will do
 We can stop a given stream after a given number `n` of items, creating a new value of type `Stream a` that has at most `n` data items.
 
 ```dhall
-let Stream/truncate : ∀(a : Type) → Stream a → Natural → Stream a
- = λ(a : Type) → λ(stream : Stream a) → λ(n : Natural) →
+let Stream/truncate : Natural → ∀(a : Type) → Stream a → Stream a
+ = λ(n : Natural) → λ(a : Type) → λ(stream : Stream a) →
    let State = { remaining : Natural, stream : Stream a }    -- Internal state of the new stream.
    let StepT = < Nil | Cons : { head : a, tail : State } >
    let step : State → StepT = λ(state : State) →
@@ -10374,13 +10336,13 @@ So, `Stream/truncate` is a `O(1)` operation.
 Just like `Stream/take`, the function `Stream/truncate` requires an explicit bound on the size of the
 output list. 
 We cannot write a function that stops extracting data from a given stream at the data item that satisfies some condition (say, after the first `Natural` number that is equal to zero).
+It is also impossible to implement a function that determines whether a given stream   terminates.
 
 Streams represent conceptually "infinite" structures, and
 working with those structures in System Fω often requires an explicit upper bound on the number of
 possible iterations.
-It is impossible to implement a function that determines whether a given stream ever terminates.
 
-#### The "cons" constructor for streams. Performance issues
+#### The  `cons` constructor for streams. Performance issues
 
 The `cons` operation for lists   prepends a single value to a list.
 The analogous operation for streams can be implemented as a special case of concatenating streams:
@@ -10395,22 +10357,22 @@ What is the performance of operations on those finite streams?
 
 Since streams may be infinite, no operation on a stream could ever require traversing the entire data structure.
 At most, an operation may step the stream once.
-So, all stream operations like pattern matching or concatenating are not iterative and, _at first sight_, take `O(1)` time.
+So, all stream operations like pattern matching or concatenating are not iterative and, _at first sight_, take $O(1)$  time.
 
 However, streams are higher-order functions operating with complicated types.
 We need to consider the complexity of code that represents a stream.
 For instance, the `Stream/cons` operation creates a new stream whose seed type is a union of two stream types.
-So, if we use the `Stream/cons` constructor many times, we will obtain a stream with a "large" seed type (a deeply nested union type).
-Pattern matching operations with that type will take `O(N)` time in the Dhall interpreter.
+So, if we use the `Stream/cons` constructor $n$ times, we will obtain a stream with a "large" seed type (a deeply nested union type).
+Pattern matching   with that type will take $O(n)$ time in the Dhall interpreter.
 
 The result is a stream where _every_ operation (even just producing the next item) takes `O(N)` time.
 When the data size is known in advance, it is better to use finite lists instead of finite streams.
 
-#### Running aggregations: "scan" and "scanMap"
+#### Running aggregations: `scan` and `scanMap`
 
 A typical task for streams is to perform **running aggregations**.
 A running aggregation extracts   new values from a source stream and updates an aggregated value  each time.
-This results in a new stream of aggregated values computed after consuming each value from the source stream.
+This results in a new stream of aggregated values computed on demand.
 So, running aggregations may be viewed as transformations of type `Stream a → Stream b`.
 Each value in the result stream may depend in some way on the previously seen values in the source stream.
 
@@ -10420,9 +10382,9 @@ For example, the running sum transforms the stream `[1, 2, 3, 4, 5, ...]` into `
 
 A general function for running aggregations is called `scan`.
 Its type signature is quite similar to that of `fold`:
-
-`scan : ∀(a : Type) → Stream a → ∀(b : Type) → b → (a → b → b) → Stream b`
-
+```haskell
+scan : ∀(a : Type) → Stream a → ∀(b : Type) → b → (a → b → b) → Stream b
+```
 Here `b` is the type of the aggregated value.
 The argument of type `a → b → b` takes the next value of type `a`, the previous aggregated value of type `b`, and computes the next aggregated value of type `b`.
 The argument of type `b` is the initial aggregated value.
@@ -10534,13 +10496,13 @@ The equivalence "at the level of types" (that is, a **type isomorphism**) means 
 So, it is not an accident that `scanMap` can be expressed via `scan` and vice versa.
 
 The isomorphism between the types of `scan` and `scanMap` is analogous to the isomorphism between `foldLeft` and `reduce` proved in Chapter 12 of "The Science of Functional Programming".
-We will not show the full proof, as the focus of this book is on code.
+We will not show the   proof here, as the focus of this book is on code.
 
 ### Possibly-infinite binary trees
 
 Another example of a greatest fixpoint type is a data structure representing trees that may be finite or infinite. 
 In this section, we will implement a binary tree that stores data in leaves.
-Many other kinds of infinite trees can be implemented similarly with these techniques.
+Many other kinds of infinite trees can be implemented   with these techniques.
 
 In Scala, one would write the following code to define the type of a possibly infinite binary tree with data of type `A` in leaves:
 
@@ -10551,7 +10513,7 @@ enum InfTree2[A]:  // Scala 3.
 ```
 The data in the `Branch` constructor is a pair of functions that delay the evaluation of the tree branches until the program calls those functions explicitly.
 Those functions could encapsulate some internal state ("seed") that determines that subtrees will be generated.
-Those functions could also hide a recursion inside the tree data: for example, one of the branches could be a recursive reference to the whole tree:
+Those functions could also hide a recursion inside the tree data; for example, one of the branches could be a recursive reference to the whole tree:
 ```scala
 lazy val example1: InfTree2[Int] = InfTree2.Branch(left = () => example1, right = () => InfTree2.Leaf(123))
 ```
@@ -10578,6 +10540,7 @@ let bifunctorFTree : Bifunctor FTree
 }
 let InfTree2 = λ(a : Type) → GFix (FTree a)
 ```
+
 The same structure bifunctor `FTree`  defines the finite tree constructor `Tree2` via the _least_ fixpoint (`Tree2 a = LFix (FTree a)`).
 
 We can define the two "finite" data constructors for `InfTree2` using the general `fixG` function:
@@ -10607,13 +10570,13 @@ let example3InfTree2 = branchInf Natural   --   .
 These  finite trees are similar to values of the least fixpoint type `Tree2 Natural` that we built before.
 
 
-In addition to finite trees, the greatest fixpoint type `InfTree2 a` also supports  values that can be viewed as infinite trees.
+In addition to finite trees,  `InfTree2` also supports  values that correspond to infinite trees.
 
 To build infinite trees, we need more general data constructors that use  `makeGFix` directly.
 Unlike the case with the least fixpoints, there is no fixed set of constructors that is sufficient to create all possible values of a greatest fixpoint type.
 This is because there are infinitely many different ways in which one can build an infinite tree.
 For instance, one could build trees whose leaves are the consecutive prime numbers, or trees that keep repeating a certain subtree with custom changes applied at each level, and so on.
-In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any point.
+In each case, one would need to come up with a custom type for the "seed" and a custom "step" function making decisions about generating the next parts of the tree at any given point.
 
 Let us adapt `makeGFix` to make it easier to create values of type `InfTree2 a`:
 
@@ -10650,7 +10613,7 @@ let showTree2 : ∀(a : Type) → Show a → Show (Tree2 a)
 Our first example is an infinite tree that keeps branching forever: the tree starts with a `Branch`, and each branch is again a `Branch`.
 Note that this tree can be viewed as empty, in the sense of being empty of data.
 It has no leaves and so cannot store any data.
-We can implement this tree as a generic value of type `InfTree2 a` for any type `a` no values of type `a` will be stored.
+We can implement this tree as a generic value of type `InfTree2 a` for any type `a`, since no values of type `a` will be actually stored.
 The "seed" type needs to carry no information as branching decisions are always the same, so we will use a unit type:
 
 ```dhall
@@ -10659,7 +10622,7 @@ let emptyInfTree : ∀(a : Type) → InfTree2 a
 ```
 
 To test this, set `a = Text`, extract the tree up to depth 2 and supply `"x"` as the stopgap value.
-The result must be a tree with 4 leaves, all containing `x`.
+We expect the result to be a tree with 4 leaves, all containing `"x"`.
 ```dhall
 let _ =                                         --      /\
   let show = (showTree2 Text showText).show     --     /  \
@@ -10667,11 +10630,11 @@ let _ =                                         --      /\
     (emptyInfTree Text)) ≡ "((x x) (x x))"      --   x x  x x
 ```
 
-The second example is an infinite tree of type `InfTree2 Natural` whose left branches contain consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
+The second example is an infinite tree of type `InfTree2 Natural` with left branches that contain leaves with consecutive natural numbers (`0`, `1`, `2`, ...) while the right branches always continue branching.
 
 The "seed" must carry the current natural number.
-But it also must give enough information to know if we are in the right branch or in the left branch.
-We use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
+But the "step" function  must also know if we are in the right branch or in the left branch.
+So, we use the type `Pair Natural Bool` for the seed type; `True` will mean that we are in the right branch.
 
 ```dhall
 let naturalsInfTree : InfTree2 Natural
@@ -10689,18 +10652,18 @@ let naturalsInfTree : InfTree2 Natural
 To test this, extract the tree up to depth 4 and supply `123` as stopgap:
 
 ```dhall
-let _ = assert : truncateInfTree2 Natural 4 123 naturalsInfTree ≡
-  branch Natural (leaf Natural 0)           --     / \ 
-    (branch Natural (leaf Natural 1)        --    0 / \
-      (branch Natural (leaf Natural 2)      --     1 / \
-        (branch Natural (leaf Natural 123)  --      2  /\
-          (leaf Natural 123))))             --       123 123
+let _ = assert : truncateInfTree2 Natural 4 123 naturalsInfTree ≡   -- .
+  branch Natural (leaf Natural 0)                              --     / \ 
+    (branch Natural (leaf Natural 1)                           --    0 / \
+      (branch Natural (leaf Natural 2)                         --     1 / \
+        (branch Natural (leaf Natural 123)                     --      2  /\
+          (leaf Natural 123))))                                --       123 123
 ```
 
 The third example is an infinite tree of type `InfTree2 a` whose branches switch between left and right, while the leaves carry the consecutive values `x`, `f x`, `f (f x)`, etc., where `x : a` is a given value and `f : a → a` is a given function.
 
-The seed type must carry the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
-For that, we use a triple such as `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
+The seed type must store the current result (of type `a`), the information about the current left or right position, and also the information about whether we need to branch left or right  at the current position.
+To store that data, we use the record type `{ x : a, isLeaf : Bool, isLeafRight : Bool }`.
 
 ```dhall
 let tumbleInfTree2 : ∀(a : Type) → a → (a → a) → InfTree2 a
@@ -10726,12 +10689,12 @@ To test this, supply some simple data and extract the tree up to depth 4:
 ```dhall
 let tumbleExample = tumbleInfTree2 Natural 1 (λ(x : Natural) → x * 3)
 let _ = assert : truncateInfTree2 Natural 4 123 tumbleExample ≡
-  branch Natural (leaf Natural 1)       --   /\
-    (branch Natural (branch Natural     --  1 /\
-      (leaf Natural 9) (branch Natural  --   /\ 3
-        (leaf Natural 123)              --  9 /\
-        (leaf Natural 123)))            --   /  \
-          (leaf Natural 3))             -- 123  123
+  branch Natural (leaf Natural 1)                           --   /\
+    (branch Natural (branch Natural                         --  1 /\
+      (leaf Natural 9) (branch Natural                      --   /\ 3
+        (leaf Natural 123)                                  --  9 /\
+        (leaf Natural 123)))                                --   /  \
+          (leaf Natural 3))                                 -- 123  123
 ```
 
 ### Labeled cyclic graphs
@@ -10804,9 +10767,9 @@ let Nodes1 = < First | Second | Third >
 ```
 
 The "step" function applied to a node should compute a value of type `GraphF Node Edge Nodes1`, which expands to the record type:
-
-`{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }`
-
+```haskell
+{ nodeLabel : Node, edges : List { edgeLabel : Edge, target : Nodes1 } }
+```
 A value of this type contains the label of the initial node and the (possibly empty) list of edges starting from that node. 
 
 For the example shown above, the node labels have type `Natural` and the edge labels have type `Text`.
@@ -10838,9 +10801,9 @@ The value `exampleGraph1` represents a graph as shown in the picture above, with
 A basic operation for a labeled graph is to walk from the currently selected node to another node along some edge.
 We need to specify how the next edge is to be selected.
 This selection can be decided   by a function of the following type:
-
-`∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t`
-
+```haskell
+∀(t : Type) → Node → List { edgeLabel : Edge, target : t } → Optional t
+```
 This function takes into account the current node's label and the available edge labels and returns a `Some t` value that specifies which of the `target` nodes to walk to.
 If this function returns a `None t`, it means that we  cannot (or decided  not to) walk to a next node.
 
@@ -10866,7 +10829,7 @@ This function does not need to know the underlying node type (`Nodes1`) or the t
 The `decideWalk` function takes a type parameter `t` and must make its decisions in the same way for all `t`, based only on the values of the node and edge labels.
 
 Another way of expressing   "graph-walking"  operations is   via `unfixG`.
-Applying the method `unfixG` (defined generally for all greatest fixpoint types) to a graph, we obtain a list of edge labels and graphs that would be obtained by walking along each edge:
+Applying the method `unfixG` (defined generally for all greatest fixpoint types) to a graph, we obtain a list of edge labels and graphs that would be obtained by walking from the focused node along each edge:
 
 ```dhall
 let outgoing : { nodeLabel : Natural, edges : List { edgeLabel : Text, target : LabeledGraph Natural Text } }
@@ -10896,7 +10859,7 @@ let exampleGraph2 : LabeledGraph Bool Bool
         } init)
 ```
 
-Suppose that we need to  transform this graph by removing all edges labeled `False`, and by changing the node label to `False` when the list of outoing edges is empty.
+Suppose that we need to  transform this graph by removing all edges labeled `False`, and by changing the node label to `False` when the list of outgoing edges is empty.
 This transformation can be implemented as:
 
 ```dhall
@@ -10925,13 +10888,13 @@ Within the limitations of Dhall that require all iteration or recursion to be ex
 We have specified `Nodes1.First` as the initial "seed" value in `exampleGraph1`.
 This is not fully satisfactory for two reasons:
 
-First, the graph does not necessarily have a selected "current" node.
+First, the application at hand may not support the concept that the graph has a selected "current" node.
 This is appropriate if we are traversing the graph; at each step, we will then have a currently selected node.
-But we should also be able to represent the graph "as a whole", without a selected node.
+But for some computations we need  to represent the graph "as a whole", without a selected node.
 
 Second, there may be nodes from which no edges start.
 In our example, this is the node `Third`.
-If we start from that node, we will not be able to traverse the graph.
+If we start from that node, we will not be able to traverse the graph because we cannot  walk to any other node.
 
 At this point, we have to look in detail at what graph operations we could need.
 Let us distinguish two kinds of computations on graphs that we call  "node-dependent" and "node-independent".
@@ -10954,7 +10917,8 @@ let finiteNodes1 : Finite Nodes1 = { values = [ Nodes1.First, Nodes1.Second, Nod
 ```
 
 This  also means that the "seed" type (`Nodes1`) cannot remain hidden within the type `LabeledGraph`.
-Node-dependent operations are possible only if we know the type `Nodes1`; they  cannot be implemented as functions working with the type `LabeledGraph`.
+Node-dependent operations are possible only if we know the type `Nodes1`.
+Such operations   cannot be implemented via functions working with the type `LabeledGraph`.
 
 To see why, consider that the body of a function of  `LabeledGraph`   will have to treat the "seed" type as a completely unknown type parameter.
 This  is enforced by the existential quantifier in `LabeledGraph`.
@@ -10971,8 +10935,7 @@ All we know about that graph is that each node is  labeled by a value of type `N
 
 In order to implement node-dependent operations,  one needs to represent a graph more directly, exposing its  node type and the edge-producing "step" function.
 The example shown above (`exampleGraph1`) could be described by specifying the type `Nodes1`  and the record involved in the `merge` expression within the body of `step1`.
-
-Define a record type encapsulating that information:
+To see how that could work, let us define a record type encapsulating that information:
 
 ```dhall
 let LabeledGraphNodes1 = λ(Node : Type) → λ(Edge : Type) → {
@@ -10999,7 +10962,7 @@ let exampleGraph1N : LabeledGraphNodes1 Natural Text =
   }
 ```
 
-Given our detailed knowledge of the type `Nodes1`, we can write a function that converts `LabeledGraphNodes1` into `LabeledGraph` by hiding the information about `Nodes1`:
+Given our detailed knowledge of the type `Nodes1`, we can write a function that converts `LabeledGraphNodes1` into `LabeledGraph` by hiding the type `Nodes1`:
 
 ```dhall
 let graphNodes1ToLabeledGraph : ∀(Node : Type) → ∀(Edge : Type) → LabeledGraphNodes1 Node Edge → LabeledGraph Node Edge
@@ -11026,8 +10989,8 @@ A shorter way of writing the same code is to use Dhall's "`with`" syntax:
 ```dhall
 let transform2 : LabeledGraphNodes1 Natural Text → LabeledGraphNodes1 Natural Text
   = λ(graph : LabeledGraphNodes1 Natural Text) →
-  graph with Second.nodeLabel = 2 * graph.Second.nodeLabel
-    with Third.nodeLabel = 3 * graph.Third.nodeLabel
+      graph with Second.nodeLabel = 2 * graph.Second.nodeLabel
+        with Third.nodeLabel = 3 * graph.Third.nodeLabel
 ```
 
 In a similar way, one can implement functions that reconfigure the graph in an arbitrary way, replacing edge labels and adding or removing labels.
@@ -11045,7 +11008,7 @@ In this chapter, we will see that Dhall can be also adapted to work with a wide 
 This is achieved by a procedure we call the **Hu-Iwasaki-Takeichi algorithm**  (the "HIT" algorithm).
 
 The HIT algorithm defines some auxiliary types and then converts a given recursive code into a special form, known as a "hylomorphism".
-To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a "stop-gap" value.
+To adapt the resulting hylomorphism to Dhall's constraints and to provide a termination guarantee, the programmer must supply an explicit upper bound on the recursion depth and a stop-gap value.
 The stop-gap value will be used if the recursion bound turns out to be too low.
 
 
@@ -11057,26 +11020,27 @@ The function `Stream/take` that extracts at most a given number of values from t
 This function can be seen as an example of a **size-limited aggregation**: a function that aggregates data from the stream in some way but reads no more than a given number of data items from the stream.
 (The size limit guarantees termination.)
 
-We will now generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
+Our goal is to generalize size-limited aggregations from lists to arbitrary greatest fixpoint types.
 The result will be a `fold`-like function whose recursion depth is limited in advance.
-That limitation will ensure that all computations terminate, as Dhall requires.
+But we need to begin by looking at `fold`-like functions without a recursion limit.
+
 
 The type signature of ordinary `fold` is a generalization of `List/fold` to arbitrary pattern functors.
 We have seen `fold`'s type signature when we considered fold-like aggregations for Church-encoded data:
-
-`fold : LFix F → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+fold : LFix F → ∀(r : Type) → (F r → r) → r
+```
 By a **fold-like aggregation** we mean any function applied to some data type `P` that iterates over the values stored in `P` in some way.
 The general type signature of a fold-like aggregation is `P → ∀(r : Type) → (F r → r) → r`.
 
 The implementation of `fold` will be different for each data structure `P`.
 If `P` is the Church encoding of the least fixpoint of `F` then `P`'s `fold` is an identity function because the type `LFix F` is the same as `∀(r : Type) → (F r → r) → r`.
 If `P` is the greatest fixpoint (`GFix F`), the analogous type signature of `P`'s `fold` would be:
-
-`GFix F → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+GFix F → ∀(r : Type) → (F r → r) → r
+```
 Note that this type is a function from an existential type, which is used to define `GFix F`.
-Function types of that kind are equivalent to simpler function types (see the section "Functions of existential types"):
+Function types of that kind are equivalent to simpler function types (see the section "The function extension rule for existential types"):
 
 ```dhall
 GFix F → Q
@@ -11086,13 +11050,13 @@ GFix F → Q
 
 We use this equivalence with `Q = ∀(r : Type) → (F r → r) → r` and `GF_T F t = { seed : t, step : t → F t }` as appropriate for streams.
 Then we obtain the type signature:
-
-`∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+∀(t : Type) → { seed : t, step : t → F t } → ∀(r : Type) → (F r → r) → r
+```
 Rewrite that type by replacing the record by two curried arguments:
-
-`∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r`
-
+```haskell
+∀(t : Type) → t → (t → F t) → ∀(r : Type) → (F r → r) → r
+```
 A function  with this type signature is called a **hylomorphism**.
 See also [this tutorial on recursion schemes](https://blog.sumtypeofway.com/posts/recursion-schemes-part-5.html).
 
@@ -11103,9 +11067,9 @@ Because of the universal quantifiers `∀(t : Type)` and `∀(r : Type)` in thei
 An intuitive picture of that sort of computation is that the given function of type `t → F t` will be used repeatedly to "unfold" a given value of type `t` into a tree-like data structure of type `F (F (... (F t)...))`, while the function of type `F r → r` will be used repeatedly to extract the required output values (of type `r`) from that tree-like structure.
 
 Another way of understanding hylomorphisms is to rewrite their type signature as:
-
-`GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F`
-
+```haskell
+GFix F → ∀(r : Type) → (F r → r) → r  ≅  GFix F → LFix F
+```
 This looks like a conversion from the greatest fixpoint to the least fixpoint of the same pattern functor.
 The converse transformation (from the least fixpoint to the greatest fixpoint) can be implemented in Dhall as shown in the previous chapter.
 
@@ -11128,8 +11092,7 @@ This is possible if we use explicit recursion (which Dhall does not support).
 Here is Haskell code adapted from [B. Milewski's blog post](https://bartoszmilewski.com/2018/12/20/open-season-on-hylomorphisms/):
 
 ```haskell
--- Haskell.
-hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r
+hylo :: Functor f => (t -> f t) -> (f r -> r) -> t -> r     -- Haskell.
 hylo coalg alg = alg . fmap (hylo coalg alg) . coalg
 ```
 
@@ -11145,8 +11108,7 @@ The type constructor `f` will be the pattern functor for `TreeText`.
 Our Haskell definitions for `TreeText`, its pattern functor `F`, and the `fmap` method for `F` are:
 
 ```haskell
--- Haskell.
-data TreeText = Leaf String | Branch TreeText TreeText
+data TreeText = Leaf String | Branch TreeText TreeText      -- Haskell.
 
 data F r = FLeaf String | FBranch r r
 
@@ -11159,8 +11121,7 @@ The type `TreeText` is the least fixpoint of `F` and has the standard methods `f
 Haskell implementations of `fix` and `unfix` are little more than identity functions that reassign types:
 
 ```haskell
--- Haskell.
-fix :: F TreeText -> TreeText
+fix :: F TreeText -> TreeText         -- Haskell.
 fix FLeaf t -> Leaf t
 fix FBranch x y -> Branch x y
 
@@ -11178,8 +11139,7 @@ We are using this artificial example only for understanding how the recursion ca
 Choose some input value `t0` of type `TreeText`:
 
 ```haskell
--- Haskell.
-t0 :: TreeText
+t0 :: TreeText                    -- Haskell.
 t0 = Branch (Leaf "a") (Leaf "b")
 ```
 
@@ -11242,30 +11202,28 @@ The recursion will terminate if, after some recursion depth, the expression `fma
 We will then have `fmap (fmap (... (fmap f)...)) c == c`.
 At this point, the result `c` will be returned and no more recursive calls to `h` will be made.
 
-The type of `c` will be `f (f (... (f t)))`.
-It is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
-These repeated applications create a data structure of a deeply nested type: `f (f (... (f t)))`.
-At a certain recursion depth, that data structure will no longer contain any values of type `t`.
+The value `c` is a data structure generated by repeated applications of `coalg`, `fmap coalg`, `fmap (fmap coalg)`, etc., to the initial value `t0`.
+The type of `c` will be deeply nested, of the form `f (f (... (f t)...))`.
+After a certain recursion depth, the data structure `c` of that type will no longer contain any values of type `t`.
 So, applying a nested `fmap (fmap (... (fmap f)...)` to that data structure will not need to transform any data
 and will be an identity function.
 
 We find that a hylomorphism's recursive code will terminate
-only if the data structure of type `f (f (... (f t)))`
+only if the data structure of type `f (f (... (f t)...))`
 generated out of the initial "seed" value (`t0`) will no longer contain values of type `t`
 after a finite number of recursion steps.
 
 The hylomorphism's argument has type `GFix F`.
-However, it is impossible to assure up front that a given data structure of type `GFix F`
-in fact has only a finite recursion depth.
-So, the termination of the hylomorphism is in general not guaranteed.
+However, it is impossible to ensure  that a given data structure of type `GFix F` has only a finite recursion depth.
+This is another way to see that the termination of the hylomorphism is generally not guaranteed.
 As a result, no function with the type signature of `hylo` can be implemented in Dhall.
 
 ### Depth-bounded hylomorphisms
 
-What we _can_ do is   implement functions with hylomorphism-like type signatures, but add extra arguments that explicitly ensure termination.
+What we _can_ do is   implement functions with hylomorphism-like type signatures and some extra arguments added to ensure termination.
 
 In the previous chapter, we have shown how to use a recursion bound and a stop-gap value to create a "truncating hylomorphism".
-We will now use a similar technique when viewing hylomorphisms as general functions   of type `t → r`.
+We will now use a similar technique but adapted to viewing hylomorphisms as general functions   of type `t → r`.
 The implementation will not depend on the `fix` function or on a stop-gap value of the least fixpoint type. 
 Instead, the stop-gap value will have a more general type (`t → r`).
 The stop-gap value will be used only if  the given recursion bound is smaller than the actual recursion depth of the input data.
@@ -11329,11 +11287,11 @@ Keeping this in mind, we will proceed in two steps:
 We begin by implementing a function for computing the maximum required recursion depth for a hylomorphism.
 
 Recall that a hylomorphism `hylo coalg alg x` stops its iterations when the repeated application
-of `coalg` to `x` produces a value `p : F (F (... (F t)...))` such that
-`fmap_F (fmap_F (... (fmap_F f)...)) p` leaves `p` unchanged and does not actually call `f`.
+of `coalg` to `x` produces a value `c : F (F (... (F t)...))` such that
+`fmap_F (fmap_F (... (fmap_F f)...)) c` leaves `c` unchanged and does not actually call `f`.
 This happens when some constructors of the union type `F t` are "empty", that is, do not store any values of type `t`.
 To detect that condition, we need to be able to check whether any values of type `t` are actually
-stored in a given data structure `p : F (F (... (F t)...))`.
+stored in a given data structure `c : F (F (... (F t)...))`.
 
 We begin by implementing a function `anyNonEmpty` for checking whether a value of type `F t` contains any values of type `t`.
 For that, we need to be able to extract all values of type `t` out of a given data structure of type `F t`.
@@ -11393,13 +11351,13 @@ let anyTrueF : ∀(F : Type → Type) → Foldable F → F Bool → Bool
 Now we are ready to generalize these functions to obtain a check for the presence of values of type `t` in a data structure of type `F (F (... (F t)...))` having $n$ nested layers of type constructors `F`.
 To achieve that, we first need to apply `fmap_F` $n-1$ times to the function `anyNonEmpty F foldableF t`.
 This gives a function of the following type:
-
-`F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
-
+```haskell
+F (F (... (F t)...)) {- n times -} → F (F (... (F Bool)...)) {- n-1 times -}
+```
 Then we need to apply `fmap_F` $n-1$ times to the function `anyTrueF`:
-
-`fmap (fmap (... (fmap (λ(_ : t) → True)))...))   {-  n times  -}             : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}`
-
+```haskell
+fmap (fmap (... (fmap (λ(_ : t) → True)))...))   {-  n times  -}                : F (F (... (F Bool)...)){- n times -} → F (F (... (F Bool)...)) {- n-1 times -}
+```
 Applying that function will reduce by $1$ the number of nested layers of `F`.
 We need to keep doing this until we remove all layers of `F` and obtain a `Bool` value.
 We may describe the procedure symbolically:
@@ -11426,7 +11384,7 @@ c3 : t → F (F (F t)) = fmap c2
 ```
 
 Now we notice that the composition `hN . cN` is equivalent to the code of a depth-bounded hylomorphism   `hylo_Nat`, with depth limit `N` and the stop-gap function equal to `replace`.
-After `N` iterations, we will have transformed an initial value `p : t` via `cN` into a value of type `F (F (... (F t)...))` and then back into a `Bool` value via `hN`.
+After `N` iterations, we will have transformed a  value `p : t` via `cN` into a value of type `F (F (... (F t)...))` and then back into a `Bool` value via `hN`.
 
 The final step is to write code for finding the smallest `N` for which the resulting `Bool` value becomes `False`.
 For that, we will of course need an absolute upper bound on possible `N`.
@@ -11475,7 +11433,7 @@ So, we expect `hyloMaxDepth` to return `2` when applied to that `coalg`:
 let _ = assert : hyloMaxDepth FT functorFT foldableFT 10 Natural coalg 1 ≡ 2
 ```
 
-Now, instead of calling `hylo_Nat F functorF limit t x coalg r alg stopgap`, we can write `hylo_Nat F functorF (hyloMaxDepth F functorF foldableF limit coalg t) t x coalg r alg stopgap`.
+We can now call `hylo_Nat F functorF limit t x coalg r alg stopgap` replacing `limit` by `hyloMaxDepth F functorF foldableF limit coalg t`.
 
 To make the usage of hylomorphisms simpler, let us modify `hylo_Nat` so that the maximum recursion depth is calculated and applied automatically.
 We will accumulate _two_ functions: one for detecting the recursion depth and another for computing the actual result value.
@@ -11516,9 +11474,7 @@ The HIT algorithm works only for recursive code of a certain restricted form:
 
 - The function must have a single top-level pattern matching expression that splits the code into several branches. Each pattern-matching branch of the code may contain zero or more recursive calls.
 - For each pattern-matching branch, the number of  recursive calls must be known _statically_ (at compile time). The number of recursive calls  cannot depend on any conditions evaluated within the branch. In particular, the result value of one recursive call cannot determine whether another recursive call will be necessary within the code of this branch.
-- Recursive calls are not nested: the argument of one recursive call cannot depend on the return value of another recursive call.
-
-However, a tail-recursive form of the code is _not_ required for the HIT algorithm to work.
+- Recursive calls are not nested: the argument of one recursive call does not depend on the return value of another recursive call.
 
 Code of that form can be described by this Haskell skeleton:
 
@@ -11556,6 +11512,8 @@ If the code of `f` contains several such branches with no recursive calls, we ma
 Other branches (`C1`, `C2`, etc.) _do_ require one or more recursive calls to `f`.
 The arguments for those recursive calls are computed from the available data (`x1`, `x2`, etc.) using functions that we denoted by `arg_1_1`, `arg_1_2`, `arg_2_1`, etc.
 Once the recursive calls are completed, the post-processing functions (`post_1`, `post_2`, etc.) are used to compute the final results.
+
+Note that the code is _not_ required to be tail-recursive.
 
 Starting from recursive Haskell code for `f` in the skeleton form shown above, the HIT algorithm derives an equivalent code for `f` as a hylomorphism.
 
@@ -11722,7 +11680,6 @@ To improve the asymptotic complexity of the code, it would be best to start with
 
 Alternatively, one could use techniques such as ["shortcut fusion"](https://ora.ox.ac.uk/objects/uuid:0b493c43-3b85-4e3a-a844-01ac4a45c11b) that works directly with hylomorphisms.
 Such techniques are beyond the scope of this book.
-We view hylomorphisms only as a vehicle for converting recursive code to a form that Dhall will accept.
 
 
 
@@ -11747,7 +11704,6 @@ We have two options:
 - Use a general procedure for rewriting the recursive code of `f` into a hylomorphism, then implement that in Dhall using the depth-bounded function `hylo_N`.
 
 A   general procedure for converting recursive code to hylomorphisms is the HIT algorithm explained in a previous section.
-The HIT procedure applies to a wide range of recursive functions including the Egyptian division algorithm.
 We will now follow that procedure for the code of `egyptian_div_mod` shown above.
 
 A first problem is that
@@ -11778,12 +11734,12 @@ egyptian_div_mod a b =
 The HIT algorithm rewrites the function `e_div_mod` as a hylomorphism by finding a functor `P` such that the code of `e_div_mod` is expressed as a composition of three functions:
 
 - A function `coalg` of type `Int → P Int`.
-- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap` method. This gives a function of type `P Int → P (Int, Int)`.
+- A recursive call to `fmap_P e_div_mod`, where `fmap_P` is the functor `P`'s `fmap`. This gives a function of type `P Int → P (Int, Int)`.
 - A function `alg` of type `P (Int, Int) → (Int, Int)`.
 
 Then we will be able to write: `e_div_mod == alg . fmap_P e_div_mod . coalg`, which means that `e_div_mod` is a hylomorphism.
 
-To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether a recursive call to `e_div_mod` is needed.
+To find a suitable functor `P`, we note that the code of `e_div_mod` contains an `if/then/else` construction for deciding whether to make a recursive call to `e_div_mod`.
 To reproduce an `if/then/else` via the hylomorphism formula `alg . fmap_P e_div_mod . coalg`, we need to choose `P` such that `fmap_P` skips calling `e_div_mod` in one case but does call it in another case.
 This can be achieved if `P x` is a union type with two constructors, the first one not containing any values of type `x`, and the second one containing a single value of type `x`.
 For example, if we define `P` and the corresponding `fmap_P` by this Haskell code:
@@ -11817,7 +11773,7 @@ The result of that call will be a value of type `P (Int, Int)`.
 So, the type parameter `x` in `P x` will be actually set to `(Int, Int)` when `fmap_P` is applied.
 In addition, `postprocess2` needs to have the value of `b`.
 
-We conclude that it is sufficient to use `P2 (x, Int)` in the definition of the union type.
+We conclude that it is sufficient to use `P2 (x, Int)` in   the union type.
 
 This consideration shows that `P` can be defined as the Haskell code `data P x = P1 Int | P2 (x, Int)` or the Dhall equivalent:
 
@@ -11871,7 +11827,7 @@ let alg : Natural → P Result → Result
 
 It remains to implement the function `coalg` whose Haskell type signature is `Int → P Int`.
 That function must do two things: first, it must decide which of the parts (`P1` or `P2`) of the union type `P Int` will be created.
-Second, in case the calculation must use a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
+Second, in case the calculation  uses a recursive call, `coalg` must prepare the data for the recursive invocation as well as for the post-processing.
 
 A Haskell implementation of `coalg` is:
 ```haskell
@@ -11933,13 +11889,13 @@ The following test takes just a few seconds (when using Dhall version 1.42.2 or 
 ```
 
 The HIT procedure can convert a wide class of recursive functions into hylomorphisms.
-In most cases, we will be able to implement those hylomorphisms in Dhall by choosing appropriate upper limits and stopgap values so that the hylomorphism may be replaced by `hylo_Nat`, which guarantees termination.
-This is another practical motivation for studying hylomorphisms.
+In most cases,  those hylomorphisms can be realized in Dhall by choosing appropriate upper limits and stop-gap values so that the hylomorphism may be replaced by `hylo_Nat` or `hylo_N`.
+This is another  motivation for studying hylomorphisms.
 
 ### Hylomorphisms driven by a Church-encoded template
 
 In the code for `hylo_Nat`, the total number of iterations was limited by a given natural number.
-To drive the iterations, we used the standard `fold` method (`Natural/fold`) for natural numbers.
+To drive the iterations, we used the standard function `Natural/fold`.
 
 Note that `Natural` is a built-in recursive type in Dhall, and `Natural/fold` is also a built-in function.
 Could we drive iterations via the `fold` method for a different recursive type?
@@ -11973,9 +11929,9 @@ As long as the pattern functor `F` is applicative, we will be able to implement 
 ## Combinators for monoids
 
 A type is a monoid if there are methods called `empty` and `append` that satisfy appropriate laws.
-As we have seen in the "Typeclasses" chapter,
-Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values to support those methods and to have a `Monoid` typeclass evidence.
-It turns out that there are general combinators that produce `Monoid` evidence for larger types built from smaller ones.
+As we have seen in the chapter "Typeclasses",
+Dhall defines enough operations for `Bool` values, `Natural` numbers, `Text` strings, and `List` values   to have a `Monoid` typeclass evidence.
+It turns out that there exist general combinators that produce `Monoid` evidence for larger types built from smaller ones.
 We will now explore those combinators systematically and show the corresponding `Monoid` typeclass evidence.
 The proofs that the laws hold are given in "The Science of Functional Programming", Chapter 8.
 
@@ -11994,7 +11950,7 @@ let Optional/orElse
     merge { None = y, Some = λ(_ : a) → x } x
 ```
 
-Now we can write the two possible `Monoid` instances for `Optional T`:
+Now we can write two `Monoid` evidence values for `Optional T`:
 
 ```dhall
 let monoidOptionalKeepX : ∀(T : Type) → Monoid (Optional T)
@@ -12010,7 +11966,7 @@ let monoidOptionalKeepY : ∀(T : Type) → Monoid (Optional T)
                   }
 ```
 
-### Function monoid
+### The function monoid
 
 For any type `T`, the function type `T → T` is a monoid.
 Its `empty` value is an identity function.
@@ -12029,7 +11985,8 @@ let monoidFuncForward : ∀(T : Type) → Monoid (T → T)
 The unit type (`{}`) is a monoid whose operations always return the value `{=}`.
 
 ```dhall
-let monoidUnit : Monoid {} = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} }
+let monoidUnit : Monoid {}
+  = { empty = {=}, append = λ(_ : {}) → λ(_ : {}) → {=} }
 ```
 
 ### Product of monoids
@@ -12070,7 +12027,7 @@ let monoidEitherLeft
     }
 ```
 
-The other choice is when the `empty` method returns `Right monoidQ.empty`.
+The other choice is when the `empty` method returns `Right monoidQ.empty`:
 ```dhall
 let monoidEitherRight
   : ∀(P : Type) → Monoid P → ∀(Q : Type) → Monoid Q → Monoid (Either P Q)
@@ -12093,7 +12050,7 @@ let monoidEitherRight
 ### Functions with monoidal output types
 
 If `P` is _any_ type and `Q` is a monoidal type then the function type `P → Q` is a monoid.
-We implement this property as a combinator function:
+We implement this property as a combinator:
 ```dhall
 let monoidFunc
   : ∀(P : Type) → ∀(Q : Type) → Monoid Q → Monoid (P → Q)
@@ -12108,7 +12065,7 @@ let monoidFunc
 If a type `P` is a monoid, we may define another implementation of the `append` method by reversing the order of appending the values.
 In other words, we may define the new operation `append_reverse x y` as `append y x`.
 (The `empty` value remains unchanged.)
-The laws will still hold for the new monoid instance.
+The laws will still hold for the new monoid evidence.
 
 ```dhall
 let monoidReverse
@@ -12127,10 +12084,9 @@ An example of a non-commutative monoid is the `Optional` monoid shown earlier in
 ## Combinators for functors and contrafunctors
 
 Functors and contrafunctors may be built only in a fixed number of ways, because there is a fixed number of ways one may define type constructors in Dhall (without using dependent types).
-We will now enumerate all those ways.
-The result is a set of standard combinators that create larger (contra)functors from smaller ones.
+We will now enumerate all those ways and obtain a set of standard combinators that create larger (contra)functors from smaller ones.
 
-All the combinators preserve functor laws; the created new functor instances are automatically lawful.
+All the combinators preserve functor laws; the created new functor evidence values are automatically lawful.
 This is proved in "The Science of Functional Programming", Chapter 6.
 We will only give the Dhall code for the combinators.
 
@@ -12331,13 +12287,13 @@ let contrafunctorCoProduct
 The function-type functor `H a = F a → G a` is covariant if `F` is contravariant and `G` is covariant.
 Similarly, `H` is contravariant if `F` is covariant and `G` is contravariant.
 
-For convenience, we define the `Arrow` combinator:
+For convenience, we define the `Arrow` constructor:
 ```dhall
 let Arrow : (Type → Type) → (Type → Type) → (Type → Type)
   = λ(F : Type → Type) → λ(G : Type → Type) → λ(a : Type) → F a → G a
 ```
 
-We can automatically construct the evidence values for the cases we just described:
+We can  derive the evidence values for the cases we just described:
 
 ```dhall
 let contrafunctorFunctorArrow
@@ -12405,7 +12361,7 @@ let functorForall1
 Similar code can be written for the type `∀a. F a b` (where the _second_ type parameter remains free).
 We omit that code.
 
-In case `F a b` is contravariant in `a`, we can implement a _contrafunctor_ evidence for `G`:
+If `F a b` is contravariant in `a`, we can derive a `Contrafunctor` evidence for `G`:
 
 ```dhall
 let contrafunctorForall1
@@ -12424,7 +12380,7 @@ Existential quantifiers have similar properties.
 If we define `G` by $G ~a = \exists b.~ F~ a~ b$ then `G` will be covariant if `F a b` is covariant with respect to `a`; and `G` will be contravariant if `F a b` is contravariant with respect to `a`.
 It does not matter whether `F a b` is covariant, contravariant, or neither with respect to `b`.
 
-The following code defines the functor or the contrafunctor instances (as appropriate) for the type constructor `G`:
+The following code defines the functor or the contrafunctor evidence values (as appropriate) for the type constructor `G`:
 ```dhall
 let functorExists1
   : ∀(F : Type → Type → Type) → (∀(b : Type) → Functor (λ(a : Type) → F a b)) → Functor (λ(a : Type) → Exists (λ(b : Type) → F a b))
@@ -12458,13 +12414,13 @@ We have already seen the latter in the chapter "Typeclasses" when we implemented
 
 Although Dhall does not support recursive types directly, we have seen in previous chapters that least fixpoints and greatest fixpoints can be encoded in Dhall.
 Those encodings are built using the function types and the universal quantifier.
-The constructions in the previous subsections show how to build functor and contrafunctor instances for types involving those features.
+The constructions in the previous subsections show how to build functor and contrafunctor evidence values for types involving those features.
 So, in principle we already know enough to build functor or contrafunctor evidence (as appropriate) for arbitrary recursive type constructors.
 Here we will show the Dhall code for those combinators.
 
 A least-fixpoint type constructor is defined via a pattern functor that must be a type constructor with _two_ type parameters.
 The first type parameter remains free in the resulting recursive type constructor, while the second type parameter becomes bound.
-(See the section "Recursive type constructors" in the chapter "Church encodings of more complicated types".)
+(See the section "Recursive Church-encoded type constructors" in the chapter "Church encodings of more complicated types".)
 
 Suppose `F` is a given pattern functor with two type parameters.
 Then we can define the recursive type constructor `C` as the least fixpoint of the recursive type equation `C a = F a (C a)`,
@@ -12472,15 +12428,15 @@ and the type constructor `D` as the greatest fixpoint of the same type equation:
 
 Using the notation `LFix` and `GFix` for the least and the greatest fixpoints, we may also write `C a = LFix (F a)` and `D a = GFix (F a)`.
 
-If `F a b` is covariant in `a` then `C` and `D` will be also covariant and will have `Functor` instances.
-If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant and will have `Contrafunctor` instances.
+If `F a b` is covariant in `a` then `C` and `D` will be also covariant and will belong to the `Functor` typeclass.
+If `F a b` is contravariant in `a` then `C` and `D` will be also contravariant and will belong to `Contrafunctor`.
 (For the Church encoding to work correctly, the type expression `F a b` must be covariant in `b`.)
 
-We will now show code that takes a `Functor` instance for `F a b` with respect to `a` and produces `Functor` instances for `C` and `D`.
+We will now show code that takes a `Functor` evidence for `F a b` with respect to `a` and produces `Functor` evidence values for `C` and `D`.
 
 To simplify the code, we will begin by noting that both `LFix P` and `GFix P` are covariant with respect to the type constructor `P`.
 So, for any two type constructors `P` and `Q`, we can transform `LFix P → LFix Q` and `GFix P → GFix Q` given a function of type `∀(a : Type) → P a → Q a`.
-Let us write these transformations here for later use:
+Let us write these transformations  for later use:
 ```dhall
 let mapLFix
   : ∀(P : Type → Type) → ∀(Q : Type → Type) → (∀(a : Type) → P a → Q a) → LFix P → LFix Q
@@ -12586,28 +12542,25 @@ Dhall's Prelude has the function `List/filter` that removes values from a list w
 let _ = assert : List/filter Natural (Natural/lessThan 4) [ 1, 2, 3, 4, 5, 6, 7, 8 ] ≡ [ 5, 6, 7, 8 ]
 ```
 
-The notion of a "filterable functor" comes from generalizing this `filter` function to type constructors other than `List`.
+The notion of a **filterable functor** comes from generalizing this `filter` function to type constructors other than `List`.
 
-It turns out to be more convenient to define `filter` through another function called `deflate`.
-
-We define a **filterable functor** `F` as a (covariant) functor with and additional method called `deflate`, which has the following type signature:
-
-`deflate : F (Optional a) → F a`
-
+It turns out to be more convenient to define `filter` through another function called `deflate`, which has the following type signature:
+```haskell
+deflate : F (Optional a) → F a
+```
 A **filterable contrafunctor** `C` has a method called `inflate`, with the following type signature:
-
-`inflate : C a → C (Optional a)`
-
+```haskell
+inflate : C a → C (Optional a)
+```
 We can now define the corresponding typeclasses:
 ```dhall
 let Filterable = λ(F : Type → Type) → Functor F //\\ { deflate : ∀(a : Type) → F (Optional a) → F a }
 let ContraFilterable = λ(F : Type → Type) → Contrafunctor F //\\ { inflate : ∀(a : Type) → F a → F (Optional a) }
 ```
 
-Using the `deflate` method from a `Filterable` instance, we may implement a `filter` function like this:
+Using the `deflate` method from a `Filterable` evidence, we may implement a `filter` function like this:
 ```dhall
-let filter
-  : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
+let filter : ∀(F : Type → Type) → Filterable F → ∀(a : Type) → (a → Bool) → F a → F a
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
     let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
     let foa : F (Optional a) = filterableF.fmap a (Optional a) a2opt fa
@@ -12616,8 +12569,7 @@ let filter
 
 Similarly, we may implement a `contrafilter` function for a filterable contrafunctor like this:
 ```dhall
-let contrafilter
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
+let contrafilter : ∀(F : Type → Type) → ContraFilterable F → ∀(a : Type) → (a → Bool) → F a → F a
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(a : Type) → λ(cond : a → Bool) → λ(fa : F a) →
     let a2opt : a → Optional a = λ(x : a) → if cond x then Some x else None a
     let foa : F (Optional a) = contrafilterableF.inflate a fa
@@ -12625,7 +12577,7 @@ let contrafilter
 ```
 
 The functions `deflate` and `inflate` must satisfy certain laws that are detailed in "The Science of Functional Programming", Chapter 9.
-That book also shows various combinators that create new `Filterable` and `Contrafilterable` instances out of previous ones, and proves that the resulting instances always obey the laws.
+That book also shows various combinators that create new `Filterable` and `Contrafilterable` evidence values out of previous ones, and proves that the resulting evidence values always obey the laws.
 Here, we will focus on implementing those combinators in Dhall.
 
 ### Constant filterable (contra)functors
@@ -12643,11 +12595,10 @@ let contrafilterableConst : ∀(c : Type) → ContraFilterable (Const c)
 ### Filterable (contra)functor composition
 
 If `F` is a filterable functor and `G` is any functor (_not necessarily_ filterable) then the composition functor `Compose G F` is filterable.
-We may implement a `Filterable` instance like this:
+We may implement a `Filterable` evidence like this:
 
 ```dhall
-let filterableFunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)
+let filterableFunctorFunctorCompose : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Functor G → Filterable (Compose G F)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorFunctorCompose G functorG F filterableF.{fmap} /\ { deflate = λ(a : Type) → functorG.fmap (F (Optional a)) (F a) (filterableF.deflate a) }
 ```
@@ -12663,26 +12614,23 @@ There are four possible cases, depending on covariance or contravariance of `F` 
 - If `F` is a filterable contrafunctor and `G` is any functor then `Compose G F` is a filterable contrafunctor.
 - If `F` is a filterable contrafunctor and `G` is any contrafunctor then `Compose G F` is a filterable functor.
 
-For the first case, we just saw the code for a `Filterable` instance.
+For the first case, we just saw the code for a `Filterable` evidence.
 Here is the corresponding code for the remaining three cases:
 
 ```dhall
-let filterableContrafunctorFunctorCompose
-  : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)
+let filterableContrafunctorFunctorCompose : ∀(F : Type → Type) → Filterable F → ∀(G : Type → Type) → Contrafunctor G → ContraFilterable (Compose G F)
   = λ(F : Type → Type) → λ(filterableF : Filterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorFunctorCompose G contrafunctorG F filterableF.{fmap} /\ { inflate = λ(a : Type) → contrafunctorG.cmap (F (Optional a)) (F a) (filterableF.deflate a) }
 ```
 
 ```dhall
-let filterableFunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)
+let filterableFunctorContrafunctorCompose : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Functor G → ContraFilterable (Compose G F)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(functorG : Functor G) →
     functorContrafunctorCompose G functorG F contrafilterableF.{cmap} /\ { inflate = λ(a : Type) → functorG.fmap (F a) (F (Optional a)) (contrafilterableF.inflate a) }
 ```
 
 ```dhall
-let filterableContrafunctorContrafunctorCompose
-  : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)
+let filterableContrafunctorContrafunctorCompose : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → Contrafunctor G → Filterable (Compose G F)
   = λ(F : Type → Type) → λ(contrafilterableF : ContraFilterable F) → λ(G : Type → Type) → λ(contrafunctorG : Contrafunctor G) →
     contrafunctorContrafunctorCompose G contrafunctorG F contrafilterableF.{cmap} /\ { deflate = λ(a : Type) → contrafunctorG.cmap (F a) (F (Optional a)) (contrafilterableF.inflate a) }
 ```
@@ -12710,8 +12658,7 @@ Such a function can be always implemented for any polynomial functor `F`.
 Details and proofs are in "The Science of Functional Programming", Chapter 13.
 
 ```dhall
-let swapFilterable
-  : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)
+let swapFilterable : ∀(F : Type → Type) → Functor F → (∀(a : Type) → F (Optional a) → Optional (F a)) → Filterable (Compose Optional F)
   = λ(F : Type → Type) → λ(functorF : Functor F) → λ(swap : ∀(a : Type) → F (Optional a) → Optional (F a)) →
      functorFunctorCompose Optional functorOptional F functorF /\  { deflate = λ(a : Type) →
 -- Need a function of type Optional (F (Optional a)) → Optional (F a).
@@ -12730,7 +12677,7 @@ let filterableFunctorProduct
     functorProduct F filterableF.{fmap} G filterableG.{fmap} /\ { deflate = λ(a : Type) → fProduct (F (Optional a)) (F a) (filterableF.deflate a) (G (Optional a)) (G a) (filterableG.deflate a) }
 ```
 
-2) The product of two filterable contrafunctors is again a filterable contrafunctor:
+2) The product of two filterable contrafunctors is   a filterable contrafunctor:
 ```dhall
 let filterableContrafunctorProduct
   : ∀(F : Type → Type) → ContraFilterable F → ∀(G : Type → Type) → ContraFilterable G → ContraFilterable (Product F G)
@@ -12795,7 +12742,7 @@ let filterableContrafunctorSwap
 ### Universal and existential type quantifiers
 
 If `F` is a type constructor with two type parameters, we may impose a universal or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter.
-This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+This gives us new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y \qquad ,\qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 Imposing a quantifier on `y` will preserve the filterable properties of `F x y` with respect to `x` (while the type parameter `y` is held fixed).
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
@@ -12851,8 +12798,7 @@ let filterableExists1
 
 4) If $F ~ x ~ y$ is a filterable contrafunctor with respect to $x$ then $H$ is a filterable contrafunctor.
 ```dhall
-let contrafilterableExists1
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
+let contrafilterableExists1 : ∀(F : Type → Type → Type) → (∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) → ContraFilterable (λ(a : Type) → Exists (λ(b : Type) → F a b))
   = λ(F : Type → Type → Type) → λ(contrafilterableF1 : ∀(b : Type) → ContraFilterable (λ(a : Type) → F a b)) →
     let H : Type → Type = λ(a : Type) → Exists (λ(b : Type) → F a b)
     in (contrafunctorExists1 F (λ(b : Type) → (contrafilterableF1 b).{cmap})) /\ { inflate = λ(a : Type) →
@@ -12875,8 +12821,7 @@ Then we need to consider four cases:
 1) If `F a b` is covariant and filterable with respect to `a` then so is `C a`.
 
 ```dhall
-let filterableLFix
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
+let filterableLFix : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → LFix (F a))
   = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     functorLFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
 -- Need a function of type C (Optional a) → C a. Use mapLFix for that.
@@ -12891,8 +12836,7 @@ let filterableLFix
 2) If `F a b` is covariant and filterable with respect to `a` then so is `D a`.
 
 ```dhall
-let filterableGFix
-  : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
+let filterableGFix : ∀(F : Type → Type → Type) → (∀(b : Type) → Filterable (λ(a : Type) → F a b)) → Filterable (λ(a : Type) → GFix (F a))
   = λ(F : Type → Type → Type) → λ(filterableF1 : ∀(b : Type) → Filterable (λ(a : Type) → F a b)) →
     functorGFix F (λ(b : Type) → (filterableF1 b).{fmap}) /\ { deflate = λ(a : Type) →
 -- Need a function of type D (Optional a) → D a. Use mapGFix for that.
@@ -12969,8 +12913,7 @@ let deflateFList
 ```
 Adding a `Functor` evidence, we may write the `Filterable` typeclass evidence for the type constructor `F a b` with `b` fixed:
 ```dhall
-let filterableFList1
-  : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
+let filterableFList1 : ∀(b : Type) → Filterable (λ(a : Type) → FList a b)
   = λ(b : Type) → {
       deflate = λ(a : Type) → deflateFList a b
     , fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → Optional/map (Pair x b) (Pair y b) (λ(xb : Pair x b) → xb // { _1 = f xb._1 })
@@ -13230,7 +13173,8 @@ let applicativeCoProductConst
 ```
 
 2) A co-product of the form `CoProduct P (Product Id Q)`, where `P` and `Q` are applicative and `P` is a functor.
-The result is an applicative functor `R` such that `R a = Either (P a) { _1 : a, _2 : Q a }`.
+The result is an applicative functor `R` defined by `R a = Either (P a) { _1 : a, _2 : Q a }`.
+The extra `_1 : a` is important: it is impossible to derive `Applicative` evidence for `Either (P a) (Q a)` when `P` and `Q` are arbitrary applicative functors.
 
 ```dhall
 let applicativeCoProductWithId
@@ -13407,10 +13351,7 @@ let arrowContrafunctorIdApplicative
 
 
 If `F` is a type constructor with two type parameters, we may impose a universal quantifier or an existential quantifier on one of the type parameters and obtain a new type constructor with just one type parameter:
-
- $$G ~ x = \forall y. ~ F ~ x ~ y$$
-
- $$H ~ x = \exists y. ~ F ~ x ~ y$$
+ $$G ~ x = \forall y. ~ F ~ x ~ y \qquad , \qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 In Dhall, `G` is defined as `λ(x : Type) → Forall (F x)` and `G` is defined as `λ(x : Type) → Exists (F x)`.
 Here we use  the `Forall` and `Exists` type constructors that we have defined earlier.
@@ -13483,8 +13424,7 @@ In this and the next subsections, we will implement `Applicative` evidence for f
 
 Suppose `F` is a bifunctor; that is,  `F a b` is covariant with respect to both `a` and `b`.
 Then we may define   recursive functors `C` and `D` by `C a = LFix (F a)` and `D a = GFix (F a)`.
-
-In this section, we will show that the functor `D` is applicative as long as `F` has   certain  `zip`-like method adapted for bifunctors.
+In this section, we will show that the functor `D` is applicative as long as `F` has   certain  `zip`-like methods adapted for bifunctors.
 The more difficult case of the functor `C` will be treated in the next section.
 
 As it turns out, there are several possible ways of defining a `zip`-like method for bifunctors, and each of those possibilities has its uses.
@@ -13500,10 +13440,11 @@ But implementing `bizip` (required for `Applicative12`) is impossible for this `
 In one of the required pattern-matching cases, we would need to implement a function of type `a → Pair t t → Either (Pair a b) (Pair (Pair s t) (Pair s t))`.
 This is not possible as we cannot create values of unknown types `b` or `s` from scratch.   
 
-For least fixpoints (`C a = LFix (F a)`), the technique based on `Applicative1` gives in many cases an `Applicative` evidence for `C` that loses information and is not useful in applications (for instance, a `zip` implementation that, when applied to two sequences, does not iterate over the second sequence).
+For some least fixpoints (`C a = LFix (F a)`), the technique based on `Applicative1` fails to derive  a correct `zip` function.
+As we will see in the next section, `Applicative1` for lists gives  a `zip` function that, when applied to two lists, does not iterate over the second list.
 
 A solution is to impose a  requirement for `F` that is weaker than the requirement of having `Applicative1` or `Applicative12`.
-A suitable weaker requirement is to have a method we will call `bizipP`, having the type signature:
+A suitable weaker requirement is to have a method we will call `bizipP`, with the type signature:
 
 ```dhall
 let bizipP : F a (L a) → F b (L b) → F (Pair a b) (Pair (L a) (L b)) = ???
@@ -13519,7 +13460,7 @@ let BizipP = λ(F : Type → Type → Type) → {
 }
 ```
 
-The type   of that `bizipP` can be written as `F a s → F b t → F (Pair a b) (Pair s t)` if we set `s = L a` and `t = L b`.
+The type   of   `bizipP` can be written as `F a s → F b t → F (Pair a b) (Pair s t)` if we set `s = L a` and `t = L b`.
 This type signature is similar to that of `bizip` from `Applicative12`, except that the type parameters are no longer arbitrary (`F a s`, `F b t`) but are constrained via another functor `L`.
 While an evidence of `Applicative12 F` exists only for some bifunctors `F`, `BizipP F` can be implemented for all polynomial bifunctors `F`.
 
@@ -13534,7 +13475,6 @@ let bizipPViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 F
       applicative12F.bizip a (L a) fala b (L b) fblb
   }
 ```
-
 However,  the functionality of `zip` derived from this `BizipP` evidence will be the same as the functionality of `zip` derived directly from `Applicative12`.
 We will use this combinator only for cosmetic convenience (say, when we already have a function taking a `BizipP` evidence).
 In many cases it will be possible and useful to implement `BizipP` differently.
@@ -13561,7 +13501,7 @@ let zipGFixViaApplicative12 : ∀(F : Type → Type → Type) → Applicative12 
       -- We unpack ga and gb with r = GFix (F (Pair a b)).
       ga (GFix (F (Pair a b))) (λ(s : Type) → λ(p : { seed : s, step : s → F a s }) →
         gb (GFix (F (Pair a b))) (λ(t : Type) → λ(q : { seed : t, step : t → F b t }) →
-          -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T
+          -- use makeGFix : ∀(T : Type → Type) → ∀(r : Type) → r → (r → T r) → GFix T with the parameter r = Pair s t
           makeGFix (F (Pair a b)) (Pair s t) { _1 = p.seed, _2 = q.seed }
             (λ(st : Pair s t) → applicative12F.bizip a s (p.step st._1) b t (q.step st._2))
         )
@@ -13628,16 +13568,16 @@ let applicativeGFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F �
 ```
 
 So far, we have viewed `F` as an arbitrary bifunctor and implemented various `zip` methods for the greatest fixpoints of `F`.
-To build up intuition, let us now apply these general results to specific examples of greatest fixpoint types: infinite sequences, streams, and trees.
+To see what kind of `zip` functionality we actually get, we will now look at   specific examples of greatest fixpoint types: infinite sequences, streams, and trees.
 In each case, we will   implement several possible `zip` methods and compare their results.
-For convenience, we   also define the least fixpoint type of the same pattern bifunctor.
-and use the generic truncating function (`truncateGFix`) in order to examine finite parts of  the infinite structures.
+For convenience, we  will also define the least fixpoint types of the same pattern bifunctors.
+This allows us to examine finite parts of  the infinite structures by applying the generic truncating function (`truncateGFix`) with those types.
 
 #### Infinite sequences
 
 The first example is the infinite sequence functor (`InfSeq`), which is the greatest fixpoint of the pattern bifunctor `Pair`.
-(In this case, the corresponding least fixpoint is void and the truncating function `truncateGFix` is not applicable.
-However, we already wrote a truncation function (`InfSeq/take`) for `InfSeq`.)
+In this case, the corresponding least fixpoint is void and the truncating function `truncateGFix` is not applicable.
+However, we already wrote a truncation function (`InfSeq/take`) for `InfSeq`.
 
 
 We now implement `Applicative12` and `BizipP` for `Pair`:
@@ -13653,7 +13593,7 @@ let bizipPPair : BizipP Pair = bizipPViaApplicative12 Pair applicative12Pair
 ```
 The code of `bizipP` must be derived from `Applicative12`; there are no other useful implementations.
 (An example of a "useless" implementation is code that converts pairs of type `(a, L a)` to values of type `L b` via `L`'s `fmap`: that would lose information.)
-This suggests that there is only one reasonable implementation of `zip` for `InfSeq`:
+This suggests that the only   reasonable implementation of `zip` for `InfSeq` is:
 ```dhall
 let zipInfSeq : ZipT InfSeq = zipGFixViaApplicative12 Pair applicative12Pair
 ```
@@ -13693,7 +13633,7 @@ It is also different from `InfSeq` because a stream might stop after a certain n
 
 Previously we have defined non-empty lists directly via a curried Church encoding.
 In this section, we would like to illustrate how the general `zip` construction applies to non-empty lists.
-So, let us redefine the non-empty stream constructor (we will call it `NES`) via a structure bifunctor `FNEL`, whose least fixpoints are  non-empty lists (`NELF`):
+So, let us  define the non-empty stream functor (we will call it `NES`) and the non-empty list functor (`NELF`) via a structure bifunctor `FNEL`:
 ```dhall
 let FNEL = λ(a : Type) → λ(r : Type) → Either a (Pair a r)
 let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) → λ(f : a → c) → λ(b : Type) → λ(d : Type) → λ(g : b → d) → λ(fab : FNEL a b) →
@@ -13701,16 +13641,16 @@ let bifunctorFNEL : Bifunctor FNEL = { bimap = λ(a : Type) → λ(c : Type) →
         , Right = λ(p : Pair a b) → (FNEL c d).Right { _1 = f p._1, _2 = g p._2 }
         } fab
 }
-let functorFNEL2 : ∀(t : Type) → Functor (FNEL t) = functorBifunctorF2 FNEL bifunctorFNEL
-let NELF = λ(a : Type) → LFix (FNEL a)
-let functorNELF : Functor NELF = functorLFix FNEL (functorBifunctorF1 FNEL bifunctorFNEL)
 let NES = λ(a : Type) → GFix (FNEL a)
 let functorNES : Functor NES = functorGFix FNEL (functorBifunctorF1 FNEL bifunctorFNEL)
+let NELF = λ(a : Type) → LFix (FNEL a)
+let functorNELF : Functor NELF = functorLFix FNEL (functorBifunctorF1 FNEL bifunctorFNEL)
 ```
 
-For convenience, we define finite data constructors for `NELF` and `NES`, as well as functions for converting a `NELF` or a `NES` to a `List`.
+For convenience, we define finite data constructors for `NES` and `NELF`, as well as functions for converting a `NELF` or a `NES` to a `List`.
 The code for all those functions can be derived from generic combinators:
 ```dhall
+let functorFNEL2 : ∀(t : Type) → Functor (FNEL t) = functorBifunctorF2 FNEL bifunctorFNEL
 let oneNELF : ∀(a : Type) → a → NELF a
   = λ(a : Type) → λ(x : a) → fix (FNEL a) (functorFNEL2 a) ((FNEL a (NELF a)).Left x)
 let consNELF : ∀(a : Type) → a → NELF a → NELF a
@@ -13731,7 +13671,7 @@ let NES/take : Natural → ∀(a : Type) → a → NES a → List a
     let nel : NELF a = truncateGFix (FNEL a) (functorFNEL2 a) limit (oneNELF a stopgap) nes
     in NELF/toList a nel
 ```
-The function `NES/take` will replace the continuation of a stream by the "stopgap" value.
+The function `NES/take`   replaces the continuation of a stream by a stop-gap value.
 
 Let us also define a data constructor for generating infinite non-empty streams from a function:
 ```dhall
@@ -13752,7 +13692,7 @@ let nesNat = NES/function Natural 0 (λ(n : Natural) → n + 1)
 let _ = assert : NES/take 5 Natural 0 nesNat ≡ [ 0, 1, 2, 3, 4, 0 ]
 ```
 
-The bifunctor `FNEL` has all  three versions of applicative-like evidence:
+The bifunctor `FNEL` supports `Applicative1` and `Applicative12` evidence:
 
 ```dhall
 let applicative1FNEL : Applicative1 FNEL
@@ -13787,7 +13727,7 @@ let applicative12FNEL : Applicative12 FNEL
 Note that both `bizip1` and `bizip` ignore certain parts of the input data.
 But there are no other ways of implementing those functions for `FNEL`.
 
-In contrast, we have two possible implementations of `bizipP`: one copies the code of `bizip`, the other is written in a different way and does not ignore any input data.
+It turns out that there are two possible implementations of `bizipP` for `FNEL`: one copies the code of `bizip`, the other is written in a  way that does not ignore any input data.
 We will see shortly that the first implementation  gives a "truncating" `zip` and the second   gives  a "padding" `zip`.
 
 ```dhall
@@ -13835,7 +13775,7 @@ let _ = assert : NES/take 5 (Pair Natural Natural) { _1 = 0, _2 = 0 } (zipNES_pa
 ]
 ```
 
-We see that the "truncating" version of `zip`   is indeed obtained via   `bizipPFNEL_truncating`,
+We see that the "truncating" version of `zip`   is indeed obtained if we define `zip` via   `bizipPFNEL_truncating`,
 and the "padding" version of `zip`   via  `bizipPFNEL_padding`.
 The choice of `zip` needs to be made according to the application requirements.
 
@@ -13861,10 +13801,13 @@ We studied them in the section "Streams" earlier in this book.
 Such streams correspond to the greatest fixpoint of the bifunctor `FList`.
 The least fixpoint of the same bifunctor is the standard `List`.
 
-We have previously defined `Stream` as the greatest fixpoint of the bifunctor `F a r = < Nil | Cons : { head : a, tail : r } >`, which is equivalent to `FList a r` as type.
+In the section "Streams", we have  defined `Stream` as the greatest fixpoint of the bifunctor `F a r = < Nil | Cons : { head : a, tail : r } >`.
+That bifunctor  is equivalent to `FList a r` as type.
+For compatibility with section "Streams",  we will define streams and the corresponding least fixpoint functor via `F`.
 
-We will now implement an `Applicative` evidence for `Stream` using the generic techniques developed in this chapter.
-The first steps are to implement `Bifunctor`, `Applicative1`, `Applicative12`, and `BizipP` evidence for the pattern bifunctor `F`.
+For deriving an `Applicative` evidence for `Stream`,
+the first steps are to implement `Bifunctor`, `Applicative1`, `Applicative12`, and `BizipP` evidence for the pattern bifunctor `F`.
+(It turns out that `BizipP` can be implemented only via `Applicative12`.)
 
 ```dhall
 let F = λ(a : Type) → λ(r : Type) → < Nil | Cons : { head : a, tail : r } >
@@ -13900,7 +13843,7 @@ let applicative12StreamF : Applicative12 F
 let bizipPStreamF : BizipP F = bizipPViaApplicative12 F applicative12StreamF
 ```
 
-Now we can implement a `zip` function and an `Applicative` evidence:
+Now we can derive a `zip` function and an `Applicative` evidence:
 
 ```dhall
 let Stream/zip = zipGFixViaBizipP F bifunctorStreamF bizipPStreamF
@@ -13934,7 +13877,7 @@ So, we will implement   `zip`  via   `BizipP` and test the resulting behavior.
 
 
 The function `bizipP` must be implemented similarly to a lawful `zip` method; for instance, arguments should never be discarded, and data shapes in union types must be preserved.
-When one argument is a `Leaf` and the other is a `Branch` then we use `L`'s `fmap` to produce required values of type `Pair (L a) (L b)`.
+When one argument is a `Leaf` and the other is a `Branch` then we have to use `L`'s `fmap` to produce required values of type `Pair (L a) (L b)`.
 ```dhall
 let bizipPFTree : BizipP FTree
   = { bizipP = λ(L : Type → Type) → λ(functorL : Functor L) → λ(a : Type) → λ(fala : FTree a (L a)) → λ(b : Type) → λ(fblb : FTree b (L b)) →
@@ -13983,8 +13926,8 @@ zip  /\      /\     =      / (c, 2)   \
    a  b      2 /\   (a, 1) (b, 1) (c, 3) (c, 4)
               3  4
 ```
-This is a "padding `zip`" behavior:  the missing branches are padded by repeating the last leaf value found along the branch.
-The resulting tree shape becomes the lowest upper bound of the shapes of the two input trees.
+This is a "padding `zip`" behavior:  all missing branches are padded by repeating the last leaf value found before the branch.
+The resulting tree shape is the union of the shapes of the two input trees.
 
 #### Binary trees with data in branch nodes
 
@@ -14075,14 +14018,14 @@ A constructor for infinite trees must be based on `makeGFix`:
 let makeTreeBI : ∀(a : Type) → ∀(r : Type) → r → (r → FTreeB a r) → TreeBI a
   = λ(a : Type) → λ(r : Type) → λ(seed : r) → λ(step : r → FTreeB a r) → makeGFix (FTreeB a) r seed step
 ```
-A simple example is an infinite tree where each level is labeled by its depth:
+A simple example is an infinite tree where each branch is labeled by its depth:
 ```dhall
 let example3TreeBI : TreeBI Natural
   = makeTreeBI Natural Natural 0 (λ(n : Natural) → Some { value = n, left = n + 1, right = n + 1 })
 ```
 
 
-To visualize and print infinite trees, we first define the type of the corresponding finite trees (`TreeB`) and implement a function for printing finite trees.
+To  print infinite trees, we first define the type of the corresponding finite trees (`TreeB`) and implement a function for printing finite trees.
 ```dhall
 let TreeB = LFixT FTreeB
 let noneB : ∀(a : Type) → TreeB a
@@ -14105,7 +14048,7 @@ let _ = assert : (showTreeB Natural showNatural).show emptyTreeB ≡ "."
 let _ = assert : (showTreeB Natural showNatural).show example1TreeB ≡ "((.-2-.)-1-.)"
 ```
 Then we use the generic truncation function (`truncateGFix`) to print a finite fragment of an infinite tree.
-The stopgap value will be the empty tree.
+The stop-gap value will be the empty tree.
 ```dhall
 let truncateTreeBI : Natural → ∀(a : Type) → TreeBI a → TreeB a
   = λ(limit : Natural) → λ(a : Type) → λ(tree : TreeBI a) →
@@ -14120,7 +14063,7 @@ let _ = assert : printTruncatedTreeBI 9 Natural showNatural example2TreeBI
 let _ = assert : printTruncatedTreeBI 3 Natural showNatural example3TreeBI
   ≡ "(((.-2-.)-1-(.-2-.))-0-((.-2-.)-1-(.-2-.)))"
 ```
-The last example of a truncated tree can be printed as:
+The last example of a truncated tree can be visualized as:
 ```
          0
         / \
@@ -14140,8 +14083,7 @@ Let us now derive the `zip` function for `TreeBI` and test it:
 let zipTreeBI = zipGFixViaApplicative12 FTreeB applicative12FTreeB
 let applicativeTreeBI : Applicative TreeBI = applicativeGFixViaApplicative12 FTreeB applicative12FTreeB
 let example0ZipTreeBI = zipTreeBI Text (noneBI Text) Natural example2TreeBI
-let _ = assert : printTruncatedTreeBI 5 PTN showPairTextNatural example0ZipTreeBI
-  ≡ "."
+let _ = assert : printTruncatedTreeBI 5 PTN showPairTextNatural example0ZipTreeBI ≡ "."
 let example1ZipTreeBI = zipTreeBI Text example1TreeBI Natural example2TreeBI
 let _ = assert : printTruncatedTreeBI 5 PTN showPairTextNatural example1ZipTreeBI
   ≡ "((.-(b,2)-.)-(a,1)-.)"
@@ -14158,39 +14100,31 @@ The second example shows that `zipTreeBI` has a truncating behavior:
         .   .     
 ```
 
-The resulting tree's shape   is the greatest lower bound of the two input shapes.
+The resulting tree's shape   is the intersection of the two input shapes.
 This is analogous the "minimum" of the two tree shapes.
-(We need to keep in mind that tree shapes are a partial order, unlike list lengths.)
-
 
 ### Recursive types. Least fixpoints
 
 In this section, we will show how a `zip` method can be written for various type constructors defined via `LFix`.
-
-Given a pattern bifunctor `F`, we define the functor `C` by `C a = LFix (F a)`.
-```dhall
-let F = λ(a : Type) → λ(b : Type) → ???
-let C = LFixT F
-```
-The type signature of `zip` for `C` must be:
+For a functor `C` defined by `C a = LFix (F a)`, the type signature of `zip`  must be:
 ```dhall
 let zip : ∀(a : Type) → C a → ∀(b : Type) → C b → C (Pair a b) = ???
 ```
 
 Similarly to what we did in the previous section,  we will now implement `zip` for the functor `C` assuming the bifunctor `F` has evidence of certain typeclasses.
 In the previous section, we  defined the typeclasses `Applicative1`, `Applicative12`, and `BizipP` and used them to compute an `Applicative` evidence for greatest fixpoints.
-It turns out that for least fixpoints, `Applicative12` cannot be used directly, so we will be using both `Applicative1` and `BizipP`.
+It turns out that for least fixpoints, `Applicative12` cannot be used directly, so we will be using `Applicative1` and `BizipP`.
 Sometimes it is sufficient to define `BizipP` via `Applicative12`, at other times we will need a different  implementation of `BizipP`.
-In each case, we will test the resulting `zip` method on some examples and discover what kinds of `zip` operations are possible.
+In each case, we will test the resulting `zip` method on some examples and discover what kinds of `zip` operations are produced.
 
 #### Implementation via Church encoding. Non-empty lists
 
 If we assume an `Applicative1` evidence for the structure bifunctor `F`, we can  derive an `Applicative` evidence for `C`   by writing code directly in the Church encoding.
 
 The trick  is to note that the Church encoding type resembles the continuation monad:
-
-`(F a r → r) → r = Continuation r (F a r)`
-
+```haskell
+(F a r → r) → r = Continuation r (F a r)
+```
 We can obtain an `Applicative` evidence for the continuation monad and then apply a `map2` function adapted to the required types.
 The code is:
 ```dhall
@@ -14203,8 +14137,8 @@ let zipLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applicative1 F 
       let functorCont : Functor CR = (applicativeContinuation r).{fmap}
       let applicativeCont : Applicative CR = applicativeFromApplicativeFunctor CR (applicativeContinuation r)
       let transform : F a r → F b r → F (Pair a b) r = λ(far : F a r) → λ(fbr : F b r) → applicative1F.bizip1 a r far b fbr
-      let fabrr : CR (F (Pair a b) r) = map2ForApplicativeFunctor CR functorCont applicativeCont (F a r) (F b r) (F (Pair a b) r) transform (fa r) (fb r)
-      in fabrr
+      in (map2ForApplicativeFunctor CR functorCont applicativeCont (F a r) (F b r) (F (Pair a b) r) transform (fa r) (fb r)
+        ) : CR (F (Pair a b) r)
 ```
 
 The corresponding `Applicative` evidence is:
@@ -14219,7 +14153,7 @@ let applicativeLFixViaApplicative1 : ∀(F : Type → Type → Type) → Applica
 
 This `zip` function, however, will not be satisfactory in many cases.
 The `bizip1` method often has to lose information and, in particular, may not preserve values of type `r` within `F a r`.
-In that case, the derived `zip` function will not   iterate over its input data as we expect.
+In that case, the derived `zip` function will not   iterate over its input data in the way we might expect.
 
 To see how this works, let us derive `zip` from `Applicative1` for non-empty lists and apply that `zip` to some example values.
 
@@ -14231,7 +14165,7 @@ So, we define `zip1NELF` as:
 let zip1NELF = zipLFixViaApplicative1 FNEL applicative1FNEL
 let nel123 = consNELF Natural 1 (consNELF Natural 2 (oneNELF Natural 3))
 let nel12345 = consNELF Natural 1 (consNELF Natural 2 (consNELF Natural 3 (consNELF Natural 4 (oneNELF Natural 5))))
-let _ = assert : NELF/toList (Pair Natural Natural) (zip1NELF Natural nel123 Natural nel12345) ≡ [
+let _ = assert : NELF/toList (Pair Natural Natural) (zip1NELF Natural nel123 Natural nel12345) ≡ [     -- zip [ 1, 2, 3 ] [ 1, 2, 3, 4, 5 ]
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 1 },
   { _1 = 3, _2 = 1 },
@@ -14247,18 +14181,18 @@ As one can show, this `zip` method gives rise to an `Applicative` evidence that 
 The value `unit` from `Applicative` contains a one-element list, and the padding behavior works correctly:
 ```dhall
 let nelUnit = (applicativeLFixViaApplicative1 FNEL applicative1FNEL).unit
-let _ = assert : NELF/toList (Pair {} Natural) (zip1NELF {} nelUnit Natural nel123) ≡ [
+let _ = assert : NELF/toList (Pair {} Natural) (zip1NELF {} nelUnit Natural nel123) ≡ [     -- zip [ {=} ] [ 1, 2, 3 ]
   { _1 = {=}, _2 = 1 },
   { _1 = {=}, _2 = 2 },
   { _1 = {=}, _2 = 3 },
 ]
-let _ = assert : NELF/toList (Pair Natural {}) (zip1NELF Natural nel123 {} nelUnit) ≡ [
+let _ = assert : NELF/toList (Pair Natural {}) (zip1NELF Natural nel123 {} nelUnit) ≡ [     -- zip [ 1, 2, 3 ] [ {=} ]
   { _1 = 1, _2 = {=} },
   { _1 = 2, _2 = {=} },
   { _1 = 3, _2 = {=} },
 ]
 ```
-However,   we expect that a `zip` function would join the corresponding values from the two lists, not concatenate lists while padding them with the first and the last elements.
+However, a `zip` function is usually required to join the corresponding values from the two lists, not just concatenate the lists while padding them with the first and the last elements.
 A different implementation of `zip` can be derived if we additionally have a suitable `BizipP` evidence, as we will see next.
 
 #### Implementation via depth-bounded hylomorphisms
@@ -14271,47 +14205,48 @@ It does not seem to be possible to use that function to implement `zip` directly
 Instead, we will use hylomorphisms (see the chapter "Translating recursive functions into Dhall") adapted to the task at hand.
 
 A hylomorphism can be viewed as a function with a type signature of the form:
-
-`t → (t → P t) → (P r → r) → r`
-
+```haskell
+t → (t → P t) → (P r → r) → r
+```
 Here `r` and `t` are arbitrary types and `P` is an arbitrary functor.
 This function is understood as a transformation of type `t → r` with extra arguments.
 The transformation can be implemented if we are able to supply those arguments (of types `t → P t` and `P r → r`).
 
 As we have seen, Dhall's hylomorphisms must be depth-bounded  to guarantee termination.
-This means we need to supply two additional arguments: a depth limit and a stopgap value (of type `t → r`).
+This means we need to supply two additional arguments: a depth limit (of type `Natural`) and a stop-gap value (of type `t → r`).
 
 To  express `zip` as a hylomorphism,  we set `t = Pair (C a) (C b)` and `r = C (Pair a b)`.
 The functor `P` needs to be chosen as `P x = F (Pair a b) x`.
 To find functions of types  `t → P t` and `P r → r` means to find functions of the following types:
-
-`Pair (C a) (C b) → F (Pair a b) (Pair (C a) (C b))`
-
+```haskell
+Pair (C a) (C b) → F (Pair a b) (Pair (C a) (C b))
+```
 and
-
-`F (Pair a b) (C (Pair a b)) → C (Pair a b)`
-
+```haskell
+F (Pair a b) (C (Pair a b)) → C (Pair a b)
+```
 The latter is the type of the `fix` method (`F c (C c) → C c`).
 So, we can just use the standard `fix` method at that point.
 
 The former type can be rewritten equivalently as:
-
-`C a → C b → F (Pair a b) (Pair (C a) (C b))`
-
+```haskell
+C a → C b → F (Pair a b) (Pair (C a) (C b))
+```
 The standard `unfix` method allows us to transform `C a` into `F a (C a)` and `C b` into `F b (C b)`.
 Then we use the `bizipP` method, in which we set the functor parameter `L = C`.
 This gives us the required function.
 
 To determine the depth limit, we can compute the minimum of the two depths of the Church-encoded values of types `C a` and `C b`.
 The function `depthLFix` can be used with any Church-encoded type constructor, as long as the pattern functor is foldable with respect to the second type parameter.
+Recall the type of `depthLFix`:
 ```dhall
 let _ = depthLFix : ∀(F : Type → Type → Type) → Foldable2 F → ∀(a : Type) → LFix (F a) → Natural
 ```
 
-We still need to supply a "stop-gap" value, which has the same type `t → r` as the `zip` function we are implementing.
-A possibility is to create the stopgap value by using the combinator `applicativeViaApplicative1`.
+We still need to supply a stop-gap value, which has the same type `t → r` as the `zip` function we are implementing.
+A possibility is to create the stop-gap value by using the combinator `applicativeViaApplicative1`.
 This requires  an  `Applicative1` evidence for `F`, which can be found for any polynomial bifunctor.
-The resulting `zip` function  does not need to provide the correct functionality because it will not be actually used: since the input data is of a least fixpoint type, we can always determine the correct recursion depth.
+The resulting `zip` function  does not need to provide the correct `zip` functionality because it will not be actually used:   the input data is of a least fixpoint type, so we can always determine the correct recursion depth.
 The stop-gap value  is used only  to fulfill the type signature of a depth-bound hylomorphism.
 
 In this way,  we can implement a `zip` function:
@@ -14349,7 +14284,7 @@ let applicativeLFixViaBizipP : ∀(F : Type → Type → Type) → Bifunctor F �
 
 #### Non-empty lists
 
-To test this code, let us again look at non-empty lists.
+To test this code, let us derive `zip` for non-empty lists.
 We already implemented two different  `BizipP` evidence values for non-empty lists (`bizipPFNEL_truncating` and `bizipPFNEL_padding`).
 We will now derive the corresponding `zip` functions and apply them to some test data.
 
@@ -14376,14 +14311,14 @@ Let us see how some sample data is zipped by these functions:
 
 
 ```dhall
-let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_padding Natural nel123 Natural nel12345) ≡ [
+let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_padding Natural nel123 Natural nel12345) ≡ [    -- zip [ 1, 2, 3 ] [ 1, 2, 3, 4, 5 ]
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 2 },
   { _1 = 3, _2 = 3 },
   { _1 = 3, _2 = 4 },
   { _1 = 3, _2 = 5 },
 ]
-let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_truncating Natural nel123 Natural nel12345) ≡ [
+let _ = assert : NELF/toList (Pair Natural Natural) (zipNELF_truncating Natural nel123 Natural nel12345) ≡ [    -- zip [ 1, 2, 3 ] [ 1, 2, 3, 4, 5 ]
   { _1 = 1, _2 = 1 },
   { _1 = 2, _2 = 2 },
   { _1 = 3, _2 = 3 },
@@ -14440,13 +14375,13 @@ let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip1_wrong Natural e
   { _1 = 3, _2 = 4 },
 ]
 let ListS/zip = zipLFixViaBizipP F bifunctorStreamF applicative1StreamF bizipPStreamF foldable2StreamF
-let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip Natural exampleS123 Natural exampleS45) ≡ [
+let _ = assert : ListS/toList (Pair Natural Natural) (ListS/zip Natural exampleS123 Natural exampleS45) ≡ [  -- zip [ 1, 2, 3 ] [ 4, 5 ]
   { _1 = 1, _2 = 4 },
   { _1 = 2, _2 = 5 },
 ]
 ```
 We see that `ListS/zip1_wrong` does not actually iterate over the second list; this behavior is incorrect as it fails the laws of applicative functors.
-However, `ListS/zip` behaves as expected.
+However, `ListS/zip` behaves as expected and truncates the longer list.
 
 
 
@@ -14594,10 +14529,12 @@ This tree is visualized as:
                 .     .
 ```
 Note that the values `2` and `"c"` are lost; but the value `3` is used with `b`.
-The shape of the resulting tree is not a union or an intersection of the shapes of the two input trees.
+The shape of the resulting tree is not the union or the intersection of the input tree shapes.
 This behavior of `zip` is unlikely to be useful in applications.
 
 The second implementation of `zip` is derived from `BizipP FTreeB`, which is based on `Applicative12 FTreeB`.
+The code is based on a depth-limited hylomorphism with the stop-gap value being the incorrect `zip` function shown above.
+This is not a problem as the final result does not actually depend on the stop-gap value.
 
 ```dhall
 let zipTreeBP = zipLFixViaBizipP FTreeB bifunctorFTreeB applicative1FTreeB bizipPFTreeB foldable2FTreeB
@@ -14641,7 +14578,7 @@ The next sections will show some constructions for traversable functors.
 
 ### Constant functors and the identity functor
 
-Constant functors are traversable in a trivial way: they carry no data (of a parameterized type), and   the return value of type `L (F a)` is just an empty effect of `L`.
+Constant functors are traversable in a trivial way: they carry no data (of a parameterized type), and   the return value of type `L (F a)` is just an empty effect of the applicative functor `L`.
 
 ```dhall
 let traversableConst
@@ -14714,7 +14651,7 @@ If `F` is a bifunctor that has a special "bitraversable" property then `λ(a : T
 
 The "bitraversable" property is similar to "traversable", except it needs to work at once with the bifunctor's two type parameters.
 The required method `bisequence` has the type `F (L a) (L b) → L (F a b)`, where `F` is a bitraversable bifunctor and `L` is an arbitrary applicative functor.
-We formalize this requirement via the `Bitraversable` typeclass:
+We formalize this property via the `Bitraversable` typeclass:
 
 ```dhall
 let Bitraversable = λ(F : Type → Type → Type) → { bisequence : ∀(L : Type → Type) → ApplicativeFunctor L → ∀(a : Type) → ∀(b : Type) → F (L a) (L b) → L (F a b) }
@@ -14744,8 +14681,7 @@ The value `cla` is a function that can produce a value of any type `r`, as long 
 So, we will get a value of type `L (C a)` if we apply `cla` with the type parameter `r = L (C a)`, and if we manage to provide an argument of type `F (L a) r) → r`.
 So far, our code is:
 ```dhall
-let traversableLFix
-: ∀(F : Type → Type → Type) → Bitraversable F → Traversable (λ(a : Type) → LFix (F a))
+let traversableLFix : ∀(F : Type → Type → Type) → Bitraversable F → Traversable (λ(a : Type) → LFix (F a))
 = λ(F : Type → Type → Type) → λ(bitraversableF : Bitraversable F) →
   let C : Type → Type = λ(a : Type) → LFix (F a)
   in { sequence = λ(L : Type → Type) → λ(applicativeFunctorL : ApplicativeFunctor L) → λ(a : Type) → λ(cla : C (L a)) →
@@ -14789,7 +14725,7 @@ So, it is not possible to compute the final value of type `L (F a)`.
 ## Monads and their combinators
 
 In the chapter "Typeclasses" we have seen some examples of specific monads such as `Reader`, `Writer`, and `State`.
-We will now look at general combinators that create new monads.
+We will now implement a number of general combinators that create new monads.
 
 ### Constant functors and the identity functor
 
@@ -14829,7 +14765,7 @@ let monadProduct : ∀(F : Type → Type) → Monad F → ∀(G : Type → Type)
     in { pure, bind }
 ```
 
-### Co-product types
+### Co-product types: free pointed monads
 
 In general, a co-product of two monads is not a monad.
 But there is one exception: when one of the monads is the identity monad.
@@ -15164,8 +15100,9 @@ let arrowMFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) → MCo
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mContraFilterableMF : MContraFilterable M F) → λ(G : Type → Type) → λ(mFilterableMG : MFilterable M G) →
     contrafunctorFunctorArrow F mContraFilterableMF.{cmap} G mFilterableMG.{fmap} /\
     { deflateM = λ(a : Type) → λ(fmagma : F (M a) → G (M a)) →
-      λ(fa : F a) → let fma : F (M a) = mContraFilterableMF.inflateM a fa
-                    in mFilterableMG.deflateM a (fmagma fma) 
+      λ(fa : F a) →
+        let fma : F (M a) = mContraFilterableMF.inflateM a fa
+        in mFilterableMG.deflateM a (fmagma fma) 
     }
 ```
 
@@ -15176,8 +15113,9 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
   = λ(M : Type → Type) → λ(F : Type → Type) → λ(mFilterableMF : MFilterable M F) → λ(G : Type → Type) → λ(mContraFilterableMG : MContraFilterable M G) →
     functorContrafunctorArrow F mFilterableMF.{fmap} G mContraFilterableMG.{cmap} /\
     { inflateM = λ(a : Type) → λ(faga : F a → G a) →
-      λ(fma : F (M a)) → let fa : F a = mFilterableMF.deflateM a fma
-                    in mContraFilterableMG.inflateM a (faga fa) 
+      λ(fma : F (M a)) →
+        let fa : F a = mFilterableMF.deflateM a fma
+        in mContraFilterableMG.inflateM a (faga fa) 
     }
 ```
 
@@ -15186,7 +15124,7 @@ let arrowMContraFilterable : ∀(M : Type → Type) → ∀(F : Type → Type) �
 Just as for the ordinary filterable (contra)functors, we can implement four constructions for $M$-filterable (contra)functors.
 
 Suppose  `F` is a type constructor with two type parameters, and we are imposing a universal or an existential quantifier on the second type parameter.
-Then we will get new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y$$  $$H ~ x = \exists y. ~ F ~ x ~ y$$
+Then we will get new type constructors defined as: $$G ~ x = \forall y. ~ F ~ x ~ y \qquad , \qquad H ~ x = \exists y. ~ F ~ x ~ y$$
 
 Imposing a quantifier on `y` preserves the $M$-filterable properties of `F x y` with respect to `x` (while `y` is held fixed).
 It does not matter whether `F x y` is covariant, contravariant, or neither with respect to `y`.
@@ -15334,7 +15272,10 @@ let filterableLFixEither
 -- Need a function of type C (M a) → C a.
 -- Define P such that LFix P = C (M a).
           let P = F (M a)
-          let functorFa : Functor (F a) = { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) → bifunctorF.bimap a a (identity a) x y f }
+          let functorFa : Functor (F a) =
+            { fmap = λ(x : Type) → λ(y : Type) → λ(f : x → y) →
+                bifunctorF.bimap a a (identity a) x y f
+            }
           in λ(c : LFix P) → c (C a) (λ(q : P (C a)) → merge {
             Left = λ(fa : F a (C a)) → fix (F a) functorFa fa
           , Right = λ(ca : C a) → ca
@@ -15347,7 +15288,7 @@ let filterableLFixEither
 Suppose a type constructor has a monad's methods with respect to one type parameter while the other type parameter is held fixed.
 It turns out we can then apply a universal quantifier to the fixed type parameter and obtain a new monad.
 
-As an example, take the continuation monad `Continuation R a = (a → R) → R` and replace the type parameter `R` by the type expression `F t`, where `F` is some type constructor and `t` is a new type parameter.
+As an example, take the continuation monad (`Continuation R a = (a → R) → R`) and replace the type parameter `R` by the type expression `F t`, where `F` is some type constructor and `t` is a new type parameter.
 Then apply the universal quantifier to `t`.
 The result is the type constructor we denote by `Codensity F a`:
 
@@ -15370,7 +15311,7 @@ let monadCodensity : ∀(F : Type → Type) → Monad (Codensity F)
     in { pure, bind } 
 ```
 
-We can generalize this idea to a combinator that imposes a universal quantifier on an extra type parameter in a given monad.
+In general, one may impose a universal quantifier on an extra type parameter in a given monad.
 If `M a b` is a monad with respect to `b` for fixed `a` then `N b = ∀(a : Type) → M a b` is a monad with respect to the free type parameter `b`: 
 
 ```dhall
@@ -15404,17 +15345,17 @@ let monadComposedCodensity : ∀(F : Type → Type) → Functor F → ∀(M : Ty
         in functorF.fmap (M (M t)) (M t) (monadJoin M monadM t) fmmt : F (M t) 
     in { pure, bind } 
 ```
-This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not a monad with respect to `a` when `t` is a fixed type.
+This monad is _not_ obtained by imposing a universal quantifier on another monad; the type constructor `(a → F t) → F (M t)` is not necessarily a monad with respect to `a` when `t` is a fixed type.
 
 ### Monads with recursive types
 
-There does not seem to exist a combinator that produces a monad out of a fixpoint of an arbitrary type constructor that has some properties.
 
-The "free monad" is a recursive combinator that takes an arbitrary functor and builds a new monad out of that.
-
-We begin by looking at specific known monads that have recursive types.
+Here we will look at specific known monads that have recursive types.
 Some often used monads of that kind are the list-like and the tree-like monads.
 Examples of list-like monads are the standard `List` and the non-empty list.
+
+An example of a tree-like monad is the "free monad".
+It  is a recursive combinator that takes an arbitrary functor and builds a new monad.
 
 #### The `List` monad
 
@@ -15431,8 +15372,7 @@ let nilC : ∀(a : Type) → ListC a
   = λ(a : Type) → λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) →
     nil
 let consC : ∀(a : Type) → a → ListC a → ListC a
-  = λ(a : Type) → λ(head : a) → λ(tail : ListC a) →
-    λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) → cons head (tail r nil cons)
+  = λ(a : Type) → λ(head : a) → λ(tail : ListC a) → λ(r : Type) → λ(nil : r) → λ(cons : a → r → r) → cons head (tail r nil cons)
 ```
 
 For convenience, let us implement a converter from the built-in `List` to `ListC` and a function for printing lists:
@@ -15505,12 +15445,8 @@ let exampleNEL1345 : NEL Natural = toNEL Natural [ 1, 3, 4 ] 5
 let _ = assert : showNELNat exampleNEL1345 ≡ "[| 1, 3, 4, 5 |]"
 ```
 
-Let us implement a `Monad` evidence for `NEL`.
-
-It is in any case not obvious how to implement the `bind` method for a given type constructor.
-Not all type constructors are monads; for those type constructors, an implementation of `bind` that satisfies the laws is impossible.
-
-With `NEL`, one finds  that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
+We now turn to finding  a `Monad` evidence for `NEL`.
+It turns out   that the trick we used for `ListC` no longer works: we cannot create a function of type `a → r → r` inside the body of `bind`.
 So, we need to use a different approach.
 
 The type of `bind` is `NEL a → (a → NEL b) → NEL b`.
@@ -15559,7 +15495,7 @@ The `Left` variant means that only one stream is left.
 The `Right` variant means that we need to iterate over a current stream, and some more streams are still waiting.
 ```dhall
 let NES/join : ∀(a : Type) → NES (NES a) → NES a
-  = λ(a : Type) → λ(nesnes: NES (NES a)) →
+  = λ(a : Type) → λ(nesnes : NES (NES a)) →
     let Seed = FNEL (NES a) (NES (NES a))
     let init : Seed = unfixG (FNEL (NES a)) (functorFNEL2 (NES a)) nesnes
     let step : Seed → FNEL a Seed = λ(seed : Seed) →
@@ -15681,9 +15617,11 @@ It turns out that `BTreeE` is a monad.
 Its `bind` operation  will remove leaves and sub-trees corresponding to `None`.
 
 To implement this operation more easily, we use a trick that this book calls the **Church-Yoneda identity**.
-It says that, for any functors `F` and `G`, the type `G (LFix F)` is isomorphic to the following  type:
+It says that, for any functors `F` and `G`, there is the following type equivalence (isomorphism):
 
-`∀(r : Type) → (F r → r) → G r`
+```haskell
+G (LFix F)  ≅  ∀(r : Type) → (F r → r) → G r
+```
 
 
 So, we may encode the type `Optional (TreeC a)`   equivalently  like this:
@@ -15705,7 +15643,7 @@ let bTreeEToOptTreeC : ∀(a : Type) → BTreeE a → Optional (TreeC a)
 ```
 
 The Appendix "Naturality and parametricity" proves in general that  the Church-Yoneda identity indeed gives isomorphic types.
-In this particular case, it means that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
+In this   case, it means that the  functions `optTreeCToBTreeE` and `bTreeEToOptTreeC` are each other's inverses.
 
 We can implement data constructors directly for `BTreeE`:
 
@@ -15769,14 +15707,14 @@ let monadBTreeE : Monad BTreeE =
 ```
 
 To test this code, let us create a tree of type `BTreeE Natural` whose leaves carry values `1`, `2`, `3`, `4`.
-Then we will apply `bind` with a function that maps these numbers into different trees of type `BTreeE Text`;  we will choose some of those trees to be empty.
+Then we will apply `bind` with a function that maps these numbers into different trees of type `BTreeE Text`;   one of those trees will be empty.
 
 ```dhall
-let example0E : BTreeE Natural            --      /\
-  = branchE Natural (branchE Natural      --     /\ 4
-      (leafE Natural 1) (branchE Natural  --    1 /\
-        (leafE Natural 2)                 --     2  3
-          (leafE Natural 3))) (leafE Natural 4)
+let example0E : BTreeE Natural                    --       /\
+  = branchE Natural (branchE Natural              --      /  \
+      (leafE Natural 1) (branchE Natural          --     /\   4
+        (leafE Natural 2)                         --    1 /\
+          (leafE Natural 3))) (leafE Natural 4)   --     2  3
 let example1E : BTreeE Text = branchE Text (leafE Text "a") (leafE Text "b")
 let example2E : BTreeE Text = branchE Text (leafE Text "c") (leafE Text "d")
 let example3E : BTreeE Text = emptyE Text
@@ -15800,13 +15738,14 @@ let _ = assert : exampleResult ≡ expectedResult
 
 #### The free monad 
 
-The binary tree is an example of a "tree-like" monad, that is, a monad whose data structure has the shape of a tree.
-Other examples of tree-like monads are trees that branch in three instead of in two sub-trees, or trees with more complicated branching shape, with extra data on each branch point, and so on. 
+Tree-like data structures can have different shapes.
+Data can be stored on leaves and/or on branch points; branchings can be in two, in three, or in a variable number of subtrees.
 
-In many cases, the choice of branching can be described by a functor `F`.
-The binary tree corresponds to choosing `F a = Pair a a`.
-Tree-like monads of that kind can be implemented by a general combinator known as the "free monad".
+There is a general combinator known as the "free monad" that describes a specific kind of tree-like structures where
+data is only stored on leaves while the choice of branching is described by a functor `F`.
+For instance, the binary tree (`Tree2`) corresponds to choosing `F a = Pair a a` as the branching functor.
 
+Here is a formal definition:
 The **free monad** on a functor `F` is the functor `Free F` recursively defined by:
 
 ```haskell
@@ -15822,7 +15761,7 @@ We just curry the function type to make the implementation easier:
 ```dhall
 let FreeMonad : ∀(F : Type → Type) → Type → Type
   = λ(F : Type → Type) → λ(a : Type) →
-    ∀(r : Type) → (a → r) → (F r → r) → r
+      ∀(r : Type) → (a → r) → (F r → r) → r
 ```
 
 To implement a monad's methods for `FreeMonad F`, we write:
@@ -15846,7 +15785,7 @@ let D = λ(a : Type) → Pair a a
 let FrTree : Type → Type = FreeMonad D
 ```
 
-Derive the constructor functions `frLeaf` and `frBranch` and the monadic `join` method:
+Derive the data constructors (`frLeaf` and `frBranch`) and the monadic `join` method:
 
 ```dhall
 let frLeaf : ∀(a : Type) → a → FrTree a = λ(a : Type) → λ(x : a) →
@@ -15859,7 +15798,7 @@ let frBranch : ∀(a : Type) → FrTree a → FrTree a → FrTree a
 let FrTree/join = monadJoin FrTree (monadFreeMonad D)
 ```
 
-We will also need a `Show` implementation and the monadic `join` method:
+We will also need a `Show` evidence for `FrTree`:
 
 ```dhall
 let showFrTree : ∀(a : Type) → Show a → Show (FrTree a)
@@ -15911,9 +15850,7 @@ The "infinite free monad" is the greatest fixpoint of the same pattern functor u
 let InfFreeMonad = λ(F : Type → Type) → λ(a : Type) → GFix (λ(r : Type) → Either a (F r))
 ```
 It is not a free monad in the mathematical sense, as it does not satisfy some of the laws required for free monads.
-Bit it is nevertheless a monad for any functor `F`.
-
-todo: check space before colon in exported code
+But it is nevertheless a monad for any functor `F`.
 
 To implement the `bind` method, we use the "seed" type that can switch between two monad types (`InfFreeMonad F a` and `InfFreeMonad F b`).
 Once we encounter a value of type `a`, we switch to `InfFreeMonad F b`.
@@ -15944,7 +15881,7 @@ let monadInfFreeMonad : ∀(F : Type → Type) → Functor F → Monad (InfFreeM
         -- Need to compute a value of type Either b (F S).
                 merge { Left = λ(x : a) →
                         merge { Left = λ(y : b) → (Pb S).Left y
-                              , Right = λ(fmb: F (M b)) → (Pb S).Right (promoteB fmb)
+                              , Right = λ(fmb : F (M b)) → (Pb S).Right (promoteB fmb)
                               } (unfixPb (f x))
                       , Right = λ(fma : F (M a)) → (Pb S).Right (promoteA fma)
                       } (unfixPa fa)
@@ -15966,7 +15903,7 @@ One of the issues arising in programming with monads is the necessity to combine
 The new monad must have certain properties and satisfy certain laws in order to be useful as a representation of combined effects of the two monads.
 
 Monad transformers are a well-known technique for combining monads. 
-"The Science of Functional Programming" lists eighteen laws of monad transformers and demonstrates the main techniques for implementing transformers for all known monads.
+"The Science of Functional Programming" lists eighteen laws of monad transformers and demonstrates the main techniques for implementing transformers for all the known monads.
 
 In this chapter, we briefly describe what is known about monad transformers, list the required methods and show the corresponding implementations in Dhall.
 
@@ -15976,7 +15913,7 @@ A monad transformer is a mapping from monads to monads.
 That is, for any monad `M` there exists a transformed monad `T M`.
 In Dhall, a monad is a type constructor (`Type → Type`), so a monad transformer is of kind `(Type → Type) → Type → Type`.
 
-The definition of monad transformers uses the concept of **monad morhpisms**.
+The definition of monad transformers uses the concept of **monad morphisms**.
 A monad morphism between monads `M` and `N` is a function with type signature `∀(a : Type) → M a → N a` that satisfies the appropriate identity and composition laws (which we will not write out in this book).
 
 Given any transformer `T`, we may apply `T` to the identity monad.
@@ -15993,7 +15930,7 @@ There are two kinds of monad transformers that we call "complete" and "incomplet
 A **complete monad transformer** `T` satisfies the following properties:
 
 - For any monad `M`, there exists a monad morphism between `M` and `T M`. This monad morphism is called a "foreign lift" and is denoted by `flift`. Its type signature is `flift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M a → T M a`. The foreign lift has the monad `M` as a type parameter; in other words, `flift` works in the same way for all monads `M`.
-- For any monads `M`, `N` and any monad morphism `g : ∀(a : Type) → M a → N a` there is a monad morphism `h : ∀(a : Type) → T M a → T N a` between the monads `T M` and `T N`. The mapping from `g` to `h` is known as the "foreign runner" (`frun`) and must satisfy the functor laws of identity and composition.
+- For any monads `M`, `N` and any monad morphism `g : ∀(a : Type) → M a → N a` there is a monad morphism `h : ∀(a : Type) → T M a → T N a` between the monads `T M` and `T N`. The mapping from `g` to `h` is known as the "foreign runner" (`frun`). It  must satisfy the functor laws of identity and composition.
  
 
 In some Haskell and Scala libraries, the foreign runner function is called `hoist`.
@@ -16001,9 +15938,7 @@ This book  will call it a "foreign runner"  (`frun`), following "The Science of 
 
 It follows that, for any monad `M` there is a monad morphism from `L` to `T M`.
 This morphism is called the "base lift" and is computed as `blift = frun pure` using the `pure` method of the monad `M`.
-The type signature of the base lift is:
-
-`blift : ∀(M : Type → Type) → Monad M → ∀(a : Type) → L a → T M a` 
+Below we will show how to implement the base lift for a given complete transformer.
 
 An **incomplete monad transformer** has the foreign lift method but no foreign runner or base lift.
 
@@ -16047,7 +15982,7 @@ If we substitute `F = Id` (the identity monad) then we obtain:
 Codensity Id a  ≅  ∀(t : Type) → (a → Id t) → Id t
   ≅  ∀(t : Type) → (a → t) → t
 ```
-The covariant Yoneda identity (see Appendix "Naturality and parametricity") shows that the last type is equivalent to just `a`.
+By the covariant Yoneda identity (see Appendix "Naturality and parametricity"), the last type is equivalent to just `a`.
 Since `Codensity Id a` is equivalent to `Id a`,
 it means that the base monad of this transformer is the _identity monad_.
 So, `Codensity` may be also viewed as a monad transformer for the identity monad.
@@ -16058,13 +15993,13 @@ However, one of these transformers (`Codensity`) is incomplete as it has no fore
 
 ### The `Transformer` typeclass
 
-To define a complete monad transformer as a typeclass, one needs the following data:
+To define a complete monad transformer as a typeclass, one needs the following:
 
 - A monad typeclass evidence for `T M` given a monad evidence for `M`.
 - An implementation of the foreign lift.
 - An implementation of the foreign runner.
 
-For an incomplete monad transformer, the foreign runner is missing.
+For an incomplete monad transformer, the foreign runner will be missing.
 
 Let us define both kinds of monad transformers as typeclasses:
 
@@ -16082,8 +16017,7 @@ The type signature of `frun` does not require `Monad` evidence for `N` because i
 A definition of `blift` for complete transformers can then be written via typeclass constraints:
 
 ```dhall
-let blift
-  : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
+let blift : ∀(T : (Type → Type) → Type → Type) → CompleteTransformer T → ∀(M : Type → Type) → Monad M → ∀(a : Type) → T Id a → T M a
   = λ(T : (Type → Type) → Type → Type) → λ(completeTransformerT : CompleteTransformer T) → λ(M : Type → Type) → λ(monadM : Monad M) → 
     completeTransformerT.frun Id monadIdentity M monadM.pure
 ```
@@ -16094,7 +16028,7 @@ In practical use, a specific transformer is  treated as something closely relate
 But note that the transformer typeclasses do not explicitly mention the base monad.
 So, we will need to formulate transformer combinators as functions that produce transformers, without knowing the base monad. 
 
-We begin by implementing standard transformers for a number of well-known monads.
+We begin by implementing   transformers for a number of well-known monads.
 
 #### Identity monad
 
@@ -16116,7 +16050,7 @@ let completeTransformerTIdentity : CompleteTransformer TIdentity =
 The transformers for the `Optional`, `Either`, and `Writer` monads work by composing the foreign monad "inside" the base monad.
 The transformer for `Optional` works as `T M a = M (Optional a)`, and similarly for the `Either`, and `Writer` monads. 
 
-All those transformers are complete. We can implement evidence values of `CompleteTransformer` typeclass for them.
+All those transformers are complete. We will now implement evidence values of `CompleteTransformer` typeclass for them.
 
 For the `Optional` monad:
 ```dhall
@@ -16225,10 +16159,8 @@ This combinator may be used only in specific cases when it is known that `swap` 
 
 #### State monad
 
-The **state monad** is the type constructor `State S a = S → Pair S a`, where `S` is a fixed type.
+The **state monad** is the functor `State S a = S → Pair S a`, where `S` is a fixed type.
 The corresponding transformer is given by `T S M a = S → M (Pair S a)`.
-
-Let us implement this in Dhall:
 
 ```dhall
 let TState : Type → (Type → Type) → Type → Type
@@ -16273,7 +16205,7 @@ let TSearch = λ(T : (Type → Type) → Type → Type) → λ(R : Type) → λ(
 ```
 
 These type expressions are not covariant in the foreign monad `M`, which means that foreign runners are impossible to implement.
-Base lifts are also not implementable.
+Base lifts are also do not exist.
 We only need to implement `monadTM` and `flift` methods.
 
 In each case, we use the known `Monad` evidence for the base monad.
@@ -16311,7 +16243,7 @@ let incompleteTransformerTSearch : ∀(T : (Type → Type) → Type → Type) �
 
 The transformer for a product of given monads is the product of their transformers.
 We require two arguments of type `CompleteTransformer` and obtain a new `CompleteTransformer` for the product type.
-
+This is quite similar to how the product of two monads is again a monad.
 ```dhall
 let completeTransformerProduct : ∀(T1 : (Type → Type) → Type → Type) → CompleteTransformer T1 → ∀(T2 : (Type → Type) → Type → Type) → CompleteTransformer T2 → CompleteTransformer (λ(M : Type → Type) → Product (T1 M) (T2 M))
   = λ(T1 : (Type → Type) → Type → Type) → λ(t1 : CompleteTransformer T1) → λ(T2 : (Type → Type) → Type → Type) → λ(t2 : CompleteTransformer T2) →
@@ -16335,7 +16267,7 @@ Our goal is to derive a `CompleteTransformer` evidence for `FPT` given one for `
 Note that `CoProduct Id (T M)` is a monad obtained from the `monadFreePointed` combinator.
 We will denote that monad by `L` in the code, for brevity.
 The free pointed transformer is defined as the functor composition of `M` with `L`.
-We use the `unsafeMonadCompose` combinator to obtain the monad instance for that composition.
+The `Monad` evidence for that composition is derived via the `unsafeMonadCompose` combinator.
 In this particular case, the application of `unsafeMonadCompose` is safe because the monad laws of the resulting monad will always hold (this is proved in "The Science of Functional Programming").
 
 The code is:
@@ -16409,7 +16341,6 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
   = λ(T : Type → (Type → Type) → Type → Type) → λ(transformerT : ∀(a : Type) → CompleteTransformer (T a)) →
     { monadTM = λ(M : Type → Type) → λ(monadM : Monad M) →  -- need a Monad evidence for λ(b : Type) → ∀a. T a M b
       monadForall (λ(a : Type) → T a M) (λ(a : Type) → (transformerT a).monadTM M monadM)
-      -- ∀(M : Type → Type → Type) → (∀(a : Type) → Monad (M a)) → Monad (λ(b : Type) → ∀(a : Type) → M a b)
     , flift = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(ma : M a) →
       λ(t : Type) → (transformerT t).flift M monadM a ma
     , frun = λ(M : Type → Type) → λ(monadM : Monad M) → λ(N : Type → Type) → λ(g : ∀(a : Type) → M a → N a) →
@@ -16421,9 +16352,8 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
 
 #### Free monads
 
+Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data is stored on leaves.
 The free monad on a functor `F` can be defined recursively as `L a = Either a (F (L a))`.
-Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data in leaves has type `a` .
-
 The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (Either a (F (T M a)))`.
 Note that the foreign monad `M` is applied on the outside, but recursion makes it appear also inside the transformed type.
 
@@ -16450,7 +16380,7 @@ For instance, one cannot use currying to make the code more convenient: we can c
 The Church-Yoneda identity (proved in Appendix "Naturality and parametricity") allows us to rewrite such types via modified Church encodings:
 
 ```dhall
-M (FreeMonad (Compose F M) a)  ≅  ∀(r : Type) → (Either a (F (M r)) → r) → M r
+M (FreeMonad (Compose F M) a) ≅ ∀(r : Type) → (Either a (F (M r)) → r) → M r
 ```
 The difference is that the usual `LFix` has the form `∀(r : Type) → ... → r`, while the Church-Yoneda identity gives us a type of the form `∀(r : Type) → ... → M r`.
 It is then straightforward to apply currying to this type if desired.
@@ -16461,7 +16391,7 @@ let TFreeMonad = λ(F : Type → Type) → λ(M : Type → Type) → λ(a : Type
   ∀(r : Type) → (a → r) → (F (M r) → r) → M r
 ```
 
-A `Monad` evidence for `TFreeMonad` can be implemented more easily via this encoding:
+A `Monad` evidence for `TFreeMonad` can be written more easily via this encoding:
 
 ```dhall
 let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → Type) → Monad M → Monad (TFreeMonad F M)
@@ -16476,7 +16406,7 @@ let monadTFreeMonad : ∀(F : Type → Type) → Functor F → ∀(M : Type → 
            let fmr : F (M r) = functorF.fmap (M (M r)) (M r) (monadJoin M monadM r) fmmr
            let y : r = fmrr fmr
            in monadM.pure r y
-         let mmr : M (M r) = tma (M r) amr fmmr2mr   -- Apply tma with type M r instead of r.
+         let mmr : M (M r) = tma (M r) amr fmmr2mr  -- Apply tma with type M r.
          in monadJoin M monadM r mmr
     }
 ```
@@ -16501,21 +16431,21 @@ let completeTransformerTFreeMonad : ∀(F : Type → Type) → Functor F → Com
 #### List-like monads
 
 The `List` and `NEL` (non-empty list) are monads representing a sequence of data items.
-We have already seen how to use the Church encoding for implementing  these type constructors. 
+We have already seen how to use the Church encoding for   these type constructors. 
 In a similar way, we implement transformers for these monads.
 
 The recursive definitions of the transformers `TList` and `TNEL` can be written as:
-
-`TList M a = M (Optional { head : a, tail : TList M a })`
-
-`TNEL M a = M (Either a { head : a, tail : TNEL M a })`
+```haskell
+TList M a = M (Optional { head : a, tail : TList M a })
+TNEL M a = M (Either a { head : a, tail : TNEL M a })
+```
 
 Similarly to what we did with free monads, we will use the unrolling lemma and the Church-Yoneda identity in order to obtain more convenient Church encodings for `TList` and `TNEL`.
 
 For `TList`, we hold the parameter `a` fixed and write: `TList M a = M U`, where `U = Optional { head : a, tail : M U }`.
 For `TNEL`, we get: `TNEL M a = M V`, where `V = Either a { head : a, tail : M V }`.
 (Both `U` and `V` depend on the fixed `a`.)
-This leads us to the code:
+This leads us to the following code:
 
 ```dhall
 let TList = λ(M : Type → Type) → λ(a : Type) → ∀(r : Type) → r → (a → M r → r) → M r
@@ -16553,12 +16483,13 @@ let absorbTNEL : ∀(M : Type → Type) → Monad M → ∀(a : Type) → M (TNE
 ```
 
 The second  helper function concatenates transformed lists of type `TNEL M`.
-This function (`concatTNEL`) is implemented similarly to `NEL/concat`: 
+This function (`TNEL/concat`) is implemented similarly to `NEL/concat`: 
 
 
 ```dhall
-let concatTNEL: ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
-  = λ(M: Type → Type) → λ(monadM: Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
+let TNEL/concat
+  : ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M a → TNEL M a → TNEL M a
+  = λ(M : Type → Type) → λ(monadM : Monad M) → λ(a : Type) → λ(nel1 : TNEL M a) → λ(nel2 : TNEL M a) →
   -- Append nel1 to the end of the list nel2.
     let oneT : a → TNEL M a = λ(x : a) → λ(r : Type) →
       λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (consn x (nel2 r one consn))
@@ -16570,7 +16501,7 @@ let concatTNEL: ∀(M : Type → Type) → Monad M → ∀(a : Type) → TNEL M 
 ```
 
 
-The monad instance for `TNEL M` can be written now:
+The monad evidence for `TNEL M` can be written now:
 
 ```dhall
 let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
@@ -16578,7 +16509,7 @@ let monadTNEL : ∀(M : Type → Type) → Monad M → Monad (TNEL M)
   { pure = λ(a : Type) → λ(x : a) → λ(r : Type) → λ(one : a → r) → λ(consn : a → M r → r) → monadM.pure r (one x)
   , bind = λ(a : Type) → λ(tma : TNEL M a) → λ(b : Type) → λ(f : a → TNEL M b) →
       let atmb : a → M (TNEL M b) → TNEL M b = λ(x : a) → λ(mtmb : M (TNEL M b)) →
-        concatTNEL M monadM b (f x) (absorbTNEL M monadM b mtmb)
+        TNEL/concat M monadM b (f x) (absorbTNEL M monadM b mtmb)
       in absorbTNEL M monadM b (tma (TNEL M b) f atmb)
   }
 ```
@@ -16601,14 +16532,14 @@ let completeTransformerTNEL : CompleteTransformer TNEL
 ## Free typeclass instances
 
 Certain typeclasses support "free instances".
-A "free instance" creates a type that belongs to a typeclass out of any other type.
+A "free instance" is a type constructor that always creates a type  belonging to the typeclass.
 
-For example, a "free monoid on `T`" creates a monoid out of any given type `T`.
+For example, a "free monoid on `T`" is a type constructor that creates a monoid out of any given type `T`.
 It turns out that the free monoid on `T` is the type `List T`.
 The type `List T` is always a monoid, even if `T` is not a monoid.
-So, the free monoid is created by the type constructor `List`.
+So, the free monoid is   the type constructor `List`.
 
-Other "free typeclass" constructions work similarly: they take a given type and wrap it in a suitable type constructor such that the result always belongs to the required typeclass.
+Other "free typeclass" constructors work similarly: they take a given type and wrap it in a suitable way such that the result always belongs to the   typeclass.
 
 We have already seen two examples of "free instances" (the free monad and the free pointed functor) earlier in this book.
 The free monad  on   `F`  wraps any given functor `F` into a suitable type constructor and creates a new functor that is always a monad.
@@ -16619,9 +16550,9 @@ At that point, we  did not emphasize that the type constructors involved in `mon
 To qualify as a free typeclass instance, a type constructor must satisfy certain laws that we will not write here (those laws are explained in
 Chapter 13 of "The Science of Functional Programming").
 
-An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids" where we defined the combinators `monoidOptionalKeepX` and `monoidOptionalKeepY`.
-Those combinators take an arbitrary type `T` and produce a `Monoid` evidence for the type `Optional T`.
-But `Optional T` is _not_ the free monoid on `T` because it does not satisfy some of the required properties of  free typeclass instances.
+An example of a type constructor that does _not_ satisfy those laws (and so does not provide a free typeclass instance) is the "`Optional` monoid" construction, shown in the chapter "Combinators for monoids".
+In that chapter we defined two   combinators (`monoidOptionalKeepX` and `monoidOptionalKeepY`) that take an arbitrary type `T` and produce a `Monoid` evidence for the type `Optional T`.
+However,  the resulting evidence for `Optional T`  fails to  satisfy some of the required properties of  free typeclass instances.
 
 How can we see that?
 One of the required properties is that for any monoid `M` there must be a function of type `Optional M → M` preserving the operations of both monoids.
@@ -16639,12 +16570,12 @@ Examples of typeclasses that do not have free instances are `Eq`, `Show`, `Comon
 
 Chapter 13 of  "The Science of Functional Programming" defines a certain   subset of typeclasses   called **FM-typeclasses**.
 Among the typeclasses shown in this book, examples of FM-typeclasses are  `Semigroup`, `Monoid`, `Functor`, `Contrafunctor`, `Pointed`, `Filterable`, `ContraFilterable`, `Monad`, and `ApplicativeFunctor`.
-It turns out that all FM-typeclasses admit "free instances".
+It turns out that all FM-typeclasses admit free instances.
 This chapter will show a number of examples.
 
 Typeclasses may describe either the properties of ordinary types (e.g., `Semigroup`, `Monoid`, `Eq`) or the properties of type constructors (e.g., `Functor`, `Monad`).
 While the general idea of a free typeclass instance applies to both kinds of typeclasses, 
-the required properties involve functions with quite different type signatures.
+the required properties involve functions with   different type signatures.
 
 We begin by looking at typeclasses for ordinary types.
 
@@ -16682,9 +16613,9 @@ We will not specify laws as part of the typeclass definition: the limited suppor
 We will need to define the property of "preserving the FM-typeclass operations".
 This is a property of a function `f : u → v` between types `u` and `v` that both belong to the same FM-typeclass.
 We say that `f` "preserves the FM-typeclass operations" if the following law holds: For any `x : P u`,
-
-`fmTypeclassV (functorP.fmap u v f x) = f (fmTypeclassU x)`
-
+```haskell
+fmTypeclassV (functorP.fmap u v f x) = f (fmTypeclassU x)
+```
 where `fmTypeclassU : P u → u` and `fmTypeclassV : P v → v` are evidence values for types `u`, `v`. 
 
 This law expresses the structural property of `f`: any operation of the FM-typeclass applied to the type `u` is mapped by `f` to the same operation applied to the type `v`. 
@@ -16705,10 +16636,10 @@ let FreeFMTypeclass = λ(P : Type → Type) → λ(FreeFM : Type → Type) →
   }
 ```
 
-The free FM-typeclass instance `FreeFM t` belongs to the FM-typeclass even if `t` does not.
+The free FM-typeclass instance `FreeFM t` belongs to the FM-typeclass even if the type `t` does not.
 
-For any   type `u` that belongs to the FM-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
-The   conversion function (called `runP`) may be implemented generally, given an evidence value of `FreeFMTypeclass`:
+For any type `u` that belongs to the FM-typeclass, we may convert `FreeFM t` into `u` as long as we have a function of type `t → u`.
+The conversion function (called `runP`) may be implemented generally, given an evidence value of `FreeFMTypeclass`:
 
 ```dhall
 let runP : ∀(P : Type → Type) → ∀(FreeFM : Type → Type) → FreeFMTypeclass P FreeFM → ∀(t : Type) → FreeFM t → ∀(u : Type) → FMTypeclass P u → (t → u) → u
@@ -16717,18 +16648,13 @@ let runP : ∀(P : Type → Type) → ∀(FreeFM : Type → Type) → FreeFMType
     in freeFMT.eval u pTu freeU
 ```
 
-The "FM" in the name "FM-typeclass" remind us that the definition of the typeclass involves a  functor (`P`) and a monad (`FreeFM`).
+The "FM" in the name "FM-typeclass" reminds us that the definition of the typeclass involves a  functor (`P`) and a monad (`FreeFM`).
 
 The monad property of `FreeFM` is mainly helpful for formulating the laws of an FM-typeclass in the language of category theory.
 In that language, the typeclass evidence (a value of type `P t → t`) corresponds to `t` being a functor algebra of the functor $P$.
 The typeclass laws  turn out to be equivalent to `t` being a **monad algebra** of the monad `FreeFM`.
-
-To summarize, we could describe an FM-typeclass with laws  as a set of all types `t` that are $F$-functor algebras and at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$.
+We could then describe an "FM-typeclass with laws"  as a subcategory of all `t` that are $F$-functor algebras and at the same time $M$-monad algebras, with suitable choices of a functor $F$ and a monad $M$.
 Details are worked out in Chapter 13 of "The Science of Functional Programming".
-
-Instead of the name "FM-typeclasses" one could use a longer name, such as "functor-monad-algebraic typeclasses", to express more concretely the required categorical properties.
-This book focuses on code rather than on proofs of laws or the description of typeclasses via category theory.
-We will be using the shorter name "FM-typeclasses".
 
 It is _not_ known how to construct a free FM-typeclass in general for an arbitrary structure functor and arbitrary required typeclass laws.
 In the following subsections, we will write down the definitions of some free typeclasses that have been discovered.
@@ -16736,7 +16662,7 @@ In the following subsections, we will write down the definitions of some free ty
 When an FM-typeclass has no laws, the free FM-typeclass constructor _can_ be formulated in general for an arbitrary structure functor $P$.
 It   turns out to be just the free monad on $P$.
 This FM-typeclass instance corresponds to a data structure that stores unevaluated expression trees with operations of the typeclass.
-Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any  extra laws.
+Unevaluated expression trees have the right shape for all the typeclass operations but do not satisfy any   laws.
 
 Here is an implementation of `FreeFMTypeclass` via `FreeMonad` that works for an arbitrary FM-typeclass _without_ laws:
 
@@ -16798,8 +16724,7 @@ let functorPTC2 : Functor PTC2 = { fmap = λ(a : Type) → λ(b : Type) → λ(f
           } fa
   }
 ```
-
-The typeclass evidence for `Natural` then looks like this:
+A `TC2` typeclass evidence for `Natural` then looks like this:
 
 ```dhall
 let tc2Natural : FMTypeclass PTC2 Natural = λ(pt : PTC2 Natural) →
@@ -16865,9 +16790,9 @@ let _ = assert : result2 ≡ 299
 
 The typeclass methods of type constructor typeclasses (such as `Functor` and `Monad`) typically have their own type parameters.
 For example, the `fmap` method of `Functor` has two type parameters:
-
-`fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b`
-
+```haskell
+fmap : ∀(a : Type) → ∀(b : Type) → (a → b) → F a → F b
+```
 Structure functors `P` for type constructor FM-typeclasses must have kind `(Type → Type) → Type → Type`.
 Given such a `P`, we say that a type constructor `T : Type → Type` belongs to the FM-typeclass if there exists an evidence value of type `∀(a : Type) → P T a → T a`.
 
@@ -16877,24 +16802,26 @@ let FMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(T : Type →
 
 A free FM-typeclass instance creates  a new type constructor (`FreeFMTypeclassT F`) out of any given type constructor `F`, such that `FreeFMTypeclassT F` belongs to the FM-typeclass.
 
-For typeclasses whose members are functors with additional methods, such as (`Pointed`, `Monad`, or `ApplicativeFunctor`), one often  assumes that `F` is a functor.
+For typeclasses whose members are functors with additional methods, such as `Pointed`, `Monad`, or `ApplicativeFunctor`, one often  assumes that `F` is a functor.
 This makes it simpler to construct a free typeclass instance.
 Examples of such constructions are the free pointed functor, the free filterable functor, the free monad, and the free applicative functor.
-The following subsections will implement these constructions in more detail.
+The following subsections will implement these constructions in full detail.
 For now, let us just write down the required types for the free pointed and the free filterable functors:
 
 ```dhall
 let FreePointed = λ(F : Type → Type) → λ(a : Type) → Either a (F a)
+
 let FreeFilterable = λ(F : Type → Type) → λ(a : Type) → F (Optional a)
 ```
 Whenever `F` is a functor, the new type constructors `FreePointed F` and `FreeFilterable` will be again functors and will support the required methods for the pointed and the filterable functor typeclasses.
 
-Let us now formulate the free FM-typeclass for type constructors as the typeclass `FreeFMTypeclassT`.
-We will drop the monad evidence requirement from that typeclass:
+Let us now formulate the free FM-typeclass instance for type constructors as the typeclass `FreeFMTypeclassT`.
+We will drop the monad evidence requirement from that typeclass.
 Implementing monads at the level of type constructors is technically difficult but brings no practical advantages.
 The formulation of typeclass laws via monad algebras helps in theoretical derivations but cannot be directly used in code.
-We will just add the monad's `pure` method, as it is necessary for creating values of a free typeclass out of base functor's values.
+Instead, we  will  add the monad's `pure` method, as it is necessary for creating values of a free typeclass out of base functor's values.
 
+The resulting formulation of `FreeFMTypeclassT` is:
 ```dhall
 let FreeFMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT : (Type → Type) → Type → Type) →
   { evidence : ∀(T : Type → Type) → FMTypeclassT P (FreeFMT T)
@@ -16903,7 +16830,7 @@ let FreeFMTypeclassT = λ(P : (Type → Type) → Type → Type) → λ(FreeFMT 
   }
 ```
 
-The code of `FreeFMTypeclassT` evidence values for `FreePointed`, `FreeFilterable`, and other functor typeclasses will be shown later in this chapter.
+Later in this chapter we will compute `FreeFMTypeclassT` evidence values for functor typeclasses such as `FreePointed`, `FreeFilterable`, and others.
 
 ### Free semigroup and free monoid
 
@@ -16923,14 +16850,11 @@ let FreeSemigroup = NEL
 let FreeMonoid = List
 ```
 
-We will be able to show that the type constructors `FreeSemigroup` and `FreeMonoid` belong to the typeclass  `FreeFMTypeclass` if we define the structure functors `P` appropriately.
+To show that the type constructors `FreeSemigroup` and `FreeMonoid` belong to the typeclass  `FreeFMTypeclass`, the first step is to   define the structure functors `P` appropriately.
 
 For the semigroup, the `append` operation has type `t → t → t`.
 We need to rewrite this type equivalently in the form `P t → t` using a suitable structure functor `P`.
-Note that we can uncurry the function type `t → t → t`, producing an equivalent type:
-
-`t → t → t  ≅  Pair t t → t`
-
+Note that we can uncurry the function type `t → t → t`, producing an equivalent type `Pair t t → t`.
 So, we define `P t = Pair t t` as the structure functor for `Semigroup`.
 The free typeclass instance is formulated as:
 
@@ -16945,7 +16869,7 @@ let freeFMTypeclassFreeSemigroup : FreeFMTypeclass SemigroupP FreeSemigroup
   }
 ```
 
-For the free monoid, we define the structure functor as `P t = Optional (Pair t t)`.
+For the free monoid,   the structure functor is `P t = Optional (Pair t t)`.
 Then the function type `P t → t` is equivalent to a pair of values of types `t` and `Pair t t → t`.
 These correspond to the methods `empty` and `append` of a monoid.
 
@@ -16991,7 +16915,7 @@ let PointedP : (Type → Type) → Type → Type
 
 We may view `PointedP` as a map from functors to functors that always returns the identity functor (a "constant map", so to speak).
 
-The corresponding free FM-typeclass evidence is here:
+The corresponding free FM-typeclass evidence is:
 
 ```dhall
 let freeFMTypeclassTFreePointed : FreeFMTypeclassT PointedP FreePointed
@@ -17056,11 +16980,10 @@ Now we will reformulate it as a free FM-typeclass constructor.
 The first step is to formulate the monad's methods as a single value of type `∀(a : Type) → P M a → M a`.
 Instead of using `pure` and `bind`, it is easier to use `pure` and `join` as the monad's methods.
 The types of these methods are:
-
-`pure : ∀(a : Type) → a → M a`
-
-`join : ∀(a : Type) → M (M a) → M a`
-
+```haskell
+pure : ∀(a : Type) → a → M a
+join : ∀(a : Type) → M (M a) → M a
+```
 These two methods do not cover the functionality of `fmap`, but we will use a `Functor` evidence of `F` to derive the free monad on `F`.
 
 If we choose `P M a` as a union type `Either a (M (M a))`, the type `P M a → M a` will be equivalent to the pair of function types `a → M a` and `M (M a) → M a`.
@@ -17111,14 +17034,23 @@ Currying the arguments of types `a → b` and `F a` within `FmapT` into a record
 let FmapTCurried = λ(F : Type → Type) → ∀(a : Type) → ∀(t : Type) → { step : t → a, seed : F t } → F a
 ```
 
-We can "pack" the type `t` into the record if we use the existential quantifier:
-A function type of the form `∀(t : Type) → F t → c` is equivalent to the function type `Exists F → c` (here `F` is any type constructor.
+We can "pack" the type `t` into the record if we use the existential quantifier.
+From the **function extension rule**
+(the section "The function extension rule for existential types") we know that a function type of the form `∀(t : Type) → K t → c` is equivalent to the function type `Exists K → c` (here `K` is any type constructor).
+In our case, we have a function type `∀(t : Type) → { step : t → a, seed : F t } → F a`.
+To use the function extension rule, set `K t = { step : t → a, seed : F t }` and `c = F a`.
+This gives the type equivalence:
+```dhall
+∀(t : Type) → { step : t → a, seed : F t } → F a  ≅  Exists K → F a
+```
 
+It remains to restore the type parameters `F` and `a` that we temporarily held fixed.
 For convenience, let us define a suitable type constructor `H` separately:
 ```dhall
 let H = λ(F : Type → Type) → λ(a : Type) → λ(t : Type) → { step : t → a, seed : F t }
 ```
-Using this `H`, we rewrite `FmapTCurried` equivalently as:
+Then we have `K t = H F a t`.
+Using  `H`, we rewrite `FmapTCurried` equivalently as:
 
 ```dhall
 let FmapTE = λ(F : Type → Type) → ∀(a : Type) → Exists (H F a) → F a
@@ -17137,7 +17069,6 @@ It turns out that the free functor construction is given by the same code:
 let FreeFunctor = FunctorP
 ```
 The mathematical notation for this type is:
-
 $$ \textrm{FreeFunctor}~F~a = \exists t.~(t\to a)\times F ~t $$
 
 Here is the corresponding `Functor` typeclass evidence:
@@ -17190,7 +17121,6 @@ After that, we may apply another free construction that requires its base type c
 What if we take a type constructor `F` that is already a functor and compute `FreeFunctor F`?
 It turns out that the resulting functor is equivalent to `F`.
 This happens due to one of the **co-Yoneda identities**:
-
 $$  \exists t.~(t\to a)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a functor} $$
 
 We will prove the co-Yoneda identities in the Appendix "Naturality and parametricity".
@@ -17216,7 +17146,6 @@ let FreeContrafunctor = ContrafunctorP
 
 
 The mathematical notation for this type is:
-
 $$ \textrm{FreeContrafunctor}~F~a = \exists t.~(a\to t)\times F ~t $$
 
 Here is the corresponding `Contrafunctor` typeclass evidence:
@@ -17258,7 +17187,6 @@ let freeFMTypeclassTFreeContrafunctor : FreeFMTypeclassT ContrafunctorP FreeCont
 
 If we take a type constructor `F` that is already a contrafunctor and compute `FreeContrafunctor F`, the result will be equivalent to `F`.
 This can be shown via the contravariant co-Yoneda identity:
-
 $$  \exists t.~(a\to t)\times F ~t \cong F~a \quad\textrm{when }F\textrm{ is a contrafunctor} $$
 
 
@@ -17277,18 +17205,14 @@ We will replace `zip` by an equivalent method `ap`, whose type signature is `ap 
 It remains to uncurry and to rewrite the type signatures of `pure` and `ap` together in a single method signature of the form `P F t → F t`. 
 
 Let us write a mathematical formulation of the required type signatures, making sure that the final output type is `F a`:
-
 $$ \textrm{pure} : \forall a. ~ a \to F~ a $$ 
-
 $$ \textrm{ap} : \forall a. ~\forall b.~ F~ (b \to a) \to F ~b \to F ~a $$ 
 
 As `b` is a type parameter that does not appear in the final output type `F a`, we need to hide it under an existential quantifier.
 The result is:
-
 $$ \textrm{pure}\times\textrm{ap} : \forall a. ~ ( a + \exists b.~ (F~ (b \to a)) \times (F ~b) ) \to F ~a  $$
 
 This has the form $P ~F~a\to F~a$ if we choose the structure functor $P$ as:
-
 $$ P ~ F ~a =  a + \exists b.~ (F~ (b \to a)) \times (F ~b) $$
 
 The corresponding Dhall code is:
@@ -17324,10 +17248,10 @@ let applicativeFunctorFMTypeclassT : ∀(F : Type → Type) → ApplicativeFMTyp
     let ap : ∀(a : Type) → ∀(b : Type) → F (b → a) → F b → F a
       = λ(a : Type) → λ(b : Type) → λ(fba : F (b → a)) → λ(fb : F b) →
         let ExistsU = Exists (λ(b : Type) → { seed : F b, step : F (b → a) })
-      -- Use outEG : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
+      -- Use outE : ∀(P : Type → Type) → ∀(r : Type) → (Exists P → r) → ∀(t : Type) → P t → r
         let existsU2fa : ExistsU → F a
           = λ(u : ExistsU) → evidence a (< Pure : a | Ap : ExistsU >.Ap u)
-        in outEG (P a) (F a) existsU2fa b { seed = fb, step = fba }
+        in outE (P a) (F a) existsU2fa b { seed = fb, step = fba }
     let pure : ∀(a : Type) → a → F a = λ(a : Type) → λ(x : a) → evidence a ((ApplicativeFunctorP F a).Pure x)
     let fmap = λ(a : Type) → λ(b : Type) → λ(f : a → b) → ap b a (pure (a → b) f)
     let zip = λ(a : Type) → λ(fa : F a) → λ(b : Type) → λ(fb : F b) →
@@ -17341,10 +17265,8 @@ let applicativeFunctorFMTypeclassT : ∀(F : Type → Type) → ApplicativeFMTyp
 #### Defining the free applicative functor
 
 For the free applicative functor, we use the definition from [Capriotti and Kaposi (2014)](https://arxiv.org/pdf/1403.0749).
-
 To make the formulas shorter, let us assume that `F` is a fixed functor.
 Then the free applicative functor on `F` is defined in mathematical notation by:
-
 $$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
 
 This definition is recursive; `FAF` is defined using itself.
@@ -17352,10 +17274,9 @@ This definition is recursive; `FAF` is defined using itself.
 Note the difference between the type  expression $\exists b.~(\textrm{FAF}~b) \times(F~(b\to a))$ and the similar expression  $\exists b.~ (F~ (b \to a)) \times (F ~b)$ found in the structure functor $P$.
 The difference is that $F~(b\to a)$ involves the fixed functor `F` rather than the free applicative functor.
 This difference is crucial for the correct working of this construction.
-It is  far from obvious that this is correct, and the paper by Capriotti and Kaposi spent a while on the proof.
+It is  far from obvious that this is correct; the cited paper shows a  proof.
 We will just take their definition and implement it in Dhall.
 It is a recursive definition of the form `FAF a = Q FAF a`, where `Q` is a pattern functor (at the level of type constructors) written as:
-
 $$ Q ~ T~ a = a + \exists b.~(T~b) \times(F~(b\to a))  $$
 
 The Dhall code for `Q` needs to take `F` as an additional argument.
@@ -17591,7 +17512,7 @@ This program evaluates to `226981000`:
 226981000
 ```
 
-We usually say that we have defined a "variable" `x`, although `x` is actually a constant and can never change within the program that follows.
+We usually say that we have defined a "variable" `x`, although `x` is actually a constant and will never change within its scope.
 
 #### Alternative syntax
 
@@ -17644,9 +17565,9 @@ There is nothing else we can write, because the entire program must be a single 
 For example, we should be able to replace `20` in the expression `10 + 20 * 30` by an expression that defines and uses a new variable.
 
 Suppose we want to write `let p = 10 in p + p` instead of `20`. We should get the same results. But how to write that kind of programs? We need a syntax for that.
-We cannot just write `10 + let p = 10 in p + p * 30`: we need to separate the end of the sub-expression from `* 30`.
+We cannot just write `10 + let p = 10 in p + p * 30`: we need to separate the end of the subexpression from `* 30`.
 
-In Dhall, we use parentheses to separate sub-expressions, like in mathematics. We can write `10 + (20) * 30`, and it's the same as `10 + 20 * 30`.
+In Dhall, we use parentheses to separate subexpressions, like in mathematics. We can write `10 + (20) * 30`, and it's the same as `10 + 20 * 30`.
 
 So, we write:
 
@@ -17744,13 +17665,13 @@ This kind of syntax is not often used in mathematics; usually, mathematical func
 
 Some programming languages allow functions that return other functions; then the syntax becomes something like `f(x)(y)(z)`. In this expression, `f` is a function such that `f(x)` is again a function, which can be applied to `y` and then gives another function that can be applied to `z`.
 
-In Dhall, parentheses are written only when needed to separate sub-expressions. One can write `f(x)(y)(z)` in Dhall, but it will be easier to write `f x y z`.
+In Dhall, parentheses are written only when needed to separate subexpressions. One can write `f(x)(y)(z)` in Dhall, but it is easier to write `f x y z`.
 
 In Dhall, the function `Natural/subtract x y` takes one argument `x` and returns another function, which takes another argument `y` and then returns `y - x` if both `x` and `y` are natural numbers.
 
 #### User-defined functions
 
-- For any sub-expression, we should be able to write a function that substitutes that sub-expression.
+- For any subexpression, we should be able to write a function that substitutes that subexpression.
 
 Applying this principle to the example expression `10 + 20 * 30`, we may say that we should be able to write a function that substitutes the value `20` in this function by some other value.
 
@@ -17762,9 +17683,9 @@ The Dhall syntax for that function looks like this:
 λ(n : Natural) → 10 + n * 30
 ```
 
-We may read that as "here's a function that takes a value of type Natural substitutes that value instead of `n` into the expression `10 + n * 30`".
+We may read that as "here's a function that takes a value of type `Natural` substitutes that value instead of `n` into the expression `10 + n * 30`".
 
-This function is a value; this text is a Dhall program that evaluates to that function. There is nothing more to simplify in that expression:
+This function is a value, and there is nothing more to simplify in that value:
 
 ```dhall
 ⊢ λ(n : Natural) → 10 + n * 30
@@ -17784,7 +17705,7 @@ let f = λ(n : Natural) → 10 + n * 30
 in f 2
 ```
 
-This program defines `f` as a function and then applies the function `f` to the value `2`. The resulting program is evaluated to `70`.
+This program assignes a function value to `f`   and then applies the function `f` to the value `2`. The resulting program is evaluated to `70`.
 
 - We should be able to write a function that substitutes any part of any expression.
 
@@ -17797,7 +17718,7 @@ We should be able to do that in the same way: We just begin a new function havin
   let f = λ(n : Natural) → p + n * 30
   in f 2   -- Line indentations are _not_ significant in Dhall.
 ```
-This is a function that can be applied to `10` and then evaluates to`70`.
+This is a function that can be applied to `10` and then evaluates to `70`.
 
 How can we write code that applies such a function to an argument `10`? There are two ways now:
 
@@ -17914,11 +17835,11 @@ Even if `w` is a function whose body refers to the name `b`, the value under tha
 
 #### Higher-order functions
 
-The language should allow us to write a function that replaces a given sub-expression by an argument value.
-That sub-expression could be itself a function expression.
+The language should allow us to write a function that replaces a given subexpression by an argument value.
+That subexpression could be itself a function expression.
 In that case, we need to be able to write a function whose argument is itself a function.
 
-Consider the function `f` defined above. It contains `λ(p : Natural) → p * 2 + n` as a sub-expression.
+Consider the function `f` defined above. It contains `λ(p : Natural) → p * 2 + n` as a subexpression.
 Suppose we need to replace the computation `p * 2` by another function of `p`.
 
 To express our intent more clearly, let us rewrite `f 123`, making this computation explicit:
@@ -17940,11 +17861,10 @@ let r = λ(g : Natural → Natural) →
 ```
 
 The function we assigned to `r` has a function `g` as its argument and returns another function: `λ(p : Natural) → g p + 123`.
-Such functions `r` are called "higher-order" functions.
 
 Generally, functions that return other functions as their result values, and/or take other functions as arguments, are called **higher-order functions**.
 
-So, all curried functions are higher-order functions.
+So, the function `r` shown above is a higher-order function. All curried functions are also higher-order functions.
 
 ### Step 3: Function types
 
@@ -17968,7 +17888,7 @@ let g : Natural → Natural = λ(p : Natural) → p * 2 + 123
 
 #### Types of higher-order functions
 
-A curried function returns a function, so its type has the form `something → (something → something)`.
+A curried function returns a function, so its type looks like `something → (something → something)`.
 An example is the function `f` defined above: its type is written as `Natural → (Natural → Natural)`.
 
 ```dhall
@@ -18025,7 +17945,6 @@ This function is similar to a curried function. It can be used with two curried 
 ```
 
 Functions with type parameters are known in some programming languages as **generic functions** or **polymorphic functions**.
-
 For instance, the function `id` shown above may be called  the "polymorphic identity function".
 
 Polymorphic functions can work with values of any type, as long as that type is given as the type argument.
@@ -18096,13 +18015,13 @@ This form of the function type syntax shows how Dhall treats types and values in
 
 #### Functions from types to types
 
-Functions with type parameters follow from the principle that we should be able to a function argument by a type.
+Functions with type parameters follow from the principle that we should be able to replace types in a type annotation by a new function argument.
 The result is that we obtain a function whose first argument is a type parameter.
 
 We may apply the same principle also to the returned value of a function.
-So, now we would like to replace the returned value of a function by a type.
+So, now we would like to replace a type in a type annotation by the returned value of a new function.
 
-The result is a function that _returns a type_.
+The result is that we need to have a function that _returns a type_.
 
 The argument of such a function could be either a value parameter or a type parameter.
 If it is a type parameter, we obtain a function from types to types.
@@ -18132,7 +18051,6 @@ We say that the symbol `Natural` has kind `Type`.
 Types that have values (`Natural`, `Bool`, `List Bool`, etc.) have kind `Type`.
 
 The symbol `List` has kind `Type → Type`, indicating that `List` is a function that maps types to types.
-
 Dhall has another built-in symbol of the same kind: `Optional`.
 
 Note that `List` and `Optional` are not just any functions that map types to types.
@@ -18167,20 +18085,36 @@ So, we see that `Natural → Natural` has kind `Type`.
 The syntax for type annotations is the same for values (`123 : Natural`) and for types (`Natural : Type`).
 
 What is the type of `Type` itself? In Dhall, that type is denoted by the built-in symbol `Kind`, and it is called a **sort**.
+So, we say that `Type` has sort `Kind`, and we write the type annotation `Type : Kind`.
 
-Other types of sort `Kind` are `Type → Type` or `Type → Type → Type` and other type-level functions.
+Other types of sort `Kind` are `Type → Type`, `Type → Type → Type`, and other type-level functions.
+So, we   write the annotations `(Type → Type) : Kind` and so on.
 
 What is the type of `Kind`? In Dhall, it is called `Sort`.
 Another example of a type of sort `Sort` is `Kind → Kind`.
+We   write `Kind : Sort`, `(Kind → Kind) : Sort`, and so on.
 
 #### Type universes
 
-The principle that everything should have a type means that we have an infinite sequence of type symbols.
+The principle that everything should have a type means that `Sort` should also have a type.
+Then one has three options in language design:
+
+- Decide that `Sort` has type `Sort` and accept the annotation `Sort : Sort`.
+- Introduce another type, say, `Sort2` and write `Sort : Sort2`.
+- Decide that `Sort` does not have a type.
+
+The first option turns out to lead to a contradiction in the type system.
+If a language chooses that option, there will be some expressions that are well-typed but never terminate.
+(Equivalently, such a language can compute a value of the void type.)
+
+The second option means that we will have an infinite sequence of type symbols: `Sort2`, `Sort3`, and so on to infinity.
 This is an inconvenient feature of programming languages that take the typing principle to its limit.
 Such languages (Agda, Idris, Lean, etc.) need to support an infinite sequence of type symbols, each denoting the type of the previous one: `Type0` has type `Type1`; `Type1` has type `Type2`; `Type2` has type `Type3` and so on.
 Those type symbols are called **type universes**.
+The problem with type universes is that there is no a reasonable practical need for infinitely many different type universes; and yet the language forces the programmer to consider them and to write code supporting them.
 
-The Dhall language makes a decision to cut the infinite sequence of type universes after `Sort`.
+
+The Dhall language chooses the third option and cuts the infinite sequence of type universes after `Sort`.
 So, in Dhall the symbol `Sort` does _not_ itself has a type.
 If `Sort` used in situations where its type were needed (for example, as the type of a function argument or a function return value) then Dhall indicates a type error and does not accept the program.
 
@@ -18190,17 +18124,15 @@ In practice, the restriction to three type universes is not a significant limita
 One consequence of that limitation is Dhall's inability to implement a kind-parametric list as a user-defined data type.
 Dhall programs can implement user-defined data structures of the following shapes:
 
-- Lists of values such as `[ 1, 2, 3]`; that is, lists of values of a specific type.
-- lists of simple types such as `[ Natural, Natural → Natural, Bool ]` (a "type-level" list). Each type in that list has kind `Type`.
-- Lists of types that all belong to a given specific kind. For example, the list `[ Option, List, Option ]` where each type has kind `Type → Type`.
+- Lists of values such as `[ 1, 2, 3 ]`; that is, lists of values of a specific type.
+- Lists of simple types such as `[ Natural, Natural → Natural, Bool ]` (a "type-level" list). Each type in that list has kind `Type`.
+- Lists of types that all belong to a given specific kind other than `Type`. For example, the list `[ Option, List, Option ]` where each type has kind `Type → Type`.
+
+In a language that supports infinitely many type universes, one can implement a fully "universe-polymorphic" list; that is, a list of types belonging to an arbitrary type universe.
 
 But Dhall cannot implement a kind-polymorphic list parameterized by an arbitrary kind.
 
 In practice, the need for such data structures appears to be rare.
-
-In a language that supports infinitely many type universes, one can implement a fully "universe-polymorphic" list; that is, a list of types belonging to an arbitrary type universe.
-
-The problem with type universes is that there isn't a reasonable practical need for infinitely many different type universes; and yet the language forces the programmer to consider them and to write code supporting them.
 
 
 ## Appendix: Naturality and parametricity
@@ -18227,12 +18159,12 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 ```
 In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
-A function of type `∀(A : Type) → F A → G A` is called a **natural transformation** when both `F` and `G` are covariant functors or when both are contravariant functors, provided that the function satisfies the appropriate naturality law (see the next subsection below).
+A function of type `∀(A : Type) → F A → G A` is called a **natural transformation** when both `F` and `G` are covariant functors or when both are contravariant functors, provided that the function satisfies the appropriate naturality law (see the next subsection).
 
 
 If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
 
-To see how it works, consider the method `List/map` that has the following type signature:
+As an example, consider the method `List/map` that has the following type:
 
 ```dhall
 let List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B = ???
@@ -18253,9 +18185,9 @@ So, `List/map` is a (covariant) natural transformation with respect to the type 
 Suppose both `F` and `G` are covariant functors, and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
 
 Often, a covariant functor represents a generic data structure such that `F A` is a type that can store data of an arbitrary type `A`.
-One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for (some of) the same data to be stored in `G A`.
+One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow rearranges   (some of) the same data to be stored in `G A`.
 
-The function `t` must implement an algorithm that works in the same way for all types `A` and for all values of those types.
+The function `t` must implement a "rearrangement" algorithm that works in the same way for all types `A` and for all values of those types.
 The code of `t` cannot make any algorithmic decisions either based on specific values `x : A` stored in `F A`, or based on the type `A` itself.
 The function `t` may omit, duplicate, or reorder some data items, but no data may be changed, and no new data may be added.
 This is because the function `t` does not know anything about the type `A` and so cannot compute any new values of type `A`.
@@ -18286,13 +18218,11 @@ let naturality_law =
 
 A naturality law of `t` describes what happens when we apply the transformation `t` to a data container.
 We can apply `t` to transform `F A → G A`, followed by an `fmap_G f`-based transformation (`G A → G B`).
-
 (A lawful `fmap` method does not change the container's shape or data ordering but only replaces each data item of type `A` separately by another data item of type `B`.)
-
 We can also first apply `fmap_F f` to transform `F A → F B` and then apply `t` to transform `F B → G B`.
 The final results of type `G B` will be the same.
 
-So, naturality laws describe program refactorings where the programmer decides to change the order of function applications.
+So, naturality laws describe code refactorings where the programmer decides to change the order of function applications.
 (For example, first apply `List/map A B f` and then `List/head B`; or first apply `List/head A` and then `Optional/map A B f`.)
 Because the naturality law holds, the results of the program are guaranteed to remain the same after refactoring.
 
@@ -18363,7 +18293,8 @@ For natural transformations (functions of type `∀(A : Type) → F A → G A`),
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
 For functions of more complicated type signatures, naturality laws do not apply.
-The parametricity theorem gives a law of a more complicated form than a naturality law.
+The parametricity theorem gives instead a law (a "free theorem") of a more complicated form than a naturality law.
+We will call that law a **relational naturality law**.
 
 An example of such a law is for functions with type signatures `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
 This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
@@ -18379,15 +18310,16 @@ This equation is similar to a naturality law except for using two different func
 (If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
 
 Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related values `p` and `q`, the following equation must hold:
-
-`fmap_H A B f (t A p) ≡ t B q`
+```haskell
+fmap_H A B f (t A p) ≡ t B q
+```
 
 It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
 Because of this complication, the law of `t` does not have the form of a single equation.
 The law says that the equation `fmap_H A B f (t A p) ≡ t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
 That law of `t` is known as a **strong dinaturality law**.
-That law makes it easier to use the relational naturality law adapted to the type signature of `t`.
+It is   the relational naturality law adapted to the type signature of `t`.
 
 The strong dinaturality law can be written in Dhall syntax as:
 
@@ -18430,7 +18362,7 @@ This type equivalence holds under two assumptions:
 - `F` is a covariant functor with a lawful `fmap` method
 - all functions of the type `∀(B : Type) → (A → B) → F B` are natural transformations that satisfy the appropriate naturality law
 
-Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
+Because of the parametricity theorem, the second assumption is always satisfied as long as we are considering fully parametric code.
 
 The Yoneda identity shown above requires `F` to be a covariant functor.
 There is a corresponding Yoneda identity for contravariant functors ("contrafunctors") `C`:
@@ -18583,7 +18515,7 @@ Exists P  ≅  (∀(R : Type) → (∀(B : Type) → P B → R) → R)
 
 Both universal quantifiers (`∀(R : Type)` and `∀(B : Type)`) are used with function types of the form of natural transformations.
 So, we need to assume that all functions with type signatures `∀(B : Type) → P B → R` are natural transformations with respect to `B`, and all functions with type signatures `∀(R : Type) → (∀(B : Type) → P B → R) → R` are natural transformations with respect to `R`.
-These assumptions are satisfied automatically if we are working with functions implemented in Dhall.
+These assumptions are satisfied automatically if we are working with functions implemented via fully parametric code.
 
 Begin by considering the type `∀(B : Type) → P B → R`.
 We can rewrite that type equivalently in a curried form, replacing the record type `{ seed : F B, step : B → A }` by two curried arguments of types `F B` and `B → A`:
@@ -18660,7 +18592,7 @@ let fa2existsP : ∀(F : Type → Type) → ∀(A : Type) → F A → Exists (λ
 ```
 
 
-### Church encoding of least fixpoints
+### Church encodings of least fixpoints
 
 Here we show proofs of some technical properties of Church-encoded types.
 (This material is explained in the paper "Recursive types for free" by P. Wadler.
@@ -18674,13 +18606,13 @@ We will assume that (due to automatic parametricity) all values of type `C` obey
 ###### Statement 1
 
 For any type `R` and any function `frr : F R → R`, define the function `c2r : C → R` by:
-
-`let c2r : C → R = λ(c : C) → c R frr`
-
+```haskell
+let c2r : C → R = λ(c : C) → c R frr
+```
 Then the function `c2r` satisfies the law: for any value `fc : F C`,
-
-`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
-
+```haskell
+c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)
+```
 In category theory, that law is known as the "$F$-algebra morphism law".
 Functions that satisfy that law are called **$F$-algebra morphisms**.
 
@@ -18710,12 +18642,14 @@ The functions `fix F functorF : F C → C` and `unfix F functorF : C → F C` de
 We need to prove the two directions of the isomorphism:
 
 (1) For an arbitrary value `c : C`, show that:
-
-`fix F functorF (unfix F functorF c) ≡ c`
+```haskell
+fix F functorF (unfix F functorF c) ≡ c
+```
 
 (2) For an arbitrary value `p : F C`, show that:
-
-`unfix F functorF (fix F functorF p) ≡ p`
+```haskell
+unfix F functorF (fix F functorF p) ≡ p
+```
 
 To prove item (1), we note that both sides are functions of type `C`.
 Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and substitute the definitions of `fix` and `unfix`:
@@ -18725,33 +18659,33 @@ Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and sub
 fix F functorF (unfix F functorF c) R frr ≡ ???
 ```
 
-We define temporary symbols `fmap_fix` and `c2r` for brevity, and rewrite the definitions of `fix` and `unfix` as:
+Rewrite the definitions of `fix` and `unfix` as:
 
 ```dhall
 -- Symbolic derivation. Define for brevity:
 let fmap_fix : F (F C) → F C = functorF.fmap (F C) C (fix F functorF)
 let c2r : C → R = λ(c : C) → c R frr
--- The applications of `fix` and `unfix` to arbitrary arguments are then rewritten as:
+-- The applications of `fix` and `unfix` are then rewritten as:
 fix F functorF fc R frr = frr (functorF.fmap C R c2r fc)
 unfix F functorF c = c (F C) fmap_fix
 ```
 
 The equation we are trying to prove then becomes:
-
-`frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr`
-
+```haskell
+frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr
+```
 By assumption, the value `c : C` satisfies the strong dinaturality law:
 
 
 ```dhall
--- Symbolic derivation. The strong dinaturality law of `c`:
+ -- Symbolic derivation. Strong dinaturality law of c:
 ∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
 -- If p and q are f-related then f (c a p) ≡ c b q
    ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
      f (c a p) ≡ c b q
 ```
-The last equation needs to match the equation we need to prove:
-
+The last equation needs to match the equation we need to prove.
+For that, we choose the parameters in a suitable way:
 ```dhall
 -- Symbolic derivation. We need to match this equation:
   frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr
@@ -18766,9 +18700,9 @@ The last equation needs to match the equation we need to prove:
 ```
 This will finish the proof of item (1) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -18798,17 +18732,17 @@ functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
   ≡ functorF.fmap (F C) R f x
 ```
 Both sides are now of the form `functorF.fmap (F C) R (...) x`. It remains to prove:
-
-`λ(fc : F C) → c2r (fix F functorF fc) ≡ f`
-
+```haskell
+λ(fc : F C) → c2r (fix F functorF fc) ≡ f
+```
 Substitute the definition of `f`:
-
-`f ≡ λ(fc : F C) → frr (functorF.fmap C R c2r fc)`
-
+```haskell
+f ≡ λ(fc : F C) → frr (functorF.fmap C R c2r fc)
+```
 Omit the common code `λ(fc : F C) → ...`, and it remains to prove that:
-
-`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
-
+```haskell
+c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)
+```
 This holds by Statement 1. This concludes the proof of item (1).
 
 To prove item (2), we substitute the definitions of `fix` and `unfix`:
@@ -18824,9 +18758,9 @@ unfix F functorF (fix F functorF p)  -- Substitute the definition of unfix:
   ≡ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 ```
 Now we use item (1) that we already proved, and find:
-
-`fix F functorF (unfix F functorF c) ≡ c`
-
+```haskell
+fix F functorF (unfix F functorF c) ≡ c
+```
 So, the argument of `functorF.fmap C C ` is actually an identity function of type `C → C`.
 This allows us to complete the final step of the proof:
 
@@ -18842,16 +18776,18 @@ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
 More precisely:
-
-`c C (fix F functorF) ≡ c`
+```haskell
+c C (fix F functorF) ≡ c
+```
 
 ####### Proof
 
 We need to prove an equation between functions of type `C`.
 Apply both sides of that equation to arbitrary arguments `R : Type` and `frr : F R → R`.
 So, we need to prove that:
-
-`c C (fix F functorF) R frr ≡ c R frr`
+```haskell
+c C (fix F functorF) R frr ≡ c R frr
+```
 
 Values `c : C` satisfy the strong dinaturality law:
 
@@ -18879,9 +18815,9 @@ The last equation needs to match the equation we need to prove:
 ```
 This will finish the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -18895,9 +18831,9 @@ This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
 
 Given a type `R` and a function `frr : F R → R`, suppose there exists a function `f : C → R` that
 satisfies the $F$-algebra morphism law:
-
-`∀(fc : F C) → f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)`
-
+```haskell
+∀(fc : F C) → f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)
+```
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
 (By Statement 1, that function satisfies the $F$-algebra morphism law.)
 
@@ -18905,9 +18841,9 @@ Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C)
 
 Suppose a function `f : C → R` is given and satisfies the $F$-algebra morphism law.
 We need to prove that, for any `c : C`, the following holds:
-
-`f c ≡ c2r c ≡ c R frr`.
-
+```haskell
+f c ≡ c R frr
+```
 Values `c : C` satisfy the strong dinaturality law:
 
 
@@ -18938,9 +18874,9 @@ That is why we are justified in replacing `f c` by `f (c C p)`.
 
 So, the proof will be finished as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above, and rename `x` to `fc`:
 
 ```dhall
@@ -18962,11 +18898,11 @@ To explain the property of "preserving the fixpoint isomorphisms" in detail, con
 - Any `fc : F C` is mapped by the function `fmap_F c2r` into some `fr : F R`.
 - The property of "preserving the fixpoint isomorphisms" means that `c2r` should map `c` into `r` and the corresponding `fc` into the corresponding `fr`. In other words, `fr ≡ unfix_R r` if and only if `fc ≡ unfix_C c`.
 
-It means that the following equations must hold:
+It means that the following   must hold:
 
-(1) For any `fc c : F C`: `fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)`.
+(1) For any `fc c : F C` we must have `fix_R (fmap_F c2r fc) ≡ c2r (fix_C fc)`.
 
-(2) For any `c : C`: `unfix_R (c2r c) ≡ fmap_F c2r (unfix_C c)`.
+(2) For any `c : C` we must have `unfix_R (c2r c) ≡ fmap_F c2r (unfix_C c)`.
 
 We claim that these equations will hold for the function `c2r` defined by `c2r = λ(c : C) → c R fix_R`, and that there is only one such function.
 
@@ -19031,7 +18967,7 @@ For this part of the proof, we do not need to use the functor property of `F`.
 
 An alternative encoding of a recursive type is known as the **Mendler encoding**.
 We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
-The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types.
+The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types in System Fω.
 
 ```dhall
 let MFix : (Type → Type) → Type
@@ -19040,8 +18976,8 @@ let MFix : (Type → Type) → Type
 When `F` is a covariant functor, the type `∀(s : Type) → (s → r) → F s → r` is isomorphic to just `F r → r` (by the contravariant Yoneda identity).
 Then the Mendler encoding is isomorphic to the Church encoding of the least fixpoint of `F`.
 
-When `F` is not a functor, the Mendler encoding gives the least fixpoint of the "free functor on `F`".
-We will show the "free functor" construction later in this book.
+When `F` is not a functor, the Mendler encoding gives the least fixpoint of the free functor on `F`.
+
 
 As an example, let us implement the `List` functor using the Mendler encoding.
 ```dhall
@@ -19092,7 +19028,7 @@ let unfix_M : ∀(F : Type → Type) → Functor F → MFix F → F (MFix F)
 
 ### The Church-Yoneda identity
 
-The Church encoding formula (`∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
+The Church encoding formula (`LFix F = ∀(r : Type) → (F r → r) → r`) is not of the same form as the Yoneda identity because the function argument `F r` depends on `r`.
 The standard Yoneda identities do not apply to types of that form.
 
 There is a generalized identity (without a widely accepted name) that combines both forms of types:
@@ -19100,17 +19036,13 @@ There is a generalized identity (without a widely accepted name) that combines b
 ```dhall
 ∀(R : Type) → (F R → R) → G R  ≅  G (LFix F)
 ```
-Here `F` and `G` are arbitrary covariant functors, and `LFix F = ∀(R : Type) → (F R → R) → R` is the Church-encoded least fixpoint of `F`.
-
+Here `F` and `G` are arbitrary covariant functors, and `LFix F` is the Church-encoded least fixpoint of `F`.
 It is also assumed that all functions with type signature `∀(R : Type) → (F R → R) → G R` will satisfy the **strong dinaturality law**.
 
 This book calls this the **Church-Yoneda identity** because of the similarity to both the Church encodings and the types of functions used in the Yoneda identities.
-
 The Church-Yoneda identity is mentioned as "proposition 1" in the proceedings of the conference ["Fixed Points in Computer Science 2010"](https://hal.science/hal-00512377/document) on page 78 of the paper by T. Uustalu.
 
-In the next subsection, we will use that identity to prove the Church encoding formula for mutually recursive types.
-
-Here is a proof of the Church-Yoneda identity that assumes that the parametricity theorem holds for all values.
+We will now show a proof of the Church-Yoneda identity under assumptions of parametricity.
 
 To make the proof shorter, let us define the "Church-Yoneda" type constructor, which we will denote by `CY`:
 ```dhall
@@ -19134,17 +19066,19 @@ let toCY : ∀(F : Type → Type) → ∀(G : Type → Type) → Functor G → G
           let c2r : C → R = λ(c : C) → c R frr
           in functorG.fmap C R c2r gc
 ```
-For brevity, we will write `C` instead of `LFix F` to denote that Church-encoded recursive type.
+For brevity, we will write `C` instead of `LFix F`.
 
 It remains to prove the two directions of the isomorphism roundtrip (applying `fromCY` after `toCY`, or applying `toCY` after `fromCY`):
 
 (1) For any `gc : G C`, we need to show that:
-
-`fromCY F functorF G (toCY F G functorG gc) ≡ gc`
+```haskell
+fromCY F functorF G (toCY F G functorG gc) ≡ gc
+```
 
 (2) For any `cy : CY F G`, we need to show that:
-
-`toCY F G functorG (fromCY F functorF G cy) ≡ cy`
+```haskell
+toCY F G functorG (fromCY F functorF G cy) ≡ cy
+```
 
 To prove item (1), we begin by substituting the definitions of `fromCY` and `toCY` into the left-hand side:
 
@@ -19158,7 +19092,7 @@ fromCY F functorF G (toCY F G functorG gc)
 
 The last application of `fmap` is to a function of type `C → C` defined by `λ(c : C) → c C (fix F functorF)`.
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
-(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the section "Church encodings of least fixpoints: Proofs".)
+(That property is proved in the paper "Recursive types for free", and also in this Appendix as "Statement 3" in the section "Church encodings of least fixpoints".)
 
 So, the function `λ(c : C) → c C (fix F functorF)` is actually an _identity function_ of type `C → C`.
 Applying `fmap` to an identity function gives again an identity function.
@@ -19212,9 +19146,9 @@ Compare the last expression in our derivation with this law and read off the req
 ```
 This will finish the proof of item (2) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -19239,7 +19173,7 @@ let packP : ∀(T : Type) → P T → ExistsP
   = λ(T : Type) → λ(pt : P T) →
       λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt
 ```
-and
+
 ```dhall
 let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → ExistsP → R
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : ExistsP) →
@@ -19363,33 +19297,33 @@ This completes the proof that `ep ExistsP packP U u ≡ ep U u`.
 
 To simplify the code, we still keep `P` fixed in this section and use the definitions `ExistsP`, `packP`, and `unpackP` shown before.
 
-We will now show that the functions `unpackP R` and `outE R` defined in section "Functions of existential types" are inverses of each other (when the type `R` is kept fixed).
+We will now show that the functions `unpackP R` and `outEP R` defined in section "The function extension rule for existential types" are inverses of each other (when the type `R` is kept fixed).
 This will prove the **function extension rule** for existential types,
 which claims an isomorphism between types `ExistsP → R` and `∀(T : Type) → P T → R`.
-The functions `unpackP R` and `outE R` are the two directions of the isomorphism.
+The functions `unpackP R` and `outEP R` are the two directions of the isomorphism.
 
-Begin the proof by recalling the definitions of `unpackP` and `outE`:
+Begin the proof by recalling the definitions of `unpackP` and `outEP`:
 
 ```dhall
 let unpackP : ∀(R : Type) → (∀(T : Type) → P T → R) → Exists P → R
   = λ(R : Type) → λ(unpack_ : ∀(T : Type) → P T → R) → λ(ep : Exists P) →
     ep R unpack_
 
-let outE : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
+let outEP : ∀(R : Type) → (Exists P → R) → ∀(T : Type) → P T → R
   = λ(R : Type) → λ(consume : Exists P → R) → λ(T : Type) → λ(pt : P T) →
     let ep : Exists P = pack P T pt
     in consume ep
 ```
 
-To verify that the functions `unpackP R` and `outE R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
+To verify that the functions `unpackP R` and `outEP R` are inverses of each other, we need to show that the compositions of these functions in both directions are identity functions.
 
-The first direction is when we apply `unpackP R` and then `outE R`.
-Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outE R`:
+The first direction is when we apply `unpackP R` and then `outEP R`.
+Take an arbitrary `k : ∀(T : Type) → P T → R` and first apply `unpackP R` to it, then `outEP R`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k)                 -- Use the definition of unpackP:
-  ≡  outE R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outE:
+outEP R (unpackP R k)                    -- Use the definition of unpackP:
+  ≡  outEP R (λ(ep : ExistsP) → ep R k)   -- Use the definition of outEP:
   ≡  λ(T : Type) → λ(pt : P T) → (λ(ep : ExistsP) → ep R k) (packP T)
 ```
 
@@ -19400,7 +19334,7 @@ The result should be equal to `k T pt`:
 
 ```dhall
 -- Symbolic derivation.
-outE R (unpackP R k) T pt
+outEP R (unpackP R k) T pt
   ≡  (λ(ep : ExistsP) → ep R k) (packP T)
   ≡  (packP T) R k  -- Use the definition of packP:
   ≡  (λ(R : Type) → λ(pack_ : ∀(T_ : Type) → P T_ → R) → pack_ T pt) R k
@@ -19409,14 +19343,14 @@ outE R (unpackP R k) T pt
 
 This proves the first direction of the isomorphism.
 
-The other direction is when we first apply `outE` and then `unpackP`.
-It will be more convenient to denote the fixed type by `S` in this derivation (because we will need to apply the naturality law of `ep`, and the type parameter denoted by `R` is already used in that law).
+The other direction is when we first apply `outEP` and then `unpackP`.
+It will be more convenient to denote the fixed type by `S` in this derivation (because we will need to apply the naturality law of `ep`, and a type parameter denoted by `R` is already used in that law).
 
-Take an arbitrary value `consume : ExistsP → S` and first apply `outE S` to it, then `unpackP S`:
+Take an arbitrary value `consume : ExistsP → S` and first apply `outEP S` to it, then apply `unpackP S`:
 
 ```dhall
 -- Symbolic derivation.
-unpackP S (outE S consume)
+unpackP S (outEP S consume)
   ≡  unpackP S (λ(T : Type) → λ(pt : P T) → consume (packP T))
   ≡  λ(ep : ExistsP) → ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
@@ -19424,11 +19358,11 @@ unpackP S (outE S consume)
 The result is a function of type `ExistsP → S`.
 We need to show that this function is equal to `consume`.
 
-Apply that function to an arbitrary value `ep : ExistsP`:
+Apply that function to an arbitrary value `ep : ExistsP` and get:
 
 ```dhall
 -- Symbolic derivation.
-unpackP S (outE S consume) ep
+unpackP S (outEP S consume) ep
   ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T))
 ```
 
@@ -19460,11 +19394,10 @@ ep ExistsP packP  ≡  ep
 ```
 
 It follows that `consume (ep ExistsP packP) ≡ consume ep`.
-
 Then we get:
-
-`consume ep  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))`
-
+```haskell
+consume ep  ≡  ep S (λ(T : Type) → λ(pt : P T) → consume (packP T pt))
+```
 This concludes the proof.
 
 ### Existential types: Wadler's "surjective pairing rule"
@@ -19472,10 +19405,11 @@ This concludes the proof.
 The paper "Recursive types for free" mentions a "surjective pairing rule" that we will now formulate and prove for existential types of the form `ExistsP`:
 
 For any value `ep : ExistsP`, any type `S`, and any function `h : ExistsP → S`, the following equation holds:
+```haskell
+h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))
+```
 
-`h ep = ep S (λ(T : Type) → λ(pt : P T) → h (packP T pt))`
-
-Proof: After setting `h = consume`, this equation is the same as the last line in the proof in the previous section.
+To prove this, we just  notice that the equation above is the same as the last line in the proof in the previous section except for renaming `h = consume`.
 
 This property allows us to express a function application `h ep` through an application of `h` to a value explicitly constructed via `packP`.
 
@@ -19495,15 +19429,14 @@ ExistsP      -- Wadler's existential type ∃X. P X
 packP X y    -- Wadler's constructor: (X, y)
 t W (λ(T : Type) → λ(pt : P T) → w)  -- Wadler's eliminator: (case t of {(X, y) → w}) : W
 ```
-
 With this notation, consider Wadler's "surjective pairing rule", which he writes as:
-
-`h t == case t of {(X, y) → h(X, y)}`
-
+```haskell
+h t == case t of {(X, y) → h(X, y)}
+```
 This is translated into Dhall as:
-
-`h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))`
-
+```haskell
+h t ≡ t S (λ(X : Type) → λ(y : P X) → h (packP X y))
+```
 After renaming `t = ep`, this is the same equation we proved above.
 
 ### Church encodings of greatest fixpoints
@@ -19523,10 +19456,9 @@ let functorF : Functor Optional = { fmap = Optional/map }
 ```
 
 To make the derivations shorter, we will consider `F` as a fixed functor and denote `fixf = fixG F functorF` and `unfixf = unfixG F functorF`.
-(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism", chapter "Encoding of greatest fixpoints".)
+(The functions `fixG` and `unfixG` were defined in the section "The fixpoint isomorphism for greatest fixpoints", chapter "Encoding of greatest fixpoints".)
 We can then simplify the code of those functions, assuming that `F` and `functorF` are given and fixed.
-We will also denote the type `GFix F` simply by `G`.
-We will then transform the type signatures to use curried arguments, eliminating the record type `{ seed : t, step : t → F t }`.
+We will also denote the type `GFix F` simply by `G` and curry   the type signatures, eliminating the record type `{ seed : t, step : t → F t }`.
 
 Here is a summary of the resulting definitions:
 
@@ -19554,11 +19486,12 @@ if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y
 ###### Statement 1 (extensional surjectivity of `unfold`)
 
 For any value `g : G`, for any type `S`, for any function `h : G → S`, we will have:
-
-`h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))`
+```haskell
+h g = g S (λ(R : Type) → λ(cR : R → F R) → λ(x : R) → h (unfold R cR x))
+```
 
 The name "extensional surjectivity" is used here to make it clear that we are not proving the ordinary surjectivity for `unfold`.
-The ordinary meaning of surjectivity for `unfold` would hold if any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
+The ordinary meaning of surjectivity for `unfold` would be that any value `g : G` can be expressed as `g = unfold R cR x` with a suitable type `R` and suitable values `cR : R → F R` and `x : R`.
 We are not able to prove that here.
 
 Instead, this statement claims a weaker property: for any function `h : G → S`, the function application `h g` can be computed if we know how to compute the function application `h (unfold R cR x)` for arbitrary types `R` and arbitrary values `cR : R → F R` and `x : R`.
@@ -19569,31 +19502,30 @@ Instead, this statement claims a weaker property: for any function `h : G → S`
 Apply Wadler's "surjective pairing rule" to the type `GFix F` and obtain the following property:
 
 For any `t : GFix F`, for any type `S`, for any `h : GFix F → S`, we have:
-
-`h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))`
-
+```haskell
+h t ≡ t S (λ(X : Type) → λ(y : { step : X → F X, seed : X }) → h (pack (GF_T F) X y))
+```
 Now we pass from `GFix F` to the equivalent type `G` and from `pack` to the equivalent function `unfold` by currying the arguments.
 Then we will obtain directly the equation we need for the extensional surjectivity of `unfold`.
 
 ###### Statement 2
 
 Given any type `R` and any function `rfr : R → F R`, define the function `r2g` by:
-
-`let r2g : R → G = λ(x : R) → unfold R rfr x`
-
+```haskell
+let r2g : R → G = λ(x : R) → unfold R rfr x
+```
 or more concisely:
-
-`let r2g : R → G = unfold R rfr`
-
+```haskell
+let r2g : R → G = unfold R rfr
+```
 Then the function `r2g` satisfies the following law: for any `r : R`,
-
-`unfixf (r2g r) ≡ functorF.fmap R G r2g (rfr r)`
-
+```haskell
+unfixf (r2g r) ≡ functorF.fmap R G r2g (rfr r)
+```
 or equivalently:
-
-`unfixf (unfold R rfr r) ≡ functorF.fmap R G (unfold R rfr) (rfr r)`
-
-
+```haskell
+unfixf (unfold R rfr r) ≡ functorF.fmap R G (unfold R rfr) (rfr r)
+```
 In category theory, that law is known as the "$F$-coalgebra morphism law".
 Functions that satisfy that law are called **$F$-coalgebra morphisms**.
 
@@ -19605,7 +19537,7 @@ Begin with the expression `unfixf (unfold R rfr r)`:
 
 ```dhall
 -- Symbolic derivation.
-unfixf (unfold R rfr r)              -- Use definition of unfixf:
+unfixf (unfold R rfr r)             -- Use definition of unfixf:
  ≡ unfold R rfr r (F G) unfoldF    -- Use definition of unfold:
  ≡ unfoldF R rfr r                 -- Use definition of unfoldF:
  ≡ functorF.fmap R G (λ(x : R) → unfold R rfr x) (rfr r)
@@ -19625,13 +19557,13 @@ The construction in Statement 2 may be used with `R = G` and `rfr = unfixf`.
 Then the corresponding function `r2g` will be an identity function of type `G → G`,
 as long as `unfold` satisfies its relational naturality law.
 We can write that property as:
-
-`unfold G unfixf ≡ identity G`
-
+```haskell
+unfold G unfixf ≡ identity G
+```
 In other words, for any value `g : G` we will have:
-
-`g ≡ unfold G unfixf g`
-
+```haskell
+g ≡ unfold G unfixf g
+```
 
 ####### Proof
 
@@ -19643,30 +19575,29 @@ If `unfixf (unfold R cR x) ≡ functorF.fmap R G (unfold R cR) (cR x)` for all `
 
 The precondition holds by Statement 2.
 So, we have for all `y : R`:
-
-`unfold R cR y ≡ unfold G unfixf (unfold R cR y) ≡ v (unfold R cR y)`
-
+```haskell
+unfold R cR y ≡ unfold G unfixf (unfold R cR y) ≡ v (unfold R cR y)
+```
 This is close to what we need: this equation says `k == v k` for `k = unfold R cR y`.
 But we need to show `g ≡ v g` for arbitrary `g : G`.
 
 To get around this difficulty, we use Statement 1 with `h = identity G` and get:
-
-`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)`
-
+```haskell
+g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → unfold R cR y)
+```
 Now substitute what we already derived:
-
-`unfold R cR y ≡ v (unfold R cR y)`
-
+```haskell
+unfold R cR y ≡ v (unfold R cR y)
+```
 and get:
-
-`g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))`
-
+```haskell
+g ≡ g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
+```
  Again use Statement 1, this time with `h = v` and `g = unfold R cR y`, to get:
 
 ```dhall
 -- Symbolic derivation.
-g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))
-  ≡ v g
+g G (λ(R : Type) → λ(cR : R → F R) → λ(y : R) → v (unfold R cR y))  ≡  v g
 ```
 
 So, we obtain `g ≡ v g` as required.
@@ -19680,16 +19611,15 @@ For a fixed functor `F`, the functions `fixf : F G → G` and `unfixf : G → F 
 
 We need to prove two directions of the isomorphism round-trip:
 
-(1) For any `g : G` we will have `fixf (unfixf g) ≡ g`
+(1) For any `g : G` we will have `fixf (unfixf g) ≡ g`.
 
-(2) For any `fg : F G` we will have `unfixf (fixf fg) ≡ fg`
+(2) For any `fg : F G` we will have `unfixf (fixf fg) ≡ fg`.
 
 To prove item (1), we write out the left-hand side of its equation:
 
 ```dhall
 -- Symbolic derivation. Expect this to equal just `g`.
-fixf (unfixf g)
-  ≡ unfold (F G) fmap_unfixf (unfixf g)
+fixf (unfixf g)  ≡   unfold (F G) fmap_unfixf (unfixf g)
 ```
 
 Then we use the relational naturality law of `unfold` with `R = G`, `S = F G`, `f = unfixf`, `cR = unfixf`, and `cS = fmap_unfixf`.
@@ -19698,14 +19628,14 @@ The precondition of the relational naturality law becomes:
 if `cS (f x) ≡ functorF.fmap R S f (cR x)` for all `x : R` then `unfold R cR y ≡ unfold S cS (f y)` for all `y : R`.
 
 Substituting the definitions of `cR` and `cS`, we get:
-
-`fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x)`
-
-This condition holds by definition of `fmap_unfixf`.
-So, the conclusion of the law also holds: for all `g : G`,
-
-`unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)`
-
+```haskell
+fmap_unfixf (unfixf x) ≡ functorF.fmap G (F G) unfixf (unfixf x)
+```
+This   holds by definition of `fmap_unfixf`.
+So, the precondition of the law holds, and then the conclusion of the law also holds: for all `g : G`,
+```haskell
+unfold G unfixf g ≡ unfold (F G) fmap_unfixf (unfixf g)
+```
 The right-hand side is the same as the expression we got after expanding `fixf` in `fixf (unfixf g)`.
 So, we continue our derivation:
 
@@ -19731,18 +19661,18 @@ unfixf (fixf fg)   -- Use the definition of unfixf:
 ```
 
 At this point, recognize that `unfold (F G) fmap_unfixf` is just `fixf` and simplify the last line to:
-
-`functorF.fmap (F G) G fixf (fmap_unfixf fg)`
-
+```haskell
+functorF.fmap (F G) G fixf (fmap_unfixf fg)
+```
 The last expression is the same as `fmap fixf` applied to `fmap unfixf fg`.
 By `fmap`'s composition law, we have `fmap fixf . fmap unfixf ≡ fmap (fixf . unfixf)`.
 We already proved in item (1) that the composition `fixf . unfixf` is an identity function (`fixf (unfixf g) == g`).
 Applying `functorF.fmap` to an identity function of type `G → G` gives an identity function of type `F G → F G`.
 So, the last expression is an identity function applied to `fg`, and the result is just `fg`:
-
-`functorF.fmap (F G) G fixf (fmap_unfixf fg) ≡ fg`
-
-This is what remained to be proved for item (2). $\square$
+```haskell
+functorF.fmap (F G) G fixf (fmap_unfixf fg) ≡ fg
+```
+This is what remained to be proved for item (2).
 
 ###### Statement 5
 
@@ -19755,19 +19685,20 @@ Let `f : R → G` be any function that satisfies the $F$-coalgebra morphism law.
 We need to show that `f` is then equal to `r2g` (which is defined as `unfold R rfr`).
 
 The $F$-coalgebra morphism law of `f` says that, for any `x : R`,
-
-`unfixf (f x) ≡ functorF.fmap R G f (rfr x)`
-
+```haskell
+unfixf (f x) ≡ functorF.fmap R G f (rfr x)
+```
 This equation is the same as the precondition of the relational naturality law of `unfold` with `S = G`, `cR = rfr`, and `cS = unfixf`.
 So, the conclusion of that law holds: for any `x : R`,
-
-`unfold R rfr x ≡ unfold G unfixf (f x)`
+```haskell
+unfold R rfr x ≡ unfold G unfixf (f x)
+```
 
 By Statement 3, we have `g ≡ unfold G unfixf g` for any `g : G`.
 Use that property for `g = f x` and obtain:
-
-`unfold R rfr x ≡ unfold G unfixf g ≡ g ≡ f x`
-
+```haskell
+unfold R rfr x ≡ unfold G unfixf g ≡ g ≡ f x
+```
 The left-hand side is exactly the function `r2g` from Statement 2.
 So, we have proved that `r2g x ≡ f x`. The function `f` is the same as `r2g`.
 
@@ -19777,7 +19708,7 @@ So, we have proved that `r2g x ≡ f x`. The function `f` is the same as `r2g`.
 The following identity holds for all covariant functors `F` and `K`:
 
 ```dhall
--- Mathematical notation:  K (GFix F) ≅ ∃ A. (K A) × (A → F A)
+-- Mathematical notation:  K (νF) ≅ ∃ A. (K A) × (A → F A)
 K (GFix F)  ≅  Exists (λ(A : Type) → { seed : K A, step : A → F A })
 ```
 
@@ -19786,8 +19717,8 @@ We call this identity the **Church-co-Yoneda identity**.
 
 For that identity to hold, we need the following requirements:
 
-- both `F` and `K` must be lawful covariant functors (with `Functor` typeclass evidence values satisfying the functor laws)
-- parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions
+- Both `F` and `K` must be lawful functors (with `Functor` typeclass evidence values satisfying the functor laws).
+- Parametricity assumptions (equivalently, the relational naturality laws) must hold for all functions.
 
 Denote for brevity:
 
@@ -19806,24 +19737,22 @@ let CCoY = ∀(R : Type) → (∀(T : Type) → (T → F T) → K T → R) → R
 ```
 
 To prove the Church-co-Yoneda identity, we begin by implementing the two directions of the isomorphism:
+```haskell
+fromCCoY : CCoY → K G
+toCCoy : K G → CCoY
+```
 
-`fromCCoY : CCoY → K G`
-
-and
-
-`toCCoy : K G → CCoY`
-
-The function type `CCoY → K G` can be simplified using the function extension rule for existential types:
-
-`CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G`
-
+The function type `CCoY → K G` can be simplified using the function extension rule for existential types (see section "The function extension rule for existential types"):
+```haskell
+CCoY → K G  ≅  ∀(T : Type) → (T → F T) → K T → K G
+```
 Then we notice the similarity between the last type and the type of `unfold`:
-
-`unfold : ∀(T : Type) → (T → F T) → T → G`
-
+```haskell
+unfold : ∀(T : Type) → (T → F T) → T → G
+```
 The difference is only in a replacement of `T → G` by `K T → K G`.
 We can implement that replacement via `fmap_K`.
-Now we can write the code for the function `fromCCoY` as:
+Now we can write the code for the function `fromCCoY`:
 
 ```dhall
 let fromCCoY : CCoY → K G
@@ -19833,7 +19762,7 @@ let fromCCoY : CCoY → K G
     )
 ```
 
-Let us define a type alias (`PackKTo`) for a type expression that we will be using often:
+Let us define a type alias (`PackKTo`) for a type expression that we will often use:
 
 ```dhall
 let PackKTo = λ(A : Type) → ∀(T : Type) → (T → F T) → K T → A
@@ -19851,9 +19780,9 @@ let toCCoY : K G → ∀(R : Type) → (PackKTo R) → R
 It remains to show that `fromCCoY` and `toCCoY` are inverses to each other.
 We need to prove the two directions of the isomorphism round-trip:
 
-(1) For any `kg : K G` we have `kg ≡ fromCCoY (toCCoY kg)`
+(1) For any `kg : K G` we will have `kg ≡ fromCCoY (toCCoY kg)`.
 
-(2) For any `c : CCoY` we have `c ≡ toCCoY (fromCCoY c)`
+(2) For any `c : CCoY` we will have `c ≡ toCCoY (fromCCoY c)`.
 
 To prove item (1):
 
@@ -19901,32 +19830,32 @@ At this point, we need to use some laws that hold due to parametricity assumptio
 
 The first required law is the naturality law for values `c : CCoY`.
 That law says that for any types `Q`, `S`, for any function `f : Q → S`, for any value `q : ∀(T : Type) → (T → F T) → K T → Q`:
-
-`f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))`
-
+```haskell
+f (c Q q) = c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
+```
 Apply that law to the last expression, setting `Q = K G`, `S = R`, `f = p G unfixf`, and
 `q = λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)`.
 Then we get:
 
 ```dhall
 -- Symbolic derivation.
-p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT)
+p G unfixf (c (K G) (λ(T : Type) → λ(cT : T → F T) → fmap_K T G (unfold T cT))
   ≡ f (c Q q)
   ≡ c S (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → f (q T cT kt))
   ≡ c R (λ(T : Type) → λ(cT : T → F T) → λ(kt : K T) → p G unfixf (fmap_K T G (unfold T cT) kt))
 ```
 
-The next step is to simplify the sub-expression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
+The next step is to simplify the subexpression `p G unfixf (fmap_K T G (unfold T cT) kt)`.
 For that, we use the strong dinaturality law for values `p : PackKTo R`.
 That law says: for any types `T`, `U`, for any values `h : T → U`, `kt : K T`, `cT : T → F T`, and `cU : U → F U`, if the precondition holds:
-
-`fmap_F T U h (cT x) ≡ cU (h x)` for all `x : T`,
-
+```haskell
+fmap_F T U h (cT x) ≡ cU (h x)` for all `x : T
+```
 then the conclusion holds:
-
-`p T cT kt ≡ p U cU (fmap_K T U h kt)`
-
-We need to set the parameters in the law to match the right-hand side of the last equation:
+```haskell
+p T cT kt ≡ p U cU (fmap_K T U h kt)
+```
+Set the parameters in the law to match the right-hand side of the last equation:
 
 
 ```dhall
@@ -19945,9 +19874,9 @@ p G unfixf (fmap_K T G (unfold T cT) kt)
   ≡ p T cT kt
 ```
 as long as the precondition of the law holds:
-
-`fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)`
-
+```haskell
+fmap_F T G (unfold T cT) (cT x) ≡ unfixf (unfold T cT x)
+```
 This equation (after setting `R = T` and `rfr = cT`) was derived in Statement 2 in the section "Church encodings of greatest fixpoints".
 
 This allows us to complete the proof of item 2:
@@ -19980,7 +19909,6 @@ In this section we will use them to prove the property known as the **unrolling 
 A recursive type defined via `T = F T` can be visualized as the type expression `F (F (F (...))` with an "infinitely unrolled" application of the functor `F`.
 Of course, this infinite type expression is not rigorously defined and cannot be used in proofs.
 Nevertheless, many properties of recursive types become more clear with this visualization.
-
 An example is the recursive type defined by `T = F (G T)` where `F` and `G` are two given functors:
 
 ```dhall
@@ -19994,7 +19922,6 @@ The unrolled type expression for `U` also suggests that `U = G T`.
 
 It turns out that the type isomorphisms `T ≅ F U` and `U ≅ G T` may be derived rigorously; this is known as the "unrolling lemma".
 We will prove two versions of this property: for the least fixpoints and for the greatest fixpoints.
-The fixpoints need to be Church-encoded, as required in Dhall.
 
 ###### Statement 1 (unrolling lemma for least fixpoints)
 
@@ -20096,6 +20023,7 @@ Types `T` and `U` are defined as solutions of two simultaneous equations.
 Solutions may be defined as least fixpoints or as greatest fixpoints of those equations, depending on what is necessary for the application code.
 
 In this section, we will prove the Church encoding formulas for the least and the greatest fixpoints.
+
 The least fixpoints are given by the following encodings:
 
 ```dhall
@@ -20132,9 +20060,9 @@ We will use the Church-Yoneda identity for the least fixpoints and the Church-co
 
 Begin by considering the left-hand side of the identity for the least fixpoints.
 Denote for brevity by `N x` the least fixpoint of `J x y` with respect to `y`:
-
-`N x = LFix (λ(y : Type) → J x y)`
-
+```haskell
+N x = LFix (λ(y : Type) → J x y)
+```
 Then the nested fixpoint can be written as:
 
 ```dhall
@@ -20184,9 +20112,9 @@ LFix (λ(x : Type) → N x)
 
 We use a similar argument for the greatest fixpoints.
 Denote for brevity by `N x` the greatest fixpoint of `J x y` with respect to `y`:
-
-`N x = GFix (λ(y : Type) → J x y) = GFix (J x)`
-
+```haskell
+N x = GFix (λ(y : Type) → J x y) = GFix (J x)
+```
 Then the nested fixpoint can be written as:
 
 ```dhall
@@ -20271,8 +20199,8 @@ U = GFix (λ(y : Type) → G T y)
 ```
 
 We would like to derive a fixpoint equation for `T` alone, instead of having two mutually dependent equations.
-We notice that the last equation expresses `U` via `T`.
-It will be convenient to write that expression as `U = H T` where the functor `H` is defined by:
+Note that the last equation expresses `U` via `T`.
+It will be convenient to write that expression as `U = H T` where we define  `H`  by:
 
 ```dhall
 let H = λ(x : Type) → GFix (λ(y : Type) → G x y)
@@ -20348,9 +20276,9 @@ let T = Exists (λ(x : Type) → { seed : x, step : x → F x (GFix (G x)) })
 ```
 
 The Church-co-Yoneda identity says that, for any functors `P` and `Q`,
-
-`P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })`
-
+```haskell
+P (GFix Q)  ≅  Exists (λ(A : Type) → { seed : P A, step : A → Q A })
+```
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = { seed : x, step : x → F x a }` and `Q a = G x a`.
 With these definitions, `P` and `Q` are covariant functors.
 Then we may use the Church-co-Yoneda identity to obtain:
@@ -20409,7 +20337,6 @@ namely, `T` has the form `T = ∀x( ... F x (∀y ...))`.
 Our goal is to derive the type formula we started with:
 
 ```dhall
--- For the least fixpoints:
 let T = ∀(a : Type) → ∀(b : Type) → (F a b → a) → (G a b → b) → a
 ```
 This formula is simpler because all type quantifiers are outside.
@@ -20424,9 +20351,9 @@ let T = ∀(x : Type) → (F x (LFix (G x)) → x) → x
 ```
 
 The Church-Yoneda identity says that, for any functors `P` and `Q`:
-
-`P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y`
-
+```haskell
+P (LFix Q)  ≅  ∀(y : Type) → (Q y → y) → P y
+```
 The left-hand side of this formula will match the type expression for `T` if we consider `x` to be a fixed type and set `P a = (F x a → x) → x` and `Q a = G x a`.
 Defined in that way, both `P` and `Q` are covariant functors.
 Then we may apply the Church-Yoneda identity to obtain:
@@ -20450,10 +20377,8 @@ This concludes the proof for the least fixpoints.
 ### Summary of type equivalence identities
 
 Here are some of the type identities we have proved in this Appendix.
-
 All those identities hold under assumptions of parametricity.
-
-We show the identities both in the Dhall syntax and in a standard mathematical notation.
+We write the identities both in the Dhall syntax and in a   mathematical notation.
 
 Function extension rule (for any type constructor `P`):
 
@@ -20468,8 +20393,7 @@ The "nested fixpoint lemma" (for any covariant bifunctor `J`):
 LFix(λ(x : Type) → LFix(λ(y : Type) → J x y))  ≅  LFix(λ(x : Type) → J x x)
 GFix(λ(x : Type) → GFix(λ(y : Type) → J x y))  ≅  GFix(λ(x : Type) → J x x)
 ```
-$$ \mu x.~\mu y.~J~x~y \cong \mu x.~J~x~x $$
-$$ \nu x.~\nu y.~J~x~y \cong \nu x.~J~x~x $$
+$$ \mu x.~\mu y.~J~x~y \cong \mu x.~J~x~x  \qquad , \qquad \nu x.~\nu y.~J~x~y \cong \nu x.~J~x~x $$
 
 Yoneda identity (for a covariant functor `Q`):
 
@@ -20495,9 +20419,9 @@ $$ \forall x.~(P~x \to x)\to x \cong \mu x.~P~x $$
 Existence of least fixpoints:
 
 ```dhall
-LFix P  ≅  <>  {- if and only if: -} P <>  ≅  <>
+LFix F  ≅  <>  {- if and only if: -} F <>  ≅  <>
 ```
-$$ \forall x.~(P~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  P ~0 \cong 0 $$
+$$ \forall x.~(F~x \to x)\to x \cong 0  ~~\Leftrightarrow~~  F ~0 \cong 0 $$
 
 Church encodings of mutually recursive least fixpoints (for covariant bifunctors `F`, `G`):
 
@@ -20557,7 +20481,6 @@ $$ \exists a.~Q~a \times (a\to P~a) \cong Q (\nu x.~P~x) $$
 
 The "unrolling" lemma: if `T` is a fixpoint of `T = F (G T)` then `T ≅ F U` where `U` is a fixpoint of `U = G (F U)`.
 This holds for both least fixpoints and greatest fixpoints.
-
 $$ \mu x.~F~ (G~ x) \cong F (\mu y.~G~(F y)) $$
 $$ \nu x.~F~ (G~ x) \cong F (\nu y.~G~(F y)) $$
 
@@ -20571,16 +20494,15 @@ This code defines and uses common types such as `Either` and `Pair`, combinators
 The typechecked code includes example calculations and validations, asserting that all result values are as expected.
 
 The second kind of examples are purely illustrative code fragments that are, as a rule, not valid when taken literally as Dhall programs, because they are incomplete or contain invalid Dhall symbols such as `???` or `≅`.
-These code fragments show steps in derivations or equations that are written out.
-They are not intended as executable Dhall code.
+These code fragments show steps in derivations or equations and are not intended as executable Dhall code.
 
-The script `convertMd.sh` extracts the Dhall code from the source Markdown file and removes the purely illustrative examples from the extracted code.
+The script `convertMd.sh` extracts the Dhall code from the source Markdown file but detects and omits all purely illustrative fragments from the extracted code.
 The rest goes into the file `generated.dhall` and will be typechecked and evaluated.
 
 All parts of typechecked code must have the form of `let` expressions.
 Because of this, all earlier  definitions are automatically available for later code.
 
-To make the typechecked code complete, the following code is appended:
+To make the typechecked code complete, the following line is appended:
 
 ```dhall
 in "Example code from the book was evaluated successfully."

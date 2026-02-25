@@ -260,12 +260,40 @@ def toLatex: Markdown => String = {
   case Markdown.BlankLine => "\n"
 }
 
+val hardcodedReplacements : String => String = { (source : String) =>
+  Seq(
+    "\\$x0\\$" -> "\\$x_0\\$",
+    "(\\\\log)\\{(.*)\\} " -> "$1 _{$2} ",
+    "[tT]he +chapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "[cC]hapter +\"([^\"]+)\"" -> "Chapter \\\\ref{$1}",
+    "[tT]he [Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "[Aa]ppendix +\"([^\"]+)\"" -> "Appendix \\\\ref{$1}",
+    "[sS]ection \"([^\"]+)\"" -> "Section \\\\ref{$1}",
+    "[tT]he +section \"([^\"]+)\"" -> "Section \\\\ref{$1}",
+    "[tT]he +subsection \"([^\"]+)\"" -> "Subsection \\\\ref{$1}",
+    "(\\\\label\\{)Appendix: " -> "$1",
+   // "'s" -> "\\\\textsf{'}s", // Leads to junk before page 0 of the book.
+   // "O'" -> "O\\\\textsf{'}",
+   // "s'" -> "s\\\\textsf{'}",
+    //"``" -> "\\\\textsf{``}",
+    "“" -> "\\textsf{``}",
+    //"''" -> "\\\\textsf{''}",
+    "”" -> "\\\\textsf{''}",
+    //"\\\\textsf\\{'\\}'" -> "\\\\textsf{''}",
+    //"\"([a-zA-Z])" -> "\\\\textsf{``}$1",
+    // "([a-zA-Z])\"" -> "$\\\\textsf{``}",
+  ).foldLeft(source) { case (prev, (from, to)) => prev.replaceAll(from, to) }
+}
+
+
+
+
 @main
 def main(code: Boolean, preludePath: String): Unit =
   val result: Seq[Markdown] = parse(System.in, markdown(using _)).get.value
   // The syntax `using _` was suggested as a workaround in https://github.com/scala/scala3/issues/19872
 
-  val convert = if code then toDhall(preludePath) else toLatex
+  val convert = if code then toDhall(preludePath) else (toLatex andThen hardcodedReplacements)
   val sep = if code then "" else "\n"
   
   println(result.map(convert).mkString(sep))

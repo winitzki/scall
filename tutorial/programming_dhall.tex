@@ -148,6 +148,7 @@
         {ä}{{\"a}}1
         {ö}{{\"o}}1
         {λ}{{\textgreek{l}}}1
+        {ν}{{\textgreek{n}}}1
         {Λ}{{\textgreek{L}}}1
         {→}{{$\to$}}1
         {∀}{{$\mathrm{\forall}$}}1
@@ -173,12 +174,13 @@
     \author{by Sergei Winitzki, Ph.D.}
     \date{Version of \today}
     \publishers{Published by\textbf{ \href{http://lulu.com}{lulu.com}} in 2026}
+    \include{titleback}
     \maketitle
     \frontmatter\pagenumbering{roman}
     \tableofcontents{}
     \setcounter{chapter}{-1}
     \mainmatter\pagenumbering{arabic}
     \global\long\def\bbnum#1{\custombb{#1}}%
-    \input{generated} % The file `generated.tex` is produced by running `convertMd.scala` on `programming_dhall.md`.
+    \input{generated} % The file `generated.tex` is produced by running `convertMd.sh` from `programming_dhall.md`.
     \printindex{}
 \end{document}
