@@ -18160,12 +18160,12 @@ Examples are functions like `List/head`, `Optional/concat`, and many others.
 ```
 In the last example, the type signature of `Optional/concat` is of the form `∀(A : Type) → F A → G A` if we define the type constructor `F` as `F A = Optional (Optional A)` and set `G = Optional`.
 
-A function of type `∀(A : Type) → F A → G A` is called a **natural transformation** when both `F` and `G` are covariant functors or when both are contravariant functors, provided that the function satisfies the appropriate naturality law (see the next subsection below).
+A function of type `∀(A : Type) → F A → G A` is called a **natural transformation** when both `F` and `G` are covariant functors or when both are contravariant functors, provided that the function satisfies the appropriate naturality law (see the next subsection).
 
 
 If a function has several type parameters, it may be a natural transformation separately with respect to some (or all) of the type parameters.
 
-To see how it works, consider the method `List/map` that has the following type:
+As an example, consider the method `List/map` that has the following type:
 
 ```dhall
 let List/map : ∀(A : Type) → ∀(B : Type) → (A → B) → List A → List B = ???
@@ -18186,9 +18186,9 @@ So, `List/map` is a (covariant) natural transformation with respect to the type 
 Suppose both `F` and `G` are covariant functors, and consider a natural transformation `t : ∀(A : Type) → F A → G A`.
 
 Often, a covariant functor represents a generic data structure such that `F A` is a type that can store data of an arbitrary type `A`.
-One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow arranges for (some of) the same data to be stored in `G A`.
+One expects that a natural transformation `t` takes some of the data of type `A` stored in `F A` and somehow rearranges   (some of) the same data to be stored in `G A`.
 
-The function `t` must implement an algorithm that works in the same way for all types `A` and for all values of those types.
+The function `t` must implement a "rearrangement" algorithm that works in the same way for all types `A` and for all values of those types.
 The code of `t` cannot make any algorithmic decisions either based on specific values `x : A` stored in `F A`, or based on the type `A` itself.
 The function `t` may omit, duplicate, or reorder some data items, but no data may be changed, and no new data may be added.
 This is because the function `t` does not know anything about the type `A` and so cannot compute any new values of type `A`.
@@ -18294,7 +18294,8 @@ For natural transformations (functions of type `∀(A : Type) → F A → G A`),
 So, the parametricity theorem guarantees that all Dhall functions of type `∀(A : Type) → F A → G A` are natural transformations obeying the naturality law, as long as the type constructors `F` and `G` are both covariant or both contravariant.
 
 For functions of more complicated type signatures, naturality laws do not apply.
-The parametricity theorem gives a law of a more complicated form than a naturality law.
+The parametricity theorem gives instead a law (a "free theorem") of a more complicated form than a naturality law.
+We will call that law a **relational naturality law**.
 
 An example of such a law is for functions with type signatures `∀(A : Type) → (F A → G A) → H A`, where `F`, `G`, and `H` are arbitrary covariant type constructors.
 This is not a type signature of a natural transformation because it _cannot_ be rewritten in the form `∀(A : Type) → K A → L A` where `K` and `L` are either both covariant or both contravariant.
@@ -18310,15 +18311,16 @@ This equation is similar to a naturality law except for using two different func
 (If we set `p = q`, we would obtain the naturality law of `p`. However, that naturality law is not what is being required here.)
 
 Having defined the property of `f`-relatedness, we can finally formulate the law of `t` that follows from the parametricity theorem: For any `f`-related values `p` and `q`, the following equation must hold:
-
-`fmap_H A B f (t A p) ≡ t B q`
+```haskell
+fmap_H A B f (t A p) ≡ t B q
+```
 
 It is important to note that the property of being `f`-related is defined as a _many-to-many relation_ between the functions `f`, `p`, and `q`.
 Because of this complication, the law of `t` does not have the form of a single equation.
 The law says that the equation `fmap_H A B f (t A p) ≡ t B q` holds for all those `p` and `q` that are in a certain relation to each other and to `f`.
 
 That law of `t` is known as a **strong dinaturality law**.
-That law makes it easier to use the relational naturality law adapted to the type signature of `t`.
+It is   the relational naturality law adapted to the type signature of `t`.
 
 The strong dinaturality law can be written in Dhall syntax as:
 
@@ -18361,7 +18363,7 @@ This type equivalence holds under two assumptions:
 - `F` is a covariant functor with a lawful `fmap` method
 - all functions of the type `∀(B : Type) → (A → B) → F B` are natural transformations that satisfy the appropriate naturality law
 
-Because of automatic parametricity, the second assumption is always satisfied as long as we are considering functions implemented in Dhall.
+Because of the parametricity theorem, the second assumption is always satisfied as long as we are considering fully parametric code.
 
 The Yoneda identity shown above requires `F` to be a covariant functor.
 There is a corresponding Yoneda identity for contravariant functors ("contrafunctors") `C`:
@@ -18514,7 +18516,7 @@ Exists P  ≅  (∀(R : Type) → (∀(B : Type) → P B → R) → R)
 
 Both universal quantifiers (`∀(R : Type)` and `∀(B : Type)`) are used with function types of the form of natural transformations.
 So, we need to assume that all functions with type signatures `∀(B : Type) → P B → R` are natural transformations with respect to `B`, and all functions with type signatures `∀(R : Type) → (∀(B : Type) → P B → R) → R` are natural transformations with respect to `R`.
-These assumptions are satisfied automatically if we are working with functions implemented in Dhall.
+These assumptions are satisfied automatically if we are working with functions implemented via fully parametric code.
 
 Begin by considering the type `∀(B : Type) → P B → R`.
 We can rewrite that type equivalently in a curried form, replacing the record type `{ seed : F B, step : B → A }` by two curried arguments of types `F B` and `B → A`:
@@ -18605,13 +18607,13 @@ We will assume that (due to automatic parametricity) all values of type `C` obey
 ###### Statement 1
 
 For any type `R` and any function `frr : F R → R`, define the function `c2r : C → R` by:
-
-`let c2r : C → R = λ(c : C) → c R frr`
-
+```haskell
+let c2r : C → R = λ(c : C) → c R frr
+```
 Then the function `c2r` satisfies the law: for any value `fc : F C`,
-
-`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
-
+```haskell
+c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)
+```
 In category theory, that law is known as the "$F$-algebra morphism law".
 Functions that satisfy that law are called **$F$-algebra morphisms**.
 
@@ -18641,12 +18643,14 @@ The functions `fix F functorF : F C → C` and `unfix F functorF : C → F C` de
 We need to prove the two directions of the isomorphism:
 
 (1) For an arbitrary value `c : C`, show that:
-
-`fix F functorF (unfix F functorF c) ≡ c`
+```haskell
+fix F functorF (unfix F functorF c) ≡ c
+```
 
 (2) For an arbitrary value `p : F C`, show that:
-
-`unfix F functorF (fix F functorF p) ≡ p`
+```haskell
+unfix F functorF (fix F functorF p) ≡ p
+```
 
 To prove item (1), we note that both sides are functions of type `C`.
 Apply both sides to arbitrary arguments `R : Type` and `frr : F R → R` and substitute the definitions of `fix` and `unfix`:
@@ -18668,15 +18672,14 @@ unfix F functorF c = c (F C) fmap_fix
 ```
 
 The equation we are trying to prove then becomes:
-
-`frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr`
-
+```haskell
+frr (functorF.fmap C R c2r (c (F C) fmap_fix)) ≡ c R frr
+```
 By assumption, the value `c : C` satisfies the strong dinaturality law:
 
 
 ```dhall
--- Symbolic derivation. The strong dinaturality law of `c`:
-∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) →
+∀(c : C) → ∀(a : Type) → ∀(b : Type) → ∀(f : a → b) → ∀(p : F a → a) → ∀(q : F b → b) → -- Symbolic derivation.
 -- If p and q are f-related then f (c a p) ≡ c b q
    ∀(_ : ∀(x : F a) → f (p x) ≡ q (functorF.fmap a b f x)) →
      f (c a p) ≡ c b q
@@ -18697,9 +18700,9 @@ The last equation needs to match the equation we need to prove:
 ```
 This will finish the proof of item (1) as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -18729,17 +18732,17 @@ functorF.fmap (F C) R (λ(fc : F C) → c2r (fix F functorF fc)) x
   ≡ functorF.fmap (F C) R f x
 ```
 Both sides are now of the form `functorF.fmap (F C) R (...) x`. It remains to prove:
-
-`λ(fc : F C) → c2r (fix F functorF fc) ≡ f`
-
+```haskell
+λ(fc : F C) → c2r (fix F functorF fc) ≡ f
+```
 Substitute the definition of `f`:
-
-`f ≡ λ(fc : F C) → frr (functorF.fmap C R c2r fc)`
-
+```haskell
+f ≡ λ(fc : F C) → frr (functorF.fmap C R c2r fc)
+```
 Omit the common code `λ(fc : F C) → ...`, and it remains to prove that:
-
-`c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)`
-
+```haskell
+c2r (fix F functorF fc) ≡ frr (functorF.fmap C R c2r fc)
+```
 This holds by Statement 1. This concludes the proof of item (1).
 
 To prove item (2), we substitute the definitions of `fix` and `unfix`:
@@ -18755,9 +18758,9 @@ unfix F functorF (fix F functorF p)  -- Substitute the definition of unfix:
   ≡ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 ```
 Now we use item (1) that we already proved, and find:
-
-`fix F functorF (unfix F functorF c) ≡ c`
-
+```haskell
+fix F functorF (unfix F functorF c) ≡ c
+```
 So, the argument of `functorF.fmap C C ` is actually an identity function of type `C → C`.
 This allows us to complete the final step of the proof:
 
@@ -18773,16 +18776,18 @@ functorF.fmap C C (λ(c : C) → fix F functorF (unfix F functorF c)) p
 
 Applying any value of a Church-encoded type (`c : C`) to its own standard function `fix` gives again the same value `c`.
 More precisely:
-
-`c C (fix F functorF) ≡ c`
+```haskell
+c C (fix F functorF) ≡ c
+```
 
 ####### Proof
 
 We need to prove an equation between functions of type `C`.
 Apply both sides of that equation to arbitrary arguments `R : Type` and `frr : F R → R`.
 So, we need to prove that:
-
-`c C (fix F functorF) R frr ≡ c R frr`
+```haskell
+c C (fix F functorF) R frr ≡ c R frr
+```
 
 Values `c : C` satisfy the strong dinaturality law:
 
@@ -18810,9 +18815,9 @@ The last equation needs to match the equation we need to prove:
 ```
 This will finish the proof of as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above:
 
 ```dhall
@@ -18826,9 +18831,9 @@ This holds by Statement 1 if we rename `fc = x` and `c2r = f`.
 
 Given a type `R` and a function `frr : F R → R`, suppose there exists a function `f : C → R` that
 satisfies the $F$-algebra morphism law:
-
-`∀(fc : F C) → f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)`
-
+```haskell
+∀(fc : F C) → f (fix F functorF fc) ≡ frr (functorF.fmap C R f fc)
+```
 Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C) → c R frr`.
 (By Statement 1, that function satisfies the $F$-algebra morphism law.)
 
@@ -18836,9 +18841,9 @@ Then the function `f` is equal to the function `c2r` defined by `c2r = λ(c : C)
 
 Suppose a function `f : C → R` is given and satisfies the $F$-algebra morphism law.
 We need to prove that, for any `c : C`, the following holds:
-
-`f c ≡ c2r c ≡ c R frr`.
-
+```haskell
+f c ≡ c2r c ≡ c R frr
+```
 Values `c : C` satisfy the strong dinaturality law:
 
 
@@ -18869,9 +18874,9 @@ That is why we are justified in replacing `f c` by `f (c C p)`.
 
 So, the proof will be finished as long as we verify the assumption of the strong dinaturality law: namely, that `p` and `q` are `f`-related.
 That will be true if, for any `x : F a`, we had:
-
-`f (p x) ≡ q (functorF.fmap a b f x)`
-
+```haskell
+f (p x) ≡ q (functorF.fmap a b f x)
+```
 Substitute the parameters as shown above, and rename `x` to `fc`:
 
 ```dhall
