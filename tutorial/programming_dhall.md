@@ -27,10 +27,9 @@ For a more theoretical introduction to various forms of typed lambda calculus, S
 - [D. Rémy. Functional programming and type systems.](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus.](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
 
-Most of that theory is beyond the scope of this book, which is focused on issues arising in practical programming.
-The book shows many complete code examples, which have been validated by the Dhall interpreter.
-
-In addition, the book contains some theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
+That theory is beyond the scope of this book, which   focuses on issues arising in practical programming.
+The book contains a limited amount of theoretical material that proves the correctness of certain code constructions, notably the Church encodings of fixpoint types and the parametricity properties of existential types.
+These proofs are not readily found in the available literature.
 
 Many more proofs are given in ["The Science of Functional Programming"](https://leanpub.com/sofp) by the same author.
 This book will refer to "The Science of Functional Programming" where appropriate.
@@ -45,8 +44,8 @@ Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
 The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  is closer to the formal notation of System F and System Fω.
-For instance, System F's notation $ \Lambda t. ~ \lambda (x:t). ~ f ~ t~ x $ and System Fω's notation
-$ \lambda (t:*). ~ \lambda (x:t).~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
+For instance, System F's notation $ \Lambda t. ~ \lambda x:t. ~ f ~ t~ x $ and System Fω's notation
+$ \lambda t:*. ~ \lambda x:t.~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 Here is an example of a complete Dhall program:
 
@@ -257,7 +256,7 @@ But   `λ(x : a) → λ(y : b) → f x y z` or `λ(x : a) → λ(y : b) → y x 
 
 
 
-#### Functions with type parameters
+#### Functions of types
 
 Currying   allows function argument types to depend on some of the previous curried arguments.
 In this section, we will see how that feature is used to define functions with type parameters.
@@ -6332,10 +6331,10 @@ let Nat/fold : Nat → ∀(r : Type) → (r → r) → r → r
   = λ(n : Nat) → λ(r : Type) → λ(update : r → r) → λ(init : r) →
     n r init update
 ```
+This function is equivalent to the Dhall built-in `Natural/fold`.
 
 Natural numbers and all their standard arithmetical operations (addition, multiplication and so on) can be implemented purely in terms of the Church-encoded type `Nat`.
-For speed, Dhall implements natural numbers as a built-in type `Natural`.
-Dhall substitutes native code for the built-in functions such as `Natural/subtract`, `Natural/fold`, and others.
+For speed, Dhall implements natural numbers as a built-in type `Natural` and substitutes native code for `Natural/subtract`, `Natural/fold`, and others.
 
 ### Adding values in a list
 
@@ -6531,7 +6530,7 @@ The body of that higher-order function contains no loops; it is just hard-coded 
 That is why the Church encoding guarantees that all recursive structures are finite and all operations on those structures will terminate.
 For this reason, Dhall is able to accept Church encodings of recursive types and perform iterative and recursive operations on Church-encoded data without compromising any safety guarantees.
 
-### Example: Size and depth of binary trees
+### Size and depth of binary trees
 
 Consider binary trees with `Natural`-valued leaves.
 The corresponding type `TreeNat` is defined by:
@@ -15739,10 +15738,10 @@ let _ = assert : exampleResult ≡ expectedResult
 #### The free monad 
 
 Tree-like data structures can have different shapes.
-Data can be stored on leaves and/or on branch points; branchings can be in two, in three, or in a variable number of subtrees.
+Data can be stored in leaves and/or in branch points; branchings can be in two, in three, or in a variable number of subtrees.
 
 There is a general combinator known as the "free monad" that describes a specific kind of tree-like structures where
-data is only stored on leaves while the choice of branching is described by a functor `F`.
+data is only stored in leaves while the choice of branching is described by a functor `F`.
 For instance, the binary tree (`Tree2`) corresponds to choosing `F a = Pair a a` as the branching functor.
 
 Here is a formal definition:
@@ -16352,7 +16351,7 @@ let completeTransformerForall : ∀(T : Type → (Type → Type) → Type → Ty
 
 #### Free monads
 
-Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data is stored on leaves.
+Free monads represent a general form of tree-like data types, where the functor `F` describes the shape of the tree branching and the data is stored in leaves.
 The free monad on a functor `F` can be defined recursively as `L a = Either a (F (L a))`.
 The corresponding transformer `T` applied to a foreign monad `M` is also defined recursively as `T M a = M (Either a (F (T M a)))`.
 Note that the foreign monad `M` is applied on the outside, but recursion makes it appear also inside the transformed type.
@@ -17746,7 +17745,7 @@ Second program:
 
 Both programs evaluate to `70`.
 
-#### Equivalence of functions and "let" expressions
+#### Equivalence of function applications and "let" expressions
 
 We can see that the language has two ways of doing the same thing.
 Indeed, "let" expressions can be rewritten via functions:
@@ -18387,7 +18386,7 @@ These type equivalences are known as **co-Yoneda identities**.
 In the next subsections, we show proofs of the covariant versions of the Yoneda identities.
 Proofs for the contravariant versions are similar.
 
-#### Proof of the covariant Yoneda identity
+#### The covariant Yoneda identity
 
 We prove that, for any covariant functor `F` and for any type `A`, the type `F A` is equivalent to the type of natural transformations `∀(B : Type) → (A → B) → F B`.
 
@@ -18488,7 +18487,7 @@ So, the proof of the Yoneda identity works only due to the assumed naturality la
 All Dhall functions of type `Y` will automatically satisfy that law.
 The Yoneda identities do not hold in programming languages where one can implement functions that violate naturality.
 
-#### Proof of the covariant co-Yoneda identity
+#### The covariant co-Yoneda identity
 
 
 We prove that, for any covariant functor `F` and for any type `A`:

@@ -10,6 +10,9 @@ programming_dhall.pdf: generated.tex programming_dhall.tex
 	( makeindex programming_dhall.idx || true ; pdflatex --interaction=batchmode programming_dhall.tex || true) >& /dev/null
 	fgrep "Output written on programming_dhall.pdf" programming_dhall.log
 
+titleback.tex: titleback.tex.src
+	LC_ALL=C sed -E -e "s/INSERTGITCOMMIT/$$(git rev-parse HEAD)/; s/INSERTPDFBUILDINFO/$$(date -R) by $$(pdflatex --version | fgrep pdfTeX\ 3)/;" < titleback.tex.src > titleback.tex
+
 generated.tex: programming_dhall.md titleback.tex convertMd.sh convertMd.scala
 	bash convertMd.sh tex ../dhall-lang/Prelude
 

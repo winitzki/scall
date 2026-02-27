@@ -1,13 +1,13 @@
 \uppertitleback{%
 {\footnotesize{}Copyright \copyright\  2026 by Sergei Winitzki}\\
 {\footnotesize{}~}\\
-%{\footnotesize{}\href{https://www.lulu.com/en/us/shop/sergei-winitzki/the-science-of-functional-programming-draft-version/paperback/product-1y5zzgje.html}{Print on demand at lulu.com}}\\
+%{\footnotesize{}\href{INSERTLULUBOOKURL}{Print on demand at lulu.com}}\\
 {\footnotesize{}~}\\
-%{\footnotesize{}ISBN (e-book): 978-0-359-76877-6}\\
-%{\footnotesize{}ISBN: 978-0-359-76877-6}\\
+%{\footnotesize{}ISBN (e-book): INSERTEBOOKISBN}\\
+%{\footnotesize{}ISBN: INSERTPAPERISBN}\\
 \\
-{\scriptsize{}Git commit: c757695cea1040eafc4f498817293ce9e0ebdca4}\\
-%{\scriptsize{}PDF file built on Sun, 08 Feb 2026 17:33:54 +0100 by pdfTeX 3.141592653-2.6-1.40.22 (TeX Live 2021) on Darwin}\\
+{\scriptsize{}Git commit: INSERTGITCOMMIT}\\
+{\scriptsize{}PDF file built on INSERTPDFBUILDINFO}\\
 ~\\
 {\scriptsize{}Permission is granted to copy, distribute and/or modify
 this document under the terms of the GNU Free Documentation License,
