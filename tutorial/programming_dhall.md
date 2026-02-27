@@ -1,4 +1,4 @@
-# Programming in System Fω using Dhall
+# Programming in System F$\omega$ using Dhall
 
 ## Preface
 
@@ -17,12 +17,12 @@ The book focuses on the last use case.
 
 Although most of the code examples are in Dhall, much of the material of the book has a wider applicability.
 The book studies a certain flavor of purely functional programming without side effects and with guaranteed termination,
-which is known in the academic literature as "System Fω".
+which is known in the academic literature as "System F$\omega$".
 That type system is the foundation of Haskell, Scala, and other advanced functional programming languages.
 
-From the point of view of programming language theory, Dhall implements System Fω with some additional features, using a Haskell-like syntax.
+From the point of view of programming language theory, Dhall implements System F$\omega$ with some additional features, using a Haskell-like syntax.
 
-For a more theoretical introduction to various forms of typed lambda calculus, System F, and System Fω, see:
+For a more theoretical introduction to various forms of typed lambda calculus, System F, and System F$\omega$, see:
 
 - [D. Rémy. Functional programming and type systems.](https://gallium.inria.fr/~remy/mpri/)
 - [Lectures on Advanced Functional Programming, Cambridge, 2014-2015](https://www.cl.cam.ac.uk/teaching/1415/L28/materials.html), in particular the [notes on lambda calculus.](https://www.cl.cam.ac.uk/teaching/1415/L28/lambda.pdf)
@@ -43,8 +43,8 @@ This book corresponds to the [Dhall standard 23.0.0](https://github.com/dhall-la
 Dhall is a small, purely functional language.
 It will be easy to learn Dhall for readers already familiar with functional programming.
 
-The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  is closer to the formal notation of System F and System Fω.
-For instance, System F's notation $ \Lambda t. ~ \lambda x:t. ~ f ~ t~ x $ and System Fω's notation
+The syntax of Dhall is similar to that of Haskell, except that the syntax for functions  is closer to the formal notation of System F and System F$\omega$.
+For instance, System F's notation $ \Lambda t. ~ \lambda x:t. ~ f ~ t~ x $ and System F$\omega$'s notation
 $ \lambda t:*. ~ \lambda x:t.~ f~ t~ x $ correspond to the Dhall syntax `λ(t : Type) → λ(x : t) → f t x`.
 
 Here is an example of a complete Dhall program:
@@ -1319,7 +1319,7 @@ The function `λ(z : Natural) → add1 456 z` was simplified to just `λ(z : Nat
 The simplification occurred in the function body under a `λ(z ...)`.
 This sort of simplification is what we call "evaluation under a lambda".
 
-From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do for a pure System Fω interpreter.
+From the point of view of language theory, evaluating to the normal form under lambda is the natural thing to do for a pure System F$\omega$ interpreter.
 For each well-typed expression, the normal form is unique and guaranteed to be reached after a finite number of evaluation steps.
 If the interpreter supports reducing under lambdas then refactoring a function's body (renaming variables, introducing new local variables, etc.) will keep the normal form unchanged.
 This enables us to refactor code at will without changing its semantic hash.
@@ -1599,7 +1599,7 @@ If all imports are frozen, a Dhall program is guaranteed to give the same result
 
 #### Guaranteed termination and Turing-incompleteness
 
-In System Fω, all well-typed expressions are guaranteed to evaluate to a unique final result.
+In System F$\omega$, all well-typed expressions are guaranteed to evaluate to a unique final result.
 Thanks to this property, the Dhall interpreter is able to guarantee that any well-typed Dhall program will be evaluated in finite time to a unique **normal form** expression (that is, to an expression that cannot be simplified any further).
 
 Evaluation of a well-typed Dhall program will never create infinite loops or throw exceptions due to missing or invalid values or wrong types at run time, as it happens in other programming languages.
@@ -10338,7 +10338,7 @@ We cannot write a function that stops extracting data from a given stream at the
 It is also impossible to implement a function that determines whether a given stream   terminates.
 
 Streams represent conceptually "infinite" structures, and
-working with those structures in System Fω often requires an explicit upper bound on the number of
+working with those structures in System F$\omega$ often requires an explicit upper bound on the number of
 possible iterations.
 
 #### The  `cons` constructor for streams. Performance issues
@@ -15896,7 +15896,7 @@ let monadInfFreeMonad : ∀(F : Type → Type) → Functor F → Monad (InfFreeM
 ## Monad transformers
 
 The practical aspects of programming with monads are beyond the scope of this book,
-which focuses on  implementation of various FP idioms in System Fω.
+which focuses on  implementation of various FP idioms in System F$\omega$.
 
 One of the issues arising in programming with monads is the necessity to combine the effects of two or more monads in a single, "larger" monad.
 The new monad must have certain properties and satisfy certain laws in order to be useful as a representation of combined effects of the two monads.
@@ -18966,7 +18966,7 @@ For this part of the proof, we do not need to use the functor property of `F`.
 
 An alternative encoding of a recursive type is known as the **Mendler encoding**.
 We show it only for reference, as there is no particular advantage in using the Mendler encodings in Dhall.
-The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types in System Fω.
+The lazy evaluation in Dhall already gives all possible shortcuts and performance improvements when working with recursive types in System F$\omega$.
 
 ```dhall
 let MFix : (Type → Type) → Type
