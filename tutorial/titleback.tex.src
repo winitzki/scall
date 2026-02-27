@@ -4,7 +4,7 @@
 %{\footnotesize{}\href{INSERTLULUBOOKURL}{Print on demand at lulu.com}}\\
 {\footnotesize{}~}\\
 %{\footnotesize{}ISBN (e-book): INSERTEBOOKISBN}\\
-%{\footnotesize{}ISBN: INSERTPAPERISBN}\\
+{\footnotesize{}ISBN: 978-1-105-58291-2}\\
 \\
 {\scriptsize{}Git commit: INSERTGITCOMMIT}\\
 {\scriptsize{}PDF file built on INSERTPDFBUILDINFO}\\
