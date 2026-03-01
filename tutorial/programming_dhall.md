@@ -506,7 +506,7 @@ let y : Union2 = Union2.Right True
 The types `Union1` and `Union2` are different because the constructors named `Right` require different data types within `Union1` and `Union2`.
 Constructor names are always written together with the union type.
 So, there is no conflict between the constructors `Union1.Left` and `Union2.Left`, or between `Union1.Right` and `Union2.Right`.
-(A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not support that.)
+(A conflict would occur if we could write simply `Left` and `Right` for those constructors, but Dhall does not allow that.)
 
 ### Pattern matching
 
