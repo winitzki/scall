@@ -17271,7 +17271,7 @@ $$ \textrm{FAF}~ a = a + \exists b.~(\textrm{FAF}~b) \times(F~(b\to a))  $$
 This definition is recursive; `FAF` is defined using itself.
 
 Note the difference between the type  expression $\exists b.~(\textrm{FAF}~b) \times(F~(b\to a))$ and the similar expression  $\exists b.~ (F~ (b \to a)) \times (F ~b)$ found in the structure functor $P$.
-The difference is that $F~(b\to a)$ involves the fixed functor `F` rather than the free applicative functor.
+The difference is that $\textrm{FAF}~b$ involves the free applicative functor instead of the fixed functor `F`.
 This difference is crucial for the correct working of this construction.
 It is  far from obvious that this is correct; the cited paper shows a  proof.
 We will just take their definition and implement it in Dhall.
