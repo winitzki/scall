@@ -19,7 +19,7 @@ Texts. A copy of the license is included in the appendix entitled
 %{\scriptsize{}~}\\
 {\scriptsize{}A }\emph{\scriptsize{}Transparent}{\scriptsize{} copy
 of the source code for the book is available at }\texttt{\scriptsize{}\href{https://github.com/winitzki/scall}{https://github.com/winitzki/scall}}{\scriptsize{}
-and includes Markdown and \TeX source files and build scripts.}}
+and includes Markdown and \TeX ~source files and build scripts.}}
 \lowertitleback{{\scriptsize{}This book is an advanced tutorial
 on functional programming in System Fω using Dhall.}\\
 %{\scriptsize{}~}\\
