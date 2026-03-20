@@ -755,10 +755,10 @@ object Grammar {
   )
 
   def domain[$: P] = P(
-    domainlabel ~ (&("." ~ domainLabel) ~ "." ~ domainLabel).rep ~ ".".?
+    domainLabel ~ (&("." ~ domainLabel) ~ "." ~ domainLabel).rep ~ ".".?
   )
 
-  def domainlabel[$: P] = P(
+  def domainLabel[$: P] = P(
     ALPHANUM.rep(1) ~ ("-".rep(1) ~ ALPHANUM.rep(1)).rep
   )
 
