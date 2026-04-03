@@ -28,20 +28,9 @@ let concatNat
           right
           (λ(head : Natural) → λ(tail : ListNat) → consNat head tail)
 
-let _ =
-        assert
-      :   concatNat (consNat 1 (consNat 2 nilNat)) (consNat 3 nilNat)
-        ≡ consNat 1 (consNat 2 (consNat 3 nilNat))
-
 let ListNat/fromList
     : List Natural → ListNat
     = λ(list : List Natural) → List/fold Natural list ListNat consNat nilNat
-
-let _ =
-        assert
-      : ListNat/fromList [ 1, 2, 3 ] ≡ consNat 1 (consNat 2 (consNat 3 nilNat))
-
-let _ = assert : ListNat/fromList ([] : List Natural) ≡ nilNat
 
 let ListNat/build
     : ListNat → ListNat
@@ -54,12 +43,6 @@ let ListNat/toList
           (List Natural)
           ([] : List Natural)
           (λ(head : Natural) → λ(tail : List Natural) → [ head ] # tail)
-
-let _ =
-        assert
-      : ListNat/toList (consNat 1 (consNat 2 (consNat 3 nilNat))) ≡ [ 1, 2, 3 ]
-
-let _ = assert : ListNat/toList nilNat ≡ ([] : List Natural)
 
 let PairLists = { _1 : ListNat, _2 : ListNat }
 
@@ -78,18 +61,6 @@ let -- Given limit : Natural and a sorted list, return separately the initial fr
               then  { _1 = consNat head tail._1, _2 = tail._2 }
               else  { _1 = nilNat, _2 = consNat head tail._2 }
           )
-
-let _ =
-        assert
-      :   ListNat/toList
-            (ListNat/partitionSorted 3 (ListNat/fromList [ 1, 2, 3, 4, 5 ]))._1
-        ≡ [ 1, 2 ]
-
-let _ =
-        assert
-      :   ListNat/toList
-            (ListNat/partitionSorted 3 (ListNat/fromList [ 1, 2, 3, 4, 5 ]))._2
-        ≡ [ 3, 4, 5 ]
 
 let mergeSorted
     : ListNat → ListNat → ListNat
@@ -126,6 +97,35 @@ let testMergeSorted =
             (mergeSorted (ListNat/fromList left) (ListNat/fromList right))
         ≡ expected
 
+let _ =
+        assert
+      :   concatNat (consNat 1 (consNat 2 nilNat)) (consNat 3 nilNat)
+        ≡ consNat 1 (consNat 2 (consNat 3 nilNat))
+
+let _ =
+        assert
+      : ListNat/fromList [ 1, 2, 3 ] ≡ consNat 1 (consNat 2 (consNat 3 nilNat))
+
+let _ = assert : ListNat/fromList ([] : List Natural) ≡ nilNat
+
+let _ =
+        assert
+      : ListNat/toList (consNat 1 (consNat 2 (consNat 3 nilNat))) ≡ [ 1, 2, 3 ]
+
+let _ = assert : ListNat/toList nilNat ≡ ([] : List Natural)
+
+let _ =
+        assert
+      :   ListNat/toList
+            (ListNat/partitionSorted 3 (ListNat/fromList [ 1, 2, 3, 4, 5 ]))._1
+        ≡ [ 1, 2 ]
+
+let _ =
+        assert
+      :   ListNat/toList
+            (ListNat/partitionSorted 3 (ListNat/fromList [ 1, 2, 3, 4, 5 ]))._2
+        ≡ [ 3, 4, 5 ]
+
 let _ = assert : testMergeSorted [ 5 ] [ 6 ] [ 5, 6 ]
 
 let _ = assert : testMergeSorted [ 6 ] [ 5 ] [ 5, 6 ]
@@ -157,10 +157,6 @@ let _ =
           [ 2, 3, 4, 5, 6, 7 ]
           [ 1, 2, 2, 2, 3, 4, 5, 6, 6, 7, 7, 8 ]
 
-let iterations = env:N ? 3
-
-let size = env:S ? 3
-
 let makeListNat
     : Natural → Natural → Natural → ListNat
     = λ(size : Natural) →
@@ -178,30 +174,6 @@ let makeListNat
         ).result
 
 let _ = assert : ListNat/toList (makeListNat 5 0 2) ≡ [ 0, 2, 4, 6, 8 ]
-
-let list0 = makeListNat size 0 2
-
-let list1 = makeListNat size 1 2
-
-let expected = ListNat/toList (makeListNat (size * 2) 0 1)
-
-let expected_result =
-      List/iterate
-        iterations
-        (List Natural)
-        (λ(list : List Natural) → expected)
-        ([] : List Natural)
-
-let obtained_result =
-      List/iterate
-        iterations
-        (List Natural)
-        (λ(list : List Natural) → ListNat/toList (mergeSorted list0 list1))
-        ([] : List Natural)
-
-let _ =
-    -- This is the main timing loop. We compare two large lists with expected and obtained results.
-      assert : expected_result ≡ obtained_result
 
 let testBinaryFunctionOnListNat =
       λ(iterations : Natural) →
@@ -412,4 +384,22 @@ let _ =
             (ListNat/fromList [ 2, 4, 6 ])
         ≡ ListNat/fromList [ 1, 2, 3, 4, 5, 6 ]
 
-in  True
+in  { ListNat
+    , nilNat
+    , consNat
+    , concatNat
+    , ListNat/fromList
+    , ListNat/build
+    , ListNat/toList
+    , PairLists
+    , ListNat/partitionSorted
+    , mergeSorted
+    , testMergeSorted
+    , makeListNat
+    , List/iterate
+    , testBinaryFunctionOnListNat
+    , ListNat/length
+    , ListNat/uncons
+    , ListNat/reverse
+    , ListNat/mergeSorted
+    }
