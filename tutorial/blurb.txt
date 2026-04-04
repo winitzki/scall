@@ -1,0 +1,23 @@
+Presenting my new book - "Programming in System Fω using Dhall"
+
+This book is an exploration of where we can get with purely functional programming as practiced today, which heavily uses types, map/filter/fold and other operations with standard
+typeclasses (functor, monad, etc) using a language that's as small as possible (but not smaller).
+
+The type system required for these idioms is a lambda calculus with strict types, type constructors, and higher-kinded types.
+This is known in programming language theory as System Fω.
+
+Programming in pure lambda calculus with static types gives guaranteed termination, because general recursion cannot be implemented.
+Nevertheless, as this book shows, all design patterns of modern functional programming can be implemented:
+recursive types with a wide range of recursive functions on them, existential types, GADTs, monad transformers, typeclasses, free monads - one can do all this in System Fω with the right tricks.
+
+I view Dhall as a well-tested System Fω interpreter that is ideal for the purposes of this exploration.
+
+The book is structured as a "literate Dhall document": it comes with a large number of Dhall code examples, which are extracted as a single Dhall source file that is validated by the interpreter.
+
+The book is published under the GNU Free Documentation License.
+The complete source of the book is available at https://github.com/winitzki/scall/blob/master/tutorial/programming_dhall.md
+
+Purchase PDF: https://leanpub.com/f-omega
+
+Purchase a paper copy: https://www.lulu.com/shop/sergei-winitzki/programming-in-system-f%CF%89-using-dhall/paperback/product-57wpjpj.html
+

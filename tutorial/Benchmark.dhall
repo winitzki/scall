@@ -1,51 +1,27 @@
 -- Helper function to benchmark a given function against data of growing size.
 let benchmark
-    : ∀(iterations : Natural) →
+    : Natural →
       ∀(inputType : Type) →
-      ∀(makeInputOfSize : Natural → inputType) →
+      inputType →
       ∀(outputType : Type) →
-      ∀(f : inputType → outputType) →
-      ∀(size : Natural) →
+      (inputType → outputType) →
         Type
     = λ(iterations : Natural) →
       λ(inputType : Type) →
-      λ(makeInputOfSize : Natural → inputType) →
+      λ(input : inputType) →
       λ(outputType : Type) →
       λ(f : inputType → outputType) →
-      λ(size : Natural) →
-        let input = makeInputOfSize size
+        let output = f input
 
-        let init = f (makeInputOfSize 2)
-
-        let obtainedList =
-              List/build
-                outputType
-                ( λ(list : Type) →
-                  λ(cons : outputType → list → list) →
-                  λ(nil : list) →
-                     
-                      let tail =
-                            Natural/fold
-                              (Natural/subtract iterations 1)
-                              list
-                              (λ(rest : list) → cons (f input) rest)
-                              nil
-
-                      in  cons init tail
+        let computedResult =
+              Natural/fold
+                iterations
+                { _1 : outputType, _2 : Natural }
+                ( λ(result : { _1 : outputType, _2 : Natural }) →
+                    { _1 = f input, _2 = result._2 + 1 }
                 )
+                { _1 = output, _2 = 0 }
 
-        in  obtainedList ≡ obtainedList
+        in  computedResult ≡ { _1 = output, _2 = iterations }
 
-let warmup
-    : ∀(inputType : Type) →
-      ∀(makeInputOfSize : Natural → inputType) →
-      ∀(outputType : Type) →
-      ∀(f : inputType → outputType) →
-        Type
-    = λ(inputType : Type) →
-      λ(makeInputOfSize : Natural → inputType) →
-      λ(outputType : Type) →
-      λ(f : inputType → outputType) →
-        benchmark 3 inputType makeInputOfSize outputType f 3
-
-in  { benchmark, warmup }
+in  benchmark
