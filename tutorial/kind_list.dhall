@@ -32,4 +32,4 @@ let shouldBeTextType = merge { None = {}, Some = λ(t : Type) → t } someText
 
 let _ = "abc" : shouldBeTextType
 
-in  TList
+in TList

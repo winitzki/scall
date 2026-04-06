@@ -4,4 +4,4 @@ let Fmap_t =
 
 let Functor = λ(F : Type → Type) → { fmap : Fmap_t F }
 
-in  { Fmap_t, Functor }
+in  Functor

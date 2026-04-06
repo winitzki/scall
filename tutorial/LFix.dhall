@@ -1,5 +1,5 @@
 -- Generic definitions for Church encodings of recursive types.
-let Functor = (./Functor.dhall).Functor
+let Functor = ./Functor.dhall sha256:bb981c881a1ca4619412614558ac0618607cd16367d0964b5bc259fac63bf454
 
 let LFix : (Type → Type) → Type
   = λ(F : Type → Type) → ∀(r : Type) → (F r → r) → r

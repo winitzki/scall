@@ -102,9 +102,8 @@ let lib =
       ./SortNatLib.dhall
         sha256:bf096188342c8e307414afa71a04dc2cddb8ff2b8cb433f6646891e505f0f77c
 
-let benchmark =
-      ./Benchmark.dhall sha256:e3e0ae4dcbe0334ee4043011a94a822c8b037fea3b63c15e9ba11c534d1e14f3
- 
+let benchmark = ./Benchmark.dhall sha256:0d403a5bda315d97c19410cbc90ea4b1239945c71440ca28feefc61e71349e3d
+
 let nilNat = lib.nilNat
 
 let ListNat = lib.ListNat
@@ -135,10 +134,6 @@ let _ = assert : ListNat/headOptional (ListNat/fromList [ 1, 2, 3 ]) ≡ Some 1
 
 let _ = assert : ListNat/headOptional nilNat ≡ None Natural
 
-let iterations = env:N ? 3
-
-let size = env:S ? 3
-
 let ListNat/nonEmpty =
       λ(list : ListNat) → list Bool False (λ(x : Natural) → λ(y : Bool) → True)
 
@@ -150,14 +145,35 @@ let ListNat/sum
     : ListNat → Natural
     = λ(list : ListNat) →
         list Natural 0 (λ(x : Natural) → λ(y : Natural) → x + y)
- 
 
-let noop = λ(list : ListNat) → None Natural
+let ListNat/concat = concatNat
 
-let h = λ(list : ListNat) → Some (ListNat/sum list)
+let noop = λ(list : ListNat) → nilNat
 
-let input = makeListNat size 0 1
+let identity = λ(list : ListNat) → list
 
-let _ = assert : benchmark iterations ListNat input (Optional Natural) noop
+let
+    -- let iterations = env:N ? 3
+    -- let size = env:S ? 3
+    mkTest =
+      λ(outputType : Type) →
+      λ(f : ListNat → outputType) →
+      λ(iterations : Natural) →
+      λ(size : Natural) →
+        benchmark iterations ListNat (makeListNat size 0 1) outputType f
 
-in  True
+let test1 = mkTest ListNat noop
+
+let test2 = mkTest Natural ListNat/sum
+
+let test3 = mkTest Natural ListNat/length
+
+let test4 = mkTest Bool ListNat/nonEmpty
+
+let test5 = mkTest (Optional Natural) ListNat/headOptional
+
+let test6 = mkTest ListNat identity
+
+let test7 = mkTest ListNat (λ(x : ListNat) → ListNat/concat x x)
+
+in  { test1, test2, test3, test4, test5, test6, test7 }
