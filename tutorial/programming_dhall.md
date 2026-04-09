@@ -481,7 +481,7 @@ For convenience, Dhall programs often define local names for union types:
 let MyXY = < X : Natural | Y : Bool >
 let a = MyXY.X 123
 ```
-The constructor expression `MyXY.X` is a function of type `Bool → MyXY`.
+The constructor expression `MyXY.Y` is a function of type `Bool → MyXY`.
 But   `MyXY` is no more than a (locally defined) value that is used as a type alias.
 Dhall considers `MyXY` to be the same type as the literal type expressions `< X : Natural | Y : Bool >` and `< Y : Bool | X : Natural >`,
 as the order of a union type's constructors is not significant.
