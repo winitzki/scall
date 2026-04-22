@@ -75,7 +75,131 @@ let _ =
 
 let _ = assert : ListNat/toList (ListNat/fromList [ 1, 2, 3 ]) ≡ [ 1, 2, 3 ]
 
-let ListNatY = LFixYonedaModule.LFixYoneda ListNatF
+let ListNat/nonEmpty
+    : ListNat → Bool
+    = λ(listNat : ListNat) →
+        listNat
+          Bool
+          ( λ(lf : ListNatF Bool) →
+              merge
+                { Nil = False
+                , Cons = λ(_ : { head : Natural, tail : Bool }) → True
+                }
+                lf
+          )
+
+let _ = assert : ListNat/nonEmpty (ListNat/fromList [ 1, 2, 3 ]) ≡ True
+
+let _ = assert : ListNat/nonEmpty (ListNat/fromList ([] : List Natural)) ≡ False
+
+let ListNat/headOptional
+    : ListNat → Optional Natural
+    = λ(listNat : ListNat) →
+        listNat
+          (Optional Natural)
+          ( λ(lf : ListNatF (Optional Natural)) →
+              merge
+                { Nil = None Natural
+                , Cons =
+                    λ(pair : { head : Natural, tail : Optional Natural }) →
+                      Some pair.head
+                }
+                lf
+          )
+
+let _ = assert : ListNat/headOptional (ListNat/fromList [ 1, 2, 3 ]) ≡ Some 1
+
+let _ =
+        assert
+      :   ListNat/headOptional (ListNat/fromList ([] : List Natural))
+        ≡ None Natural
+
+let ListNat/fix
+    : ListNatF ListNat → ListNat
+    = fix ListNatF functorListNatF
+
+let ListNat/length
+    : ListNat → Natural
+    = λ(listNat : ListNat) →
+        listNat
+          Natural
+          ( λ(lf : ListNatF Natural) →
+              merge
+                { Nil = 0
+                , Cons =
+                    λ(pair : { head : Natural, tail : Natural }) → pair.tail + 1
+                }
+                lf
+          )
+
+let ListNat/unfix
+    : ListNat → ListNatF ListNat
+    = unfix ListNatF functorListNatF
+
+let ListNat/tail
+    : ListNat → ListNat
+    = λ(listNat : ListNat) →
+        merge
+          { Nil = ListNat/nil
+          , Cons = λ(pair : { head : Natural, tail : ListNat }) → pair.tail
+          }
+          (ListNat/unfix listNat)
+
+let _ =
+      assert : ListNat/tail (ListNat/fromList ([] : List Natural)) ≡ ListNat/nil
+
+let _ =
+        assert
+      : ListNat/toList (ListNat/tail (ListNat/fromList [ 1, 2, 3 ])) ≡ [ 2, 3 ]
+
+let ListNat/sum
+    : ListNat → Natural
+    = λ(listNat : ListNat) →
+        listNat
+          Natural
+          ( λ(lf : ListNatF Natural) →
+              merge
+                { Nil = 0
+                , Cons =
+                    λ(pair : { head : Natural, tail : Natural }) →
+                      pair.head + pair.tail
+                }
+                lf
+          )
+
+let _ = assert : ListNat/sum (ListNat/fromList [ 1, 2, 3 ]) ≡ 6
+
+let _ = assert : ListNat/sum (ListNat/fromList ([] : List Natural)) ≡ 0
+
+let ListNat/concat
+    : ListNat → ListNat → ListNat
+    = λ(left : ListNat) →
+      λ(right : ListNat) →
+        left
+          ListNat
+          ( λ(lf : ListNatF ListNat) →
+              merge
+                { Nil = right
+                , Cons =
+                    λ(pair : { head : Natural, tail : ListNat }) →
+                      ListNat/cons pair.head pair.tail
+                }
+                lf
+          )
+
+let _ =
+        assert
+      :   ListNat/toList
+            ( ListNat/concat
+                (ListNat/fromList [ 1, 2, 3 ])
+                (ListNat/fromList [ 4, 5, 6 ])
+            )
+        ≡ [ 1, 2, 3, 4, 5, 6 ]
+
+let
+    -- Same things implemented using the Church-Yoneda encoding.
+    ListNatY =
+      LFixYonedaModule.LFixYoneda ListNatF
 
 let ListNatY/nil
     : ListNatY
@@ -180,15 +304,193 @@ let ListNatY/unfix
                 lf
           )
 
+let ListNatY/fix
+    : ListNatF ListNatY → ListNatY
+    = λ(lf : ListNatF ListNatY) →
+        merge
+          { Nil = ListNatY/nil
+          , Cons =
+              λ(pair : { head : Natural, tail : ListNatY }) →
+                ListNatY/cons pair.head pair.tail
+          }
+          lf
+
+let ListNatY/nonEmpty
+    : ListNatY → Bool
+    = λ(listNatY : ListNatY) →
+        let fBool
+            : ListNatF Bool
+            = listNatY Bool (λ(lf : ListNatF Bool) → False)
+
+        in  merge
+              { Nil = False
+              , Cons = λ(pair : { head : Natural, tail : Bool }) → True
+              }
+              fBool
+
+let _ = assert : ListNatY/nonEmpty (ListNatY/fromList [ 1, 2, 3 ]) ≡ True
+
+let _ =
+      assert : ListNatY/nonEmpty (ListNatY/fromList ([] : List Natural)) ≡ False
+
+let ListNatY/headOptional
+    : ListNatY → Optional Natural
+    = λ(listNatY : ListNatY) →
+        let fOptional
+            : ListNatF (Optional Natural)
+            = listNatY
+                (Optional Natural)
+                (λ(lf : ListNatF (Optional Natural)) → None Natural)
+
+        in  merge
+              { Nil = None Natural
+              , Cons =
+                  λ(pair : { head : Natural, tail : Optional Natural }) →
+                    Some pair.head
+              }
+              fOptional
+
+let _ = assert : ListNatY/headOptional (ListNatY/fromList [ 1, 2, 3 ]) ≡ Some 1
+
+let _ =
+        assert
+      :   ListNatY/headOptional (ListNatY/fromList ([] : List Natural))
+        ≡ None Natural
+
+let ListNatY/length
+    : ListNatY → Natural
+    = λ(listNatY : ListNatY) →
+        let fNatural
+            : ListNatF Natural
+            = listNatY
+                Natural
+                ( λ(lf : ListNatF Natural) →
+                    merge
+                      { Nil = 0
+                      , Cons =
+                          λ(pair : { head : Natural, tail : Natural }) →
+                            pair.tail + 1
+                      }
+                      lf
+                )
+
+        in  merge
+              { Nil = 0
+              , Cons =
+                  λ(pair : { head : Natural, tail : Natural }) → pair.tail + 1
+              }
+              fNatural
+
+let _ = assert : ListNatY/length (ListNatY/fromList [ 1, 2, 3 ]) ≡ 3
+
+let _ = assert : ListNatY/length (ListNatY/fromList ([] : List Natural)) ≡ 0
+
+let ListNatY/tail
+    : ListNatY → ListNatY
+    = λ(listNatY : ListNatY) →
+        merge
+          { Nil = ListNatY/nil
+          , Cons = λ(pair : { head : Natural, tail : ListNatY }) → pair.tail
+          }
+          (ListNatY/unfix listNatY)
+
+let _ =
+        assert
+      :   ListNatY/toList (ListNatY/tail (ListNatY/fromList [ 1, 2, 3 ]))
+        ≡ [ 2, 3 ]
+
+let _ =
+        assert
+      :   ListNatY/toList
+            (ListNatY/tail (ListNatY/fromList ([] : List Natural)))
+        ≡ ([] : List Natural)
+
+let ListNatY/sum
+    : ListNatY → Natural
+    = λ(listNatY : ListNatY) →
+        let fsum
+            : ListNatF Natural
+            = listNatY
+                Natural
+                ( λ(lf : ListNatF Natural) →
+                    merge
+                      { Nil = 0
+                      , Cons =
+                          λ(pair : { head : Natural, tail : Natural }) →
+                            pair.head + pair.tail
+                      }
+                      lf
+                )
+
+        in  merge
+              { Nil = 0
+              , Cons =
+                  λ(pair : { head : Natural, tail : Natural }) →
+                    pair.head + pair.tail
+              }
+              fsum
+
+let _ = assert : ListNatY/sum (ListNatY/fromList [ 1, 2, 3 ]) ≡ 6
+
+let _ = assert : ListNatY/sum (ListNatY/fromList ([] : List Natural)) ≡ 0
+
+let ListNatY/concat
+    : ListNatY → ListNatY → ListNatY
+    = λ(left : ListNatY) →
+      λ(right : ListNatY) →
+        LFixYonedaModule.toLFixYoneda
+          ListNatF
+          functorListNatF
+          ( LFixYonedaModule.fromLFixYoneda
+              ListNatF
+              left
+              ListNat
+              ( λ(lf : ListNatF ListNat) →
+                  merge
+                    { Nil = LFixYonedaModule.fromLFixYoneda ListNatF right
+                    , Cons =
+                        λ(pair : { head : Natural, tail : ListNat }) →
+                          ListNat/cons pair.head pair.tail
+                    }
+                    lf
+              )
+          )
+
+let _ =
+        assert
+      :   ListNatY/toList
+            ( ListNatY/concat
+                (ListNatY/fromList [ 1, 2, 3 ])
+                (ListNatY/fromList [ 4, 5, 6 ])
+            )
+        ≡ [ 1, 2, 3, 4, 5, 6 ]
+
 in  { ListNat
+    , ListNatF
+    , functorListNatF
     , ListNat/cons
     , ListNat/nil
     , ListNat/fromList
     , ListNat/toList
+    , ListNat/unfix
+    , ListNat/nonEmpty
+    , ListNat/headOptional
+    , ListNat/length
+    , ListNat/tail
+    , ListNat/fix
+    , ListNat/sum
+    , ListNat/concat
     , ListNatY
     , ListNatY/cons
     , ListNatY/nil
     , ListNatY/fromList
     , ListNatY/toList
     , ListNatY/unfix
+    , ListNatY/tail
+    , ListNatY/fix
+    , ListNatY/nonEmpty
+    , ListNatY/headOptional
+    , ListNatY/length
+    , ListNatY/sum
+    , ListNatY/concat
     }

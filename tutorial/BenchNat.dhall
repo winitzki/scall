@@ -1,108 +1,19 @@
 {-
-    Results for noop (the ListInt has not been constructed, linearity in S not yet visible):
+  Conclusions:
 
-    Raw table (N, S, t_sec median):
-    5000000	50000	1.048820917
-    5000000	75000	1.082226
-    5000000	100000	1.118392209
-    7500000	50000	1.537466167
-    7500000	75000	1.567287458
-    7500000	100000	1.594985625
-    10000000	50000	2.034146375
-    10000000	75000	2.05142675
-    10000000	100000	2.090238875
+  - yoneda encoding brings no performance benefits
+  - non-curried Church encoding is O(1) for head and non-empty check, while curried Church encoding is O(N) 
+  - unfix operations are slow; concat is also apparently slow
+  - benchmarking is very tricky, and results depend on the size of the resulting type, need to be careful with choosing the computation so that the result isn't too large
 
-    --- Fit: t ≈ const * N^a * S^b (OLS on log(time)) ---
-    const = 3.44157e-07
-    a     = 0.925781   (exponent on N)
-    b     = 0.06077   (exponent on S)
-
-
-    Results for ListNat/headOptional:
-
-    Raw table (N, S, t_sec median):
-    5000	5000	3.75016775
-    5000	7500	6.005081166
-    5000	10000	8.722073667
-    7500	5000	5.598937333
-    7500	7500	9.005040041
-    7500	10000	13.029334292
-    10000	5000	7.461262416
-    10000	7500	11.978271334
-    10000	10000	17.395150666
-
-    --- Fit: t ≈ const * N^a * S^b (OLS on log(time)) ---
-    const = 2.48113e-08
-    a     = 0.994704   (exponent on N)
-    b     = 1.21572   (exponent on S)
-    R² (log t) = 0.9995
-
-
-    Results for ListNat/sum:
-
-    Raw table (N, S, t_sec median):
-    5000	5000	4.41895675
-    5000	7500	6.926563292
-    5000	10000	9.95645325
-    7500	5000	6.595416041
-    7500	7500	10.374043
-    7500	10000	14.710602791
-    10000	5000	8.870872291
-    10000	7500	14.130289166
-    10000	10000	19.717812291
-
-    --- Fit: t ≈ const * N^a * S^b (OLS on log(time)) ---
-    const = 4.37683e-08
-    a     = 1.00498   (exponent on N)
-    b     = 1.15817   (exponent on S)
-    R² (log t) = 0.9995
-
-
-    Results for ListNat/length:
-
-    Raw table (N, S, t_sec median):
-    5000	5000	4.376460959
-    5000	7500	6.954222042
-    5000	10000	9.76308425
-    7500	5000	6.523111375
-    7500	7500	10.449921667
-    7500	10000	14.602839625
-    10000	5000	8.795718292
-    10000	7500	13.906055334
-    10000	10000	19.569782916
-
-    --- Fit: t ≈ const * N^a * S^b (OLS on log(time)) ---
-    const = 4.47411e-08
-    a     = 1.00272   (exponent on N)
-    b     = 1.15711   (exponent on S)
-    R² (log t) = 0.9999
-
-
-    Results for ListNat/nonEmpty:
-
-    Raw table (N, S, t_sec median):
-    5000	5000	3.880173292
-    5000	7500	6.104844833
-    5000	10000	8.656271583
-    7500	5000	5.856735459
-    7500	7500	9.195726541
-    7500	10000	13.014530709
-    10000	5000	7.802544792
-    10000	7500	12.283167167
-    10000	10000	17.400565667
-
-    --- Fit: t ≈ const * N^a * S^b (OLS on log(time)) ---
-    const = 3.92206e-08
-    a     = 1.0081   (exponent on N)
-    b     = 1.153   (exponent on S)
-    R² (log t) = 0.9997
 
     -}
 let lib =
       ./SortNatLib.dhall
         sha256:bf096188342c8e307414afa71a04dc2cddb8ff2b8cb433f6646891e505f0f77c
 
-let benchmark = ./Benchmark.dhall sha256:0d403a5bda315d97c19410cbc90ea4b1239945c71440ca28feefc61e71349e3d
+let benchmark =
+      ./Benchmark.dhall sha256:798dbc8ddbffe10990047da18ffde52d4107a96994aa11c66817b1e248df1f64
 
 let nilNat = lib.nilNat
 
@@ -121,6 +32,10 @@ let ListNat/length = lib.ListNat/length
 let makeListNat = lib.makeListNat
 
 let PairLists = lib.PairLists
+
+let Y =
+      ./ListNatYoneda.dhall
+        sha256:71161a60e1c38761374897ca013ccc3ddb201d5e47868cc4ac928ebcbbda785c
 
 let ListNat/headOptional
     : ListNat → Optional Natural
@@ -162,18 +77,259 @@ let
       λ(size : Natural) →
         benchmark iterations ListNat (makeListNat size 0 1) outputType f
 
-let test1 = mkTest ListNat noop
+let makeListNatY
+    : Natural → Natural → Natural → Y.ListNatY
+    = λ(size : Natural) →
+      λ(init : Natural) →
+      λ(delta : Natural) →
+        ( Natural/fold
+            size
+            { result : Y.ListNatY, index : Natural }
+            ( λ(acc : { result : Y.ListNatY, index : Natural }) →
+                { result = Y.ListNatY/cons acc.index acc.result
+                , index = Natural/subtract delta acc.index
+                }
+            )
+            { result = Y.ListNatY/nil
+            , index = init + Natural/subtract 1 size * delta
+            }
+        ).result
 
-let test2 = mkTest Natural ListNat/sum
+let _ = assert : Y.ListNatY/toList (makeListNatY 5 0 2) ≡ [ 0, 2, 4, 6, 8 ]
 
-let test3 = mkTest Natural ListNat/length
+let mkTestY =
+      λ(outputType : Type) →
+      λ(f : Y.ListNatY → outputType) →
+      λ(iterations : Natural) →
+      λ(size : Natural) →
+        benchmark iterations Y.ListNatY (makeListNatY size 0 1) outputType f
 
-let test4 = mkTest Bool ListNat/nonEmpty
+let LN =
+    -- List of Naturals implemented using non-curried Church encoding.
+      Y.ListNat
 
-let test5 = mkTest (Optional Natural) ListNat/headOptional
+let LN/nil = Y.ListNat/nil
 
-let test6 = mkTest ListNat identity
+let LN/cons = Y.ListNat/cons
 
-let test7 = mkTest ListNat (λ(x : ListNat) → ListNat/concat x x)
+let makeListNatL
+    : Natural → Natural → Natural → LN
+    = λ(size : Natural) →
+      λ(init : Natural) →
+      λ(delta : Natural) →
+        ( Natural/fold
+            size
+            { result : LN, index : Natural }
+            ( λ(acc : { result : LN, index : Natural }) →
+                { result = LN/cons acc.index acc.result
+                , index = Natural/subtract delta acc.index
+                }
+            )
+            { result = LN/nil, index = init + Natural/subtract 1 size * delta }
+        ).result
 
-in  { test1, test2, test3, test4, test5, test6, test7 }
+let LN/fromList = Y.ListNat/fromList
+
+let LN/toList = Y.ListNat/toList
+
+let mkTestL =
+      λ(outputType : Type) →
+      λ(f : LN → outputType) →
+      λ(iterations : Natural) →
+      λ(size : Natural) →
+        benchmark iterations LN (makeListNatL size 0 1) outputType f
+
+let _ = assert : LN/toList (makeListNatL 3 0 1) ≡ [ 0, 1, 2 ]
+
+let LN/concat = Y.ListNat/concat
+
+let LN/length = Y.ListNat/length
+
+let LN/nonEmpty = Y.ListNat/nonEmpty
+
+let LN/headOptional = Y.ListNat/headOptional
+
+let LN/unfix = Y.ListNat/unfix
+
+let LN/fix = Y.ListNat/fix
+
+let LN/sum = Y.ListNat/sum
+
+let LN/tail = λ(x : LN) → merge { Nil = LN/nil, Cons = λ(pair : { head : Natural, tail : LN }) → pair.tail } (LN/unfix x)
+
+let _ = assert : LN/tail (makeListNatL 5 0 1) ≡ makeListNatL 4 1 1
+
+let test1
+          -- median time for iterations=1000 and size=1000 is 0.033490541 seconds
+          =
+      mkTest ListNat noop
+
+let test2
+          -- median time for iterations=1000 and size=1000 is 0.346441083 seconds
+          =
+      mkTest Natural ListNat/sum
+
+let test3
+          -- median time for iterations=1000 and size=1000 is 0.347617083 seconds
+          =
+      mkTest Natural ListNat/length
+
+let test4
+          -- median time for iterations=1000 and size=1000 is 0.309712459 seconds
+          =
+      mkTest Bool ListNat/nonEmpty
+
+let test5
+          -- median time for iterations=1000 and size=1000 is 0.296896667 seconds
+          =
+      mkTest (Optional Natural) ListNat/headOptional
+
+let test6
+          -- median time for iterations=1000 and size=1000 is 0.54549875 seconds
+          =
+      mkTest ListNat identity
+
+let test7
+          -- median time for iterations=1000 and size=1000 is 1.719045042 seconds
+          =
+      mkTest ListNat (λ(x : ListNat) → ListNat/concat x x)
+
+let test8
+          -- median time for iterations=1000 and size=1000 is 1.913241791 seconds
+          =
+      mkTest (Optional { head : Natural, tail : ListNat }) lib.ListNat/uncons
+
+let test9
+          -- median time for iterations=1000 and size=1000 is 0.558496334 seconds
+          =
+      mkTest ListNat (λ(x : ListNat) → consNat 0 x)
+
+let test10
+           -- median time for iterations=1000 and size=1000 is 0.033395042 seconds
+           =
+      mkTestY Y.ListNatY (λ(x : Y.ListNatY) → Y.ListNatY/nil)
+
+let test11
+           -- median time for iterations=1000 and size=1000 is 1.382443042 seconds
+           =
+      mkTestY Y.ListNatY (λ(x : Y.ListNatY) → Y.ListNatY/cons 0 x)
+
+let test12
+           -- median time for iterations=1000 and size=1000 is 0.571812583 seconds
+           =
+      mkTestY Natural Y.ListNatY/sum
+
+let test13
+           -- median time for iterations=1000 and size=1000 is 0.5927135 seconds
+           =
+      mkTestY Natural Y.ListNatY/length
+
+let test14
+           -- median time for iterations=1000 and size=1000 is 0.033361416 seconds
+           =
+      mkTestY Bool Y.ListNatY/nonEmpty
+
+let test15
+           -- median time for iterations=1000 and size=1000 is 0.033398708 seconds
+           =
+      mkTestY (Optional Natural) Y.ListNatY/headOptional
+
+let test16
+           -- median time for iterations=1000 and size=1000 is 3.28195725 seconds
+           =
+      mkTestY (Y.ListNatF Y.ListNatY) Y.ListNatY/unfix
+
+let test17
+           -- median time for iterations=1000 and size=1000 is 5.362828583 seconds
+           =
+      mkTestY Y.ListNatY (λ(x : Y.ListNatY) → Y.ListNatY/concat x x)
+
+let test18
+           -- median time for iterations=1000 and size=1000 is 4.706773625 seconds
+           =
+      mkTestL LN (λ(x : LN) → LN/concat x x)
+
+let test19
+           -- median time for iterations=1000 and size=1000 is 0.033338166 seconds
+           =
+      mkTestL LN (λ(x : LN) → LN/nil)
+
+let test20
+           -- median time for iterations=1000 and size=1000 is 1.380798625 seconds
+           =
+      mkTestL LN (λ(x : LN) → LN/cons 0 x)
+
+let test21
+           -- median time for iterations=1000 and size=1000 is 0.57173375 seconds
+           =
+      mkTestL Natural (λ(x : LN) → LN/length x)
+
+let test22
+           -- median time for iterations=1000 and size=1000 is 0.033640125 seconds
+           =
+      mkTestL Bool (λ(x : LN) → LN/nonEmpty x)
+
+let test23
+           -- median time for iterations=1000 and size=1000 is 0.033306167 seconds
+           =
+      mkTestL (Optional Natural) (λ(x : LN) → LN/headOptional x)
+
+let test24
+           -- median time for iterations=1000 and size=1000 is 5.002143709 seconds
+           =
+      mkTestL (Y.ListNatF LN) (λ(x : LN) → LN/unfix x)
+
+let test25
+           -- median time for iterations=1000 and size=1000 is 0.569281584 seconds
+           =
+      mkTestL Natural (λ(x : LN) → LN/sum x)
+
+let test26
+           -- median time for iterations=1000 and size=1000 is 0.03483125 seconds
+           =
+      mkTestL (Optional Natural) (λ(x : LN) → LN/headOptional (LN/concat x x))
+
+let test27
+           -- median time for iterations=1000 and size=1000 is 1.536003875 seconds
+           =
+      mkTestL Natural (λ(x : LN) → LN/sum (LN/concat x x))
+
+let test28
+           -- median time for iterations=1000 and size=1000 is 0.034080875 seconds
+           =
+      mkTestL (Optional Natural) (λ(x : LN) → LN/headOptional (LN/tail x))
+let test29
+           -- median time for iterations=1000 and size=1000 is 1.321234125 seconds
+           =
+      mkTestL Natural (λ(x : LN) → LN/sum (LN/tail x))
+
+in  { test1
+    , test2
+    , test3
+    , test4
+    , test5
+    , test6
+    , test7
+    , test8
+    , test9
+    , test10
+    , test11
+    , test12
+    , test13
+    , test14
+    , test15
+    , test16
+    , test17
+    , test18
+    , test19
+    , test20
+    , test21
+    , test22
+    , test23
+    , test24
+    , test25
+    , test26
+    , test27
+    , test28
+    , test29
+    }

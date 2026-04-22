@@ -53,15 +53,22 @@ let benchmark
                         --         (λ(result : list) → cons (f xx) result)
                         --         nil
                         --   ) in  List/length outputType results ≡ iterations
+                        -- A slowdown in Natural/fold is due to comparisons of previous and next accumulator values at each iteration.
+                        -- Let us simplify the accumulator type so that these comparisons become trivial but never true (just the accumulator).
+                        -- We force the evaluation of f using constSome, even though the result of f is discarded.
                           Natural/fold
                             iterations
-                            { _1 : outputType, _2 : Natural }
-                            ( λ(result : { _1 : outputType, _2 : Natural }) →
-                                { _1 = f xx, _2 = result._2 + 1 }
+                            Natural
+                            ( λ(prev : Natural) →
+                                merge
+                                  { None = prev
+                                  , Some = λ(_ : outputType) → prev + 1
+                                  }
+                                 (constSome iterations outputType (f xx))
                             )
-                            { _1 = f xx, _2 = 0 }
+                            0
 
-                    in  computedResult._2 ≡ iterations
+                    in  computedResult ≡ iterations
               , None = 0 ≡ 0
               }
               opt
