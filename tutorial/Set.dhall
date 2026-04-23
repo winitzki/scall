@@ -111,6 +111,41 @@ let functorRBTreeF =
 
 let RBTree = λ(a : Type) → LFix (RBTreeF a)
 
+let Show = λ(a : Type) → { show : a → Text }
+
+let showNatural = { show = Natural/show }
+
+let showColor
+    : Show Color
+    = { show = λ(color : Color) → merge { Red = "Red", Black = "Black" } color }
+
+let showRBTree
+    : ∀(a : Type) → Show a → Show (RBTree a)
+    = λ(a : Type) →
+      λ(showA : Show a) →
+        { show =
+            λ(t : RBTree a) →
+              t
+                Text
+                ( λ(t : RBTreeF a Text) →
+                    merge
+                      { E = "E"
+                      , T =
+                          λ(branches : BranchT a Text) →
+                                "(T "
+                            ++  showColor.show branches.color
+                            ++  " "
+                            ++  branches.left
+                            ++  " "
+                            ++  showA.show branches.value
+                            ++  " "
+                            ++  branches.right
+                            ++  ")"
+                      }
+                      t
+                )
+        }
+
 let unfixRBTree = λ(a : Type) → unfix (RBTreeF a) (functorRBTreeF a)
 
 let OrdT = < LT | EQ | GT >
@@ -133,6 +168,21 @@ let branch
                 ⫽ { left = branches.left r alg, right = branches.right r alg }
               )
           )
+
+let _ = assert : (showRBTree Natural showNatural).show (empty Natural) ≡ "E"
+
+let _ =
+        assert
+      :   (showRBTree Natural showNatural).show
+            ( branch
+                Natural
+                { color = Color.Red
+                , left = empty Natural
+                , value = 1
+                , right = empty Natural
+                }
+            )
+        ≡ "(T Red E 1 E)"
 
 let member
     : ∀(a : Type) → Ord a → ∀(x : a) → ∀(t : RBTree a) → Bool
@@ -167,57 +217,6 @@ let ordNat
         else  if Natural/equal x y
         then  OrdT.EQ
         else  OrdT.GT
-
-let example0 = empty Natural
-
-let _ = assert : member Natural ordNat 0 example0 ≡ False
-
-let example1 =
-      branch
-        Natural
-        { color = Color.Black
-        , left = empty Natural
-        , value = 1
-        , right = empty Natural
-        }
-
-let _ = assert : member Natural ordNat 0 example1 ≡ False
-
-let _ = assert : member Natural ordNat 1 example1 ≡ True
-
-let _ = assert : member Natural ordNat 2 example1 ≡ False
-
-let _ = assert : member Natural ordNat 3 example1 ≡ False
-
-let _ = assert : member Natural ordNat 4 example1 ≡ False
-
-let example12 =
-      branch
-        Natural
-        { color = Color.Red, left = example1, value = 2, right = empty Natural }
-
-let _ = assert : member Natural ordNat 0 example12 ≡ False
-
-let _ = assert : member Natural ordNat 1 example12 ≡ True
-
-let _ = assert : member Natural ordNat 2 example12 ≡ True
-
-let _ = assert : member Natural ordNat 3 example12 ≡ False
-
-let _ = assert : member Natural ordNat 4 example12 ≡ False
-
-let example13 =
-      branch
-        Natural
-        { color = Color.Black
-        , left = example12
-        , value = 3
-        , right = empty Natural
-        }
-
-let _ = assert : member Natural ordNat 1 example13 ≡ True
-
-let _ = assert : member Natural ordNat 2 example13 ≡ True
 
 let makeT
     : ∀(a : Type) → BranchT a (RBTree a) → RBTree a
@@ -525,16 +524,56 @@ let insert
 
         in  makeBlack (ins t)
 
-let example13 = insert Natural ordNat 1 (insert Natural ordNat 3 example0)
+let Set = RBTree
 
-let _ = assert : member Natural ordNat 0 example13 ≡ False
+let Set/insert = insert
 
-let _ = assert : member Natural ordNat 1 example13 ≡ True
+let Set/empty = empty
 
-let _ = assert : member Natural ordNat 2 example13 ≡ False
+let Set/member = member
 
-let _ = assert : member Natural ordNat 3 example13 ≡ True
+let Set/show = showRBTree
 
-let _ = assert : member Natural ordNat 4 example13 ≡ False
+let Set/fromList
+    : ∀(a : Type) → Ord a → List a → Set a
+    = λ(a : Type) →
+      λ(ordA : Ord a) →
+      λ(xs : List a) →
+        List/fold
+          a
+          xs
+          (Set a)
+          (λ(x : a) → λ(prev : Set a) → Set/insert a ordA x prev)
+          (empty a)
 
-in  True
+let Set/toList
+    : ∀(a : Type) → Set a → List a
+    = λ(a : Type) →
+      λ(xs : Set a) →
+        xs
+          (List a)
+          ( λ(s : RBTreeF a (List a)) →
+              merge
+                { E = [] : List a
+                , T =
+                    λ(branches : BranchT a (List a)) →
+                      branches.left # [ branches.value ] # branches.right
+                }
+                s
+          )
+
+in  { Set
+    , Show
+    , showNatural
+    , ordNat
+    , Ord
+    , Set/fromList
+    , Set/toList
+    , Set/member
+    , Set/insert
+    , Set/show
+    , Set/empty
+    , branch
+    , rebalance
+    , unfixRBTree
+    }
