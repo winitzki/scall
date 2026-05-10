@@ -8009,8 +8009,8 @@ This is the  Church encoding at the level of type constructors.
 The condition that `F` is a "higher-kinded functor" can be formalized via the `FunctorK` typeclass that requires two conditions to hold for `F`:
 
 
-- `P F` is covariant with respect to `F`;
-- `P` preserves functors: whenever `F` is a functor then so is `P F`.
+- `F T` is covariant with respect to the type constructor `T`;
+- `F` preserves functors: whenever `T` is a functor then so is `F T`.
 
 Here is the code for the `FunctorK` typeclass:
 

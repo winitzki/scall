@@ -1,6 +1,13 @@
 # Roadmap for Dhall-related projects
 
+<<<<<<< Updated upstream
 - Finish the tutorial book and publish it (depends on finishing SOFP first).
+=======
+
++ Finish the tutorial book and publish it (depends on finishing SOFP first).
++ Begin with µDhall and do everything all over. Use AI for menial work.
+- Figure out HOAS and NbE and implement by hand.
+>>>>>>> Stashed changes
 - Rewrite all algorithms to be stack-safe, including parsing. Add tests for deeply nested values.
 - Rewrite the type checking and normal form algorithms using ∀-spines instead of nested forms, without functional changes. This is a pre-requisite for the one-step type inference. (Not sure whether also λ-spines are required for this to work.)
 - Implement parsing enhancements, without changing normal forms. (See below.)
