@@ -8053,10 +8053,10 @@ A recursive type equation defining the `List` functor can be written as:
 T a = Optional (Pair a (T a))
 ```
 
-We rewrite this equation in the form `T a = F T a` with the pattern functor `F` defined by:
+We rewrite this equation in the form `T a = ListFK T a` with the pattern functor `ListFKF` defined by:
 
 ```haskell
-F T a = Optional (Pair a (T a))
+ListFK T a = Optional (Pair a (T a))
 ```
 Then we define a list functor as `ListCK = LFixK ListFK`.
 The corresponding Dhall code (including a `FunctorK` evidence for `ListFK`) looks like this:
