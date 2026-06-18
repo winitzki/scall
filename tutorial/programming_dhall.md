@@ -8923,8 +8923,8 @@ let Exists : (Type → Type) → Type
 To create a value of type `Exists P`, we just need to supply a specific type `t` together with a value of type `P t`.
 
 ```dhall
-let our_type_t : Type = ???   -- Can be any specific type here.
-let our_value : P t = ???     -- Any specific value here.
+let our_type_t : Type = ???            -- Can be any specific type here.
+let our_value : P our_type_t = ???     -- Any specific value here.
 let e : Exists P = λ(r : Type) → λ(pack : ∀(t : Type) → P t → r) → pack our_type_t our_value
 ```
 
